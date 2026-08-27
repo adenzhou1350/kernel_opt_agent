@@ -1,0 +1,35 @@
+{
+  "candidate_disposition": "NONE",
+  "compiled_callable_invocations": 0,
+  "cuda_kernel_launches": 0,
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_04/experiment/experiment.json",
+    "sha256": "98d882c42bf6939cd57c1458c300ab1782f0392854e55053c804dc3ad69c85f1"
+  },
+  "gpu_performance_samples": 0,
+  "lifecycle": "PASS_ONLY_INVALID",
+  "request_id": "req-n2-layout-view-static-v2",
+  "review_outcome": "PREAPPROVAL_VETO_NO_EXECUTION",
+  "reviewers": [
+    {
+      "role": "GLOBAL_SCHEDULER",
+      "verdict": "VETO",
+      "blocking_reason": "experiment and queue retained the previous admissibility-contract SHA after the contract evidence was extended"
+    },
+    {
+      "role": "MICROARCHITECTURE_ANALYST",
+      "verdict": "VETO",
+      "blocking_reason": "same stale internal admissibility-contract identity; all microarchitecture-specific gates otherwise passed"
+    },
+    {
+      "role": "EXPERIMENT_AGENT",
+      "verdict": "VETO",
+      "blocking_reason": "validate_materialized_experiment reported the same exact contract SHA mismatch"
+    }
+  ],
+  "schema_version": "preapproval-review-receipt-v1",
+  "sealed_experiment_sha256": "98d882c42bf6939cd57c1458c300ab1782f0392854e55053c804dc3ad69c85f1",
+  "status": "ARCHIVED_VETO",
+  "substantive_revision_consumed": false,
+  "scope": "preapproval identity rebinding within the sole authorized revision"
+}

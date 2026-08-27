@@ -1,0 +1,43 @@
+{
+  "architectural_change": "Co-design O1 state-GEMM and score-times-V ownership so each true N16 output tile is already a compatible scoreV MMA accumulator fragment.",
+  "candidate_id": "N2",
+  "deferred_implementation_gates": [
+    "per-element K accumulation order",
+    "BF16 boundaries and numerical correctness",
+    "actual implementation introduces no copy/permutation/shared/global transport",
+    "production SASS removes the intended dynamic tile work",
+    "register, spill, stack, shared-memory and occupancy/resource caps",
+    "measured latency and performance ranking"
+  ],
+  "explicit_non_claims": [
+    "no latency or speedup",
+    "no performance Top2",
+    "no physical-register-number claim",
+    "no numerical or K-order conclusion",
+    "no final implementation or production acceptance"
+  ],
+  "name": "layout-codesigned-dual-causal-tile-pruning",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_raw",
+    "gated_rms_post"
+  ],
+  "removed_flop_by_case": [
+    50331648,
+    75497472,
+    102760448,
+    100663296,
+    125829120,
+    150994944,
+    201326592
+  ],
+  "removed_flop_claim_condition": "Static PASS only permits implementation work; removed-FLOP accounting has zero latency decision weight until implementation correctness, production SASS and measurement gates pass.",
+  "static_hard_gate": {
+    "invalid": "Any source identity, AST binding, oracle, import, tool, compiler, type or compiler-time assertion failure leaves N2 undisposed.",
+    "pass": "For hash-bound short and long O1 fragments, four pairwise-disjoint N16 tensors reuse the exact O1 backing iterator, cover all 128x64 logical elements once, and have the registered scoreV C/D fragment layout.",
+    "scope": "SAME_BACKING_LOGICAL_LAYOUT_VIEW_ONLY"
+  },
+  "static_pass_status": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+  "status": "STATIC_ADMISSIBILITY_PENDING"
+}

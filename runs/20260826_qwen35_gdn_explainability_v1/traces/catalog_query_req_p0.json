@@ -1,0 +1,21 @@
+{
+  "catalog_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+    "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e"
+  },
+  "decision": "REUSE",
+  "matching_package_ids": [
+    "nvidia.cuda-core-service-curves.v1"
+  ],
+  "queried_at": "2026-08-26T14:43:33.330676+00:00",
+  "query": {
+    "boundaries": [],
+    "mechanisms": [],
+    "qualification": "STATIC_VALIDATED",
+    "resources": [
+      "kernel_dispatch"
+    ]
+  },
+  "schema_version": "catalog-query-receipt-v1",
+  "selected_package_id": "nvidia.cuda-core-service-curves.v1"
+}

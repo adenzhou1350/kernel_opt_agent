@@ -1,0 +1,142 @@
+{
+  "candidate_bindings": [
+    {
+      "artifact_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/architecture_candidates/n0.json",
+        "sha256": "f089fcafbbd841296f1fb05032e7b2468b96f8c79210b2e8154e8b81beec87a6"
+      },
+      "candidate_id": "N0",
+      "predicted_objective": {
+        "lower": 35.39649982537542,
+        "unit": "us",
+        "upper": 35.57378559240273
+      }
+    },
+    {
+      "artifact_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/architecture_candidates/n1.json",
+        "sha256": "423fdb33c03c22db3aa051ef7f92128c81875c6e04b89a23ed8a02d366db6ee2"
+      },
+      "candidate_id": "N1",
+      "predicted_objective": {
+        "lower": 0.0,
+        "unit": "us",
+        "upper": 44.52699987811701
+      }
+    },
+    {
+      "artifact_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/architecture_candidates/n2.json",
+        "sha256": "e8793b74fbd7f3368887607e88466b4b238e92acd701a34750999eadcadaf77c"
+      },
+      "candidate_id": "N2",
+      "predicted_objective": {
+        "lower": 0.0,
+        "unit": "us",
+        "upper": 44.52699987811701
+      }
+    }
+  ],
+  "decision_id": "decision-n2-layout-admissibility-v1",
+  "decision_metric": {
+    "direction": "minimize",
+    "name": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+    "unit": "us"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/baseline.json",
+      "sha256": "ac6be631fea18ddf20dc2955a0bab367f36594cdccd0c908413f2ca24c18a3e9"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_discovery.json",
+      "sha256": "b4e90f3c23bd63039eafcecb4e82c79e3741f0d88e7f8f632873d3700b1957ed"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/baseline_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/final.sass",
+      "sha256": "12a5897891d5ecba3f08cddca5c736d91cca7197c7316137e6c7f4326fc1f1e9"
+    }
+  ],
+  "experiment_budget": {
+    "max_revisions": 1,
+    "qualification": {
+      "max_configurations": 14,
+      "max_process_launches": 21,
+      "max_samples_per_configuration": 31,
+      "max_wall_clock_minutes": 60
+    },
+    "screening": {
+      "max_configurations": 3,
+      "max_process_launches": 6,
+      "max_samples_per_configuration": 1,
+      "max_wall_clock_minutes": 15
+    }
+  },
+  "frontier_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/tradeoff_frontier.json",
+    "sha256": "53dee20192ea85aaea56bb72b9cec2b9e82f3c888aad1cd457d624b9ff3b617d"
+  },
+  "issued_by": {
+    "owner_id": "global-scheduler-linear-v3",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "measurement_need": {
+    "current_interval": {
+      "lower": 0.0,
+      "unit": "us",
+      "upper": 8.953214285714285
+    },
+    "decision_boundary": {
+      "unit": "us",
+      "value": 0.0
+    },
+    "decision_flip_probability": 0.5,
+    "equation": "x=8.953214285714 us if exact zero-copy layout proof passes, else x=0",
+    "expected_uncertainty_reduction": 1.0,
+    "maximum_decision_value": {
+      "unit": "us",
+      "value": 8.953214285714285
+    },
+    "model_location": "models/tradeoff_frontier.json::N2 static admissibility",
+    "outcome_mapping": [
+      {
+        "condition": "exact short+long lane/register bijection and no-launch compile pass",
+        "outcome": "ADMIT_N2_TO_BOUND_RANKING"
+      },
+      {
+        "condition": "any alias, owner/offset mismatch, copy/traffic/barrier or compile failure",
+        "outcome": "REJECT_N2_BEFORE_MATERIALIZATION"
+      }
+    ],
+    "quantity_id": "n2_zero_copy_layout_decision_value_us",
+    "required_precision": {
+      "unit": "us",
+      "value": 0.1
+    },
+    "top_two_delta_interval": {
+      "lower": -8.953214285714285,
+      "unit": "us",
+      "upper": 8.953214285714285
+    }
+  },
+  "objective_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/objective.json",
+    "sha256": "c7b49e88e59e6198b670e2391865447a51eb0493085dc35e6910975a7fb171f0"
+  },
+  "schema_version": "decision-contract-v1",
+  "status": "REPLAN_REQUIRED",
+  "stop_rules": [
+    "The static proof may admit or reject N2; it cannot claim a latency speedup.",
+    "Any hidden transport, changed accumulation order/BF16 boundary, or resource-cap regression rejects N2.",
+    "No GPU launch or production source mutation is authorized by this decision.",
+    "After disposition, rebuild bounds and freeze one final Top2 plus one ranking-flip uncertainty under a fresh contract."
+  ],
+  "top_two_candidate_ids": [
+    "N2",
+    "N0"
+  ]
+}

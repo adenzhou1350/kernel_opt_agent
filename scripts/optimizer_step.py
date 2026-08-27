@@ -1,0 +1,180 @@
+#!/usr/bin/env python3
+"""Select the next evidence-driven action for a run; optionally apply safe planning steps."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+import sys
+from pathlib import Path
+
+from evidence_utils import read_object, validate_hardware_evidence
+
+
+def action(kind: str, reason: str, commands: list[list[str]], blocking_inputs=None) -> dict:
+    return {
+        "schema_version": "optimizer-next-action-v1",
+        "action": kind,
+        "reason": reason,
+        "commands": commands,
+        "blocking_inputs": list(blocking_inputs or []),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--run", type=Path, required=True)
+    parser.add_argument("--apply-safe", action="store_true")
+    args = parser.parse_args()
+    run = args.run.resolve()
+    scripts = Path(__file__).resolve().parent
+    state = read_object(run / "run_state.json")
+    hardware = read_object(run / "hardware.json")
+    synthetic_legacy = state.get("schema_version") == "optimization-run-state-v2" and str(hardware.get("target", {}).get("vendor", "")).upper() == "TEST"
+    if not synthetic_legacy and (
+        state.get("schema_version") != "optimization-run-state-v4"
+        or state.get("framework_contract_version") != "evidence-closed-v2"
+    ):
+        result = action(
+            "BLOCK_INVALID_FRAMEWORK_CONTRACT",
+            "missing or unknown evidence-closed contract cannot fall back to legacy validation",
+            [],
+            [{"required_schema": "optimization-run-state-v4", "required_contract": "evidence-closed-v2"}],
+        )
+        output = run / "traces/next_action.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 1
+    hardware_evidence_path = run / "hardware_evidence.json"
+    hardware_path = run / "hardware.json"
+    hardware_errors = validate_hardware_evidence(hardware_evidence_path, hardware_path) if hardware_evidence_path.exists() else ["manifest missing"]
+    if hardware_errors:
+        manifest = read_object(hardware_evidence_path) if hardware_evidence_path.exists() else {}
+        result = action(
+            "COLLECT_OFFICIAL_HARDWARE_EVIDENCE",
+            "hardware facts and resource mappings are fail-closed until exact vendor-official documents are archived and validated",
+            [[sys.executable, str(scripts / "validate_hardware_evidence.py"), str(hardware_evidence_path), "--hardware", str(hardware_path)]],
+            [manifest.get("developer_input_request", {"message": "provide exact official document locations"})],
+        )
+    else:
+        discovery_path = run / "models/resource_discovery.json"
+        discovery = read_object(discovery_path) if discovery_path.exists() else {}
+        if discovery.get("status") != "READY" or discovery.get("unresolved_mappings"):
+            result = action(
+                "DISCOVER_FINAL_BINARY_RESOURCES",
+                "material resources must be generated from the launched binary and official hardware evidence, not a hand-written list",
+                [[sys.executable, str(scripts / "archive_final_binary_sass.py"), "--binary", "<exact-launched-binary-inside-run>", "--output-sass", str(run / "static/final.sass"), "--output-receipt", str(run / "static/disassembly_receipt.json"), "--vendor", "<vendor>", "--device-name", "<exact-device-name>", "--compute-capability", "<compute-capability>"],
+                 [sys.executable, str(scripts / "count_sass.py"), "--input", str(run / "static/final.sass"), "--binary", "<exact-launched-binary-inside-run>", "--disassembly-receipt", str(run / "static/disassembly_receipt.json"), "--output", str(run / "static/sass-summary.json")],
+                 [sys.executable, str(scripts / "discover_resources.py"), "--sass-summary", str(run / "static/sass-summary.json"), "--hardware-evidence", str(hardware_evidence_path), "--output", str(discovery_path)]],
+            )
+        else:
+            microbench = read_object(run / "models/microbenchmark_plan.json")
+            queue = read_object(run / "models/experiment_queue.json")
+            if microbench.get("levels", {}).get("P0", {}).get("status") != "PASS":
+                result = action(
+                    "CALIBRATE_MEASUREMENT_SYSTEM_P0",
+                    "no performance experiment may run before timer, DCE, graph/direct, cache, clock and replication controls pass",
+                    [],
+                )
+            else:
+                requests = sorted(queue.get("requests", []), key=lambda item: item.get("priority", 10**9))
+                proposed = next((item for item in requests if item.get("status") == "PROPOSED"), None)
+                planned = next((item for item in requests if item.get("status") == "PLANNED"), None)
+                awaiting_review = next((item for item in requests if item.get("status") == "AWAITING_SUPERVISOR_REVIEW"), None)
+                replan = next((item for item in requests if item.get("status") == "HALT_AND_REPLAN"), None)
+                running = next((item for item in requests if item.get("status") == "RUNNING"), None)
+                dispatched = next((item for item in requests if item.get("status") == "DISPATCHED"), None)
+                reconciliation = next((item for item in requests if item.get("status") == "RESOLVED" and item.get("result_binding", {}).get("model_reconciliation", {}).get("status") != "APPLIED"), None)
+                if replan:
+                    result = action(
+                        "HALT_AND_REBUILD_CANDIDATE_FRONTIER",
+                        "the causal hypothesis was rejected; the same experiment may not be retried until the global scheduler issues a new decision contract and the supervisor approves it",
+                        [],
+                        [{"request_id": replan["request_id"], "required": "new frontier identity, new decision id and updated candidate ordering"}],
+                    )
+                elif awaiting_review:
+                    result = action(
+                        "AWAIT_GLOBAL_SUPERVISOR_REVIEW",
+                        "a technical failure never returns automatically to PLANNED; the supervisor must stop, authorize a budgeted same-question revision, or demand replanning",
+                        [[sys.executable, str(scripts / "approve_experiment.py"), "--run", str(run), "--request-id", awaiting_review["request_id"], "--supervisor-id", "<registered-supervisor-id>", "--rationale", "<independent review>"]],
+                    )
+                elif reconciliation:
+                    request_id = reconciliation["request_id"]
+                    result = action(
+                        "RECONCILE_RESULT_IN_GLOBAL_MODEL",
+                        "validated measurements must update resource balance, schedule DAG, frontier and queue before another hypothesis is ranked",
+                        [
+                            [sys.executable, str(scripts / "apply_model_updates.py"), "--run", str(run), "--request-id", request_id, "--plan", f"<model-update-plan-for-{request_id}.json>"],
+                            [sys.executable, str(scripts / "reconcile_experiment_result.py"), "--run", str(run), "--request-id", request_id, "--decision", "<ACCEPT|REJECT|INCONCLUSIVE>", "--explanation", "<boundary-aware explanation>", "--model-update-receipt", f"<semantic-model-update-receipt-for-{request_id}.json>"],
+                        ],
+                        [reconciliation["result_binding"]["model_reconciliation"]],
+                    )
+                elif proposed:
+                    if not proposed.get("decision_contract") or not proposed.get("measurability_contract"):
+                        result = action(
+                            "BUILD_CANDIDATE_DECISION_CONTRACT",
+                            "an unknown resource is not an experiment request; first rank 2-4 candidates and register the single uncertainty that can flip the top-two decision",
+                            [],
+                            [{"request_id": proposed["request_id"], "required": "decision-contract-v1 and measurability-contract-v1"}],
+                        )
+                        output = run / "traces/next_action.json"
+                        output.parent.mkdir(parents=True, exist_ok=True)
+                        output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+                        print(json.dumps(result, indent=2, sort_keys=True))
+                        return 0
+                    commands = [[sys.executable, str(scripts / "rank_experiments.py"), "--run", str(run)], [sys.executable, str(scripts / "materialize_experiment.py"), "--run", str(run), "--request-id", proposed["request_id"]]]
+                    if args.apply_safe:
+                        for command in commands:
+                            completed = subprocess.run(command, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                            if completed.returncode:
+                                raise RuntimeError(completed.stdout + completed.stderr)
+                    result = action("MATERIALIZE_HIGHEST_VALUE_EXPERIMENT", "global model selected the highest-ranked unresolved causal question", commands)
+                elif planned:
+                    if not planned.get("supervisor_approval"):
+                        result = action(
+                            "REQUEST_GLOBAL_SUPERVISOR_APPROVAL",
+                            "a sealed experiment remains non-runnable until an independent supervisor verifies candidate relevance, identifiability, precision, budget and role separation",
+                            [[sys.executable, str(scripts / "approve_experiment.py"), "--run", str(run), "--request-id", planned["request_id"], "--supervisor-id", "<registered-supervisor-id>", "--rationale", "<independent review>"]],
+                        )
+                    else:
+                        result = action(
+                            "DISPATCH_SUPERVISOR_APPROVED_EXPERIMENT",
+                            "the immutable candidate decision, measurement method, budget and experiment have an independent hash-bound approval",
+                            [[sys.executable, str(scripts / "dispatch_experiment.py"), "--run", str(run), "--request-id", planned["request_id"]]],
+                        )
+                elif running:
+                    result = action(
+                        "VALIDATE_AND_BIND_RUNNING_EXPERIMENT",
+                        "execution already completed; validate the immutable result or record a precise blocker, but never execute a RUNNING request again",
+                        [
+                            [sys.executable, str(scripts / "bind_experiment_result.py"), "--run", str(run), "--request-id", running["request_id"], "--result", f"<validated-result-for-{running['request_id']}.json>"],
+                        ],
+                        [{"alternative": "block_experiment.py", "requirement": "immutable external blocker evidence and any partial mechanism result"}],
+                    )
+                elif dispatched:
+                    result = action(
+                        "EXECUTE_AND_BIND_EXPERIMENT",
+                        "execute only the materialized command contract, preserve immutable raw evidence, then bind the validated result",
+                        [
+                            [sys.executable, str(scripts / "execute_experiment.py"), "--run", str(run), "--request-id", dispatched["request_id"]],
+                            [sys.executable, str(scripts / "bind_experiment_result.py"), "--run", str(run), "--request-id", dispatched["request_id"], "--result", f"<result-for-{dispatched['request_id']}.json>"],
+                        ],
+                    )
+                else:
+                    next_phase = state.get("allowed_next_phase")
+                    result = action(
+                        "CHECK_PHASE_GATE",
+                        "no runnable unresolved request remains; validate the next phase instead of inventing another experiment",
+                        [[sys.executable, str(scripts / "advance_run.py"), "--run", str(run), "--to", str(next_phase), "--check-only"]],
+                    )
+    output = run / "traces/next_action.json"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

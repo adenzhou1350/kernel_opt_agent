@@ -1,0 +1,1094 @@
+{
+  "cases": [
+    {
+      "candidates": [],
+      "case_id": "s256",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                512,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12840961128_tensorptrbf16gmemalign16o128256161i6412_3",
+              "profiler_grid_cta_per_sm_ratio": 3.011765,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.3764705882352941,
+              "dynamic_shared_memory_bytes": 42368,
+              "grid": [
+                64,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 0.376471,
+              "registers_per_thread": 144
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 76
+            },
+            "s3": {
+              "block": [
+                512,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.3764705882352941,
+              "dynamic_shared_memory_bytes": 73984,
+              "grid": [
+                64,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1282561612048128_tensorptrbf16gmemal_2",
+              "profiler_grid_cta_per_sm_ratio": 0.376471,
+              "registers_per_thread": 126
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 23134592,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 0.3764705882352941,
+            "s2": 0.7529411764705882,
+            "s3": 0.3764705882352941
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 26.667999103665352,
+        "padded_compute": {
+          "P": 256,
+          "S": 256,
+          "operations": 738197504,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 504889344,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 23134592
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 504889344
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    },
+    {
+      "candidates": [],
+      "case_id": "s384",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                512,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12861441128_tensorptrbf16gmemalign16o128384161i6412_3",
+              "profiler_grid_cta_per_sm_ratio": 3.011765,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.5647058823529412,
+              "dynamic_shared_memory_bytes": 58624,
+              "grid": [
+                96,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 0.564706,
+              "registers_per_thread": 144
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 76
+            },
+            "s3": {
+              "block": [
+                512,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.5647058823529412,
+              "dynamic_shared_memory_bytes": 73984,
+              "grid": [
+                96,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1283841612048128_tensorptrbf16gmemal_2",
+              "profiler_grid_cta_per_sm_ratio": 0.564706,
+              "registers_per_thread": 126
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 34701696,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 0.5647058823529412,
+            "s2": 0.7529411764705882,
+            "s3": 0.5647058823529412
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 28.819499537348747,
+        "padded_compute": {
+          "P": 384,
+          "S": 384,
+          "operations": 1107296256,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 790888448,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 34701696
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 790888448
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    },
+    {
+      "candidates": [],
+      "case_id": "s404",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                539,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12864641128_tensorptrbf16gmemalign16o128404161i6412_3",
+              "profiler_grid_cta_per_sm_ratio": 3.170588,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.6588235294117647,
+              "dynamic_shared_memory_bytes": 58624,
+              "grid": [
+                112,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 0.658824,
+              "registers_per_thread": 144
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 76
+            },
+            "s3": {
+              "block": [
+                512,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.6588235294117647,
+              "dynamic_shared_memory_bytes": 73984,
+              "grid": [
+                112,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1284041612048128_tensorptrbf16gmemal_2",
+              "profiler_grid_cta_per_sm_ratio": 0.658824,
+              "registers_per_thread": 126
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 38860416,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 0.6588235294117647,
+            "s2": 0.7529411764705882,
+            "s3": 0.6588235294117647
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 28.867000713944435,
+        "padded_compute": {
+          "P": 448,
+          "S": 404,
+          "operations": 1291845632,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 849633280,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 37229952
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 849633280
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    },
+    {
+      "candidates": [],
+      "case_id": "s512",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                1024,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12881921128_tensorptrbf16gmemalign16o128512161i6412_3",
+              "profiler_grid_cta_per_sm_ratio": 6.02353,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 58624,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 144
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 76
+            },
+            "s3": {
+              "block": [
+                512,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 73984,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1285121612048128_tensorptrbf16gmemal_2",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 126
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 46268800,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 0.7529411764705882,
+            "s2": 0.7529411764705882,
+            "s3": 0.7529411764705882
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 30.955500900745392,
+        "padded_compute": {
+          "P": 512,
+          "S": 512,
+          "operations": 1476395008,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 1076887552,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 46268800
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 1076887552
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    },
+    {
+      "candidates": [],
+      "case_id": "s640",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                1280,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128102401128_tensorptrbf16gmemalign16o128640161i641_3",
+              "profiler_grid_cta_per_sm_ratio": 7.529412,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                384,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.9411764705882353,
+              "dynamic_shared_memory_bytes": 58624,
+              "grid": [
+                160,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 0.941176,
+              "registers_per_thread": 144
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 76
+            },
+            "s3": {
+              "block": [
+                512,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.9411764705882353,
+              "dynamic_shared_memory_bytes": 73984,
+              "grid": [
+                160,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1286401612048128_tensorptrbf16gmemal_2",
+              "profiler_grid_cta_per_sm_ratio": 0.941176,
+              "registers_per_thread": 126
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 57835904,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 0.9411764705882353,
+            "s2": 0.7529411764705882,
+            "s3": 0.9411764705882353
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 34.93649885058403,
+        "padded_compute": {
+          "P": 640,
+          "S": 640,
+          "operations": 1845493760,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 1362886656,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 57835904
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 1362886656
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    },
+    {
+      "candidates": [],
+      "case_id": "s768",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                1536,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128122881128_tensorptrbf16gmemalign16o128768161i641_3",
+              "profiler_grid_cta_per_sm_ratio": 9.035295,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                128,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 42368,
+              "grid": [
+                192,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 1.129412,
+              "registers_per_thread": 204
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 76
+            },
+            "s3": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 49408,
+              "grid": [
+                192,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_long_raw_sm120S3PackedWorkspaceDecayRawKernelSm120_object_at__tensorptrbf16gmemalign16o1287681612048128_tensorptrbf1_2",
+              "profiler_grid_cta_per_sm_ratio": 1.129412,
+              "registers_per_thread": 120
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 69403008,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 1.0,
+            "s2": 0.7529411764705882,
+            "s3": 1.0
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 46.907998621463776,
+        "padded_compute": {
+          "P": 768,
+          "S": 768,
+          "operations": 2214592512,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 1648885760,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 69403008
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 1648885760
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    },
+    {
+      "candidates": [],
+      "case_id": "s1024",
+      "current_schedule": {
+        "allocation": {
+          "stages": {
+            "post": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 0,
+              "grid": [
+                2048,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128163841128_tensorptrbf16gmemalign16o1281024161i64_3",
+              "profiler_grid_cta_per_sm_ratio": 12.047059,
+              "registers_per_thread": 24
+            },
+            "s01": {
+              "block": [
+                128,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 42368,
+              "grid": [
+                256,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+              "profiler_grid_cta_per_sm_ratio": 1.505882,
+              "registers_per_thread": 204
+            },
+            "s2": {
+              "block": [
+                160,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+              "dynamic_shared_memory_bytes": 76672,
+              "grid": [
+                128,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+              "profiler_grid_cta_per_sm_ratio": 0.752941,
+              "registers_per_thread": 78
+            },
+            "s3": {
+              "block": [
+                256,
+                1,
+                1
+              ],
+              "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+              "derived_maximum_one_wave_sm_coverage": 1.0,
+              "dynamic_shared_memory_bytes": 49408,
+              "grid": [
+                256,
+                1,
+                1
+              ],
+              "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_long_raw_sm120S3PackedWorkspaceDecayRawKernelSm120_object_at__tensorptrbf16gmemalign16o12810241612048128_tensorptrbf_2",
+              "profiler_grid_cta_per_sm_ratio": 1.505882,
+              "registers_per_thread": 120
+            }
+          },
+          "status": "MEASURED_PROFILER_LAUNCH_METADATA"
+        },
+        "bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "request": 92537216,
+          "status": "LOGICAL_REQUEST_DERIVED; PHYSICAL_BOUNDARIES_UNKNOWN"
+        },
+        "correctness": "PASS",
+        "decision": "CURRENT_BASELINE_NOT_LIMIT_CERTIFICATE",
+        "device_coverage": {
+          "per_stage_fraction": {
+            "post": 1.0,
+            "s01": 1.0,
+            "s2": 0.7529411764705882,
+            "s3": 1.0
+          },
+          "status": "BOUNDED_GEOMETRIC_NOT_UTILIZATION"
+        },
+        "measured_us": 51.346998661756516,
+        "padded_compute": {
+          "P": 1024,
+          "S": 1024,
+          "operations": 2952790016,
+          "status": "DERIVED_SCHEDULE_UPPER",
+          "unit": "dense_FLOP"
+        },
+        "predicted_dag_us": null,
+        "schedule_id": "current-production-four-stage-exact-binary",
+        "shared_request_mechanism": {
+          "P2_blocking_evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+            "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+          },
+          "evidence": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+            "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+          },
+          "status": "P1_MECHANISM_VALIDATED_PRODUCTION_MAPPING_UNKNOWN"
+        },
+        "synchronization": {
+          "barriers": null,
+          "status": "DYNAMIC_COUNTS_UNKNOWN",
+          "waits": null
+        },
+        "uncertainty": {
+          "status": "MEASUREMENT_P0_PASS_MODEL_UNCALIBRATED",
+          "us": null
+        },
+        "valid_compute": {
+          "operations": 2220883968,
+          "status": "DERIVED",
+          "unit": "dense_FLOP"
+        }
+      },
+      "legal_minimum": {
+        "mandatory_bytes_by_boundary": {
+          "L2": null,
+          "device_memory": null,
+          "logical_tensor_request": 92537216
+        },
+        "mandatory_compute": {
+          "unit": "dense_FLOP",
+          "value": 2220883968
+        },
+        "reason": "service-time lower bound remains unknown until matched P1/P2 microbenchmarks",
+        "status": "DERIVED_MATH_AND_LOGICAL_BOUNDARY_ONLY",
+        "valid_math": "fixed by operator contract"
+      },
+      "pareto_frontier": []
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/work_ledger.json",
+      "sha256": "dec1787a410e2f0bfb28e62898f0d5073ed8fc306ce85466949ba0ba4f914a01"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/dag.json",
+      "sha256": "400ae2b3fa7a7b3f008ea1cc28eab909130883cfd59f4aa247e662f5a179fdca"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/schedule_model.json",
+      "sha256": "158443f8e01ac794b56640bec8bc7d3045668acd96a1c2e2e8353ced4b8e0157"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/baseline.json",
+      "sha256": "f0f21ad5cc118f31d9bd1a631e1f0aa16815fbb1baaef485bd968ed16434c1fd"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+      "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+      "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+    }
+  ],
+  "global_decision": {
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "reason": "current baseline is correct, but resource service curves and causal limits remain unresolved",
+    "selected_schedule": null,
+    "status": "PENDING_EXPERIMENT"
+  },
+  "objective": {
+    "direction": "minimize",
+    "metric": "equal-weight mean production-exact GPU-active latency over the seven prefill shapes",
+    "primary_anchor": "s404",
+    "weights_source": "workload.json; equal weights pending production frequency input"
+  },
+  "schema_version": "tradeoff-frontier-v1",
+  "status": "INITIALIZED"
+}

@@ -1,0 +1,182 @@
+{
+  "acceptance_rule": "This static request can only admit N2 logical same-backing N16 layout-view feasibility or block INVALID; it cannot reject a candidate or update performance.",
+  "baseline_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/baseline.json",
+      "sha256": "ac6be631fea18ddf20dc2955a0bab367f36594cdccd0c908413f2ca24c18a3e9"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/hardware.json",
+      "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/p0-reused/p0_receipt.json",
+      "sha256": "0fa232d5a24497708a6fd4fa0260f2d773061186cfb58b86fe74581e1f4595fb"
+    }
+  ],
+  "candidate_limit": 3,
+  "correctness_gates": [
+    "this static gate proves logical layout/type admissibility only",
+    "all semantic and numerical gates are deferred to implementation"
+  ],
+  "deferred_implementation_gates": [
+    "per-element K accumulation order",
+    "BF16 boundaries and numerical correctness",
+    "actual implementation no-copy/no-permutation/no shared or global transport",
+    "production SASS tile-work removal",
+    "register, spill, stack, shared memory and occupancy/resources",
+    "measured latency, objective interval and Top2 ranking"
+  ],
+  "evidence_gates": [
+    "hash-bound production/proof O1 AST triplet equality",
+    "actual CuTe O1/scoreV TV and partition_C mapping against independent oracle",
+    "actual logical_divide/slice_and_offset same-backing joins",
+    "four disjoint N16 views and 8192-coordinate full union",
+    "exact legacy one-warp append negative control",
+    "zero callable invocation, zero CUDA launch and zero timing sample"
+  ],
+  "experiment_queue": [
+    "req-n2-layout-view-static-v2"
+  ],
+  "global_scheduler_owner": "global-scheduler-linear-v3",
+  "global_supervisor_owner": "global-supervisor-root-v3",
+  "max_revisions_per_decision": 1,
+  "model_error_tolerances_percent": {
+    "achieved_to_feasible_bound": 15.0,
+    "p1_p2_to_p3": 10.0,
+    "schedule_to_p4": 10.0
+  },
+  "objective": {
+    "created_at": "2026-08-27T07:19:03.442208+00:00",
+    "decision_indifference_band_us": 0.1,
+    "direction": "minimize",
+    "measurement_semantics": {
+      "primary": "CUDA-event device elapsed after P0; CPU dispatch is reported separately",
+      "static_gate": "compiler/type-level proof has no GPU timing and may only admit or reject N2",
+      "transfer_gate": "future performance acceptance requires paired graph and direct-execution agreement"
+    },
+    "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+    "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v3",
+    "schema_version": "registered-objective-v1",
+    "unit": "us",
+    "workload_cases": [
+      {
+        "case_id": "s256",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s384",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s404",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s512",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s640",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s768",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s1024",
+        "weight": 0.14285714285714285
+      }
+    ]
+  },
+  "open_uncertainties": [
+    {
+      "admissibility_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+        "sha256": "48341604f457f3e014b51855de923b94d9685d09630fda5191ed590b2f9f9b4d"
+      },
+      "performance_ranking": false,
+      "quantity_id": "n2_layout_view_feasible",
+      "unit": "binary_pass"
+    }
+  ],
+  "qualification_budget": {
+    "max_configurations": 14,
+    "max_process_launches": 21,
+    "max_samples_per_configuration": 31,
+    "max_wall_clock_minutes": 60
+  },
+  "revision_history": [
+    {
+      "at": "2026-08-27T07:19:03.442208+00:00",
+      "reason": "Fresh candidate-first layout replan after old C1 rejection.",
+      "revision": 1
+    },
+    {
+      "at": "2026-08-27T09:01:47.260707+00:00",
+      "reason": "scope static decision to PASS-only same-backing logical layout-view admission and defer implementation semantics/resources",
+      "revision": 2
+    }
+  ],
+  "schema_version": "optimization-plan-v1",
+  "screening_budget": {
+    "max_configurations": 3,
+    "max_process_launches": 6,
+    "max_samples_per_configuration": 1,
+    "max_wall_clock_minutes": 15
+  },
+  "status": "EXECUTABLE",
+  "stop_criteria": [
+    "PASS only advances N2 to LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION.",
+    "Any identity/oracle/type/compiler/assert/tool failure is INVALID and leaves N2 pending.",
+    "No VALID rejection exists in revision_02.",
+    "No result may update latency, objective or performance Top2.",
+    "No CUDA launch or production-source mutation is authorized."
+  ],
+  "workload_priorities": [
+    {
+      "case_id": "s404",
+      "rank": 0,
+      "reason": "tail/static-layout anchor"
+    },
+    {
+      "case_id": "s1024",
+      "rank": 1,
+      "reason": "equal-weight production coverage"
+    },
+    {
+      "case_id": "s256",
+      "rank": 2,
+      "reason": "equal-weight production coverage"
+    },
+    {
+      "case_id": "s640",
+      "rank": 3,
+      "reason": "equal-weight production coverage"
+    },
+    {
+      "case_id": "s768",
+      "rank": 4,
+      "reason": "equal-weight production coverage"
+    },
+    {
+      "case_id": "s384",
+      "rank": 5,
+      "reason": "equal-weight production coverage"
+    },
+    {
+      "case_id": "s512",
+      "rank": 6,
+      "reason": "equal-weight production coverage"
+    }
+  ]
+}

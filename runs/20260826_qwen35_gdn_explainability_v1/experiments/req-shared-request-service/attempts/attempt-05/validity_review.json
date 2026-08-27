@@ -1,0 +1,55 @@
+{
+  "attempt": 5,
+  "causal_validity": "REJECT",
+  "checks": [
+    {
+      "check": "clock_cv",
+      "status": "PASS",
+      "value": 0.005031549025044693
+    },
+    {
+      "check": "four_process_ABBA",
+      "status": "PASS"
+    },
+    {
+      "check": "nonzero_process_spread_below_10_percent",
+      "maximum": 0.11322448640386794,
+      "status": "FAIL",
+      "worst_key": "s3/shared/1"
+    },
+    {
+      "check": "robust_positive_minus_zero_at_least_0.5us",
+      "min_positive_minus_max_zero_us": {
+        "post": 4.589750049999999,
+        "s01": 0.8187503799999996,
+        "s2": 0.31362508999999994,
+        "s3": 0.5492501200000004
+      },
+      "status": "FAIL"
+    },
+    {
+      "check": "deterministic_sink",
+      "status": "PASS"
+    },
+    {
+      "check": "function_scoped_SASS",
+      "status": "PASS"
+    }
+  ],
+  "consequence": "Attempt 05 is preserved as stability evidence but cannot define the service curve.",
+  "execution_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/execution_receipt.json",
+    "sha256": "c35d6dd2f715463e3728ce74334358974fac228d557a33abfb6eae7c3c636275"
+  },
+  "raw_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/raw/samples.json",
+    "sha256": "2cccc9578ff2c85d14ad1f31ae4d21d22aad5b25868cb3da25e293817b0b6e63"
+  },
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-validity-review-v1",
+  "static_audit_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/instruction_audit.json",
+    "sha256": "f7acf4d4735fd3e3f67841454c955b5ed3837d3e12cc88726fd9ab3948519e98"
+  },
+  "technical_execution": "PASS"
+}

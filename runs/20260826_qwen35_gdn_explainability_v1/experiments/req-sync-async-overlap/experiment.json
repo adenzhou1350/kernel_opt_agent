@@ -1,0 +1,313 @@
+{
+  "artifacts": {
+    "raw_samples": "experiments/req-sync-async-overlap/raw/samples.json",
+    "reproduction_log": "experiments/req-sync-async-overlap/reproduction.json",
+    "result": "experiments/req-sync-async-overlap/result.json",
+    "static_audit": "experiments/req-sync-async-overlap/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-sync-async-overlap",
+        "--phase",
+        "analyze"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-sync-async-overlap",
+        "--phase",
+        "clean_build"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-sync-async-overlap",
+        "--phase",
+        "correctness"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-sync-async-overlap",
+        "--phase",
+        "measure"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-sync-async-overlap",
+        "--phase",
+        "static_audit"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-sync-async-overlap",
+        "--phase",
+        "warmup"
+      ]
+    ]
+  },
+  "controls": [
+    "A-only/B-only/AB coupling",
+    "dependency-preserving order",
+    "pipeline-depth sweep",
+    "same payload and occupancy",
+    "barrier/wait SASS accounting",
+    "zero control: zero-work launch establishes the timer and launch bracket",
+    "positive control: live production-shaped work must exceed the zero-work bracket",
+    "negative control: deliberately adverse dependency, bank, cache, or synchronization pattern must move the predicted metric",
+    "live sink control: output is copied or atomically accumulated so the measured work cannot be eliminated"
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-sync-async-overlap/catalog_query_receipt.json",
+      "sha256": "bcf7293ee25f02e4c0178d8b15c179bd59577e47f43e393bceae8c9471e3c3cc"
+    }
+  ],
+  "expected_sass": [
+    "UTMALDG",
+    "DEPBAR",
+    "BAR",
+    "WARPGROUP",
+    "SYNCS"
+  ],
+  "level": "P1_P2",
+  "measurement_contract": {
+    "cache": "explicit per experiment",
+    "geometry": "production-matched or declared sensitivity sweep",
+    "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+    "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+  },
+  "model_update_contract": {
+    "decision_changed": "Choose pipeline depth, warp specialization, barrier placement, and legal cross-stage fusion.",
+    "model_field": "resource_balance.*.critical_path overlap and synchronization truncation",
+    "summary_fields": [
+      "A_only_us",
+      "B_only_us",
+      "AB_us",
+      "overlap_fraction",
+      "barrier_wait_sites"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 16,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 32,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 16,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 32,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 16,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 32,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 16,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 32,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 16,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 32,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "sync"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 16,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 32,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "async"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "async"
+    }
+  ],
+  "question": "Which copy/compute and producer/consumer dependencies overlap, and which waits or barriers remain on the critical path?",
+  "request_id": "req-sync-async-overlap",
+  "revision_history": [
+    {
+      "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+      "status": "WITHDRAWN_BEFORE_EXECUTION"
+    }
+  ],
+  "schema_version": "executable-experiment-v1",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/experiment_driver.py",
+        "sha256": "e19f301ffbe7bc9b2e795004fb85f7607158f996d547c4dae478fc37db6487fb"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-sync-async-overlap/resource_probe.cu",
+        "sha256": "d01d98ae5cd79e577993bfd0d7ffa5493d4faac71e406cf3e3ff06206373d3e2"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED"
+}

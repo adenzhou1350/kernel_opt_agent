@@ -1,0 +1,67 @@
+{
+  "after_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/scripts/advance_run.py",
+      "sha256": "7346da617461a96889c842680517a36a7f6fd00e5904b88a026a4710d2d04f8a"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/scripts/rank_experiments.py",
+      "sha256": "8d2b2815ea384dde28360f1a99a8bba86c7fadff76bbcf9db4598da8651af8c3"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/tests/test_static_admissibility_workflow.py",
+      "sha256": "ed1094f5f4134c47eec3506c986c2962f9a7bf672aaa6fd8c42f79c193e33c7c"
+    }
+  ],
+  "before_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/framework_pre_resolved_static_lifecycle_v2/advance_run.py",
+      "sha256": "1a67a932b8bc5fed2fdca4d97f65672da98bd7914b8666407cd2a58e0f70cc19"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/framework_pre_resolved_static_lifecycle_v2/rank_experiments.py",
+      "sha256": "6dc1298032575c01fb15415f38c9538179eb96492ee04d880fccecf6afe55bad"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/framework_pre_resolved_static_lifecycle_v2/test_static_admissibility_workflow.py",
+      "sha256": "c9fbb25e6165c9a39b5e5b5535f8fb78905fab4102a7e4d0f91f28a6d033b26d"
+    }
+  ],
+  "change": "make a fully resolved, result-bound and reconciled priority-0 static gate a legal terminal queue state",
+  "created_at": "2026-08-27T11:30:00+00:00",
+  "schema_version": "framework-patch-receipt-v1",
+  "semantic_guards": [
+    "an unresolved static queue still requires exactly one active priority-0 gate",
+    "a zero-active-gate queue is legal only when every request is RESOLVED, result BOUND and reconciliation APPLIED",
+    "the resolved terminal ranking policy is NO_PERFORMANCE_RANKING_RESOLVED_STATIC_GATE",
+    "resolved static evidence never authorizes performance ranking",
+    "EXPERIMENT phase transition remains sequential and evidence-closed"
+  ],
+  "tests": [
+    {
+      "name": "test_repository.py",
+      "status": "PASS"
+    },
+    {
+      "name": "test_evidence_closed_workflow.py",
+      "status": "PASS"
+    },
+    {
+      "name": "test_supervisor_replan_states.py",
+      "status": "PASS"
+    },
+    {
+      "name": "test_static_admissibility_workflow.py",
+      "status": "PASS"
+    },
+    {
+      "name": "audit_repository.py",
+      "status": "PASS"
+    },
+    {
+      "name": "advance_run.py --to EXPERIMENT",
+      "status": "PASS",
+      "observed_phase": "EXPERIMENT"
+    }
+  ]
+}

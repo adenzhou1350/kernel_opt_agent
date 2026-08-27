@@ -1,0 +1,1364 @@
+{
+  "catalog_snapshot": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+    "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e",
+    "status": "SNAPSHOT_ONLY_NOT_QUERIED"
+  },
+  "promotion_review": [],
+  "ranking_policy": {
+    "benefit_bound": "resource-constrained production stage windows",
+    "formula": "max_weighted_benefit_us * critical_path_probability * uncertainty_weight / experiment_cost_weight",
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "ranked_at": "2026-08-26T17:05:47.184637+00:00"
+  },
+  "requests": [
+    {
+      "affected_stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "attempt_history": [
+        {
+          "archive_manifest": {
+            "path": "experiments/req-shared-request-service/attempts/attempt-01/attempt_manifest.json",
+            "sha256": "c7d699327212ff16474b1c7803027dab8a21d88fefff897e20011865d4196c44"
+          },
+          "attempt": 1,
+          "disposition": "REJECTED_FOR_CAUSAL_VALIDITY",
+          "reason": "attempt-01 technical execution passed but failed live-sink, address-observability, and AB/BA causal-validity controls"
+        },
+        {
+          "archive_manifest": {
+            "path": "experiments/req-shared-request-service/attempts/attempt-02/attempt_manifest.json",
+            "sha256": "97f7cf3d2f7170d8a78f9d0be654ce34dff58351cdb2eea16e85d52779096bbc"
+          },
+          "attempt": 2,
+          "disposition": "REJECTED_FOR_CAUSAL_VALIDITY",
+          "reason": "attempt-02 retained AB/BA evidence but failed deterministic address observability, function-scoped SASS closure, and paired stability gates"
+        },
+        {
+          "archive_manifest": {
+            "path": "experiments/req-shared-request-service/attempts/attempt-03/attempt_manifest.json",
+            "sha256": "294a1a94e7f3e5e0ded6eef7b060fe9cb4d83902cd4c09d529017ff4122cbcef"
+          },
+          "attempt": 3,
+          "disposition": "TECHNICAL_FAILURE_REVISED",
+          "reason": "attempt-03 technical failure: container NVML permission forbids GPU clock locking; replace with active-clock CV gate identical in threshold to qualified P0"
+        },
+        {
+          "archive_manifest": {
+            "path": "experiments/req-shared-request-service/attempts/attempt-04/attempt_manifest.json",
+            "sha256": "d59d7dc6fdb6a7de6e4ea25d5896518faf741ede62b8e971247eab341d76b582"
+          },
+          "attempt": 4,
+          "disposition": "REJECTED_FOR_CAUSAL_VALIDITY",
+          "reason": "attempt-04 closed causal observability and SASS gates but failed nonzero AB/BA stability and positive-zero separation at selected geometries"
+        },
+        {
+          "archive_manifest": {
+            "path": "experiments/req-shared-request-service/attempts/attempt-05/attempt_manifest.json",
+            "sha256": "50fbba3f1ccfc2f8b72480d53c5b04f0f8b0549566b8522ed9f19ac90d0230f6"
+          },
+          "attempt": 5,
+          "disposition": "REJECTED_FOR_CAUSAL_VALIDITY",
+          "reason": "attempt-05 achieved stable clocks and mostly stable nonzero points but failed the pre-registered full-spread and robust positive-zero gates; replace single-point inference with a repeats service curve"
+        }
+      ],
+      "blocked_at": "2026-08-26T17:09:03.792051+00:00",
+      "blocking_evidence": [
+        {
+          "path": "experiments/req-shared-request-service/ncu_permission_receipt.json",
+          "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+        }
+      ],
+      "blocking_reason": "P1 mechanism service curves passed; P2 production bank/request counters are externally blocked by ERR_NVGPUCTRPERM and production utilization must remain UNKNOWN",
+      "candidate_decision": "Choose shared layouts, padding/swizzles, vector width, and reuse policy.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [],
+          "qualification": "PRODUCTION_PREDICTIVE",
+          "resources": [
+            "constant_memory_path",
+            "l1_shared_boundary",
+            "load_store_request",
+            "shared_bank_service",
+            "shared_memory"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/catalog_query_receipt.json",
+          "sha256": "abe7a1170ecc37c987c1707d7e70b3ce41190d8f52bd7d565c4b1aecff4a5600"
+        }
+      },
+      "causal_question": "What request-service, L1/shared, bank-conflict, and constant-broadcast behavior is produced by the exact tile and layout?",
+      "controls": [
+        "bank-index sweep",
+        "stride/vector-width sweep",
+        "broadcast and divergent constant loads",
+        "same payload bytes",
+        "dependent and throughput chains"
+      ],
+      "execution_receipt": {
+        "path": "experiments/req-shared-request-service/execution_receipt.json",
+        "sha256": "357c2ca6a3a31889e487d7398dfe51b7ef2f2632daffce942b6122bd5e192728",
+        "status": "PASS"
+      },
+      "expected_sass": [
+        "LDS",
+        "STS",
+        "LDC",
+        "LDG",
+        "STG"
+      ],
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/experiment.json",
+        "sha256": "dbf455c4c442dd6677eb85ab61b1076aaefb723477ee781d99511d4c8d4754a5",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "cache": "explicit per experiment",
+        "geometry": "production-matched or declared sensitivity sweep",
+        "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+        "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+      },
+      "model_field": "resource_balance.*.matched_saturation and request amplification for L1/shared/request paths",
+      "partial_results": [
+        {
+          "path": "experiments/req-shared-request-service/p1_service_curve.json",
+          "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+        }
+      ],
+      "priority": 0,
+      "promotion_disposition": {
+        "reason": "Promotion review follows mechanism validation and removal of application-specific tokens.",
+        "status": "PENDING"
+      },
+      "request_id": "req-shared-request-service",
+      "resource_ids": [
+        "constant_memory_path",
+        "l1_shared_boundary",
+        "load_store_request",
+        "shared_bank_service",
+        "shared_memory"
+      ],
+      "result_binding": {
+        "evidence": [],
+        "status": "PENDING"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "case_contributions": [
+            {
+              "case_id": "s256",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 24.353,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.479
+            },
+            {
+              "case_id": "s384",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 26.544,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.792
+            },
+            {
+              "case_id": "s404",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 27.8415,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.9773571428571426
+            },
+            {
+              "case_id": "s512",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 29.984,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.283428571428572
+            },
+            {
+              "case_id": "s640",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 32.961,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.708714285714286
+            },
+            {
+              "case_id": "s768",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 44.7165,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 6.388071428571429
+            },
+            {
+              "case_id": "s1024",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.8,
+              "max_removable_us": 49.138,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 7.019714285714285
+            }
+          ],
+          "method": "weighted sum of the conservative production stage windows touched by the requested resources; capped by case total",
+          "resource_balance_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+            "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+          }
+        },
+        "critical_path_probability": 0.8,
+        "experiment_cost": "MEDIUM",
+        "experiment_cost_weight": 2.0,
+        "max_weighted_benefit_us": 33.64828571428571,
+        "ranking_score": 13.459314285714285,
+        "uncertainty": "HIGH",
+        "uncertainty_weight": 1.0
+      },
+      "status": "BLOCKED",
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    },
+    {
+      "affected_stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "attempt_history": [
+        {
+          "archive_manifest": {
+            "path": "experiments/req-register-collective/attempts/attempt-01/attempt_manifest.json",
+            "sha256": "d60f7ed457a688da41fa8a23fc84f0e9464f3960a7bd0beb4a6abb48717e0add"
+          },
+          "attempt": 1,
+          "disposition": "TECHNICAL_FAILURE_REVISED",
+          "reason": "Static resource validator used an ambiguous template substring; no performance measurement occurred."
+        },
+        {
+          "archive_manifest": {
+            "path": "experiments/req-register-collective/attempts/attempt-02/attempt_manifest.json",
+            "sha256": "48d31e8f70e13243984da9cb3caac0b1daf85fbb688d7822c5f67a7aaa678051"
+          },
+          "attempt": 2,
+          "disposition": "TECHNICAL_FAILURE_REVISED",
+          "reason": "The register-allocation recurrence overflowed at repeats=128 and correctly triggered the live-sink gate before a complete ABBA matrix existed."
+        },
+        {
+          "archive_manifest": {
+            "path": "experiments/req-register-collective/attempts/attempt-03/attempt_manifest.json",
+            "sha256": "6cabead63ef6f6a1036d34d5736af44338da5f48d357b6e426166f730077764b"
+          },
+          "attempt": 3,
+          "disposition": "REJECTED_FOR_CAUSAL_VALIDITY",
+          "reason": "Technically complete direct-launch ABBA data failed the 10% independent-process spread gate (76.7%) and high-work positive/zero control; host submission was comparable to per-kernel event time, so batched direct launches were not a gap-free GPU-active bracket."
+        }
+      ],
+      "candidate_decision": "Choose warp count, role-specific registers, unrolling, and collective layout.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [],
+          "qualification": "PRODUCTION_PREDICTIVE",
+          "resources": [
+            "predicate_storage",
+            "register_storage",
+            "system_register_path",
+            "warp_collective"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/catalog_query_receipt.json",
+          "sha256": "02fd0b8e20be3413cb13cb7d59ea15dfea0e451944a36426472116a5c581401b"
+        }
+      },
+      "causal_question": "How do register allocation, spills, occupancy, system-register access, and warp collectives constrain the production schedule?",
+      "controls": [
+        "register-count sweep",
+        "spill-free final binary gate",
+        "occupancy/residency sweep",
+        "dependent/independent collective chains",
+        "same useful work"
+      ],
+      "dispatch_history": [
+        {
+          "materialized_experiment": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/experiment.json",
+            "sha256": "9b0da5a5e9d3fbeec5e05f9f636e8ab38b46859f42cb5a220c8d0f530be036fa",
+            "status": "MATERIALIZED"
+          },
+          "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+          "status": "WITHDRAWN_BEFORE_EXECUTION",
+          "withdrawn_at": "2026-08-26T16:24:09.680549+00:00"
+        },
+        {
+          "materialized_experiment": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/experiment.json",
+            "sha256": "453c176f529ad139aaec4f54427b09920b3e1d6c331970f94c05bc3bb69c5778",
+            "status": "MATERIALIZED"
+          },
+          "reason": "Previous immutable candidate used false source-level register labels and omitted production dynamic shared-memory geometry; superseded before execution by ptxas-observed register allocation probes plus runtime occupancy evidence.",
+          "status": "WITHDRAWN_BEFORE_EXECUTION",
+          "withdrawn_at": "2026-08-26T17:16:46.208312+00:00"
+        }
+      ],
+      "execution_receipt": {
+        "path": "experiments/req-register-collective/execution_receipt.json",
+        "sha256": "7d15aca161130b22b1b210839327f138a157d0918feaf1db27e36c988f72a2a5",
+        "status": "PASS"
+      },
+      "expected_sass": [
+        "R2P/P2R",
+        "S2R",
+        "SHFL",
+        "VOTE",
+        "REDUX",
+        "ELECT"
+      ],
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/experiment.json",
+        "sha256": "360a0432550947d2b2c0bf00be33e06698bcfb524da3a48dc76cedfe959f5262",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "cache": "explicit per experiment",
+        "geometry": "production-matched or declared sensitivity sweep",
+        "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+        "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+      },
+      "model_field": "resource_balance.*.utilization and allocation sensitivity for register/collective resources",
+      "priority": 1,
+      "promotion_disposition": {
+        "reason": "Promotion review follows mechanism validation and removal of application-specific tokens.",
+        "status": "PENDING"
+      },
+      "request_id": "req-register-collective",
+      "resource_ids": [
+        "predicate_storage",
+        "register_storage",
+        "system_register_path",
+        "warp_collective"
+      ],
+      "result_binding": {
+        "evidence": [],
+        "status": "PENDING"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "case_contributions": [
+            {
+              "case_id": "s256",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 24.353,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.479
+            },
+            {
+              "case_id": "s384",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 26.544,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.792
+            },
+            {
+              "case_id": "s404",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 27.8415,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.9773571428571426
+            },
+            {
+              "case_id": "s512",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 29.984,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.283428571428572
+            },
+            {
+              "case_id": "s640",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 32.961,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.708714285714286
+            },
+            {
+              "case_id": "s768",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 44.7165,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 6.388071428571429
+            },
+            {
+              "case_id": "s1024",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 49.138,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 7.019714285714285
+            }
+          ],
+          "method": "weighted sum of the conservative production stage windows touched by the requested resources; capped by case total",
+          "resource_balance_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+            "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+          }
+        },
+        "critical_path_probability": 0.75,
+        "experiment_cost": "MEDIUM",
+        "experiment_cost_weight": 2.0,
+        "max_weighted_benefit_us": 33.64828571428571,
+        "ranking_score": 12.618107142857141,
+        "uncertainty": "HIGH",
+        "uncertainty_weight": 1.0
+      },
+      "status": "RUNNING",
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    },
+    {
+      "affected_stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "candidate_decision": "Choose pipeline depth, warp specialization, barrier placement, and legal cross-stage fusion.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [],
+          "qualification": "PRODUCTION_PREDICTIVE",
+          "resources": [
+            "async_copy_engine",
+            "scoreboard_wait",
+            "synchronization"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-sync-async-overlap/catalog_query_receipt.json",
+          "sha256": "bcf7293ee25f02e4c0178d8b15c179bd59577e47f43e393bceae8c9471e3c3cc"
+        }
+      },
+      "causal_question": "Which copy/compute and producer/consumer dependencies overlap, and which waits or barriers remain on the critical path?",
+      "controls": [
+        "A-only/B-only/AB coupling",
+        "dependency-preserving order",
+        "pipeline-depth sweep",
+        "same payload and occupancy",
+        "barrier/wait SASS accounting"
+      ],
+      "dispatch_history": [
+        {
+          "materialized_experiment": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-sync-async-overlap/experiment.json",
+            "sha256": "db198ffb7a7ce8c53f3a4f990e49c627044d238deb1e7482b096cec8435f1833",
+            "status": "MATERIALIZED"
+          },
+          "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+          "status": "WITHDRAWN_BEFORE_EXECUTION",
+          "withdrawn_at": "2026-08-26T16:24:09.776531+00:00"
+        }
+      ],
+      "expected_sass": [
+        "UTMALDG",
+        "DEPBAR",
+        "BAR",
+        "WARPGROUP",
+        "SYNCS"
+      ],
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-sync-async-overlap/experiment.json",
+        "sha256": "87218d0df86828cf40ba2782088b1090068965e1f739e421920e4cb7122c44d8",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "cache": "explicit per experiment",
+        "geometry": "production-matched or declared sensitivity sweep",
+        "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+        "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+      },
+      "model_field": "resource_balance.*.critical_path overlap and synchronization truncation",
+      "priority": 2,
+      "promotion_disposition": {
+        "reason": "Promotion review follows mechanism validation and removal of application-specific tokens.",
+        "status": "PENDING"
+      },
+      "request_id": "req-sync-async-overlap",
+      "resource_ids": [
+        "async_copy_engine",
+        "scoreboard_wait",
+        "synchronization"
+      ],
+      "result_binding": {
+        "evidence": [],
+        "status": "PENDING"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "case_contributions": [
+            {
+              "case_id": "s256",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 24.353,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.479
+            },
+            {
+              "case_id": "s384",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 26.544,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.792
+            },
+            {
+              "case_id": "s404",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 27.8415,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.9773571428571426
+            },
+            {
+              "case_id": "s512",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 29.984,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.283428571428572
+            },
+            {
+              "case_id": "s640",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 32.961,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.708714285714286
+            },
+            {
+              "case_id": "s768",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 44.7165,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 6.388071428571429
+            },
+            {
+              "case_id": "s1024",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.75,
+              "max_removable_us": 49.138,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 7.019714285714285
+            }
+          ],
+          "method": "weighted sum of the conservative production stage windows touched by the requested resources; capped by case total",
+          "resource_balance_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+            "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+          }
+        },
+        "critical_path_probability": 0.75,
+        "experiment_cost": "MEDIUM",
+        "experiment_cost_weight": 2.0,
+        "max_weighted_benefit_us": 33.64828571428571,
+        "ranking_score": 12.618107142857141,
+        "uncertainty": "HIGH",
+        "uncertainty_weight": 1.0
+      },
+      "status": "DISPATCHED",
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    },
+    {
+      "affected_stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "candidate_decision": "Choose stage tiling, warp roles, instruction mix, and arithmetic-for-memory tradeoffs.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [],
+          "qualification": "PRODUCTION_PREDICTIVE",
+          "resources": [
+            "conversion_pipe",
+            "integer_address_pipe",
+            "predicate_compute",
+            "simt_compute",
+            "special_function",
+            "tensor_compute",
+            "tensor_issue"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-compute-service/catalog_query_receipt.json",
+          "sha256": "1477f56ea7d26e9fa8d458f4634a9e1fbc0b7fbaad76cf5c4c0771bc42d730b9"
+        }
+      },
+      "causal_question": "What are matched production-shaped latency/throughput curves for tensor, SIMT, SFU, conversion, address, and predicate work, including their concurrency limits?",
+      "controls": [
+        "dependent and independent chains",
+        "matched datatype and instruction family",
+        "fixed clocks/power policy",
+        "zero-work control",
+        "warm code and allocation"
+      ],
+      "dispatch_history": [
+        {
+          "materialized_experiment": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-compute-service/experiment.json",
+            "sha256": "4620ec9b041a62a7d771de25bb4ed9c0e12b3ef36372d676678066b5d0407ecd",
+            "status": "MATERIALIZED"
+          },
+          "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+          "status": "WITHDRAWN_BEFORE_EXECUTION",
+          "withdrawn_at": "2026-08-26T16:24:09.879293+00:00"
+        }
+      ],
+      "expected_sass": [
+        "UTMALDG/UTMACCTL",
+        "FFMA/FADD/FMUL",
+        "MUFU",
+        "F2FP",
+        "IADD3/IMAD",
+        "ISETP/PLOP3"
+      ],
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-compute-service/experiment.json",
+        "sha256": "643543f00bad081119f20df73f0f95abeed350776f9c1587219600454d7daa28",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "cache": "explicit per experiment",
+        "geometry": "production-matched or declared sensitivity sweep",
+        "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+        "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+      },
+      "model_field": "resource_balance.*.matched_saturation and utilization for arithmetic resources",
+      "priority": 3,
+      "promotion_disposition": {
+        "reason": "Promotion review follows mechanism validation and removal of application-specific tokens.",
+        "status": "PENDING"
+      },
+      "request_id": "req-compute-service",
+      "resource_ids": [
+        "conversion_pipe",
+        "integer_address_pipe",
+        "predicate_compute",
+        "simt_compute",
+        "special_function",
+        "tensor_compute",
+        "tensor_issue"
+      ],
+      "result_binding": {
+        "evidence": [],
+        "status": "PENDING"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "case_contributions": [
+            {
+              "case_id": "s256",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 24.353,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.479
+            },
+            {
+              "case_id": "s384",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 26.544,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.792
+            },
+            {
+              "case_id": "s404",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 27.8415,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.9773571428571426
+            },
+            {
+              "case_id": "s512",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 29.984,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.283428571428572
+            },
+            {
+              "case_id": "s640",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 32.961,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.708714285714286
+            },
+            {
+              "case_id": "s768",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 44.7165,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 6.388071428571429
+            },
+            {
+              "case_id": "s1024",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.95,
+              "max_removable_us": 49.138,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 7.019714285714285
+            }
+          ],
+          "method": "weighted sum of the conservative production stage windows touched by the requested resources; capped by case total",
+          "resource_balance_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+            "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+          }
+        },
+        "critical_path_probability": 0.9500000000000001,
+        "experiment_cost": "HIGH",
+        "experiment_cost_weight": 4.0,
+        "max_weighted_benefit_us": 33.64828571428571,
+        "ranking_score": 7.991467857142857,
+        "uncertainty": "HIGH",
+        "uncertainty_weight": 1.0
+      },
+      "status": "DISPATCHED",
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    },
+    {
+      "affected_stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "candidate_decision": "Choose materialization, reuse, padding, and fusion boundaries.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [],
+          "qualification": "PRODUCTION_PREDICTIVE",
+          "resources": [
+            "device_memory_boundary",
+            "l2_boundary"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-memory-hierarchy-service/catalog_query_receipt.json",
+          "sha256": "b5e8ab54a8f91008b2ed49f8e7fc76f7d70c9129da2dc2094e1974b28dad2931"
+        }
+      },
+      "causal_question": "What are production-shaped useful-byte and transferred-byte service curves at the L2 and device-memory boundaries for this working-set and access geometry?",
+      "controls": [
+        "warm-L2 and cold/streaming regimes",
+        "read/write separation",
+        "matched vector width and stride",
+        "transaction accounting",
+        "competing-load gate"
+      ],
+      "dispatch_history": [
+        {
+          "materialized_experiment": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-memory-hierarchy-service/experiment.json",
+            "sha256": "a8893638116a12cb86dc2377b18d11dc520fd0ee83b21c414c90dfb9248986d3",
+            "status": "MATERIALIZED"
+          },
+          "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+          "status": "WITHDRAWN_BEFORE_EXECUTION",
+          "withdrawn_at": "2026-08-26T16:24:09.970671+00:00"
+        }
+      ],
+      "expected_sass": [
+        "LDG",
+        "STG"
+      ],
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-memory-hierarchy-service/experiment.json",
+        "sha256": "878900b88e1851677d168a3c23b649b9dfdd5fb79d4f386c7b7cc024fa6f002d",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "cache": "explicit per experiment",
+        "geometry": "production-matched or declared sensitivity sweep",
+        "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+        "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+      },
+      "model_field": "resource_balance.*.utilization for L2 and device-memory boundaries",
+      "priority": 4,
+      "promotion_disposition": {
+        "reason": "Promotion review follows mechanism validation and removal of application-specific tokens.",
+        "status": "PENDING"
+      },
+      "request_id": "req-memory-hierarchy-service",
+      "resource_ids": [
+        "device_memory_boundary",
+        "l2_boundary"
+      ],
+      "result_binding": {
+        "evidence": [],
+        "status": "PENDING"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "case_contributions": [
+            {
+              "case_id": "s256",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 24.353,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.479
+            },
+            {
+              "case_id": "s384",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 26.544,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.792
+            },
+            {
+              "case_id": "s404",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 27.8415,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 3.9773571428571426
+            },
+            {
+              "case_id": "s512",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 29.984,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.283428571428572
+            },
+            {
+              "case_id": "s640",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 32.961,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 4.708714285714286
+            },
+            {
+              "case_id": "s768",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 44.7165,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 6.388071428571429
+            },
+            {
+              "case_id": "s1024",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.7,
+              "max_removable_us": 49.138,
+              "stages": [
+                "post",
+                "s01",
+                "s2",
+                "s3"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 7.019714285714285
+            }
+          ],
+          "method": "weighted sum of the conservative production stage windows touched by the requested resources; capped by case total",
+          "resource_balance_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+            "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+          }
+        },
+        "critical_path_probability": 0.7,
+        "experiment_cost": "HIGH",
+        "experiment_cost_weight": 4.0,
+        "max_weighted_benefit_us": 33.64828571428571,
+        "ranking_score": 5.88845,
+        "uncertainty": "HIGH",
+        "uncertainty_weight": 1.0
+      },
+      "status": "DISPATCHED",
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    },
+    {
+      "affected_stage_ids": [
+        "measurement_system"
+      ],
+      "candidate_decision": "Accept or reject all later latency samples and select repetition/batching policy.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [],
+          "qualification": "PRODUCTION_PREDICTIVE",
+          "resources": [
+            "cta_allocation",
+            "instruction_front_end",
+            "kernel_dispatch",
+            "warp_issue"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/catalog_query_receipt.json",
+          "sha256": "9178d19499aff260d6237b88f5c2fcb3fd90d80cb00fee906b685222ce71f15b"
+        }
+      },
+      "causal_question": "Is the GPU-event timing system stable and what launch/front-end floor is visible under matched grid/block geometry?",
+      "controls": [
+        "empty and near-empty kernels",
+        "event overhead subtraction check",
+        "same stream",
+        "warmup convergence",
+        "idle-device gate",
+        "raw immutable samples"
+      ],
+      "dispatch_history": [
+        {
+          "materialized_experiment": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/experiment.json",
+            "sha256": "efd26effeb08cfa7bf83a4295c310efaf78ea4dafe24f6022f20937c35987c8d",
+            "status": "MATERIALIZED"
+          },
+          "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+          "status": "WITHDRAWN_BEFORE_EXECUTION",
+          "withdrawn_at": "2026-08-26T16:24:10.069144+00:00"
+        }
+      ],
+      "expected_sass": [
+        "EXIT",
+        "BRA",
+        "NOP"
+      ],
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/experiment.json",
+        "sha256": "4b5a2df727d51f46062fe15f805c6009542030a9f869469f1716bb7ef575eca3",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "cache": "explicit per experiment",
+        "geometry": "production-matched or declared sensitivity sweep",
+        "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+        "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+      },
+      "model_field": "baseline measurement error and front-end/launch floor",
+      "priority": 5,
+      "promotion_disposition": {
+        "reason": "Promotion review follows mechanism validation and removal of application-specific tokens.",
+        "status": "PENDING"
+      },
+      "request_id": "req-p0-measurement-system",
+      "resource_ids": [
+        "cta_allocation",
+        "instruction_front_end",
+        "kernel_dispatch",
+        "warp_issue"
+      ],
+      "result_binding": {
+        "evidence": [],
+        "status": "PENDING"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "case_contributions": [
+            {
+              "case_id": "s256",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            },
+            {
+              "case_id": "s384",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            },
+            {
+              "case_id": "s404",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            },
+            {
+              "case_id": "s512",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            },
+            {
+              "case_id": "s640",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            },
+            {
+              "case_id": "s768",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            },
+            {
+              "case_id": "s1024",
+              "case_weight": 0.14285714285714285,
+              "critical_path_probability": 0.65,
+              "max_removable_us": 0.006,
+              "stages": [
+                "measurement_system"
+              ],
+              "uncertainty": "HIGH",
+              "weighted_upper_bound_us": 0.0008571428571428571
+            }
+          ],
+          "method": "weighted sum of the conservative production stage windows touched by the requested resources; capped by case total",
+          "resource_balance_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+            "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+          }
+        },
+        "critical_path_probability": 0.6500000000000002,
+        "experiment_cost": "LOW",
+        "experiment_cost_weight": 1.0,
+        "max_weighted_benefit_us": 0.005999999999999998,
+        "ranking_score": 0.0039000000000000003,
+        "uncertainty": "HIGH",
+        "uncertainty_weight": 1.0
+      },
+      "status": "DISPATCHED",
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    }
+  ],
+  "schema_version": "experiment-request-queue-v1",
+  "status": "ACTIVE"
+}

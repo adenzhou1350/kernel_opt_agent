@@ -1,0 +1,11 @@
+{
+  "candidate_id": "N2",
+  "performance_top_two_frozen": false,
+  "schema_version": "candidate-admissibility-status-v1",
+  "status": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+  "survivor_set_not_yet_changed": [
+    "N0",
+    "N1",
+    "N2"
+  ]
+}

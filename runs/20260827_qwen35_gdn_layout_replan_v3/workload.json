@@ -1,0 +1,145 @@
+{
+  "cases": [
+    {
+      "boundary": true,
+      "id": "s256",
+      "mode": "prefill",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 4,
+        "P": 256,
+        "S": 256,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    },
+    {
+      "boundary": true,
+      "id": "s384",
+      "mode": "prefill",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 6,
+        "P": 384,
+        "S": 384,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    },
+    {
+      "boundary": true,
+      "id": "s404",
+      "mode": "prefill-primary-audit-anchor",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 7,
+        "P": 448,
+        "S": 404,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    },
+    {
+      "boundary": true,
+      "id": "s512",
+      "mode": "prefill",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 8,
+        "P": 512,
+        "S": 512,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    },
+    {
+      "boundary": true,
+      "id": "s640",
+      "mode": "prefill-short-s3-dispatch-boundary",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 10,
+        "P": 640,
+        "S": 640,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    },
+    {
+      "boundary": true,
+      "id": "s768",
+      "mode": "prefill-long-s3-dispatch-boundary",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 12,
+        "P": 768,
+        "S": 768,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    },
+    {
+      "boundary": true,
+      "id": "s1024",
+      "mode": "prefill-static-j16-boundary",
+      "parameters": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 16,
+        "P": 1024,
+        "S": 1024,
+        "dtype": "BF16",
+        "initial_state": null,
+        "output_final_state": false
+      },
+      "weight": 0.14285714285714285
+    }
+  ],
+  "execution": {
+    "cache_semantics": "warm compiled plan and persistent workspaces; cold compilation and allocation excluded",
+    "call_frequency": "one GDN invocation per Qwen3.5 linear-attention prefill layer; this run uses an equal-weight shape grid because production occurrence weights were not supplied",
+    "concurrency": "single CUDA stream on an otherwise idle selected GPU; competing-load gate required for accepted measurements",
+    "downstream_layout": "contiguous [S,H,D] consumed as [S,H*D] by the output projection",
+    "graph_mode": "uncaptured direct stream launch for the prefill GDN proof; graph and full-service validation are separate boundaries",
+    "upstream_layout": "causal-conv channel-last physical mixed tensor plus contiguous zba GEMM output"
+  },
+  "name": "qwen35-gdn-prefill-seven-shape-equal-weight-grid",
+  "objective": {
+    "direction": "minimize",
+    "metric": "gpu_active_us",
+    "statistic": "median"
+  },
+  "schema_version": "workload-v1"
+}

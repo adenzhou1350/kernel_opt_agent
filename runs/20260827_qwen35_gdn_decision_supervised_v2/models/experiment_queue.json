@@ -1,0 +1,280 @@
+{
+  "catalog_snapshot": {
+    "catalog_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+      "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e"
+    },
+    "request_receipts": [
+      {
+        "decision": "CREATE_RUN_LOCAL",
+        "path": "experiments/req-s3-tile-causal-production-ab/catalog_query_receipt.json",
+        "request_id": "req-s3-tile-causal-production-ab",
+        "sha256": "cd98edceff99e8f8f06b0d546edd2245cc6f6561e7eae9da5684a2bf6d143e28"
+      }
+    ],
+    "status": "CURRENT"
+  },
+  "promotion_review": [],
+  "ranking_policy": {
+    "benefit_bound": "frozen top-two candidate decision contract",
+    "formula": "candidate_specific_decision_value_us * decision_flip_probability * expected_uncertainty_reduction / experiment_cost_weight",
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "ranked_at": "2026-08-27T06:35:00.793547+00:00"
+  },
+  "requests": [
+    {
+      "affected_stage_ids": [
+        "s3"
+      ],
+      "attempt_history": [
+        {
+          "archive_manifest": {
+            "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/attempt_manifest.json",
+            "sha256": "73405c849dfa536342944da9afae3b94e0bce1038dfbfc6e97944aa1ce84e6c3"
+          },
+          "attempt": 1,
+          "disposition": "TECHNICAL_FAILURE_REVISED",
+          "reason": "Attempt 1 failed before candidate compilation because unchanged production stages were imported under the top-level candidate_pkg namespace; authorize only absolute production S01/S2/post imports, with candidate S3 and all decision semantics unchanged."
+        }
+      ],
+      "blocking_evidence": [
+        {
+          "path": "experiments/req-s3-tile-causal-production-ab/execution_receipt.json",
+          "sha256": "14e337173a919c223daede3e8871d970fc5a6d35630cfdb059cc941df156bcca",
+          "status": "FAIL"
+        }
+      ],
+      "candidate_decision": "Rank C1 block-causal S3 tile schedule against C0 current production.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [
+            "BF16_raw_o",
+            "BF16_score",
+            "four_kernel_device_elapsed"
+          ],
+          "mechanisms": [
+            "causal_16x16_tile_schedule",
+            "production_candidate_ab"
+          ],
+          "qualification": "APPLICATION_SHAPED_SCREENING",
+          "resources": [
+            "conversion_pipe",
+            "cta_allocation",
+            "instruction_front_end",
+            "integer_address_pipe",
+            "l1_shared_boundary",
+            "load_store_request",
+            "predicate_compute",
+            "predicate_storage",
+            "register_storage",
+            "scoreboard_wait",
+            "shared_bank_service",
+            "shared_memory",
+            "simt_compute",
+            "synchronization",
+            "tensor_compute",
+            "tensor_issue",
+            "warp_collective",
+            "warp_issue"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/req-s3-tile-causal-production-ab/catalog_query_receipt.json",
+          "sha256": "cd98edceff99e8f8f06b0d546edd2245cc6f6561e7eae9da5684a2bf6d143e28"
+        }
+      },
+      "causal_question": "Does removing only tensor-core-feasible strict upper/tail tile work reduce exact four-kernel device execution after all control/resource coupling?",
+      "controls": [
+        "Hash-bind source, argv, inputs and cubins; use distinct C0/C1 ABI/cache keys and prove cubin hashes differ.",
+        "Record runtime __file__/find_spec and ABI tag; require PYTHONPATH prefix /workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer.",
+        "Reject resolution to /workspace/dance/qwen35/harrix or .venv-cu13/site-packages for the modified modules.",
+        "Bitwise compare all observable boundaries and final output at all seven shapes, with explicit S404 tail coverage.",
+        "Archive final cubin/SASS/ptxas; prove expected upper-tile MMA removal, unchanged S01/S2/post, zero spills, and registered resource caps.",
+        "Keep P0 clock/load/timer/live-sink controls PASS and balance randomized AB/BA order.",
+        "Uncaptured-direct is allowed only for bitwise semantic correctness or a labeled non-decision diagnostic; it emits no latency distribution."
+      ],
+      "decision_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+        "sha256": "47c5eded075f19679b35d4a47ef4a926cebb8078714ad59c4fcce0b3a7b33a18"
+      },
+      "execution_budget": {
+        "configurations": 4,
+        "max_wall_clock_minutes": 20,
+        "process_launches": 6,
+        "samples_per_configuration": 15
+      },
+      "execution_receipt": {
+        "path": "experiments/req-s3-tile-causal-production-ab/execution_receipt.json",
+        "sha256": "14e337173a919c223daede3e8871d970fc5a6d35630cfdb059cc941df156bcca",
+        "status": "FAIL"
+      },
+      "expected_sass": [
+        "C1 S3 has fewer registered QK and score-times-V HMMA sites/dynamic tile invocations than C0",
+        "S01/S2/post cubin identities unchanged",
+        "zero stack/spill and resource caps preserved"
+      ],
+      "experiment_class": "SCREENING",
+      "implementation_owner": {
+        "actor_id": "experiment-agent-linear-v2",
+        "role": "EXPERIMENT_AGENT"
+      },
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/req-s3-tile-causal-production-ab/experiment.json",
+        "sha256": "53c50a86be6bd535784c004225152a5b97ad6bf8b2c813e1df682f427b05bf36",
+        "status": "MATERIALIZED"
+      },
+      "measurability_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/measurability_contract.json",
+        "sha256": "889ede83fa9359533d178921d46e73c5ab2237ae7022b63b4316662ab19ed583"
+      },
+      "measurement_contract": {
+        "decision_precedence": [
+          "hard gate failure -> REJECT",
+          "L > +0.25 us -> REJECT",
+          "half-width <=0.10 us and U < +0.25 us -> ADMIT_TO_NEW_QUALIFICATION_CONTRACT",
+          "otherwise -> INCONCLUSIVE"
+        ],
+        "direct_transfer_gate": false,
+        "estimand": "q_screen=0.5*(E[d_404]+E[d_768])",
+        "estimator": "q_hat=0.5*(mean(d_404)+mean(d_768))",
+        "precision": {
+          "absolute": 0.1,
+          "unit": "us"
+        },
+        "primary": "Only measure[0] contributes samples: same explicit stream; CUDA events bracket 64 warmed exact four-kernel graph replays per randomized interleaved AB/BA block. CUPTI and uncaptured-direct are preflight/diagnostic only and never enter the screening distribution.",
+        "primary_ci": "For each s, v_s is the unbiased sample variance of 15 paired d_s,i. SE(q_hat)=0.5*sqrt(v_404/15+v_768/15); nu=(v_404/15+v_768/15)^2/((v_404/15)^2/14+(v_768/15)^2/14); CI95=q_hat +/- t_(0.975,nu)*SE(q_hat).",
+        "qualification_cases": [],
+        "screening_boundary_us": 0.25,
+        "screening_cases": [
+          "s404",
+          "s768"
+        ],
+        "screening_outcomes": [
+          "REJECT",
+          "ADMIT_TO_NEW_QUALIFICATION_CONTRACT",
+          "INCONCLUSIVE"
+        ]
+      },
+      "model_field": "tradeoff_frontier screening admission for C1 versus C0",
+      "parameter_matrix": [
+        {
+          "candidate_id": "C0",
+          "paired_blocks": 15,
+          "workload_case": "s404"
+        },
+        {
+          "candidate_id": "C1",
+          "paired_blocks": 15,
+          "workload_case": "s404"
+        },
+        {
+          "candidate_id": "C0",
+          "paired_blocks": 15,
+          "workload_case": "s768"
+        },
+        {
+          "candidate_id": "C1",
+          "paired_blocks": 15,
+          "workload_case": "s768"
+        }
+      ],
+      "priority": 0,
+      "promotion_disposition": {
+        "reason": "This is an application-specific production candidate A/B, not a generic atomic probe.",
+        "status": "NOT_APPLICABLE"
+      },
+      "rejected_at": "2026-08-27T07:05:46.898310+00:00",
+      "rejection_reason": "C1_COMPILE_LAYOUT_HARD_GATE_FAIL_REVISION_BUDGET_EXHAUSTED",
+      "request_id": "req-s3-tile-causal-production-ab",
+      "resource_ids": [
+        "conversion_pipe",
+        "cta_allocation",
+        "instruction_front_end",
+        "integer_address_pipe",
+        "l1_shared_boundary",
+        "load_store_request",
+        "predicate_compute",
+        "predicate_storage",
+        "register_storage",
+        "scoreboard_wait",
+        "shared_bank_service",
+        "shared_memory",
+        "simt_compute",
+        "synchronization",
+        "tensor_compute",
+        "tensor_issue",
+        "warp_collective",
+        "warp_issue"
+      ],
+      "result_binding": {
+        "baseline_candidate_id": "C0",
+        "candidate_id": "C1",
+        "decision": "REJECT",
+        "evidence": [
+          {
+            "path": "experiments/req-s3-tile-causal-production-ab/execution_receipt.json",
+            "sha256": "14e337173a919c223daede3e8871d970fc5a6d35630cfdb059cc941df156bcca"
+          },
+          {
+            "path": "experiments/req-s3-tile-causal-production-ab/execution_logs/clean_build-0.stderr.txt",
+            "sha256": "bf19afd98d49dbb167a1ff3935e7be6e3cb6a1621ceda68405b3cc011147f887"
+          }
+        ],
+        "performance_samples_emitted": 0,
+        "production_update": false,
+        "promotion": "NOT_APPLICABLE",
+        "reason": "C1_COMPILE_LAYOUT_HARD_GATE_FAIL_REVISION_BUDGET_EXHAUSTED",
+        "status": "REJECTED_HARD_GATE"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "decision_boundary": {
+            "unit": "us",
+            "value": 0.25
+          },
+          "decision_contract_identity": {
+            "path": "models/decision_contract.json",
+            "sha256": "47c5eded075f19679b35d4a47ef4a926cebb8078714ad59c4fcce0b3a7b33a18"
+          },
+          "maximum_decision_value": {
+            "unit": "us",
+            "value": 3.6795
+          },
+          "method": "top-two candidate ordering sensitivity from the frozen decision contract",
+          "quantity_id": "screening_two_path_mean_delta_c1_minus_c0",
+          "top_two_candidate_ids": [
+            "C1",
+            "C0"
+          ]
+        },
+        "candidate_specific_decision_value_us": 3.6795,
+        "decision_flip_probability": 0.5,
+        "expected_uncertainty_reduction": 1.0,
+        "experiment_cost": "MEDIUM",
+        "experiment_cost_weight": 2.0,
+        "ranking_score": 0.919875
+      },
+      "status": "REJECTED",
+      "supervisor_approval": {
+        "path": "experiments/req-s3-tile-causal-production-ab/supervisor_approval.json",
+        "sha256": "e1534e99f95504fe78ad8397601d1d239fb52756a09242bbb23481025c675952",
+        "status": "CONSUMED_BY_DISPATCH"
+      },
+      "tested_candidate_ids": [
+        "C1",
+        "C0"
+      ],
+      "workload_cases": [
+        "s404",
+        "s768"
+      ]
+    }
+  ],
+  "schema_version": "experiment-request-queue-v2",
+  "status": "CLOSED"
+}

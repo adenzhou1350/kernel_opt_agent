@@ -1,0 +1,105 @@
+{
+  "schema_version": "executable-experiment-v1",
+  "request_id": "req-s3-tile-causal-production-ab",
+  "status": "MATERIALIZED",
+  "question": "Does removing only tensor-core-feasible strict upper/tail S3 tile work avoid a material representative-path regression?",
+  "experiment_class": "SCREENING",
+  "tested_candidate_ids": ["C1", "C0"],
+  "prepared_by": {
+    "role": "EXPERIMENT_AGENT",
+    "actor_id": "experiment-agent-linear-v2"
+  },
+  "decision_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+    "sha256": "47c5eded075f19679b35d4a47ef4a926cebb8078714ad59c4fcce0b3a7b33a18"
+  },
+  "measurability_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/measurability_contract.json",
+    "sha256": "889ede83fa9359533d178921d46e73c5ab2237ae7022b63b4316662ab19ed583"
+  },
+  "source": {
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": "req-s3-tile-causal-production-ab-v1",
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab",
+    "identities": [
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/CANDIDATE_CONTRACT.md", "sha256": "bc4a44f55778dc32c6477f5feb3760de18536c8833a922bdc6f55a9a7f33c354"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/__init__.py", "sha256": "29e2aed762a1b2568f03893d3383587d1f104a8de4d030f0a9a95f5c704ac732"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_pipeline_sm120.py", "sha256": "e54bec4685e98c937440846b007b2c2facded50ca6d51b935e9b286f7ba09ffe"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_raw_sm120.py", "sha256": "aed85d2b2cd6216d8996700124a7074aae6dd91d3e7330a7e723912c6ddead48"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_short_raw_sm120.py", "sha256": "089272013fc3e1f009d371b639ac50e72805b6a47136ccb5879fff3330f716f6"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_long_raw_sm120.py", "sha256": "34fe1ce287ebf66f19e0005c65cb9f9f93314a60be859399c0c50b00e4949685"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/experiment_common.py", "sha256": "92f6a4931da29f649ab33e36b219ea62e0615fa23ba73123237b092d8013f7f3"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/clean_build.py", "sha256": "2c7c3d9b460fa926a7b57ff1a6f24174aa8d926fa34c2b054001ece268f7401c"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/static_audit.py", "sha256": "1dc1f9ebd4d099fbebb82037eae5e034fcffec487c4bf4677d34f49667fa2726"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/correctness.py", "sha256": "541797eac767c48e279df8f87e6e2fec2a3e2aa923afc8f35b51d5e0bffb01af"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/warmup.py", "sha256": "5356261469f959f674803b434654d78cec28c6156e2e24683b02c7d8f6ecfb53"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/measure.py", "sha256": "3d6e48f2abcae5294dd7f3f2db5661aa8c4d74c6efae467e0ce1b79755fd8789"},
+      {"path": "microbench_candidates/req-s3-tile-causal-production-ab/harness/analyze.py", "sha256": "93868a776a21fb3d2cc1d7175a2c74fdba1e5e044aa4b27255f1500788a9b145"}
+    ]
+  },
+  "commands": {
+    "clean_build": [["/usr/bin/env", "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer", "/workspace/dance/qwen35/.venv-cu13/bin/python", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/clean_build.py", "--run", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"]],
+    "static_audit": [["/usr/bin/env", "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer", "/workspace/dance/qwen35/.venv-cu13/bin/python", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/static_audit.py", "--run", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"]],
+    "correctness": [["/usr/bin/env", "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer", "/workspace/dance/qwen35/.venv-cu13/bin/python", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/correctness.py", "--run", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"]],
+    "warmup": [["/usr/bin/env", "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer", "/workspace/dance/qwen35/.venv-cu13/bin/python", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/warmup.py", "--run", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"]],
+    "measure": [["/usr/bin/env", "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer", "/workspace/dance/qwen35/.venv-cu13/bin/python", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/measure.py", "--run", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"]],
+    "analyze": [["/usr/bin/env", "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer", "/workspace/dance/qwen35/.venv-cu13/bin/python", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/analyze.py", "--run", "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"]]
+  },
+  "parameter_matrix": [
+    {"candidate_id": "C0", "workload_case": "s404", "paired_blocks": 15},
+    {"candidate_id": "C1", "workload_case": "s404", "paired_blocks": 15},
+    {"candidate_id": "C0", "workload_case": "s768", "paired_blocks": 15},
+    {"candidate_id": "C1", "workload_case": "s768", "paired_blocks": 15}
+  ],
+  "controls": [
+    "Hash-bind source, argv, inputs and cubins; distinct C0/C1 ABI/cache keys are a mandatory negative identity control.",
+    "The live caller-owned output and all stage-boundary tensors form the positive live-sink control.",
+    "P0 zero-work, clock, load, timer, cold/warm, independent-process and graph/direct controls must remain PASS.",
+    "Require PYTHONPATH prefix /workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer and reject stale module origins.",
+    "Bitwise C0/C1, direct-repeat and graph/direct checks cover S404/S768 random and extreme-finite inputs including the 20-token tail.",
+    "Archive final cubin/SASS/resources; prove strict-upper QK and score-times-V removal, unchanged S01/S2/post, zero stack/local spill, and resource caps.",
+    "Only measure[0] emits 15 paired graph blocks per shape in balanced seeded AB/BA order; direct emits no latency distribution."
+  ],
+  "measurement_contract": {
+    "primary": "Only measure[0] contributes samples: CUDA events bracket 64 warmed four-kernel graph replays per randomized-order candidate observation on the same explicit stream.",
+    "estimand": "q_hat=0.5*(mean paired d404 + mean paired d768), where d_s,i=C1-C0 within block",
+    "ci": "Welch-Satterthwaite Studentized analytic 95% CI using unbiased variances of the 15 paired deltas at each shape",
+    "precision": {"absolute": 0.10, "unit": "us"},
+    "screening_boundary_us": 0.25,
+    "screening_cases": ["s404", "s768"],
+    "qualification_cases": [],
+    "direct_transfer_gate": false,
+    "screening_outcomes": ["REJECT", "ADMIT_TO_NEW_QUALIFICATION_CONTRACT", "INCONCLUSIVE"]
+  },
+  "execution_budget": {
+    "configurations": 4,
+    "samples_per_configuration": 15,
+    "process_launches": 6,
+    "max_wall_clock_minutes": 20
+  },
+  "expected_sass": [
+    "C1 S3 removes strict-upper 16x16 QK and score-times-V MMA work in both short and long dispatch families.",
+    "S01/S2/post opcode streams remain identical between C0 and C1.",
+    "S3 stays within short <=126 and long <=128 registers, registered shared-memory caps, and zero stack/local spill.",
+    "S404 tail schedules exactly (0,0),(1,0),(1,1); full chunks schedule the ten lower-triangular tile pairs."
+  ],
+  "model_update_contract": {
+    "model_field": "tradeoff_frontier screening admission for C1 versus C0",
+    "summary_fields": ["summary.per_shape", "summary.screening_quantity", "summary.outcome"],
+    "decision_changed": "SCREENING may reject C1, remain inconclusive, or admit only a newly issued supervised QUALIFICATION contract; it cannot accept or update production."
+  },
+  "artifacts": {
+    "raw_samples": "experiments/req-s3-tile-causal-production-ab/raw/samples.json",
+    "result": "experiments/req-s3-tile-causal-production-ab/result.json",
+    "static_audit": "experiments/req-s3-tile-causal-production-ab/static/instruction_audit.json",
+    "reproduction_log": "experiments/req-s3-tile-causal-production-ab/reproduction.json"
+  },
+  "evidence": [
+    {"path": "experiments/req-s3-tile-causal-production-ab/catalog_query_receipt.json", "sha256": "cd98edceff99e8f8f06b0d546edd2245cc6f6561e7eae9da5684a2bf6d143e28"}
+  ],
+  "implementation_admission": {
+    "status": "UNCOMPILED_PENDING_SUPERVISOR_DISPATCH",
+    "hard_gate": "C1 compile-time output.layout == output_tiles_layout must prove a zero-copy four-tile accumulator view in both S3 source families.",
+    "forbidden_fallbacks": ["fragment scan/copy", "shared-memory roundtrip", "QK-only substitution", "state-GEMM retile", "fusion"]
+  }
+}

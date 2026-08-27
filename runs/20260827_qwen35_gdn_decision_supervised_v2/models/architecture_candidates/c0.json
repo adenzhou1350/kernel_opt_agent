@@ -1,0 +1,13 @@
+{
+  "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+  "candidate_id": "C0",
+  "name": "current-four-kernel-production",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_raw",
+    "gated_rms_post"
+  ],
+  "source_contract": "frozen production source identities in models/baseline.json",
+  "status": "MEASURED_BASELINE"
+}

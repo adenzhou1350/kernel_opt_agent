@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "global_schedule_state.schema.json",
+  "title": "Exclusive global scheduling and resource-modeling authority",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "status",
+    "owner",
+    "supervisor",
+    "material_resources",
+    "stage_assignments",
+    "owned_artifacts",
+    "decision_policy",
+    "human_report_gate",
+    "revision_history"
+  ],
+  "properties": {
+    "schema_version": {"const": "global-schedule-state-v2"},
+    "status": {
+      "enum": [
+        "DRAFT",
+        "PLANNED",
+        "MODEL_READY",
+        "EXPERIMENT_ACTIVE",
+        "CANDIDATE_SELECTED",
+        "VALIDATED",
+        "BLOCKED"
+      ]
+    },
+    "owner": {
+      "type": "object",
+      "required": ["role", "owner_id", "exclusive_authority"],
+      "properties": {
+        "role": {"const": "GLOBAL_SCHEDULER"},
+        "owner_id": {"type": "string", "minLength": 1},
+        "exclusive_authority": {
+          "type": "array",
+          "contains": {"const": "ACCEPT_GLOBAL_CANDIDATE"}
+        }
+      }
+    },
+    "supervisor": {
+      "type": "object",
+      "required": ["role", "owner_id", "exclusive_authority", "must_be_distinct_from"],
+      "properties": {
+        "role": {"const": "GLOBAL_SUPERVISOR"},
+        "owner_id": {"type": "string", "minLength": 1},
+        "exclusive_authority": {
+          "type": "array",
+          "contains": {"const": "APPROVE_EXPERIMENT_DISPATCH"}
+        },
+        "must_be_distinct_from": {"type": "array", "minItems": 3, "uniqueItems": true}
+      }
+    },
+    "material_resources": {"type": "array", "minItems": 1, "uniqueItems": true},
+    "stage_assignments": {"type": "array"},
+    "owned_artifacts": {"type": "object"},
+    "decision_policy": {"type": "object"},
+    "human_report_gate": {"type": "object"},
+    "revision_history": {"type": "array"}
+  }
+}

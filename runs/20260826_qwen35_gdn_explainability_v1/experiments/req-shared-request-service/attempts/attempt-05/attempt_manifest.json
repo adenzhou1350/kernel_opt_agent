@@ -1,0 +1,110 @@
+{
+  "archived_at": "2026-08-26T16:40:13.680736+00:00",
+  "attempt": 5,
+  "files": [
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/build.json",
+      "sha256": "d1043ae0003b0444cd771164d04fff2ff645d7f23886bb68a573ade266926398"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/catalog_query_receipt.json",
+      "sha256": "abe7a1170ecc37c987c1707d7e70b3ce41190d8f52bd7d565c4b1aecff4a5600"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/correctness.json",
+      "sha256": "1de53626d5fc1080f6aa57c5453d62553fd18c99cd4406a64d549b6cf48b4083"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/analyze-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/analyze-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/correctness-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/correctness-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/measure-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/measure-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/static_audit-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/static_audit-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/warmup-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_logs/warmup-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/execution_receipt.json",
+      "sha256": "c35d6dd2f715463e3728ce74334358974fac228d557a33abfb6eae7c3c636275"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/experiment.json",
+      "sha256": "3ec17de759fc988ebd6159d3d8c41e1eb3d80ca0ce827e9fcbd5543208b49e7a"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/raw/samples.json",
+      "sha256": "2cccc9578ff2c85d14ad1f31ae4d21d22aad5b25868cb3da25e293817b0b6e63"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/reproduction.json",
+      "sha256": "7905f31d7cf9b70d3599722b05f23f883d40156db1fa6864ff27354efa1137bf"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/result.json",
+      "sha256": "67a99490bdd21ef9669b95eb0d4a7d87a0f27e24bb8fbf9eaab3a4cf7c777d48"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/static/instruction_audit.json",
+      "sha256": "f7acf4d4735fd3e3f67841454c955b5ed3837d3e12cc88726fd9ab3948519e98"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/static/resource_probe",
+      "sha256": "0bc36eea5713b2c7016ff9dca102b31f72bd96fb664e48129b80bc8e4f297c39"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/static/resource_probe.sass",
+      "sha256": "a1d71f357bd81dec29a2e4390bfada24c33a83b1e649285f59de2bb68324db42"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/validity_review.json",
+      "sha256": "ff8bdae1c3aa4701e6865a088ab75a48cbf5f1265da4677e0e869053e7204b52"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-05/warmup.json",
+      "sha256": "95eff9444ad4d06792f8d17d057f506b7d0d8d121c88b97069c4891ffdcf4df4"
+    }
+  ],
+  "reason": "attempt-05 achieved stable clocks and mostly stable nonzero points but failed the pre-registered full-spread and robust positive-zero gates; replace single-point inference with a repeats service curve",
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "REJECTED_FOR_CAUSAL_VALIDITY"
+}

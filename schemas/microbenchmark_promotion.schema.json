@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "microbenchmark_promotion.schema.json",
+  "title": "Evidence-closed reusable microbenchmark promotion",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "candidate_id", "candidate_identity", "checks",
+    "application_terms_removed", "reproduction_receipts", "registered_measurement_ids"
+  ],
+  "properties": {
+    "schema_version": {"const": "microbenchmark-promotion-v2"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "candidate_identity": {"$ref": "#/$defs/identity"},
+    "application_terms_removed": {"type": "array", "items": {"type": "string"}},
+    "reproduction_receipts": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/identity"}},
+    "registered_measurement_ids": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness", "positive_and_negative_controls", "measurement_smoke",
+        "clean_build", "cold_start_reproduction", "genericity_review",
+        "static_instruction_validation", "mechanism_validation",
+        "measurement_system_calibrated", "production_prediction_validation"
+      ],
+      "properties": {
+        "correctness": {"$ref": "#/$defs/check"},
+        "positive_and_negative_controls": {"$ref": "#/$defs/check"},
+        "measurement_smoke": {"$ref": "#/$defs/check"},
+        "clean_build": {"$ref": "#/$defs/check"},
+        "cold_start_reproduction": {"$ref": "#/$defs/check"},
+        "genericity_review": {"$ref": "#/$defs/check"},
+        "static_instruction_validation": {"$ref": "#/$defs/check"},
+        "mechanism_validation": {"$ref": "#/$defs/check"},
+        "measurement_system_calibrated": {"$ref": "#/$defs/check"},
+        "production_prediction_validation": {"$ref": "#/$defs/check"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "conclusion", "evidence"],
+      "properties": {
+        "status": {"enum": ["PENDING", "PASS", "NOT_APPLICABLE"]},
+        "conclusion": {"type": ["string", "null"]},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+      }
+    }
+  }
+}

@@ -1,0 +1,135 @@
+{
+  "allowed_model_updates": [
+    "PASS only: admissibility_status=LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+    "PASS only: survivor set remains [N0,N1,N2]",
+    "PASS only: trigger fresh implementation/performance-bound rebuild",
+    "INVALID: canonical status and survivor set remain unchanged and request blocks"
+  ],
+  "analysis_owner": {
+    "analyst_id": "microarchitecture-analyst-linear-v3",
+    "role": "MICROARCHITECTURE_ANALYST"
+  },
+  "candidate_binding": {
+    "artifact_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/architecture_candidates/n2.json",
+      "sha256": "e8793b74fbd7f3368887607e88466b4b238e92acd701a34750999eadcadaf77c"
+    },
+    "candidate_id": "N2"
+  },
+  "device_budget": {
+    "cuda_kernel_launches": 0,
+    "gpu_performance_samples": 0
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_02/review_receipt.json",
+      "sha256": "b23f35bfcf06b32ea3944afba7fc6bed3f36f8b69c803caea6e3196db9292295"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/production_constructor_bindings.json",
+      "sha256": "f3faf7b96e372111ca51dfb1da045021afc9cef1e8f42e2ec77c28a5edfbeb48"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/admissibility_status_initial.json",
+      "sha256": "84e13a2cd480a50f474e8d41fac3b932627db0c2304195b5899b99742107c4c1"
+    }
+  ],
+  "explicit_non_claims": [
+    "no latency value",
+    "no speedup value",
+    "no performance Top2 ordering",
+    "no numerical correctness conclusion",
+    "no K-loop accumulation-order proof",
+    "no physical-register continuity",
+    "no production SASS/resource or actual transport conclusion",
+    "no production candidate acceptance or candidate rejection"
+  ],
+  "forbidden_model_updates": [
+    "candidate rejection",
+    "latency interval",
+    "objective value",
+    "performance Top2",
+    "ranking score",
+    "numerical or K-order conclusion",
+    "production resources or transport",
+    "production source mutation",
+    "global candidate acceptance"
+  ],
+  "gates": [
+    {
+      "gate_id": "G1_EXACT_PATH_IDENTITY",
+      "requirement": "hash-bind production, proof and CUTLASS layout sources; exact O1 def-use AST signature is equal for short, long and proof with registered active-thread domains"
+    },
+    {
+      "gate_id": "G2_SAME_ITERATOR",
+      "requirement": "derive four N16 views from output.iterator via logical_divide and slice_and_offset; every view offset joins exactly one original output.layout offset"
+    },
+    {
+      "gate_id": "G3_BIJECTIVE_MAPPING",
+      "requirement": "actual O1/scoreV tv_layout_C_tiled and partition_C are checked against an independent 8192-row PTX oracle with full owner and coordinate coverage"
+    },
+    {
+      "gate_id": "G4_SCOREV_FRAGMENT_COMPATIBILITY",
+      "requirement": "short block512-active256 and long block256-active256 separately type-compile each same-backing N16 view as scoreV cute.gemm C/D"
+    },
+    {
+      "gate_id": "G5_NEGATIVE_CONTROL",
+      "requirement": "the exact prior one-warp fragment plus cute.append layout is instantiated and is unequal to the production O1 layout; its owner map exposes warp replication"
+    },
+    {
+      "gate_id": "G6_ZERO_DYNAMIC_EXECUTION",
+      "requirement": "compiled callable invocations=0, CUDA kernel launches=0, CUDA timing samples=0"
+    }
+  ],
+  "host_budget": {
+    "max_configurations": 2,
+    "max_process_launches": 6,
+    "max_revisions": 1,
+    "max_samples_per_configuration": 1,
+    "max_wall_clock_minutes": 15
+  },
+  "issued_by": {
+    "owner_id": "global-scheduler-linear-v3",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "lifecycle": "PASS_ONLY_INVALID",
+  "observations": {
+    "aggregate": "logical_and(short,long)",
+    "duplicated_samples_forbidden": true,
+    "long": {
+      "count": 1,
+      "unit": "binary_pass"
+    },
+    "short": {
+      "count": 1,
+      "unit": "binary_pass"
+    }
+  },
+  "outcomes": [
+    {
+      "condition": "all G1..G6 pass for separately compiled short and long proofs",
+      "outcome": "ADMIT_N2_LAYOUT_VIEW_PENDING_IMPLEMENTATION"
+    },
+    {
+      "condition": "any stale identity, AST/oracle mismatch, import/tool/compiler/type/assertion or lifecycle failure",
+      "outcome": "INVALID_HALT_WITHOUT_N2_DISPOSITION"
+    }
+  ],
+  "phase": "MODELING",
+  "predicate": {
+    "domain": {
+      "lower": 0,
+      "upper": 1
+    },
+    "equation": "x=1 only if G1..G6 pass for short and long; any failure is INVALID and produces no x",
+    "fail_condition": "not authorized; no VALID x=0 outcome in revision_02",
+    "pass_condition": "x == 1",
+    "quantity_id": "n2_layout_view_feasible",
+    "statistical_precision": "NOT_APPLICABLE_DETERMINISTIC",
+    "unit": "binary_pass"
+  },
+  "run_id": "20260827_qwen35_gdn_layout_replan_v3",
+  "schema_version": "candidate-admissibility-contract-v1",
+  "status": "READY_FOR_SUPERVISOR",
+  "subdecision_id": "admit-n2-zero-copy-layout-v1"
+}

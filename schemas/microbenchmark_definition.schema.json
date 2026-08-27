@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "microbenchmark_definition.schema.json",
+  "title": "Reusable microbenchmark definition",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "id",
+    "publish_path",
+    "status",
+    "vendor",
+    "family",
+    "questions",
+    "controlled_variables",
+    "source_files",
+    "driver_files",
+    "analyzer_files",
+    "measurement_semantics",
+    "correctness_controls",
+    "dce_guard",
+    "portability",
+    "known_pollution",
+    "claims_allowed",
+    "claims_forbidden",
+    "qualification",
+    "genericity"
+  ],
+  "properties": {
+    "schema_version": {"const": "microbenchmark-definition-v2"},
+    "id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*\\.v[0-9]+$"},
+    "publish_path": {"type": "string", "pattern": "^[a-z0-9_/-]+$"},
+    "status": {"enum": ["CANDIDATE", "PUBLISHED"]},
+    "questions": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "controlled_variables": {"type": "array", "minItems": 1},
+    "source_files": {"type": "array", "minItems": 1},
+    "driver_files": {"type": "array", "minItems": 1},
+    "analyzer_files": {"type": "array"},
+    "correctness_controls": {"type": "array", "minItems": 1},
+    "known_pollution": {"type": "array"},
+    "claims_allowed": {"type": "array", "minItems": 1},
+    "claims_forbidden": {"type": "array", "minItems": 1},
+    "qualification": {
+      "type": "object",
+      "required": ["highest_status", "levels", "static_validation", "mechanism_validation", "device_calibration", "production_prediction"]
+    },
+    "genericity": {"type": "object"}
+  }
+}

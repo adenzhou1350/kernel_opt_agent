@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "instruction_audit.schema.json",
+  "title": "Final-binary instruction audit",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "source_identity",
+    "toolchain_identity",
+    "binary_identity",
+    "sass_identity",
+    "disassembly_receipt_identity",
+    "resource_usage",
+    "expected_signatures",
+    "observed_sass_signatures",
+    "sass_control_flow",
+    "dynamic_instruction_counts_by_case",
+    "dependency_chains",
+    "issue_and_latency_analysis",
+    "occupancy_and_cta_waves",
+    "resource_mapping",
+    "unresolved_microarchitecture_behavior",
+    "material_mismatches",
+    "missing_evidence",
+    "verdict"
+  ],
+  "properties": {
+    "schema_version": {"const": "instruction-audit-v2"},
+    "verdict": {"enum": ["INCOMPLETE", "MATCH", "MISMATCH", "BLOCKED"]},
+    "expected_signatures": {"type": "array"},
+    "observed_sass_signatures": {"type": "array"},
+    "sass_control_flow": {"type": "array"},
+    "dynamic_instruction_counts_by_case": {"type": "array"},
+    "dependency_chains": {"type": "array"},
+    "issue_and_latency_analysis": {"type": "array"},
+    "occupancy_and_cta_waves": {"type": "array"},
+    "unresolved_microarchitecture_behavior": {"type": "array"},
+    "material_mismatches": {"type": "array"},
+    "missing_evidence": {"type": "array"}
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "cutlass_layout_implementation_identities": [
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/atom.py",
+      "sha256": "41a61c0dcc44eb1f852db9e6cf1a42d6098f66e42c7059015d1d04879d3de848"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/core.py",
+      "sha256": "035c764686c4e5a94c1f2432b55ba2e6cc572a27db4d857278ccd785a6f7f6f3"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/tensor.py",
+      "sha256": "c0707b064be449f726ffb895a6a745ffa9ea7cc814da3b97f86ce8c1597b6a27"
+    }
+  ],
+  "legacy_negative_source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/legacy_attempt2_short_source.py",
+    "sha256": "089272013fc3e1f009d371b639ac50e72805b6a47136ccb5879fff3330f716f6"
+  },
+  "production_bindings": [
+    {
+      "active_thread_domain": "tidx<256 of block512",
+      "production_path": "short",
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+        "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+      }
+    },
+    {
+      "active_thread_domain": "tidx<256 of block256",
+      "production_path": "long",
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+        "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+      }
+    }
+  ],
+  "proof_source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+    "sha256": "3827e0b9b0d12fbc847a41c7b0d025ae1f148548e32a11ff35de7609b20864b7"
+  },
+  "regex_only_binding_forbidden": true,
+  "required_equality": "layout_signature_sha256(short)==layout_signature_sha256(long)==layout_signature_sha256(proof) AND normalized legacy attempt-2 constructor AST equals proof negative-control constructor AST",
+  "required_legacy_negative_ast_fields": [
+    "o2_mma",
+    "o2_thr",
+    "tile_prototype",
+    "tile_storage",
+    "output_tiles_layout"
+  ],
+  "required_normalized_ast_fields": [
+    "D",
+    "BT",
+    "active_threads",
+    "acc_dtype",
+    "MMA op",
+    "atom shape",
+    "thread layout",
+    "permutation_mnk",
+    "get_slice(tidx)",
+    "make_fragment_C(partition_shape_C((D,BT)))"
+  ],
+  "runtime_assert_policy": "frozen AST preprocessing/compiler identities plus PTX/SASS absence of __assertfail/trap/BPT.TRAP/BRKPT",
+  "schema_version": "production-constructor-binding-v2",
+  "static_toolchain_identities": [
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/nvgpu/warp/mma.py",
+      "sha256": "afd7a67d9ecc87494929f1099d2e2da42371034ca55a8db5a7052e25c0d7c773"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_preprocessor.py",
+      "sha256": "97c9acb67af2bf2fb01d73c39556e906954ede8251a42b73315d0330d3c554c8"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py",
+      "sha256": "5b357a0084b72b6c9cc6391921e8a5d08e743652f2b60d649a88bf50957abcfc"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/_mlir/_mlir_libs/_cutlass_ir.cu13.cpython-312-x86_64-linux-gnu.so",
+      "sha256": "e20f9ddef63b8e4257fc26d87b80d15f81cb62104d84e7a6a7d079d913559a75"
+    },
+    {
+      "path": "/usr/local/cuda/bin/ptxas",
+      "sha256": "7fdd01a4cf50e30746da98989c9272a907f491e6fd7fecfda14642e4375f88fb"
+    },
+    {
+      "path": "/usr/local/cuda/bin/cuobjdump",
+      "sha256": "8690c347b8b4ce8ce0491a2fd10de9c99e02ec3600d1c7e101cf27719500a6ad"
+    }
+  ],
+  "status": "SOURCE_FULL_TOOLCHAIN_AND_PROOF_HASH_BOUND_AST_CLOSURE_PENDING_EXECUTION"
+}

@@ -1,0 +1,129 @@
+{
+  "schema_version": "hardware-evidence-manifest-v2",
+  "status": "READY",
+  "target_identity": {
+    "vendor": "TEST",
+    "device_name": "synthetic-device",
+    "device_index": 0
+  },
+  "trusted_policy_identity": {
+    "path": "hardware/adapters/test/official_source_policy.json",
+    "sha256": "702a83c4bf0b91c9c08124db4be8f32a346fb7589450f635be4d49aa53e093ac"
+  },
+  "official_source_policy": {
+    "vendor": "TEST",
+    "allowed_official_domains": ["official.synthetic.example"],
+    "policy": {
+      "test_fixture_only": true,
+      "architecture_name_is_not_evidence": true,
+      "neighboring_architecture_extrapolation_forbidden": true,
+      "undocumented_numeric_hardware_fact_forbidden": true
+    }
+  },
+  "required_document_roles": [
+    "programming_model",
+    "instruction_set",
+    "architecture_tuning",
+    "device_product_specification"
+  ],
+  "sources": [
+    {
+      "source_id": "synthetic-programming-model-v2",
+      "role": "programming_model",
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "title": "Synthetic Programming Model",
+      "version": "2",
+      "locator": {
+        "kind": "TEXT",
+        "value": "fixture headline",
+        "support_text": "Synthetic vendor official test document.",
+        "support_text_sha256": "46eccb817eb849e89e853e87c6fe1411c5d8521a605252e1d299277f6ab674d8"
+      },
+      "applicability": {"vendor": "TEST", "compute_capabilities": [], "device_models": ["synthetic-device"]},
+      "role_review": {"status": "APPROVED", "reviewer": "repository-test", "reviewed_at": "2026-08-26T00:00:00+00:00", "claim": "synthetic role applicability"},
+      "url": "https://official.synthetic.example/document",
+      "retrieval": {
+        "method": "AGENT_HTTPS_DOWNLOAD",
+        "retrieved_at": "2026-08-26T00:00:00+00:00",
+        "retriever": "synthetic test downloader",
+        "requested_url": "https://official.synthetic.example/document",
+        "final_url": "https://official.synthetic.example/document",
+        "http_status": 200,
+        "artifact_path": "synthetic_official_doc.txt",
+        "sha256": "eb690c8c95de3754dbb15e460885b274abce6bc73c9e718ac694636a6c2337eb",
+        "receipt_path": "synthetic_official_receipt.json",
+        "receipt_sha256": "dd571a768d995e94807012b9a34a97eafd39570b6343486563cb6404f61dbddd"
+      }
+    },
+    {
+      "source_id": "synthetic-isa-v2",
+      "role": "instruction_set",
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "title": "Synthetic ISA",
+      "version": "2",
+      "locator": {
+        "kind": "TEXT", "value": "fixture headline",
+        "support_text": "Synthetic vendor official test document.",
+        "support_text_sha256": "46eccb817eb849e89e853e87c6fe1411c5d8521a605252e1d299277f6ab674d8"
+      },
+      "applicability": {"vendor": "TEST", "compute_capabilities": [], "device_models": ["synthetic-device"]},
+      "role_review": {"status": "APPROVED", "reviewer": "repository-test", "reviewed_at": "2026-08-26T00:00:00+00:00", "claim": "synthetic role applicability"},
+      "url": "https://official.synthetic.example/document",
+      "retrieval": {
+        "method": "AGENT_HTTPS_DOWNLOAD", "retrieved_at": "2026-08-26T00:00:00+00:00",
+        "retriever": "synthetic test downloader", "requested_url": "https://official.synthetic.example/document",
+        "final_url": "https://official.synthetic.example/document", "http_status": 200,
+        "artifact_path": "synthetic_official_doc.txt", "sha256": "eb690c8c95de3754dbb15e460885b274abce6bc73c9e718ac694636a6c2337eb",
+        "receipt_path": "synthetic_official_receipt.json", "receipt_sha256": "dd571a768d995e94807012b9a34a97eafd39570b6343486563cb6404f61dbddd"
+      }
+    },
+    {
+      "source_id": "synthetic-tuning-v2",
+      "role": "architecture_tuning",
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "title": "Synthetic Tuning Guide",
+      "version": "2",
+      "locator": {
+        "kind": "TEXT", "value": "fixture headline",
+        "support_text": "Synthetic vendor official test document.",
+        "support_text_sha256": "46eccb817eb849e89e853e87c6fe1411c5d8521a605252e1d299277f6ab674d8"
+      },
+      "applicability": {"vendor": "TEST", "compute_capabilities": [], "device_models": ["synthetic-device"]},
+      "role_review": {"status": "APPROVED", "reviewer": "repository-test", "reviewed_at": "2026-08-26T00:00:00+00:00", "claim": "synthetic role applicability"},
+      "url": "https://official.synthetic.example/document",
+      "retrieval": {
+        "method": "AGENT_HTTPS_DOWNLOAD", "retrieved_at": "2026-08-26T00:00:00+00:00",
+        "retriever": "synthetic test downloader", "requested_url": "https://official.synthetic.example/document",
+        "final_url": "https://official.synthetic.example/document", "http_status": 200,
+        "artifact_path": "synthetic_official_doc.txt", "sha256": "eb690c8c95de3754dbb15e460885b274abce6bc73c9e718ac694636a6c2337eb",
+        "receipt_path": "synthetic_official_receipt.json", "receipt_sha256": "dd571a768d995e94807012b9a34a97eafd39570b6343486563cb6404f61dbddd"
+      }
+    },
+    {
+      "source_id": "synthetic-product-v2",
+      "role": "device_product_specification",
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "title": "Synthetic Product Specification",
+      "version": "2",
+      "locator": {
+        "kind": "TEXT", "value": "fixture headline",
+        "support_text": "Synthetic vendor official test document.",
+        "support_text_sha256": "46eccb817eb849e89e853e87c6fe1411c5d8521a605252e1d299277f6ab674d8"
+      },
+      "applicability": {"vendor": "TEST", "compute_capabilities": [], "device_models": ["synthetic-device"]},
+      "role_review": {"status": "APPROVED", "reviewer": "repository-test", "reviewed_at": "2026-08-26T00:00:00+00:00", "claim": "synthetic role applicability"},
+      "url": "https://official.synthetic.example/document",
+      "retrieval": {
+        "method": "AGENT_HTTPS_DOWNLOAD", "retrieved_at": "2026-08-26T00:00:00+00:00",
+        "retriever": "synthetic test downloader", "requested_url": "https://official.synthetic.example/document",
+        "final_url": "https://official.synthetic.example/document", "http_status": 200,
+        "artifact_path": "synthetic_official_doc.txt", "sha256": "eb690c8c95de3754dbb15e460885b274abce6bc73c9e718ac694636a6c2337eb",
+        "receipt_path": "synthetic_official_receipt.json", "receipt_sha256": "dd571a768d995e94807012b9a34a97eafd39570b6343486563cb6404f61dbddd"
+      }
+    }
+  ],
+  "facts": [],
+  "empirical_measurements": [],
+  "unknowns": [],
+  "developer_input_request": null
+}

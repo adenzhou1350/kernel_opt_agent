@@ -1,0 +1,39 @@
+{
+  "ast_report_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/production_proof_ast_binding.json",
+    "sha256": "d4d5675f304d79632f88132dfb9b8c60a472fbf83099f1e358cdccdcba79f380"
+  },
+  "binary_pass": 1,
+  "candidate_numerical_correctness": "NOT_TESTED",
+  "checks": [
+    "short/long/proof normalized O1 AST chain hashes are identical",
+    "real CuTe O1 and scoreV TV layouts compiled against the independent 8192-row PTX oracle",
+    "real partition_C coordinate tensors compiled against both TV layouts",
+    "real logical_divide/slice_and_offset offsets form one-to-one same-backing joins",
+    "four N16 views are pairwise disjoint and cover each 32-item O1 fragment",
+    "global owner/coordinate mapping covers 128x64 exactly once",
+    "exact attempt-2 one-warp append layout is an unequal negative control",
+    "short block512-active256 and long block256-active256 emitted separate static binaries"
+  ],
+  "failure_semantics": "ANY_FAILURE_IS_INVALID_WITHOUT_N2_DISPOSITION",
+  "mapping_report_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/mapping_report.json",
+    "sha256": "bc2a89b1766ac4d91335c85d6ea99eee6e9a04084818ac1f050fc9f06ab0e47a"
+  },
+  "predicate_outcome": "PASS",
+  "recomputed_oracle": {
+    "domain_unique": 8192,
+    "global_coordinates_unique": 8192,
+    "legacy_owner_replication_factor": 8,
+    "owner_item_pairs_unique": 8192,
+    "per_thread_tile_cardinality": 8,
+    "per_thread_union_cardinality": 32,
+    "rows": 8192
+  },
+  "schema_version": "n2-static-admission-correctness-v3",
+  "static_audit_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/instruction_audit.json",
+    "sha256": "30b23b4245b731e85adf657487bfbae2bb70dec816a73119e5eb320a6e08a5f9"
+  },
+  "status": "PASS"
+}

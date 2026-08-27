@@ -1,0 +1,21 @@
+{
+  "architectural_change": "none",
+  "candidate_id": "N0",
+  "name": "frozen-production-baseline",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_raw",
+    "gated_rms_post"
+  ],
+  "removed_flop_by_case": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "status": "MEASURED_BASELINE"
+}

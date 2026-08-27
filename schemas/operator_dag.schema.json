@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "operator_dag.schema.json",
+  "title": "Mathematical and scheduled operator DAG",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "nodes", "mathematical_edges", "schedule_only_edges", "resource_constraints", "critical_paths", "unproven_edges"],
+  "properties": {
+    "schema_version": {"const": "operator-dag-v1"},
+    "nodes": {"type": "array", "items": {"type": "object"}},
+    "mathematical_edges": {"type": "array", "items": {"type": "object"}},
+    "schedule_only_edges": {"type": "array", "items": {"type": "object"}},
+    "resource_constraints": {"type": "array"},
+    "critical_paths": {"type": "array"},
+    "unproven_edges": {"type": "array"}
+  }
+}

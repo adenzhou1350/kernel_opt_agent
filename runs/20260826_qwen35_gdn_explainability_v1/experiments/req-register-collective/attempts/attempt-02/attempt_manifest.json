@@ -1,0 +1,94 @@
+{
+  "archived_at": "2026-08-26T17:23:47.922102+00:00",
+  "attempt": 2,
+  "files": [
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/build.json",
+      "sha256": "6569afdc43736a40af12279be03cae9702fda18563858f7416b4e299161fbd7c"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/catalog_query_receipt.json",
+      "sha256": "02fd0b8e20be3413cb13cb7d59ea15dfea0e451944a36426472116a5c581401b"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/correctness.json",
+      "sha256": "8c91f86c39d8d1cb9e70d706e0bbf15bf20dfcbe332200a865b05d9acff6b471"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/correctness-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/correctness-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/measure-0.stderr.txt",
+      "sha256": "13b5c017237376b0b32bc4d269050847d01cc262192f11f300653656d5bf3ae8"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/measure-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/static_audit-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/static_audit-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/warmup-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_logs/warmup-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/execution_receipt.json",
+      "sha256": "d35446f91c8cdd11595ace161bd2a9f0d54c2ee00f8838f36ec0b0cc8284a629"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/experiment.json",
+      "sha256": "dea3c8e466dcb816f80003d16fa832e2792b332b7bccb8c89c10b7bce8c4818d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/reproduction.json",
+      "sha256": "8339c700d45bb92d66e5e9c5864883a161316ae72a4897548c4a85aa6bcb6cca"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/static/instruction_audit.json",
+      "sha256": "042f42e958fa1931aa1a9b7bd3223e7931468ed85b42282676f5fc4988d9300a"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/static/resource_probe",
+      "sha256": "6f08b15d96920d5312f9fd323b938c0c75020cb884dd444feaf73e61bc818e5d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/static/resource_probe.sass",
+      "sha256": "0b5b40f365a62bde0a7d7a9d8ebdf9210a6b7c853450c7e8a2f982409ff20c9d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/validity_review.json",
+      "sha256": "6b8cb7b7e0b3065f14f9d0da0d6d40755678a4d86a624d7316fc6ab19f9c5514"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-02/warmup.json",
+      "sha256": "d89421845eb62af741eb2f2019c10720347c1533219cc358660e38f8ffe3ca93"
+    }
+  ],
+  "reason": "The register-allocation recurrence overflowed at repeats=128 and correctly triggered the live-sink gate before a complete ABBA matrix existed.",
+  "request_id": "req-register-collective",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "TECHNICAL_FAILURE_REVISED"
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "semantic_model_update_receipt.schema.json",
+  "title": "Verified global-model semantic update receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "request_id", "applied_at", "plan_identity",
+    "result_identity", "before_model_identities", "after_model_identities", "updates"
+  ],
+  "properties": {
+    "schema_version": {"const": "semantic-model-update-receipt-v1"},
+    "status": {"const": "APPLIED"},
+    "request_id": {"type": "string", "minLength": 1},
+    "applied_at": {"type": "string", "format": "date-time"},
+    "plan_identity": {"$ref": "#/$defs/identity"},
+    "result_identity": {"$ref": "#/$defs/identity"},
+    "before_model_identities": {"$ref": "#/$defs/model_identities"},
+    "after_model_identities": {"$ref": "#/$defs/model_identities"},
+    "updates": {"type": "array", "minItems": 3, "items": {"type": "object"}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "model_identities": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource_balance", "schedule_model", "tradeoff_frontier"],
+      "properties": {
+        "resource_balance": {"$ref": "#/$defs/identity"},
+        "schedule_model": {"$ref": "#/$defs/identity"},
+        "tradeoff_frontier": {"$ref": "#/$defs/identity"}
+      }
+    }
+  }
+}

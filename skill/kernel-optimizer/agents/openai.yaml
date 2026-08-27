@@ -1,0 +1,6 @@
+interface:
+  display_name: "Kernel Optimizer"
+  short_description: "Evidence-driven GPU kernel optimization workflow"
+  default_prompt: "Use $kernel-optimizer to optimize this operator for my target workload and hardware."
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,11 @@
+{
+  "artifact_path": "synthetic_official_doc.txt",
+  "artifact_sha256": "eb690c8c95de3754dbb15e460885b274abce6bc73c9e718ac694636a6c2337eb",
+  "content_type": "text/plain",
+  "final_url": "https://official.synthetic.example/document",
+  "http_status": 200,
+  "requested_url": "https://official.synthetic.example/document",
+  "retrieved_at": "2026-08-26T00:00:00+00:00",
+  "retriever": "synthetic test downloader",
+  "schema_version": "official-document-retrieval-v1"
+}

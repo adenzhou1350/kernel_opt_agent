@@ -1,0 +1,1222 @@
+{
+  "checks": [
+    {
+      "check": "technical_execution_receipt",
+      "status": "PASS"
+    },
+    {
+      "check": "exact_parameter_coverage",
+      "expected_groups": 82,
+      "observed_groups": 82,
+      "status": "PASS"
+    },
+    {
+      "check": "four_independent_ABBA_replicas",
+      "status": "PASS"
+    },
+    {
+      "check": "P0_bound_active_clock_cv",
+      "status": "PASS",
+      "threshold": 0.05,
+      "value": 0.02990034351318063
+    },
+    {
+      "check": "no_external_compute_process",
+      "observed": [],
+      "status": "PASS"
+    },
+    {
+      "check": "per_record_idle_gate",
+      "failures": [],
+      "status": "PASS"
+    },
+    {
+      "check": "function_scoped_final_SASS",
+      "status": "PASS"
+    },
+    {
+      "check": "deterministic_live_sink",
+      "status": "PASS"
+    },
+    {
+      "check": "nonzero_independent_process_spread",
+      "maximum": 0.06408240731457415,
+      "status": "PASS",
+      "threshold": 0.1
+    },
+    {
+      "check": "robust_positive_zero",
+      "min_positive_256_minus_max_zero_us": {
+        "post": 24.907374899999997,
+        "s01": 9.687999300000001,
+        "s2": 8.93187449,
+        "s3": 9.616374450000002
+      },
+      "status": "PASS",
+      "threshold_us": 0.5
+    },
+    {
+      "check": "adverse_shared_stride_direction",
+      "ratios": {
+        "post": {
+          "1": 1.0,
+          "16": 1.9546605862175257,
+          "2": 1.0043538500438898,
+          "32": 1.9502543127448373,
+          "4": 1.0110656807943414,
+          "8": 1.294877307662809
+        },
+        "s01": {
+          "1": 1.0,
+          "16": 1.1763824356464394,
+          "2": 1.0187283639136657,
+          "32": 1.1790815172833495,
+          "4": 1.0792629845741046,
+          "8": 1.139432330051638
+        },
+        "s2": {
+          "1": 1.0,
+          "16": 1.0737078448623112,
+          "2": 1.0265561523139408,
+          "32": 1.069618439902465,
+          "4": 1.0563589874243091,
+          "8": 1.071291351545233
+        },
+        "s3": {
+          "1": 1.0,
+          "16": 1.8000176849286156,
+          "2": 1.0148833447311774,
+          "32": 1.7938264962617945,
+          "4": 1.050697962857877,
+          "8": 1.0997323698965251
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "check": "adverse_constant_divergence_direction",
+      "divergent_over_broadcast_slope": 8.035730940036075,
+      "status": "PASS"
+    }
+  ],
+  "claims_allowed": [
+    "measured run-local latency slope versus repeated shared access for the exact probe and launch geometries",
+    "direction and magnitude of probe sensitivity to shared stride and constant divergence",
+    "mechanism-level evidence for layout and bank-index candidate screening"
+  ],
+  "claims_forbidden": [
+    "production-kernel shared-bank conflict count or shared-pipe utilization",
+    "production-kernel latency prediction without P2 counter/coupling validation",
+    "L2 or DRAM traffic inference from these logical request slopes",
+    "service-curve extrapolation outside repeats 64 through 256"
+  ],
+  "constant_service_curves": [
+    {
+      "aggregate_median_us": [
+        7.08650017,
+        13.293000249999999,
+        20.255999600000003
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          13.3269997,
+          13.3120003,
+          13.2740002,
+          13.2080002
+        ],
+        "256": [
+          20.316,
+          20.2929993,
+          20.2189999,
+          20.2040005
+        ],
+        "64": [
+          7.15100002,
+          7.01199961,
+          7.02400017,
+          7.14900017
+        ]
+      },
+      "intercept_us": 3.6050004949999988,
+      "maximum_relative_process_spread": 0.019621740562840568,
+      "r_squared_descriptive": 0.9755612417379345,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 66.56361280133929,
+      "slope_us_per_repeat": 0.0665636128013393,
+      "variant": "constant_broadcast"
+    },
+    {
+      "aggregate_median_us": [
+        24.3109999,
+        47.13199995,
+        124.727001
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          46.368,
+          46.3499985,
+          47.8959999,
+          47.9160004
+        ],
+        "256": [
+          123.125999,
+          124.347,
+          127.220001,
+          125.107002
+        ],
+        "64": [
+          24.0109997,
+          24.0979996,
+          24.6040001,
+          24.5240002
+        ]
+      },
+      "intercept_us": -14.486500625000005,
+      "maximum_relative_process_spread": 0.03322552187912078,
+      "r_squared_descriptive": 0.9868401539907782,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 534.8872828683036,
+      "slope_us_per_repeat": 0.5348872828683036,
+      "variant": "constant_divergent"
+    }
+  ],
+  "execution_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/execution_receipt.json",
+    "sha256": "357c2ca6a3a31889e487d7398dfe51b7ef2f2632daffce942b6122bd5e192728"
+  },
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/experiment.json",
+    "sha256": "dbf455c4c442dd6677eb85ab61b1076aaefb723477ee781d99511d4c8d4754a5"
+  },
+  "fit_disclosure": "R-squared is descriptive and was not a pre-registered acceptance threshold; only measured-range slopes are reported.",
+  "p0_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/p0_receipt.json",
+    "sha256": "87498ca47c2962a93ab213890b76b83ab5ca4a2d89c691049b3a825abd9e2aa4"
+  },
+  "qualification": "MECHANISM_VALIDATED",
+  "question": "Run-local shared/constant request service slopes under four production launch geometries",
+  "raw_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/raw/samples.json",
+    "sha256": "229ee6a988c652d60df7b42be9048bf556db5e8bcd890d861af6838eebbc664d"
+  },
+  "request_id": "req-shared-request-service",
+  "schema_version": "shared-request-service-p1-v1",
+  "shared_service_curves": [
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.1619997,
+        7.18499994,
+        13.2510004
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.19199991,
+          7.17799997,
+          7.19500017,
+          7.15100002
+        ],
+        "256": [
+          13.2510004,
+          13.2510004,
+          13.2339993,
+          13.2550001
+        ],
+        "64": [
+          4.10800028,
+          4.16299963,
+          4.32700014,
+          4.16099977
+        ]
+      },
+      "intercept_us": 1.1289994699999983,
+      "maximum_relative_process_spread": 0.05227038900940815,
+      "r_squared_descriptive": 0.9999993331966979,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 47.34598578125,
+      "slope_us_per_repeat": 0.04734598578125,
+      "stage_geometry": "s01",
+      "stride": 1
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.174000025,
+        7.204999924999999,
+        13.4234996
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.19399977,
+          7.25199986,
+          7.21600008,
+          7.14900017
+        ],
+        "256": [
+          13.408,
+          13.4420004,
+          13.4389992,
+          13.3610001
+        ],
+        "64": [
+          4.14100027,
+          4.204,
+          4.34699965,
+          4.14400005
+        ]
+      },
+      "intercept_us": 1.0647501875000005,
+      "maximum_relative_process_spread": 0.04894259452769523,
+      "r_squared_descriptive": 0.999960660121256,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 48.23269863281249,
+      "slope_us_per_repeat": 0.048232698632812494,
+      "stage_geometry": "s01",
+      "stride": 2
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.3180000750000005,
+        7.5809998499999995,
+        14.1274996
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.55999994,
+          7.61199999,
+          7.5710001,
+          7.5909996
+        ],
+        "256": [
+          14.1700001,
+          14.0690002,
+          14.1399994,
+          14.1149998
+        ],
+        "64": [
+          4.32999992,
+          4.36199999,
+          4.30600023,
+          4.26100016
+        ]
+      },
+      "intercept_us": 1.044750200000001,
+      "maximum_relative_process_spread": 0.023408037138744384,
+      "r_squared_descriptive": 0.9999993985489617,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 51.098769921875,
+      "slope_us_per_repeat": 0.051098769921874995,
+      "stage_geometry": "s01",
+      "stride": 4
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.52699995,
+        7.935000179999999,
+        14.876000399999999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.95899963,
+          7.921,
+          7.93599987,
+          7.93400049
+        ],
+        "256": [
+          14.8480005,
+          14.9109993,
+          14.9040003,
+          14.8210001
+        ],
+        "64": [
+          4.52600002,
+          4.52799988,
+          4.48899984,
+          4.53499985
+        ]
+      },
+      "intercept_us": 1.0564998400000007,
+      "maximum_relative_process_spread": 0.0101781194918149,
+      "r_squared_descriptive": 0.9999799381269265,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 53.947546897321416,
+      "slope_us_per_repeat": 0.05394754689732142,
+      "stage_geometry": "s01",
+      "stride": 8
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.65799999,
+        8.21350002,
+        15.3499999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          8.23200035,
+          8.14900017,
+          8.25500011,
+          8.19499969
+        ],
+        "256": [
+          15.3540001,
+          15.4350004,
+          15.3209991,
+          15.3459997
+        ],
+        "64": [
+          4.66800022,
+          4.69300032,
+          4.64799976,
+          4.61299992
+        ]
+      },
+      "intercept_us": 1.0897500499999992,
+      "maximum_relative_process_spread": 0.01718406165930124,
+      "r_squared_descriptive": 0.9999992167223489,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 55.69698607142857,
+      "slope_us_per_repeat": 0.05569698607142857,
+      "stage_geometry": "s01",
+      "stride": 16
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.623999830000001,
+        8.21750021,
+        15.346499900000001
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          8.22100067,
+          8.24099922,
+          8.21399975,
+          8.19799995
+        ],
+        "256": [
+          15.3389997,
+          15.3540001,
+          15.401,
+          15.2860003
+        ],
+        "64": [
+          4.58699989,
+          4.58199978,
+          4.66099977,
+          4.68199968
+        ]
+      },
+      "intercept_us": 1.0594999850000004,
+      "maximum_relative_process_spread": 0.021607585296816795,
+      "r_squared_descriptive": 0.9999959661336552,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 55.82477675223215,
+      "slope_us_per_repeat": 0.055824776752232144,
+      "stage_geometry": "s01",
+      "stride": 32
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        3.893999935,
+        6.76300001,
+        12.5374999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          6.79099989,
+          6.75200033,
+          6.76999998,
+          6.75600004
+        ],
+        "256": [
+          12.4749994,
+          12.5249996,
+          12.6040001,
+          12.5500002
+        ],
+        "64": [
+          3.86999989,
+          3.91799998,
+          3.86800003,
+          3.92699981
+        ]
+      },
+      "intercept_us": 1.0067499899999994,
+      "maximum_relative_process_spread": 0.015144652787778233,
+      "r_squared_descriptive": 0.9999975450370192,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 45.03180775669643,
+      "slope_us_per_repeat": 0.04503180775669643,
+      "stage_geometry": "s2",
+      "stride": 1
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        3.9574999799999997,
+        6.954999924999999,
+        12.8410001
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          6.99600029,
+          6.9289999,
+          6.94899988,
+          6.96099997
+        ],
+        "256": [
+          12.8590002,
+          12.823,
+          12.8900003,
+          12.8119993
+        ],
+        "64": [
+          3.94200015,
+          4.01199961,
+          3.95900011,
+          3.95599985
+        ]
+      },
+      "intercept_us": 1.014499892499999,
+      "maximum_relative_process_spread": 0.017644328246292265,
+      "r_squared_descriptive": 0.9999792249176445,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 46.22767930245536,
+      "slope_us_per_repeat": 0.04622767930245536,
+      "stage_geometry": "s2",
+      "stride": 2
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.10749984,
+        7.13750005,
+        13.237999949999999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.16599989,
+          7.13999987,
+          7.10299969,
+          7.13500023
+        ],
+        "256": [
+          13.257,
+          13.2189999,
+          13.1730003,
+          13.2630005
+        ],
+        "64": [
+          4.11199999,
+          4.01799965,
+          4.10299969,
+          4.13500023
+        ]
+      },
+      "intercept_us": 1.0572498900000014,
+      "maximum_relative_process_spread": 0.028592517875165438,
+      "r_squared_descriptive": 0.9999972914233718,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 47.56975484374999,
+      "slope_us_per_repeat": 0.04756975484374999,
+      "stage_geometry": "s2",
+      "stride": 4
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.115999935,
+        7.18849993,
+        13.375499699999999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.24700022,
+          7.18900013,
+          7.18599987,
+          7.18799973
+        ],
+        "256": [
+          13.3889999,
+          13.3619995,
+          13.4060001,
+          13.3549995
+        ],
+        "64": [
+          4.1170001,
+          4.11499977,
+          4.13500023,
+          4.10800028
+        ]
+      },
+      "intercept_us": 1.0225000499999997,
+      "maximum_relative_process_spread": 0.00846933010841612,
+      "r_squared_descriptive": 0.9999971676685464,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 48.242186194196414,
+      "slope_us_per_repeat": 0.048242186194196415,
+      "stage_geometry": "s2",
+      "stride": 8
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.101500035,
+        7.2315001500000005,
+        13.3920002
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.18599987,
+          7.23800039,
+          7.23200035,
+          7.23099995
+        ],
+        "256": [
+          13.3920002,
+          13.3920002,
+          13.401,
+          13.3619995
+        ],
+        "64": [
+          4.08599997,
+          4.11299992,
+          4.09000015,
+          4.13999987
+        ]
+      },
+      "intercept_us": 1.0212500099999993,
+      "maximum_relative_process_spread": 0.01314745883396867,
+      "r_squared_descriptive": 0.9999841753147815,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 48.35100525669643,
+      "slope_us_per_repeat": 0.04835100525669643,
+      "stage_geometry": "s2",
+      "stride": 16
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.123999834999999,
+        7.206500054999999,
+        13.37199975
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.204,
+          7.21199989,
+          7.20900011,
+          7.18300009
+        ],
+        "256": [
+          13.3969994,
+          13.382,
+          13.3619995,
+          13.3300009
+        ],
+        "64": [
+          4.11299992,
+          4.15999985,
+          4.12099981,
+          4.12699986
+        ]
+      },
+      "intercept_us": 1.0412499874999979,
+      "maximum_relative_process_spread": 0.011379439886961253,
+      "r_squared_descriptive": 0.9999999995985296,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 48.166851958705365,
+      "slope_us_per_repeat": 0.04816685195870536,
+      "stage_geometry": "s2",
+      "stride": 32
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.354500055,
+        7.595499995,
+        14.0799999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.56900024,
+          7.65199995,
+          7.5710001,
+          7.61999989
+        ],
+        "256": [
+          14.0509996,
+          14.059,
+          14.1009998,
+          14.1059999
+        ],
+        "64": [
+          4.38100004,
+          4.32800007,
+          4.39300013,
+          4.30900002
+        ]
+      },
+      "intercept_us": 1.1122501024999973,
+      "maximum_relative_process_spread": 0.019298169834155145,
+      "r_squared_descriptive": 0.9999999908975861,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 50.65457509486608,
+      "slope_us_per_repeat": 0.05065457509486608,
+      "stage_geometry": "s3",
+      "stride": 1
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.41599989,
+        7.69400024,
+        14.2840004
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.68700027,
+          7.76999998,
+          7.70100021,
+          7.66699982
+        ],
+        "256": [
+          14.2860003,
+          14.3130007,
+          14.2820005,
+          14.2609997
+        ],
+        "64": [
+          4.65299988,
+          4.42299986,
+          4.3670001,
+          4.40899992
+        ]
+      },
+      "intercept_us": 1.1209998100000007,
+      "maximum_relative_process_spread": 0.06408240731457415,
+      "r_squared_descriptive": 0.9999983655224487,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 51.40848459821428,
+      "slope_us_per_repeat": 0.05140848459821428,
+      "stage_geometry": "s3",
+      "stride": 2
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.444499970000001,
+        7.85450053,
+        14.66400055
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.88000059,
+          7.79099989,
+          7.89299965,
+          7.82900047
+        ],
+        "256": [
+          14.6169996,
+          14.6690006,
+          14.6660004,
+          14.6620007
+        ],
+        "64": [
+          4.49100018,
+          4.48699999,
+          4.40199995,
+          4.39599991
+        ]
+      },
+      "intercept_us": 1.039749959999999,
+      "maximum_relative_process_spread": 0.02137719843376953,
+      "r_squared_descriptive": 0.9999998545272574,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 53.222658861607144,
+      "slope_us_per_repeat": 0.053222658861607146,
+      "stage_geometry": "s3",
+      "stride": 4
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        4.60749984,
+        8.194499969999999,
+        15.30750035
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          8.1960001,
+          8.19299984,
+          8.17199993,
+          8.20199966
+        ],
+        "256": [
+          15.2950001,
+          15.3280001,
+          15.2939997,
+          15.3200006
+        ],
+        "64": [
+          4.61199999,
+          4.67299986,
+          4.60299969,
+          4.59800005
+        ]
+      },
+      "intercept_us": 1.0509996499999996,
+      "maximum_relative_process_spread": 0.01622845648889262,
+      "r_squared_descriptive": 0.9999955192585941,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 55.70647591517857,
+      "slope_us_per_repeat": 0.05570647591517857,
+      "stage_geometry": "s3",
+      "stride": 8
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        6.92349982,
+        12.7619996,
+        24.43050005
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          12.7709999,
+          12.7529993,
+          12.776,
+          12.6669998
+        ],
+        "256": [
+          24.4029999,
+          24.448,
+          24.4619999,
+          24.4130001
+        ],
+        "64": [
+          6.83300018,
+          6.95799971,
+          6.94899988,
+          6.89799976
+        ]
+      },
+      "intercept_us": 1.0892495950000036,
+      "maximum_relative_process_spread": 0.01809096636886732,
+      "r_squared_descriptive": 0.9999999675315748,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 91.17913099330354,
+      "slope_us_per_repeat": 0.09117913099330355,
+      "stage_geometry": "s3",
+      "stride": 16
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        6.931499715,
+        12.761000150000001,
+        24.3805008
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          12.7410002,
+          12.7250004,
+          12.8039999,
+          12.7810001
+        ],
+        "256": [
+          24.2979984,
+          24.3730011,
+          24.4820004,
+          24.3880005
+        ],
+        "64": [
+          6.96999979,
+          6.91099977,
+          6.88700008,
+          6.95199966
+        ]
+      },
+      "intercept_us": 1.121749389999998,
+      "maximum_relative_process_spread": 0.011976870432316378,
+      "r_squared_descriptive": 0.9999992938357376,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 90.86551896205359,
+      "slope_us_per_repeat": 0.09086551896205358,
+      "stage_geometry": "s3",
+      "stride": 32
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        8.052499775000001,
+        14.83100035,
+        28.44899945
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          14.8179998,
+          14.8719997,
+          14.8380003,
+          14.8240004
+        ],
+        "256": [
+          28.4669991,
+          28.4309998,
+          28.4860001,
+          28.4309998
+        ],
+        "64": [
+          8.03800011,
+          8.06799984,
+          8.0199995,
+          8.06699944
+        ]
+      },
+      "intercept_us": 1.243500225,
+      "maximum_relative_process_spread": 0.005964071898242438,
+      "r_squared_descriptive": 0.9999987684818187,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 106.25446183035714,
+      "slope_us_per_repeat": 0.10625446183035714,
+      "stage_geometry": "post",
+      "stride": 1
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        8.100500105,
+        14.909500099999999,
+        28.58600045
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          14.9180002,
+          14.901,
+          14.9390001,
+          14.8920002
+        ],
+        "256": [
+          28.5509987,
+          28.5839996,
+          28.6009998,
+          28.5880013
+        ],
+        "64": [
+          8.09399986,
+          8.13800049,
+          8.10700035,
+          8.05000019
+        ]
+      },
+      "intercept_us": 1.2622499299999994,
+      "maximum_relative_process_spread": 0.010867923996651463,
+      "r_squared_descriptive": 0.9999988770666616,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 106.71707782366072,
+      "slope_us_per_repeat": 0.10671707782366072,
+      "stage_geometry": "post",
+      "stride": 2
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        8.1590004,
+        15.019000049999999,
+        28.782499299999998
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          15.0559998,
+          14.9949999,
+          15.033,
+          15.0050001
+        ],
+        "256": [
+          28.7909985,
+          28.7839985,
+          28.7810001,
+          28.723999
+        ],
+        "64": [
+          8.1590004,
+          8.1590004,
+          8.19499969,
+          8.10899925
+        ]
+      },
+      "intercept_us": 1.2772507750000024,
+      "maximum_relative_process_spread": 0.010545084996067676,
+      "r_squared_descriptive": 0.999999387326079,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 107.4302397879464,
+      "slope_us_per_repeat": 0.1074302397879464,
+      "stage_geometry": "post",
+      "stride": 4
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        10.06150005,
+        18.82649995,
+        36.4699993
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          18.8540001,
+          18.7989998,
+          18.8759995,
+          18.7870007
+        ],
+        "256": [
+          36.442997,
+          36.4790001,
+          36.4840012,
+          36.4609985
+        ],
+        "64": [
+          10.0310001,
+          10.0739994,
+          10.0490007,
+          10.0819998
+        ]
+      },
+      "intercept_us": 1.2397503749999998,
+      "maximum_relative_process_spread": 0.005070056665672552,
+      "r_squared_descriptive": 0.9999974570324504,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 137.58649146205357,
+      "slope_us_per_repeat": 0.13758649146205357,
+      "stage_geometry": "post",
+      "stride": 8
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        14.4330001,
+        27.734000199999997,
+        54.311500550000005
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          27.723999,
+          27.6389999,
+          27.7440014,
+          27.7700005
+        ],
+        "256": [
+          54.3269997,
+          54.3450012,
+          54.2889977,
+          54.2960014
+        ],
+        "64": [
+          14.4189997,
+          14.5,
+          14.434,
+          14.4320002
+        ]
+      },
+      "intercept_us": 1.144249924999997,
+      "maximum_relative_process_spread": 0.005607012210101222,
+      "r_squared_descriptive": 0.999999948000999,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 207.6914086495536,
+      "slope_us_per_repeat": 0.2076914086495536,
+      "stage_geometry": "post",
+      "stride": 16
+    },
+    {
+      "access": "shared",
+      "aggregate_median_us": [
+        14.494500200000001,
+        27.757500649999997,
+        54.281501750000004
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          27.7810001,
+          27.691,
+          27.7590008,
+          27.7560005
+        ],
+        "256": [
+          54.3220024,
+          54.2410011,
+          54.4319992,
+          54.2340012
+        ],
+        "64": [
+          14.5030003,
+          14.5129995,
+          14.4860001,
+          14.4370003
+        ]
+      },
+      "intercept_us": 1.2324996499999976,
+      "maximum_relative_process_spread": 0.0052468423505865084,
+      "r_squared_descriptive": 0.9999999996519822,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 207.22322243303572,
+      "slope_us_per_repeat": 0.2072232224330357,
+      "stage_geometry": "post",
+      "stride": 32
+    }
+  ],
+  "static_audit_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/instruction_audit.json",
+    "sha256": "3f4ef3643a458c79d154d12ac00be038db6fabecc35cd59cf1aa1434aaf4bceb"
+  },
+  "status": "PASS",
+  "summary": {
+    "active_clock_cv": 0.02990034351318063,
+    "constant_divergent_over_broadcast_slope": 8.035730940036075,
+    "maximum_nonzero_process_spread": 0.06408240731457415,
+    "robust_positive_zero_us": {
+      "post": 24.907374899999997,
+      "s01": 9.687999300000001,
+      "s2": 8.93187449,
+      "s3": 9.616374450000002
+    },
+    "stride32_over_stride1_slope": {
+      "post": 1.9502543127448373,
+      "s01": 1.1790815172833495,
+      "s2": 1.069618439902465,
+      "s3": 1.7938264962617945
+    }
+  }
+}

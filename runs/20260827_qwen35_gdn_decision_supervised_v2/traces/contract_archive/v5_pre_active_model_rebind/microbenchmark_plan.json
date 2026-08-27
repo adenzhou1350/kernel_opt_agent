@@ -1,0 +1,79 @@
+{
+  "coupling_tests": [],
+  "cross_layer_prediction_gates": [
+    {
+      "gate": "No atomic component sum predicts C1; only exact candidate A/B may update the frontier.",
+      "status": "ENFORCED"
+    },
+    {
+      "gate": "Graph/direct deltas must agree in sign and delta_graph-delta_direct 95% CI must lie in [-0.10,+0.10] us.",
+      "status": "PENDING"
+    }
+  ],
+  "levels": {
+    "P0": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+          "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+        }
+      ],
+      "experiments": [
+        "p0-reused"
+      ],
+      "reason": "Rebound immutable P0 evidence from the explicitly reused run; hardware/workload hashes are identical.",
+      "required": true,
+      "status": "PASS"
+    },
+    "P1": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P2": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P3": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P4": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    }
+  },
+  "qualification_order": [
+    "DRAFT",
+    "STATIC_VALIDATED",
+    "MECHANISM_VALIDATED",
+    "DEVICE_CALIBRATED",
+    "PRODUCTION_PREDICTIVE"
+  ],
+  "schema_version": "microbenchmark-plan-v1",
+  "status": "EXECUTABLE",
+  "target_questions": [
+    {
+      "method": "CANDIDATE_AB",
+      "quantity_id": "weighted_full_pipeline_candidate_delta_c1_minus_c0",
+      "question": "Does C1 beat C0 under the registered production-matched metric?"
+    },
+    {
+      "method": "paired transfer gate",
+      "quantity_id": "graph_to_direct_ranking_transfer",
+      "question": "Does the graph-batched timing ranking agree with uncaptured-direct production execution?"
+    }
+  ],
+  "unresolved_questions": []
+}

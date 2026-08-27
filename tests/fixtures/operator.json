@@ -1,0 +1,24 @@
+{
+  "schema_version": "operator-contract-v1",
+  "name": "scaled-vector-add",
+  "computation": {
+    "definition": "For every i, output[i] = alpha * x[i] + y[i].",
+    "dependencies": ["output[i] depends only on alpha, x[i] and y[i]"],
+    "legal_rewrites": ["fused multiply-add is allowed within the numerical acceptance rule"],
+    "forbidden_rewrites": ["changing output dtype"]
+  },
+  "inputs": [
+    {"name": "x", "dtype": "float32", "shape": ["N"], "layout": "contiguous"},
+    {"name": "y", "dtype": "float32", "shape": ["N"], "layout": "contiguous"},
+    {"name": "alpha", "dtype": "float32", "shape": [], "layout": "scalar"}
+  ],
+  "outputs": [
+    {"name": "output", "dtype": "float32", "shape": ["N"], "layout": "contiguous"}
+  ],
+  "numerics": {
+    "reference": "float64 host implementation rounded to float32",
+    "acceptance": "max_abs <= 1e-6 and max_rel <= 1e-6",
+    "deterministic_required": true
+  },
+  "abi": {"entrypoint": "scaled_vector_add", "mutable_arguments": ["output"]}
+}

@@ -1,0 +1,13 @@
+{
+  "artifact_path": "hardware_docs/rtx5090-product-spec.html",
+  "artifact_sha256": "737ca7353aab2fba86d66b6dc8e5c34ac8f37d1907aba53e70d068e05a37a4e6",
+  "content_type": "text/html; charset=UTF-8",
+  "etag": "\"a10de-659436119db50\"",
+  "final_url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+  "http_status": 200,
+  "last_modified": "Mon, 17 Aug 2026 19:43:07 GMT",
+  "requested_url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+  "retrieved_at": "2026-08-26T14:13:37.418816+00:00",
+  "retriever": "python urllib.request",
+  "schema_version": "official-document-retrieval-v1"
+}

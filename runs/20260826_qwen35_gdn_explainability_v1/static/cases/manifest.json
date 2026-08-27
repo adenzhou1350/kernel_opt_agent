@@ -1,0 +1,189 @@
+{
+  "cases": [
+    {
+      "J": 4,
+      "P": 256,
+      "S": 256,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s256",
+      "cubin": {
+        "bytes": 228632,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/composite.cubin",
+        "sha256": "e802eeed0962d4646a5d4b903af500c1ba9142d0097e4af0fff50447dd100523"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 327767,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/composite.ptx",
+        "sha256": "0e1c1d8bcdd85960ace56730b9bc5d0756cabf73c811057f9aea32bb2c442fc0"
+      },
+      "sass": {
+        "bytes": 571000,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/final.sass",
+        "sha256": "a04ccd9f19bbcd6de57b43495f2f234f3c51f9a6321e7d3eac55bd5f89e01437"
+      }
+    },
+    {
+      "J": 6,
+      "P": 384,
+      "S": 384,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s384",
+      "cubin": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/composite.cubin",
+        "sha256": "9a716fcb2faa9ee87044ee20bcff4e8c94c22c54300ac72a3eed3b949530ed92"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 330448,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/composite.ptx",
+        "sha256": "14487011929c3756f3e0e3b9623a0cf4895e7764c5d9b4d6f3ed7814489317c8"
+      },
+      "sass": {
+        "bytes": 574082,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/final.sass",
+        "sha256": "5ee2584d578be95d50e517d4bcbb8e645fc12dab486379b2b70392b8edfd3629"
+      }
+    },
+    {
+      "J": 7,
+      "P": 448,
+      "S": 404,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s404",
+      "cubin": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/composite.cubin",
+        "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 330448,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/composite.ptx",
+        "sha256": "373a8d35a9783c91b07e35ac323f194a5cdad4fe05b85deb2e85926a81729310"
+      },
+      "sass": {
+        "bytes": 574082,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/final.sass",
+        "sha256": "02155226345ee823b2922f9dd1a8ad4b6775e16d59d506c1415f2c86e4ba78c6"
+      }
+    },
+    {
+      "J": 8,
+      "P": 512,
+      "S": 512,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s512",
+      "cubin": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.cubin",
+        "sha256": "f8fa515b3dd11ca527f0aae38f959173e562abd13c9f51a8924efbd3fe2b7f2d"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 330469,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.ptx",
+        "sha256": "c22d66fcd07eda07c6bf43deeaddc42f6fe30430b44109ade78d550020581975"
+      },
+      "sass": {
+        "bytes": 574121,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/final.sass",
+        "sha256": "9d4f4b238fb46a0748a9386f7af5b7c420e86d7d23fee3122d09990981c63966"
+      }
+    },
+    {
+      "J": 10,
+      "P": 640,
+      "S": 640,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s640",
+      "cubin": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/composite.cubin",
+        "sha256": "f2d8d3eafb34d0dfa50540f19525a91ac717be2e3d474a17536468be7ae596f2"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 330466,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/composite.ptx",
+        "sha256": "a9161bd589584245490e0e6ca62c6b38665567cc0d1bfb9639127ceba98e0e27"
+      },
+      "sass": {
+        "bytes": 574130,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/final.sass",
+        "sha256": "b7e1245b46535dc26e4ee26fddac8a4d069d9468aa2d8d2b67afc25d96ca6b8f"
+      }
+    },
+    {
+      "J": 12,
+      "P": 768,
+      "S": 768,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s768",
+      "cubin": {
+        "bytes": 230144,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/composite.cubin",
+        "sha256": "9fed358579e40c2a2384b1626e405c18d70e29145e4422229c578a123ddd4767"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 378380,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/composite.ptx",
+        "sha256": "28bde27f7a6fe4ce229d7c4b0c453ac80897fe99efa3109d70e533550de84bb0"
+      },
+      "sass": {
+        "bytes": 634420,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/final.sass",
+        "sha256": "34adb498b363e695c5f1125d245d2bf94471f1f2dc567d751a3843afd5881a3e"
+      }
+    },
+    {
+      "J": 16,
+      "P": 1024,
+      "S": 1024,
+      "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+      "case_id": "s1024",
+      "cubin": {
+        "bytes": 229120,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/composite.cubin",
+        "sha256": "85cc24e0e53eb4145780b0de34f37d27ecfc6b813c729f3715a390f50c25dc0a"
+      },
+      "launch_smoke": "PASS",
+      "ptx": {
+        "bytes": 378053,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/composite.ptx",
+        "sha256": "7fce417f3302e8dd4a729541f4073d84c36cd280231ccf477c6641314c9e9cd9"
+      },
+      "sass": {
+        "bytes": 633470,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/final.sass",
+        "sha256": "c96ec2c426c4f5af583d9dc7efffb489ef78513735ec0a0d2d1c0e83cc79be77"
+      }
+    }
+  ],
+  "created_at": "2026-08-26T15:20:20.215591+00:00",
+  "device": {
+    "capability": [
+      12,
+      0
+    ],
+    "index": 6,
+    "name": "NVIDIA GeForce RTX 5090"
+  },
+  "schema_version": "qwen35-production-case-binary-set-v1",
+  "source_sha256": {
+    "qwen35_fla_pipeline_sm120.py": "1ba9ed3d607171e2e900c91cf9c4d3ea91d3c3542f80cad4354b91eda507888d",
+    "qwen35_fla_post_sm120.py": "54ab667c78cdbdd082c95a6159bcfee3fce8194c32439fc4b53a7c0afd7cb818",
+    "qwen35_fla_s01_sm120.py": "a17bbba422c8ee4af41c0da86b1e68f1b9db75892c4004789bc23fc2446b8df8",
+    "qwen35_fla_s2_sm120.py": "00dedb81955371f5b34eb39d5f2bd0ae8d95d7f63bf13fc4635e032f8f5d9f24",
+    "qwen35_fla_s3_long_raw_sm120.py": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f",
+    "qwen35_fla_s3_raw_sm120.py": "fb0eb2a9bf4a72c6804eaf09c7fc3c9a74ff6eaf961c15ef4b3bd0dcb43e157b",
+    "qwen35_fla_s3_short_raw_sm120.py": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+  },
+  "status": "PASS",
+  "tool": {
+    "path": "/usr/local/cuda/bin/nvdisasm",
+    "sha256": "eb75c4bb657c9d5d857a18db2120bfc0828118c6ce5c89ecd11cdc0df322d7e6"
+  }
+}

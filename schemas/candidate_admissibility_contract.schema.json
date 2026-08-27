@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "candidate_admissibility_contract.schema.json",
+  "title": "Candidate static-admissibility subdecision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "subdecision_id", "status", "issued_by", "analysis_owner",
+    "run_id", "phase", "lifecycle", "candidate_binding", "predicate", "gates",
+    "explicit_non_claims", "observations", "host_budget", "device_budget",
+    "outcomes", "allowed_model_updates", "forbidden_model_updates", "evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": "candidate-admissibility-contract-v1"},
+    "subdecision_id": {"type": "string", "minLength": 1},
+    "status": {"enum": ["DRAFT", "READY_FOR_SUPERVISOR", "APPROVED", "BLOCKED", "RESOLVED", "REPLAN_REQUIRED"]},
+    "issued_by": {
+      "type": "object", "additionalProperties": false, "required": ["role", "owner_id"],
+      "properties": {"role": {"const": "GLOBAL_SCHEDULER"}, "owner_id": {"type": "string", "minLength": 1}}
+    },
+    "analysis_owner": {
+      "type": "object", "additionalProperties": false, "required": ["role", "analyst_id"],
+      "properties": {"role": {"const": "MICROARCHITECTURE_ANALYST"}, "analyst_id": {"type": "string", "minLength": 1}}
+    },
+    "run_id": {"type": "string", "minLength": 1},
+    "phase": {"const": "MODELING"},
+    "lifecycle": {"enum": ["PASS_ONLY_INVALID", "PASS_REJECT_INVALID"]},
+    "candidate_binding": {
+      "type": "object", "additionalProperties": false, "required": ["candidate_id", "artifact_identity"],
+      "properties": {"candidate_id": {"type": "string", "minLength": 1}, "artifact_identity": {"$ref": "#/$defs/identity"}}
+    },
+    "predicate": {
+      "type": "object", "additionalProperties": false,
+      "required": ["quantity_id", "unit", "domain", "equation", "pass_condition", "fail_condition", "statistical_precision"],
+      "properties": {
+        "quantity_id": {"type": "string", "minLength": 1},
+        "unit": {"const": "binary_pass"},
+        "domain": {
+          "type": "object", "additionalProperties": false, "required": ["lower", "upper"],
+          "properties": {"lower": {"const": 0}, "upper": {"const": 1}}
+        },
+        "equation": {"type": "string", "minLength": 1},
+        "pass_condition": {"type": "string", "minLength": 1},
+        "fail_condition": {"type": "string", "minLength": 1},
+        "statistical_precision": {"const": "NOT_APPLICABLE_DETERMINISTIC"}
+      }
+    },
+    "gates": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["gate_id", "requirement"],
+        "properties": {"gate_id": {"type": "string", "minLength": 1}, "requirement": {"type": "string", "minLength": 1}}
+      }
+    },
+    "explicit_non_claims": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "observations": {
+      "type": "object", "additionalProperties": false,
+      "required": ["short", "long", "aggregate", "duplicated_samples_forbidden"],
+      "properties": {
+        "short": {"$ref": "#/$defs/observation"},
+        "long": {"$ref": "#/$defs/observation"},
+        "aggregate": {"const": "logical_and(short,long)"},
+        "duplicated_samples_forbidden": {"const": true}
+      }
+    },
+    "host_budget": {"$ref": "#/$defs/budget"},
+    "device_budget": {
+      "type": "object", "additionalProperties": false, "required": ["cuda_kernel_launches", "gpu_performance_samples"],
+      "properties": {"cuda_kernel_launches": {"const": 0}, "gpu_performance_samples": {"const": 0}}
+    },
+    "outcomes": {
+      "type": "array", "minItems": 2,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["condition", "outcome"],
+        "properties": {"condition": {"type": "string", "minLength": 1}, "outcome": {"type": "string", "minLength": 1}}
+      }
+    },
+    "allowed_model_updates": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "forbidden_model_updates": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "evidence": {"type": "array"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": true, "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "observation": {
+      "type": "object", "additionalProperties": false, "required": ["count", "unit"],
+      "properties": {"count": {"const": 1}, "unit": {"const": "binary_pass"}}
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_configurations", "max_samples_per_configuration", "max_process_launches", "max_wall_clock_minutes", "max_revisions"],
+      "properties": {
+        "max_configurations": {"type": "integer", "minimum": 1},
+        "max_samples_per_configuration": {"const": 1},
+        "max_process_launches": {"type": "integer", "minimum": 1},
+        "max_wall_clock_minutes": {"type": "number", "exclusiveMinimum": 0},
+        "max_revisions": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

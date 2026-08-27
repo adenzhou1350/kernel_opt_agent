@@ -1,0 +1,65 @@
+{
+  "controls": {
+    "clock_stability": {
+      "observed": 0.26613324081144274,
+      "status": "FAIL",
+      "threshold": 0.05
+    },
+    "cold_warm_separation": {
+      "observed": true,
+      "status": "PASS",
+      "threshold": true
+    },
+    "competing_load": {
+      "observed": 0.0,
+      "status": "PASS",
+      "threshold": 2.0
+    },
+    "graph_direct_equivalence": {
+      "observed": 0.2122734912908677,
+      "status": "FAIL",
+      "threshold": 0.15
+    },
+    "independent_process_replication": {
+      "observed": 0.22213246686918567,
+      "status": "FAIL",
+      "threshold": 0.1
+    },
+    "live_sink": {
+      "observed": "PASS",
+      "status": "PASS",
+      "threshold": "PASS"
+    },
+    "timer_bracket": {
+      "observed": 1.05600000825,
+      "status": "FAIL",
+      "threshold": 0.5
+    },
+    "zero_work": {
+      "observed": 0.02899998798999981,
+      "status": "FAIL",
+      "threshold": 0.5
+    }
+  },
+  "created_at": "2026-08-26T14:47:35.947222+00:00",
+  "environment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/environment.json",
+    "sha256": "d1b699be371213fa9f7ad74414cc8118d1f5479a6fd8af82ba40abc950eace7c"
+  },
+  "input_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_input.json",
+    "sha256": "a09ffe2c513f251eabb08a92b331033194a12db0de6aed08d61d1c3c35d5946c"
+  },
+  "live_sink_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/live_sink_correctness.json",
+    "sha256": "76deee1f11e3ace8214cb56504db96159815fe21d4aa0ac9b11c1faf5c8a5583"
+  },
+  "raw_evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_input.json",
+      "sha256": "a09ffe2c513f251eabb08a92b331033194a12db0de6aed08d61d1c3c35d5946c"
+    }
+  ],
+  "schema_version": "p0-calibration-receipt-v2",
+  "status": "FAIL"
+}

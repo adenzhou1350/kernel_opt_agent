@@ -1,0 +1,77 @@
+{
+  "coupling_tests": [
+    {
+      "coupling": "O1 and scoreV logical C/D layout mapping over one immutable backing iterator; physical register/transport coupling is deferred",
+      "request_id": "req-n2-layout-view-static-v2"
+    }
+  ],
+  "cross_layer_prediction_gates": [
+    {
+      "gate": "PASS may only admit logical layout feasibility. Transport, K order, BF16 numerics, resources, latency, performance ranking, and candidate rejection remain deferred.",
+      "status": "ENFORCED"
+    }
+  ],
+  "levels": {
+    "P0": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/p0-reused/p0_receipt.json",
+          "sha256": "0fa232d5a24497708a6fd4fa0260f2d773061186cfb58b86fe74581e1f4595fb"
+        }
+      ],
+      "experiments": [
+        "p0-reused"
+      ],
+      "reason": "Immutable P0 raw evidence was rebound and recalibrated only because operator/workload/hardware/hardware-evidence hashes are identical.",
+      "required": true,
+      "status": "PASS"
+    },
+    "P1": {
+      "evidence": [],
+      "experiments": [
+        "req-n2-layout-view-static-v2"
+      ],
+      "reason": "deterministic PASS-only logical layout/type predicate; no dynamic execution",
+      "required": true,
+      "status": "PLANNED"
+    },
+    "P2": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "no dynamic coupling claim is made by the static admission gate",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P3": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "production candidate A/B only after N2 disposition and bound ranking",
+      "required": true,
+      "status": "DEFERRED_UNTIL_FINAL_TOP2"
+    },
+    "P4": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "production validation is not part of static admission",
+      "required": true,
+      "status": "DEFERRED_UNTIL_CANDIDATE_SELECTION"
+    }
+  },
+  "qualification_order": [
+    "DRAFT",
+    "STATIC_VALIDATED",
+    "MECHANISM_VALIDATED",
+    "DEVICE_CALIBRATED",
+    "PRODUCTION_PREDICTIVE"
+  ],
+  "schema_version": "microbenchmark-plan-v1",
+  "status": "EXECUTABLE",
+  "target_questions": [
+    {
+      "method": "COMPILER_TYPE_LAYOUT_PROOF_NO_GPU",
+      "quantity_id": "n2_layout_view_feasible",
+      "question": "Do the exact short/long O1 fragments expose four bijective N16 CuTe C/D logical views over the same backing iterator and offsets?"
+    }
+  ],
+  "unresolved_questions": []
+}

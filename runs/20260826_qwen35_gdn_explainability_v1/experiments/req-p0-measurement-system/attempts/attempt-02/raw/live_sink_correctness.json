@@ -1,0 +1,27 @@
+{
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe",
+    "sha256": "86a91a63a1d157e9235e726cd982d2fdd7febbbd203b5de13f37503f14d466a4"
+  },
+  "device_identity_match": true,
+  "expected_sass_groups": {
+    "control_exit": true,
+    "live_store_or_atomic": true,
+    "positive_integer_arithmetic": true
+  },
+  "sass_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe.sass",
+    "sha256": "ee236e15a41e7197d2a5cbf4cf979797226780928b541839a0f56955ac46966e"
+  },
+  "schema_version": "p0-live-sink-evidence-v1",
+  "sink_checksums": [
+    93465777668096,
+    93465777668096,
+    93465777668096
+  ],
+  "source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe.cu",
+    "sha256": "2ee300c9f47be0b141cac69972102407ec1e61ff647c487f960a74b0a444bda8"
+  },
+  "status": "PASS"
+}

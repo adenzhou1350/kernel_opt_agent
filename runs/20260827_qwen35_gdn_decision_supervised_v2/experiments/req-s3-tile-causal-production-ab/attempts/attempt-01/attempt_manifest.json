@@ -1,0 +1,42 @@
+{
+  "archived_at": "2026-08-27T06:52:18.726562+00:00",
+  "attempt": 1,
+  "files": [
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/catalog_query_receipt.json",
+      "sha256": "cd98edceff99e8f8f06b0d546edd2245cc6f6561e7eae9da5684a2bf6d143e28"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "5b8efb8dc50f938834fa26cf0d93d329b710cf0b4cbd3f4adbbdc10eba9b1838"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/execution_receipt.json",
+      "sha256": "c8be57f46d3194771c19e4b48d6d4ad0ba2ecd4d912bf00acb1df963de0553d4"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/experiment.json",
+      "sha256": "ef5a7803340a07853f818f8d155ede26b8dc6d168e0998ebe79037ac696ab64f"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/reproduction.json",
+      "sha256": "e3d5606a9524bbaf38eb00b9d94479ce43f526024b17659baa2505d0304039b2"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/supervisor_approval.json",
+      "sha256": "f5252d9d9f1b73a817e786a954cac0c529e50b20c0ebac0c8762b1080eeaf56c"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/attempts/attempt-01/validity_review.json",
+      "sha256": "3106b70ab0dd174c3bb5e16854936dbbb45718ca03e616f33a7e7bb83300cafa"
+    }
+  ],
+  "reason": "Attempt 1 failed before candidate compilation because unchanged production stages were imported under the top-level candidate_pkg namespace; authorize only absolute production S01/S2/post imports, with candidate S3 and all decision semantics unchanged.",
+  "request_id": "req-s3-tile-causal-production-ab",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "TECHNICAL_FAILURE_REVISED"
+}

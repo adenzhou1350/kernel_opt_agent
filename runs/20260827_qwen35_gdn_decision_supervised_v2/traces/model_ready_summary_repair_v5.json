@@ -1,0 +1,38 @@
+{
+  "after": {
+    "experiment_queue": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/experiment_queue.json",
+      "sha256": "a28b39451b66f0839bc5837ef51aeca99f6280b7522a72704e5b24d0020790a8"
+    },
+    "microbenchmark_plan": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/microbenchmark_plan.json",
+      "sha256": "629a5e7712c7fe3b02eb328387ce144fc641fe6598d9f4f66e8c36196a60fd36"
+    }
+  },
+  "authorized_by": {
+    "owner_id": "global-scheduler-linear-v2",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "before": {
+    "experiment_queue": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/experiment_queue.json",
+      "sha256": "fd3e8a691f9c20c1fe386a62160203fe0aab9efcaff3a4d766a4ba92fc880f3a"
+    },
+    "microbenchmark_plan": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/microbenchmark_plan.json",
+      "sha256": "d97fcc2dbda3b40b277d5597572e3882f593cc9784a08d4fc37a1201a83f9df1"
+    }
+  },
+  "catalog_receipt": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/req-s3-tile-causal-production-ab/catalog_query_receipt.json",
+    "sha256": "cd98edceff99e8f8f06b0d546edd2245cc6f6561e7eae9da5684a2bf6d143e28"
+  },
+  "created_at": "2026-08-27T06:46:17.858266+00:00",
+  "gpu_or_dispatch_authorized": false,
+  "removed_active_gate": {
+    "gate": "Graph/direct deltas must agree in sign and delta_graph-delta_direct 95% CI must lie in [-0.10,+0.10] us.",
+    "status": "PENDING"
+  },
+  "schema_version": "model-ready-summary-repair-receipt-v1",
+  "status": "PASS"
+}

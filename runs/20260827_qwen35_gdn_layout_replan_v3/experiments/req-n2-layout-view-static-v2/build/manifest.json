@@ -1,0 +1,111 @@
+{
+  "artifacts": {
+    "long": {
+      "cubin": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_long_static.cubin",
+        "sha256": "2f91fa3ff3071c9b801c07800fb01cf44afa217a2964f135902809329f4fa99f"
+      },
+      "ptx": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_long_static.ptx",
+        "sha256": "76e1e3b94c4ad22f20a77ffb85ecf4879086c34059312ea7245be45f8d11b6d6"
+      }
+    },
+    "short": {
+      "cubin": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_short_static.cubin",
+        "sha256": "02e1ec91fa64bb4b70dc6b7f70e98ace8ddc7ba06c03cf52b22290c902649134"
+      },
+      "ptx": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_short_static.ptx",
+        "sha256": "edf4aabf2c23489a6a40ce05969290737cb01331c88e5827a205a96427ea2e78"
+      }
+    }
+  },
+  "ast_report_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/production_proof_ast_binding.json",
+    "sha256": "d4d5675f304d79632f88132dfb9b8c60a472fbf83099f1e358cdccdcba79f380"
+  },
+  "binary_pass": 1,
+  "candidate_disposition_scope": "STATIC_LAYOUT_ONLY",
+  "compile_action": "cute.compile with FakeTensor only",
+  "compiled_callable_invocations": 0,
+  "created_at": "2026-08-27T10:06:15.503619+00:00",
+  "cuda_kernel_launches": 0,
+  "cutlass_layout_sources": {
+    "atom": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/atom.py",
+      "sha256": "41a61c0dcc44eb1f852db9e6cf1a42d6098f66e42c7059015d1d04879d3de848"
+    },
+    "core": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/core.py",
+      "sha256": "035c764686c4e5a94c1f2432b55ba2e6cc572a27db4d857278ccd785a6f7f6f3"
+    },
+    "tensor": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/tensor.py",
+      "sha256": "c0707b064be449f726ffb895a6a745ffa9ea7cc814da3b97f86ce8c1597b6a27"
+    }
+  },
+  "failure_semantics": "ANY_FAILURE_IS_INVALID_WITHOUT_N2_DISPOSITION",
+  "gpu_performance_samples": 0,
+  "legacy_negative_source": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/legacy_attempt2_short_source.py",
+    "sha256": "089272013fc3e1f009d371b639ac50e72805b6a47136ccb5879fff3330f716f6"
+  },
+  "mapping_report_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/mapping_report.json",
+    "sha256": "bc2a89b1766ac4d91335c85d6ea99eee6e9a04084818ac1f050fc9f06ab0e47a"
+  },
+  "predicate_outcome": "PASS",
+  "production_sources": {
+    "long": {
+      "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+      "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+    },
+    "short": {
+      "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+      "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+    }
+  },
+  "proof_sources": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+      "sha256": "3827e0b9b0d12fbc847a41c7b0d025ae1f148548e32a11ff35de7609b20864b7"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+      "sha256": "d658ec117c2dd8132a24601e8c8816702d49f4e24e2b97ecbe9ce0773c0c8b1d"
+    }
+  ],
+  "schema_version": "n2-static-layout-build-v3",
+  "static_toolchain_sources": {
+    "ast_helpers": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py",
+      "sha256": "5b357a0084b72b6c9cc6391921e8a5d08e743652f2b60d649a88bf50957abcfc"
+    },
+    "ast_preprocessor": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_preprocessor.py",
+      "sha256": "97c9acb67af2bf2fb01d73c39556e906954ede8251a42b73315d0330d3c554c8"
+    },
+    "cuobjdump": {
+      "path": "/usr/local/cuda-13.3/bin/cuobjdump",
+      "sha256": "8690c347b8b4ce8ce0491a2fd10de9c99e02ec3600d1c7e101cf27719500a6ad"
+    },
+    "cutlass_ir": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/_mlir/_mlir_libs/_cutlass_ir.cu13.cpython-312-x86_64-linux-gnu.so",
+      "sha256": "e20f9ddef63b8e4257fc26d87b80d15f81cb62104d84e7a6a7d079d913559a75"
+    },
+    "ptxas": {
+      "path": "/usr/local/cuda-13.3/bin/ptxas",
+      "sha256": "7fdd01a4cf50e30746da98989c9272a907f491e6fd7fecfda14642e4375f88fb"
+    },
+    "warp_mma": {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/nvgpu/warp/mma.py",
+      "sha256": "afd7a67d9ecc87494929f1099d2e2da42371034ca55a8db5a7052e25c0d7c773"
+    }
+  },
+  "status": "PASS",
+  "target": {
+    "architecture": "sm_120a",
+    "device_launch_required": false
+  }
+}

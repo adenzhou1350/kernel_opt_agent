@@ -1,0 +1,99 @@
+{
+  "schema_version": "human-review-report-v1",
+  "title": "示例算子人工审核报告",
+  "workload": {"summary": "批量 1，长度 256，维度 128"},
+  "hardware": {"summary": "示例目标 GPU"},
+  "measurement": {"statistic": "中位数", "method": "GPU events"},
+  "overview": {
+    "total_observed_us": 2.0,
+    "theoretical_bound_status": "理论下界尚未建立",
+    "conclusion": "当前只完成一个生产匹配对照，资源饱和面尚未建立。"
+  },
+  "stages": [
+    {
+      "key": "stage-a",
+      "name": "阶段 A",
+      "observed_us": 2.0,
+      "main_limit": "同步与搬运的组合包络",
+      "direct_evidence": "去掉计算后实测减少 0.2 微秒",
+      "boundary": "仅适用于当前切分",
+      "evidence_status": "生产匹配",
+      "decision": "保留",
+      "capacity": [
+        {"name": "寄存器", "value": "32 个/线程"},
+        {"name": "shared memory", "value": "16 KiB/CTA"}
+      ],
+      "dag_nodes": [
+        {"name": "搬运", "work": "1024 字节请求", "evidence_status": "生产匹配"},
+        {"name": "计算", "work": "2048 次操作", "evidence_status": "条件匹配"}
+      ],
+      "schedule_lanes": [
+        {
+          "name": "搬运线程",
+          "segments": [{"label": "搬运", "start_us": 0.0, "duration_us": 1.8, "kind": "work"}]
+        },
+        {
+          "name": "计算线程",
+          "segments": [{"label": "计算", "start_us": 0.4, "duration_us": 1.4, "kind": "work"}]
+        }
+      ],
+      "experiments": [
+        {
+          "name": "去掉全部计算",
+          "question": "计算在当前关键路径贡献多少时间？",
+          "held_constant": "CTA 切分、搬运、同步与输出保持不变。",
+          "only_change": "只去掉目标计算指令。",
+          "result": "完整 2.0 微秒，对照 1.8 微秒。",
+          "meaning": "计算的关键路径贡献为 0.2 微秒。",
+          "boundary": "不代表计算器件的硬件吞吐上限。",
+          "evidence_status": "生产匹配",
+          "decision": "保留"
+        }
+      ],
+      "resource_workpoints": [
+        {
+          "name": "搬运请求工作点",
+          "resource_kind": "L2 请求服务",
+          "mandatory_work": "每 CTA 1024 请求字节",
+          "production_partition": "64 CTA，每 CTA 4 warp",
+          "first_service": "0.4 微秒",
+          "steady_service": "每次 0.2 微秒，5.12 GB/s 请求服务率",
+          "production_point": "4 个独立请求",
+          "matched_saturation_point": "尚未测量",
+          "saturation_reasons": ["尚未建立"],
+          "critical_path_contribution": "尚未测量",
+          "conclusion": "目前只能说明首次服务延迟，不能判断是否饱和。",
+          "boundary": "cache 层级只识别到 L2 请求边界。",
+          "evidence_status": "条件匹配",
+          "curve": {
+            "title": "请求数扫描",
+            "unit": "微秒",
+            "points": [
+              {"label": "零请求", "value": 0.2, "role": "control"},
+              {"label": "生产", "value": 2.0, "role": "production"}
+            ]
+          }
+        }
+      ],
+      "model_closure": {
+        "当前调度预测": "尚未建立",
+        "最佳可行预测": "尚未建立",
+        "生产实测": "2.0 微秒",
+        "预测残差": "尚未测量"
+      }
+    }
+  ],
+  "edges": [],
+  "missing_evidence": [
+    {
+      "stage_or_edge": "阶段 A 的搬运请求",
+      "blocked_claim": "无法判断生产工作点为何低于匹配饱和点。",
+      "next_experiment": "扫描 CTA、payload 与独立请求数，建立匹配饱和面。",
+      "priority": "P1"
+    }
+  ],
+  "developer_appendix": {
+    "internal_experiment_id": "M900",
+    "source_sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+  }
+}

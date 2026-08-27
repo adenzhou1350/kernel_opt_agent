@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "experiment_request.schema.json",
+  "title": "Candidate-driven supervised experiment queue",
+  "type": "object",
+  "required": ["schema_version", "status", "ranking_policy", "requests", "catalog_snapshot", "promotion_review"],
+  "properties": {
+    "schema_version": {"enum": ["experiment-request-queue-v2", "experiment-request-queue-v3"]},
+    "status": {"enum": ["DRAFT", "EXECUTABLE", "ACTIVE", "CLOSED", "BLOCKED"]},
+    "ranking_policy": {"type": "object"},
+    "requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "request_id", "status", "issued_by_role", "workload_cases",
+          "model_field", "candidate_decision", "causal_question",
+          "experiment_class", "tested_candidate_ids", "implementation_owner",
+          "resource_ids", "affected_stage_ids", "priority", "controls",
+          "measurement_contract", "expected_sass", "catalog_resolution",
+          "result_binding", "promotion_disposition"
+        ],
+        "properties": {
+          "request_id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["PROPOSED", "PLANNED", "DISPATCHED", "RUNNING", "RESOLVED", "REJECTED", "BLOCKED", "AWAITING_SUPERVISOR_REVIEW", "HALT_AND_REPLAN", "STOPPED"]},
+          "issued_by_role": {"const": "GLOBAL_SCHEDULER"},
+          "experiment_kind": {"enum": ["PERFORMANCE_DECISION", "STATIC_ADMISSIBILITY"]},
+          "decision_contract": {"type": "object", "required": ["path", "sha256"]},
+          "measurability_contract": {"type": "object", "required": ["path", "sha256"]},
+          "admissibility_contract": {"type": "object", "required": ["path", "sha256"]},
+          "experiment_class": {"enum": ["SCREENING", "QUALIFICATION"]},
+          "tested_candidate_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "implementation_owner": {
+            "type": "object", "required": ["role", "actor_id"],
+            "properties": {"role": {"const": "EXPERIMENT_AGENT"}, "actor_id": {"type": "string", "minLength": 1}}
+          },
+          "priority": {"type": "integer", "minimum": 0},
+          "sensitivity": {
+            "type": "object",
+            "required": ["decision_flip_probability", "expected_uncertainty_reduction", "experiment_cost"],
+            "anyOf": [
+              {"required": ["candidate_specific_decision_value_us"]},
+              {"required": ["candidate_specific_decision_value"]}
+            ]
+          },
+          "catalog_resolution": {
+            "type": "object",
+            "required": ["catalog_queried", "query", "decision", "package_id", "reason"]
+          },
+          "result_binding": {"type": "object"},
+          "promotion_disposition": {"type": "object"}
+        }
+      }
+    },
+    "catalog_snapshot": {"type": "object"},
+    "promotion_review": {"type": "array"}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "experiment-request-queue-v2"}}},
+      "then": {
+        "properties": {
+          "requests": {
+            "items": {
+              "required": ["decision_contract", "measurability_contract", "sensitivity"],
+              "properties": {
+                "experiment_kind": {"const": "PERFORMANCE_DECISION"},
+                "sensitivity": {"required": ["candidate_specific_decision_value_us"]}
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "experiment-request-queue-v3"}}},
+      "then": {
+        "properties": {
+          "requests": {
+            "items": {
+              "required": ["experiment_kind", "admissibility_contract"],
+              "properties": {
+                "experiment_kind": {"const": "STATIC_ADMISSIBILITY"}
+              },
+              "not": {
+                "anyOf": [
+                  {"required": ["decision_contract"]},
+                  {"required": ["measurability_contract"]},
+                  {"required": ["sensitivity"]}
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

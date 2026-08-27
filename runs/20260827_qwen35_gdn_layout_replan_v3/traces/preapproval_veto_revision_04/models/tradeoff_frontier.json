@@ -1,0 +1,1477 @@
+{
+  "cases": [
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 64,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 23134592,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.3764705882352941,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 208142336,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 34.57899997889996
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 713031680,
+            "removed_vs_n0_flop": 25165824,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 64,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 23134592,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.3764705882352941,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 182976512,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 34.57899997889996
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 687865856,
+            "removed_vs_n0_flop": 50331648,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s256",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "grid": 64,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 23134592,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.3764705882352941,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 26.667999103665352,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 233308160,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 26.623999699950218,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 26.706499978899956
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 738197504,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 504889344,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 713031680,
+        "tile_feasible_n2_flop_if_static_gate_passes": 687865856
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 96,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 34701696,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.5647058823529412,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 278659072,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 36.84100005030632
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1069547520,
+            "removed_vs_n0_flop": 37748736,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 96,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 34701696,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.5647058823529412,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 240910336,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 36.84100005030632
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1031798784,
+            "removed_vs_n0_flop": 75497472,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s384",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "grid": 96,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 34701696,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.5647058823529412,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 28.819499537348747,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 316407808,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 28.775999322533607,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 28.84100005030632
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1107296256,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 790888448,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 1069547520,
+        "tile_feasible_n2_flop_if_static_gate_passes": 1031798784
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 112,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 38860416,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.6588235294117647,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 390832128,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 37.015000422239304
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1240465408,
+            "removed_vs_n0_flop": 51380224,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 112,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 38860416,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.6588235294117647,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 339451904,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 37.015000422239304
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1189085184,
+            "removed_vs_n0_flop": 102760448,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s404",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "grid": 112,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 38860416,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.6588235294117647,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 28.867000713944435,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 442212352,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 28.826499357819557,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 28.951000422239304
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1291845632,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 849633280,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 1240465408,
+        "tile_feasible_n2_flop_if_static_gate_passes": 1189085184
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 128,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 46268800,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.7529411764705882,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 349175808,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 39.20799973702431
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1426063360,
+            "removed_vs_n0_flop": 50331648,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 128,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 46268800,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.7529411764705882,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 298844160,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 39.20799973702431
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1375731712,
+            "removed_vs_n0_flop": 100663296,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s512",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "grid": 128,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 46268800,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.7529411764705882,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 30.955500900745392,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 399507456,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 30.892999842762947,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 31.031999737024307
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1476395008,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 1076887552,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 1426063360,
+        "tile_feasible_n2_flop_if_static_gate_passes": 1375731712
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 160,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 57835904,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.9411764705882353,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 419692544,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 43.37700170707703
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1782579200,
+            "removed_vs_n0_flop": 62914560,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "grid": 160,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 57835904,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.9411764705882353,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 356777984,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 43.37700170707703
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1719664640,
+            "removed_vs_n0_flop": 125829120,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s640",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "grid": 160,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 57835904,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.9411764705882353,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 34.93649885058403,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 482607104,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 34.922000020742416,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 34.960001707077026
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1845493760,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 1362886656,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 1782579200,
+        "tile_feasible_n2_flop_if_static_gate_passes": 1719664640
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 256,
+            "grid": 192,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 69403008,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 490209280,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 58.149498195171354
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2139095040,
+            "removed_vs_n0_flop": 75497472,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 256,
+            "grid": 192,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 69403008,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 414711808,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 58.149498195171354
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2063597568,
+            "removed_vs_n0_flop": 150994944,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s768",
+      "current_schedule": {
+        "allocation": {
+          "block": 256,
+          "grid": 192,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 69403008,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 1.0,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 46.907998621463776,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 565706752,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 46.42400145530701,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 47.142498195171356
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 2214592512,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 1648885760,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 2139095040,
+        "tile_feasible_n2_flop_if_static_gate_passes": 2063597568
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 256,
+            "grid": 256,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 92537216,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 631242752,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 62.51949905610084
+          },
+          "schedule_id": "N1",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "PRODUCTION_AB_REQUIRED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2852126720,
+            "removed_vs_n0_flop": 100663296,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 256,
+            "grid": 256,
+            "hard_gate": "no spill and no resource-cap regression",
+            "unchanged_from_n0": true
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_n0": 0,
+            "logical_request_bytes": 92537216,
+            "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16_score",
+              "BF16_raw_o",
+              "independent_gated_RMS_post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "CONDITIONAL_CANDIDATE",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 530579456,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 0.0,
+            "note": "decision window only; not a silicon performance bound",
+            "status": "UNRANKED_NO_LATENCY_BENEFIT_ASSUMED",
+            "unit": "us",
+            "upper": 62.51949905610084
+          },
+          "schedule_id": "N2",
+          "synchronization": {
+            "candidate_extra_barriers": 0,
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "scheduled FLOP removal does not determine latency under issue/control/resource coupling",
+            "status": "STATIC_GATE_PENDING"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2751463424,
+            "removed_vs_n0_flop": 201326592,
+            "status": "CONDITIONAL_ON_STATIC_GATE"
+          }
+        }
+      ],
+      "case_id": "s1024",
+      "current_schedule": {
+        "allocation": {
+          "block": 256,
+          "grid": 256,
+          "hard_gate": "no spill and no resource-cap regression",
+          "unchanged_from_n0": false
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_n0": 0,
+          "logical_request_bytes": 92537216,
+          "physical_transactions": "UNKNOWN_NOT_NEEDED_FOR_STATIC_ADMISSION"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16_score",
+            "BF16_raw_o",
+            "independent_gated_RMS_post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "BASELINE",
+        "device_coverage": {
+          "one_wave_grid_fraction": 1.0,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 51.346998661756516,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 731906048,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 51.30999907851219,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 51.383499056100845
+        },
+        "schedule_id": "N0",
+        "synchronization": {
+          "candidate_extra_barriers": 0,
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "immutable production baseline",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 2952790016,
+          "removed_vs_n0_flop": 0,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 2220883968,
+        "note": "mathematical minimum, realizable tile work and measured latency are distinct quantities",
+        "tile_feasible_n1_flop": 2852126720,
+        "tile_feasible_n2_flop_if_static_gate_passes": 2751463424
+      },
+      "pareto_frontier": [
+        "N0",
+        "N1",
+        "N2_CONDITIONAL_ON_STATIC_GATE"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/baseline.json",
+      "sha256": "ac6be631fea18ddf20dc2955a0bab367f36594cdccd0c908413f2ca24c18a3e9"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    }
+  ],
+  "global_decision": {
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "reason": "N2 must pass exact zero-copy layout proof before final Top2 performance ranking.",
+    "selected_schedule": null,
+    "status": "STATIC_ADMISSION_PENDING"
+  },
+  "objective": {
+    "created_at": "2026-08-27T07:19:03.442208+00:00",
+    "decision_indifference_band_us": 0.1,
+    "direction": "minimize",
+    "measurement_semantics": {
+      "primary": "CUDA-event device elapsed after P0; CPU dispatch is reported separately",
+      "static_gate": "compiler/type proof has no GPU timing and may only admit N2 logical same-backing layout feasibility; any failure is INVALID/BLOCKED without candidate disposition",
+      "transfer_gate": "future performance acceptance requires paired graph and direct-execution agreement"
+    },
+    "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+    "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v3",
+    "schema_version": "registered-objective-v1",
+    "unit": "us",
+    "workload_cases": [
+      {
+        "case_id": "s256",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s384",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s404",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s512",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s640",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s768",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s1024",
+        "weight": 0.14285714285714285
+      }
+    ]
+  },
+  "schema_version": "tradeoff-frontier-v1",
+  "status": "INITIALIZED"
+}

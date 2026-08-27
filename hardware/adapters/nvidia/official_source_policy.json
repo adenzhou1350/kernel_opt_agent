@@ -1,0 +1,28 @@
+{
+  "schema_version": "official-source-policy-v1",
+  "vendor": "NVIDIA",
+  "allowed_official_domains": [
+    "docs.nvidia.com",
+    "developer.nvidia.com",
+    "nvidia.com",
+    "www.nvidia.com"
+  ],
+  "required_document_roles": [
+    "programming_model",
+    "instruction_set",
+    "architecture_tuning",
+    "device_product_specification"
+  ],
+  "search_topics": {
+    "programming_model": "CUDA programming guide for the exact compute capability",
+    "instruction_set": "PTX ISA and target instruction availability",
+    "architecture_tuning": "architecture tuning guide for the exact compute capability",
+    "device_product_specification": "official product specification for the exact device model"
+  },
+  "policy": {
+    "architecture_name_is_not_evidence": true,
+    "neighboring_architecture_extrapolation_forbidden": true,
+    "undocumented_numeric_hardware_fact_forbidden": true,
+    "developer_document_required_when_official_search_is_inconclusive": true
+  }
+}

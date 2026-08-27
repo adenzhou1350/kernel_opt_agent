@@ -1,0 +1,110 @@
+{
+  "archived_at": "2026-08-26T16:34:10.857800+00:00",
+  "attempt": 4,
+  "files": [
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/build.json",
+      "sha256": "b86d27d0cabc4282c484a1ebf5ca5b3ac2d47c1977fb9a19f9ee67dfe9939d01"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/catalog_query_receipt.json",
+      "sha256": "abe7a1170ecc37c987c1707d7e70b3ce41190d8f52bd7d565c4b1aecff4a5600"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/correctness.json",
+      "sha256": "1de53626d5fc1080f6aa57c5453d62553fd18c99cd4406a64d549b6cf48b4083"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/analyze-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/analyze-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/correctness-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/correctness-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/measure-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/measure-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/static_audit-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/static_audit-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/warmup-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_logs/warmup-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/execution_receipt.json",
+      "sha256": "bd4bbae839de25d732c701c7f94e9f141101d09ed18714aea1b023b54f4f6960"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/experiment.json",
+      "sha256": "26e6cfda27ff502a0a1390266f778470a6200b371249e84673404435984235e4"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/raw/samples.json",
+      "sha256": "22ab1bb8d260a7f2d38e0eae089ccd200a6b3679bab7f1ae94157bd6586796e0"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/reproduction.json",
+      "sha256": "ca9b54f651417c6dd70a189cb02e496bfdd988ba6986cbbb793540139e930846"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/result.json",
+      "sha256": "71c3677266327791a394467cbcfd3832b1d512d216f266fdcf52dbe9da6acc36"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/static/instruction_audit.json",
+      "sha256": "139ff45d02992a8dc9079c61a4129ed624de9a223aad28bfb7dbfee4b71ac3b4"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/static/resource_probe",
+      "sha256": "fbaefa234a25888871a06b52cc802275e65ba8d395d7d960798022d9e7266d6d"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/static/resource_probe.sass",
+      "sha256": "a1d71f357bd81dec29a2e4390bfada24c33a83b1e649285f59de2bb68324db42"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/validity_review.json",
+      "sha256": "4cdc0f8a42d31a6b6e89712d1b6b5422ca406342ef13bb3991bbeaa6655c4db4"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-04/warmup.json",
+      "sha256": "63de13a8ac2b076af1484c57171f0d3198ad0f554b2b4a71b9e09059f9e21fe2"
+    }
+  ],
+  "reason": "attempt-04 closed causal observability and SASS gates but failed nonzero AB/BA stability and positive-zero separation at selected geometries",
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "REJECTED_FOR_CAUSAL_VALIDITY"
+}

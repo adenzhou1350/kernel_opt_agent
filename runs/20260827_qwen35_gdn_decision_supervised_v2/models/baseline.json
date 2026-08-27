@@ -1,0 +1,819 @@
+{
+  "cases": [
+    {
+      "case_id": "s256",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 42.415,
+        "mean_us": 18.038402721774194,
+        "median_us": 17.675,
+        "min_us": 16.877,
+        "p05_us": 17.231,
+        "p95_us": 19.291,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 36.582,
+        "mean_us": 35.888354838709674,
+        "median_us": 35.85,
+        "min_us": 35.488,
+        "p05_us": 35.489,
+        "p95_us": 36.329,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 26.741499081254005,
+        "mean_us": 26.6727258361155,
+        "median_us": 26.667999103665352,
+        "min_us": 26.61599963903427,
+        "p05_us": 26.623999699950218,
+        "p95_us": 26.706499978899956,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s256.json",
+        "sha256": "1e2003979647919b67a2933bfcb5dce8e9a010a6b9cfa998ff50dbc5611517ff"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_short",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 24.514,
+          "mean_us": 24.334,
+          "median_us": 24.3365,
+          "min_us": 24.225,
+          "p05_us": 24.225,
+          "p95_us": 24.418,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 2.209,
+            "mean_us": 2.1973333333333334,
+            "median_us": 2.208,
+            "min_us": 2.175,
+            "p05_us": 2.175,
+            "p95_us": 2.208,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 10.144,
+            "mean_us": 10.080416666666666,
+            "median_us": 10.081,
+            "min_us": 10.017,
+            "p05_us": 10.017,
+            "p95_us": 10.112,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 4.257,
+            "mean_us": 4.181333333333334,
+            "median_us": 4.1915,
+            "min_us": 4.128,
+            "p05_us": 4.128,
+            "p95_us": 4.224,
+            "unit": "us"
+          },
+          "s3_long": null,
+          "s3_short": {
+            "count": 12,
+            "max_us": 7.905,
+            "mean_us": 7.874916666666667,
+            "median_us": 7.8725000000000005,
+            "min_us": 7.808,
+            "p05_us": 7.808,
+            "p95_us": 7.904,
+            "unit": "us"
+          }
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s256_stage_trace.json",
+          "sha256": "ba55a8892c4937f0946e965c19c619a0b3e7c6c96a885e00bf87235ba9c35d40"
+        }
+      }
+    },
+    {
+      "case_id": "s384",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 48.46,
+        "mean_us": 23.400157258064514,
+        "median_us": 22.966,
+        "min_us": 21.844,
+        "p05_us": 22.476,
+        "p95_us": 25.002,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 44.298,
+        "mean_us": 41.010225806451615,
+        "median_us": 40.339,
+        "min_us": 39.936,
+        "p05_us": 39.981,
+        "p95_us": 44.086,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 28.876999393105507,
+        "mean_us": 28.817661286842437,
+        "median_us": 28.819499537348747,
+        "min_us": 28.68949994444847,
+        "p05_us": 28.775999322533607,
+        "p95_us": 28.84100005030632,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s384.json",
+        "sha256": "5756d81e154aa42f869ca69ca23ac713f34a285e810fe62bf2203289cc758c2a"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_short",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 26.848,
+          "mean_us": 26.595,
+          "median_us": 26.56,
+          "min_us": 26.432,
+          "p05_us": 26.432,
+          "p95_us": 26.722,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 2.304,
+            "mean_us": 2.282666666666666,
+            "median_us": 2.272,
+            "min_us": 2.272,
+            "p05_us": 2.272,
+            "p95_us": 2.304,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 10.592,
+            "mean_us": 10.41075,
+            "median_us": 10.368,
+            "min_us": 10.336,
+            "p05_us": 10.336,
+            "p95_us": 10.465,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 5.985,
+            "mean_us": 5.904166666666666,
+            "median_us": 5.904,
+            "min_us": 5.824,
+            "p05_us": 5.824,
+            "p95_us": 5.985,
+            "unit": "us"
+          },
+          "s3_long": null,
+          "s3_short": {
+            "count": 12,
+            "max_us": 8.032,
+            "mean_us": 7.997416666666666,
+            "median_us": 8.0,
+            "min_us": 7.968,
+            "p05_us": 7.968,
+            "p95_us": 8.032,
+            "unit": "us"
+          }
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s384_stage_trace.json",
+          "sha256": "5cb85caa43910deba186c2b9c266038c0d98de451a803d4cf9b0a0d2c19c55a6"
+        }
+      }
+    },
+    {
+      "case_id": "s404",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 50.461,
+        "mean_us": 23.64217439516129,
+        "median_us": 23.1205,
+        "min_us": 22.16,
+        "p05_us": 22.583,
+        "p95_us": 26.15,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 50.069,
+        "mean_us": 43.48280645161291,
+        "median_us": 42.129,
+        "min_us": 41.338,
+        "p05_us": 41.352,
+        "p95_us": 48.292,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 29.02350015938282,
+        "mean_us": 28.878983831213368,
+        "median_us": 28.867000713944435,
+        "min_us": 28.82549911737442,
+        "p05_us": 28.826499357819557,
+        "p95_us": 28.951000422239304,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s404.json",
+        "sha256": "ffcacabe9d326e32334c1ca0afd37161147780914bae436739656281556c1b68"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_short",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 28.128999999999998,
+          "mean_us": 27.86825,
+          "median_us": 27.842,
+          "min_us": 27.713,
+          "p05_us": 27.713,
+          "p95_us": 28.065,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 2.337,
+            "mean_us": 2.3149166666666665,
+            "median_us": 2.3045,
+            "min_us": 2.304,
+            "p05_us": 2.304,
+            "p95_us": 2.337,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 10.72,
+            "mean_us": 10.624583333333334,
+            "median_us": 10.6085,
+            "min_us": 10.592,
+            "p05_us": 10.592,
+            "p95_us": 10.689,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 7.04,
+            "mean_us": 6.8669166666666674,
+            "median_us": 6.8645,
+            "min_us": 6.752,
+            "p05_us": 6.752,
+            "p95_us": 6.976,
+            "unit": "us"
+          },
+          "s3_long": null,
+          "s3_short": {
+            "count": 12,
+            "max_us": 8.129,
+            "mean_us": 8.061833333333333,
+            "median_us": 8.064,
+            "min_us": 8.0,
+            "p05_us": 8.0,
+            "p95_us": 8.096,
+            "unit": "us"
+          }
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s404_stage_trace.json",
+          "sha256": "69afea66df0a1d982a97d8e9e3c15dee0ab0ac2aa0a5c60e57fe681e0bbd26dc"
+        }
+      }
+    },
+    {
+      "case_id": "s512",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 63.596,
+        "mean_us": 23.628220262096775,
+        "median_us": 23.228,
+        "min_us": 22.384,
+        "p05_us": 22.724,
+        "p95_us": 25.329,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 48.091,
+        "mean_us": 44.35506451612903,
+        "median_us": 43.887,
+        "min_us": 43.35,
+        "p05_us": 43.415,
+        "p95_us": 47.961,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 31.048500910401344,
+        "mean_us": 30.953871026154488,
+        "median_us": 30.955500900745392,
+        "min_us": 30.860500410199165,
+        "p05_us": 30.892999842762947,
+        "p95_us": 31.031999737024307,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s512.json",
+        "sha256": "0781d6b7381b1d2b52bdc2bce161f7036bd3d585ca54a4ed53b282d881a563c4"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_short",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 34.593,
+          "mean_us": 30.350166666666667,
+          "median_us": 29.9535,
+          "min_us": 29.824,
+          "p05_us": 29.824,
+          "p95_us": 30.146,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 3.265,
+            "mean_us": 3.213416666666667,
+            "median_us": 3.216,
+            "min_us": 3.168,
+            "p05_us": 3.168,
+            "p95_us": 3.264,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 13.536,
+            "mean_us": 11.136333333333333,
+            "median_us": 10.912,
+            "min_us": 10.848,
+            "p05_us": 10.848,
+            "p95_us": 11.041,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 9.313,
+            "mean_us": 7.810833333333334,
+            "median_us": 7.68,
+            "min_us": 7.584,
+            "p05_us": 7.584,
+            "p95_us": 7.776,
+            "unit": "us"
+          },
+          "s3_long": null,
+          "s3_short": {
+            "count": 12,
+            "max_us": 8.48,
+            "mean_us": 8.189583333333333,
+            "median_us": 8.176,
+            "min_us": 8.064,
+            "p05_us": 8.064,
+            "p95_us": 8.224,
+            "unit": "us"
+          }
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s512_stage_trace.json",
+          "sha256": "cfbe5f02a8b1ec84fe4c4451ae5056c3803fbb72b8bf6844742925f6d148a813"
+        }
+      }
+    },
+    {
+      "case_id": "s640",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 38.143,
+        "mean_us": 19.1690625,
+        "median_us": 18.844,
+        "min_us": 18.063,
+        "p05_us": 18.406,
+        "p95_us": 20.14,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 49.035,
+        "mean_us": 45.245612903225805,
+        "median_us": 44.914,
+        "min_us": 44.289,
+        "p05_us": 44.316,
+        "p95_us": 47.98,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 34.99450162053108,
+        "mean_us": 34.94067754476301,
+        "median_us": 34.93649885058403,
+        "min_us": 34.90599989891052,
+        "p05_us": 34.922000020742416,
+        "p95_us": 34.960001707077026,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s640.json",
+        "sha256": "9a442162c3dfd0c83f2a3479929cd08e4d78352bc2a99612991d686c5e2f4995"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_short",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 39.073,
+          "mean_us": 33.52591666666667,
+          "median_us": 32.9285,
+          "min_us": 32.769,
+          "p05_us": 32.769,
+          "p95_us": 33.984,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 3.872,
+            "mean_us": 3.688166666666667,
+            "median_us": 3.68,
+            "min_us": 3.616,
+            "p05_us": 3.616,
+            "p95_us": 3.776,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 14.304,
+            "mean_us": 11.792,
+            "median_us": 11.504,
+            "min_us": 11.424,
+            "p05_us": 11.424,
+            "p95_us": 12.288,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 11.296,
+            "mean_us": 9.514666666666665,
+            "median_us": 9.36,
+            "min_us": 9.216,
+            "p05_us": 9.216,
+            "p95_us": 9.6,
+            "unit": "us"
+          },
+          "s3_long": null,
+          "s3_short": {
+            "count": 12,
+            "max_us": 9.601,
+            "mean_us": 8.531083333333333,
+            "median_us": 8.417,
+            "min_us": 8.384,
+            "p05_us": 8.384,
+            "p95_us": 8.513,
+            "unit": "us"
+          }
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s640_stage_trace.json",
+          "sha256": "3ff7138f5090a98d80dd2ee25df41568f91710ce5765141cb33d3642f9cdad5b"
+        }
+      }
+    },
+    {
+      "case_id": "s768",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 45.057,
+        "mean_us": 23.372011088709677,
+        "median_us": 22.969,
+        "min_us": 22.08,
+        "p05_us": 22.492,
+        "p95_us": 24.726,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 63.428,
+        "mean_us": 58.69112903225806,
+        "median_us": 58.546,
+        "min_us": 58.129,
+        "p05_us": 58.138,
+        "p95_us": 58.894,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 47.17399924993515,
+        "mean_us": 46.84874163039269,
+        "median_us": 46.907998621463776,
+        "min_us": 46.374499797821045,
+        "p05_us": 46.42400145530701,
+        "p95_us": 47.142498195171356,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s768.json",
+        "sha256": "110c68522d79a82ba0e4c47099148f0f264ea5368e806c26b4613cf36fadb0fb"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_long",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 48.827,
+          "mean_us": 45.18025,
+          "median_us": 44.732,
+          "min_us": 44.477000000000004,
+          "p05_us": 44.477000000000004,
+          "p95_us": 45.756,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 3.935,
+            "mean_us": 3.8183333333333334,
+            "median_us": 3.8075,
+            "min_us": 3.744,
+            "p05_us": 3.744,
+            "p95_us": 3.872,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 22.59,
+            "mean_us": 19.363916666666668,
+            "median_us": 18.975,
+            "min_us": 18.878,
+            "p05_us": 18.878,
+            "p95_us": 19.742,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 11.263,
+            "mean_us": 10.967083333333333,
+            "median_us": 10.927,
+            "min_us": 10.783,
+            "p05_us": 10.783,
+            "p95_us": 11.199,
+            "unit": "us"
+          },
+          "s3_long": {
+            "count": 12,
+            "max_us": 11.2,
+            "mean_us": 11.030916666666668,
+            "median_us": 11.007,
+            "min_us": 10.975,
+            "p05_us": 10.975,
+            "p95_us": 11.103,
+            "unit": "us"
+          },
+          "s3_short": null
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s768_stage_trace.json",
+          "sha256": "09e2d0944a0576ba926ae0ce5baf3a4e4720af25479eac43a0f165bccf98b94b"
+        }
+      }
+    },
+    {
+      "case_id": "s1024",
+      "correctness": "PASS",
+      "cpu_dispatch": {
+        "count": 1984,
+        "max_us": 49.569,
+        "mean_us": 19.102555443548386,
+        "median_us": 18.7735,
+        "min_us": 17.758,
+        "p05_us": 18.328,
+        "p95_us": 20.422,
+        "unit": "us"
+      },
+      "end_to_end": {
+        "count": 31,
+        "max_us": 67.83,
+        "mean_us": 62.7646129032258,
+        "median_us": 61.852,
+        "min_us": 60.875,
+        "p05_us": 60.924,
+        "p95_us": 65.515,
+        "unit": "us"
+      },
+      "gpu_active": {
+        "count": 31,
+        "max_us": 51.41700059175491,
+        "mean_us": 51.34754832233152,
+        "median_us": 51.346998661756516,
+        "min_us": 51.30799859762192,
+        "p05_us": 51.30999907851219,
+        "p95_us": 51.383499056100845,
+        "unit": "us"
+      },
+      "raw_samples": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s1024.json",
+        "sha256": "c79f4d0b9a5978d662363c4c4ff4a02d0dc2843f0fb13d1e8e43e4cb2d96c0b0"
+      },
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+        "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+      },
+      "stage_profile": {
+        "expected_order": [
+          "s01",
+          "s2",
+          "s3_long",
+          "post"
+        ],
+        "four_kernel_sum": {
+          "count": 12,
+          "max_us": 51.842,
+          "mean_us": 49.58575,
+          "median_us": 49.187,
+          "min_us": 48.929,
+          "p05_us": 48.929,
+          "p95_us": 50.659,
+          "unit": "us"
+        },
+        "kernel_count": 48,
+        "metric": "CUPTI kernel activity duration",
+        "stages": {
+          "post": {
+            "count": 12,
+            "max_us": 4.737,
+            "mean_us": 4.554916666666666,
+            "median_us": 4.528499999999999,
+            "min_us": 4.448,
+            "p05_us": 4.448,
+            "p95_us": 4.672,
+            "unit": "us"
+          },
+          "s01": {
+            "count": 12,
+            "max_us": 20.641,
+            "mean_us": 19.478166666666667,
+            "median_us": 19.265,
+            "min_us": 19.168,
+            "p05_us": 19.168,
+            "p95_us": 19.745,
+            "unit": "us"
+          },
+          "s2": {
+            "count": 12,
+            "max_us": 14.945,
+            "mean_us": 14.307083333333333,
+            "median_us": 14.2085,
+            "min_us": 14.112,
+            "p05_us": 14.112,
+            "p95_us": 14.625,
+            "unit": "us"
+          },
+          "s3_long": {
+            "count": 12,
+            "max_us": 11.648,
+            "mean_us": 11.245583333333334,
+            "median_us": 11.136,
+            "min_us": 11.072,
+            "p05_us": 11.072,
+            "p95_us": 11.552,
+            "unit": "us"
+          },
+          "s3_short": null
+        },
+        "status": "DIAGNOSTIC_NOT_ACCEPTANCE_TIMING",
+        "trace_identity": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/raw/s1024_stage_trace.json",
+          "sha256": "48047d3423daab87c767b02b5a95394e5fd0c34f798f45b1123565f4d77a28dd"
+        }
+      }
+    }
+  ],
+  "correctness": {
+    "evidence": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/correctness.json",
+        "sha256": "dc4f3f32e975d47b9790dcf6fbc76dda39b17ff8ef115e8090e58a11906efd08"
+      }
+    ],
+    "status": "PASS"
+  },
+  "environment_controls": {
+    "clock_power_policy": "P0 active-clock stability PASS; no application clock lock requested; observed clocks archived",
+    "competing_load": "pre-run GPU utilization <=2% and exact UUID match; per-case environment archived",
+    "p0_receipt": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+      "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+    },
+    "thermal_policy": "temperature and power archived before/after; no cooling sleep inserted between warm cases",
+    "warmup_and_cold_start": "40 production warmups plus 10 graph warmups; compilation/allocation and FLA reference excluded; cold evidence preserved separately by P0"
+  },
+  "environment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/baseline/environment.json",
+    "sha256": "ec052008e5cd07ab64fe074c3ff00ecd72376aff78dfd6b78d599bbc0a45dccc"
+  },
+  "measurement_methods": {
+    "cpu_dispatch": "host perf_counter_ns around one production TVM-FFI call; 31x64 direct calls, GPU drained at batch boundaries",
+    "end_to_end": "host perf_counter_ns around one direct production TVM-FFI call plus synchronization; 31 warm samples",
+    "gpu_active": "P0-qualified native CUDA events around 64 replays of a captured exact four-kernel production pipeline, divided by 64; compilation/allocation/host dispatch excluded",
+    "stage_diagnostic": "separate torch-profiler/CUPTI collection; never mixed into acceptance timing distribution"
+  },
+  "schema_version": "production-baseline-v1",
+  "source_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/capture_production_baseline.py",
+      "sha256": "faf3533168710cd202ebc469c08646fec7fba9c561a59074024f39ab5f6f0114"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/static/current_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+    }
+  ],
+  "status": "VALID"
+}

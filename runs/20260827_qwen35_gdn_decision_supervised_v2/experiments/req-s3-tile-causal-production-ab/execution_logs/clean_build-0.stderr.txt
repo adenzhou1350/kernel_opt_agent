@@ -1,0 +1,41 @@
+Traceback (most recent call last):
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/clean_build.py", line 86, in <module>
+    main()
+  File "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/torch/utils/_contextlib.py", line 124, in decorate_context
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/clean_build.py", line 41, in main
+    inputs, entries = plans_for_sequence(
+                      ^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/experiment_common.py", line 238, in plans_for_sequence
+    plan = make_plan(inputs, output, candidate_id)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/experiment_common.py", line 212, in make_plan
+    plan = prepare_qwen35_fla_cute_pipeline_sm120(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_pipeline_sm120.py", line 657, in prepare_qwen35_fla_cute_pipeline_sm120
+    return Qwen35FLAPrefillPlanSm120(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_pipeline_sm120.py", line 544, in __init__
+    compiled = cached_compile(kernel, *compile_args, compile_options=options)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/custom_compile_cache.py", line 178, in cached_compile
+    compiled_fn = cute.compile[compile_options](func, *args, **kwargs)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_pipeline_sm120.py", line 370, in __call__
+    self.s3_raw(
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_short_raw_sm120.py", line 472, in __call__
+    ).launch(
+      ^^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_short_raw_sm120.py", line 608, in kernel
+    if tidx < cutlass.Int32(MAIN_THREADS):
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_short_raw_sm120.py", line 609, in then_block_17
+    self.output_main(
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_short_raw_sm120.py", line 387, in output_main
+    self.causal_score_v_accumulate(
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/candidate_pkg/qwen35_fla_s3_short_raw_sm120.py", line 240, in causal_score_v_accumulate
+    assert output.layout == output_tiles_layout
+  File "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py", line 470, in assert_executor
+    assert test, msg
+           ^^^^
+AssertionError: None

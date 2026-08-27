@@ -1,0 +1,79 @@
+{
+  "coupling_tests": [],
+  "cross_layer_prediction_gates": [
+    {
+      "gate": "No atomic component sum predicts C1; only exact candidate A/B may update the frontier.",
+      "status": "ENFORCED"
+    }
+  ],
+  "deferred_qualification_questions": [
+    {
+      "activation_condition": "new supervised QUALIFICATION contract",
+      "method": "PAIRED_TRANSFER_GATE",
+      "quantity_id": "graph_to_direct_ranking_transfer",
+      "question": "Does graph-batched ranking transfer to uncaptured-direct execution?",
+      "status": "NOT_AUTHORIZED_BY_SCREENING_V5"
+    }
+  ],
+  "levels": {
+    "P0": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+          "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+        }
+      ],
+      "experiments": [
+        "p0-reused"
+      ],
+      "reason": "Rebound immutable P0 evidence from the explicitly reused run; hardware/workload hashes are identical.",
+      "required": true,
+      "status": "PASS"
+    },
+    "P1": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P2": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P3": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P4": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "No atomic microbenchmark is decision-identifying; the registered work is a production candidate A/B.",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    }
+  },
+  "qualification_order": [
+    "DRAFT",
+    "STATIC_VALIDATED",
+    "MECHANISM_VALIDATED",
+    "DEVICE_CALIBRATED",
+    "PRODUCTION_PREDICTIVE"
+  ],
+  "schema_version": "microbenchmark-plan-v1",
+  "status": "EXECUTABLE",
+  "target_questions": [
+    {
+      "method": "CANDIDATE_AB_PAIRED_MEAN",
+      "quantity_id": "screening_two_path_mean_delta_c1_minus_c0",
+      "question": "At s404 and s768, does q_screen=0.5*(mean paired delta_s404+mean paired delta_s768) satisfy the frozen +0.25 us SCREENING boundary under the v5 precision/outcome rules?"
+    }
+  ],
+  "unresolved_questions": []
+}

@@ -1,0 +1,101 @@
+{
+  "coupling_tests": [
+    "A-only/B-only/AB for copy-compute, memory-compute, front-end-payload, shared-bank, and synchronization dependencies."
+  ],
+  "cross_layer_prediction_gates": [
+    "P1/P2 predicts P3 within 10%; schedule model predicts P4 within 5%; deviations trigger model revision rather than post-hoc explanation."
+  ],
+  "levels": {
+    "P0": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/p0_receipt.json",
+          "sha256": "87498ca47c2962a93ab213890b76b83ab5ca4a2d89c691049b3a825abd9e2aa4"
+        }
+      ],
+      "experiments": [
+        "req-p0-measurement-system"
+      ],
+      "reason": "Qualify timing, warmup, device-identity, idle-device, and launch-floor behavior before accepting any latency.",
+      "required": true,
+      "status": "PASS"
+    },
+    "P1": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+          "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+        }
+      ],
+      "experiments": [
+        "req-compute-service",
+        "req-memory-hierarchy-service",
+        "req-register-collective",
+        "req-shared-request-service"
+      ],
+      "reason": "Measure isolated latency/throughput/service mechanisms with exact instruction-family SASS checks.",
+      "required": true,
+      "status": "PARTIAL"
+    },
+    "P2": {
+      "blocking_evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+          "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+        }
+      ],
+      "experiments": [
+        "req-compute-service",
+        "req-memory-hierarchy-service",
+        "req-register-collective",
+        "req-shared-request-service",
+        "req-sync-async-overlap"
+      ],
+      "reason": "Measure resource coupling, contention, cache/bank/occupancy sensitivity, and overlap using A/B/AB controls.",
+      "required": true,
+      "status": "PENDING_PERMISSION_AND_OTHER_RESOURCES"
+    },
+    "P3": {
+      "experiments": [
+        "req-register-collective",
+        "req-sync-async-overlap"
+      ],
+      "reason": "Predict and test production-shaped stage and multi-stage behavior using the P1/P2 model.",
+      "required": true,
+      "status": "PENDING"
+    },
+    "P4": {
+      "experiments": [
+        "production-exact-seven-case-validation"
+      ],
+      "reason": "Validate the selected candidate in production-exact Harrix/service boundaries and separate GPU, CPU dispatch, and end-to-end latency.",
+      "required": true,
+      "status": "PENDING"
+    }
+  },
+  "qualification_order": [
+    "DRAFT",
+    "STATIC_VALIDATED",
+    "MECHANISM_VALIDATED",
+    "DEVICE_CALIBRATED",
+    "PRODUCTION_PREDICTIVE"
+  ],
+  "schema_version": "microbenchmark-plan-v1",
+  "status": "EXECUTABLE",
+  "target_questions": [
+    "What are matched production-shaped latency/throughput curves for tensor, SIMT, SFU, conversion, address, and predicate work, including their concurrency limits?",
+    "What are production-shaped useful-byte and transferred-byte service curves at the L2 and device-memory boundaries for this working-set and access geometry?",
+    "Is the GPU-event timing system stable and what launch/front-end floor is visible under matched grid/block geometry?",
+    "How do register allocation, spills, occupancy, system-register access, and warp collectives constrain the production schedule?",
+    "What request-service, L1/shared, bank-conflict, and constant-broadcast behavior is produced by the exact tile and layout?",
+    "Which copy/compute and producer/consumer dependencies overlap, and which waits or barriers remain on the critical path?"
+  ],
+  "unresolved_questions": [
+    "What are matched production-shaped latency/throughput curves for tensor, SIMT, SFU, conversion, address, and predicate work, including their concurrency limits?",
+    "What are production-shaped useful-byte and transferred-byte service curves at the L2 and device-memory boundaries for this working-set and access geometry?",
+    "Is the GPU-event timing system stable and what launch/front-end floor is visible under matched grid/block geometry?",
+    "How do register allocation, spills, occupancy, system-register access, and warp collectives constrain the production schedule?",
+    "What request-service, L1/shared, bank-conflict, and constant-broadcast behavior is produced by the exact tile and layout?",
+    "Which copy/compute and producer/consumer dependencies overlap, and which waits or barriers remain on the critical path?"
+  ]
+}

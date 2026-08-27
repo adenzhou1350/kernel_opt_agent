@@ -1,0 +1,47 @@
+{
+  "attempt": 1,
+  "causal_validity": "REJECT",
+  "checks": [
+    {
+      "check": "global_request_live_sink",
+      "observed": [
+        0.0
+      ],
+      "requirement": "every non-zero-work parameter row must expose a host-checked live sink",
+      "status": "FAIL"
+    },
+    {
+      "check": "shared_address_pattern_observable",
+      "observed_unique_sink_count": 4,
+      "requirement": "stride variants must consume distinguishable input values",
+      "status": "PASS"
+    },
+    {
+      "check": "constant_address_pattern_observable",
+      "observed": {
+        "constant_broadcast": 5687236.0,
+        "constant_divergent": 5687236.0
+      },
+      "requirement": "broadcast/divergent variants must consume distinguishable constant addresses",
+      "status": "FAIL"
+    },
+    {
+      "check": "AB_BA_order_control",
+      "observed": [],
+      "requirement": "paired forward/reverse execution order is required to expose drift",
+      "status": "FAIL"
+    }
+  ],
+  "consequence": "No timing from this attempt may update resource service curves or production resource balance.",
+  "execution_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/execution_receipt.json",
+    "sha256": "ec21f81d541ec216f265561cad94d145a61f1d0db9a52946e9bdbe1371c76870"
+  },
+  "raw_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/raw/samples.json",
+    "sha256": "74b38644d1566cd32631b777c8a2c8371a40a2fd792a042fbbcb18c96ceafacc"
+  },
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-validity-review-v1",
+  "technical_execution": "PASS"
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": "candidate-decision-v1",
+  "candidate": null,
+  "source_identity": {},
+  "correctness": {"status": "UNKNOWN"},
+  "paired_measurement": null,
+  "static_evidence": {},
+  "instruction_audit": {"status": "INCOMPLETE", "path": null},
+  "runtime_evidence": {},
+  "global_schedule_decision": {
+    "status": "PENDING",
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "resource_balance_revision": null,
+    "tradeoff_frontier_revision": null,
+    "weighted_objective_effect": null
+  },
+  "hypothesis_result": null,
+  "decision": "INCONCLUSIVE",
+  "reason": null,
+  "next_action": null
+}

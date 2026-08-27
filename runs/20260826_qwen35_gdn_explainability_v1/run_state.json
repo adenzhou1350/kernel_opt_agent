@@ -1,0 +1,16 @@
+{
+  "allowed_next_phase": "PRODUCTION_VALIDATION",
+  "completed_phases": [
+    "INTAKE",
+    "PLANNING",
+    "BASELINE",
+    "MODELING"
+  ],
+  "current_phase": "EXPERIMENT",
+  "framework_contract_version": "evidence-closed-v2",
+  "next_action": "Calibrate P0-P3, validate cross-layer component predictions, and accept only correct candidates whose final SASS matches the hypothesis.",
+  "run_id": "20260826_qwen35_gdn_explainability_v1",
+  "schema_version": "optimization-run-state-v4",
+  "terminal": false,
+  "updated_at": "2026-08-26T16:18:03.130828+00:00"
+}

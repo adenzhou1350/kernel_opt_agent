@@ -1,0 +1,145 @@
+{
+  "cases": [
+    {
+      "case_id": "s256",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.9999863505363464,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.0011315481970086694,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "case_id": "s384",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.9999859929084778,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.0011038942029699683,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "case_id": "s404",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.9999861717224121,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.0010578788351267576,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "case_id": "s512",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.9999862909317017,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.001160882879048586,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "case_id": "s640",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.9999860525131226,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.0011741408379748464,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "case_id": "s768",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.999985933303833,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.0011093425564467907,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    },
+    {
+      "case_id": "s1024",
+      "deterministic_direct_bitwise": true,
+      "graph_output_bitwise_vs_direct": true,
+      "reference": {
+        "cosine": 0.9999860525131226,
+        "finite_actual": true,
+        "finite_reference": true,
+        "max_abs": 0.125,
+        "mean_abs": 0.001137344166636467,
+        "status": "PASS",
+        "thresholds": {
+          "cosine_min": 0.9999,
+          "max_abs": 0.25,
+          "mean_abs": 0.003
+        }
+      },
+      "status": "PASS"
+    }
+  ],
+  "schema_version": "qwen35-production-baseline-correctness-v1",
+  "status": "PASS",
+  "threshold_basis": "pre-existing real-checkpoint production-vs-FLA evidence showed max_abs=0.125, mean_abs<=0.001151 and cosine>=0.999985; this baseline pre-registers conservative 2x/2.6x margins before current outputs were measured",
+  "thresholds": {
+    "cosine_min": 0.9999,
+    "max_abs": 0.25,
+    "mean_abs": 0.003
+  }
+}

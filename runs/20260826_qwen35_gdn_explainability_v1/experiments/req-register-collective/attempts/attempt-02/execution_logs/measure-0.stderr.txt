@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-register-collective/experiment_driver.py", line 386, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-register-collective/experiment_driver.py", line 348, in main
+    raise RuntimeError(f"live sink failed for {parameters}")
+RuntimeError: live sink failed for {'actual_registers_per_thread': 22, 'batches': 32, 'block': 384, 'grid': 112, 'preheat-ms': 500, 'production_registers_per_thread': 144, 'repeats': 128, 'samples': 31, 'smem-bytes': 58624, 'stage_geometry': 's01', 'variant': 'alloc0'}

@@ -1,0 +1,26 @@
+{
+  "architectural_change": "In S3 QK only, issue the 10 causal 16x16 pairs per full 64-token chunk; at S404 the 20-token tail issues exactly 3 of its 2x2 pairs.",
+  "candidate_id": "N1",
+  "hard_invariants": [
+    "score-times-V schedule and accumulator layout are byte-for-byte unchanged",
+    "S01, S2, post, ABI, grid, block, BF16 score/raw_o boundaries are unchanged",
+    "no latency benefit is assumed before production candidate A/B"
+  ],
+  "name": "qk-only-causal-tile-pruning",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_raw",
+    "gated_rms_post"
+  ],
+  "removed_flop_by_case": [
+    25165824,
+    37748736,
+    51380224,
+    50331648,
+    62914560,
+    75497472,
+    100663296
+  ],
+  "status": "ADMISSIBLE_UNRANKED"
+}

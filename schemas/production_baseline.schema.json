@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "production_baseline.schema.json",
+  "title": "Production-exact performance baseline",
+  "type": "object",
+  "required": ["schema_version", "status", "correctness", "source_identities", "measurement_methods", "environment_controls", "cases"],
+  "properties": {
+    "schema_version": {"const": "production-baseline-v1"},
+    "status": {"enum": ["INCOMPLETE", "VALID", "INVALID"]},
+    "correctness": {"type": "object"},
+    "source_identities": {"type": "array"},
+    "measurement_methods": {"type": "object"},
+    "environment_controls": {"type": "object"},
+    "cases": {"type": "array"}
+  }
+}

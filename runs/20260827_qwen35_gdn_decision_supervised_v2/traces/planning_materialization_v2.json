@@ -1,0 +1,60 @@
+{
+  "artifact_identities": {
+    "decision_contract.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+      "sha256": "09b942df19c4834d8f128a60976e8dfa0764dfdc99089dcb81ffbb1da7a8818b"
+    },
+    "experiment_queue.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/experiment_queue.json",
+      "sha256": "689561826f23328e0983fafb0d64ab121f6adfb302bf2d5ed0859af2edc22d4d"
+    },
+    "global_schedule_state.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/global_schedule_state.json",
+      "sha256": "4fca310670a79c29bcf135b38d762649a564fe8d1ed9e1111a14da7a44f3840b"
+    },
+    "measurability_contract.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/measurability_contract.json",
+      "sha256": "44fa3f9824ac642a64eadec5807f3017dfb0ec92232a1a2532224a2b8fadbdb0"
+    },
+    "microarchitecture_model.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/microarchitecture_model.json",
+      "sha256": "cc18cff378131c00e421fd4a8b70c60b4de8868949ebf9859cc03071c9a11925"
+    },
+    "microbenchmark_plan.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/microbenchmark_plan.json",
+      "sha256": "0dd8d1d50bb5d18a76ea04b0fd496cc473c13021e3a464951cd56439928bcae3"
+    },
+    "objective.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/objective.json",
+      "sha256": "3fd7379169bf7b2a88ae0858ed58608b24419374b0a20f67367b2f61ed46dc14"
+    },
+    "optimization_plan.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/optimization_plan.json",
+      "sha256": "c4aa58541cbd0ae0cb83540bc58772e180b0241d253e8c31129632541fc8ed3c"
+    },
+    "resource_balance.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/resource_balance.json",
+      "sha256": "7d960d3d75e3ad6c20319ccabdcf7e4269db90d4a2d3fb20efaa83f2da542bd3"
+    },
+    "tradeoff_frontier.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/tradeoff_frontier.json",
+      "sha256": "93d7d208af522a3e3005f65ddd825d205ba1325057aa5ad483aeb923c85502cd"
+    }
+  },
+  "corrections": [
+    "C1 scheduled FLOP is 16x16 tile-feasible; diagonal and intra-tail padding remain.",
+    "C1 uncertainty permits positive regression.",
+    "Graph batching is registered as a timing envelope and needs direct-ranking transfer before production acceptance.",
+    "No atomic microbenchmark is authorized for the coupled Top-2 uncertainty."
+  ],
+  "created_at": "2026-08-26T19:37:53.989007+00:00",
+  "roles": {
+    "future_experiment_agent": "experiment-agent-linear-v2",
+    "global_scheduler": "global-scheduler-linear-v2",
+    "global_supervisor": "global-supervisor-root-v2",
+    "microarchitecture_analyst": "microarchitecture-analyst-linear-v2"
+  },
+  "run": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2",
+  "schema_version": "planning-materialization-receipt-v1",
+  "status": "PASS"
+}

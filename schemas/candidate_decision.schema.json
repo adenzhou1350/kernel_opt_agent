@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "candidate_decision.schema.json",
+  "title": "Globally authorized optimization candidate decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "correctness", "instruction_audit", "decision"],
+  "properties": {
+    "schema_version": {"const": "candidate-decision-v1"},
+    "candidate": {"type": ["string", "null"]},
+    "source_identity": {"type": "object"},
+    "correctness": {"type": "object", "required": ["status"]},
+    "paired_measurement": {},
+    "static_evidence": {"type": "object"},
+    "instruction_audit": {"type": "object", "required": ["status"]},
+    "runtime_evidence": {"type": "object"},
+    "global_schedule_decision": {"type": "object"},
+    "hypothesis_result": {},
+    "decision": {"enum": ["ACCEPT", "REJECT", "INCONCLUSIVE"]},
+    "reason": {"type": ["string", "null"]},
+    "next_action": {"type": ["string", "null"]}
+  }
+}

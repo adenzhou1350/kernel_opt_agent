@@ -1,0 +1,15 @@
+{
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "a360cb8cbf31ce696862256902dd0e2033c6e6c99d793d26da46ff70ba988d12"
+  },
+  "ranked_at": "2026-08-27T07:21:15.819362+00:00",
+  "ranking": [
+    {
+      "priority": 0,
+      "request_id": "req-n2-static-layout-admissibility",
+      "score": 4.476607142857143
+    }
+  ],
+  "schema_version": "experiment-ranking-receipt-v2"
+}

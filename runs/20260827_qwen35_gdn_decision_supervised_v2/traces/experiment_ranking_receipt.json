@@ -1,0 +1,15 @@
+{
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/experiment_queue.json",
+    "sha256": "0e5f462bf3588abaf4fbb99bbdd6f8d6f5dfe093b6dea9b9e3934221eea6baf0"
+  },
+  "ranked_at": "2026-08-27T06:35:00.793547+00:00",
+  "ranking": [
+    {
+      "priority": 0,
+      "request_id": "req-s3-tile-causal-production-ab",
+      "score": 0.919875
+    }
+  ],
+  "schema_version": "experiment-ranking-receipt-v2"
+}

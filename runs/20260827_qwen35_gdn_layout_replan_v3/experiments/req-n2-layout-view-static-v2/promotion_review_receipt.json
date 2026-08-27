@@ -1,0 +1,55 @@
+{
+  "applied_at": "2026-08-27T11:25:06.467102+00:00",
+  "issued_by_role": "GLOBAL_SCHEDULER",
+  "promotion_disposition": {
+    "reason": "Retain run-local: this valid static PASS proof is application-shaped and hash-binds the Qwen35 short/long production constructors plus exact FlashInfer, CuTe and CUDA-toolchain source identities and absolute task paths. It establishes only N2 logical same-backing layout/type admissibility; application terms have not been removed, the mechanism is not exposed as an application-independent parameterized package, and the required two independent cold-start reproduction receipts and promotion/purity qualification are absent. It makes no production-implementation, numerical, performance, dynamic-resource or portable-hardware claim.",
+    "status": "RUN_LOCAL"
+  },
+  "queue_after_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "de2394995a2c3eef5a83153de4c889a7dec7adafc2fba65a4673baf8bc8bbb6e"
+  },
+  "queue_before_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "a28822511d578bd6e33502ad96bca300f295741f4f229c9cdf6d8bcf93f0219c"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "result_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/result.json",
+    "sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66"
+  },
+  "review": {
+    "candidate_path": "runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2",
+    "catalog_resolution": "CREATE_RUN_LOCAL",
+    "claims_allowed": [
+      "N2 static logical same-backing/type admission for the hash-bound Qwen35 constructors and toolchain"
+    ],
+    "claims_forbidden": [
+      "application-independent mechanism",
+      "portable hardware fact",
+      "production implementation acceptance",
+      "numerical correctness",
+      "performance or latency",
+      "dynamic resource or transport behavior"
+    ],
+    "future_promotion_requires": [
+      "create a separately validated generalized candidate if removing Qwen35 bindings changes the tested mechanism",
+      "remove production imports, model vocabulary, fixed application paths and fixed constructor hashes",
+      "parameterize layout domains and toolchain constraints without weakening the causal question",
+      "produce structured clean-build/control/static-check artifacts",
+      "produce two distinct cold-start reproduction receipts",
+      "pass microbench promotion and repository-purity audits"
+    ],
+    "promotion_attempted": false,
+    "qualification_observed": "STATIC_VALIDATED_RUN_LOCAL",
+    "reason": "Retain run-local: this valid static PASS proof is application-shaped and hash-binds the Qwen35 short/long production constructors plus exact FlashInfer, CuTe and CUDA-toolchain source identities and absolute task paths. It establishes only N2 logical same-backing layout/type admissibility; application terms have not been removed, the mechanism is not exposed as an application-independent parameterized package, and the required two independent cold-start reproduction receipts and promotion/purity qualification are absent. It makes no production-implementation, numerical, performance, dynamic-resource or portable-hardware claim.",
+    "request_id": "req-n2-layout-view-static-v2",
+    "result_identity": {
+      "path": "runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/result.json",
+      "sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66"
+    },
+    "status": "RUN_LOCAL"
+  },
+  "schema_version": "promotion-review-receipt-v1",
+  "status": "APPLIED"
+}

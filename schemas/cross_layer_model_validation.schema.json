@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cross_layer_model_validation.schema.json",
+  "title": "Cross-layer prediction validation",
+  "type": "object",
+  "required": ["schema_version", "status", "measurement_system", "component_predictions", "production_predictions", "bounded_residuals", "failed_predictions", "model_revisions"],
+  "properties": {
+    "schema_version": {"const": "cross-layer-model-validation-v1"},
+    "status": {"enum": ["INCOMPLETE", "PASS", "FAIL", "BOUNDED", "BLOCKED"]},
+    "component_predictions": {"type": "array"},
+    "production_predictions": {"type": "array"},
+    "bounded_residuals": {"type": "array"},
+    "failed_predictions": {"type": "array"}
+  }
+}

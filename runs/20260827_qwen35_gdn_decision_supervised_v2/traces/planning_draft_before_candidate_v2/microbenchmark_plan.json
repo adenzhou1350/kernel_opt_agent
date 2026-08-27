@@ -1,0 +1,55 @@
+{
+  "coupling_tests": [],
+  "cross_layer_prediction_gates": [],
+  "levels": {
+    "P0": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+          "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+        }
+      ],
+      "experiments": [
+        "p0-reused"
+      ],
+      "reason": "Rebound immutable P0 evidence from the explicitly reused run; hardware/workload hashes are identical.",
+      "required": true,
+      "status": "PASS"
+    },
+    "P1": {
+      "experiments": [],
+      "reason": null,
+      "required": true,
+      "status": "PENDING"
+    },
+    "P2": {
+      "experiments": [],
+      "reason": null,
+      "required": true,
+      "status": "PENDING"
+    },
+    "P3": {
+      "experiments": [],
+      "reason": null,
+      "required": true,
+      "status": "PENDING"
+    },
+    "P4": {
+      "experiments": [],
+      "reason": null,
+      "required": true,
+      "status": "PENDING"
+    }
+  },
+  "qualification_order": [
+    "DRAFT",
+    "STATIC_VALIDATED",
+    "MECHANISM_VALIDATED",
+    "DEVICE_CALIBRATED",
+    "PRODUCTION_PREDICTIVE"
+  ],
+  "schema_version": "microbenchmark-plan-v1",
+  "status": "DRAFT",
+  "target_questions": [],
+  "unresolved_questions": []
+}

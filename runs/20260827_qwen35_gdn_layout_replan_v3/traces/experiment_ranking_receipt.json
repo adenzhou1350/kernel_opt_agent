@@ -1,0 +1,18 @@
+{
+  "active_gate_count": 0,
+  "performance_ranking_performed": false,
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "a00c12e53e27b0f3cefbc475cf5986ff9bbf73a83d026dc66bc051f8a3ec016d"
+  },
+  "ranked_at": "2026-08-27T11:25:19.795693+00:00",
+  "ranking": [
+    {
+      "priority": 0,
+      "request_id": "req-n2-layout-view-static-v2",
+      "score": null,
+      "status": "RESOLVED"
+    }
+  ],
+  "schema_version": "experiment-ranking-receipt-v3"
+}

@@ -1,0 +1,166 @@
+{
+  "abi": {
+    "aliasing": [
+      "No caller-owned input aliases output",
+      "S2 and S3 share the same H-CTA-major workspace without restore/transpose",
+      "CuTe metadata aliases are created inside the compiled TVM-FFI host stub and must not create ATen hot-path operations"
+    ],
+    "entrypoint": "prepare_qwen35_fla_cute_pipeline_sm120(...)->plan; plan.run_fused_gated_rms(output,mixed,zba,A_log,dt_bias,norm_weight)",
+    "layout_constraints": [
+      "mixed physical stride is (S*6144,1,6144)",
+      "zba and output are contiguous",
+      "all tensor addresses are on the same CUDA device",
+      "all dynamic tensor pointers satisfy the production assumed alignment"
+    ],
+    "mutable_arguments": [
+      "output",
+      "plan-owned qhat/kpack/wpack/upack/cumulative/vnew/H/raw_o workspaces"
+    ]
+  },
+  "computation": {
+    "definition": "For B=1, H=16, D=128 and chunk size C=64, consume causal-conv Q/K/V activations plus z/beta/decay logits. S01 computes per-token per-head Q/K L2 normalization, beta=sigmoid(beta_logit), log-decay from decay_logit, the chunk-local causal K K^T system and its triangular solve, then materializes qhat, packed K/W/U and cumulative log-decay. S2 performs the ordered chunk recurrence with initial_state=None, producing corrected V and inter-chunk H state. S3 combines the local causal QK contribution with the recurrent H contribution and writes BF16 raw output. Post computes RMS across the D=128 value dimension and writes y=(raw_o*rsqrt(mean(raw_o^2)+epsilon))*norm_weight*(z*sigmoid(z)). No final recurrent state is returned.",
+    "dependencies": [
+      "S01 -> S2: packed K, packed W, packed U, cumulative log-decay",
+      "S01 -> S3: qhat, packed K, cumulative log-decay",
+      "S2 -> S3: corrected V and H state in H-CTA-major layout",
+      "S3 -> post: BF16 raw output",
+      "post reduction axis: D=128 independently for every token and head"
+    ],
+    "forbidden_rewrites": [
+      "Change chunk size C=64, H=16, D=128 or BF16 public tensor contract",
+      "Introduce non-null initial state or materialize a final state",
+      "Move allocation, compilation, tensor view construction or device synchronization onto the hot path",
+      "Use results from padded tokens in valid-token outputs",
+      "Relax numerical acceptance without separate user authorization"
+    ],
+    "legal_rewrites": [
+      "Change CTA/warp/role partition, instruction schedule, buffering, vector width and stage ownership on sm_120",
+      "Fuse stages or remove intermediate materialization only when the public ABI and numerical acceptance contract remain satisfied",
+      "Pad sequence to P=ceil(S/64)*64 internally while masking invalid tokens",
+      "Use CuTe DSL, CUDA C++ or inline PTX and architecture-specific sm_120 instructions",
+      "Cache compilation artifacts, launch metadata and plan-owned workspaces outside the hot path"
+    ]
+  },
+  "inputs": [
+    {
+      "dtype": "BF16",
+      "layout": "logical [1,3*H*D,S], physical channel-last rows [S,3*H*D] written by causal-conv",
+      "lifetime": "caller-owned dynamic input",
+      "name": "mixed_qkv",
+      "shape": [
+        1,
+        6144,
+        "S"
+      ],
+      "stride": [
+        "S*6144",
+        1,
+        6144
+      ]
+    },
+    {
+      "dtype": "BF16",
+      "layout": "contiguous [S,H*(D+2)]: z[H,D], beta_logit[H], decay_logit[H]",
+      "lifetime": "caller-owned dynamic input",
+      "name": "z_beta_decay",
+      "shape": [
+        "S",
+        2080
+      ],
+      "stride": [
+        2080,
+        1
+      ]
+    },
+    {
+      "dtype": "FP32",
+      "layout": "contiguous per-head learned decay parameter",
+      "lifetime": "caller-owned immutable weight",
+      "name": "A_log",
+      "shape": [
+        16
+      ],
+      "stride": [
+        1
+      ]
+    },
+    {
+      "dtype": "FP32",
+      "layout": "contiguous per-head learned decay bias",
+      "lifetime": "caller-owned immutable weight",
+      "name": "dt_bias",
+      "shape": [
+        16
+      ],
+      "stride": [
+        1
+      ]
+    },
+    {
+      "dtype": "BF16",
+      "layout": "contiguous gated-RMS weight over D",
+      "lifetime": "caller-owned immutable weight",
+      "name": "norm_weight",
+      "shape": [
+        128
+      ],
+      "stride": [
+        1
+      ]
+    },
+    {
+      "dtype": "INT64",
+      "layout": "contiguous [0,S] for B=1",
+      "lifetime": "plan-owned immutable metadata",
+      "name": "cu_seqlens",
+      "shape": [
+        2
+      ],
+      "stride": [
+        1
+      ]
+    }
+  ],
+  "name": "qwen35-sm120-postconv-gdn-prefill-four-stage",
+  "numerics": {
+    "acceptance": "Bitwise equality at the current observable BF16/FP32 stage boundaries and final BF16 output for controlled scheduling rewrites; any change to a rounding boundary requires separate authorization and a pre-registered tolerance test",
+    "accumulation_dtype": "FP32 for reductions, recurrence state and MMA accumulators unless the frozen production source explicitly rounds an intermediate to BF16",
+    "deterministic_required": true,
+    "reference": "Frozen current production four-kernel CuTe SM120 implementation, cross-checked against the FLA gated-delta reference semantics"
+  },
+  "outputs": [
+    {
+      "dtype": "BF16",
+      "layout": "contiguous token-head-value",
+      "lifetime": "caller-owned mutable output",
+      "name": "output",
+      "shape": [
+        "S",
+        16,
+        128
+      ],
+      "stride": [
+        2048,
+        128,
+        1
+      ]
+    }
+  ],
+  "schema_version": "operator-contract-v1",
+  "source_identity": {
+    "files": {
+      "qwen35_fla_pipeline_sm120.py": "1ba9ed3d607171e2e900c91cf9c4d3ea91d3c3542f80cad4354b91eda507888d",
+      "qwen35_fla_post_sm120.py": "54ab667c78cdbdd082c95a6159bcfee3fce8194c32439fc4b53a7c0afd7cb818",
+      "qwen35_fla_s01_sm120.py": "a17bbba422c8ee4af41c0da86b1e68f1b9db75892c4004789bc23fc2446b8df8",
+      "qwen35_fla_s2_sm120.py": "00dedb81955371f5b34eb39d5f2bd0ae8d95d7f63bf13fc4635e032f8f5d9f24",
+      "qwen35_fla_s3_long_raw_sm120.py": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f",
+      "qwen35_fla_s3_raw_sm120.py": "fb0eb2a9bf4a72c6804eaf09c7fc3c9a74ff6eaf961c15ef4b3bd0dcb43e157b",
+      "qwen35_fla_s3_short_raw_sm120.py": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+    },
+    "git_head": "2f519edced8b027f8aee960bc622346e510e2cfa",
+    "git_state": "dirty; production files are currently untracked and therefore frozen by per-file SHA-256",
+    "production_abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+    "repository": "/workspace/dance/qwen35/flashinfer"
+  },
+  "state": []
+}

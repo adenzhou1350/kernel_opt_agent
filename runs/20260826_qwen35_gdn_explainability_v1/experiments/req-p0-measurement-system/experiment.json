@@ -1,0 +1,164 @@
+{
+  "artifacts": {
+    "raw_samples": "experiments/req-p0-measurement-system/raw/samples.json",
+    "reproduction_log": "experiments/req-p0-measurement-system/reproduction.json",
+    "result": "experiments/req-p0-measurement-system/result.json",
+    "static_audit": "experiments/req-p0-measurement-system/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-p0-measurement-system",
+        "--phase",
+        "analyze"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-p0-measurement-system",
+        "--phase",
+        "clean_build"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-p0-measurement-system",
+        "--phase",
+        "correctness"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-p0-measurement-system",
+        "--phase",
+        "measure"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-p0-measurement-system",
+        "--phase",
+        "static_audit"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-p0-measurement-system",
+        "--phase",
+        "warmup"
+      ]
+    ]
+  },
+  "controls": [
+    "empty and near-empty kernels",
+    "event overhead subtraction check",
+    "same stream",
+    "warmup convergence",
+    "idle-device gate",
+    "raw immutable samples",
+    "zero control: zero-work launch establishes the timer and launch bracket",
+    "positive control: live production-shaped work must exceed the zero-work bracket",
+    "negative control: deliberately adverse dependency, bank, cache, or synchronization pattern must move the predicted metric",
+    "live sink control: output is copied or atomically accumulated so the measured work cannot be eliminated"
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/catalog_query_receipt.json",
+      "sha256": "9178d19499aff260d6237b88f5c2fcb3fd90d80cb00fee906b685222ce71f15b"
+    }
+  ],
+  "expected_sass": [
+    "EXIT",
+    "BRA",
+    "NOP"
+  ],
+  "level": "P0",
+  "measurement_contract": {
+    "cache": "explicit per experiment",
+    "geometry": "production-matched or declared sensitivity sweep",
+    "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+    "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+  },
+  "model_update_contract": {
+    "decision_changed": "Accept or reject all later latency samples and select repetition/batching policy.",
+    "model_field": "baseline measurement error and front-end/launch floor",
+    "summary_fields": [
+      "timer_bracket_us",
+      "process_spread",
+      "clock_cv",
+      "graph_direct_difference"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "device": 6,
+      "processes": 3,
+      "source": "existing-attempt-03-qualified-receipt",
+      "status": "PASS",
+      "timer": "CUDA events"
+    }
+  ],
+  "question": "Is the GPU-event timing system stable and what launch/front-end floor is visible under matched grid/block geometry?",
+  "request_id": "req-p0-measurement-system",
+  "revision_history": [
+    {
+      "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+      "status": "WITHDRAWN_BEFORE_EXECUTION"
+    }
+  ],
+  "schema_version": "executable-experiment-v1",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/experiment_driver.py",
+        "sha256": "e19f301ffbe7bc9b2e795004fb85f7607158f996d547c4dae478fc37db6487fb"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-p0-measurement-system/resource_probe.cu",
+        "sha256": "d01d98ae5cd79e577993bfd0d7ffa5493d4faac71e406cf3e3ff06206373d3e2"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe.cu",
+        "sha256": "2a59746bc3542cdb6a4eae73dc702bdb670e43f1ae4de4e18dee7e43c1d41061"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/run_p0.py",
+        "sha256": "78d1be9976b083936b03469d9e90f93395dc192ef7da5a77967a781b2a649c26"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED"
+}

@@ -1,0 +1,1725 @@
+{
+  "allocation_service_curves": [
+    {
+      "actual_registers_per_thread": 22,
+      "aggregate_median_us": [
+        3.05400002,
+        4.4170000599999995,
+        7.53799987
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          7.56999969,
+          7.50999975,
+          7.55599976,
+          7.51999998
+        ],
+        "32": [
+          2.86800003,
+          3.15600014,
+          3.88499999,
+          2.9519999
+        ],
+        "64": [
+          4.43000031,
+          4.46799994,
+          4.40399981,
+          4.4000001
+        ]
+      },
+      "intercept_us": 1.4935001149999994,
+      "maximum_relative_process_spread": 0.3163050945510997,
+      "occupancy_blocks_per_sm": 4,
+      "r_squared_descriptive": 0.9989454585196215,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 47.00223037946429,
+      "slope_us_per_repeat": 0.047002230379464285,
+      "stage_geometry": "post",
+      "variant": "alloc0"
+    },
+    {
+      "actual_registers_per_thread": 128,
+      "aggregate_median_us": [
+        9.677999495,
+        11.59849975,
+        15.56050065
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          15.5999994,
+          15.5370007,
+          15.5349998,
+          15.5840006
+        ],
+        "32": [
+          9.69499969,
+          9.66599941,
+          9.68999958,
+          9.63399982
+        ],
+        "64": [
+          11.5690002,
+          11.625,
+          11.6059999,
+          11.5909996
+        ]
+      },
+      "intercept_us": 7.696999045000001,
+      "maximum_relative_process_spread": 0.006307341074344345,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9999418892190263,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 61.36608374999999,
+      "slope_us_per_repeat": 0.06136608374999999,
+      "stage_geometry": "post",
+      "variant": "alloc112"
+    },
+    {
+      "actual_registers_per_thread": 130,
+      "aggregate_median_us": [
+        9.966000555,
+        11.9835005,
+        16.08950045
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          16.039999,
+          16.0680008,
+          16.1110001,
+          16.1300011
+        ],
+        "32": [
+          9.94000053,
+          9.9640007,
+          9.97100067,
+          9.96800041
+        ],
+        "64": [
+          12.0010004,
+          11.9610004,
+          11.9660006,
+          12.0019999
+        ]
+      },
+      "intercept_us": 7.913000580000001,
+      "maximum_relative_process_spread": 0.005594622984123687,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9999815116308169,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 63.839284665178546,
+      "slope_us_per_repeat": 0.06383928466517855,
+      "stage_geometry": "post",
+      "variant": "alloc116"
+    },
+    {
+      "actual_registers_per_thread": 163,
+      "aggregate_median_us": [
+        10.0215001,
+        11.928000449999999,
+        15.93650005
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          15.947999,
+          15.875001,
+          15.9300003,
+          15.9429998
+        ],
+        "32": [
+          10.0490007,
+          10.0120001,
+          10.0220003,
+          10.0209999
+        ],
+        "64": [
+          11.8920002,
+          11.9070005,
+          11.9490004,
+          11.9510002
+        ]
+      },
+      "intercept_us": 8.0172503,
+      "maximum_relative_process_spread": 0.00494769268890326,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9998502476529322,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 61.760043303571415,
+      "slope_us_per_repeat": 0.06176004330357141,
+      "stage_geometry": "post",
+      "variant": "alloc124"
+    },
+    {
+      "actual_registers_per_thread": 48,
+      "aggregate_median_us": [
+        4.124499800000001,
+        5.73999977,
+        9.035999775
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          9.06299973,
+          8.99300003,
+          9.05099964,
+          9.02099991
+        ],
+        "32": [
+          4.12999964,
+          4.11899996,
+          4.11600018,
+          4.15600014
+        ],
+        "64": [
+          5.73399973,
+          5.72199965,
+          5.77200031,
+          5.74599981
+        ]
+      },
+      "intercept_us": 2.4764997975000007,
+      "maximum_relative_process_spread": 0.009684634148947902,
+      "occupancy_blocks_per_sm": 3,
+      "r_squared_descriptive": 0.9999759189271827,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 51.20982121651785,
+      "slope_us_per_repeat": 0.051209821216517855,
+      "stage_geometry": "post",
+      "variant": "alloc32"
+    },
+    {
+      "actual_registers_per_thread": 80,
+      "aggregate_median_us": [
+        5.7489996,
+        7.108500005,
+        10.45200015
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          10.3590002,
+          10.4569998,
+          10.4470005,
+          10.467
+        ],
+        "32": [
+          5.7489996,
+          5.78700018,
+          5.72599983,
+          5.7489996
+        ],
+        "64": [
+          7.07599974,
+          7.19099998,
+          7.14100027,
+          7.06099987
+        ]
+      },
+      "intercept_us": 4.0772495275,
+      "maximum_relative_process_spread": 0.018265497297311816,
+      "occupancy_blocks_per_sm": 2,
+      "r_squared_descriptive": 0.9976221301150847,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 49.454246305803565,
+      "slope_us_per_repeat": 0.04945424630580356,
+      "stage_geometry": "post",
+      "variant": "alloc64"
+    },
+    {
+      "actual_registers_per_thread": 124,
+      "aggregate_median_us": [
+        8.395500185,
+        10.0050001,
+        13.6995001
+      ],
+      "dynamic_smem_bytes": 0,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          13.7290001,
+          13.6339998,
+          13.7440004,
+          13.6700001
+        ],
+        "32": [
+          8.39500046,
+          8.46100044,
+          8.39299965,
+          8.39599991
+        ],
+        "64": [
+          9.94299984,
+          10,
+          10.0100002,
+          10.0199995
+        ]
+      },
+      "intercept_us": 6.548250184999999,
+      "maximum_relative_process_spread": 0.008084504570697724,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9989080989979328,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 55.603793883928574,
+      "slope_us_per_repeat": 0.055603793883928575,
+      "stage_geometry": "post",
+      "variant": "alloc96"
+    },
+    {
+      "actual_registers_per_thread": 22,
+      "aggregate_median_us": [
+        3.245499965,
+        2.889999985,
+        3.009500025
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.55700016,
+          3.00600004,
+          2.92199993,
+          3.01300001
+        ],
+        "32": [
+          2.96199989,
+          3.52900004,
+          1.51700008,
+          3.53299999
+        ],
+        "64": [
+          1.97200012,
+          2.921,
+          2.85899997,
+          3.04900002
+        ]
+      },
+      "intercept_us": 3.1857499450000004,
+      "maximum_relative_process_spread": 0.6987262490252143,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.24729069773568535,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": -1.8404011607142878,
+      "slope_us_per_repeat": -0.0018404011607142878,
+      "stage_geometry": "s01",
+      "variant": "alloc0"
+    },
+    {
+      "actual_registers_per_thread": 128,
+      "aggregate_median_us": [
+        3.61749995,
+        4.163499835,
+        5.162999865
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          5.15799999,
+          5.12799978,
+          5.22699976,
+          5.16799974
+        ],
+        "32": [
+          3.59799981,
+          3.60500002,
+          3.9920001,
+          3.62999988
+        ],
+        "64": [
+          4.10599995,
+          4.15999985,
+          4.16699982,
+          4.17600012
+        ]
+      },
+      "intercept_us": 3.117749935,
+      "maximum_relative_process_spread": 0.10630699360528348,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9995025426066307,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 16.030133236607142,
+      "slope_us_per_repeat": 0.016030133236607142,
+      "stage_geometry": "s01",
+      "variant": "alloc112"
+    },
+    {
+      "actual_registers_per_thread": 130,
+      "aggregate_median_us": [
+        3.4164999700000003,
+        3.94750023,
+        5.01399994
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          5.02699995,
+          5.03999996,
+          4.97300005,
+          5.00099993
+        ],
+        "32": [
+          3.41899991,
+          3.40700006,
+          4.12999964,
+          3.41400003
+        ],
+        "64": [
+          3.91799998,
+          3.97300029,
+          4.64499998,
+          3.92200017
+        ]
+      },
+      "intercept_us": 2.883250115,
+      "maximum_relative_process_spread": 0.20125249773492693,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9999989077565444,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 16.643972299107133,
+      "slope_us_per_repeat": 0.016643972299107135,
+      "stage_geometry": "s01",
+      "variant": "alloc116"
+    },
+    {
+      "actual_registers_per_thread": 163,
+      "aggregate_median_us": [
+        3.4060001399999997,
+        3.926500085,
+        4.7030000649999995
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.72000027,
+          4.70800018,
+          4.69799995,
+          4.67800045
+        ],
+        "32": [
+          3.15400004,
+          3.16000009,
+          3.83799982,
+          3.65200019
+        ],
+        "64": [
+          3.77799988,
+          4.07500029,
+          3.65200019,
+          4.26999998
+        ]
+      },
+      "intercept_us": 3.0177501499999995,
+      "maximum_relative_process_spread": 0.1982033535389401,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9941349782470843,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 13.313615357142854,
+      "slope_us_per_repeat": 0.013313615357142854,
+      "stage_geometry": "s01",
+      "variant": "alloc124"
+    },
+    {
+      "actual_registers_per_thread": 48,
+      "aggregate_median_us": [
+        1.84200001,
+        2.6649999600000003,
+        3.317499995
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.31500006,
+          3.31999993,
+          3.29399991,
+          3.329
+        ],
+        "32": [
+          2.64999986,
+          1.83599997,
+          1.84599996,
+          1.83800006
+        ],
+        "64": [
+          2.37099981,
+          2.65400004,
+          2.67599988,
+          2.71199989
+        ]
+      },
+      "intercept_us": 1.5157499925000002,
+      "maximum_relative_process_spread": 0.39853116521171045,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9355191950863104,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 14.630580301339286,
+      "slope_us_per_repeat": 0.014630580301339286,
+      "stage_geometry": "s01",
+      "variant": "alloc32"
+    },
+    {
+      "actual_registers_per_thread": 80,
+      "aggregate_median_us": [
+        2.6844999749999996,
+        2.69900012,
+        3.591500045
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.56999993,
+          3.65999985,
+          3.60800004,
+          3.57500005
+        ],
+        "32": [
+          2.1730001,
+          2.69499993,
+          2.67400002,
+          2.83999991
+        ],
+        "64": [
+          3.53499985,
+          2.67200017,
+          2.66900015,
+          2.72600007
+        ]
+      },
+      "intercept_us": 2.2382500124999996,
+      "maximum_relative_process_spread": 0.29856910259812236,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.901335880461145,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 10.090402243303576,
+      "slope_us_per_repeat": 0.010090402243303575,
+      "stage_geometry": "s01",
+      "variant": "alloc64"
+    },
+    {
+      "actual_registers_per_thread": 124,
+      "aggregate_median_us": [
+        2.8020000449999998,
+        3.17049992,
+        4.0650000550000005
+      ],
+      "dynamic_smem_bytes": 58624,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.08300018,
+          4.06900024,
+          4.04899979,
+          4.06099987
+        ],
+        "32": [
+          2.61899996,
+          2.66900015,
+          2.95000005,
+          2.93499994
+        ],
+        "64": [
+          3.22599983,
+          3.09500003,
+          3.91300011,
+          3.11500001
+        ]
+      },
+      "intercept_us": 2.354749977499999,
+      "maximum_relative_process_spread": 0.2451120177468155,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9978998583730608,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 13.273437890625006,
+      "slope_us_per_repeat": 0.013273437890625007,
+      "stage_geometry": "s01",
+      "variant": "alloc96"
+    },
+    {
+      "actual_registers_per_thread": 22,
+      "aggregate_median_us": [
+        2.895499825,
+        2.726500035,
+        2.761000035
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          2.88499999,
+          2.41499996,
+          2.89899993,
+          2.63700008
+        ],
+        "32": [
+          2.61400008,
+          3.48300004,
+          2.89399981,
+          2.89699984
+        ],
+        "64": [
+          2.86999989,
+          3.53199983,
+          2.55999994,
+          2.58300018
+        ]
+      },
+      "intercept_us": 2.8782498249999997,
+      "maximum_relative_process_spread": 0.33676913069580444,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.37849995682722004,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": -1.123882053571429,
+      "slope_us_per_repeat": -0.0011238820535714289,
+      "stage_geometry": "s2",
+      "variant": "alloc0"
+    },
+    {
+      "actual_registers_per_thread": 128,
+      "aggregate_median_us": [
+        3.91050005,
+        4.1459999100000005,
+        4.900999785
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.85000038,
+          4.89299965,
+          4.90899992,
+          4.92299986
+        ],
+        "32": [
+          4.2869997,
+          3.84599996,
+          3.97500014,
+          3.74599981
+        ],
+        "64": [
+          4.15399981,
+          4.28299999,
+          4.09600019,
+          4.13800001
+        ]
+      },
+      "intercept_us": 3.5330001125000003,
+      "maximum_relative_process_spread": 0.1364954972393872,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9892420519143765,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 10.529015212053569,
+      "slope_us_per_repeat": 0.010529015212053568,
+      "stage_geometry": "s2",
+      "variant": "alloc112"
+    },
+    {
+      "actual_registers_per_thread": 130,
+      "aggregate_median_us": [
+        3.61750019,
+        4.01049995,
+        4.753999950000001
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.80000019,
+          4.73000002,
+          4.70100021,
+          4.77799988
+        ],
+        "32": [
+          3.61600018,
+          4.22200012,
+          3.6190002,
+          3.50899982
+        ],
+        "64": [
+          4.01599979,
+          4.04400015,
+          3.90299988,
+          4.00500011
+        ]
+      },
+      "intercept_us": 3.245750189999999,
+      "maximum_relative_process_spread": 0.1905653574114048,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9998063684516417,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 11.80691750000001,
+      "slope_us_per_repeat": 0.01180691750000001,
+      "stage_geometry": "s2",
+      "variant": "alloc116"
+    },
+    {
+      "actual_registers_per_thread": 163,
+      "aggregate_median_us": [
+        3.31099999,
+        3.6634999500000003,
+        4.4309999950000005
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.42700005,
+          4.41400003,
+          4.43499994,
+          4.49799967
+        ],
+        "32": [
+          3.33200002,
+          3.84299994,
+          3.28999996,
+          3.28799987
+        ],
+        "64": [
+          3.68499994,
+          3.63400006,
+          5.45499992,
+          3.64199996
+        ]
+      },
+      "intercept_us": 2.9272499675,
+      "maximum_relative_process_spread": 0.44371341942285625,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9995746040656378,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 11.713169787946432,
+      "slope_us_per_repeat": 0.011713169787946433,
+      "stage_geometry": "s2",
+      "variant": "alloc124"
+    },
+    {
+      "actual_registers_per_thread": 48,
+      "aggregate_median_us": [
+        2.797500015,
+        2.941000105,
+        3.362499955
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.88199997,
+          3.18400002,
+          3.18400002,
+          3.54099989
+        ],
+        "32": [
+          2.94900012,
+          2.64599991,
+          2.63700008,
+          3.5480001
+        ],
+        "64": [
+          2.93300009,
+          2.94900012,
+          2.67699981,
+          2.95000005
+        ]
+      },
+      "intercept_us": 2.58675009,
+      "maximum_relative_process_spread": 0.3093378620576442,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9925089508234048,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 5.985490200892859,
+      "slope_us_per_repeat": 0.005985490200892859,
+      "stage_geometry": "s2",
+      "variant": "alloc32"
+    },
+    {
+      "actual_registers_per_thread": 80,
+      "aggregate_median_us": [
+        3.514999985,
+        3.156999945,
+        3.6809999949999996
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.6559999,
+          3.69499993,
+          3.66700006,
+          3.71700001
+        ],
+        "32": [
+          2.6400001,
+          3.27600002,
+          3.75399995,
+          4.7329998
+        ],
+        "64": [
+          3.32200003,
+          2.91700006,
+          2.99199986,
+          3.58500004
+        ]
+      },
+      "intercept_us": 3.2529999600000004,
+      "maximum_relative_process_spread": 0.5812677133628273,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.23428124180704746,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 2.651785915178565,
+      "slope_us_per_repeat": 0.002651785915178565,
+      "stage_geometry": "s2",
+      "variant": "alloc64"
+    },
+    {
+      "actual_registers_per_thread": 124,
+      "aggregate_median_us": [
+        2.858500005,
+        3.40200007,
+        3.848999975
+      ],
+      "dynamic_smem_bytes": 76672,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.84800005,
+          3.83000016,
+          4.25399971,
+          3.8499999
+        ],
+        "32": [
+          2.84100008,
+          2.85800004,
+          2.86800003,
+          2.85899997
+        ],
+        "64": [
+          3.84599996,
+          3.15300012,
+          3.14899993,
+          3.65100002
+        ]
+      },
+      "intercept_us": 2.6350000524999997,
+      "maximum_relative_process_spread": 0.20204363460676067,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9405459594749516,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 9.841517377232142,
+      "slope_us_per_repeat": 0.009841517377232142,
+      "stage_geometry": "s2",
+      "variant": "alloc96"
+    },
+    {
+      "actual_registers_per_thread": 22,
+      "aggregate_median_us": [
+        2.8020000449999998,
+        2.7849999700000003,
+        3.4435000450000004
+      ],
+      "dynamic_smem_bytes": 73984,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.454,
+          3.43300009,
+          3.38199997,
+          4.04799986
+        ],
+        "32": [
+          2.68799996,
+          1.64899993,
+          2.91600013,
+          2.91799998
+        ],
+        "64": [
+          2.70099998,
+          2.22399998,
+          2.91600013,
+          2.86899996
+        ]
+      },
+      "intercept_us": 2.4727500074999997,
+      "maximum_relative_process_spread": 0.49906599154458753,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.8784503949367877,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 7.197544810267862,
+      "slope_us_per_repeat": 0.0071975448102678625,
+      "stage_geometry": "s3",
+      "variant": "alloc0"
+    },
+    {
+      "actual_registers_per_thread": 128,
+      "aggregate_median_us": [
+        3.93950009,
+        4.493000265,
+        5.72150016
+      ],
+      "dynamic_smem_bytes": 73984,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          5.72700024,
+          5.71099997,
+          5.71600008,
+          5.73399973
+        ],
+        "32": [
+          4.78499985,
+          3.94099998,
+          3.91300011,
+          3.9380002
+        ],
+        "64": [
+          4.49400043,
+          4.4920001,
+          4.52100039,
+          4.49100018
+        ]
+      },
+      "intercept_us": 3.3252501425000003,
+      "maximum_relative_process_spread": 0.2104119521350261,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9993662085659364,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 18.65290217633928,
+      "slope_us_per_repeat": 0.01865290217633928,
+      "stage_geometry": "s3",
+      "variant": "alloc112"
+    },
+    {
+      "actual_registers_per_thread": 48,
+      "aggregate_median_us": [
+        2.63150001,
+        3.22049999,
+        4.030499935
+      ],
+      "dynamic_smem_bytes": 73984,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.05299997,
+          4.06699991,
+          4.0079999,
+          3.95300007
+        ],
+        "32": [
+          2.92299986,
+          2.59299994,
+          2.16400003,
+          2.67000008
+        ],
+        "64": [
+          2.91199994,
+          3.52900004,
+          2.74000001,
+          3.91499972
+        ]
+      },
+      "intercept_us": 2.2265000374999997,
+      "maximum_relative_process_spread": 0.3588881295111146,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9901968723633735,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 14.29910635044643,
+      "slope_us_per_repeat": 0.01429910635044643,
+      "stage_geometry": "s3",
+      "variant": "alloc32"
+    },
+    {
+      "actual_registers_per_thread": 80,
+      "aggregate_median_us": [
+        2.9729999300000003,
+        3.782999995,
+        4.648000005
+      ],
+      "dynamic_smem_bytes": 73984,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.65600014,
+          4.58699989,
+          4.67700005,
+          4.63999987
+        ],
+        "32": [
+          2.98799992,
+          2.95799994,
+          3.57099986,
+          2.94800019
+        ],
+        "64": [
+          3.46399999,
+          4.07800007,
+          3.48799992,
+          6.90399981
+        ]
+      },
+      "intercept_us": 2.5404999249999998,
+      "maximum_relative_process_spread": 0.7672576915983113,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9709858211457767,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 16.88616140625,
+      "slope_us_per_repeat": 0.01688616140625,
+      "stage_geometry": "s3",
+      "variant": "alloc64"
+    },
+    {
+      "actual_registers_per_thread": 124,
+      "aggregate_median_us": [
+        3.07949984,
+        3.81700003,
+        4.783499955
+      ],
+      "dynamic_smem_bytes": 73984,
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          4.82599974,
+          4.78099966,
+          4.76200008,
+          4.78600025
+        ],
+        "32": [
+          3.08099985,
+          3.07799983,
+          3.06100011,
+          3.24500012
+        ],
+        "64": [
+          3.6559999,
+          4.21900034,
+          3.65799999,
+          3.97600007
+        ]
+      },
+      "intercept_us": 2.5962498775,
+      "maximum_relative_process_spread": 0.14520612008757267,
+      "occupancy_blocks_per_sm": 1,
+      "r_squared_descriptive": 0.9873544209767424,
+      "repeat_values": [
+        32,
+        64,
+        128
+      ],
+      "slope_ns_per_repeat": 17.371652645089284,
+      "slope_us_per_repeat": 0.017371652645089285,
+      "stage_geometry": "s3",
+      "variant": "alloc96"
+    }
+  ],
+  "checks": [
+    {
+      "check": "technical_execution_receipt",
+      "status": "PASS"
+    },
+    {
+      "check": "exact_parameter_coverage",
+      "expected_groups": 106,
+      "observed_groups": 106,
+      "status": "PASS"
+    },
+    {
+      "check": "four_independent_ABBA_replicas",
+      "status": "PASS"
+    },
+    {
+      "check": "P0_bound_active_clock_cv",
+      "status": "PASS",
+      "threshold": 0.05,
+      "value": 0.006369239733798083
+    },
+    {
+      "check": "no_external_compute_process",
+      "observed": [],
+      "status": "PASS"
+    },
+    {
+      "check": "per_record_idle_gate",
+      "failures": [],
+      "status": "PASS"
+    },
+    {
+      "check": "function_scoped_SASS_and_exact_ptxas_resources",
+      "status": "PASS"
+    },
+    {
+      "check": "deterministic_live_sink",
+      "status": "PASS"
+    },
+    {
+      "check": "runtime_occupancy_stable_across_replicas",
+      "status": "PASS"
+    },
+    {
+      "check": "nonzero_independent_process_spread",
+      "maximum": 0.7672576915983113,
+      "status": "FAIL",
+      "threshold": 0.1
+    },
+    {
+      "check": "robust_high_work_positive_zero",
+      "high_work_min_minus_zero_max_us": {
+        "post": 4.0648748900000005,
+        "s01": -0.85175014,
+        "s2": -1.6748752599999999,
+        "s3": -1.0254998200000003
+      },
+      "status": "FAIL",
+      "threshold_us": 0.5
+    }
+  ],
+  "claims_allowed": [],
+  "claims_forbidden": [
+    "production critical-path attribution or utilization",
+    "pure SHFL instruction latency because the probe includes loop and runtime branch overhead",
+    "mechanism conclusions from curves that fail the independent-process spread gate",
+    "P2 counter or scheduler-stall claims while NVGPUCTRPERM remains unavailable"
+  ],
+  "collective_incremental_service": {
+    "post": {
+      "dependent_chain_iteration_ns": 35.152343627232135,
+      "ilp4_iteration_ns": 137.1255495200893,
+      "incremental_ns_per_each_of_three_extra_shfl": 33.99106863095239,
+      "scope": "probe iteration service only; runtime branch and loop overhead prevent a pure-instruction latency claim"
+    },
+    "s01": {
+      "dependent_chain_iteration_ns": 3.4804682142857137,
+      "ilp4_iteration_ns": 34.11718671875,
+      "incremental_ns_per_each_of_three_extra_shfl": 10.212239501488094,
+      "scope": "probe iteration service only; runtime branch and loop overhead prevent a pure-instruction latency claim"
+    },
+    "s2": {
+      "dependent_chain_iteration_ns": 4.275669335937501,
+      "ilp4_iteration_ns": 13.675780597098212,
+      "incremental_ns_per_each_of_three_extra_shfl": 3.1333704203869046,
+      "scope": "probe iteration service only; runtime branch and loop overhead prevent a pure-instruction latency claim"
+    },
+    "s3": {
+      "dependent_chain_iteration_ns": 5.222657008928572,
+      "ilp4_iteration_ns": 45.70814646763393,
+      "incremental_ns_per_each_of_three_extra_shfl": 13.495163152901787,
+      "scope": "probe iteration service only; runtime branch and loop overhead prevent a pure-instruction latency claim"
+    }
+  },
+  "collective_service_curves": [
+    {
+      "aggregate_median_us": [
+        3.33300006,
+        5.58399987,
+        10.0825
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          5.58699989,
+          5.58099985,
+          5.59599972,
+          5.5
+        ],
+        "256": [
+          10.0840006,
+          10.0809994,
+          10.0959997,
+          9.98300076
+        ],
+        "64": [
+          3.54299998,
+          3.31999993,
+          3.34600019,
+          3.25600004
+        ]
+      },
+      "intercept_us": 1.0837499950000007,
+      "maximum_relative_process_spread": 0.08525805778417166,
+      "r_squared_descriptive": 0.9999999629655275,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 35.152343627232135,
+      "slope_us_per_repeat": 0.03515234362723214,
+      "stage_geometry": "post",
+      "variant": "shfl_dep"
+    },
+    {
+      "aggregate_median_us": [
+        9.890999794999999,
+        18.68149945,
+        36.2219982
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          18.6899986,
+          18.632,
+          18.710001,
+          18.6730003
+        ],
+        "256": [
+          36.223999,
+          36.2169991,
+          36.2199974,
+          36.2649994
+        ],
+        "64": [
+          9.93400002,
+          9.84799957,
+          9.96099949,
+          9.84300041
+        ]
+      },
+      "intercept_us": 1.1207504200000002,
+      "maximum_relative_process_spread": 0.011923314456648631,
+      "r_squared_descriptive": 0.9999996740204257,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 137.1255495200893,
+      "slope_us_per_repeat": 0.1371255495200893,
+      "stage_geometry": "post",
+      "variant": "shfl_ilp4"
+    },
+    {
+      "aggregate_median_us": [
+        3.151000025,
+        3.015000105,
+        3.747499945
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          2.35700011,
+          3.6730001,
+          3.91799998,
+          2.34699988
+        ],
+        "256": [
+          3.75199986,
+          3.74699998,
+          3.73099995,
+          3.74799991
+        ],
+        "64": [
+          2.99300003,
+          3.30900002,
+          2.76600003,
+          3.31200004
+        ]
+      },
+      "intercept_us": 2.7847501049999996,
+      "maximum_relative_process_spread": 0.5111021036374829,
+      "r_squared_descriptive": 0.7626226835035534,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 3.4804682142857137,
+      "slope_us_per_repeat": 0.0034804682142857138,
+      "stage_geometry": "s01",
+      "variant": "shfl_dep"
+    },
+    {
+      "aggregate_median_us": [
+        3.2640000550000003,
+        5.42999983,
+        9.81099987
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          5.42700005,
+          5.42999983,
+          5.44899988,
+          5.42999983
+        ],
+        "256": [
+          9.76299953,
+          9.81499958,
+          9.80700016,
+          9.82800007
+        ],
+        "64": [
+          3.28400016,
+          3.25200009,
+          3.27600002,
+          3.24600005
+        ]
+      },
+      "intercept_us": 1.0735000350000004,
+      "maximum_relative_process_spread": 0.011640407127819713,
+      "r_squared_descriptive": 0.999992291740817,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 34.11718671875,
+      "slope_us_per_repeat": 0.03411718671875,
+      "stage_geometry": "s01",
+      "variant": "shfl_ilp4"
+    },
+    {
+      "aggregate_median_us": [
+        2.95849991,
+        2.715000035,
+        3.67599988
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          2.75999999,
+          3.27699995,
+          2.67000008,
+          2.29900002
+        ],
+        "256": [
+          3.71200013,
+          3.68599987,
+          3.66499996,
+          3.66599989
+        ],
+        "64": [
+          2.704,
+          4.02699995,
+          2.80699992,
+          3.1099999
+        ]
+      },
+      "intercept_us": 2.4779999874999996,
+      "maximum_relative_process_spread": 0.41840606390207113,
+      "r_squared_descriptive": 0.6999948361336885,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 4.275669335937501,
+      "slope_us_per_repeat": 0.0042756693359375,
+      "stage_geometry": "s2",
+      "variant": "shfl_dep"
+    },
+    {
+      "aggregate_median_us": [
+        2.7135000199999997,
+        3.182500005,
+        5.2579999
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.17599988,
+          3.17599988,
+          3.78299999,
+          3.18900013
+        ],
+        "256": [
+          5.2579999,
+          5.27099991,
+          5.24399996,
+          5.2579999
+        ],
+        "64": [
+          2.02699995,
+          2.6400001,
+          2.78699994,
+          3.64300013
+        ]
+      },
+      "intercept_us": 1.6757500724999996,
+      "maximum_relative_process_spread": 0.5824998332972893,
+      "r_squared_descriptive": 0.9747989411728736,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 13.675780597098212,
+      "slope_us_per_repeat": 0.013675780597098213,
+      "stage_geometry": "s2",
+      "variant": "shfl_ilp4"
+    },
+    {
+      "aggregate_median_us": [
+        3.0764999399999997,
+        3.05949986,
+        4.00900006
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          3.04499984,
+          3.00800014,
+          3.07399988,
+          4.28299999
+        ],
+        "256": [
+          3.9829998,
+          3.93700004,
+          4.38399982,
+          4.03500032
+        ],
+        "64": [
+          3.65899992,
+          3.09599996,
+          3.04799986,
+          3.05699992
+        ]
+      },
+      "intercept_us": 2.6017498399999996,
+      "maximum_relative_process_spread": 0.3803131586164784,
+      "r_squared_descriptive": 0.8829890299518492,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 5.222657008928572,
+      "slope_us_per_repeat": 0.005222657008928573,
+      "stage_geometry": "s3",
+      "variant": "shfl_dep"
+    },
+    {
+      "aggregate_median_us": [
+        3.993499875,
+        6.8715000150000005,
+        12.75999975
+      ],
+      "fit_status": "DESCRIPTIVE_THREE_POINT_FIT; NOT_EXTRAPOLATABLE",
+      "independent_process_medians_us": {
+        "128": [
+          6.87200022,
+          6.87099981,
+          6.92700005,
+          6.83799982
+        ],
+        "256": [
+          12.7690001,
+          12.7670002,
+          12.7529993,
+          12.7069998
+        ],
+        "64": [
+          3.98699975,
+          3.89300013,
+          4,
+          4.01499987
+        ]
+      },
+      "intercept_us": 1.0492500075000004,
+      "maximum_relative_process_spread": 0.030701413505841595,
+      "r_squared_descriptive": 0.9999685997893654,
+      "repeat_values": [
+        64,
+        128,
+        256
+      ],
+      "slope_ns_per_repeat": 45.70814646763393,
+      "slope_us_per_repeat": 0.04570814646763393,
+      "stage_geometry": "s3",
+      "variant": "shfl_ilp4"
+    }
+  ],
+  "diagnostics_not_acceptance_gates": {
+    "direct_batched_submission_risk_records": 199,
+    "direct_batched_submission_risk_total_nonzero_records": 408,
+    "interpretation": "CUDA events around many direct CPU launches include stream idle gaps when host submission does not stay ahead of short kernels; use a P0-qualified CUDA Graph batch or another proven gap-free enqueue path.",
+    "maximum_within_process_p95_minus_p05_over_median": 2.445118472503513,
+    "submission_risk_examples": [
+      {
+        "group": [
+          "s01",
+          "alloc0",
+          32
+        ],
+        "host_over_gpu": 2.3245714397061863,
+        "order": "reverse_b"
+      },
+      {
+        "group": [
+          "s3",
+          "alloc0",
+          32
+        ],
+        "host_over_gpu": 1.9835317640068062,
+        "order": "reverse_a"
+      },
+      {
+        "group": [
+          "s01",
+          "shfl_dep",
+          128
+        ],
+        "host_over_gpu": 1.9801209533934874,
+        "order": "forward_b"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc32",
+          32
+        ],
+        "host_over_gpu": 1.926244474660137,
+        "order": "forward_b"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc32",
+          32
+        ],
+        "host_over_gpu": 1.4325300070674838,
+        "order": "reverse_a"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc32",
+          32
+        ],
+        "host_over_gpu": 1.4084337629129742,
+        "order": "reverse_b"
+      },
+      {
+        "group": [
+          "s2",
+          "shfl_ilp4",
+          64
+        ],
+        "host_over_gpu": 1.3451837677647698,
+        "order": "forward_a"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc0",
+          64
+        ],
+        "host_over_gpu": 1.3182840678528966,
+        "order": "forward_a"
+      },
+      {
+        "group": [
+          "s3",
+          "alloc32",
+          32
+        ],
+        "host_over_gpu": 1.3139584845569527,
+        "order": "reverse_b"
+      },
+      {
+        "group": [
+          "s3",
+          "alloc0",
+          64
+        ],
+        "host_over_gpu": 1.2878119630198919,
+        "order": "reverse_a"
+      },
+      {
+        "group": [
+          "s3",
+          "alloc32",
+          64
+        ],
+        "host_over_gpu": 1.2720803238245242,
+        "order": "reverse_b"
+      },
+      {
+        "group": [
+          "s2",
+          "shfl_dep",
+          128
+        ],
+        "host_over_gpu": 1.2603305849471025,
+        "order": "forward_b"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc64",
+          32
+        ],
+        "host_over_gpu": 1.2387970943949795,
+        "order": "forward_a"
+      },
+      {
+        "group": [
+          "s2",
+          "alloc0",
+          128
+        ],
+        "host_over_gpu": 1.2045677839265887,
+        "order": "reverse_a"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc0",
+          32
+        ],
+        "host_over_gpu": 1.109554389618833,
+        "order": "forward_a"
+      },
+      {
+        "group": [
+          "s01",
+          "alloc64",
+          64
+        ],
+        "host_over_gpu": 1.0553657524655022,
+        "order": "reverse_a"
+      }
+    ]
+  },
+  "execution_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/execution_receipt.json",
+    "sha256": "4851c22e5976b4fbfea395f031f617e76a98108f46f4057504f401204d78b73c"
+  },
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/experiment.json",
+    "sha256": "4a1432f78b39d45db18f1d94706d89d85ba413b1291621c9831116a995e5c6d9"
+  },
+  "fit_disclosure": "Three-point fits are descriptive only; no fit is accepted when a causal validity gate fails.",
+  "p0_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/p0_receipt.json",
+    "sha256": "87498ca47c2962a93ab213890b76b83ab5ca4a2d89c691049b3a825abd9e2aa4"
+  },
+  "qualification": "REJECTED_FOR_CAUSAL_VALIDITY",
+  "raw_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/raw/samples.json",
+    "sha256": "fcc8ed5149e365cc4acc65997bc51f8f249ca327f839a9f73b02fde7f0da78fb"
+  },
+  "request_id": "req-register-collective",
+  "schema_version": "register-collective-p1-v1",
+  "static_audit_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/static/instruction_audit.json",
+    "sha256": "9f86f7a4d0ef426a2e784ebf77ea1b3d6c31fc09a7ff1b3b873ff445b64d5179"
+  },
+  "status": "REJECT",
+  "summary": {
+    "active_clock_cv": 0.006369239733798083,
+    "maximum_nonzero_process_spread": 0.7672576915983113,
+    "robust_high_work_positive_zero_us": {
+      "post": 4.0648748900000005,
+      "s01": -0.85175014,
+      "s2": -1.6748752599999999,
+      "s3": -1.0254998200000003
+    }
+  }
+}

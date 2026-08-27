@@ -1,0 +1,41 @@
+{
+  "batches": 8,
+  "block": 384,
+  "bytes": 16777216,
+  "dynamic_smem_bytes": 58624,
+  "environment": {
+    "captured_at": "2026-08-26T17:47:38.935255+00:00",
+    "nvidia_smi": "6, GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326, NVIDIA GeForce RTX 5090, P1, 2812, 47, 114.21"
+  },
+  "gpu_us": [
+    11.0440006,
+    3.03200006,
+    3.04399991,
+    3.08800006,
+    2.98000002,
+    3.07599998,
+    3.11599994,
+    3.1079998,
+    3.12400007
+  ],
+  "grid": 112,
+  "host_dispatch_us": [
+    2.83537507,
+    2.70237494,
+    2.71012497,
+    2.69437504,
+    2.66712499,
+    2.69149995,
+    2.70437503,
+    2.70037508,
+    2.694875
+  ],
+  "measurement_launch_path": "direct",
+  "mode": "register",
+  "occupancy_blocks_per_sm": 1,
+  "repeats": 32,
+  "sink": 345.478607,
+  "status": "PASS",
+  "stride": 1,
+  "variant": "alloc0"
+}

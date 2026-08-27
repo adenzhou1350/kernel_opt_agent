@@ -1,0 +1,77 @@
+{
+  "candidate_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/architecture_candidates/n2.json",
+    "sha256": "e8793b74fbd7f3368887607e88466b4b238e92acd701a34750999eadcadaf77c"
+  },
+  "compilation": false,
+  "contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+    "sha256": "48341604f457f3e014b51855de923b94d9685d09630fda5191ed590b2f9f9b4d"
+  },
+  "created_at": "2026-08-27T09:01:47.260707+00:00",
+  "cuda_kernel_launches": 0,
+  "experiment_scaffold_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+    "sha256": "dd4d982e70b9df50405bc0a9ee00639d3c11204afe836f3921c3161273113440"
+  },
+  "gpu_performance_samples": 0,
+  "initial_status_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/admissibility_status_initial.json",
+    "sha256": "84e13a2cd480a50f474e8d41fac3b932627db0c2304195b5899b99742107c4c1"
+  },
+  "lifecycle": "PASS_ONLY_INVALID",
+  "plan_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/optimization_plan.json",
+    "sha256": "83b1da208d5d0b62a6d11b627d59bd1dc974b731761f37236e646e5155acc710"
+  },
+  "prior_sealed_experiment_sha256": "60e9e254f5d2a97ada618bc4718f56479101d5970cfbb0667e030705173fa380",
+  "production_binding_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/production_constructor_bindings.json",
+    "sha256": "f3faf7b96e372111ca51dfb1da045021afc9cef1e8f42e2ec77c28a5edfbeb48"
+  },
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "a45e04afe1989f6522c0a60d921b55951256e28cb984c4ebd2abcb59686f6f67"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "review_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_02/review_receipt.json",
+    "sha256": "b23f35bfcf06b32ea3944afba7fc6bed3f36f8b69c803caea6e3196db9292295"
+  },
+  "revision": 2,
+  "schema_version": "static-admissibility-revision-receipt-v3",
+  "source_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+      "sha256": "cd16a948ca3719f87b014aee487ae1050d5cfad0c7239b2ae0b8585a3fe4e9f5"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+      "sha256": "b9b1e77cf5adc5e099b977d87b86d4eb92bc4538f8c27c5e177f7ab45aaee0bc"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/common.py",
+      "sha256": "1ea18dbabc5f4364ed490e2747c8915c5568212d6de530d8dffc71f46dcf255c"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+      "sha256": "af86a8d1d704f81c07a9656d0e8861cc1c2bc7deff47ef8808a99b9b2bbf50df"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+      "sha256": "ca55388c0e44b072d103d936901e64f86856138b09bcde5093fdd1799cb8d6cb"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+      "sha256": "73f8d0d45b9d5d94fc672f78744d54c80f3559980491dc9c92260f4c54cc26b6"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+      "sha256": "eb3ee78a6386b78cc3c8dfa0ea21e399d1c1026a8e13cf7f662fa309270c4750"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+      "sha256": "3862fc82400a07a50e6481c7566d621cf01984c2316aa3016eea34135a43fb3f"
+    }
+  ]
+}

@@ -1,0 +1,584 @@
+{
+  "after_model_identities": {
+    "resource_balance": {
+      "path": "models/resource_balance.json",
+      "sha256": "37975555b6327b2b4a83bee5fcdd69c001069795ec7ce6eaaf48dc0bdbcb34b7"
+    },
+    "schedule_model": {
+      "path": "models/schedule_model.json",
+      "sha256": "3741331aa4cea6d07d4734c53ff973152ecc0ac7bb34d5aeb6487d5bbe2fa5af"
+    },
+    "tradeoff_frontier": {
+      "path": "models/tradeoff_frontier.json",
+      "sha256": "a52d230107f5b0913c916edcfccb2e85eef82320b3a418802718696b2dcbfb62"
+    }
+  },
+  "applied_at": "2026-08-27T11:14:57.399890+00:00",
+  "before_model_identities": {
+    "resource_balance": {
+      "path": "models/resource_balance.json",
+      "sha256": "d0858d6a27bac300822b1aee804630081573fb9f1ddf028c7688e6ed6bbf19cb"
+    },
+    "schedule_model": {
+      "path": "models/schedule_model.json",
+      "sha256": "b9bf33318afb288910ef401eb7c7d5486be564aa5e14717e27fcb9e422ee3ba4"
+    },
+    "tradeoff_frontier": {
+      "path": "models/tradeoff_frontier.json",
+      "sha256": "53dee20192ea85aaea56bb72b9cec2b9e82f3c888aad1cd457d624b9ff3b617d"
+    }
+  },
+  "plan_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/model_update_plan.json",
+    "sha256": "fb861a145f807a75c80e8198971dbc4fee676f52aad226de181ed0d666808f79"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "result_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/result.json",
+    "sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66"
+  },
+  "schema_version": "semantic-model-update-receipt-v1",
+  "status": "APPLIED",
+  "updates": [
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/0/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/1/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/2/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/3/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/4/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/5/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+      "artifact": "resource_balance",
+      "before": "no candidate timing model before static admission",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/measurement/semantics"
+      },
+      "reason": "Record the completed static gate without calibrating the UNKNOWN timing residual or any dynamic resource field.",
+      "target_pointer": "/cases/6/model_residual/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_measurement_semantics",
+      "verified_result_value": "short and long each contribute one deterministic compiler/type observation; no timing interpretation"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/0/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/1/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/2/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/3/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/4/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/5/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "schedule_model",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Close only the logical layout dependency; feasible schedule, resource service, dynamic instructions, silicon bounds and latency remain unresolved.",
+      "target_pointer": "/workload_cases/6/bounds/dependency/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_ADMISSION_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Record static logical layout feasibility without selecting a schedule or changing performance Top2.",
+      "target_pointer": "/global_decision/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "N2 static logical same-backing/type admission",
+      "artifact": "tradeoff_frontier",
+      "before": "N2 must pass exact zero-copy layout proof before final Top2 performance ranking.",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/validity/claims_allowed/0"
+      },
+      "reason": "Bind the global decision reason to the exact allowed claim in the validated result.",
+      "target_pointer": "/global_decision/reason",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "textual_claim_scope",
+      "verified_result_value": "N2 static logical same-backing/type admission"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/0/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/0/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/1/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/1/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/2/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/2/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/3/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/3/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/4/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/4/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/5/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/5/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "STATIC_GATE_PENDING",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/6/candidates/1/uncertainty/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    },
+    {
+      "after": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+      "artifact": "tradeoff_frontier",
+      "before": "CONDITIONAL_ON_STATIC_GATE",
+      "calculation": {
+        "op": "COPY_RESULT",
+        "result_pointer": "/summary/n2_disposition"
+      },
+      "reason": "Advance the N2 static subdecision only; correctness, measured latency, prediction, resources and candidate selection remain unchanged.",
+      "target_pointer": "/cases/6/candidates/1/valid_compute/status",
+      "uncertainty": {
+        "kind": "DETERMINISTIC_STATIC_PREDICATE",
+        "result_sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66",
+        "statistical_uncertainty": "NOT_APPLICABLE"
+      },
+      "units": "categorical_static_admissibility",
+      "verified_result_value": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION"
+    }
+  ]
+}

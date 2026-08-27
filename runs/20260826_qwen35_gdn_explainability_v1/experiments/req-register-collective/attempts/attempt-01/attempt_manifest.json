@@ -1,0 +1,62 @@
+{
+  "archived_at": "2026-08-26T17:22:30.024740+00:00",
+  "attempt": 1,
+  "files": [
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/build.json",
+      "sha256": "f62abbb5c99187c93fa8474fdb1a0bf5295ae544b2602064901a70466422a35d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/catalog_query_receipt.json",
+      "sha256": "02fd0b8e20be3413cb13cb7d59ea15dfea0e451944a36426472116a5c581401b"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/execution_logs/static_audit-0.stderr.txt",
+      "sha256": "624c9908b6418675a1b1180b2223cd3fe04df8d5005a7672d03de16562861189"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/execution_logs/static_audit-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/execution_receipt.json",
+      "sha256": "c118232471786a84d848351b5c3863adf1f54bdc53323e6e9c8e00a1d98eaf2d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/experiment.json",
+      "sha256": "f64e6c605016c2d7d7d51b39fb113a3368cd1fb9b216acabc901dc84d8544d2d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/reproduction.json",
+      "sha256": "c6866c60dd15403b709cd209092cbd2bc764e4c9e7be36c72daf50f6b53c68b1"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/static/instruction_audit.json",
+      "sha256": "204db4336ec31d9373de0b80ac927dedc98bea10da916927e9b1ba4bf03f36fd"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/static/resource_probe",
+      "sha256": "1959c56e6c407ba53d8d419cc4c5a5ab89c74462d1d027f5f38f33c8730a9d30"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/static/resource_probe.sass",
+      "sha256": "0b5b40f365a62bde0a7d7a9d8ebdf9210a6b7c853450c7e8a2f982409ff20c9d"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-01/validity_review.json",
+      "sha256": "16c3e09a892f556967a90d4a3d5ab757d1d54163035214579155eaec8b3c935d"
+    }
+  ],
+  "reason": "Static resource validator used an ambiguous template substring; no performance measurement occurred.",
+  "request_id": "req-register-collective",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "TECHNICAL_FAILURE_REVISED"
+}

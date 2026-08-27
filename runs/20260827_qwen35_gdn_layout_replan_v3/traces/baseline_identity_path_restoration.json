@@ -1,0 +1,19 @@
+{
+  "created_at": "2026-08-27T08:09:09.478541+00:00",
+  "records": [
+    {
+      "action": "COPIED_EXACT_HASH",
+      "destination": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/capture_production_baseline.py",
+      "sha256": "faf3533168710cd202ebc469c08646fec7fba9c561a59074024f39ab5f6f0114",
+      "source": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/capture_production_baseline.py"
+    },
+    {
+      "action": "COPIED_EXACT_HASH",
+      "destination": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/current_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e",
+      "source": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/baseline_s404_composite.cubin"
+    }
+  ],
+  "schema_version": "baseline-identity-path-restoration-v1",
+  "semantic_change": false
+}

@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "p0_calibration_receipt.schema.json",
+  "title": "Deterministically computed measurement-system calibration receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "created_at", "input_identity", "controls",
+    "raw_evidence", "environment_identity", "live_sink_identity"
+  ],
+  "properties": {
+    "schema_version": {"const": "p0-calibration-receipt-v2"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "created_at": {"type": "string", "format": "date-time"},
+    "input_identity": {"type": "object"},
+    "controls": {
+      "type": "object",
+      "required": [
+        "timer_bracket", "zero_work", "live_sink", "graph_direct_equivalence",
+        "clock_stability", "cold_warm_separation", "competing_load",
+        "independent_process_replication"
+      ],
+      "additionalProperties": {"type": "object"}
+    },
+    "raw_evidence": {"type": "array", "minItems": 1},
+    "environment_identity": {"type": "object"},
+    "live_sink_identity": {"type": "object"}
+  }
+}

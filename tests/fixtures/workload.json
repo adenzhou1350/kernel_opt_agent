@@ -1,0 +1,10 @@
+{
+  "schema_version": "workload-v1",
+  "name": "weighted-vector-grid",
+  "cases": [
+    {"id": "n262144", "parameters": {"N": 262144}, "weight": 0.25},
+    {"id": "n1048576", "parameters": {"N": 1048576}, "weight": 0.75}
+  ],
+  "objective": {"metric": "gpu_active_us", "statistic": "median", "direction": "minimize"},
+  "execution": {"graph_mode": "off", "cache_semantics": "warm", "concurrency": "exclusive test device"}
+}

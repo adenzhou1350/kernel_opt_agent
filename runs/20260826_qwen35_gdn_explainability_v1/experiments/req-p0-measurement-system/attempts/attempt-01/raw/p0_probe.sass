@@ -1,0 +1,198 @@
+
+Fatbin elf code:
+================
+arch = sm_120a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = p0_probe.cu 
+
+	code for sm_120a
+	.target	sm_120a
+
+
+Fatbin ptx code:
+================
+arch = sm_120
+code version = [9,3]
+host = linux
+compile_size = 64bit
+compressed
+identifier = p0_probe.cu
+ptxasOptions =  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_120a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = p0_probe.cu
+
+	code for sm_120a
+	.target	sm_120a
+
+		Function : _Z20positive_work_kernelPji
+	.headerflags	@"EF_CUDA_ACCELERATORS EF_CUDA_SM120 EF_CUDA_VIRTUAL_SM(EF_CUDA_SM120)"
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;                                /* 0x0000df00ff017b82 */
+                                                                                          /* 0x000fe20000000800 */
+        /*0010*/                   S2R R3, SR_TID.X ;                                     /* 0x0000000000037919 */
+                                                                                          /* 0x000e2e0000002100 */
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;                                 /* 0x00000000000479c3 */
+                                                                                          /* 0x000e220000002500 */
+        /*0030*/                   LDCU UR5, c[0x0][0x388] ;                              /* 0x00007100ff0577ac */
+                                                                                          /* 0x000e6e0008000800 */
+        /*0040*/                   LDC R0, c[0x0][0x360] ;                                /* 0x0000d800ff007b82 */
+                                                                                          /* 0x000e220000000800 */
+        /*0050*/                   UISETP.GE.AND UP0, UPT, UR5, 0x1, UPT ;                /* 0x000000010500788c */
+                                                                                          /* 0x002fe2000bf06270 */
+        /*0060*/                   IMAD R0, R0, UR4, R3 ;                                 /* 0x0000000400007c24 */
+                                                                                          /* 0x001fca000f8e0203 */
+        /*0070*/                   LOP3.LUT R0, R0, 0x9e3779b9, RZ, 0x3c, !PT ;           /* 0x9e3779b900007812 */
+                                                                                          /* 0x000fc600078e3cff */
+        /*0080*/                   BRA.U !UP0, 0x1b0 ;                                    /* 0x0000000108487547 */
+                                                                                          /* 0x000fea000b800000 */
+        /*0090*/                   UISETP.GE.U32.AND UP0, UPT, UR5, 0x4, UPT ;            /* 0x000000040500788c */
+                                                                                          /* 0x000fe2000bf06070 */
+        /*00a0*/                   ULOP3.LUT UR4, UR5, 0x3, URZ, 0xc0, !UPT ;             /* 0x0000000305047892 */
+                                                                                          /* 0x000fd0000f8ec0ff */
+        /*00b0*/                   BRA.U !UP0, 0x150 ;                                    /* 0x0000000108247547 */
+                                                                                          /* 0x000fea000b800000 */
+        /*00c0*/                   HFMA2 R5, -RZ, RZ, 0.00016701221466064453125, -1937 ;  /* 0x0979e791ff057431 */
+                                                                                          /* 0x000fe200000001ff */
+        /*00d0*/                   ULOP3.LUT UR5, UR5, 0x7ffffffc, URZ, 0xc0, !UPT ;      /* 0x7ffffffc05057892 */
+                                                                                          /* 0x000fc8000f8ec0ff */
+        /*00e0*/                   UIADD3 UR5, UPT, UPT, -UR5, URZ, URZ ;                 /* 0x000000ff05057290 */
+                                                                                          /* 0x000fd8000fffe1ff */
+        /*00f0*/                   UIADD3 UR5, UPT, UPT, UR5, 0x4, URZ ;                  /* 0x0000000405057890 */
+                                                                                          /* 0x000fe2000fffe0ff */
+        /*0100*/                   IMAD R0, R0, R5, -0x5506accc ;                         /* 0xaaf9533400007424 */
+                                                                                          /* 0x000fc600078e0205 */
+        /*0110*/                   UISETP.NE.U32.AND UP0, UPT, UR5, URZ, UPT ;            /* 0x000000ff0500728c */
+                                                                                          /* 0x000fd2000bf05070 */
+        /*0120*/                   BRA.U UP0, 0xf0 ;                                      /* 0xfffffffd00f07547 */
+                                                                                          /* 0x000fea000b83ffff */
+        /*0130*/                   UISETP.NE.U32.AND UP0, UPT, UR4, URZ, UPT ;            /* 0x000000ff0400728c */
+                                                                                          /* 0x000fd2000bf05070 */
+        /*0140*/                   BRA.U !UP0, 0x1b0 ;                                    /* 0x0000000108187547 */
+                                                                                          /* 0x000fea000b800000 */
+        /*0150*/                   MOV R5, 0x19660d ;                                     /* 0x0019660d00057802 */
+                                                                                          /* 0x000fe20000000f00 */
+        /*0160*/                   UIADD3 UR4, UPT, UPT, -UR4, URZ, URZ ;                 /* 0x000000ff04047290 */
+                                                                                          /* 0x000fd8000fffe1ff */
+        /*0170*/                   UIADD3 UR4, UPT, UPT, UR4, 0x1, URZ ;                  /* 0x0000000104047890 */
+                                                                                          /* 0x000fe2000fffe0ff */
+        /*0180*/                   IMAD R0, R0, R5, 0x3c6ef35f ;                          /* 0x3c6ef35f00007424 */
+                                                                                          /* 0x000fc600078e0205 */
+        /*0190*/                   UISETP.NE.U32.AND UP0, UPT, UR4, URZ, UPT ;            /* 0x000000ff0400728c */
+                                                                                          /* 0x000fd2000bf05070 */
+        /*01a0*/                   BRA.U UP0, 0x170 ;                                     /* 0xfffffffd00f07547 */
+                                                                                          /* 0x000fea000b83ffff */
+        /*01b0*/                   ISETP.NE.U32.AND P0, PT, R3, RZ, PT ;                  /* 0x000000ff0300720c */
+                                                                                          /* 0x000fda0003f05070 */
+        /*01c0*/               @P0 EXIT ;                                                 /* 0x000000000000094d */
+                                                                                          /* 0x000fea0003800000 */
+        /*01d0*/                   LDCU.64 UR4, c[0x0][0x358] ;                           /* 0x00006b00ff0477ac */
+                                                                                          /* 0x000e220008000a00 */
+        /*01e0*/                   LDC.64 R2, c[0x0][0x380] ;                             /* 0x0000e000ff027b82 */
+                                                                                          /* 0x000e220000000a00 */
+        /*01f0*/                   LOP3.LUT R5, R0, 0x1, RZ, 0xfc, !PT ;                  /* 0x0000000100057812 */
+                                                                                          /* 0x000fca00078efcff */
+        /*0200*/                   REDG.E.ADD.STRONG.GPU desc[UR4][R2.64], R5 ;           /* 0x000000050200798e */
+                                                                                          /* 0x001fe2000c12e104 */
+        /*0210*/                   EXIT ;                                                 /* 0x000000000000794d */
+                                                                                          /* 0x000fea0003800000 */
+        /*0220*/                   BRA 0x220;                                             /* 0xfffffffc00fc7947 */
+                                                                                          /* 0x000fc0000383ffff */
+        /*0230*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0240*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0250*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0260*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0270*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0280*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0290*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*02a0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*02b0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*02c0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*02d0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*02e0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*02f0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+		..........
+
+
+		Function : _Z16zero_work_kernelPj
+	.headerflags	@"EF_CUDA_ACCELERATORS EF_CUDA_SM120 EF_CUDA_VIRTUAL_SM(EF_CUDA_SM120)"
+        /*0000*/                   LDC R1, c[0x0][0x37c] ;                                /* 0x0000df00ff017b82 */
+                                                                                          /* 0x000fe20000000800 */
+        /*0010*/                   S2R R0, SR_TID.X ;                                     /* 0x0000000000007919 */
+                                                                                          /* 0x000e2e0000002100 */
+        /*0020*/                   S2UR UR4, SR_CTAID.X ;                                 /* 0x00000000000479c3 */
+                                                                                          /* 0x000e240000002500 */
+        /*0030*/                   LOP3.LUT P0, RZ, R0, UR4, RZ, 0xfc, !PT ;              /* 0x0000000400ff7c12 */
+                                                                                          /* 0x001fda000f80fcff */
+        /*0040*/               @P0 EXIT ;                                                 /* 0x000000000000094d */
+                                                                                          /* 0x000fea0003800000 */
+        /*0050*/                   S2R R0, SR_LANEID ;                                    /* 0x0000000000007919 */
+                                                                                          /* 0x000e220000000000 */
+        /*0060*/                   VOTEU.ANY UR6, UPT, PT ;                               /* 0x0000000000067886 */
+                                                                                          /* 0x000fe200038e0100 */
+        /*0070*/                   LDCU.64 UR4, c[0x0][0x358] ;                           /* 0x00006b00ff0477ac */
+                                                                                          /* 0x000e620008000a00 */
+        /*0080*/                   POPC R5, UR6 ;                                         /* 0x0000000600057d09 */
+                                                                                          /* 0x000e620008000000 */
+        /*0090*/                   LDC.64 R2, c[0x0][0x380] ;                             /* 0x0000e000ff027b82 */
+                                                                                          /* 0x000e620000000a00 */
+        /*00a0*/                   UFLO.U32 UR7, UR6 ;                                    /* 0x00000006000772bd */
+                                                                                          /* 0x000fcc00080e0000 */
+        /*00b0*/                   ISETP.EQ.U32.AND P0, PT, R0, UR7, PT ;                 /* 0x0000000700007c0c */
+                                                                                          /* 0x001fda000bf02070 */
+        /*00c0*/               @P0 REDG.E.ADD.STRONG.GPU desc[UR4][R2.64], R5 ;           /* 0x000000050200098e */
+                                                                                          /* 0x002fe2000c12e104 */
+        /*00d0*/                   EXIT ;                                                 /* 0x000000000000794d */
+                                                                                          /* 0x000fea0003800000 */
+        /*00e0*/                   BRA 0xe0;                                              /* 0xfffffffc00fc7947 */
+                                                                                          /* 0x000fc0000383ffff */
+        /*00f0*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0100*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0110*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0120*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0130*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0140*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0150*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0160*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+        /*0170*/                   NOP;                                                   /* 0x0000000000007918 */
+                                                                                          /* 0x000fc00000000000 */
+		..........
+
+
+
+Fatbin ptx code:
+================
+arch = sm_120a
+code version = [9,3]
+host = linux
+compile_size = 64bit
+compressed
+identifier = p0_probe.cu
+ptxasOptions =  --generate-line-info 

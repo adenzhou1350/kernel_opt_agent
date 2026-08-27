@@ -1,0 +1,69 @@
+{
+  "causal_mapping": {
+    "assumptions": [
+      "S404 and S768 exercise the short/tail and long production dispatch families.",
+      "C0/C1 inputs, ABI, stream, four-kernel topology and timing semantics differ only in registered S3 scheduling.",
+      "One statistical measurement process is acceptable only because screening cannot accept C1; lifecycle gate processes emit no decision samples.",
+      "Candidate paired variance remains compatible with the preregistered precision expectation; otherwise screening is INCONCLUSIVE."
+    ],
+    "confounders": [
+      "Wrong Harrix/FlashInfer import path, stale JIT cache or identical C0/C1 cubin",
+      "Unregistered S01/S2/post, launch, input, layout, alignment, stream or graph change",
+      "Clock/load/order drift, cold compilation/allocation or CPU enqueue gaps",
+      "S404 tail masking or stale upper-score shared values",
+      "ptxas register/spill/shared/control changes that invalidate a narrow tile-cost attribution"
+    ],
+    "controls": [
+      "Use distinct C0/C1 ABI/cache keys; archive source/cubin/SASS and prove loaded cubins differ.",
+      "Require PYTHONPATH prefix /workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer and reject old Harrix/site-packages resolution.",
+      "Bitwise stage-boundary/final-BF16 plus deterministic graph/direct correctness at S404 and S768; prove skipped score tiles are never read.",
+      "SASS gate proves upper-tile QK and score-times-V work removal, unchanged S01/S2/post, resources, barriers and launch geometry.",
+      "Balanced randomized AB/BA, identical seeds/addresses/alignment, same explicit stream/GPU UUID, warm plans, graph_batch=64 and P0 PASS.",
+      "CUPTI is collected separately and never mixed into the screening distribution.",
+      "Primary inference is the preregistered two-shape paired-mean Welch-Studentized CI; do not switch estimands or CI methods after observing data."
+    ],
+    "falsification_condition": "Hard-gate failure rejects C1. Otherwise L>+0.25us rejects; half-width<=0.10us and U<+0.25us only admits a new QUALIFICATION contract; every other result is INCONCLUSIVE. Median, unpaired, pooled, or post-hoc bootstrap inference is forbidden.",
+    "formula": "For s in {404,768}, d_s,i=event_elapsed_us(C1,s,i)/64-event_elapsed_us(C0,s,i)/64 for matched randomized-order pair i; q_screen=0.5*(E_i[d_404,i]+E_i[d_768,i]); estimate q_hat=0.5*(mean_i d_404,i+mean_i d_768,i). For each s, v_s is the unbiased sample variance of 15 paired d_s,i. SE(q_hat)=0.5*sqrt(v_404/15+v_768/15); nu=(v_404/15+v_768/15)^2/((v_404/15)^2/14+(v_768/15)^2/14); CI95=q_hat +/- t_(0.975,nu)*SE(q_hat)."
+  },
+  "decision_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+    "sha256": "47c5eded075f19679b35d4a47ef4a926cebb8078714ad59c4fcce0b3a7b33a18"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/baseline.json",
+      "sha256": "e90fdaf35d850482e24eadcc0308c550b700b202201053473caa075cc3c13e89"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+      "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+    }
+  ],
+  "expected_precision": {
+    "absolute": 0.1,
+    "unit": "us"
+  },
+  "identifiability": "PARTIALLY_IDENTIFIABLE",
+  "issued_by": {
+    "analyst_id": "microarchitecture-analyst-linear-v2",
+    "role": "MICROARCHITECTURE_ANALYST"
+  },
+  "observable": {
+    "measurement_window": "At S404 and S768, randomized interleaved C0/C1 exact four-kernel measurement-only graph blocks; each block times 64 replays with CUDA events on the same explicit stream. The single measure[0] process performs its own in-process warmup and emits fifteen paired blocks per shape. The five other mandatory lifecycle phase processes emit no decision samples.",
+    "name": "two-path screening paired-mean delta: 0.5*(E[d_404]+E[d_768])",
+    "unit": "us"
+  },
+  "quantity_id": "screening_two_path_mean_delta_c1_minus_c0",
+  "required_tier": "SCREENING",
+  "schema_version": "measurability-contract-v1",
+  "selected_method": "CANDIDATE_AB",
+  "status": "READY_FOR_SUPERVISOR"
+}

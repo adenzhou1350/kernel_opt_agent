@@ -1,0 +1,87 @@
+{
+  "acceptance_rule": "Only the GLOBAL_SCHEDULER may accept a candidate, and only if the weighted production objective improves with uncertainty resolved and no workload case regresses outside the declared tolerance.",
+  "baseline_identities": [],
+  "correctness_gates": [
+    "Bitwise preserve the current stage-boundary tensors and final output unless a separate numerical-tolerance change is authorized.",
+    "Preserve current ABI, physical layouts, initial_state=None, and output_final_state=False.",
+    "Reject any final binary with local-memory spills or an unexplained SASS change."
+  ],
+  "evidence_gates": [
+    "All timing must be GPU-event, raw-sample backed, P0-qualified, and separately report CPU dispatch and end-to-end time.",
+    "Every measured/bounded model row must bind immutable evidence and exact source/binary identities.",
+    "Final acceptance requires correctness, matched final-binary SASS, production-exact P4 timing, and prediction-error closure."
+  ],
+  "experiment_queue": [
+    "req-compute-service",
+    "req-memory-hierarchy-service",
+    "req-p0-measurement-system",
+    "req-register-collective",
+    "req-shared-request-service",
+    "req-sync-async-overlap"
+  ],
+  "global_scheduler_owner": "qwen35-gdn-global-scheduler-v1",
+  "model_dependencies": [
+    "mandatory-work ledger",
+    "mathematical/current DAG",
+    "target resource graph",
+    "P0-P3 calibrated matched service curves",
+    "P4 production validation"
+  ],
+  "model_error_tolerances_percent": {
+    "achieved_to_feasible_bound": 5.0,
+    "p1_p2_to_p3": 10.0,
+    "schedule_to_p4": 5.0
+  },
+  "objective": {
+    "direction": "minimize",
+    "metric": "equal-weight mean production-exact GPU-active latency over the seven prefill shapes",
+    "primary_anchor": "s404",
+    "weights_source": "workload.json; equal weights pending production frequency input"
+  },
+  "open_uncertainties": [
+    "All latency, throughput, utilization, dynamic work, overlap, and critical-path values remain intentionally unknown before baseline/P0."
+  ],
+  "revision_history": [
+    {
+      "reason": "Blind evidence-closed planning from exact workload, source, binary SASS, and official hardware evidence; no historical timings imported.",
+      "revision": 1
+    }
+  ],
+  "schema_version": "optimization-plan-v1",
+  "status": "EXECUTABLE",
+  "stop_criteria": [
+    "All material resource rows are MEASURED, BOUNDED, or NOT_APPLICABLE with immutable evidence.",
+    "All experiment requests are terminal and the production DAG prediction error is within tolerance.",
+    "The achieved production curve is within 5% of the evidence-backed feasible lower bound, or the residual gap has a SASS plus microarchitectural explanation."
+  ],
+  "workload_priorities": [
+    {
+      "case_id": "s256",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s384",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s404",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s512",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s640",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s768",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s1024",
+      "weight": 0.14285714285714285
+    }
+  ]
+}

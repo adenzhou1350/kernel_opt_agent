@@ -1,0 +1,92 @@
+{
+  "artifacts": {
+    "reproduction_log": {
+      "path": "experiments/req-s3-tile-causal-production-ab/reproduction.json",
+      "sha256": "e3d5606a9524bbaf38eb00b9d94479ce43f526024b17659baa2505d0304039b2"
+    }
+  },
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/env",
+        "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer",
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/clean_build.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"
+      ],
+      "exit_code": 1,
+      "finished_at": "2026-08-27T06:49:44.925518+00:00",
+      "index": 0,
+      "input_identities": [
+        {
+          "path": "/usr/bin/env",
+          "sha256": "854a8d7f147ff1bf3562edd1aa0b2f2ac28ef432811533f03c43dc9162fe3af3"
+        }
+      ],
+      "phase": "clean_build",
+      "started_at": "2026-08-27T06:49:33.767693+00:00",
+      "stderr": {
+        "path": "experiments/req-s3-tile-causal-production-ab/execution_logs/clean_build-0.stderr.txt",
+        "sha256": "5b8efb8dc50f938834fa26cf0d93d329b710cf0b4cbd3f4adbbdc10eba9b1838"
+      },
+      "stdout": {
+        "path": "experiments/req-s3-tile-causal-production-ab/execution_logs/clean_build-0.stdout.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    }
+  ],
+  "environment": {
+    "cuda_visible_devices": null,
+    "cwd": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"
+  },
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/req-s3-tile-causal-production-ab/experiment.json",
+    "sha256": "ef5a7803340a07853f818f8d155ede26b8dc6d168e0998ebe79037ac696ab64f"
+  },
+  "failure": "clean_build[0] exited 1",
+  "finished_at": "2026-08-27T06:49:44.965275+00:00",
+  "hardware_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/hardware.json",
+    "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+  },
+  "pre_execution_artifacts": {
+    "raw_samples": {
+      "existed": false,
+      "sha256": null
+    },
+    "result": {
+      "existed": false,
+      "sha256": null
+    },
+    "static_audit": {
+      "existed": false,
+      "sha256": null
+    }
+  },
+  "request_id": "req-s3-tile-causal-production-ab",
+  "schema_version": "experiment-execution-receipt-v1",
+  "started_at": "2026-08-27T06:49:33.720651+00:00",
+  "status": "FAIL",
+  "target": {
+    "architecture": "sm_120",
+    "compute_capability": "12.0",
+    "device_index": 6,
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "max_threads_per_block": 1024,
+    "max_threads_per_sm": 1536,
+    "memory_bytes": 33670758400,
+    "registers_per_sm": 65536,
+    "shared_memory_per_block_bytes": 49152,
+    "shared_memory_per_block_optin_bytes": 101376,
+    "shared_memory_per_sm_bytes": 102400,
+    "sm_count": 170,
+    "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+    "vendor": "NVIDIA",
+    "warp_size": 32
+  },
+  "workload_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/workload.json",
+    "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+  }
+}

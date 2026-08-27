@@ -1,0 +1,37 @@
+{
+  "disposition": "REPLAN_REQUIRED_NO_CANDIDATE_DISPOSITION",
+  "execution_observed": {
+    "compilation": false,
+    "cuda_kernel_launch": false,
+    "dispatch": false,
+    "gpu_performance_samples": 0,
+    "supervisor_approval": false
+  },
+  "forbidden_in_revision": [
+    "performance Top2",
+    "latency or speedup value",
+    "performance sensitivity or ranking score",
+    "duplicated deterministic samples",
+    "toolchain failure interpreted as candidate rejection"
+  ],
+  "independent_reviews": [
+    {
+      "decision": "VETO",
+      "reason": "boolean feasibility was assigned latency value and performance Top2 was frozen prematurely",
+      "role": "GLOBAL_SUPERVISOR"
+    },
+    {
+      "decision": "VETO",
+      "reason": "local layout equality did not prove global coordinates, owner, offset, disjointness, union, or actual GEMM consumption",
+      "role": "MICROARCHITECTURE_ANALYST"
+    },
+    {
+      "decision": "VETO",
+      "reason": "negative predicate lifecycle, production-source prebinding, and queue experiment identity were not closed",
+      "role": "EXPERIMENT_AGENT"
+    }
+  ],
+  "request_id": "req-n2-static-layout-admissibility",
+  "reviewed_at": "2026-08-27T08:07:23.078010+00:00",
+  "schema_version": "preapproval-veto-receipt-v1"
+}

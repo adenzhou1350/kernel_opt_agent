@@ -1,0 +1,97 @@
+{
+  "candidate_id": "C1",
+  "explicit_non_changes": [
+    "S01, S2, post, cross-kernel ABI and four-kernel topology",
+    "BF16 score rounding and BF16 raw_o rounding boundaries",
+    "current shared score handoff; no register-fragment handoff in this candidate",
+    "grid and block geometry",
+    "nonzero accumulation order within each output element"
+  ],
+  "hard_resource_gates": {
+    "long": {
+      "registers_per_thread_max": 128,
+      "shared_bytes_max": 49408
+    },
+    "short": {
+      "registers_per_thread_max": 126,
+      "shared_bytes_max": 73984
+    },
+    "spill_bytes": 0,
+    "stack_bytes": 0
+  },
+  "name": "s3-block-causal-tile-schedule",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_raw",
+    "gated_rms_post"
+  ],
+  "scheduled_work": [
+    {
+      "c0_flop": 738197504,
+      "c1_flop": 687865856,
+      "c1_s3_schedule_padding_flop": 15728640,
+      "c1_s3_scheduled_flop": 218103808,
+      "c1_total_schedule_padding_flop": 182976512,
+      "case_id": "s256",
+      "removed_flop": 50331648
+    },
+    {
+      "c0_flop": 1107296256,
+      "c1_flop": 1031798784,
+      "c1_s3_schedule_padding_flop": 23592960,
+      "c1_s3_scheduled_flop": 327155712,
+      "c1_total_schedule_padding_flop": 240910336,
+      "case_id": "s384",
+      "removed_flop": 75497472
+    },
+    {
+      "c0_flop": 1291845632,
+      "c1_flop": 1189085184,
+      "c1_s3_schedule_padding_flop": 51232768,
+      "c1_s3_scheduled_flop": 367001600,
+      "c1_total_schedule_padding_flop": 339451904,
+      "case_id": "s404",
+      "removed_flop": 102760448
+    },
+    {
+      "c0_flop": 1476395008,
+      "c1_flop": 1375731712,
+      "c1_s3_schedule_padding_flop": 31457280,
+      "c1_s3_scheduled_flop": 436207616,
+      "c1_total_schedule_padding_flop": 298844160,
+      "case_id": "s512",
+      "removed_flop": 100663296
+    },
+    {
+      "c0_flop": 1845493760,
+      "c1_flop": 1719664640,
+      "c1_s3_schedule_padding_flop": 39321600,
+      "c1_s3_scheduled_flop": 545259520,
+      "c1_total_schedule_padding_flop": 356777984,
+      "case_id": "s640",
+      "removed_flop": 125829120
+    },
+    {
+      "c0_flop": 2214592512,
+      "c1_flop": 2063597568,
+      "c1_s3_schedule_padding_flop": 47185920,
+      "c1_s3_scheduled_flop": 654311424,
+      "c1_total_schedule_padding_flop": 414711808,
+      "case_id": "s768",
+      "removed_flop": 150994944
+    },
+    {
+      "c0_flop": 2952790016,
+      "c1_flop": 2751463424,
+      "c1_s3_schedule_padding_flop": 62914560,
+      "c1_s3_scheduled_flop": 872415232,
+      "c1_total_schedule_padding_flop": 530579456,
+      "case_id": "s1024",
+      "removed_flop": 201326592
+    }
+  ],
+  "single_architectural_change": "In S3 QK and score-times-V only, schedule the 10 lower-triangular 16x16 token-tile pairs instead of all 16 pairs for every full 64-token chunk. For the S404 20-token tail, use a 2x2 tile grid and schedule its 3 causal pairs. Keep full fixed-shape MMA work and masking inside each diagonal/tail tile; no element-level tensor-work saving is claimed.",
+  "status": "UNRESOLVED_TOP_TWO",
+  "tail_gate": "S404 must prove that no wholly invalid tile is issued/read and that intra-tile masking remains exact."
+}

@@ -1,0 +1,320 @@
+{
+  "critical_paths": [
+    {
+      "acceptance_gpu_graph_median_us": 26.667999103665352,
+      "case_id": "s256",
+      "cross_method_difference_us": 2.3149991036653503,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 24.353,
+      "separate_cupti_stage_median_us": {
+        "post": 2.208,
+        "s01": 10.081,
+        "s2": 4.1915,
+        "s3": 7.8725000000000005
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 28.819499537348747,
+      "case_id": "s384",
+      "cross_method_difference_us": 2.2754995373487468,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 26.544,
+      "separate_cupti_stage_median_us": {
+        "post": 2.272,
+        "s01": 10.368,
+        "s2": 5.904,
+        "s3": 8.0
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 28.867000713944435,
+      "case_id": "s404",
+      "cross_method_difference_us": 1.0255007139444352,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 27.8415,
+      "separate_cupti_stage_median_us": {
+        "post": 2.3045,
+        "s01": 10.6085,
+        "s2": 6.8645,
+        "s3": 8.064
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 30.955500900745392,
+      "case_id": "s512",
+      "cross_method_difference_us": 0.9715009007453901,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 29.984,
+      "separate_cupti_stage_median_us": {
+        "post": 3.216,
+        "s01": 10.912,
+        "s2": 7.68,
+        "s3": 8.176
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 34.93649885058403,
+      "case_id": "s640",
+      "cross_method_difference_us": 1.9754988505840316,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 32.961,
+      "separate_cupti_stage_median_us": {
+        "post": 3.68,
+        "s01": 11.504,
+        "s2": 9.36,
+        "s3": 8.417
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 46.907998621463776,
+      "case_id": "s768",
+      "cross_method_difference_us": 2.191498621463772,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 44.7165,
+      "separate_cupti_stage_median_us": {
+        "post": 3.8075,
+        "s01": 18.975,
+        "s2": 10.927,
+        "s3": 11.007
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 51.346998661756516,
+      "case_id": "s1024",
+      "cross_method_difference_us": 2.2089986617565174,
+      "measurement_semantics": "stage values are a separate CUPTI diagnostic; graph median is the acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_kernel_sum_us": 49.138,
+      "separate_cupti_stage_median_us": {
+        "post": 4.528499999999999,
+        "s01": 19.265,
+        "s2": 14.2085,
+        "s3": 11.136
+      }
+    }
+  ],
+  "mathematical_edges": [
+    {
+      "from": "inputs",
+      "payload": "Q/K/V/g/beta and decay weights",
+      "to": "s01"
+    },
+    {
+      "from": "s01",
+      "payload": "packed per-chunk K/W/U and decay summaries",
+      "to": "s2"
+    },
+    {
+      "from": "s01",
+      "payload": "normalized Q and chunk-local factors",
+      "to": "s3"
+    },
+    {
+      "from": "s2",
+      "payload": "head-major recurrent state h",
+      "to": "s3"
+    },
+    {
+      "from": "s3",
+      "payload": "raw_o [B,S,H,D] BF16",
+      "to": "post"
+    },
+    {
+      "from": "inputs",
+      "payload": "gate and RMS weight",
+      "to": "post"
+    },
+    {
+      "from": "post",
+      "payload": "gated RMS-normalized output",
+      "to": "output"
+    }
+  ],
+  "nodes": [
+    {
+      "meaning": "Q/K/V/g/beta/A_log/dt_bias/post RMS weight",
+      "node_id": "inputs"
+    },
+    {
+      "meaning": "Q/K L2 normalization, decay preparation, chunk-local lower-triangular transforms, packed K/W/U production",
+      "node_id": "s01",
+      "resources": [
+        "tensor_compute",
+        "special_function",
+        "shared_memory",
+        "async_copy_engine"
+      ]
+    },
+    {
+      "meaning": "chunk-to-chunk recurrent state propagation",
+      "node_id": "s2",
+      "resources": [
+        "tensor_compute",
+        "shared_memory",
+        "synchronization"
+      ]
+    },
+    {
+      "meaning": "combine normalized Q, local causal contribution and propagated state into raw output",
+      "node_id": "s3",
+      "resources": [
+        "tensor_compute",
+        "shared_memory",
+        "async_copy_engine"
+      ]
+    },
+    {
+      "meaning": "RMS reduction, reciprocal square root, sigmoid gate and BF16 output",
+      "node_id": "post",
+      "resources": [
+        "simt_compute",
+        "special_function",
+        "warp_collective"
+      ]
+    },
+    {
+      "meaning": "[B,S,H,D] BF16 output",
+      "node_id": "output"
+    }
+  ],
+  "resource_constraints": [
+    {
+      "request_id": "req-compute-service",
+      "resource_ids": [
+        "conversion_pipe",
+        "integer_address_pipe",
+        "predicate_compute",
+        "simt_compute",
+        "special_function",
+        "tensor_compute",
+        "tensor_issue"
+      ],
+      "status": "UNMEASURED"
+    },
+    {
+      "request_id": "req-memory-hierarchy-service",
+      "resource_ids": [
+        "device_memory_boundary",
+        "l2_boundary"
+      ],
+      "status": "UNMEASURED"
+    },
+    {
+      "request_id": "req-p0-measurement-system",
+      "resource_ids": [
+        "cta_allocation",
+        "instruction_front_end",
+        "kernel_dispatch",
+        "warp_issue"
+      ],
+      "status": "UNMEASURED"
+    },
+    {
+      "request_id": "req-register-collective",
+      "resource_ids": [
+        "predicate_storage",
+        "register_storage",
+        "system_register_path",
+        "warp_collective"
+      ],
+      "status": "UNMEASURED"
+    },
+    {
+      "request_id": "req-shared-request-service",
+      "resource_ids": [
+        "constant_memory_path",
+        "l1_shared_boundary",
+        "load_store_request",
+        "shared_bank_service",
+        "shared_memory"
+      ],
+      "status": "UNMEASURED"
+    },
+    {
+      "request_id": "req-sync-async-overlap",
+      "resource_ids": [
+        "async_copy_engine",
+        "scoreboard_wait",
+        "synchronization"
+      ],
+      "status": "UNMEASURED"
+    }
+  ],
+  "schedule_only_edges": [
+    {
+      "from": "s01",
+      "reason": "P=ceil(S/64)*64 workspace padding",
+      "to": "s2"
+    },
+    {
+      "from": "s01",
+      "reason": "global workspace handoff imposed by four-kernel schedule",
+      "to": "s3"
+    },
+    {
+      "eliminable_logical_bytes_formula": "2*b*E",
+      "from": "s3",
+      "reason": "raw_o materialization is removable by a legal fusion candidate",
+      "to": "post"
+    }
+  ],
+  "schema_version": "operator-dag-v1",
+  "unproven_edges": [
+    {
+      "edge": "memory_request_to_L2_to_DRAM",
+      "request_id": "req-memory-hierarchy-service",
+      "unknown": "cache hit/miss, transactions, amplification and latency"
+    },
+    {
+      "edge": "TMA_to_tensor_overlap",
+      "request_id": "req-sync-async-overlap",
+      "unknown": "dependency latency and overlap fraction"
+    },
+    {
+      "edge": "tensor_to_epilogue",
+      "request_id": "req-compute-service",
+      "unknown": "eligible issue window and SIMT/SFU tail"
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "archived_at": "2026-08-27T06:25:27.488413+00:00",
+  "artifacts": {
+    "decision_contract": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v4/decision_contract.json",
+      "sha256": "dcc6c9c233e0f54d785bfb8e219843f96a50515d4b4e00131e74aeb586ca30b6"
+    },
+    "experiment_queue": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v4/experiment_queue.json",
+      "sha256": "46b6e78a4a07d0d957257d5896aa1d106d3354647cc895c4481eae2eea010e9b"
+    },
+    "global_schedule_state": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v4/global_schedule_state.json",
+      "sha256": "30997de726d66ccd5a36bb5b596306b6eea4f24049dddc96b637c5f3e11e4765"
+    },
+    "measurability_contract": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v4/measurability_contract.json",
+      "sha256": "aa5a3566c145843df91027ec7b3d4191f25b9d82eb33444709ee5418c5b08243"
+    },
+    "optimization_plan": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v4/optimization_plan.json",
+      "sha256": "abab9cdebe1f7634e3ebe23ca9955f1146990b1c8684af164207432b2b361a30"
+    }
+  },
+  "decision_id": "decision-s3-tile-causal-screening-v4",
+  "reason": "v4 mixed a median equation with a paired-mean Studentized precision model.",
+  "schema_version": "contract-archive-receipt-v1",
+  "status": "PASS"
+}

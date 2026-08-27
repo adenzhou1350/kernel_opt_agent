@@ -1,0 +1,44 @@
+{
+  "created_at": "2026-08-26T19:37:53.989007+00:00",
+  "decision_indifference_band_us": 0.1,
+  "direction": "minimize",
+  "measurement_semantics": {
+    "cpu_dispatch": "reported separately and never folded into the kernel-ranking metric",
+    "primary": "CUDA-event device elapsed around 64 warmed native graph replays; graph is only a timing envelope to remove CPU enqueue gaps, not deployment graph latency",
+    "transfer_gate": "graph/direct deltas must have the same sign and the 95% CI of delta_graph-delta_direct must lie in [-0.10,+0.10] us"
+  },
+  "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+  "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v2",
+  "schema_version": "registered-objective-v1",
+  "unit": "us",
+  "workload_cases": [
+    {
+      "case_id": "s256",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s384",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s404",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s512",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s640",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s768",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s1024",
+      "weight": 0.14285714285714285
+    }
+  ]
+}

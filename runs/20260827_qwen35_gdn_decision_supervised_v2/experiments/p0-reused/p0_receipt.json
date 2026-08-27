@@ -1,0 +1,65 @@
+{
+  "controls": {
+    "clock_stability": {
+      "observed": 0.0034933385781515864,
+      "status": "PASS",
+      "threshold": 0.05
+    },
+    "cold_warm_separation": {
+      "observed": true,
+      "status": "PASS",
+      "threshold": true
+    },
+    "competing_load": {
+      "observed": 0.0,
+      "status": "PASS",
+      "threshold": 2.0
+    },
+    "graph_direct_equivalence": {
+      "observed": 0.03415369701314338,
+      "status": "PASS",
+      "threshold": 0.15
+    },
+    "independent_process_replication": {
+      "observed": 0.0011201378944897746,
+      "status": "PASS",
+      "threshold": 0.1
+    },
+    "live_sink": {
+      "observed": "PASS",
+      "status": "PASS",
+      "threshold": "PASS"
+    },
+    "timer_bracket": {
+      "observed": 0.00600000021223,
+      "status": "PASS",
+      "threshold": 0.5
+    },
+    "zero_work": {
+      "observed": 32.83099923281,
+      "status": "PASS",
+      "threshold": 0.5
+    }
+  },
+  "created_at": "2026-08-26T19:17:07.901687+00:00",
+  "environment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/raw/environment.json",
+    "sha256": "2510a4c40c6f24f9011698ef3592b7a00aa58dd28e6e666404492476443ea817"
+  },
+  "input_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/raw/p0_input.json",
+    "sha256": "07d16c0386cbb0a30c100729d231825c1de91dbfcb5b5ed683a98c56544324a5"
+  },
+  "live_sink_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/raw/live_sink_correctness.json",
+    "sha256": "a601c381fc430f3c87dccfe586134af451856096fc01616fd198e5235f6f0cd3"
+  },
+  "raw_evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/raw/p0_input.json",
+      "sha256": "07d16c0386cbb0a30c100729d231825c1de91dbfcb5b5ed683a98c56544324a5"
+    }
+  ],
+  "schema_version": "p0-calibration-receipt-v2",
+  "status": "PASS"
+}

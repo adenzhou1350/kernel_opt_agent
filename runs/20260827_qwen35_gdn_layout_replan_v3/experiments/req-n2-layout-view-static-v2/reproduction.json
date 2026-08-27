@@ -1,0 +1,78 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ],
+      "exit_code": 0,
+      "phase": "clean_build"
+    },
+    {
+      "argv": [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ],
+      "exit_code": 0,
+      "phase": "static_audit"
+    },
+    {
+      "argv": [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ],
+      "exit_code": 0,
+      "phase": "correctness"
+    },
+    {
+      "argv": [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ],
+      "exit_code": 0,
+      "phase": "warmup"
+    },
+    {
+      "argv": [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ],
+      "exit_code": 0,
+      "phase": "measure"
+    },
+    {
+      "argv": [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ],
+      "exit_code": 0,
+      "phase": "analyze"
+    }
+  ],
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+    "sha256": "34ab16c0d449d621e32efb1d6163562e9824b542525b2731bebb36e4f6822bf2"
+  },
+  "hardware_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/hardware.json",
+    "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "schema_version": "experiment-reproduction-v1",
+  "workload_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+    "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+  }
+}

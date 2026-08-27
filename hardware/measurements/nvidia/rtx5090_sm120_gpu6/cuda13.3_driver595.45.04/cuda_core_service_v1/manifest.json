@@ -1,0 +1,24 @@
+{
+  "binary": "/workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/build/particle_bench",
+  "binary_sha256": "a7928ff7ad7af384978d1140f39ce6315380d503d71fa513644dff742bef3b9e",
+  "captured_at": "2026-08-26T03:13:08.975416+00:00",
+  "modes": [
+    "launch",
+    "barrier",
+    "load",
+    "store"
+  ],
+  "repeats": [
+    0,
+    1,
+    2,
+    4,
+    8,
+    16
+  ],
+  "schema_version": "cuda-particle-suite-v1",
+  "source": "/workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/particle_bench.cu",
+  "source_sha256": "d5a920b1dbf83bf95d484c9e1c0a828b3aff0430692a1d44e6311f6beeb17846",
+  "timing": "native CUDA graph with N kernel nodes, event duration divided by N",
+  "validity_gate": "Each mode/repeat must be monotonic where work increases; checksum must be live and source/binary identities fixed."
+}

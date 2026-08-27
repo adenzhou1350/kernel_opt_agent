@@ -1,0 +1,14 @@
+{
+  "compiled_callable_invocations": 0,
+  "cuda_events": 0,
+  "cuda_kernel_launches": 0,
+  "gpu_performance_samples": 0,
+  "launch_sites_in_compiled_source": "allowed but compiled callable is never invoked",
+  "manifest_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/manifest.json",
+    "sha256": "931e4cab60d64858ea96529229d31535dc801634660cd5e6c1e66b3ffb2acd4c"
+  },
+  "phase_semantics": "control validation only; no GPU warmup is performed",
+  "schema_version": "zero-dynamic-execution-control-v1",
+  "status": "PASS"
+}

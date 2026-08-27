@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "production_validation.schema.json",
+  "title": "Production-exact P4 validation",
+  "type": "object",
+  "required": ["schema_version", "status", "correctness", "source_and_binary_identities", "cases", "p4_status", "end_to_end_evidence", "unexplained_residuals"],
+  "properties": {
+    "schema_version": {"const": "production-validation-v1"},
+    "status": {"enum": ["INCOMPLETE", "PASS", "FAIL", "BLOCKED"]},
+    "cases": {"type": "array"},
+    "p4_status": {"enum": ["PENDING", "PASS", "FAIL", "BLOCKED"]},
+    "end_to_end_evidence": {"type": "array"}
+  }
+}

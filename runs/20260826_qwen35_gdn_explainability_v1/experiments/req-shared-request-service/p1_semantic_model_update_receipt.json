@@ -1,0 +1,60 @@
+{
+  "after_model_identities": {
+    "resource_balance": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+      "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+    },
+    "schedule_model": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/schedule_model.json",
+      "sha256": "73e7a4466228e4391364026cc470792a46e85b95d5efd2a95418bf0f6d23b0ba"
+    },
+    "tradeoff_frontier": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/tradeoff_frontier.json",
+      "sha256": "27faf0f142099f2cff0ae49158f5475554f531d357bcec6f9511613ff43d623a"
+    }
+  },
+  "applied_at": "2026-08-26T17:05:47.078314+00:00",
+  "before_model_identities": {
+    "resource_balance": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+      "sha256": "f8d14d21f6224fa3ea120c843d740c3e1c32418678c4f8cbef17536f61f2f3ce"
+    },
+    "schedule_model": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/schedule_model.json",
+      "sha256": "158443f8e01ac794b56640bec8bc7d3045668acd96a1c2e2e8353ced4b8e0157"
+    },
+    "tradeoff_frontier": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/tradeoff_frontier.json",
+      "sha256": "85f4fe4be5ed01705d63dbd86b1ff5d2be806ec5a649603f0c61ec23b0eb9c79"
+    }
+  },
+  "plan_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/microbenchmark_plan.json",
+    "sha256": "3cd96cea3f478d7a29d394cfb1f8bd5fedf4b9e67a76a0953d6c494d1dfd2aee"
+  },
+  "request_id": "req-shared-request-service",
+  "result_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+    "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+  },
+  "schema_version": "semantic-model-update-receipt-v1",
+  "status": "APPLIED",
+  "updates": [
+    {
+      "artifact": "resource_balance",
+      "semantic": "evidence attached; numeric utilization and critical contribution remain UNKNOWN"
+    },
+    {
+      "artifact": "schedule_model",
+      "semantic": "P1 mechanism curve registered; production mapping remains UNKNOWN"
+    },
+    {
+      "artifact": "tradeoff_frontier",
+      "semantic": "current schedule annotated with P1 evidence and P2 blocker; no candidate decision"
+    },
+    {
+      "artifact": "microarchitecture_model",
+      "semantic": "run-local service slopes registered at MECHANISM_VALIDATED qualification"
+    }
+  ]
+}

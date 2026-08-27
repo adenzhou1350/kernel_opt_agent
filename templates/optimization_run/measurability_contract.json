@@ -1,0 +1,20 @@
+{
+  "schema_version": "measurability-contract-v1",
+  "status": "DRAFT",
+  "issued_by": {"role": "MICROARCHITECTURE_ANALYST", "analyst_id": null},
+  "decision_contract_identity": {},
+  "quantity_id": null,
+  "identifiability": "NOT_IDENTIFIABLE",
+  "selected_method": "NO_MEASUREMENT",
+  "observable": {"name": null, "unit": null, "measurement_window": null},
+  "causal_mapping": {
+    "formula": null,
+    "assumptions": [],
+    "confounders": [],
+    "controls": [],
+    "falsification_condition": null
+  },
+  "expected_precision": {"absolute": null, "unit": null},
+  "required_tier": "SCREENING",
+  "evidence": []
+}

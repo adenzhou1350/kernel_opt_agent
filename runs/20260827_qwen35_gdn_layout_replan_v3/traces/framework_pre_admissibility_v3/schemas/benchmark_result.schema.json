@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "benchmark_result.schema.json",
+  "title": "Microbenchmark result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "request_id", "experiment_identity", "hardware_identity",
+    "workload_identity", "benchmark", "question", "environment", "source_identity",
+    "measurement", "raw_samples", "raw_samples_identity", "correctness",
+    "static_evidence", "runtime_evidence", "measurement_system", "validity"
+  ],
+  "properties": {
+    "schema_version": {"const": "benchmark-result-v2"},
+    "request_id": {"type": "string", "minLength": 1},
+    "experiment_identity": {"type": "object"},
+    "hardware_identity": {"type": "object"},
+    "workload_identity": {"type": "object"},
+    "benchmark": {"type": "string", "minLength": 1},
+    "question": {"type": "string", "minLength": 1},
+    "environment": {"type": "object"},
+    "source_identity": {"type": "object"},
+    "launch": {"type": "object"},
+    "independent_variables": {"type": "object"},
+    "controlled_variables": {"type": "object"},
+    "measurement": {
+      "type": "object",
+      "required": ["metric", "semantics", "unit", "timer"],
+      "properties": {
+        "metric": {"type": "string"},
+        "semantics": {"type": "string"},
+        "unit": {"type": "string"},
+        "timer": {"type": "string"}
+      }
+    },
+    "raw_samples": {"type": "array", "minItems": 9, "items": {"type": "number"}},
+    "raw_samples_identity": {"type": "object"},
+    "summary": {"type": "object"},
+    "correctness": {"type": "object", "required": ["status", "checks", "evidence_identity"]},
+    "static_evidence": {"type": "object"},
+    "runtime_evidence": {"type": "object"},
+    "measurement_system": {"type": "object", "required": ["p0_receipt"]},
+    "validity": {
+      "type": "object",
+      "required": ["status", "dce_guard", "known_pollution", "claims_allowed", "claims_forbidden"],
+      "properties": {
+        "status": {"type": "string", "enum": ["VALID", "REJECTED", "INCONCLUSIVE"]},
+        "dce_guard": {"type": "string"},
+        "known_pollution": {"type": "array", "items": {"type": "string"}},
+        "claims_allowed": {"type": "array", "items": {"type": "string"}},
+        "claims_forbidden": {"type": "array", "items": {"type": "string"}}
+      }
+    }
+  }
+}

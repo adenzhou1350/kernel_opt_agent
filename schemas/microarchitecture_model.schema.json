@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "microarchitecture_model.schema.json",
+  "title": "Target microarchitecture resource model",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "status",
+    "target_identity",
+    "resource_nodes",
+    "resource_edges",
+    "allocation_constraints",
+    "service_curves",
+    "latency_constraints",
+    "workload_mappings",
+    "overlap_constraints",
+    "unknowns",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": "microarchitecture-model-v1"},
+    "status": {"enum": ["DRAFT", "INITIALIZED", "CALIBRATED", "VALIDATED", "BLOCKED"]},
+    "resource_nodes": {"type": "array"},
+    "resource_edges": {"type": "array"},
+    "service_curves": {"type": "array"},
+    "workload_mappings": {"type": "array"},
+    "unknowns": {"type": "array"},
+    "evidence": {"type": "array"}
+  }
+}

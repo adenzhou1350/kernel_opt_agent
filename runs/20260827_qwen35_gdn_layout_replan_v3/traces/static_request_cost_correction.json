@@ -1,0 +1,14 @@
+{
+  "changed_field": "sensitivity.experiment_cost",
+  "created_at": "2026-08-27T07:21:13.406539+00:00",
+  "gpu_launches": 0,
+  "new_queue_sha256": "416b1c0eb416dcb590f5eefb85182d29b1fb22beb326bc234d4abe8c3aa83a62",
+  "new_value": "LOW",
+  "old_queue_sha256": "3ac92d04bef883537b0b83bffba8d3ba963c154ac8be055c65e57897c604e239",
+  "old_value": "LOW_STATIC_ONLY",
+  "performance_samples": 0,
+  "reason": "rank_experiments accepts only LOW/MEDIUM/HIGH; decision semantics, candidates, budget and observable are unchanged",
+  "request_id": "req-n2-static-layout-admissibility",
+  "schema_version": "pre-materialization-technical-correction-v1",
+  "status": "PASS"
+}

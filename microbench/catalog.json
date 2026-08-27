@@ -1,0 +1,44 @@
+{
+  "schema_version": "microbenchmark-catalog-v2",
+  "benchmarks": [
+    {
+      "id": "nvidia.cuda-core-service-curves.v1",
+      "path": "nvidia/cuda_core",
+      "vendor": "NVIDIA",
+      "family": "cuda-core-service-curves",
+      "status": "PUBLISHED",
+      "capabilities": {
+        "resources": ["kernel_dispatch", "synchronization", "load_store_request"],
+        "mechanisms": ["kernel_launch", "block_barrier", "contiguous_global_load", "contiguous_global_store"],
+        "boundaries": ["launch", "request"],
+        "configurable_geometry": ["grid", "block", "dynamic_shared_bytes", "working_set_bytes", "repeat"]
+      },
+      "qualification": {
+        "highest_status": "STATIC_VALIDATED",
+        "levels": [],
+        "static_validation": "PASS",
+        "mechanism_validation": "LEGACY_UNQUALIFIED_REQUIRES_EVIDENCE_CLOSED_RERUN",
+        "device_calibration": "LEGACY_UNQUALIFIED_REQUIRES_EVIDENCE_CLOSED_RERUN",
+        "production_prediction": "UNASSESSED"
+      },
+      "questions": [
+        "What is the matched launch and grid-wave envelope?",
+        "What is the marginal service time of a necessary block barrier?",
+        "What contiguous cache-resident global-load issue service is achieved?",
+        "What contiguous global-store issue service is achieved?"
+      ],
+      "requires": ["nvcc", "CUDA runtime"],
+      "optional_evidence": ["nsys", "ncu", "nvdisasm", "cuobjdump"]
+    }
+  ],
+  "unpublished_families": [
+    "shared-memory bank mapping",
+    "register dependency and occupancy",
+    "tensor instruction issue",
+    "SIMT FMA issue",
+    "SFU latency and throughput",
+    "warp scheduler and role specialization",
+    "producer-consumer handoff",
+    "cluster and distributed shared memory"
+  ]
+}

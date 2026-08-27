@@ -1,0 +1,47 @@
+{
+  "created_at": "2026-08-27T07:30:19.008116+00:00",
+  "cuda_kernel_launches_authorized": 0,
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-static-layout-admissibility/experiment.json",
+    "sha256": "6e46f61465d91ecbf2181387b1ab842091921b60648a38814e59b03ee2b8bcde"
+  },
+  "gpu_performance_samples_authorized": 0,
+  "process_launches": 6,
+  "request_id": "req-n2-static-layout-admissibility",
+  "schema_version": "static-layout-experiment-seal-v1",
+  "source_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/analyze.py",
+      "sha256": "e8ec9651cce6ce4ae334bab62c068600bfadbbe82d91cdd3d1736171ac3968b5"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/clean_build.py",
+      "sha256": "6fcb120327ecdc5b6ace8338fa6b6c8689aa93c87c34ff322ab6a34ea95d0994"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/common.py",
+      "sha256": "88bbf717ecb4bf28729ea7e02c072018bcc99ae3886766cb252cbe340766abd8"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/correctness.py",
+      "sha256": "e33b323644e6781aa1caa0b568ac454f76b1e8e459950c684322ae9c5566aced"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/layout_proof.py",
+      "sha256": "de51163209eeb6489d21ba4d3f2b5b9276c1bd61bde90f5e0a6b3066fa5c2d2c"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/measure.py",
+      "sha256": "d57518edeb9bc44d3e11e161b77686858d6cfe7840602f7ac018d9614f62af7e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/static_audit.py",
+      "sha256": "9c115bde59633b86e424df45fc8cdfc338c1d5e4457d289f68cba610a1f8cba5"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/warmup.py",
+      "sha256": "bcadfae5e3cc0ae235b8f1da746104ec1e0e8ba7a1536a435b2a56e5f34870fa"
+    }
+  ],
+  "status": "PASS"
+}

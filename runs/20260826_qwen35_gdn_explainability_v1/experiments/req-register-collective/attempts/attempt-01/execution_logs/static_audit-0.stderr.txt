@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-register-collective/experiment_driver.py", line 380, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-register-collective/experiment_driver.py", line 303, in main
+    raise RuntimeError("expected function-scoped SASS family is not closed")
+RuntimeError: expected function-scoped SASS family is not closed

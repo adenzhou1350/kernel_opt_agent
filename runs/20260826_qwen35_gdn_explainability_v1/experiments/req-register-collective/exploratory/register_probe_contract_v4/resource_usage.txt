@@ -1,0 +1,90 @@
+
+Fatbin elf code:
+================
+arch = sm_120
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/traces/resource_probe.cu 
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+Fatbin elf code:
+================
+arch = sm_120
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/traces/resource_probe.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0 CONSTANT[3]:16384
+ Function _Z14register_probeILi144EEvPKfPfii:
+  REG:158 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi128EEvPKfPfii:
+  REG:143 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi112EEvPKfPfii:
+  REG:123 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi96EEvPKfPfii:
+  REG:109 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi64EEvPKfPfii:
+  REG:72 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi48EEvPKfPfii:
+  REG:56 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi32EEvPKfPfii:
+  REG:40 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi24EEvPKfPfii:
+  REG:40 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi16EEvPKfPfii:
+  REG:33 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14register_probeILi8EEvPKfPfii:
+  REG:22 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi128EEvPKfPfi:
+  REG:164 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi124EEvPKfPfi:
+  REG:164 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi120EEvPKfPfi:
+  REG:164 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi116EEvPKfPfi:
+  REG:130 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi112EEvPKfPfi:
+  REG:128 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi96EEvPKfPfi:
+  REG:124 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi64EEvPKfPfi:
+  REG:80 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi32EEvPKfPfi:
+  REG:48 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z25register_allocation_probeILi0EEvPKfPfi:
+  REG:22 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:916 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z15sync_copy_probePKfPfii:
+  REG:18 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12tensor_probePK6__halfS1_Pfi:
+  REG:18 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:924 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z9init_halfP6__halfi:
+  REG:10 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:908 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z18simt_compute_probePKfPfii:
+  REG:17 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[2]:12 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z16collective_probePKfPfii:
+  REG:17 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z20global_request_probePK6float4PS_Pfmii:
+  REG:22 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:936 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14constant_probePfii:
+  REG:10 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12shared_probePKfPfii:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z10zero_probePf:
+  REG:6 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin ptx code:
+================
+arch = sm_120
+code version = [9,3]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/traces/resource_probe.cu
+ptxasOptions =  --generate-line-info 

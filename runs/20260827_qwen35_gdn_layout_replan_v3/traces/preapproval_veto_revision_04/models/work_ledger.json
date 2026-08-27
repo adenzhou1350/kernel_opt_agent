@@ -1,0 +1,257 @@
+{
+  "assumptions": [
+    "B=1,H=16,D=128,chunk=64,BF16 boundaries frozen"
+  ],
+  "cases": [
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s256",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 233308160,
+        "n1_flop": 208142336,
+        "n2_flop_if_admitted": 182976512,
+        "qk_removed_flop": 25165824,
+        "scorev_removed_flop_if_admitted": 25165824
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 23134592,
+        "mathematical_dense_tensor_flop": 504889344,
+        "n0_scheduled_flop": 738197504,
+        "n1_scheduled_flop": 713031680,
+        "n2_scheduled_flop_if_admitted": 687865856
+      }
+    },
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s384",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 316407808,
+        "n1_flop": 278659072,
+        "n2_flop_if_admitted": 240910336,
+        "qk_removed_flop": 37748736,
+        "scorev_removed_flop_if_admitted": 37748736
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 34701696,
+        "mathematical_dense_tensor_flop": 790888448,
+        "n0_scheduled_flop": 1107296256,
+        "n1_scheduled_flop": 1069547520,
+        "n2_scheduled_flop_if_admitted": 1031798784
+      }
+    },
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s404",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 442212352,
+        "n1_flop": 390832128,
+        "n2_flop_if_admitted": 339451904,
+        "qk_removed_flop": 51380224,
+        "scorev_removed_flop_if_admitted": 51380224
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 38860416,
+        "mathematical_dense_tensor_flop": 849633280,
+        "n0_scheduled_flop": 1291845632,
+        "n1_scheduled_flop": 1240465408,
+        "n2_scheduled_flop_if_admitted": 1189085184
+      }
+    },
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s512",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 399507456,
+        "n1_flop": 349175808,
+        "n2_flop_if_admitted": 298844160,
+        "qk_removed_flop": 50331648,
+        "scorev_removed_flop_if_admitted": 50331648
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 46268800,
+        "mathematical_dense_tensor_flop": 1076887552,
+        "n0_scheduled_flop": 1476395008,
+        "n1_scheduled_flop": 1426063360,
+        "n2_scheduled_flop_if_admitted": 1375731712
+      }
+    },
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s640",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 482607104,
+        "n1_flop": 419692544,
+        "n2_flop_if_admitted": 356777984,
+        "qk_removed_flop": 62914560,
+        "scorev_removed_flop_if_admitted": 62914560
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 57835904,
+        "mathematical_dense_tensor_flop": 1362886656,
+        "n0_scheduled_flop": 1845493760,
+        "n1_scheduled_flop": 1782579200,
+        "n2_scheduled_flop_if_admitted": 1719664640
+      }
+    },
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s768",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 565706752,
+        "n1_flop": 490209280,
+        "n2_flop_if_admitted": 414711808,
+        "qk_removed_flop": 75497472,
+        "scorev_removed_flop_if_admitted": 75497472
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 69403008,
+        "mathematical_dense_tensor_flop": 1648885760,
+        "n0_scheduled_flop": 2214592512,
+        "n1_scheduled_flop": 2139095040,
+        "n2_scheduled_flop_if_admitted": 2063597568
+      }
+    },
+    {
+      "assumptions": [
+        "m16n16 tile work counts 2*M*N*K dense tensor FLOP",
+        "N1/N2 preserve all global tensor boundaries",
+        "N2 scoreV saving is conditional on exact zero-copy layout proof"
+      ],
+      "case_id": "s1024",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+          "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "n0_flop": 731906048,
+        "n1_flop": 631242752,
+        "n2_flop_if_admitted": 530579456,
+        "qk_removed_flop": 100663296,
+        "scorev_removed_flop_if_admitted": 100663296
+      },
+      "valid_work": {
+        "logical_boundary_bytes": 92537216,
+        "mathematical_dense_tensor_flop": 2220883968,
+        "n0_scheduled_flop": 2952790016,
+        "n1_scheduled_flop": 2852126720,
+        "n2_scheduled_flop_if_admitted": 2751463424
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    }
+  ],
+  "padded_or_redundant_work": {
+    "classification": "16x16 causal upper/tail tile work"
+  },
+  "schema_version": "mandatory-work-ledger-v1",
+  "valid_work": {
+    "cases": [
+      "s256",
+      "s384",
+      "s404",
+      "s512",
+      "s640",
+      "s768",
+      "s1024"
+    ]
+  },
+  "workload_case": null
+}

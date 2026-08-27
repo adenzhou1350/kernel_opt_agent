@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "experiment_execution_receipt.schema.json",
+  "title": "Trusted sealed experiment execution receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "request_id", "started_at", "finished_at",
+    "experiment_identity", "hardware_identity", "workload_identity", "target",
+    "environment", "commands", "pre_execution_artifacts", "failure", "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "experiment-execution-receipt-v1"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "request_id": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "experiment_identity": {"$ref": "#/$defs/identity"},
+    "hardware_identity": {"$ref": "#/$defs/identity"},
+    "workload_identity": {"$ref": "#/$defs/identity"},
+    "target": {"type": "object"},
+    "environment": {"type": "object"},
+    "commands": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["phase", "index", "argv", "input_identities", "started_at", "finished_at", "exit_code", "stdout", "stderr"],
+        "properties": {
+          "phase": {"enum": ["clean_build", "static_audit", "correctness", "warmup", "measure", "analyze"]},
+          "index": {"type": "integer", "minimum": 0},
+          "argv": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+          "input_identities": {"type": "array", "items": {"$ref": "#/$defs/identity"}},
+          "started_at": {"type": "string", "format": "date-time"},
+          "finished_at": {"type": "string", "format": "date-time"},
+          "exit_code": {"type": "integer"},
+          "stdout": {"$ref": "#/$defs/identity"},
+          "stderr": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    "pre_execution_artifacts": {"type": "object"},
+    "failure": {"type": ["string", "null"]},
+    "artifacts": {"type": "object", "additionalProperties": {"$ref": "#/$defs/identity"}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": true,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -1,0 +1,98 @@
+{
+  "created_at": "2026-08-27T08:04:47.680371+00:00",
+  "purpose": "separate deterministic static-admissibility predicates from timed performance experiments",
+  "records": [
+    {
+      "after_sha256": "1a67a932b8bc5fed2fdca4d97f65672da98bd7914b8666407cd2a58e0f70cc19",
+      "before_sha256": "c06b7aeaf1130355ac9b039045d6321cba59378d7187a4dbc5086c99717d6bd2",
+      "changed": true,
+      "path": "scripts/advance_run.py"
+    },
+    {
+      "after_sha256": "6dc1298032575c01fb15415f38c9538179eb96492ee04d880fccecf6afe55bad",
+      "before_sha256": "d957b1863edf70028369e16eab0d515dda3dfbb46793bc6b4cad3e4f5a3c0aab",
+      "changed": true,
+      "path": "scripts/rank_experiments.py"
+    },
+    {
+      "after_sha256": "8e170b920ce0b76c36dab5f7a1e40fe5d0dc69233fe304012f9f4888a1ae9bd7",
+      "before_sha256": "ba242e1374c1f3d15831e7669f6bdf178a3e4b613993a97bc316772133a617d9",
+      "changed": true,
+      "path": "scripts/materialize_experiment.py"
+    },
+    {
+      "after_sha256": "4b6d294a114fb6460a6605a3507a2d0a993e3b260cdb20751611d9da04e28ea3",
+      "before_sha256": "4889da41d94879443a401f22966afc06aac611fd0041bdb598fe0396eee3dcfd",
+      "changed": true,
+      "path": "scripts/dispatch_experiment.py"
+    },
+    {
+      "after_sha256": "edd108a91278b8e23b8f02ca37735c256f2a86efc0f21222e24d369af841f579",
+      "before_sha256": "e6d12ce61b2d12e1188ad932e1ab80e5b98f6685b04888d4dc6dc39cab09d610",
+      "changed": true,
+      "path": "scripts/experiment_utils.py"
+    },
+    {
+      "after_sha256": "ec4857d2f8f1c1f95b17ceb8a4591e18cb92950914e3218d6e94da670ff89579",
+      "before_sha256": "b8923f07dda5f7388013fe87218484be490f981ff42d0e085759e4c00607087b",
+      "changed": true,
+      "path": "scripts/supervision_utils.py"
+    },
+    {
+      "after_sha256": "c5cbc493baddb47b7f9f5c5584cd361abc6b1811c215ab78082385b6026ea6b8",
+      "before_sha256": "abb4152c1cbd73888fbcb58fbeab17fc838864364022fc696e96827fde674643",
+      "changed": true,
+      "path": "scripts/approve_experiment.py"
+    },
+    {
+      "after_sha256": "b6142cbbd4ea15872ad66a22ec914f175872cfa047a6fe947980ee4702acb70c",
+      "before_sha256": "37c2b6f7c3182d274a4a426eb6954152ad915f9ef39e9147cc483c94677051a0",
+      "changed": true,
+      "path": "scripts/schema_utils.py"
+    },
+    {
+      "after_sha256": "1b04813e697dc57b164572d5d22a9840ec54899dc35e50fb47019eb5e3b72a3f",
+      "before_sha256": "5bf1dc57c34a1813008021b5926f05451baa7786dad090e2ceb6d7b640b57f4a",
+      "changed": true,
+      "path": "schemas/experiment_request.schema.json"
+    },
+    {
+      "after_sha256": "e3cd0a31b44fd4c0a06d89a94d945b06bb792eda92520e3eb374da90aa7e2b55",
+      "before_sha256": "93b88d92398b101c11b5ebf098f9f72aad94e1e8ab0d7c9b3294ea4cba91831c",
+      "changed": true,
+      "path": "schemas/benchmark_result.schema.json"
+    },
+    {
+      "after_sha256": "7b4c71e8d68e5217dbe44c6050efb5e900242b310566301908622a91a61de5d2",
+      "before_sha256": "03f63446ba0f3a425b1c734b7ac6b51aa083b00211e0e684c8dab4b03cd480e2",
+      "changed": true,
+      "path": "schemas/executable_experiment.schema.json"
+    },
+    {
+      "after_sha256": "f7329f85300e291ca3a6af2c272a2504cca5b14b56411832b1161656b5411df9",
+      "before_sha256": "f38f98c1b791205b907bccba3432e3329fec3c23414e6afa9cd6d2cb489ec446",
+      "changed": true,
+      "path": "schemas/supervisor_approval.schema.json"
+    },
+    {
+      "after_sha256": "83f4b0f96bc11ab0ea352d63008af055698afeb46ab34ad09098a6c5a8449dbf",
+      "before_sha256": null,
+      "changed": true,
+      "path": "schemas/candidate_admissibility_contract.schema.json"
+    },
+    {
+      "after_sha256": "a3d315e4a26b849e2560641890edefe7e50da746a2f153e35ccceb22d7ef1442",
+      "before_sha256": null,
+      "changed": true,
+      "path": "tests/test_static_admissibility_workflow.py"
+    }
+  ],
+  "schema_version": "framework-patch-receipt-v1",
+  "tests": [
+    "tests/test_repository.py PASS",
+    "tests/test_evidence_closed_workflow.py PASS",
+    "tests/test_supervisor_replan_states.py PASS",
+    "tests/test_static_admissibility_workflow.py PASS",
+    "scripts/audit_repository.py PASS"
+  ]
+}

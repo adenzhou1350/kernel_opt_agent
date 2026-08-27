@@ -1,0 +1,1 @@
+PASS: recomputed 8192 rows; static binaries=2

@@ -1,0 +1,33 @@
+{
+  "bindings": [
+    {
+      "active_thread_domain": "tidx<256 of block512",
+      "production_path": "short",
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+        "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+      }
+    },
+    {
+      "active_thread_domain": "tidx<256 of block256",
+      "production_path": "long",
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+        "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+      }
+    }
+  ],
+  "regex_only_binding_forbidden": true,
+  "required_ast_nodes": [
+    "BT",
+    "D",
+    "THREADS",
+    "MAIN_THREADS",
+    "accumulator dtype",
+    "o1 make_tiled_mma",
+    "get_slice(tidx)",
+    "partition_shape_C((D,BT))"
+  ],
+  "schema_version": "production-constructor-binding-v1",
+  "status": "SOURCE_HASH_BOUND_AST_EXTRACTION_PENDING_EXPERIMENT"
+}

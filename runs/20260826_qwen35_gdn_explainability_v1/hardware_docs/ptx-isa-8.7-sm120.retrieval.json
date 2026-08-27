@@ -1,0 +1,13 @@
+{
+  "artifact_path": "hardware_docs/ptx-isa-8.7-sm120.html",
+  "artifact_sha256": "9d1c040b76dbdca1a1612818a351a4513eabf75754b9118ca933f0dcb9b6c3b7",
+  "content_type": "text/html",
+  "etag": "\"b959adf2bce7acae04ce0be2a04b1228\"",
+  "final_url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html",
+  "http_status": 200,
+  "last_modified": "Tue, 21 Apr 2026 19:04:49 GMT",
+  "requested_url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html",
+  "retrieved_at": "2026-08-26T14:13:11.619344+00:00",
+  "retriever": "python urllib.request",
+  "schema_version": "official-document-retrieval-v1"
+}

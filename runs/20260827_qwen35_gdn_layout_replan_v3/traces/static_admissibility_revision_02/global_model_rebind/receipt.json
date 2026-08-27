@@ -1,0 +1,25 @@
+{
+  "created_at": "2026-08-27T09:07:32.413664+00:00",
+  "exact_string_replacements": 99,
+  "new_request_id": "req-n2-layout-view-static-v2",
+  "numeric_resource_fields_changed": false,
+  "old_request_id": "req-n2-static-layout-admissibility",
+  "resource_after_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_balance.json",
+    "sha256": "d3dabc2b29fedd6bf6575d5e26a855732def5d9f0ecdc5528b4e2d529fa06c3b"
+  },
+  "resource_before_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/global_model_rebind/resource_balance.before.json",
+    "sha256": "200df775318f835370423d9bc7e067b97ac617f4f86fddca74f820649db45f9c"
+  },
+  "schema_version": "global-static-model-rebind-v1",
+  "state_after_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/global_schedule_state.json",
+    "sha256": "2ec8d8bf9b15b855848032400d52fda0dcac1bb0a4e0e8ab7af82cc0272f66e7"
+  },
+  "state_before_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/global_model_rebind/global_schedule_state.before.json",
+    "sha256": "cb8204543961e057dba5ded1563e15a0b9c8315fff2cbf1ec2d5642ed8c3b9eb"
+  },
+  "status": "MODEL_READY_PENDING_SUPERVISOR_DISPATCH"
+}

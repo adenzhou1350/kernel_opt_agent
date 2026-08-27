@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "achieved_performance.schema.json",
+  "title": "Production-exact achieved upper bound",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workload_identity", "correctness", "cases"],
+  "properties": {
+    "schema_version": {"const": "achieved-performance-v1"},
+    "workload_identity": {"type": "object"},
+    "correctness": {"type": "object", "required": ["status", "evidence"]},
+    "cases": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["case_id", "measured_us", "confidence", "evidence"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "measured_us": {"type": "number", "exclusiveMinimum": 0},
+          "confidence": {"type": "object", "required": ["level", "lower_us", "upper_us"]},
+          "evidence": {"type": "array", "minItems": 1}
+        }
+      }
+    }
+  }
+}

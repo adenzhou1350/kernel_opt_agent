@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py", line 251, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py", line 203, in main
+    subprocess.run(["nvidia-smi", "-i", "6", "--lock-gpu-clocks=2490,2490"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+  File "/workspace/dance/qwen35/python/cpython-3.12.12-linux-x86_64-gnu/lib/python3.12/subprocess.py", line 571, in run
+    raise CalledProcessError(retcode, process.args,
+subprocess.CalledProcessError: Command '['nvidia-smi', '-i', '6', '--lock-gpu-clocks=2490,2490']' returned non-zero exit status 4.

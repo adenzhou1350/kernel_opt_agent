@@ -1,0 +1,18 @@
+{
+  "created_at": "2026-08-26T19:56:06.282086+00:00",
+  "decision_contract": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+    "sha256": "e293d731b1d6e78d1841cf747b194dfb5f7643e415b46f291a2a48103cc8770e"
+  },
+  "experiment_queue": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/experiment_queue.json",
+    "sha256": "8229e69058a43de587b1f47c195824bd98bf8ff6d23b75e8d9c04532f4249dd5"
+  },
+  "measurability_contract": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/measurability_contract.json",
+    "sha256": "aa18b19dad61010ae567af58c17912b039f8df6a6a45383738e75a2f8fb0ef23"
+  },
+  "rule": "No SCREENING outcome accepts or deploys C1.",
+  "schema_version": "screening-contract-revision-receipt-v1",
+  "status": "PASS"
+}

@@ -1,0 +1,54 @@
+{
+  "attempt": 2,
+  "causal_validity": "REJECT",
+  "checks": [
+    {
+      "check": "live_sink",
+      "status": "PASS"
+    },
+    {
+      "check": "AB_BA_order",
+      "status": "PASS"
+    },
+    {
+      "check": "paired_drift_below_10_percent",
+      "maximum_relative_drift": 1.0229332922066476,
+      "status": "FAIL",
+      "worst_key": "post/zero/1"
+    },
+    {
+      "check": "constant_address_observable",
+      "observed": {
+        "constant_broadcast": 5885961.5,
+        "constant_divergent": 5885961.5
+      },
+      "status": "FAIL"
+    },
+    {
+      "check": "function_scoped_static_audit",
+      "observed_note": "per-mechanism final acceptance will require exact function-scoped SASS accounting",
+      "status": "FAIL"
+    },
+    {
+      "check": "deterministic_output",
+      "reason": "shared/constant kernels use cross-warp atomic accumulation, so sink variation cannot prove address variation",
+      "status": "FAIL"
+    }
+  ],
+  "consequence": "No timing from this attempt may update resource service curves or production resource balance.",
+  "execution_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/execution_receipt.json",
+    "sha256": "bc8b6afae828cf3fdd567845eec16d25ba8d36554e4636087c21e88fd489d0d7"
+  },
+  "raw_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/raw/samples.json",
+    "sha256": "6101d7dd918b2e5fdf7dadeea45d024273e2bd985a46b2a7630dc2d59e8438ec"
+  },
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-validity-review-v1",
+  "static_audit_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/instruction_audit.json",
+    "sha256": "9f65cfb5286193ead2e26f8c938262528a2013addbc8beb25547f3e4caca97c4"
+  },
+  "technical_execution": "PASS"
+}

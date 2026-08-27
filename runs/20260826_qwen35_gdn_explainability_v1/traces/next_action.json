@@ -1,0 +1,16 @@
+{
+  "action": "COMPLETE_EXPERIMENT_PACKAGE",
+  "blocking_inputs": [],
+  "commands": [
+    [
+      "/workspace/dance/qwen35/.venv-cu13/bin/python",
+      "/workspace/dance/qwen35/kernel_opt_agent/scripts/dispatch_experiment.py",
+      "--run",
+      "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+      "--request-id",
+      "req-register-collective"
+    ]
+  ],
+  "reason": "the request is planned but cannot be dispatched until source, controls, parameter matrix, commands and expected SASS are executable",
+  "schema_version": "optimizer-next-action-v1"
+}

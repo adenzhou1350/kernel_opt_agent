@@ -1,0 +1,225 @@
+{
+  "catalog_snapshot": {
+    "catalog_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+      "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e"
+    },
+    "request_receipts": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/catalog_query_receipt.json",
+        "sha256": "f092447bd308e3b4113e9948447ad3421f62e2fc7f9b336a3d8a7823c4c5ee9d"
+      }
+    ],
+    "status": "CURRENT"
+  },
+  "promotion_review": [
+    {
+      "candidate_path": "runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2",
+      "catalog_resolution": "CREATE_RUN_LOCAL",
+      "claims_allowed": [
+        "N2 static logical same-backing/type admission for the hash-bound Qwen35 constructors and toolchain"
+      ],
+      "claims_forbidden": [
+        "application-independent mechanism",
+        "portable hardware fact",
+        "production implementation acceptance",
+        "numerical correctness",
+        "performance or latency",
+        "dynamic resource or transport behavior"
+      ],
+      "future_promotion_requires": [
+        "create a separately validated generalized candidate if removing Qwen35 bindings changes the tested mechanism",
+        "remove production imports, model vocabulary, fixed application paths and fixed constructor hashes",
+        "parameterize layout domains and toolchain constraints without weakening the causal question",
+        "produce structured clean-build/control/static-check artifacts",
+        "produce two distinct cold-start reproduction receipts",
+        "pass microbench promotion and repository-purity audits"
+      ],
+      "promotion_attempted": false,
+      "qualification_observed": "STATIC_VALIDATED_RUN_LOCAL",
+      "reason": "Retain run-local: this valid static PASS proof is application-shaped and hash-binds the Qwen35 short/long production constructors plus exact FlashInfer, CuTe and CUDA-toolchain source identities and absolute task paths. It establishes only N2 logical same-backing layout/type admissibility; application terms have not been removed, the mechanism is not exposed as an application-independent parameterized package, and the required two independent cold-start reproduction receipts and promotion/purity qualification are absent. It makes no production-implementation, numerical, performance, dynamic-resource or portable-hardware claim.",
+      "request_id": "req-n2-layout-view-static-v2",
+      "result_identity": {
+        "path": "runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/result.json",
+        "sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66"
+      },
+      "status": "RUN_LOCAL"
+    }
+  ],
+  "ranking_policy": {
+    "benefit_bound": "NOT_APPLICABLE_STATIC_ADMISSIBILITY",
+    "formula": "NO_PERFORMANCE_RANKING_RESOLVED_STATIC_GATE",
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "ranked_at": "2026-08-27T11:25:19.795693+00:00"
+  },
+  "requests": [
+    {
+      "admissibility_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+        "sha256": "a55b52251f9c3eb5a86c8eac63a21f94ead6c42a0e9c390d7aa86d24eac2295a"
+      },
+      "affected_stage_ids": [
+        "s3"
+      ],
+      "attempt_history": [
+        {
+          "disposition": "PREAPPROVAL_VETO_NO_EXECUTION",
+          "experiment_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_02/experiments/req-n2-layout-view-static-v2/experiment.json",
+            "sha256": "60e9e254f5d2a97ada618bc4718f56479101d5970cfbb0667e030705173fa380"
+          },
+          "revision": 1
+        }
+      ],
+      "candidate_decision": "PASS-only N2 logical same-backing layout/type admission; any failure is INVALID without disposition; all dynamic resources and performance are deferred",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [
+            "cute_accumulator_same_backing_view"
+          ],
+          "qualification": "STATIC_VALIDATED",
+          "resources": [
+            "register_storage"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/catalog_query_receipt.json",
+          "sha256": "f092447bd308e3b4113e9948447ad3421f62e2fc7f9b336a3d8a7823c4c5ee9d"
+        }
+      },
+      "causal_question": "Do exact short and long production O1 fragments admit four same-backing N16 scoreV C/D views?",
+      "controls": [
+        "Zero dynamic execution: no compiled callable invocation, CUDA launch, event or timer.",
+        "Positive control: actual eight-warp O1 and scoreV CuTe TV/partition mappings must agree with an independent PTX oracle.",
+        "Actual fragment slice offsets must join the original O1 backing offsets one-to-one.",
+        "Negative control: exact prior one-warp fragment plus cute.append layout must differ from production O1 ownership/layout.",
+        "Live type control: typed scoreV C/D views and typed sink must compile; this is not production SASS/resource evidence."
+      ],
+      "execution_budget": {
+        "max_wall_clock_minutes": 15,
+        "process_launches": 6,
+        "samples_per_configuration": 1
+      },
+      "execution_receipt": {
+        "path": "experiments/req-n2-layout-view-static-v2/execution_receipt.json",
+        "sha256": "3c36287d730d70783168ffb35e60666210901c57714fe894f3539c5fe6829654",
+        "status": "PASS"
+      },
+      "expected_sass": [
+        "static proof artifact only; no production instruction/resource claim is permitted"
+      ],
+      "experiment_class": "SCREENING",
+      "experiment_kind": "STATIC_ADMISSIBILITY",
+      "implementation_owner": {
+        "actor_id": "experiment-agent-linear-v3",
+        "role": "EXPERIMENT_AGENT"
+      },
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+        "sha256": "34ab16c0d449d621e32efb1d6163562e9824b542525b2731bebb36e4f6822bf2",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "classification": {
+          "any_failure": "INVALID/BLOCKED without candidate disposition or result",
+          "predicate_pass": "VALID binary_pass=1",
+          "predicate_reject": "NOT_AUTHORIZED_IN_REVISION_02"
+        },
+        "configurations": [
+          "short",
+          "long"
+        ],
+        "gpu_launches": 0,
+        "performance_samples": 0,
+        "primary": "deterministic PASS-only static admission predicate",
+        "samples_per_configuration": 1,
+        "timer": "none_compiler_typecheck",
+        "unit": "binary_pass"
+      },
+      "model_field": "models/admissibility_status.json::status",
+      "parameter_matrix": [
+        {
+          "active_threads": 256,
+          "block_threads": 512,
+          "candidate_id": "N2",
+          "gpu_launches": 0,
+          "production_path": "short"
+        },
+        {
+          "active_threads": 256,
+          "block_threads": 256,
+          "candidate_id": "N2",
+          "gpu_launches": 0,
+          "production_path": "long"
+        }
+      ],
+      "priority": 0,
+      "promotion_disposition": {
+        "reason": "Retain run-local: this valid static PASS proof is application-shaped and hash-binds the Qwen35 short/long production constructors plus exact FlashInfer, CuTe and CUDA-toolchain source identities and absolute task paths. It establishes only N2 logical same-backing layout/type admissibility; application terms have not been removed, the mechanism is not exposed as an application-independent parameterized package, and the required two independent cold-start reproduction receipts and promotion/purity qualification are absent. It makes no production-implementation, numerical, performance, dynamic-resource or portable-hardware claim.",
+        "status": "RUN_LOCAL"
+      },
+      "request_id": "req-n2-layout-view-static-v2",
+      "resource_ids": [
+        "register_storage"
+      ],
+      "result_binding": {
+        "evidence": [
+          {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/result.json",
+            "sha256": "5940383003a0dc22a690b9e0281abea1b24ff38adc4d3c98efae84e94fbaae66"
+          }
+        ],
+        "model_reconciliation": {
+          "model_revision_identities": {
+            "resource_balance": {
+              "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_balance.json",
+              "sha256": "37975555b6327b2b4a83bee5fcdd69c001069795ec7ce6eaaf48dc0bdbcb34b7"
+            },
+            "schedule_model": {
+              "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/schedule_model.json",
+              "sha256": "3741331aa4cea6d07d4734c53ff973152ecc0ac7bb34d5aeb6487d5bbe2fa5af"
+            },
+            "tradeoff_frontier": {
+              "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/tradeoff_frontier.json",
+              "sha256": "a52d230107f5b0913c916edcfccb2e85eef82320b3a418802718696b2dcbfb62"
+            }
+          },
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/model_reconciliation.json",
+          "semantic_update_identity": {
+            "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/semantic_model_update_receipt.json",
+            "sha256": "06c2fc6ee2446d055749d5bc914756308bd14ec078d3a82927a19d882360a81a"
+          },
+          "sha256": "64010b5be8354d3069fc5831457e8e4e76a4c1030b0d63f90aa0b251075b614a",
+          "status": "APPLIED"
+        },
+        "status": "BOUND"
+      },
+      "status": "RESOLVED",
+      "supervisor_approval": {
+        "path": "experiments/req-n2-layout-view-static-v2/supervisor_approval.json",
+        "sha256": "440358f0db88004713deab44f0565b4879424365b38c72781a15fed6bdc35e99",
+        "status": "CONSUMED_BY_DISPATCH"
+      },
+      "tested_candidate_ids": [
+        "N2"
+      ],
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    }
+  ],
+  "schema_version": "experiment-request-queue-v3",
+  "status": "ACTIVE"
+}

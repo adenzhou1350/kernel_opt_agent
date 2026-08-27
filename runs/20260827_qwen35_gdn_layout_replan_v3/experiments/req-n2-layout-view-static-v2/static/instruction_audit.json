@@ -1,0 +1,110 @@
+{
+  "assertion_semantics": "all proof assertions must discharge during frozen CuTe/MLIR codegen; runtime assert/trap paths are forbidden because proof kernels are never launched",
+  "audit_status": "PASS",
+  "binary_identities": {
+    "long": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_long_static.cubin",
+      "sha256": "2f91fa3ff3071c9b801c07800fb01cf44afa217a2964f135902809329f4fa99f"
+    },
+    "short": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_short_static.cubin",
+      "sha256": "02e1ec91fa64bb4b70dc6b7f70e98ace8ddc7ba06c03cf52b22290c902649134"
+    }
+  },
+  "binary_pass": 1,
+  "build_manifest_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/manifest.json",
+    "sha256": "931e4cab60d64858ea96529229d31535dc801634660cd5e6c1e66b3ffb2acd4c"
+  },
+  "claims_allowed": [
+    "static logical same-backing/type admission"
+  ],
+  "claims_forbidden": [
+    "candidate rejection",
+    "latency",
+    "speedup",
+    "numerical correctness",
+    "K-loop order",
+    "physical registers",
+    "production SASS/resources",
+    "production acceptance"
+  ],
+  "compiled_callable_invocations": 0,
+  "cuda_kernel_launches": 0,
+  "gpu_performance_samples": 0,
+  "mapping_report_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/mapping_report.json",
+    "sha256": "bc2a89b1766ac4d91335c85d6ea99eee6e9a04084818ac1f050fc9f06ab0e47a"
+  },
+  "oracle_recomputation": {
+    "full_per_thread_union": true,
+    "pairwise_disjoint_tiles": true,
+    "row_count": 8192,
+    "unique_domain_rows": 8192,
+    "unique_global_coordinates": 8192,
+    "unique_owner_item_pairs": 8192
+  },
+  "predicate_outcome": "PASS",
+  "runtime_assert_trap_audits": {
+    "long.ptx": {
+      "artifact": "long.ptx",
+      "forbidden_tokens": [
+        "__assertfail",
+        "trap;",
+        "bpt.trap",
+        "brkpt"
+      ],
+      "matched_tokens": [],
+      "status": "PASS"
+    },
+    "long.sass": {
+      "artifact": "long.sass",
+      "forbidden_tokens": [
+        "__assertfail",
+        "trap;",
+        "bpt.trap",
+        "brkpt"
+      ],
+      "matched_tokens": [],
+      "status": "PASS"
+    },
+    "short.ptx": {
+      "artifact": "short.ptx",
+      "forbidden_tokens": [
+        "__assertfail",
+        "trap;",
+        "bpt.trap",
+        "brkpt"
+      ],
+      "matched_tokens": [],
+      "status": "PASS"
+    },
+    "short.sass": {
+      "artifact": "short.sass",
+      "forbidden_tokens": [
+        "__assertfail",
+        "trap;",
+        "bpt.trap",
+        "brkpt"
+      ],
+      "matched_tokens": [],
+      "status": "PASS"
+    }
+  },
+  "sass_identities": {
+    "long": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/long.sass",
+      "sha256": "4ea1b51101967bf5ae7078bb1acfe3d00f2e066ae3a7ddf41fad79d6eaf9ee05"
+    },
+    "short": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/short.sass",
+      "sha256": "6c5a236d0e5236d455a70e4d300581158e6648b5b45ee6e530f2e5c4512fd981"
+    }
+  },
+  "schema_version": "n2-static-layout-audit-v3",
+  "status": "PASS",
+  "witness_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/layout_oracle.jsonl",
+    "sha256": "f6b552241a19f083d9b05734a2fdf4a71dfa4411421387c547a23a9950c6cd14"
+  }
+}

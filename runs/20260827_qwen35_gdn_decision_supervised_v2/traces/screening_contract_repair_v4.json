@@ -1,0 +1,32 @@
+{
+  "authorized_by": {
+    "owner_id": "global-scheduler-linear-v2",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "created_at": "2026-08-26T20:00:50.230032+00:00",
+  "decision_contract": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+    "sha256": "dcc6c9c233e0f54d785bfb8e219843f96a50515d4b4e00131e74aeb586ca30b6"
+  },
+  "decision_id": "decision-s3-tile-causal-screening-v4",
+  "experiment_queue": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/experiment_queue.json",
+    "sha256": "26c5d4502f2e40071ecf4b4098e6e814a8be4eedc1265cd0e3f8d89793460934"
+  },
+  "invariants": {
+    "decision_sample_processes": 1,
+    "gpu_or_dispatch_authorized": false,
+    "mandatory_phase_argv": 6,
+    "screening_direct_transfer_gate": false
+  },
+  "measurability_contract": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/measurability_contract.json",
+    "sha256": "aa5a3566c145843df91027ec7b3d4191f25b9d82eb33444709ee5418c5b08243"
+  },
+  "optimization_plan": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/optimization_plan.json",
+    "sha256": "abab9cdebe1f7634e3ebe23ca9955f1146990b1c8684af164207432b2b361a30"
+  },
+  "schema_version": "screening-contract-repair-receipt-v1",
+  "status": "PASS"
+}

@@ -1,0 +1,21 @@
+{
+  "catalog_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+    "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e"
+  },
+  "decision": "CREATE_RUN_LOCAL",
+  "matching_package_ids": [],
+  "queried_at": "2026-08-26T16:10:25.495365+00:00",
+  "query": {
+    "boundaries": [],
+    "mechanisms": [],
+    "qualification": "PRODUCTION_PREDICTIVE",
+    "resources": [
+      "async_copy_engine",
+      "scoreboard_wait",
+      "synchronization"
+    ]
+  },
+  "schema_version": "catalog-query-receipt-v1",
+  "selected_package_id": null
+}

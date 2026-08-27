@@ -1,0 +1,53 @@
+{
+  "architecture_probe": {
+    "command": [
+      "/usr/local/cuda/bin/cuobjdump",
+      "--list-elf",
+      "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.cubin"
+    ],
+    "discovered_architecture_codes": [
+      "sm_120a"
+    ],
+    "exit_code": 0,
+    "stderr": "",
+    "stdout": "ELF file    1: composite.sm_120a.cubin\n"
+  },
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.cubin",
+    "sha256": "f8fa515b3dd11ca527f0aae38f959173e562abd13c9f51a8924efbd3fe2b7f2d"
+  },
+  "command": [
+    "/usr/local/cuda/bin/cuobjdump",
+    "--dump-sass",
+    "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.cubin"
+  ],
+  "created_at": "2026-08-26T15:22:43.381577+00:00",
+  "exit_code": 0,
+  "sass_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/final.sass",
+    "sha256": "6ba4b70c28dd326f87a78150254aea5fcb29a0dcf8d5d7d26c92e445517d51bf"
+  },
+  "schema_version": "final-binary-disassembly-receipt-v1",
+  "status": "PASS",
+  "stderr": "",
+  "symbols": [],
+  "target": {
+    "architecture_code": "sm_120a",
+    "compatible_architecture_codes": [
+      "sm_120",
+      "sm_120a"
+    ],
+    "compute_capability": "12.0",
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "vendor": "NVIDIA"
+  },
+  "tool": {
+    "path": "/usr/local/cuda/bin/cuobjdump",
+    "sha256": "8690c347b8b4ce8ce0491a2fd10de9c99e02ec3600d1c7e101cf27719500a6ad",
+    "version": "cuobjdump: NVIDIA (R) fat binary listing tool\nCopyright (c) 2005-2026 NVIDIA Corporation\nBuilt on Fri_Apr_17_07:22:20_PM_PDT_2026\nCuda compilation tools, release 13.3, V13.3.29\nBuild cuda_13.3.r13.3/compiler.37818446_0",
+    "version_command": [
+      "/usr/local/cuda/bin/cuobjdump",
+      "--version"
+    ]
+  }
+}

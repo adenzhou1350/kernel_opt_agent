@@ -1,0 +1,169 @@
+{
+  "catalog_snapshot": {
+    "catalog_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+      "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e"
+    },
+    "request_receipts": [],
+    "status": "PENDING_QUERY"
+  },
+  "promotion_review": [],
+  "ranking_policy": {
+    "benefit_bound": "frozen top-two candidate decision contract",
+    "formula": "candidate_specific_decision_value_us * decision_flip_probability * expected_uncertainty_reduction / experiment_cost_weight",
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "ranked_at": "2026-08-27T07:21:15.819362+00:00"
+  },
+  "requests": [
+    {
+      "affected_stage_ids": [
+        "s3"
+      ],
+      "candidate_decision": "Admit or reject N2; retain N0 and N1 regardless.",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [
+            "cute_accumulator_same_iterator_view"
+          ],
+          "qualification": "STATIC_VALIDATED",
+          "resources": [
+            "cta_allocation",
+            "instruction_front_end",
+            "integer_address_pipe",
+            "l1_shared_boundary",
+            "load_store_request",
+            "predicate_compute",
+            "predicate_storage",
+            "register_storage",
+            "shared_bank_service",
+            "shared_memory",
+            "synchronization",
+            "tensor_compute",
+            "tensor_issue",
+            "warp_issue"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-static-layout-admissibility/catalog_query_receipt.json",
+          "sha256": "97e7f5d94adb8ebe6c33e9f8d208f5593727c9cb6eb6cd76c53aa413df0ef428"
+        }
+      },
+      "causal_question": "Does the exact production accumulator admit a same-iterator N16 scoreV MMA view with no transport or ordering change?",
+      "controls": [
+        "No CUDA launch, timing sample, production source edit or candidate performance claim.",
+        "Instantiate exact short and long production tiled-MMA types.",
+        "Use logical_divide on the actual MMA_N fragment mode and reuse the same iterator.",
+        "Enumerate lane/register mapping and reject alias, owner or offset mismatch.",
+        "Treat make_fragment_C as prototype only; it may not replace the existing accumulator storage."
+      ],
+      "decision_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/decision_contract.json",
+        "sha256": "6a71c82fb5068cb8a118ab976ce9cdc1c11c9af5b62689a85a7a216d3352d691"
+      },
+      "expected_sass": [
+        "NOT_APPLICABLE_STATIC_GATE; candidate SASS is required only after N2 admission"
+      ],
+      "experiment_class": "SCREENING",
+      "implementation_owner": {
+        "actor_id": "experiment-agent-linear-v3",
+        "role": "EXPERIMENT_AGENT"
+      },
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-static-layout-admissibility/experiment.json",
+        "sha256": "7f2e3769706f514d588055539dfc0af58035f4198a135e4a20c9b8204c17415b",
+        "status": "PLANNED"
+      },
+      "measurability_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/measurability_contract.json",
+        "sha256": "6d467125be3b84c2bef176a4eb72e5f1c2cd046fabaa4b50efd7d2bdb73a1ebf"
+      },
+      "measurement_contract": {
+        "decision_precedence": [
+          "compile failure -> reject N2",
+          "mapping mismatch -> reject N2",
+          "all exact checks pass -> admit N2 to bound ranking"
+        ],
+        "gpu_launches": 0,
+        "performance_samples": 0,
+        "primary": "binary compiler/type-level pass/fail"
+      },
+      "model_field": "N2 static admissibility before candidate performance ranking",
+      "priority": 0,
+      "promotion_disposition": {
+        "reason": "review genericity only after a resolved static proof",
+        "status": "PENDING"
+      },
+      "request_id": "req-n2-static-layout-admissibility",
+      "resource_ids": [
+        "cta_allocation",
+        "instruction_front_end",
+        "integer_address_pipe",
+        "l1_shared_boundary",
+        "load_store_request",
+        "predicate_compute",
+        "predicate_storage",
+        "register_storage",
+        "shared_bank_service",
+        "shared_memory",
+        "synchronization",
+        "tensor_compute",
+        "tensor_issue",
+        "warp_issue"
+      ],
+      "result_binding": {
+        "status": "PENDING",
+        "target": "models/tradeoff_frontier.json::N2"
+      },
+      "sensitivity": {
+        "benefit_derivation": {
+          "decision_boundary": {
+            "unit": "us",
+            "value": 0.0
+          },
+          "decision_contract_identity": {
+            "path": "models/decision_contract.json",
+            "sha256": "6a71c82fb5068cb8a118ab976ce9cdc1c11c9af5b62689a85a7a216d3352d691"
+          },
+          "maximum_decision_value": {
+            "unit": "us",
+            "value": 8.953214285714285
+          },
+          "method": "top-two candidate ordering sensitivity from the frozen decision contract",
+          "quantity_id": "n2_zero_copy_layout_decision_value_us",
+          "top_two_candidate_ids": [
+            "N2",
+            "N0"
+          ]
+        },
+        "candidate_specific_decision_value_us": 8.953214285714285,
+        "decision_flip_probability": 0.5,
+        "expected_uncertainty_reduction": 1.0,
+        "experiment_cost": "LOW",
+        "experiment_cost_weight": 1.0,
+        "ranking_score": 4.476607142857143
+      },
+      "status": "PLANNED",
+      "tested_candidate_ids": [
+        "N2",
+        "N0"
+      ],
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    }
+  ],
+  "schema_version": "experiment-request-queue-v2",
+  "status": "ACTIVE"
+}

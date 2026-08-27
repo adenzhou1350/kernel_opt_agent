@@ -1,0 +1,181 @@
+{
+  "acceptance_rule": "SCREENING may only reject, admit to a new supervised QUALIFICATION contract, or remain inconclusive; it cannot accept C1.",
+  "baseline_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/baseline.json",
+      "sha256": "e90fdaf35d850482e24eadcc0308c550b700b202201053473caa075cc3c13e89"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/hardware.json",
+      "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+      "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+    }
+  ],
+  "candidate_limit": 3,
+  "correctness_gates": [
+    "All seven shapes pass bitwise stage-boundary and final-output comparisons; S404 tail is explicit.",
+    "Direct repeat and graph-versus-direct remain bitwise.",
+    "NaN/Inf masks and extreme finite inputs match the registered reference domain."
+  ],
+  "evidence_gates": [
+    "Runtime import paths, source hashes, ABI/cache keys and distinct C0/C1 cubins are recorded.",
+    "Final SASS proves tile-work removal, unchanged S01/S2/post, zero spill and resource caps.",
+    "P0 remains PASS; CUPTI diagnostic is separated from acceptance timing.",
+    "Graph/direct deltas agree in sign and delta_graph-delta_direct 95% CI lies in [-0.10,+0.10] us before production acceptance."
+  ],
+  "experiment_queue": [
+    "req-s3-tile-causal-production-ab"
+  ],
+  "global_scheduler_owner": "global-scheduler-linear-v2",
+  "global_supervisor_owner": "global-supervisor-root-v2",
+  "max_revisions_per_decision": 1,
+  "model_dependencies": [
+    "mandatory-work ledger",
+    "operator DAG",
+    "SM120 resource graph",
+    "frozen production baseline"
+  ],
+  "model_error_tolerances_percent": {
+    "achieved_to_feasible_bound": 15.0,
+    "p1_p2_to_p3": 10.0,
+    "schedule_to_p4": 10.0
+  },
+  "objective": {
+    "created_at": "2026-08-26T19:37:53.989007+00:00",
+    "decision_indifference_band_us": 0.1,
+    "direction": "minimize",
+    "measurement_semantics": {
+      "cpu_dispatch": "reported separately and never folded into the kernel-ranking metric",
+      "primary": "CUDA-event device elapsed around 64 warmed native graph replays; graph is only a timing envelope to remove CPU enqueue gaps, not deployment graph latency",
+      "transfer_gate": "graph/direct deltas must have the same sign and the 95% CI of delta_graph-delta_direct must lie in [-0.10,+0.10] us"
+    },
+    "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+    "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v2",
+    "schema_version": "registered-objective-v1",
+    "unit": "us",
+    "workload_cases": [
+      {
+        "case_id": "s256",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s384",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s404",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s512",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s640",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s768",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s1024",
+        "weight": 0.14285714285714285
+      }
+    ]
+  },
+  "open_uncertainties": [
+    {
+      "decision_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+        "sha256": "dcc6c9c233e0f54d785bfb8e219843f96a50515d4b4e00131e74aeb586ca30b6"
+      },
+      "quantity_id": "screening_two_path_mean_delta_c1_minus_c0"
+    }
+  ],
+  "qualification_budget": {
+    "max_configurations": 14,
+    "max_process_launches": 21,
+    "max_samples_per_configuration": 31,
+    "max_wall_clock_minutes": 60
+  },
+  "revision_history": [
+    {
+      "at": "2026-08-26T19:37:53.989007+00:00",
+      "reason": "Candidate-first correction: tile-feasible scheduled work and positive-regression uncertainty.",
+      "revision": 1
+    },
+    {
+      "at": "2026-08-26T19:56:06.282086+00:00",
+      "reason": "Split two-path SCREENING admission from the later seven-shape QUALIFICATION decision.",
+      "revision": 2
+    },
+    {
+      "at": "2026-08-26T20:00:50.230032+00:00",
+      "reason": "Repair SCREENING process budget to the framework-defined six mandatory phase argv; only measure[0] may emit decision samples.",
+      "revision": 3
+    }
+  ],
+  "schema_version": "optimization-plan-v1",
+  "screening_budget": {
+    "max_configurations": 4,
+    "max_process_launches": 6,
+    "max_samples_per_configuration": 15,
+    "max_wall_clock_minutes": 20
+  },
+  "status": "EXECUTABLE",
+  "stop_criteria": [
+    "Identity, correctness, final-SASS, resource, stream-containment or P0 failure halts and replans.",
+    "Screening can reject but cannot globally accept C1.",
+    "Qualification CI half-width above 0.10 us is INCONCLUSIVE; do not expand the budget or start a parameter sweep.",
+    "One implementation revision is allowed before fresh supervisor review; no post-result source change stays under this decision."
+  ],
+  "workload_priorities": [
+    {
+      "case_id": "s404",
+      "rank": 0,
+      "reason": "main audit anchor and 20-token tail"
+    },
+    {
+      "case_id": "s1024",
+      "rank": 1,
+      "reason": "long path and two-CTA/SM constraint"
+    },
+    {
+      "case_id": "s256",
+      "rank": 2,
+      "reason": "SM underfill boundary"
+    },
+    {
+      "case_id": "s640",
+      "rank": 3,
+      "reason": "short-dispatch edge"
+    },
+    {
+      "case_id": "s768",
+      "rank": 4,
+      "reason": "long-dispatch edge"
+    },
+    {
+      "case_id": "s384",
+      "rank": 5,
+      "reason": "equal-weight production coverage"
+    },
+    {
+      "case_id": "s512",
+      "rank": 6,
+      "reason": "equal-weight production coverage"
+    }
+  ]
+}

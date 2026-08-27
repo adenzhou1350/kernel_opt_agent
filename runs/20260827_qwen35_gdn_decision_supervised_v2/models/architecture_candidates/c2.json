@@ -1,0 +1,15 @@
+{
+  "candidate_id": "C2",
+  "name": "s3-post-true-fusion",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_plus_gated_rms_post"
+  ],
+  "reason": "Existing seven-shape exact-BF16-boundary paired evidence is slower for every target shape; no remeasurement authorized.",
+  "status": "REJECTED_DOMINATED",
+  "weighted_objective_interval_us": [
+    37.7859,
+    38.9287
+  ]
+}

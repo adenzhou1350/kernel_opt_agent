@@ -1,0 +1,187 @@
+{
+  "artifacts": {
+    "raw_samples": "experiments/req-n2-static-layout-admissibility/raw/samples.json",
+    "reproduction_log": "experiments/req-n2-static-layout-admissibility/reproduction.json",
+    "result": "experiments/req-n2-static-layout-admissibility/result.json",
+    "static_audit": "experiments/req-n2-static-layout-admissibility/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/analyze.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/clean_build.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/correctness.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/measure.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/static_audit.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/warmup.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ]
+  },
+  "controls": [
+    "Positive control: all four same-iterator N16 views equal the exact eight-warp scoreV prototype.",
+    "Negative control: the old single-warp append layout remains unequal and would fail admission.",
+    "Zero-copy control: output.iterator is reused; any copy, shared/global handoff or barrier rejects N2.",
+    "Live evidence control: PTX, cubin, SASS, compiler logs and source hashes are archived even though the compiled callable is never invoked.",
+    "Numerical candidate correctness and GPU latency remain outside this static contract."
+  ],
+  "decision_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/decision_contract.json",
+    "sha256": "6a71c82fb5068cb8a118ab976ce9cdc1c11c9af5b62689a85a7a216d3352d691"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-static-layout-admissibility/catalog_query_receipt.json",
+      "sha256": "97e7f5d94adb8ebe6c33e9f8d208f5593727c9cb6eb6cd76c53aa413df0ef428"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/decision_contract.json",
+      "sha256": "6a71c82fb5068cb8a118ab976ce9cdc1c11c9af5b62689a85a7a216d3352d691"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/measurability_contract.json",
+      "sha256": "6d467125be3b84c2bef176a4eb72e5f1c2cd046fabaa4b50efd7d2bdb73a1ebf"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/layout_replan_planning.json",
+      "sha256": "c5ec6ee3d64c457520e98cb5a7d7bfeb8f889d990891255fe81fd098f7e87159"
+    }
+  ],
+  "execution_budget": {
+    "max_wall_clock_minutes": 15,
+    "process_launches": 6,
+    "samples_per_configuration": 1
+  },
+  "expected_sass": [
+    "Proof cubin/SASS identity exists only to bind compiler lowering; no production instruction-count or latency claim is allowed."
+  ],
+  "experiment_class": "SCREENING",
+  "level": "P1",
+  "measurability_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/measurability_contract.json",
+    "sha256": "6d467125be3b84c2bef176a4eb72e5f1c2cd046fabaa4b50efd7d2bdb73a1ebf"
+  },
+  "measurement_contract": {
+    "decision_precedence": [
+      "compile failure -> reject N2",
+      "mapping mismatch -> reject N2",
+      "all exact checks pass -> admit N2 to bound ranking"
+    ],
+    "gpu_launches": 0,
+    "performance_samples": 0,
+    "primary": "binary compiler/type-level pass/fail"
+  },
+  "model_update_contract": {
+    "decision_changed": "Admit or reject N2; retain N0 and N1 regardless.",
+    "model_field": "N2 static admissibility before candidate performance ranking",
+    "summary_fields": [
+      "static_admissibility",
+      "n2_disposition",
+      "cuda_kernel_launches",
+      "gpu_performance_samples"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "candidate_id": "N2",
+      "gpu_launches": 0,
+      "layout": "D128_N64_to_N16",
+      "production_path": "short"
+    },
+    {
+      "candidate_id": "N2",
+      "gpu_launches": 0,
+      "layout": "D128_N64_to_N16",
+      "production_path": "long"
+    }
+  ],
+  "prepared_by": {
+    "actor_id": "experiment-agent-linear-v3",
+    "role": "EXPERIMENT_AGENT"
+  },
+  "question": "Does the exact production accumulator admit a same-iterator N16 scoreV MMA view with no transport or ordering change?",
+  "request_id": "req-n2-static-layout-admissibility",
+  "schema_version": "executable-experiment-v1",
+  "sealed_at": "2026-08-27T07:30:18.988926+00:00",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/analyze.py",
+        "sha256": "e8ec9651cce6ce4ae334bab62c068600bfadbbe82d91cdd3d1736171ac3968b5"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/clean_build.py",
+        "sha256": "6fcb120327ecdc5b6ace8338fa6b6c8689aa93c87c34ff322ab6a34ea95d0994"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/common.py",
+        "sha256": "88bbf717ecb4bf28729ea7e02c072018bcc99ae3886766cb252cbe340766abd8"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/correctness.py",
+        "sha256": "e33b323644e6781aa1caa0b568ac454f76b1e8e459950c684322ae9c5566aced"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/layout_proof.py",
+        "sha256": "de51163209eeb6489d21ba4d3f2b5b9276c1bd61bde90f5e0a6b3066fa5c2d2c"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/measure.py",
+        "sha256": "d57518edeb9bc44d3e11e161b77686858d6cfe7840602f7ac018d9614f62af7e"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/static_audit.py",
+        "sha256": "9c115bde59633b86e424df45fc8cdfc338c1d5e4457d289f68cba610a1f8cba5"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-static-layout-admissibility/warmup.py",
+        "sha256": "bcadfae5e3cc0ae235b8f1da746104ec1e0e8ba7a1536a435b2a56e5f34870fa"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED",
+  "tested_candidate_ids": [
+    "N2",
+    "N0"
+  ]
+}

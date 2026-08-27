@@ -1,0 +1,27 @@
+{
+  "architectural_change": "Co-design O1 state-GEMM and score-times-V ownership so each true N16 output tile is already a compatible scoreV MMA accumulator fragment.",
+  "candidate_id": "N2",
+  "name": "layout-codesigned-dual-causal-tile-pruning",
+  "pipeline": [
+    "s01",
+    "s2",
+    "s3_raw",
+    "gated_rms_post"
+  ],
+  "removed_flop_by_case": [
+    50331648,
+    75497472,
+    102760448,
+    100663296,
+    125829120,
+    150994944,
+    201326592
+  ],
+  "removed_flop_claim_condition": "N2 savings are conditional and have zero decision weight until the static hard gate passes.",
+  "static_hard_gate": {
+    "pass": "For exact short and long production tiled-MMA objects, every logical (d,n) in each N16 tile has a bijective equal lane and equal register offset under a same-iterator view, with no alias and preserved K accumulation order.",
+    "preferred_construction": "logical_divide(real_output_fragment,(None,None,2)); select one MMA_N tile; reuse output.iterator and compare against the exact scoreV fragment layout",
+    "reject": "Any register permutation/copy, shared/global handoff, barrier, extra allocation, changed per-element K order, or changed BF16 boundary rejects N2 before materialization."
+  },
+  "status": "STATIC_ADMISSIBILITY_PENDING"
+}

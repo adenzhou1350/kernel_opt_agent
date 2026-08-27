@@ -1,0 +1,27 @@
+{
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe",
+    "sha256": "f572638e56a93a85f9b7d0b269f16570c13920cfe6fec0781014e4b7cec4227d"
+  },
+  "expected_tokens": [
+    "LDS",
+    "STS",
+    "LDC",
+    "LDG",
+    "STG"
+  ],
+  "note": "per-mechanism final acceptance will require exact function-scoped SASS accounting",
+  "observed": {
+    "LDC": true,
+    "LDG": true,
+    "LDS": true,
+    "STG": true,
+    "STS": true
+  },
+  "sass_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe.sass",
+    "sha256": "d66f75bdc7ecc502e5c0cb5752aa433ebbc2f3eba9344f18ac220f9db74f1c70"
+  },
+  "schema_version": "run-local-static-audit-v1",
+  "status": "PASS"
+}

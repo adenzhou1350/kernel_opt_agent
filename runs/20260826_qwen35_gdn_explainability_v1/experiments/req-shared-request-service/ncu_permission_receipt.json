@@ -1,0 +1,24 @@
+{
+  "captured_at": "2026-08-26T17:03:49.568073+00:00",
+  "claim_impact": "shared-bank/request counter P2 cannot close; P1 event service curves remain mechanism-only and cannot establish production utilization",
+  "command": [
+    "/usr/local/cuda-13.3/bin/ncu",
+    "--devices",
+    "6",
+    "--query-metrics"
+  ],
+  "exit_code": 0,
+  "hardware_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/hardware.json",
+    "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+  },
+  "required_action": "grant host-level NVIDIA performance-counter permission (for example the documented NVreg_RestrictProfilingToAdminUsers policy or equivalent container capability)",
+  "schema_version": "ncu-counter-permission-receipt-v1",
+  "status": "BLOCKED_PERMISSION",
+  "stderr": "",
+  "stdout": "Device NVIDIA GeForce RTX 5090 (GB202)\n==ERROR== ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters on the target device 6. For instructions on enabling permissions and to get more information see https://developer.nvidia.com/ERR_NVGPUCTRPERM\n\n",
+  "tool_identity": {
+    "path": "/usr/local/cuda-13.3/bin/ncu",
+    "sha256": "0fd66c71dc3e920df817acb753745cd9db633e7e2381f2eddc90fa6d7309db55"
+  }
+}

@@ -1,0 +1,370 @@
+{
+  "active_clock_nvidia_smi": [
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.94,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.94,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2722.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 45.98,
+      "temperature_c": 38.0,
+      "utilization_percent": 34.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2722.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 45.98,
+      "temperature_c": 38.0,
+      "utilization_percent": 34.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 65.33,
+      "temperature_c": 40.0,
+      "utilization_percent": 35.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 65.33,
+      "temperature_c": 40.0,
+      "utilization_percent": 35.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 65.33,
+      "temperature_c": 40.0,
+      "utilization_percent": 35.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 123.27,
+      "temperature_c": 40.0,
+      "utilization_percent": 34.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 123.27,
+      "temperature_c": 40.0,
+      "utilization_percent": 34.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2437.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 108.03,
+      "temperature_c": 38.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2437.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 108.03,
+      "temperature_c": 38.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 104.25,
+      "temperature_c": 40.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 104.25,
+      "temperature_c": 40.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 104.25,
+      "temperature_c": 40.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 117.64,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 117.64,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 117.64,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 127.0,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2790.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 125.11,
+      "temperature_c": 40.0,
+      "utilization_percent": 44.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2677.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 110.1,
+      "temperature_c": 40.0,
+      "utilization_percent": 27.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2677.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 110.1,
+      "temperature_c": 40.0,
+      "utilization_percent": 27.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 110.16,
+      "temperature_c": 41.0,
+      "utilization_percent": 37.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 110.16,
+      "temperature_c": 41.0,
+      "utilization_percent": 37.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 126.92,
+      "temperature_c": 41.0,
+      "utilization_percent": 37.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 126.92,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 126.92,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 2820.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 127.08,
+      "temperature_c": 41.0,
+      "utilization_percent": 38.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    }
+  ],
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe",
+    "sha256": "c3231d06cc6457fff04bd6337dcd096b40a05cd293d1649c45d49a4f5a52a833"
+  },
+  "captured_at": "2026-08-26T14:47:35.850738+00:00",
+  "commands": [
+    [
+      "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe",
+      "--device",
+      "0",
+      "--rounds",
+      "31",
+      "--warm-samples",
+      "15",
+      "--graph-nodes",
+      "64",
+      "--blocks",
+      "170",
+      "--threads",
+      "256",
+      "--arithmetic-repeats",
+      "1024",
+      "--preheat-ms",
+      "1800"
+    ],
+    [
+      "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe",
+      "--device",
+      "0",
+      "--rounds",
+      "31",
+      "--warm-samples",
+      "15",
+      "--graph-nodes",
+      "64",
+      "--blocks",
+      "170",
+      "--threads",
+      "256",
+      "--arithmetic-repeats",
+      "1024",
+      "--preheat-ms",
+      "1800"
+    ],
+    [
+      "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe",
+      "--device",
+      "0",
+      "--rounds",
+      "31",
+      "--warm-samples",
+      "15",
+      "--graph-nodes",
+      "64",
+      "--blocks",
+      "170",
+      "--threads",
+      "256",
+      "--arithmetic-repeats",
+      "1024",
+      "--preheat-ms",
+      "1800"
+    ]
+  ],
+  "expected_uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+  "physical_device_index": 6,
+  "pre_measurement_nvidia_smi": [
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.28,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.28,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.28,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.28,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.69,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.69,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.69,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.69,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    },
+    {
+      "clock_mhz": 180.0,
+      "name": "NVIDIA GeForce RTX 5090",
+      "power_w": 28.69,
+      "temperature_c": 35.0,
+      "utilization_percent": 0.0,
+      "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326"
+    }
+  ],
+  "sass_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe.sass",
+    "sha256": "4b43bc44973860a1bcbdd794455fcfda65fd8e815f14136afa708b4b3cfe92ab"
+  },
+  "schema_version": "p0-environment-v1",
+  "source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-p0-measurement-system/raw/p0_probe.cu",
+    "sha256": "9bd6c7d9733b12ce40d4993cc2f78fe25cfd82a2cd1f61edfc1a4b947fb0426e"
+  },
+  "visible_device_index": 0
+}

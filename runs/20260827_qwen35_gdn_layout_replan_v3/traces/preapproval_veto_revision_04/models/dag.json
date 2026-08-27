@@ -1,0 +1,207 @@
+{
+  "critical_paths": [
+    {
+      "acceptance_gpu_graph_median_us": 26.667999103665352,
+      "case_id": "s256",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 2.208,
+        "s01": 10.081,
+        "s2": 4.1915,
+        "s3_long": null,
+        "s3_short": 7.8725000000000005
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 28.819499537348747,
+      "case_id": "s384",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 2.272,
+        "s01": 10.368,
+        "s2": 5.904,
+        "s3_long": null,
+        "s3_short": 8.0
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 28.867000713944435,
+      "case_id": "s404",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 2.3045,
+        "s01": 10.6085,
+        "s2": 6.8645,
+        "s3_long": null,
+        "s3_short": 8.064
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 30.955500900745392,
+      "case_id": "s512",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 3.216,
+        "s01": 10.912,
+        "s2": 7.68,
+        "s3_long": null,
+        "s3_short": 8.176
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 34.93649885058403,
+      "case_id": "s640",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 3.68,
+        "s01": 11.504,
+        "s2": 9.36,
+        "s3_long": null,
+        "s3_short": 8.417
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 46.907998621463776,
+      "case_id": "s768",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 3.8075,
+        "s01": 18.975,
+        "s2": 10.927,
+        "s3_long": 11.007,
+        "s3_short": null
+      }
+    },
+    {
+      "acceptance_gpu_graph_median_us": 51.346998661756516,
+      "case_id": "s1024",
+      "measurement_semantics": "CUPTI stage values are diagnostic; graph median is acceptance timing",
+      "production_order": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ],
+      "separate_cupti_stage_median_us": {
+        "post": 4.528499999999999,
+        "s01": 19.265,
+        "s2": 14.2085,
+        "s3_long": 11.136,
+        "s3_short": null
+      }
+    }
+  ],
+  "mathematical_edges": [
+    {
+      "from": "inputs",
+      "to": "s01"
+    },
+    {
+      "from": "s01",
+      "to": "s2"
+    },
+    {
+      "from": "s01",
+      "to": "s3"
+    },
+    {
+      "from": "s2",
+      "to": "s3"
+    },
+    {
+      "from": "s3",
+      "to": "post"
+    },
+    {
+      "from": "post",
+      "to": "output"
+    }
+  ],
+  "nodes": [
+    {
+      "meaning": "Q/K/V/g/beta/decay/RMS weights",
+      "node_id": "inputs"
+    },
+    {
+      "meaning": "QK norm, decay and chunk-local transforms",
+      "node_id": "s01"
+    },
+    {
+      "meaning": "chunk recurrent state propagation",
+      "node_id": "s2"
+    },
+    {
+      "meaning": "state contribution plus local causal scoreV",
+      "node_id": "s3"
+    },
+    {
+      "meaning": "gated RMS normalization",
+      "node_id": "post"
+    },
+    {
+      "meaning": "BF16 output",
+      "node_id": "output"
+    }
+  ],
+  "resource_constraints": [
+    {
+      "request_id": "req-n2-layout-view-static-v2",
+      "resource_ids": [
+        "register_storage"
+      ],
+      "status": "STATIC_LOGICAL_LAYOUT_ONLY_DYNAMIC_RESOURCE_DEFERRED"
+    }
+  ],
+  "schedule_only_edges": [
+    {
+      "candidate": "N2",
+      "from": "s3_O1_accumulator",
+      "requirement": "same backing iterator/offset and compatible C/D logical layout; physical register identity, transport, K order, and numerical behavior are deferred",
+      "to": "s3_scoreV_accumulator"
+    }
+  ],
+  "schema_version": "operator-dag-v1",
+  "unproven_edges": [
+    {
+      "edge": "O1_N64_fragment_to_scoreV_N16_fragment",
+      "request_id": "req-n2-layout-view-static-v2",
+      "unknown": "same-backing logical N16 C/D layout feasibility for exact short and long constructors; implementation transport and performance remain unproven"
+    }
+  ]
+}

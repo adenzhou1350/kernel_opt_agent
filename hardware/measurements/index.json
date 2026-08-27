@@ -1,0 +1,40 @@
+{
+  "records": [
+    {
+      "hardware": {
+        "path": "hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+        "sha256": "b6182e069f437479509be3687a2eed24e2db57f94735ceef6c4199fdac1f2514"
+      },
+      "id": "rtx5090-sm120-gpu6-cuda13.3-driver595.45.04-cuda-core-v1-20260826",
+      "qualification": "LEGACY_UNQUALIFIED",
+      "manifest": {
+        "path": "hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/manifest.json",
+        "sha256": "907c0d0cb0f3cc3c115c46752f9813e0df34274d608bf3b2ee5472303f05a7aa"
+      },
+      "registered_at": "2026-08-26T03:15:20.340805+00:00",
+      "summary": {
+        "path": "hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/summary.json",
+        "sha256": "8d83b253c340765f587a8f52b499f96d3996379a9ae1f973629c524e62e0e70e"
+      }
+    },
+    {
+      "hardware": {
+        "path": "hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+        "sha256": "b6182e069f437479509be3687a2eed24e2db57f94735ceef6c4199fdac1f2514"
+      },
+      "id": "rtx5090-sm120-gpu6-cuda13.3-driver595.45.04-cuda-core-static-v2-20260826",
+      "qualification": "LEGACY_UNQUALIFIED",
+      "manifest": {
+        "path": "hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/manifest.json",
+        "sha256": "907c0d0cb0f3cc3c115c46752f9813e0df34274d608bf3b2ee5472303f05a7aa"
+      },
+      "registered_at": "2026-08-26T03:17:14.886794+00:00",
+      "summary": {
+        "path": "hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/summary_static_v2.json",
+        "sha256": "aebc5c68ef2c8ca63710b8395e3dbb3d77cb697ff457974bbd089448d7ebe58d"
+      }
+    }
+  ],
+  "rule": "Only EVIDENCE_CLOSED_V2 records may parameterize a hardware model. LEGACY_UNQUALIFIED records remain historical and are forbidden as model evidence.",
+  "schema_version": "hardware-measurement-index-v2"
+}

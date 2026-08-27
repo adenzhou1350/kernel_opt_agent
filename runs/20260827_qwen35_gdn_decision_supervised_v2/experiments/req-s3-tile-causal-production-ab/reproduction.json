@@ -1,0 +1,30 @@
+{
+  "commands": [
+    {
+      "argv": [
+        "/usr/bin/env",
+        "PYTHONPATH=/workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer",
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/microbench_candidates/req-s3-tile-causal-production-ab/harness/clean_build.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2"
+      ],
+      "exit_code": 1,
+      "phase": "clean_build"
+    }
+  ],
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/req-s3-tile-causal-production-ab/experiment.json",
+    "sha256": "53c50a86be6bd535784c004225152a5b97ad6bf8b2c813e1df682f427b05bf36"
+  },
+  "hardware_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/hardware.json",
+    "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+  },
+  "request_id": "req-s3-tile-causal-production-ab",
+  "schema_version": "experiment-reproduction-v1",
+  "workload_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/workload.json",
+    "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+  }
+}

@@ -1,0 +1,379 @@
+{
+  "decision_policy": {
+    "candidate_driven_experiments_only": true,
+    "local_speedup_is_not_global_acceptance": true,
+    "objective": {
+      "created_at": "2026-08-26T19:37:53.989007+00:00",
+      "decision_indifference_band_us": 0.1,
+      "direction": "minimize",
+      "measurement_semantics": {
+        "cpu_dispatch": "reported separately and never folded into the kernel-ranking metric",
+        "primary": "CUDA-event device elapsed around 64 warmed native graph replays; graph is only a timing envelope to remove CPU enqueue gaps, not deployment graph latency",
+        "transfer_gate": "graph/direct deltas must have the same sign and the 95% CI of delta_graph-delta_direct must lie in [-0.10,+0.10] us"
+      },
+      "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+      "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v2",
+      "schema_version": "registered-objective-v1",
+      "unit": "us",
+      "workload_cases": [
+        {
+          "case_id": "s256",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s384",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s404",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s512",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s640",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s768",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s1024",
+          "weight": 0.14285714285714285
+        }
+      ]
+    },
+    "ranking": "candidate_specific_decision_value_us * decision_flip_probability * expected_uncertainty_reduction / experiment_cost_weight",
+    "supervisor_approval_required": true,
+    "unknown_does_not_imply_measure": true
+  },
+  "halt_disposition": {
+    "evidence": [
+      {
+        "path": "experiments/req-s3-tile-causal-production-ab/execution_receipt.json",
+        "sha256": "14e337173a919c223daede3e8871d970fc5a6d35630cfdb059cc941df156bcca"
+      },
+      {
+        "path": "experiments/req-s3-tile-causal-production-ab/execution_logs/clean_build-0.stderr.txt",
+        "sha256": "bf19afd98d49dbb167a1ff3935e7be6e3cb6a1621ceda68405b3cc011147f887"
+      }
+    ],
+    "production_validation_authorized": false,
+    "reason": "C1_COMPILE_LAYOUT_HARD_GATE_FAIL_REVISION_BUDGET_EXHAUSTED",
+    "rejected_candidate_id": "C1",
+    "retained_production_baseline_id": "C0",
+    "status": "HALT_AND_REPLAN"
+  },
+  "human_report_gate": {
+    "requires": [
+      "resolved C1/C0 decision",
+      "validated resource balance",
+      "validated production model"
+    ],
+    "status": "BLOCKED"
+  },
+  "material_resources": [
+    "async_copy_engine",
+    "constant_memory_path",
+    "conversion_pipe",
+    "cta_allocation",
+    "device_memory_boundary",
+    "instruction_front_end",
+    "integer_address_pipe",
+    "kernel_dispatch",
+    "l1_shared_boundary",
+    "l2_boundary",
+    "load_store_request",
+    "predicate_compute",
+    "predicate_storage",
+    "register_storage",
+    "scoreboard_wait",
+    "shared_bank_service",
+    "shared_memory",
+    "simt_compute",
+    "special_function",
+    "synchronization",
+    "system_register_path",
+    "tensor_compute",
+    "tensor_issue",
+    "warp_collective",
+    "warp_issue"
+  ],
+  "owned_artifacts": {
+    "experiment_queue": "models/experiment_queue.json",
+    "resource_balance": "models/resource_balance.json",
+    "schedule_model": "models/schedule_model.json",
+    "tradeoff_frontier": "models/tradeoff_frontier.json"
+  },
+  "owner": {
+    "exclusive_authority": [
+      "RANK_EXPERIMENTS",
+      "CLOSE_RESOURCE_MODEL",
+      "ACCEPT_GLOBAL_CANDIDATE",
+      "AUTHORIZE_LIMIT_REPORT"
+    ],
+    "owner_id": "global-scheduler-linear-v2",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "revision_history": [
+    {
+      "at": "2026-08-26T19:37:53.989007+00:00",
+      "reason": "Corrected elementwise-minimum C1 into a realizable 16x16 tile-granular schedule and retained positive-regression uncertainty.",
+      "revision": 1
+    },
+    {
+      "at": "2026-08-26T19:56:06.282086+00:00",
+      "reason": "Scheduler issued bounded two-path SCREENING contract; no production acceptance authority.",
+      "revision": 2
+    },
+    {
+      "at": "2026-08-26T20:00:50.230032+00:00",
+      "reason": "Scheduler authorized six mandatory lifecycle argv for SCREENING; no GPU, dispatch, qualification, or production acceptance authority was granted.",
+      "revision": 3
+    },
+    {
+      "at": "2026-08-27T06:25:27.488413+00:00",
+      "reason": "Scheduler issued v5 paired-mean SCREENING; no GPU or dispatch authority granted.",
+      "revision": 4
+    }
+  ],
+  "schema_version": "global-schedule-state-v2",
+  "stage_assignments": [
+    {
+      "resource_id": "async_copy_engine",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "constant_memory_path",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "conversion_pipe",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "cta_allocation",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "device_memory_boundary",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "instruction_front_end",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "integer_address_pipe",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "kernel_dispatch",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "l1_shared_boundary",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "l2_boundary",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "load_store_request",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "predicate_compute",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "predicate_storage",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "register_storage",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "scoreboard_wait",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "shared_bank_service",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "shared_memory",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "simt_compute",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "special_function",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "synchronization",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "system_register_path",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "tensor_compute",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "tensor_issue",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3"
+      ]
+    },
+    {
+      "resource_id": "warp_collective",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "warp_issue",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    }
+  ],
+  "status": "BLOCKED",
+  "supervisor": {
+    "exclusive_authority": [
+      "VETO_EXPERIMENT",
+      "APPROVE_EXPERIMENT_DISPATCH",
+      "ENFORCE_BUDGET",
+      "HALT_AND_REPLAN"
+    ],
+    "must_be_distinct_from": [
+      "GLOBAL_SCHEDULER",
+      "MICROARCHITECTURE_ANALYST",
+      "EXPERIMENT_AGENT"
+    ],
+    "owner_id": "global-supervisor-root-v2",
+    "role": "GLOBAL_SUPERVISOR"
+  }
+}

@@ -1,0 +1,118 @@
+{
+  "benchmark": "exact same-backing accumulator-view static admissibility",
+  "correctness": {
+    "checks": [
+      "short/long/proof normalized O1 AST chain hashes are identical",
+      "real CuTe O1 and scoreV TV layouts compiled against the independent 8192-row PTX oracle",
+      "real partition_C coordinate tensors compiled against both TV layouts",
+      "real logical_divide/slice_and_offset offsets form one-to-one same-backing joins",
+      "four N16 views are pairwise disjoint and cover each 32-item O1 fragment",
+      "global owner/coordinate mapping covers 128x64 exactly once",
+      "exact attempt-2 one-warp append layout is an unequal negative control",
+      "short block512-active256 and long block256-active256 emitted separate static binaries"
+    ],
+    "evidence_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/correctness/correctness.json",
+      "sha256": "0467cafa5bada3936e74dad8b8bc87f82fe6ad2fd6c6c275424cb6319cefed73"
+    },
+    "status": "PASS"
+  },
+  "environment": {
+    "cuda_kernel_launches": 0,
+    "gpu_performance_samples": 0,
+    "target_arch": "sm_120a"
+  },
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+    "sha256": "34ab16c0d449d621e32efb1d6163562e9824b542525b2731bebb36e4f6822bf2"
+  },
+  "hardware_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/hardware.json",
+    "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+  },
+  "measurement": {
+    "metric": "n2_layout_view_feasible",
+    "semantics": "short and long each contribute one deterministic compiler/type observation; no timing interpretation",
+    "timer": "none_compiler_typecheck",
+    "unit": "binary_pass"
+  },
+  "measurement_system": {
+    "p0_receipt": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/p0-reused/p0_receipt.json",
+      "sha256": "0fa232d5a24497708a6fd4fa0260f2d773061186cfb58b86fe74581e1f4595fb"
+    }
+  },
+  "question": "Do exact short and long production O1 fragments admit four N16 scoreV C/D views?",
+  "raw_samples": [
+    1.0,
+    1.0
+  ],
+  "raw_samples_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/raw/samples.json",
+    "sha256": "0dea626ad5749f8a6b492480988c0ea6289a7a209ff6933ba5f5dff5ef53c048"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "runtime_evidence": {
+    "compiled_callable_invocations": 0,
+    "cuda_events": 0,
+    "cuda_kernel_launches": 0
+  },
+  "schema_version": "benchmark-result-v2",
+  "source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+    "sha256": "3827e0b9b0d12fbc847a41c7b0d025ae1f148548e32a11ff35de7609b20864b7"
+  },
+  "static_evidence": {
+    "binary_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/build/n2_layout_admit_long_static.cubin",
+      "sha256": "2f91fa3ff3071c9b801c07800fb01cf44afa217a2964f135902809329f4fa99f"
+    },
+    "resource_usage": {
+      "claim": "proof/control codegen only, not production resource usage",
+      "cuda_kernel_launches": 0,
+      "explicit_transport_allocations_in_static_view_expression": 0,
+      "production_transport_claim": "DEFERRED_IMPLEMENTATION_GATE"
+    },
+    "sass_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/long.sass",
+      "sha256": "4ea1b51101967bf5ae7078bb1acfe3d00f2e066ae3a7ddf41fad79d6eaf9ee05"
+    },
+    "static_audit_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/static/instruction_audit.json",
+      "sha256": "30b23b4245b731e85adf657487bfbae2bb70dec816a73119e5eb320a6e08a5f9"
+    }
+  },
+  "summary": {
+    "cuda_kernel_launches": 0,
+    "gpu_performance_samples": 0,
+    "latency_model_update_authorized": false,
+    "n2_disposition": "LAYOUT_VIEW_FEASIBLE_PENDING_IMPLEMENTATION",
+    "performance_top_two_update_authorized": false,
+    "predicate_id": null,
+    "static_admissibility": "PASS",
+    "survivor_set_update_authorized": true
+  },
+  "validity": {
+    "claims_allowed": [
+      "N2 static logical same-backing/type admission"
+    ],
+    "claims_forbidden": [
+      "candidate rejection",
+      "GPU latency",
+      "speedup",
+      "numerical correctness",
+      "K-loop accumulation order",
+      "physical register continuity",
+      "production SASS/resources",
+      "performance Top2",
+      "production acceptance"
+    ],
+    "dce_guard": "typed four-view scoreV C/D compile plus typed sink; proof callable not invoked; no production-SASS claim",
+    "known_pollution": [],
+    "status": "VALID"
+  },
+  "workload_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/workload.json",
+    "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+  }
+}

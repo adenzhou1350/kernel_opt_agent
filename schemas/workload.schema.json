@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "workload.schema.json",
+  "title": "Target workload",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "cases", "objective"],
+  "properties": {
+    "schema_version": {"const": "workload-v1"},
+    "name": {"type": "string", "minLength": 1},
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "parameters", "weight"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "parameters": {"type": "object"},
+          "weight": {"type": "number", "minimum": 0},
+          "mode": {"type": "string"},
+          "boundary": {"type": "boolean"}
+        }
+      }
+    },
+    "objective": {
+      "type": "object",
+      "required": ["metric", "statistic", "direction"],
+      "properties": {
+        "metric": {"type": "string", "enum": ["gpu_active_us", "cpu_dispatch_us", "end_to_end_us", "throughput"]},
+        "statistic": {"type": "string", "enum": ["min", "p10", "median", "mean", "p90", "p99", "worst"]},
+        "direction": {"type": "string", "enum": ["minimize", "maximize"]}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "properties": {
+        "graph_mode": {"type": "string"},
+        "cache_semantics": {"type": "string"},
+        "concurrency": {"type": "string"},
+        "upstream_layout": {"type": "string"},
+        "downstream_layout": {"type": "string"},
+        "call_frequency": {"type": "string"}
+      }
+    }
+  }
+}

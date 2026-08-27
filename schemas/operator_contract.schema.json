@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "operator_contract.schema.json",
+  "title": "Operator computation contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "computation", "inputs", "outputs", "numerics", "abi"],
+  "properties": {
+    "schema_version": {"const": "operator-contract-v1"},
+    "name": {"type": "string", "minLength": 1},
+    "computation": {
+      "type": "object",
+      "required": ["definition", "dependencies"],
+      "properties": {
+        "definition": {"type": "string", "minLength": 1},
+        "dependencies": {"type": "array", "items": {"type": "string"}},
+        "legal_rewrites": {"type": "array", "items": {"type": "string"}},
+        "forbidden_rewrites": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "inputs": {"$ref": "#/$defs/tensors"},
+    "outputs": {"$ref": "#/$defs/tensors"},
+    "state": {"$ref": "#/$defs/tensors"},
+    "numerics": {
+      "type": "object",
+      "required": ["reference", "acceptance"],
+      "properties": {
+        "reference": {"type": "string", "minLength": 1},
+        "acceptance": {"type": "string", "minLength": 1},
+        "accumulation_dtype": {"type": "string"},
+        "deterministic_required": {"type": "boolean"}
+      }
+    },
+    "abi": {
+      "type": "object",
+      "required": ["entrypoint", "mutable_arguments"],
+      "properties": {
+        "entrypoint": {"type": "string", "minLength": 1},
+        "mutable_arguments": {"type": "array", "items": {"type": "string"}},
+        "aliasing": {"type": "array", "items": {"type": "string"}},
+        "layout_constraints": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "source_identity": {"type": "object"}
+  },
+  "$defs": {
+    "tensor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "dtype", "shape", "layout"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "dtype": {"type": "string", "minLength": 1},
+        "shape": {"type": "array", "items": {"oneOf": [{"type": "integer"}, {"type": "string"}]}},
+        "stride": {"type": "array", "items": {"oneOf": [{"type": "integer"}, {"type": "string"}]}},
+        "layout": {"type": "string", "minLength": 1},
+        "lifetime": {"type": "string"}
+      }
+    },
+    "tensors": {"type": "array", "items": {"$ref": "#/$defs/tensor"}}
+  }
+}

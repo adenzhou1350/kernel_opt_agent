@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resource_balance_ledger.schema.json",
+  "title": "Per-workload global resource balance ledger",
+  "type": "object",
+  "required": ["schema_version", "status", "cases", "cross_resource_coupling", "unresolved_material_resources", "evidence"],
+  "properties": {
+    "schema_version": {"const": "resource-balance-ledger-v2"},
+    "status": {"enum": ["DRAFT", "INITIALIZED", "CALIBRATED", "VALIDATED", "BLOCKED"]},
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["case_id", "resource_rows", "device_coverage", "critical_path", "model_residual"],
+        "properties": {
+          "case_id": {"type": "string"},
+          "resource_rows": {
+            "type": "array",
+            "items": {"$ref": "#/$defs/resource_row"}
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "state": {"enum": ["MEASURED", "BOUNDED", "UNKNOWN", "NOT_APPLICABLE"]},
+    "resource_row": {
+      "type": "object",
+      "required": [
+        "resource_id",
+        "resource_kind",
+        "material",
+        "mandatory_work",
+        "actual_work",
+        "production_point",
+        "matched_saturation",
+        "utilization",
+        "critical_path",
+        "non_saturation_causes",
+        "evidence",
+        "unresolved_request_ids",
+        "decision_relevance"
+      ],
+      "properties": {
+        "resource_id": {"type": "string", "minLength": 1},
+        "resource_kind": {
+          "enum": [
+            "TENSOR_CORE", "SIMT", "SFU", "TMA", "REQUEST_SERVICE",
+            "SHARED_L1", "L2", "DEVICE_MEMORY", "FRONT_END", "SYNCHRONIZATION"
+          ]
+        },
+        "material": {"type": "boolean"},
+        "mandatory_work": {"type": "object"},
+        "actual_work": {"type": "object"},
+        "production_point": {"type": "object"},
+        "matched_saturation": {
+          "type": "object",
+          "required": ["status", "value", "unit", "conditions"],
+          "properties": {"status": {"$ref": "#/$defs/state"}}
+        },
+        "utilization": {
+          "type": "object",
+          "required": ["status", "value_percent", "numerator", "denominator", "time_window", "boundary"],
+          "properties": {"status": {"$ref": "#/$defs/state"}}
+        },
+        "critical_path": {
+          "type": "object",
+          "required": ["status", "contribution_us", "coupling_model"]
+        },
+        "compute_efficiency": {"type": "object"},
+        "non_saturation_causes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "enum": [
+              "DEVICE_COVERAGE", "PAYLOAD_TOO_SMALL", "INSUFFICIENT_ILP",
+              "RESIDENCY_LIMIT", "REQUEST_AMPLIFICATION",
+              "TRANSACTION_INEFFICIENCY", "CACHE_BOUNDARY_MISMATCH",
+              "SYNC_TRUNCATION", "TAIL_IMBALANCE", "RESOURCE_CONTENTION",
+              "NOT_ESTABLISHED"
+            ]
+          }
+        },
+        "evidence": {"type": "array"},
+        "unresolved_request_ids": {"type": "array"},
+        "decision_relevance": {
+          "type": "object",
+          "required": ["status", "decision_contract_ids", "explanation"],
+          "properties": {
+            "status": {"enum": ["UNASSESSED", "TOP_TWO_SENSITIVE", "NOT_TOP_TWO_SENSITIVE"]},
+            "decision_contract_ids": {"type": "array"},
+            "explanation": {"type": ["string", "null"]}
+          }
+        }
+      }
+    }
+  }
+}

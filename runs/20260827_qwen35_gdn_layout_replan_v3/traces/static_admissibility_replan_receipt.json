@@ -1,0 +1,27 @@
+{
+  "contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+    "sha256": "50f520b372c59a9b5fbbb5744072fe9efa19b41bb69a9ddab77977bd4149f207"
+  },
+  "created_at": "2026-08-27T08:07:23.078010+00:00",
+  "cuda_kernel_launches": 0,
+  "gpu_performance_samples": 0,
+  "new_request_id": "req-n2-layout-view-static-v2",
+  "old_request_disposition": "STOPPED_PREAPPROVAL_VETO",
+  "old_request_id": "req-n2-static-layout-admissibility",
+  "performance_ranking_score_present": false,
+  "performance_top_two_frozen": false,
+  "production_binding_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/production_constructor_bindings.json",
+    "sha256": "800dfdb1eec29d89c32aa0beff2fbfa68323d44230c5a463bdc78db55cfc7fb7"
+  },
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "eefeb1c75f932cfd32a5ff7569c33915aadea39074f1b6feef45964244f9706a"
+  },
+  "review_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_01/review_receipt.json",
+    "sha256": "55c920e5d1a106d87b9b0fe0887bc5986e4b83f8af778cb18be9f4741f29929f"
+  },
+  "schema_version": "static-admissibility-replan-receipt-v2"
+}

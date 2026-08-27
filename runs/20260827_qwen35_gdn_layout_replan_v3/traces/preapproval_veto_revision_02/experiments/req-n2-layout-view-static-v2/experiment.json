@@ -1,0 +1,210 @@
+{
+  "admissibility_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+    "sha256": "50f520b372c59a9b5fbbb5744072fe9efa19b41bb69a9ddab77977bd4149f207"
+  },
+  "artifacts": {
+    "raw_samples": "experiments/req-n2-layout-view-static-v2/raw/samples.json",
+    "reproduction_log": "experiments/req-n2-layout-view-static-v2/reproduction.json",
+    "result": "experiments/req-n2-layout-view-static-v2/result.json",
+    "static_audit": "experiments/req-n2-layout-view-static-v2/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ]
+  },
+  "controls": [
+    "Zero dynamic execution: no compiled callable invocation, CUDA launch, event or timer.",
+    "Positive control: canonical eight-warp N16 same-backing layout must pass.",
+    "Negative control: legacy one-warp append layout must reject.",
+    "Live codegen control: O1 producer and all scoreV consumers write the original accumulator to a typed sink."
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/catalog_query_receipt.json",
+      "sha256": "eebd70696a064fca47fa7f9cb50aa0cf3ced3ba4683b4e6a36509d2be24aaa5b"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+      "sha256": "50f520b372c59a9b5fbbb5744072fe9efa19b41bb69a9ddab77977bd4149f207"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/production_constructor_bindings.json",
+      "sha256": "800dfdb1eec29d89c32aa0beff2fbfa68323d44230c5a463bdc78db55cfc7fb7"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_01/review_receipt.json",
+      "sha256": "55c920e5d1a106d87b9b0fe0887bc5986e4b83f8af778cb18be9f4741f29929f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/experiment_ranking_receipt.json",
+      "sha256": "be2a72aa2e95220347a0f1eadfe499e366c3c664399ceebc350a4bb0c3468866"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_replan_receipt.json",
+      "sha256": "1925f7f9a94689104301744d5fd13d08dec7a69be4398fcdec9a7adb53a2307c"
+    }
+  ],
+  "execution_budget": {
+    "max_wall_clock_minutes": 15,
+    "process_launches": 6,
+    "samples_per_configuration": 1
+  },
+  "expected_sass": [
+    "static marker/control cubin only; proof cubin cannot support production performance claims"
+  ],
+  "experiment_class": "SCREENING",
+  "experiment_kind": "STATIC_ADMISSIBILITY",
+  "level": null,
+  "measurement_contract": {
+    "classification": {
+      "infrastructure_failure": "BLOCKED without candidate disposition",
+      "predicate_pass": "VALID binary_pass=1",
+      "recognized_predicate_reject": "VALID binary_pass=0"
+    },
+    "configurations": [
+      "short",
+      "long"
+    ],
+    "gpu_launches": 0,
+    "performance_samples": 0,
+    "primary": "deterministic static admissibility predicate",
+    "samples_per_configuration": 1,
+    "timer": "none_compiler_typecheck",
+    "unit": "binary_pass"
+  },
+  "model_update_contract": {
+    "decision_changed": "resolve only N2 static layout-view admissibility; do not rank N0/N1/N2 performance",
+    "model_field": "models/admissibility_status.json::status",
+    "summary_fields": [
+      "static_admissibility",
+      "n2_disposition",
+      "predicate_id",
+      "latency_model_update_authorized",
+      "performance_top_two_update_authorized",
+      "cuda_kernel_launches",
+      "gpu_performance_samples"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "active_threads": 256,
+      "block_threads": 512,
+      "candidate_id": "N2",
+      "gpu_launches": 0,
+      "production_path": "short"
+    },
+    {
+      "active_threads": 256,
+      "block_threads": 256,
+      "candidate_id": "N2",
+      "gpu_launches": 0,
+      "production_path": "long"
+    }
+  ],
+  "prepared_by": {
+    "actor_id": "experiment-agent-linear-v3",
+    "role": "EXPERIMENT_AGENT"
+  },
+  "question": "Do exact short and long production O1 fragments admit four same-backing N16 scoreV C/D views?",
+  "request_id": "req-n2-layout-view-static-v2",
+  "schema_version": "executable-experiment-v1",
+  "sealed_at": "2026-08-27T08:22:09.287078+00:00",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+        "sha256": "c9f6f2b09b40ac8782ed05517fe7a019437860955dd3c898a1ef13aafc0d1d5f"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+        "sha256": "f290bf6c35dbe1cea83d20233c6431d42aad9e2a42fb7bf1bf94f67417dc98f9"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/common.py",
+        "sha256": "e3c957dc404a2e2019840593d9e21af6ffbc5229ff7db46990d055bfe1835950"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+        "sha256": "b2c051158bfc3a17777b94c45e0e804699b6c9c01469edf1a469fe1622f1a6f2"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+        "sha256": "dc3ae22e0d85a9af32e96691155a5e7fffd04a21bc3fdd38fa9d6ab1a65d7117"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+        "sha256": "1d95606894b54c52d749efa08df614c677142b0a14e74689573b42e51b11ee11"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+        "sha256": "e05e10a67718e3105e8f5170c827c00cb4b9850a38806ec2704867fe41caa271"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+        "sha256": "3862fc82400a07a50e6481c7566d621cf01984c2316aa3016eea34135a43fb3f"
+      },
+      {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+        "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+      },
+      {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+        "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED",
+  "tested_candidate_ids": [
+    "N2"
+  ]
+}

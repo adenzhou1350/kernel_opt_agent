@@ -1,0 +1,463 @@
+{
+  "artifacts": {
+    "raw_samples": "experiments/req-shared-request-service/raw/samples.json",
+    "reproduction_log": "experiments/req-shared-request-service/reproduction.json",
+    "result": "experiments/req-shared-request-service/result.json",
+    "static_audit": "experiments/req-shared-request-service/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-shared-request-service",
+        "--phase",
+        "analyze"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-shared-request-service",
+        "--phase",
+        "clean_build"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-shared-request-service",
+        "--phase",
+        "correctness"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-shared-request-service",
+        "--phase",
+        "measure"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-shared-request-service",
+        "--phase",
+        "static_audit"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-shared-request-service",
+        "--phase",
+        "warmup"
+      ]
+    ]
+  },
+  "controls": [
+    "bank-index sweep",
+    "stride/vector-width sweep",
+    "broadcast and divergent constant loads",
+    "same payload bytes",
+    "dependent and throughput chains",
+    "zero control: zero-work launch establishes the timer and launch bracket",
+    "positive control: live production-shaped work must exceed the zero-work bracket",
+    "negative control: deliberately adverse dependency, bank, cache, or synchronization pattern must move the predicted metric",
+    "live sink control: output is copied or atomically accumulated so the measured work cannot be eliminated"
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/catalog_query_receipt.json",
+      "sha256": "abe7a1170ecc37c987c1707d7e70b3ce41190d8f52bd7d565c4b1aecff4a5600"
+    }
+  ],
+  "expected_sass": [
+    "LDS",
+    "STS",
+    "LDC",
+    "LDG",
+    "STG"
+  ],
+  "level": "P1",
+  "measurement_contract": {
+    "cache": "explicit per experiment",
+    "geometry": "production-matched or declared sensitivity sweep",
+    "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+    "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+  },
+  "model_update_contract": {
+    "decision_changed": "Choose shared layouts, padding/swizzles, vector width, and reuse policy.",
+    "model_field": "resource_balance.*.matched_saturation and request amplification for L1/shared/request paths",
+    "summary_fields": [
+      "bank_stride_latency_curve",
+      "constant_broadcast_penalty",
+      "request_service_curve"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 1,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 2,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 4,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 8,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 16,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 32,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 1,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 2,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 4,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 8,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 16,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 32,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 1,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 2,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 4,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 8,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 16,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 32,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 1,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 2,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 4,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 8,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 16,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 32,
+      "variant": "shared"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 1,
+      "variant": "constant_broadcast"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 1,
+      "variant": "constant_divergent"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 64,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 1,
+      "variant": "global_request"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 112,
+      "repeats": 1,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "stride": 1,
+      "variant": "zero"
+    },
+    {
+      "batches": 32,
+      "block": 160,
+      "grid": 128,
+      "repeats": 1,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "stride": 1,
+      "variant": "zero"
+    },
+    {
+      "batches": 32,
+      "block": 512,
+      "grid": 112,
+      "repeats": 1,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "stride": 1,
+      "variant": "zero"
+    },
+    {
+      "batches": 32,
+      "block": 384,
+      "grid": 539,
+      "repeats": 1,
+      "samples": 31,
+      "stage_geometry": "post",
+      "stride": 1,
+      "variant": "zero"
+    }
+  ],
+  "question": "What request-service, L1/shared, bank-conflict, and constant-broadcast behavior is produced by the exact tile and layout?",
+  "request_id": "req-shared-request-service",
+  "revision_history": [
+    {
+      "attempt": 1,
+      "reason": "attempt-01 technical execution passed but failed live-sink, address-observability, and AB/BA causal-validity controls",
+      "review_evidence": {
+        "path": "experiments/req-shared-request-service/attempts/attempt-01/validity_review.json",
+        "sha256": "2f2032a72e8c1294a2272a51d915cbf1e32908e8448b703c1e1c046253bebf36"
+      }
+    }
+  ],
+  "schema_version": "executable-experiment-v1",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/experiment_driver.py",
+        "sha256": "e19f301ffbe7bc9b2e795004fb85f7607158f996d547c4dae478fc37db6487fb"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/resource_probe.cu",
+        "sha256": "d01d98ae5cd79e577993bfd0d7ffa5493d4faac71e406cf3e3ff06206373d3e2"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED"
+}

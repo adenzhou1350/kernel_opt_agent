@@ -1,0 +1,43 @@
+{
+  "causal_mapping": {
+    "assumptions": [
+      "exact production short and long tiled-MMA objects are instantiated",
+      "the view reuses the existing output iterator"
+    ],
+    "confounders": [
+      "make_fragment_C allocation mistaken for a view",
+      "logical coordinates mistaken for per-thread fragment coordinates"
+    ],
+    "controls": [
+      "compare owner lane, register offset, alias cardinality and layout equality for every N16 tile",
+      "compile/type-check without launch",
+      "reject any explicit copy, shared/global handoff, barrier or changed K order"
+    ],
+    "falsification_condition": "any short/long tile lacks a bijective same-owner same-offset view or compilation fails",
+    "formula": "proof_pass maps to 8.953214285714 us decision value; proof_fail maps to 0"
+  },
+  "decision_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/decision_contract.json",
+    "sha256": "6a71c82fb5068cb8a118ab976ce9cdc1c11c9af5b62689a85a7a216d3352d691"
+  },
+  "evidence": [],
+  "expected_precision": {
+    "absolute": 1e-12,
+    "unit": "us"
+  },
+  "identifiability": "ATOMIC_IDENTIFIABLE",
+  "issued_by": {
+    "analyst_id": "microarchitecture-analyst-linear-v3",
+    "role": "MICROARCHITECTURE_ANALYST"
+  },
+  "observable": {
+    "measurement_window": "CuTe JIT compiler/type construction only; kernel launch and GPU timing are forbidden",
+    "name": "exact per-lane logical (d,n) to accumulator register-offset equality for N16 views",
+    "unit": "us decision value (binary static predicate)"
+  },
+  "quantity_id": "n2_zero_copy_layout_decision_value_us",
+  "required_tier": "SCREENING",
+  "schema_version": "measurability-contract-v1",
+  "selected_method": "ATOMIC_MICROBENCH",
+  "status": "REJECTED"
+}

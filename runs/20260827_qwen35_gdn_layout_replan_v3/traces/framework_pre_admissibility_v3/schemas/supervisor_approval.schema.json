@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "supervisor_approval.schema.json",
+  "title": "Single-use global-supervisor experiment approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "approval_id", "status", "issued_at", "issued_by",
+    "request_id", "action", "experiment_identity", "decision_contract_identity",
+    "measurability_contract_identity", "frontier_identity", "objective_identity",
+    "approved_budget", "separation_of_duties", "gate_results", "rationale", "single_use"
+  ],
+  "properties": {
+    "schema_version": {"const": "supervisor-approval-v1"},
+    "approval_id": {"type": "string", "minLength": 1},
+    "status": {"const": "APPROVED"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "issued_by": {
+      "type": "object", "additionalProperties": false,
+      "required": ["role", "supervisor_id"],
+      "properties": {
+        "role": {"const": "GLOBAL_SUPERVISOR"},
+        "supervisor_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "request_id": {"type": "string", "minLength": 1},
+    "action": {"enum": ["DISPATCH_SCREENING", "DISPATCH_QUALIFICATION"]},
+    "experiment_identity": {"$ref": "#/$defs/identity"},
+    "decision_contract_identity": {"$ref": "#/$defs/identity"},
+    "measurability_contract_identity": {"$ref": "#/$defs/identity"},
+    "frontier_identity": {"$ref": "#/$defs/identity"},
+    "objective_identity": {"$ref": "#/$defs/identity"},
+    "approved_budget": {"$ref": "#/$defs/budget"},
+    "separation_of_duties": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scheduler_id", "analyst_id", "experimenter_id", "all_distinct"],
+      "properties": {
+        "scheduler_id": {"type": "string", "minLength": 1},
+        "analyst_id": {"type": "string", "minLength": 1},
+        "experimenter_id": {"type": "string", "minLength": 1},
+        "all_distinct": {"const": true}
+      }
+    },
+    "gate_results": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "rationale": {"type": "string", "minLength": 1},
+    "single_use": {"const": true}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": true,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "budget": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_configurations", "max_samples_per_configuration", "max_process_launches", "max_wall_clock_minutes"],
+      "properties": {
+        "max_configurations": {"type": "integer", "minimum": 1},
+        "max_samples_per_configuration": {"type": "integer", "minimum": 1},
+        "max_process_launches": {"type": "integer", "minimum": 1},
+        "max_wall_clock_minutes": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

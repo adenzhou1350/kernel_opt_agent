@@ -1,0 +1,60 @@
+{
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/baseline_s404_composite.cubin",
+    "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+  },
+  "created_at": "2026-08-27T07:10:43.726241+00:00",
+  "derived_evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/disassembly_receipt.json",
+      "sha256": "cd409c2fbf2fb1985d83c109eca3caa97103b69a067498174187b38cf6b34dff"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/sass-summary.json",
+      "sha256": "fa6c21e6ad7a98cdaff26a4303556c2892cd4575e05c2f3d1c4c4a9ef199dce8"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_discovery.json",
+      "sha256": "b4e90f3c23bd63039eafcecb4e82c79e3741f0d88e7f8f632873d3700b1957ed"
+    }
+  ],
+  "identical_contract_hashes": {
+    "hardware.json": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266",
+    "hardware_evidence.json": "853150bc007ae783694ba3e12822a256603e319db04048f3c86f06e92d49037e",
+    "operator.json": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0",
+    "workload.json": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+  },
+  "new_baseline_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/baseline.json",
+    "sha256": "ac6be631fea18ddf20dc2955a0bab367f36594cdccd0c908413f2ca24c18a3e9"
+  },
+  "new_p0_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/p0-reused/p0_receipt.json",
+    "sha256": "0fa232d5a24497708a6fd4fa0260f2d773061186cfb58b86fe74581e1f4595fb"
+  },
+  "new_run": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3",
+  "old_baseline_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/baseline.json",
+    "sha256": "e90fdaf35d850482e24eadcc0308c550b700b202201053473caa075cc3c13e89"
+  },
+  "old_p0_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+    "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+  },
+  "old_run": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2",
+  "schema_version": "continuation-evidence-rebind-v2",
+  "scope_carried": [
+    "immutable production baseline raw samples",
+    "recalibrated P0 receipt from immutable raw evidence",
+    "exact launched production baseline binary",
+    "fresh path-local disassembly, SASS count and resource discovery"
+  ],
+  "scope_forbidden_and_not_carried": [
+    "architecture candidate implementations",
+    "candidate performance samples",
+    "decision or measurability contracts",
+    "experiment approvals, budgets, queues or revision allowance",
+    "old run failure or phase state"
+  ],
+  "status": "PASS"
+}

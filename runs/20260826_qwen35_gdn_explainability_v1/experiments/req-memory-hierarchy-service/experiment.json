@@ -1,0 +1,286 @@
+{
+  "artifacts": {
+    "raw_samples": "experiments/req-memory-hierarchy-service/raw/samples.json",
+    "reproduction_log": "experiments/req-memory-hierarchy-service/reproduction.json",
+    "result": "experiments/req-memory-hierarchy-service/result.json",
+    "static_audit": "experiments/req-memory-hierarchy-service/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-memory-hierarchy-service",
+        "--phase",
+        "analyze"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-memory-hierarchy-service",
+        "--phase",
+        "clean_build"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-memory-hierarchy-service",
+        "--phase",
+        "correctness"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-memory-hierarchy-service",
+        "--phase",
+        "measure"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-memory-hierarchy-service",
+        "--phase",
+        "static_audit"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-memory-hierarchy-service",
+        "--phase",
+        "warmup"
+      ]
+    ]
+  },
+  "controls": [
+    "warm-L2 and cold/streaming regimes",
+    "read/write separation",
+    "matched vector width and stride",
+    "transaction accounting",
+    "competing-load gate",
+    "zero control: zero-work launch establishes the timer and launch bracket",
+    "positive control: live production-shaped work must exceed the zero-work bracket",
+    "negative control: deliberately adverse dependency, bank, cache, or synchronization pattern must move the predicted metric",
+    "live sink control: output is copied or atomically accumulated so the measured work cannot be eliminated"
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-memory-hierarchy-service/catalog_query_receipt.json",
+      "sha256": "b5e8ab54a8f91008b2ed49f8e7fc76f7d70c9129da2dc2094e1974b28dad2931"
+    }
+  ],
+  "expected_sass": [
+    "LDG",
+    "STG"
+  ],
+  "level": "P1",
+  "measurement_contract": {
+    "cache": "explicit per experiment",
+    "geometry": "production-matched or declared sensitivity sweep",
+    "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+    "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+  },
+  "model_update_contract": {
+    "decision_changed": "Choose materialization, reuse, padding, and fusion boundaries.",
+    "model_field": "resource_balance.*.utilization for L2 and device-memory boundaries",
+    "summary_fields": [
+      "warm_L2_useful_bytes_per_us",
+      "streaming_device_bytes_per_us",
+      "read_write_asymmetry"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "S": 256,
+      "batches": 8,
+      "block": 256,
+      "bytes": 23134592,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 256,
+      "batches": 8,
+      "block": 256,
+      "bytes": 23134592,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    },
+    {
+      "S": 384,
+      "batches": 8,
+      "block": 256,
+      "bytes": 34701696,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 384,
+      "batches": 8,
+      "block": 256,
+      "bytes": 34701696,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    },
+    {
+      "S": 404,
+      "batches": 8,
+      "block": 256,
+      "bytes": 38860416,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 404,
+      "batches": 8,
+      "block": 256,
+      "bytes": 38860416,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    },
+    {
+      "S": 512,
+      "batches": 8,
+      "block": 256,
+      "bytes": 46268800,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 512,
+      "batches": 8,
+      "block": 256,
+      "bytes": 46268800,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    },
+    {
+      "S": 640,
+      "batches": 8,
+      "block": 256,
+      "bytes": 57835904,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 640,
+      "batches": 8,
+      "block": 256,
+      "bytes": 57835904,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    },
+    {
+      "S": 768,
+      "batches": 8,
+      "block": 256,
+      "bytes": 69403008,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 768,
+      "batches": 8,
+      "block": 256,
+      "bytes": 69403008,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    },
+    {
+      "S": 1024,
+      "batches": 8,
+      "block": 256,
+      "bytes": 92537216,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "read"
+    },
+    {
+      "S": 1024,
+      "batches": 8,
+      "block": 256,
+      "bytes": 92537216,
+      "grid": 340,
+      "repeats": 16,
+      "samples": 31,
+      "variant": "write"
+    }
+  ],
+  "question": "What are production-shaped useful-byte and transferred-byte service curves at the L2 and device-memory boundaries for this working-set and access geometry?",
+  "request_id": "req-memory-hierarchy-service",
+  "revision_history": [
+    {
+      "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+      "status": "WITHDRAWN_BEFORE_EXECUTION"
+    }
+  ],
+  "schema_version": "executable-experiment-v1",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/experiment_driver.py",
+        "sha256": "e19f301ffbe7bc9b2e795004fb85f7607158f996d547c4dae478fc37db6487fb"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-memory-hierarchy-service/resource_probe.cu",
+        "sha256": "d01d98ae5cd79e577993bfd0d7ffa5493d4faac71e406cf3e3ff06206373d3e2"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED"
+}

@@ -1,0 +1,169 @@
+{
+  "catalog_snapshot": {
+    "catalog_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/microbench/catalog.json",
+      "sha256": "1896916544d97600f7c482074feebc52ec9a94ad001981ace053867711607e0e"
+    },
+    "request_receipts": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/catalog_query_receipt.json",
+        "sha256": "eebd70696a064fca47fa7f9cb50aa0cf3ced3ba4683b4e6a36509d2be24aaa5b"
+      }
+    ],
+    "status": "CURRENT"
+  },
+  "promotion_review": [],
+  "ranking_policy": {
+    "benefit_bound": "NOT_APPLICABLE_STATIC_ADMISSIBILITY",
+    "formula": "NO_PERFORMANCE_RANKING_SINGLE_STATIC_GATE",
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "ranked_at": "2026-08-27T08:07:34.002597+00:00"
+  },
+  "requests": [
+    {
+      "admissibility_contract": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+        "sha256": "50f520b372c59a9b5fbbb5744072fe9efa19b41bb69a9ddab77977bd4149f207"
+      },
+      "affected_stage_ids": [
+        "s3"
+      ],
+      "candidate_decision": "resolve only N2 static layout-view admissibility; do not rank N0/N1/N2 performance",
+      "catalog_resolution": {
+        "catalog_queried": true,
+        "decision": "CREATE_RUN_LOCAL",
+        "package_id": null,
+        "query": {
+          "boundaries": [],
+          "mechanisms": [
+            "cute_accumulator_same_backing_view"
+          ],
+          "qualification": "STATIC_VALIDATED",
+          "resources": [
+            "cta_allocation",
+            "instruction_front_end",
+            "integer_address_pipe",
+            "l1_shared_boundary",
+            "load_store_request",
+            "predicate_compute",
+            "predicate_storage",
+            "register_storage",
+            "shared_bank_service",
+            "shared_memory",
+            "synchronization",
+            "tensor_compute",
+            "tensor_issue",
+            "warp_issue"
+          ]
+        },
+        "reason": "deterministic catalog matcher receipt",
+        "receipt": {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/catalog_query_receipt.json",
+          "sha256": "eebd70696a064fca47fa7f9cb50aa0cf3ced3ba4683b4e6a36509d2be24aaa5b"
+        }
+      },
+      "causal_question": "Do exact short and long production O1 fragments admit four same-backing N16 scoreV C/D views?",
+      "controls": [
+        "Zero dynamic execution: no compiled callable invocation, CUDA launch, event or timer.",
+        "Positive control: canonical eight-warp N16 same-backing layout must pass.",
+        "Negative control: legacy one-warp append layout must reject.",
+        "Live codegen control: O1 producer and all scoreV consumers write the original accumulator to a typed sink."
+      ],
+      "execution_budget": {
+        "max_wall_clock_minutes": 15,
+        "process_launches": 6,
+        "samples_per_configuration": 1
+      },
+      "expected_sass": [
+        "static marker/control cubin only; proof cubin cannot support production performance claims"
+      ],
+      "experiment_class": "SCREENING",
+      "experiment_kind": "STATIC_ADMISSIBILITY",
+      "implementation_owner": {
+        "actor_id": "experiment-agent-linear-v3",
+        "role": "EXPERIMENT_AGENT"
+      },
+      "issued_by_role": "GLOBAL_SCHEDULER",
+      "materialized_experiment": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+        "sha256": "60e9e254f5d2a97ada618bc4718f56479101d5970cfbb0667e030705173fa380",
+        "status": "MATERIALIZED"
+      },
+      "measurement_contract": {
+        "classification": {
+          "infrastructure_failure": "BLOCKED without candidate disposition",
+          "predicate_pass": "VALID binary_pass=1",
+          "recognized_predicate_reject": "VALID binary_pass=0"
+        },
+        "configurations": [
+          "short",
+          "long"
+        ],
+        "gpu_launches": 0,
+        "performance_samples": 0,
+        "primary": "deterministic static admissibility predicate",
+        "samples_per_configuration": 1,
+        "timer": "none_compiler_typecheck",
+        "unit": "binary_pass"
+      },
+      "model_field": "models/admissibility_status.json::status",
+      "parameter_matrix": [
+        {
+          "active_threads": 256,
+          "block_threads": 512,
+          "candidate_id": "N2",
+          "gpu_launches": 0,
+          "production_path": "short"
+        },
+        {
+          "active_threads": 256,
+          "block_threads": 256,
+          "candidate_id": "N2",
+          "gpu_launches": 0,
+          "production_path": "long"
+        }
+      ],
+      "priority": 0,
+      "promotion_disposition": {
+        "reason": "review genericity only after a resolved static proof",
+        "status": "PENDING"
+      },
+      "request_id": "req-n2-layout-view-static-v2",
+      "resource_ids": [
+        "cta_allocation",
+        "instruction_front_end",
+        "integer_address_pipe",
+        "l1_shared_boundary",
+        "load_store_request",
+        "predicate_compute",
+        "predicate_storage",
+        "register_storage",
+        "shared_bank_service",
+        "shared_memory",
+        "synchronization",
+        "tensor_compute",
+        "tensor_issue",
+        "warp_issue"
+      ],
+      "result_binding": {
+        "status": "PENDING",
+        "target": "models/admissibility_status.json::status"
+      },
+      "status": "PLANNED",
+      "tested_candidate_ids": [
+        "N2"
+      ],
+      "workload_cases": [
+        "s256",
+        "s384",
+        "s404",
+        "s512",
+        "s640",
+        "s768",
+        "s1024"
+      ]
+    }
+  ],
+  "schema_version": "experiment-request-queue-v3",
+  "status": "ACTIVE"
+}

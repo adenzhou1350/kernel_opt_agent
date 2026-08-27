@@ -1,0 +1,1 @@
+PASS: zero dynamic execution control; no GPU warmup performed

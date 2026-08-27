@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "model_update_plan.schema.json",
+  "title": "Restricted result-to-global-model update plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "request_id", "result_identity", "updates"],
+  "properties": {
+    "schema_version": {"const": "model-update-plan-v1"},
+    "request_id": {"type": "string", "minLength": 1},
+    "result_identity": {"$ref": "#/$defs/identity"},
+    "updates": {"type": "array", "minItems": 3, "items": {"$ref": "#/$defs/update"}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "update": {
+      "type": "object", "additionalProperties": false,
+      "required": ["artifact", "target_pointer", "before", "after", "calculation", "units", "uncertainty", "reason"],
+      "properties": {
+        "artifact": {"enum": ["resource_balance", "schedule_model", "tradeoff_frontier"]},
+        "target_pointer": {"type": "string", "pattern": "^/"},
+        "before": {}, "after": {},
+        "calculation": {
+          "type": "object", "additionalProperties": false,
+          "required": ["op", "result_pointer"],
+          "properties": {
+            "op": {"enum": ["COPY_RESULT", "AFFINE_RESULT", "COMPARE_RESULT"]},
+            "result_pointer": {"type": "string", "pattern": "^/"},
+            "scale": {"type": "number"}, "offset": {"type": "number"},
+            "comparator": {"enum": ["LE", "LT", "GE", "GT"]}, "threshold": {"type": "number"}
+          }
+        },
+        "units": {"type": "string", "minLength": 1},
+        "uncertainty": {"type": "object"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

@@ -1,0 +1,1526 @@
+{
+  "cases": [
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 64
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 23134592,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.3764705882352941,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 182976512,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 23.4035,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 34.5405,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 687865856,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 64
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -2097152,
+            "logical_request_bytes": 21037440,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.3764705882352941,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 233308160,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 738197504,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s256",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 64
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 23134592,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.3764705882352941,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 26.668,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 233308160,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 26.624,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 26.7065
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 738197504,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 504889344,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 687865856
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 96
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 34701696,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.5647058823529412,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 240910336,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 25.4755,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 36.8195,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1031798784,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 96
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -3145728,
+            "logical_request_bytes": 31555968,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.5647058823529412,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 316407808,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1107296256,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s384",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 96
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 34701696,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.5647058823529412,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 28.8195,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 316407808,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 28.776,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 28.841
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1107296256,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 790888448,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 1031798784
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 112
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 38860416,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.6588235294117647,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 339451904,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 25.475,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 36.931,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1189085184,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 112
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -3309568,
+            "logical_request_bytes": 35550848,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.6588235294117647,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 442212352,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1291845632,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s404",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 112
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 38860416,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.6588235294117647,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 28.867,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 442212352,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 28.8265,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 28.951
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1291845632,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 849633280,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 1189085184
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 128
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 46268800,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.7529411764705882,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 298844160,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 27.6755,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 39.1315,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1375731712,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 128
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -4194304,
+            "logical_request_bytes": 42074496,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.7529411764705882,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 399507456,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1476395008,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s512",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 128
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 46268800,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.7529411764705882,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 30.9555,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 399507456,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 30.893,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 31.032
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1476395008,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 1076887552,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 1375731712
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 160
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 57835904,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.9411764705882353,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 356777984,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 31.736,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 43.3535,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1719664640,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 512,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 160
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -5242880,
+            "logical_request_bytes": 52593024,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 0.9411764705882353,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 482607104,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 1845493760,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s640",
+      "current_schedule": {
+        "allocation": {
+          "block": 512,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 160
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 57835904,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 0.9411764705882353,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 34.9365,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 482607104,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 34.922,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 34.96
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 1845493760,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 1362886656,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 1719664640
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 256,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 192
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 69403008,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 414711808,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 42.941,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 57.915,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2063597568,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 256,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 192
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -6291456,
+            "logical_request_bytes": 63111552,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 565706752,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2214592512,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s768",
+      "current_schedule": {
+        "allocation": {
+          "block": 256,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 192
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 69403008,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 1.0,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 46.908,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 565706752,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 46.424,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 47.1425
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 2214592512,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 1648885760,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 2063597568
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    },
+    {
+      "candidates": [
+        {
+          "allocation": {
+            "block": 256,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 256
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": 0,
+            "logical_request_bytes": 92537216,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PENDING"
+          },
+          "decision": "TOP_TWO_UNRESOLVED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "NOT_MEASURED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 530579456,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 47.283,
+            "lower_meaning": "existing matched-component operational lower envelope, not a silicon lower bound",
+            "status": "UNKNOWN_ADMISSIBILITY_CAPPED",
+            "unit": "us",
+            "upper": 62.483,
+            "upper_meaning": "C1 S3 may regress to twice current S3 before fail-fast rejection; not a hardware upper bound"
+          },
+          "schedule_id": "C1",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3",
+              "s3_to_post"
+            ],
+            "kernel_count": 4
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "UNKNOWN"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2751463424,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        },
+        {
+          "allocation": {
+            "block": 256,
+            "candidate_constraints": {
+              "long_registers_per_thread_max": 128,
+              "long_shared_bytes_max": 49408,
+              "short_registers_per_thread_max": 126,
+              "short_shared_bytes_max": 73984,
+              "stack_and_spill_bytes": 0
+            },
+            "grid": 256
+          },
+          "bytes_by_boundary": {
+            "global_bytes_change_vs_c0": -8388608,
+            "logical_request_bytes": 84148608,
+            "physical_transactions": "UNKNOWN"
+          },
+          "correctness": {
+            "semantic_boundaries": [
+              "BF16 score",
+              "BF16 raw_o",
+              "independent gated RMS post"
+            ],
+            "status": "PASS"
+          },
+          "decision": "REJECT_DOMINATED",
+          "device_coverage": {
+            "one_wave_grid_fraction": 1.0,
+            "sm_count": 170,
+            "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+          },
+          "measured_us": {
+            "median": null,
+            "status": "HISTORICAL_PRODUCTION_SHAPED_PAIRED",
+            "unit": "us"
+          },
+          "padded_compute": {
+            "dense_tensor_flop": 731906048,
+            "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+          },
+          "predicted_dag_us": {
+            "lower": 37.7859,
+            "status": "BOUNDED_DOMINATED",
+            "unit": "us",
+            "upper": 38.9287
+          },
+          "schedule_id": "C2",
+          "synchronization": {
+            "cross_kernel_edges": [
+              "s01_to_s2",
+              "s2_to_s3post"
+            ],
+            "kernel_count": 3
+          },
+          "uncertainty": {
+            "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+            "status": "BOUNDED"
+          },
+          "valid_compute": {
+            "dense_tensor_flop": 2952790016,
+            "status": "EXACT_SCHEDULED_TILE_WORK"
+          }
+        }
+      ],
+      "case_id": "s1024",
+      "current_schedule": {
+        "allocation": {
+          "block": 256,
+          "candidate_constraints": {
+            "long_registers_per_thread_max": 128,
+            "long_shared_bytes_max": 49408,
+            "short_registers_per_thread_max": 126,
+            "short_shared_bytes_max": 73984,
+            "stack_and_spill_bytes": 0
+          },
+          "grid": 256
+        },
+        "bytes_by_boundary": {
+          "global_bytes_change_vs_c0": 0,
+          "logical_request_bytes": 92537216,
+          "physical_transactions": "UNKNOWN"
+        },
+        "correctness": {
+          "semantic_boundaries": [
+            "BF16 score",
+            "BF16 raw_o",
+            "independent gated RMS post"
+          ],
+          "status": "PASS"
+        },
+        "decision": "TOP_TWO_MEASURED",
+        "device_coverage": {
+          "one_wave_grid_fraction": 1.0,
+          "sm_count": 170,
+          "status": "GEOMETRIC_BOUND_NOT_UTILIZATION"
+        },
+        "measured_us": {
+          "median": 51.347,
+          "status": "MEASURED",
+          "unit": "us"
+        },
+        "padded_compute": {
+          "dense_tensor_flop": 731906048,
+          "status": "EXPLICIT_16x16_TILE_GRANULARITY"
+        },
+        "predicted_dag_us": {
+          "lower": 51.31,
+          "status": "MEASURED",
+          "unit": "us",
+          "upper": 51.3835
+        },
+        "schedule_id": "C0",
+        "synchronization": {
+          "cross_kernel_edges": [
+            "s01_to_s2",
+            "s2_to_s3",
+            "s3_to_post"
+          ],
+          "kernel_count": 4
+        },
+        "uncertainty": {
+          "reason": "C1 control/address/register/issue coupling can cause positive regression; no zero-regression assumption is allowed.",
+          "status": "MEASURED"
+        },
+        "valid_compute": {
+          "dense_tensor_flop": 2952790016,
+          "status": "EXACT_SCHEDULED_TILE_WORK"
+        }
+      },
+      "legal_minimum": {
+        "dense_tensor_flop": 2220883968,
+        "note": "The mathematical minimum and tile-feasible candidate are distinct; diagonal/tail 16x16 tile padding is retained in C1.",
+        "status": "TILE_FEASIBLE_CANDIDATE_WORK",
+        "tile_feasible_candidate_flop": 2751463424
+      },
+      "pareto_frontier": [
+        "C1",
+        "C0"
+      ]
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/baseline.json",
+      "sha256": "e90fdaf35d850482e24eadcc0308c550b700b202201053473caa075cc3c13e89"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    }
+  ],
+  "global_decision": {
+    "issued_by_role": "GLOBAL_SCHEDULER",
+    "reason": "C1/C0 ranking depends on one production-matched candidate A/B; C2 is already dominated.",
+    "selected_schedule": null,
+    "status": "PENDING"
+  },
+  "objective": {
+    "created_at": "2026-08-26T19:37:53.989007+00:00",
+    "decision_indifference_band_us": 0.1,
+    "direction": "minimize",
+    "measurement_semantics": {
+      "cpu_dispatch": "reported separately and never folded into the kernel-ranking metric",
+      "primary": "CUDA-event device elapsed around 64 warmed native graph replays; graph is only a timing envelope to remove CPU enqueue gaps, not deployment graph latency",
+      "transfer_gate": "graph/direct deltas must have the same sign and the 95% CI of delta_graph-delta_direct must lie in [-0.10,+0.10] us"
+    },
+    "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+    "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v2",
+    "schema_version": "registered-objective-v1",
+    "unit": "us",
+    "workload_cases": [
+      {
+        "case_id": "s256",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s384",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s404",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s512",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s640",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s768",
+        "weight": 0.14285714285714285
+      },
+      {
+        "case_id": "s1024",
+        "weight": 0.14285714285714285
+      }
+    ]
+  },
+  "schema_version": "tradeoff-frontier-v1",
+  "status": "INITIALIZED"
+}

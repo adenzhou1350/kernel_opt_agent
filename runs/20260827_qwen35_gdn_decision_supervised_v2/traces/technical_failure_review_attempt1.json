@@ -1,0 +1,34 @@
+{
+  "schema_version": "technical-failure-review-v1",
+  "status": "TECHNICAL_FAILURE_CONFIRMED",
+  "request_id": "req-s3-tile-causal-production-ab",
+  "attempt": 1,
+  "classification": "RUN_LOCAL_PACKAGE_IMPORT_NAMESPACE_ERROR",
+  "evidence": [
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/execution_receipt.json",
+      "sha256": "c8be57f46d3194771c19e4b48d6d4ad0ba2ecd4d912bf00acb1df963de0553d4"
+    },
+    {
+      "path": "experiments/req-s3-tile-causal-production-ab/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "5b8efb8dc50f938834fa26cf0d93d329b710cf0b4cbd3f4adbbdc10eba9b1838"
+    }
+  ],
+  "cause": "candidate_pkg appended the production delta_rule_dsl path and loaded qwen35_fla_s01_sm120 as candidate_pkg.qwen35_fla_s01_sm120; that production module's ...utils import then resolved beyond the top-level package.",
+  "causal_scope": {
+    "candidate_mechanism_reached": false,
+    "c1_layout_assertion_reached": false,
+    "gpu_timing_started": false,
+    "performance_samples_emitted": 0
+  },
+  "single_allowed_repair": "In candidate qwen35_fla_pipeline_sm120.py only, import unchanged S01/S2/post builders from their absolute flashinfer.gdn_kernels.delta_rule_dsl module names; retain candidate S3 as a relative import.",
+  "forbidden_changes": [
+    "C1 QK tile schedule",
+    "C1 score-times-V tile schedule",
+    "accumulator layout assertion",
+    "S01/S2/post source",
+    "ABI/topology/workload/statistic/budget",
+    "fallback implementation"
+  ],
+  "disposition": "TECHNICAL_FAILURE_REVISED_REQUIRES_FRESH_SUPERVISOR_REVIEW"
+}

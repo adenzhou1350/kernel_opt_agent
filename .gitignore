@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+microbench/**/build/
+runs/*/candidates/build/
+*.tmp
+.DS_Store
+.pytest_cache/
+.mypy_cache/

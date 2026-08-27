@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resource_discovery.schema.json",
+  "title": "Final-binary and official-document resource discovery",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "status", "detector_identity", "binary_identity", "sass_input_identity", "sass_summary_identity",
+    "disassembly_receipt_identity", "hardware_evidence_identity",
+    "observed_instruction_classes", "required_resource_ids", "official_available_resource_ids",
+    "candidate_resource_ids", "resource_nodes",
+    "unresolved_mappings", "exclusions", "completeness_contract"
+  ],
+  "properties": {
+    "schema_version": {"const": "resource-discovery-v2"},
+    "status": {"enum": ["READY", "BLOCKED"]},
+    "detector_identity": {"type": "object"},
+    "binary_identity": {"type": "object"},
+    "sass_input_identity": {"type": "object"},
+    "sass_summary_identity": {"type": "object"},
+    "disassembly_receipt_identity": {"type": "object"},
+    "hardware_evidence_identity": {"type": "object"},
+    "observed_instruction_classes": {"type": "array"},
+    "required_resource_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "official_available_resource_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "candidate_resource_ids": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+    "resource_nodes": {"type": "array"},
+    "unresolved_mappings": {"type": "array"},
+    "exclusions": {"type": "array"},
+    "completeness_contract": {"type": "object"}
+  }
+}

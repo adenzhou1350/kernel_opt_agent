@@ -1,0 +1,219 @@
+{
+  "admissibility_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+    "sha256": "48341604f457f3e014b51855de923b94d9685d09630fda5191ed590b2f9f9b4d"
+  },
+  "artifacts": {
+    "raw_samples": "experiments/req-n2-layout-view-static-v2/raw/samples.json",
+    "reproduction_log": "experiments/req-n2-layout-view-static-v2/reproduction.json",
+    "result": "experiments/req-n2-layout-view-static-v2/result.json",
+    "static_audit": "experiments/req-n2-layout-view-static-v2/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3"
+      ]
+    ]
+  },
+  "controls": [
+    "Zero dynamic execution: no compiled callable invocation, CUDA launch, event or timer.",
+    "Actual O1 and scoreV CuTe TV/partition mappings must agree with an independent PTX oracle.",
+    "Actual fragment slice offsets must join the original O1 backing offsets one-to-one.",
+    "Exact prior one-warp fragment plus cute.append layout is the negative control.",
+    "Typed scoreV C/D compilation is not production SASS/resource evidence."
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/catalog_query_receipt.json",
+      "sha256": "d15b45615dd1fd3e5a26b0ecd43012b9783a5d2f2daced4a1081f53ca7b74e23"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+      "sha256": "48341604f457f3e014b51855de923b94d9685d09630fda5191ed590b2f9f9b4d"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/production_constructor_bindings.json",
+      "sha256": "f3faf7b96e372111ca51dfb1da045021afc9cef1e8f42e2ec77c28a5edfbeb48"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_02/review_receipt.json",
+      "sha256": "b23f35bfcf06b32ea3944afba7fc6bed3f36f8b69c803caea6e3196db9292295"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/admissibility_status_initial.json",
+      "sha256": "84e13a2cd480a50f474e8d41fac3b932627db0c2304195b5899b99742107c4c1"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/revision_receipt.json",
+      "sha256": "dacf6406c7ad6ba9af791538a3f55c499d21f9789ea54b0f813eeb4ccbf6e54a"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/experiment_ranking_receipt.json",
+      "sha256": "b68e9b6c9cc01ea72552c755f0ac8a57ae37f58f8136ecdd98e63c7231767c92"
+    }
+  ],
+  "execution_budget": {
+    "max_wall_clock_minutes": 15,
+    "process_launches": 6,
+    "samples_per_configuration": 1
+  },
+  "expected_sass": [
+    "static proof artifact only; no production instruction/resource claim is permitted"
+  ],
+  "experiment_class": "SCREENING",
+  "experiment_kind": "STATIC_ADMISSIBILITY",
+  "level": null,
+  "measurement_contract": {
+    "classification": {
+      "any_failure": "INVALID/BLOCKED without candidate disposition or result",
+      "predicate_pass": "VALID binary_pass=1",
+      "predicate_reject": "NOT_AUTHORIZED_IN_REVISION_02"
+    },
+    "configurations": [
+      "short",
+      "long"
+    ],
+    "gpu_launches": 0,
+    "performance_samples": 0,
+    "primary": "deterministic PASS-only static admission predicate",
+    "samples_per_configuration": 1,
+    "timer": "none_compiler_typecheck",
+    "unit": "binary_pass"
+  },
+  "model_update_contract": {
+    "decision_changed": "PASS-only N2 logical layout-view admission; any failure is INVALID without disposition",
+    "model_field": "models/admissibility_status.json::status",
+    "summary_fields": []
+  },
+  "parameter_matrix": [
+    {
+      "active_threads": 256,
+      "block_threads": 512,
+      "candidate_id": "N2",
+      "gpu_launches": 0,
+      "production_path": "short"
+    },
+    {
+      "active_threads": 256,
+      "block_threads": 256,
+      "candidate_id": "N2",
+      "gpu_launches": 0,
+      "production_path": "long"
+    }
+  ],
+  "prepared_by": {
+    "actor_id": "experiment-agent-linear-v3",
+    "role": "EXPERIMENT_AGENT"
+  },
+  "question": "Do exact short and long production O1 fragments admit four same-backing N16 scoreV C/D views?",
+  "request_id": "req-n2-layout-view-static-v2",
+  "schema_version": "executable-experiment-v1",
+  "sealed_at": "2026-08-27T09:03:56.809027+00:00",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+        "sha256": "cd16a948ca3719f87b014aee487ae1050d5cfad0c7239b2ae0b8585a3fe4e9f5"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+        "sha256": "b9b1e77cf5adc5e099b977d87b86d4eb92bc4538f8c27c5e177f7ab45aaee0bc"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/common.py",
+        "sha256": "1ea18dbabc5f4364ed490e2747c8915c5568212d6de530d8dffc71f46dcf255c"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+        "sha256": "af86a8d1d704f81c07a9656d0e8861cc1c2bc7deff47ef8808a99b9b2bbf50df"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+        "sha256": "ca55388c0e44b072d103d936901e64f86856138b09bcde5093fdd1799cb8d6cb"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+        "sha256": "73f8d0d45b9d5d94fc672f78744d54c80f3559980491dc9c92260f4c54cc26b6"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+        "sha256": "eb3ee78a6386b78cc3c8dfa0ea21e399d1c1026a8e13cf7f662fa309270c4750"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+        "sha256": "3862fc82400a07a50e6481c7566d621cf01984c2316aa3016eea34135a43fb3f"
+      },
+      {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+        "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+      },
+      {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+        "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+      },
+      {
+        "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/atom.py",
+        "sha256": "41a61c0dcc44eb1f852db9e6cf1a42d6098f66e42c7059015d1d04879d3de848"
+      },
+      {
+        "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/core.py",
+        "sha256": "035c764686c4e5a94c1f2432b55ba2e6cc572a27db4d857278ccd785a6f7f6f3"
+      },
+      {
+        "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/tensor.py",
+        "sha256": "c0707b064be449f726ffb895a6a745ffa9ea7cc814da3b97f86ce8c1597b6a27"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED",
+  "tested_candidate_ids": [
+    "N2"
+  ]
+}

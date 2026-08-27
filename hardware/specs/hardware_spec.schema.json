@@ -1,0 +1,128 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "hardware_spec.schema.json",
+  "title": "Official-source-only documented hardware specification",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "vendor", "trusted_policy_identity", "identity", "sources", "facts", "theoretical_rates", "unknowns"],
+  "properties": {
+    "schema_version": {"const": "hardware-spec-v3"},
+    "vendor": {"type": "string", "minLength": 1},
+    "trusted_policy_identity": {"$ref": "#/$defs/identity"},
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["scope", "architecture", "device_models"],
+      "properties": {
+        "scope": {"enum": ["ARCHITECTURE", "DEVICE_MODEL"]},
+        "architecture": {"type": "string", "minLength": 1},
+        "device_models": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "sources": {
+      "type": "array", "minItems": 1,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["source_id", "role", "authority", "url", "title", "version", "locator", "applicability", "role_review", "retrieval"],
+        "properties": {
+          "source_id": {"type": "string", "minLength": 1},
+          "role": {"type": "string", "minLength": 1},
+          "authority": {"const": "VENDOR_OFFICIAL_DOCUMENT"},
+          "url": {"type": "string", "pattern": "^https://"},
+          "title": {"type": "string", "minLength": 1},
+          "version": {"type": "string", "minLength": 1},
+          "locator": {"$ref": "#/$defs/locator"},
+          "applicability": {
+            "type": "object", "additionalProperties": false,
+            "required": ["vendor", "architectures", "device_models"],
+            "properties": {
+              "vendor": {"type": "string", "minLength": 1},
+              "architectures": {"type": "array", "items": {"type": "string"}},
+              "device_models": {"type": "array", "items": {"type": "string"}}
+            }
+          },
+          "role_review": {"$ref": "#/$defs/review"},
+          "retrieval": {"$ref": "#/$defs/retrieval"}
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["fact_id", "field", "value", "unit", "source_id", "locator", "evidence_class", "semantic_review"],
+        "properties": {
+          "fact_id": {"type": "string", "minLength": 1},
+          "field": {"type": "string", "minLength": 1},
+          "value": {},
+          "unit": {"type": ["string", "null"]},
+          "source_id": {"type": "string", "minLength": 1},
+          "locator": {"$ref": "#/$defs/locator"},
+          "evidence_class": {"const": "DOCUMENTED_FACT"},
+          "semantic_review": {"$ref": "#/$defs/review"}
+        }
+      }
+    },
+    "theoretical_rates": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["name", "value", "unit", "conditions", "derivation", "source_ids", "input_fact_ids", "semantic_review", "evidence_class"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "value": {"type": "number", "exclusiveMinimum": 0},
+          "unit": {"type": "string", "minLength": 1},
+          "conditions": {"type": "array", "minItems": 1},
+          "derivation": {"type": "string", "minLength": 1},
+          "source_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "input_fact_ids": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "semantic_review": {"$ref": "#/$defs/review"},
+          "evidence_class": {"const": "DOCUMENTED_DERIVATION"}
+        }
+      }
+    },
+    "unknowns": {"type": "array"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "locator": {
+      "type": "object", "additionalProperties": false,
+      "required": ["kind", "value", "support_text", "support_text_sha256"],
+      "properties": {
+        "kind": {"enum": ["SECTION", "TABLE", "HTML_ANCHOR", "TEXT"]},
+        "value": {"type": "string", "minLength": 1},
+        "support_text": {"type": "string", "minLength": 1},
+        "support_text_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "review": {
+      "type": "object", "additionalProperties": false,
+      "required": ["status", "reviewer", "reviewed_at", "claim"],
+      "properties": {
+        "status": {"const": "APPROVED"},
+        "reviewer": {"type": "string", "minLength": 1},
+        "reviewed_at": {"type": "string", "format": "date-time"},
+        "claim": {"type": "string", "minLength": 1}
+      }
+    },
+    "retrieval": {
+      "type": "object", "additionalProperties": false,
+      "required": ["method", "retrieved_at", "retriever", "requested_url", "final_url", "http_status", "artifact_path", "sha256", "receipt_path", "receipt_sha256"],
+      "properties": {
+        "method": {"const": "AGENT_HTTPS_DOWNLOAD"},
+        "retrieved_at": {"type": "string", "format": "date-time"},
+        "retriever": {"type": "string", "minLength": 1},
+        "requested_url": {"type": "string", "pattern": "^https://"},
+        "final_url": {"type": "string", "pattern": "^https://"},
+        "http_status": {"const": 200},
+        "artifact_path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "receipt_path": {"type": "string", "minLength": 1},
+        "receipt_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

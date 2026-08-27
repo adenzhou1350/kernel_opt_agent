@@ -1,0 +1,46 @@
+{
+  "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+  "artifacts": {
+    "cubin": {
+      "bytes": 229184,
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/current_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+    },
+    "ptx": {
+      "bytes": 330448,
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/current_s404_composite.ptx",
+      "sha256": "373a8d35a9783c91b07e35ac323f194a5cdad4fe05b85deb2e85926a81729310"
+    }
+  },
+  "device": {
+    "capability": [
+      12,
+      0
+    ],
+    "index": 6,
+    "name": "NVIDIA GeForce RTX 5090"
+  },
+  "launch_smoke": {
+    "finite_output": true,
+    "status": "PASS"
+  },
+  "schema_version": "qwen35-current-s404-binary-dump-v1",
+  "source_sha256": {
+    "qwen35_fla_pipeline_sm120.py": "1ba9ed3d607171e2e900c91cf9c4d3ea91d3c3542f80cad4354b91eda507888d",
+    "qwen35_fla_post_sm120.py": "54ab667c78cdbdd082c95a6159bcfee3fce8194c32439fc4b53a7c0afd7cb818",
+    "qwen35_fla_s01_sm120.py": "a17bbba422c8ee4af41c0da86b1e68f1b9db75892c4004789bc23fc2446b8df8",
+    "qwen35_fla_s2_sm120.py": "00dedb81955371f5b34eb39d5f2bd0ae8d95d7f63bf13fc4635e032f8f5d9f24",
+    "qwen35_fla_s3_long_raw_sm120.py": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f",
+    "qwen35_fla_s3_raw_sm120.py": "fb0eb2a9bf4a72c6804eaf09c7fc3c9a74ff6eaf961c15ef4b3bd0dcb43e157b",
+    "qwen35_fla_s3_short_raw_sm120.py": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+  },
+  "workload": {
+    "B": 1,
+    "C": 64,
+    "D": 128,
+    "H": 16,
+    "J": 7,
+    "P": 448,
+    "S": 404
+  }
+}

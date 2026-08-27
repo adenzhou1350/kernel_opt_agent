@@ -1,0 +1,18 @@
+{
+  "schema_version": "experiment-validity-review-v1",
+  "status": "TECHNICAL_FAILURE",
+  "request_id": "req-register-collective",
+  "attempt": 2,
+  "performance_samples_exist": false,
+  "passed_gates": [
+    "clean build",
+    "function-scoped SASS",
+    "exact ptxas REG/LOCAL/STACK",
+    "correctness control",
+    "warmup"
+  ],
+  "failed_gate": "per-record live sink at repeats=128",
+  "cause": "The fixed-work payload recurrence added a neighboring payload each iteration and overflowed near 2^128; the finite output guard correctly suppressed the store, so the live-sink gate stopped measurement.",
+  "scientific_disposition": "No complete ABBA matrix or mechanism claim is permitted from this attempt.",
+  "repair": "Use eight independent bounded-growth FFMA recurrences so useful loop work remains identical across allocation variants and finite across the full repeat sweep; recompile and revalidate ptxas allocation before dispatch."
+}

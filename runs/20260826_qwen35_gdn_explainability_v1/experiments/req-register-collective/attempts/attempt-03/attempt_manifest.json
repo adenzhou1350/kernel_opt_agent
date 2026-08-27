@@ -1,0 +1,110 @@
+{
+  "archived_at": "2026-08-26T17:41:00.818598+00:00",
+  "attempt": 3,
+  "files": [
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/build.json",
+      "sha256": "83a18870a86a33fbebfdc7ace2c82ead687827ccaf51d69f4cf62a7580ebc677"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/catalog_query_receipt.json",
+      "sha256": "02fd0b8e20be3413cb13cb7d59ea15dfea0e451944a36426472116a5c581401b"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/correctness.json",
+      "sha256": "e0bbcc12621872fa15bc177762777e06d49a0297179fd31523486b01b5f85b4c"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/analyze-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/analyze-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/correctness-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/correctness-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/measure-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/measure-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/static_audit-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/static_audit-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/warmup-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_logs/warmup-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/execution_receipt.json",
+      "sha256": "4851c22e5976b4fbfea395f031f617e76a98108f46f4057504f401204d78b73c"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/experiment.json",
+      "sha256": "4a1432f78b39d45db18f1d94706d89d85ba413b1291621c9831116a995e5c6d9"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/raw/samples.json",
+      "sha256": "fcc8ed5149e365cc4acc65997bc51f8f249ca327f839a9f73b02fde7f0da78fb"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/reproduction.json",
+      "sha256": "4ad30a2bc3bd0111e9c58f64672a36e2668dd31132ef3a5ec0532e83521f36ca"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/result.json",
+      "sha256": "4e12b3b3edf83a69c2d37f252add3e7969f5a011c54454fc8f86b2d63c3e6341"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/static/instruction_audit.json",
+      "sha256": "9f86f7a4d0ef426a2e784ebf77ea1b3d6c31fc09a7ff1b3b873ff445b64d5179"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/static/resource_probe",
+      "sha256": "58eae03f87a1f112806aa2ea748553b6453226ff22c90e2a124177c924e6301c"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/static/resource_probe.sass",
+      "sha256": "8a8e884e7314448b8408533707b3f091a44645b7902fb62520d958463d0b5b51"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/validity_review.json",
+      "sha256": "cc0daa09657daea43549b4dd05e77d9dfe379e31faf622ba5b6574e9d7649d18"
+    },
+    {
+      "path": "experiments/req-register-collective/attempts/attempt-03/warmup.json",
+      "sha256": "ab2fce624949bd013771d48ccc44173759d58ee91f9f2a94eed348c21c76f084"
+    }
+  ],
+  "reason": "Technically complete direct-launch ABBA data failed the 10% independent-process spread gate (76.7%) and high-work positive/zero control; host submission was comparable to per-kernel event time, so batched direct launches were not a gap-free GPU-active bracket.",
+  "request_id": "req-register-collective",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "REJECTED_FOR_CAUSAL_VALIDITY"
+}

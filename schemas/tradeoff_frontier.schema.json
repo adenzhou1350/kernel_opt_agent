@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "tradeoff_frontier.schema.json",
+  "title": "Compute-memory-synchronization schedule tradeoff frontier",
+  "type": "object",
+  "required": ["schema_version", "status", "objective", "cases", "global_decision", "evidence"],
+  "properties": {
+    "schema_version": {"const": "tradeoff-frontier-v1"},
+    "status": {"enum": ["DRAFT", "INITIALIZED", "CALIBRATED", "VALIDATED", "BLOCKED"]},
+    "objective": {"type": "object"},
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["case_id", "legal_minimum", "current_schedule", "candidates", "pareto_frontier"],
+        "properties": {
+          "case_id": {"type": "string"},
+          "legal_minimum": {"type": "object"},
+          "current_schedule": {"$ref": "#/$defs/schedule_point"},
+          "candidates": {"type": "array", "items": {"$ref": "#/$defs/schedule_point"}},
+          "pareto_frontier": {"type": "array"}
+        }
+      }
+    },
+    "global_decision": {"type": "object"},
+    "evidence": {"type": "array"}
+  },
+  "$defs": {
+    "schedule_point": {
+      "type": "object",
+      "required": [
+        "schedule_id", "correctness", "valid_compute", "padded_compute",
+        "bytes_by_boundary", "allocation", "device_coverage",
+        "synchronization", "predicted_dag_us", "measured_us",
+        "uncertainty", "decision"
+      ]
+    }
+  }
+}

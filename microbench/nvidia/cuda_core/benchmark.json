@@ -1,0 +1,85 @@
+{
+  "schema_version": "microbenchmark-definition-v2",
+  "id": "nvidia.cuda-core-service-curves.v1",
+  "publish_path": "nvidia/cuda_core",
+  "status": "PUBLISHED",
+  "vendor": "NVIDIA",
+  "family": "cuda-core-service-curves",
+  "requires": ["nvcc", "CUDA runtime"],
+  "optional_evidence": ["nsys", "ncu", "nvdisasm", "cuobjdump"],
+  "capabilities": {
+    "resources": ["kernel_dispatch", "synchronization", "load_store_request"],
+    "mechanisms": ["kernel_launch", "block_barrier", "contiguous_global_load", "contiguous_global_store"],
+    "boundaries": ["launch", "request"],
+    "configurable_geometry": ["grid", "block", "dynamic_shared_bytes", "working_set_bytes", "repeat"]
+  },
+  "questions": [
+    "What is the matched launch and grid-wave envelope?",
+    "What is the marginal service time of a necessary block barrier?",
+    "What contiguous cache-resident global-load issue service is achieved?",
+    "What contiguous global-store issue service is achieved?"
+  ],
+  "controlled_variables": [
+    "grid size",
+    "block size",
+    "dynamic shared-memory allocation",
+    "repeat count",
+    "working-set size",
+    "operation mode"
+  ],
+  "source_files": ["particle_bench.cu"],
+  "driver_files": ["build.sh", "run_service_curves.py"],
+  "analyzer_files": ["analyze_service_curves.py"],
+  "modes": {
+    "launch": "One live sink store per thread with configurable launch geometry and dynamic shared allocation.",
+    "barrier": "Each repeat writes a unique shared page, synchronizes, then reads a peer value; one required barrier per repeat.",
+    "load": "Each repeat reads an independent contiguous uint4 bank and consumes every value in a per-thread checksum.",
+    "store": "Each repeat writes an independent contiguous uint4 bank."
+  },
+  "measurement_semantics": {
+    "timing_scope": "GPU-active native CUDA graph replay measured by CUDA events and divided by the number of identical kernel nodes.",
+    "cache_state": "Warm by default; working-set size is explicit and a cache-level claim requires separate cache-control evidence.",
+    "repetitions": "A configurable repeat count creates a service curve; zero-repeat controls are retained.",
+    "launch_geometry": "Grid, block and dynamic shared-memory allocation are explicit inputs."
+  },
+  "correctness_controls": [
+    "copy the live sink or destination to the host after timing and checksum it",
+    "require monotonic work and expected output changes across repeat counts",
+    "retain zero-repeat and empty-body controls"
+  ],
+  "dce_guard": "Live global sink or destination is copied back after timing and checksummed.",
+  "portability": {
+    "hardware_parameters_explicit": ["grid", "block", "dynamic shared bytes", "working-set bytes"],
+    "constraints": ["CUDA runtime and a compatible CUDA compiler"],
+    "results_reusable_across_devices": false
+  },
+  "known_pollution": [
+    "graph replay overhead divided by node count",
+    "load includes integer checksum instructions",
+    "barrier includes one shared store and one peer shared load per repeat",
+    "warm repetitions are normally cache resident unless the working set exceeds cache"
+  ],
+  "claims_allowed": [
+    "service curves for the recorded geometry, source and environment",
+    "relative local slopes when monotonicity and correctness pass"
+  ],
+  "claims_forbidden": [
+    "absolute DRAM bandwidth without cache-control evidence",
+    "production operator lower bound without matched production geometry and layout",
+    "cross-device portability of measured rates"
+  ],
+  "qualification": {
+    "highest_status": "STATIC_VALIDATED",
+    "levels": [],
+    "static_validation": "PASS",
+    "mechanism_validation": "LEGACY_UNQUALIFIED_REQUIRES_EVIDENCE_CLOSED_RERUN",
+    "device_calibration": "LEGACY_UNQUALIFIED_REQUIRES_EVIDENCE_CLOSED_RERUN",
+    "production_prediction": "UNASSESSED"
+  },
+  "genericity": {
+    "application_independent": true,
+    "production_dependencies": [],
+    "hardware_parameters_explicit": true,
+    "generated_artifacts_committed": false
+  }
+}

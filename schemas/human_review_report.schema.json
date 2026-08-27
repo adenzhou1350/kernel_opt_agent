@@ -1,0 +1,195 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "human_review_report.schema.json",
+  "title": "Human-reviewable GPU kernel optimization report",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "title",
+    "workload",
+    "hardware",
+    "measurement",
+    "overview",
+    "stages",
+    "edges",
+    "missing_evidence",
+    "developer_appendix"
+  ],
+  "properties": {
+    "schema_version": {"const": "human-review-report-v1"},
+    "title": {"type": "string", "minLength": 1},
+    "workload": {"type": "object"},
+    "hardware": {"type": "object"},
+    "measurement": {"type": "object"},
+    "overview": {
+      "type": "object",
+      "required": ["total_observed_us", "theoretical_bound_status", "conclusion"],
+      "properties": {
+        "total_observed_us": {"type": "number", "minimum": 0},
+        "theoretical_bound_status": {
+          "enum": ["理论下界已建立", "理论下界尚未建立"]
+        },
+        "conclusion": {"type": "string", "minLength": 1}
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/stage"}
+    },
+    "edges": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/edge"}
+    },
+    "missing_evidence": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/missing"}
+    },
+    "developer_appendix": {"type": "object"}
+  },
+  "$defs": {
+    "evidence_status": {
+      "enum": ["生产匹配", "条件匹配", "仅供方向判断", "尚未测量"]
+    },
+    "decision_status": {"enum": ["保留", "否决", "待验证"]},
+    "experiment": {
+      "type": "object",
+      "required": [
+        "name",
+        "question",
+        "held_constant",
+        "only_change",
+        "result",
+        "meaning",
+        "boundary",
+        "evidence_status",
+        "decision"
+      ],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "question": {"type": "string", "minLength": 1},
+        "held_constant": {"type": "string", "minLength": 1},
+        "only_change": {"type": "string", "minLength": 1},
+        "result": {"type": "string", "minLength": 1},
+        "meaning": {"type": "string", "minLength": 1},
+        "boundary": {"type": "string", "minLength": 1},
+        "evidence_status": {"$ref": "#/$defs/evidence_status"},
+        "decision": {"$ref": "#/$defs/decision_status"}
+      }
+    },
+    "workpoint": {
+      "type": "object",
+      "required": [
+        "name",
+        "resource_kind",
+        "mandatory_work",
+        "production_partition",
+        "first_service",
+        "steady_service",
+        "production_point",
+        "matched_saturation_point",
+        "saturation_reasons",
+        "critical_path_contribution",
+        "conclusion",
+        "boundary",
+        "evidence_status"
+      ],
+      "properties": {
+        "resource_kind": {
+          "enum": [
+            "HBM",
+            "L2 请求服务",
+            "TMA 请求服务",
+            "shared memory",
+            "LDSM/STSM",
+            "Tensor Core",
+            "SIMT",
+            "SFU",
+            "同步",
+            "前端下发"
+          ]
+        },
+        "saturation_reasons": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "全卡并行不足",
+              "单 CTA 数据量不足",
+              "独立请求不足",
+              "驻留数量受限",
+              "请求放大",
+              "地址效率不足",
+              "cache 层级不匹配",
+              "同步截断",
+              "尾波不均衡",
+              "与其他资源争用",
+              "尚未建立"
+            ]
+          }
+        },
+        "evidence_status": {"$ref": "#/$defs/evidence_status"}
+      }
+    },
+    "stage": {
+      "type": "object",
+      "required": [
+        "key",
+        "name",
+        "observed_us",
+        "main_limit",
+        "direct_evidence",
+        "boundary",
+        "evidence_status",
+        "decision",
+        "capacity",
+        "dag_nodes",
+        "schedule_lanes",
+        "experiments",
+        "resource_workpoints",
+        "model_closure"
+      ],
+      "properties": {
+        "observed_us": {"type": "number", "minimum": 0},
+        "evidence_status": {"$ref": "#/$defs/evidence_status"},
+        "decision": {"$ref": "#/$defs/decision_status"},
+        "experiments": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/experiment"}
+        },
+        "resource_workpoints": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/workpoint"}
+        }
+      }
+    },
+    "edge": {
+      "type": "object",
+      "required": [
+        "name",
+        "from_stage",
+        "to_stage",
+        "payload",
+        "ownership",
+        "unique_bytes",
+        "request_bytes",
+        "amplification",
+        "experiment",
+        "decision",
+        "evidence_status",
+        "boundary"
+      ],
+      "properties": {
+        "experiment": {"$ref": "#/$defs/experiment"},
+        "decision": {"$ref": "#/$defs/decision_status"},
+        "evidence_status": {"$ref": "#/$defs/evidence_status"}
+      }
+    },
+    "missing": {
+      "type": "object",
+      "required": ["stage_or_edge", "blocked_claim", "next_experiment", "priority"],
+      "properties": {
+        "priority": {"enum": ["P0", "P1", "P2", "P3"]}
+      }
+    }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/experiment_queue.json",
+    "sha256": "7b73662a8f266ebf8185acb23d4405e5c90d3d50bf872ca36edb1c5bdd93326d"
+  },
+  "ranked_at": "2026-08-26T17:05:47.184637+00:00",
+  "ranking": [
+    {
+      "priority": 0,
+      "request_id": "req-shared-request-service",
+      "score": 13.459314285714285
+    },
+    {
+      "priority": 1,
+      "request_id": "req-register-collective",
+      "score": 12.618107142857141
+    },
+    {
+      "priority": 2,
+      "request_id": "req-sync-async-overlap",
+      "score": 12.618107142857141
+    },
+    {
+      "priority": 3,
+      "request_id": "req-compute-service",
+      "score": 7.991467857142857
+    },
+    {
+      "priority": 4,
+      "request_id": "req-memory-hierarchy-service",
+      "score": 5.88845
+    },
+    {
+      "priority": 5,
+      "request_id": "req-p0-measurement-system",
+      "score": 0.0039000000000000003
+    }
+  ],
+  "resource_balance_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_balance.json",
+    "sha256": "a197b2529999ba443691587f3fa0fd6591a1f76e578a7594cb98234d788550b2"
+  },
+  "schema_version": "experiment-ranking-receipt-v1"
+}

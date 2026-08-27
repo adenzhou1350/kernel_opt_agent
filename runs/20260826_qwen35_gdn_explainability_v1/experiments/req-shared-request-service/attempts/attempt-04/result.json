@@ -1,0 +1,38 @@
+{
+  "binary": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe",
+    "sha256": "fbaefa234a25888871a06b52cc802275e65ba8d395d7d960798022d9e7266d6d"
+  },
+  "correctness": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/correctness.json",
+    "sha256": "1de53626d5fc1080f6aa57c5453d62553fd18c99cd4406a64d549b6cf48b4083"
+  },
+  "measurement": {
+    "metric": "GPU-active kernel latency",
+    "semantics": "per launch after in-process warmup",
+    "timer": "P0-qualified CUDA events",
+    "unit": "us"
+  },
+  "qualification": "RUN_LOCAL_MECHANISM_DATA; NOT_YET_PRODUCTION_PREDICTIVE",
+  "raw_samples": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/raw/samples.json",
+    "sha256": "22ab1bb8d260a7f2d38e0eae089ccd200a6b3679bab7f1ae94157bd6586796e0"
+  },
+  "request_id": "req-shared-request-service",
+  "sass": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe.sass",
+    "sha256": "a1d71f357bd81dec29a2e4390bfada24c33a83b1e649285f59de2bb68324db42"
+  },
+  "schema_version": "run-local-resource-probe-summary-v1",
+  "static_audit": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/instruction_audit.json",
+    "sha256": "139ff45d02992a8dc9079c61a4129ed624de9a223aad28bfb7dbfee4b71ac3b4"
+  },
+  "status": "PASS",
+  "summary": {
+    "count": 1860,
+    "max_us": 24.6079998,
+    "median_us": 4.525000094999999,
+    "min_us": 0.680000007
+  }
+}

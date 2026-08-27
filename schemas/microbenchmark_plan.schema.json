@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "microbenchmark_plan.schema.json",
+  "title": "P0-P4 microbenchmark qualification plan",
+  "type": "object",
+  "required": ["schema_version", "status", "target_questions", "qualification_order", "levels", "coupling_tests", "cross_layer_prediction_gates"],
+  "properties": {
+    "schema_version": {"const": "microbenchmark-plan-v1"},
+    "status": {"enum": ["DRAFT", "EXECUTABLE", "COMPLETE", "BLOCKED"]},
+    "target_questions": {"type": "array"},
+    "levels": {
+      "type": "object",
+      "required": ["P0", "P1", "P2", "P3", "P4"]
+    },
+    "coupling_tests": {"type": "array"},
+    "cross_layer_prediction_gates": {"type": "array"}
+  }
+}

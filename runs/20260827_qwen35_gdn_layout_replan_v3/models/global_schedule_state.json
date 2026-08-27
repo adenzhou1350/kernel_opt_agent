@@ -1,0 +1,368 @@
+{
+  "active_subdecision": {
+    "candidate_rejection_authorized": false,
+    "performance_ranking": false,
+    "quantity_id": "n2_layout_view_feasible",
+    "request_id": "req-n2-layout-view-static-v2",
+    "unit": "binary_pass"
+  },
+  "decision_policy": {
+    "active_static_policy": "PASS_ONLY_INVALID; no performance ranking and no candidate rejection",
+    "candidate_driven_experiments_only": true,
+    "local_speedup_is_not_global_acceptance": true,
+    "objective": {
+      "created_at": "2026-08-27T07:19:03.442208+00:00",
+      "decision_indifference_band_us": 0.1,
+      "direction": "minimize",
+      "measurement_semantics": {
+        "primary": "CUDA-event device elapsed after P0; CPU dispatch is reported separately",
+        "static_gate": "compiler/type proof may only admit N2 logical layout feasibility; any failure is INVALID/BLOCKED",
+        "transfer_gate": "future performance acceptance requires paired graph and direct-execution agreement"
+      },
+      "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+      "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v3",
+      "schema_version": "registered-objective-v1",
+      "unit": "us",
+      "workload_cases": [
+        {
+          "case_id": "s256",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s384",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s404",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s512",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s640",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s768",
+          "weight": 0.14285714285714285
+        },
+        {
+          "case_id": "s1024",
+          "weight": 0.14285714285714285
+        }
+      ]
+    },
+    "ranking": "candidate_specific_decision_value_us * decision_flip_probability * expected_uncertainty_reduction / experiment_cost_weight",
+    "supervisor_approval_required": true,
+    "unknown_does_not_imply_measure": true
+  },
+  "human_report_gate": {
+    "requires": [
+      "N2 static disposition",
+      "final Top2 performance decision",
+      "validated resource balance"
+    ],
+    "status": "BLOCKED"
+  },
+  "material_resources": [
+    "async_copy_engine",
+    "constant_memory_path",
+    "conversion_pipe",
+    "cta_allocation",
+    "device_memory_boundary",
+    "instruction_front_end",
+    "integer_address_pipe",
+    "kernel_dispatch",
+    "l1_shared_boundary",
+    "l2_boundary",
+    "load_store_request",
+    "predicate_compute",
+    "predicate_storage",
+    "register_storage",
+    "scoreboard_wait",
+    "shared_bank_service",
+    "shared_memory",
+    "simt_compute",
+    "special_function",
+    "synchronization",
+    "system_register_path",
+    "tensor_compute",
+    "tensor_issue",
+    "warp_collective",
+    "warp_issue"
+  ],
+  "owned_artifacts": {
+    "experiment_queue": "models/experiment_queue.json",
+    "resource_balance": "models/resource_balance.json",
+    "schedule_model": "models/schedule_model.json",
+    "tradeoff_frontier": "models/tradeoff_frontier.json"
+  },
+  "owner": {
+    "exclusive_authority": [
+      "RANK_EXPERIMENTS",
+      "CLOSE_RESOURCE_MODEL",
+      "ACCEPT_GLOBAL_CANDIDATE",
+      "AUTHORIZE_LIMIT_REPORT"
+    ],
+    "owner_id": "global-scheduler-linear-v3",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "revision_history": [
+    {
+      "at": "2026-08-27T07:19:03.442208+00:00",
+      "reason": "Fresh N0/N1/N2 layout replan; no old candidate budget or approval inherited.",
+      "revision": 1
+    },
+    {
+      "at": "2026-08-27T09:07:32.397069+00:00",
+      "reason": "preapproval evidence correction: detach PASS-only static layout request from all dynamic resource rows; numeric resource evidence remains unchanged",
+      "revision": 2
+    }
+  ],
+  "schema_version": "global-schedule-state-v2",
+  "stage_assignments": [
+    {
+      "resource_id": "async_copy_engine",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "constant_memory_path",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "conversion_pipe",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "cta_allocation",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "device_memory_boundary",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "instruction_front_end",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "integer_address_pipe",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "kernel_dispatch",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "l1_shared_boundary",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "l2_boundary",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "load_store_request",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "predicate_compute",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "predicate_storage",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "register_storage",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "scoreboard_wait",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "shared_bank_service",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "shared_memory",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "simt_compute",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "special_function",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "synchronization",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "system_register_path",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "tensor_compute",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "tensor_issue",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "warp_collective",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    },
+    {
+      "resource_id": "warp_issue",
+      "stage_ids": [
+        "s01",
+        "s2",
+        "s3",
+        "post"
+      ]
+    }
+  ],
+  "status": "MODEL_READY",
+  "supervisor": {
+    "exclusive_authority": [
+      "VETO_EXPERIMENT",
+      "APPROVE_EXPERIMENT_DISPATCH",
+      "ENFORCE_BUDGET",
+      "HALT_AND_REPLAN"
+    ],
+    "must_be_distinct_from": [
+      "GLOBAL_SCHEDULER",
+      "MICROARCHITECTURE_ANALYST",
+      "EXPERIMENT_AGENT"
+    ],
+    "owner_id": "global-supervisor-root-v3",
+    "role": "GLOBAL_SUPERVISOR"
+  }
+}

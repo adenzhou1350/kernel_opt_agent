@@ -1,0 +1,143 @@
+{
+  "candidate_bindings": [
+    {
+      "artifact_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/architecture_candidates/c0.json",
+        "sha256": "86184c1b1717a8ffcb3d8850802d1d775ddfcad803a4587b8698ea30ea95d5e5"
+      },
+      "candidate_id": "C0",
+      "predicted_objective": {
+        "lower": 35.396499999999996,
+        "unit": "us",
+        "upper": 35.57378571428571
+      }
+    },
+    {
+      "artifact_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/architecture_candidates/c1.json",
+        "sha256": "ee6944d16fe1a884eb8368ac50cd3f8eca087677c06ce1b5db10cc1d4d207a09"
+      },
+      "candidate_id": "C1",
+      "predicted_objective": {
+        "lower": 31.998500000000003,
+        "unit": "us",
+        "upper": 44.45342857142857
+      }
+    },
+    {
+      "artifact_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/architecture_candidates/c2.json",
+        "sha256": "05f82020dcdd9f56fccf145190f93e40752c7a8a5b6f29125f3f52fe1d8d923b"
+      },
+      "candidate_id": "C2",
+      "predicted_objective": {
+        "lower": 37.7859,
+        "unit": "us",
+        "upper": 38.9287
+      }
+    }
+  ],
+  "decision_id": "decision-s3-tile-causal-screening-v4",
+  "decision_metric": {
+    "direction": "minimize",
+    "name": "equal-weight graph-batched production-exact device elapsed; graph is timing envelope only",
+    "unit": "us"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/baseline.json",
+      "sha256": "e90fdaf35d850482e24eadcc0308c550b700b202201053473caa075cc3c13e89"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+      "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/resource_discovery.json",
+      "sha256": "9e9d82c511ca9edf208457b95d7a6cd197e6dbe5e68278473249bd79862ffc33"
+    }
+  ],
+  "experiment_budget": {
+    "max_revisions": 1,
+    "qualification": {
+      "max_configurations": 14,
+      "max_process_launches": 21,
+      "max_samples_per_configuration": 31,
+      "max_wall_clock_minutes": 60
+    },
+    "screening": {
+      "max_configurations": 4,
+      "max_process_launches": 6,
+      "max_samples_per_configuration": 15,
+      "max_wall_clock_minutes": 20
+    }
+  },
+  "frontier_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/tradeoff_frontier.json",
+    "sha256": "93d7d208af522a3e3005f65ddd825d205ba1325057aa5ad483aeb923c85502cd"
+  },
+  "issued_by": {
+    "owner_id": "global-scheduler-linear-v2",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "measurement_need": {
+    "current_interval": {
+      "lower": -3.6795,
+      "unit": "us",
+      "upper": 9.5355
+    },
+    "decision_boundary": {
+      "unit": "us",
+      "value": 0.25
+    },
+    "decision_flip_probability": 0.5,
+    "equation": "q_screen=0.5*(Delta_s404+Delta_s768), Delta_s=median(graph_batched_device_elapsed_C1,s)-median(graph_batched_device_elapsed_C0,s)",
+    "expected_uncertainty_reduction": 1.0,
+    "maximum_decision_value": {
+      "unit": "us",
+      "value": 3.6795
+    },
+    "model_location": "models/tradeoff_frontier.json::screening C1-C0 two-path mean delta",
+    "outcome_mapping": [
+      {
+        "condition": "all hard gates pass, 95% CI half-width <=0.10 us, and 95% CI upper < +0.25 us",
+        "outcome": "ADMIT_TO_NEW_QUALIFICATION_CONTRACT"
+      },
+      {
+        "condition": "95% CI lower > +0.25 us or any hard gate fails",
+        "outcome": "REJECT"
+      },
+      {
+        "condition": "95% CI intersects +0.25 us or half-width >0.10 us at the frozen screening budget",
+        "outcome": "INCONCLUSIVE"
+      }
+    ],
+    "quantity_id": "screening_two_path_mean_delta_c1_minus_c0",
+    "required_precision": {
+      "unit": "us",
+      "value": 0.1
+    },
+    "top_two_delta_interval": {
+      "lower": -3.6795,
+      "unit": "us",
+      "upper": 9.5355
+    }
+  },
+  "objective_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/objective.json",
+    "sha256": "3fd7379169bf7b2a88ae0858ed58608b24419374b0a20f67367b2f61ed46dc14"
+  },
+  "schema_version": "decision-contract-v1",
+  "status": "READY_FOR_SUPERVISOR",
+  "stop_rules": [
+    "Identity, compilation, correctness, final-SASS, resource, stream-containment or P0 failure rejects/invalidates screening and forbids timing.",
+    "CI lower above +0.25 us rejects C1 as a material representative-path regression.",
+    "A valid non-rejected result only admits a separately issued and supervised QUALIFICATION contract; it never accepts C1.",
+    "CI half-width above 0.10 us at 15 pairs/shape is INCONCLUSIVE; no sample or configuration expansion is allowed.",
+    "One technical implementation revision requires fresh supervisor review; no automatic retry."
+  ],
+  "top_two_candidate_ids": [
+    "C1",
+    "C0"
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "limit_certificate.schema.json",
+  "title": "Kernel optimization limit certificate",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["schema_version", "status", "identities", "correctness", "bounds", "achieved", "proof", "missing_evidence"],
+  "properties": {
+    "schema_version": {"const": "limit-certificate-v2"},
+    "status": {"type": "string", "enum": ["INCOMPLETE", "OPERATIONAL_FLOOR", "PROVEN_WITHIN_MODEL", "ARCHITECTURALLY_EXPLAINED", "BLOCKED"]},
+    "identities": {"type": "object"},
+    "correctness": {"type": "object"},
+    "mandatory_work": {"type": "object"},
+    "bounds": {
+      "type": "object",
+      "properties": {
+        "silicon_lower": {"type": ["object", "null"]},
+        "resource_service": {"type": ["object", "null"]},
+        "dag_lower": {"type": ["object", "null"]},
+        "feasible_schedule": {"type": ["object", "null"]}
+      }
+    },
+    "achieved": {"type": "object"},
+    "proof": {
+      "type": "object",
+      "required": [
+        "objective", "lower_formula", "upper_formula", "gap_formula", "cases",
+        "weighted_lower_us", "weighted_upper_us", "weighted_gap_us",
+        "weighted_gap_percent", "frozen_tolerance_percent", "status"
+      ]
+    },
+    "evidence": {"type": "array", "items": {"type": "object"}},
+    "missing_evidence": {"type": "array", "items": {"type": "string"}},
+    "claims": {"type": "array", "items": {"type": "string"}},
+    "forbidden_claims": {"type": "array", "items": {"type": "string"}},
+    "architecture_explanation": {"type": ["object", "null"]}
+  }
+}

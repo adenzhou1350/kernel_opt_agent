@@ -1,0 +1,13 @@
+{
+  "artifact_path": "hardware_docs/cuda-programming-guide-13-2-1-cc120.html",
+  "artifact_sha256": "e20904a6aa4982e4698fa338ab1ca8406e2b25eae4ae3e56106d1bdca84c8f5b",
+  "content_type": "text/html",
+  "etag": "\"e57150f72a123df61704f3d1a99c385a\"",
+  "final_url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html",
+  "http_status": 200,
+  "last_modified": "Mon, 25 May 2026 21:47:16 GMT",
+  "requested_url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html",
+  "retrieved_at": "2026-08-26T14:12:56.619578+00:00",
+  "retriever": "python urllib.request",
+  "schema_version": "official-document-retrieval-v1"
+}

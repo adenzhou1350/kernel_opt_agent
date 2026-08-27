@@ -1,0 +1,8 @@
+{
+  "checks": {
+    "finite_samples": true,
+    "live_sink": 87360,
+    "zero_sink": 0
+  },
+  "status": "PASS"
+}

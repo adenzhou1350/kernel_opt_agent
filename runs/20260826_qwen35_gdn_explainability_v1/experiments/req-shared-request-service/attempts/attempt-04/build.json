@@ -1,0 +1,11 @@
+{
+  "binary": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe",
+    "sha256": "fbaefa234a25888871a06b52cc802275e65ba8d395d7d960798022d9e7266d6d"
+  },
+  "source": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-shared-request-service/resource_probe.cu",
+    "sha256": "8526a630efa505b34c348fd532193a79ec3d863c656be6eb349060e921ee60bb"
+  },
+  "status": "PASS"
+}

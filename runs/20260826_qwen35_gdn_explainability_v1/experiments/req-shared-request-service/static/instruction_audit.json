@@ -1,0 +1,49 @@
+{
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe",
+    "sha256": "625ced578ab7c28a0e21658a5a462af7993a63c410803f01285107545fed8712"
+  },
+  "expected_tokens": [
+    "LDS",
+    "STS",
+    "LDC",
+    "LDG",
+    "STG"
+  ],
+  "function_scoped_requirements": {
+    "constant_probe": {
+      "matching_functions": [
+        "_Z14constant_probePfii"
+      ],
+      "required_tokens": {
+        "LDC": true,
+        "STG": true
+      }
+    },
+    "shared_probe": {
+      "matching_functions": [
+        "_Z12shared_probePKfPfii"
+      ],
+      "required_tokens": {
+        "LDG": true,
+        "LDS": true,
+        "STG": true,
+        "STS": true
+      }
+    }
+  },
+  "note": "function-scoped audit is closed for shared/constant probes; other modes require closure before result binding",
+  "observed": {
+    "LDC": true,
+    "LDG": true,
+    "LDS": true,
+    "STG": true,
+    "STS": true
+  },
+  "sass_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/resource_probe.sass",
+    "sha256": "a1d71f357bd81dec29a2e4390bfada24c33a83b1e649285f59de2bb68324db42"
+  },
+  "schema_version": "run-local-static-audit-v1",
+  "status": "PASS"
+}

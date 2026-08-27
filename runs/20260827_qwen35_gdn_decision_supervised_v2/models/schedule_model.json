@@ -1,0 +1,2952 @@
+{
+  "binary_identity": {
+    "abi_tag": "fla_l017_s01wstoreu4_s384to640_m104_headmajor_s2hcta_s3native_s3u4u8split_poststatic1_b384_v5",
+    "canonical_resource_discovery_binary": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/current_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+    },
+    "production_case_manifest": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+      "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+    }
+  },
+  "coupled_resource_models": [
+    {
+      "request_id": "req-compute-service",
+      "resource_ids": [
+        "conversion_pipe",
+        "integer_address_pipe",
+        "predicate_compute",
+        "simt_compute",
+        "special_function",
+        "tensor_compute",
+        "tensor_issue"
+      ],
+      "status": "PENDING_EXPERIMENT"
+    },
+    {
+      "request_id": "req-memory-hierarchy-service",
+      "resource_ids": [
+        "device_memory_boundary",
+        "l2_boundary"
+      ],
+      "status": "PENDING_EXPERIMENT"
+    },
+    {
+      "request_id": "req-p0-measurement-system",
+      "resource_ids": [
+        "cta_allocation",
+        "instruction_front_end",
+        "kernel_dispatch",
+        "warp_issue"
+      ],
+      "status": "PENDING_EXPERIMENT"
+    },
+    {
+      "request_id": "req-register-collective",
+      "resource_ids": [
+        "predicate_storage",
+        "register_storage",
+        "system_register_path",
+        "warp_collective"
+      ],
+      "status": "PENDING_EXPERIMENT"
+    },
+    {
+      "p1_evidence": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+        "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+      },
+      "p2_blocking_evidence": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+        "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+      },
+      "production_prediction_status": "UNKNOWN",
+      "request_id": "req-shared-request-service",
+      "resource_ids": [
+        "constant_memory_path",
+        "l1_shared_boundary",
+        "load_store_request",
+        "shared_bank_service",
+        "shared_memory"
+      ],
+      "status": "P1_MECHANISM_VALIDATED_P2_PERMISSION_BLOCKED"
+    },
+    {
+      "request_id": "req-sync-async-overlap",
+      "resource_ids": [
+        "async_copy_engine",
+        "scoreboard_wait",
+        "synchronization"
+      ],
+      "status": "PENDING_EXPERIMENT"
+    }
+  ],
+  "dependency_graph": {
+    "edges": [
+      {
+        "from": "inputs",
+        "payload": "Q/K/V/g/beta and decay weights",
+        "to": "s01"
+      },
+      {
+        "from": "s01",
+        "payload": "packed per-chunk K/W/U and decay summaries",
+        "to": "s2"
+      },
+      {
+        "from": "s01",
+        "payload": "normalized Q and chunk-local factors",
+        "to": "s3"
+      },
+      {
+        "from": "s2",
+        "payload": "head-major recurrent state h",
+        "to": "s3"
+      },
+      {
+        "from": "s3",
+        "payload": "raw_o [B,S,H,D] BF16",
+        "to": "post"
+      },
+      {
+        "from": "inputs",
+        "payload": "gate and RMS weight",
+        "to": "post"
+      },
+      {
+        "from": "post",
+        "payload": "gated RMS-normalized output",
+        "to": "output"
+      },
+      {
+        "from": "s01",
+        "reason": "P=ceil(S/64)*64 workspace padding",
+        "to": "s2"
+      },
+      {
+        "from": "s01",
+        "reason": "global workspace handoff imposed by four-kernel schedule",
+        "to": "s3"
+      },
+      {
+        "eliminable_logical_bytes_formula": "2*b*E",
+        "from": "s3",
+        "reason": "raw_o materialization is removable by a legal fusion candidate",
+        "to": "post"
+      }
+    ],
+    "nodes": [
+      "inputs",
+      "s01",
+      "s2",
+      "s3",
+      "post",
+      "output"
+    ]
+  },
+  "dynamic_instruction_method": {
+    "reason": "static SASS sites do not provide dynamic execution counts, issue eligibility, replay or wait cycles",
+    "required_requests": [
+      "req-compute-service",
+      "req-register-collective",
+      "req-shared-request-service",
+      "req-sync-async-overlap"
+    ],
+    "status": "UNKNOWN"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/case_binary_resource_coverage.json",
+      "sha256": "aa68aba3d73bd5f54cdee1e13d498c93dfe51ae6b774744e62e828041c1a307e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/baseline.json",
+      "sha256": "f0f21ad5cc118f31d9bd1a631e1f0aa16815fbb1baaef485bd968ed16434c1fd"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/work_ledger.json",
+      "sha256": "dec1787a410e2f0bfb28e62898f0d5073ed8fc306ce85466949ba0ba4f914a01"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/dag.json",
+      "sha256": "400ae2b3fa7a7b3f008ea1cc28eab909130883cfd59f4aa247e662f5a179fdca"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/resource_discovery.json",
+      "sha256": "892ec324725151233d159f40dee86908ce4975bcf1a0752129374bf83b56804f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/p1_service_curve.json",
+      "sha256": "eefa553756676235903063c8cf4642069c31eaf99ae281b6b93a78d777378ed5"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/ncu_permission_receipt.json",
+      "sha256": "be37946aec099ae9407fa37817558c051ea4d69d301e85e3d7dfe414000d2eae"
+    }
+  ],
+  "resource_mapping": [
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "async_copy_engine",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "5.1.3 Constant State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "constant_memory_path",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "constant_load",
+          "static_sites": 115
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Data Movement and Conversion Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "conversion_pipe",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "conversion",
+          "static_sites": 397
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        }
+      ],
+      "resource_id": "cta_allocation",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "launched_binary",
+          "static_sites": 1
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "device_memory_boundary",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.11 Control Flow Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.16 no operation",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "instruction_front_end",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "branch_control",
+          "static_sites": 381
+        },
+        {
+          "instruction_class": "control_noop",
+          "static_sites": 141
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.1 Integer Arithmetic Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "integer_address_pipe",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "integer_address",
+          "static_sites": 2489
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        }
+      ],
+      "resource_id": "kernel_dispatch",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "launched_binary",
+          "static_sites": 1
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "l1_shared_boundary",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "l2_boundary",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "5.1.3 Constant State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "load_store_request",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "constant_load",
+          "static_sites": 115
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        },
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "shared_store",
+          "static_sites": 225
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "predicate_compute",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "predicate_storage",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "5.1.3 Constant State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Data Movement and Conversion Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.1 Integer Arithmetic Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "10 Special Registers",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Warp-level data movement and vote",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "register_storage",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "constant_load",
+          "static_sites": 115
+        },
+        {
+          "instruction_class": "conversion",
+          "static_sites": 397
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "integer_address",
+          "static_sites": 2489
+        },
+        {
+          "instruction_class": "move_select",
+          "static_sites": 1196
+        },
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        },
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "simt_fp",
+          "static_sites": 1219
+        },
+        {
+          "instruction_class": "special_function",
+          "static_sites": 140
+        },
+        {
+          "instruction_class": "system_register",
+          "static_sites": 58
+        },
+        {
+          "instruction_class": "tensor",
+          "static_sites": 334
+        },
+        {
+          "instruction_class": "warp_collective",
+          "static_sites": 391
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.13.15 mbarrier.try_wait",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "scoreboard_wait",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "memory_wait",
+          "static_sites": 178
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "shared_bank_service",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "shared_store",
+          "static_sites": 225
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "shared_memory",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "shared_store",
+          "static_sites": 225
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "simt_compute",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "simt_fp",
+          "static_sites": 1219
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "special_function",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "special_function",
+          "static_sites": 140
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.12 Parallel Synchronization",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.13.15 mbarrier.try_wait",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "synchronization",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "barrier",
+          "static_sites": 46
+        },
+        {
+          "instruction_class": "memory_wait",
+          "static_sites": 178
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "10 Special Registers",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "system_register_path",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "system_register",
+          "static_sites": 58
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "tensor_compute",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "tensor",
+          "static_sites": 334
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "tensor_issue",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "tensor",
+          "static_sites": 334
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Warp-level data movement and vote",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "warp_collective",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "warp_collective",
+          "static_sites": 391
+        }
+      ]
+    },
+    {
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.12 Parallel Synchronization",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.11 Control Flow Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.16 no operation",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Data Movement and Conversion Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.1 Integer Arithmetic Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.13.15 mbarrier.try_wait",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "10 Special Registers",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Warp-level data movement and vote",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "warp_issue",
+      "service_status": "UNKNOWN",
+      "static_triggers_s404": [
+        {
+          "instruction_class": "barrier",
+          "static_sites": 46
+        },
+        {
+          "instruction_class": "branch_control",
+          "static_sites": 381
+        },
+        {
+          "instruction_class": "control_noop",
+          "static_sites": 141
+        },
+        {
+          "instruction_class": "conversion",
+          "static_sites": 397
+        },
+        {
+          "instruction_class": "integer_address",
+          "static_sites": 2489
+        },
+        {
+          "instruction_class": "memory_wait",
+          "static_sites": 178
+        },
+        {
+          "instruction_class": "move_select",
+          "static_sites": 1196
+        },
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        },
+        {
+          "instruction_class": "simt_fp",
+          "static_sites": 1219
+        },
+        {
+          "instruction_class": "special_function",
+          "static_sites": 140
+        },
+        {
+          "instruction_class": "system_register",
+          "static_sites": 58
+        },
+        {
+          "instruction_class": "warp_collective",
+          "static_sites": 391
+        }
+      ]
+    }
+  ],
+  "sass_control_flow": [
+    {
+      "case_id": "s256",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 366,
+      "static_control_noop_sites": 141,
+      "status": "STATIC_ONLY"
+    },
+    {
+      "case_id": "s384",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 381,
+      "static_control_noop_sites": 141,
+      "status": "STATIC_ONLY"
+    },
+    {
+      "case_id": "s404",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 381,
+      "static_control_noop_sites": 141,
+      "status": "STATIC_ONLY"
+    },
+    {
+      "case_id": "s512",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 381,
+      "static_control_noop_sites": 140,
+      "status": "STATIC_ONLY"
+    },
+    {
+      "case_id": "s640",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 381,
+      "static_control_noop_sites": 140,
+      "status": "STATIC_ONLY"
+    },
+    {
+      "case_id": "s768",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 476,
+      "static_control_noop_sites": 150,
+      "status": "STATIC_ONLY"
+    },
+    {
+      "case_id": "s1024",
+      "dynamic_trip_counts": null,
+      "static_branch_control_sites": 475,
+      "static_control_noop_sites": 145,
+      "status": "STATIC_ONLY"
+    }
+  ],
+  "schema_version": "resource-schedule-model-v1",
+  "status": "INITIALIZED",
+  "unknown_scheduler_or_cache_behavior": [
+    "dynamic instruction counts and branch trip counts",
+    "eligible issue window and per-pipeline issue efficiency",
+    "shared-bank conflicts and request replays",
+    "L1/L2/DRAM transaction counts and latency distributions",
+    "TMA/compute overlap and scoreboard critical-path contribution",
+    "actual active-SM distribution; grid.x/SM is only a geometric upper bound"
+  ],
+  "workload_cases": [
+    {
+      "binary_identity": {
+        "bytes": 228632,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/composite.cubin",
+        "sha256": "e802eeed0962d4646a5d4b903af500c1ba9142d0097e4af0fff50447dd100523"
+      },
+      "case_id": "s256",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 4,
+        "P": 256,
+        "S": 256,
+        "tail": 64
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/disassembly_receipt.json",
+        "sha256": "6893f536376f79a201bcdc1ad86d5a9afc63022dded16c5788601adccd251dd3"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12840961128_tensorptrbf16gmemalign16o128256161i6412_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 15,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 68,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 28,
+            "branch_control": 203,
+            "constant_load": 35,
+            "control_noop": 58,
+            "conversion": 329,
+            "global_load": 26,
+            "global_store": 146,
+            "integer_address": 1889,
+            "memory_wait": 153,
+            "move_select": 1032,
+            "predicate_compare": 308,
+            "shared_load": 431,
+            "shared_store": 193,
+            "simt_fp": 924,
+            "special_function": 77,
+            "system_register": 12,
+            "tensor": 142,
+            "warp_collective": 378
+          },
+          "static_instruction_sites": 6384
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 21,
+            "constant_load": 19,
+            "control_noop": 20,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 170,
+            "memory_wait": 12,
+            "move_select": 80,
+            "predicate_compare": 21,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 536
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1282561612048128_tensorptrbf16gmemal_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 3,
+            "branch_control": 112,
+            "constant_load": 51,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 79,
+            "global_store": 16,
+            "integer_address": 307,
+            "memory_wait": 5,
+            "move_select": 98,
+            "predicate_compare": 82,
+            "shared_load": 176,
+            "shared_store": 21,
+            "simt_fp": 200,
+            "special_function": 47,
+            "system_register": 27,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1480
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            512,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12840961128_tensorptrbf16gmemalign16o128256161i6412_3",
+          "profiler_grid_cta_per_sm_ratio": 3.011765,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.3764705882352941,
+          "dynamic_shared_memory_bytes": 42368,
+          "grid": [
+            64,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 0.376471,
+          "registers_per_thread": 144
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 76
+        },
+        "s3": {
+          "block": [
+            512,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.3764705882352941,
+          "dynamic_shared_memory_bytes": 73984,
+          "grid": [
+            64,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1282561612048128_tensorptrbf16gmemal_2",
+          "profiler_grid_cta_per_sm_ratio": 0.376471,
+          "registers_per_thread": 126
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 26.667999103665352,
+        "cpu_dispatch_median_us": 17.675,
+        "end_to_end_median_us": 35.85,
+        "separate_cupti_stage_median_us": {
+          "post": 2.208,
+          "s01": 10.081,
+          "s2": 4.1915,
+          "s3": 7.8725000000000005
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/final.sass",
+        "sha256": "897832867c2f82b47e68601696f50deadb8dded128d6a926f49967734ed9a699"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/sass-summary.json",
+        "sha256": "049d87c8d8dca8d1efef5206bc2ac1452c5ccee65f3a93a1cc9a76165cfeca6a"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 45,
+        "branch_control": 366,
+        "constant_load": 114,
+        "control_noop": 141,
+        "conversion": 397,
+        "global_load": 121,
+        "global_store": 178,
+        "integer_address": 2434,
+        "memory_wait": 170,
+        "move_select": 1225,
+        "predicate_compare": 424,
+        "shared_load": 639,
+        "shared_store": 221,
+        "simt_fp": 1219,
+        "special_function": 140,
+        "system_register": 58,
+        "tensor": 334,
+        "warp_collective": 391
+      },
+      "static_instruction_sites": 8648
+    },
+    {
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/composite.cubin",
+        "sha256": "9a716fcb2faa9ee87044ee20bcff4e8c94c22c54300ac72a3eed3b949530ed92"
+      },
+      "case_id": "s384",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 6,
+        "P": 384,
+        "S": 384,
+        "tail": 64
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/disassembly_receipt.json",
+        "sha256": "63636249b1da8c57743d5c089e4425598adc79b1ab221791440ac82dd1232e27"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12861441128_tensorptrbf16gmemalign16o128384161i6412_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 16,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 67,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 29,
+            "branch_control": 218,
+            "constant_load": 36,
+            "control_noop": 57,
+            "conversion": 329,
+            "global_load": 26,
+            "global_store": 122,
+            "integer_address": 1945,
+            "memory_wait": 161,
+            "move_select": 1003,
+            "predicate_compare": 309,
+            "shared_load": 439,
+            "shared_store": 197,
+            "simt_fp": 924,
+            "special_function": 77,
+            "system_register": 12,
+            "tensor": 142,
+            "warp_collective": 378
+          },
+          "static_instruction_sites": 6424
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 21,
+            "constant_load": 19,
+            "control_noop": 20,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 170,
+            "memory_wait": 12,
+            "move_select": 80,
+            "predicate_compare": 21,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 536
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1283841612048128_tensorptrbf16gmemal_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 3,
+            "branch_control": 112,
+            "constant_load": 51,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 79,
+            "global_store": 16,
+            "integer_address": 307,
+            "memory_wait": 5,
+            "move_select": 98,
+            "predicate_compare": 82,
+            "shared_load": 176,
+            "shared_store": 21,
+            "simt_fp": 200,
+            "special_function": 47,
+            "system_register": 27,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1480
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            512,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12861441128_tensorptrbf16gmemalign16o128384161i6412_3",
+          "profiler_grid_cta_per_sm_ratio": 3.011765,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.5647058823529412,
+          "dynamic_shared_memory_bytes": 58624,
+          "grid": [
+            96,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 0.564706,
+          "registers_per_thread": 144
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 76
+        },
+        "s3": {
+          "block": [
+            512,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.5647058823529412,
+          "dynamic_shared_memory_bytes": 73984,
+          "grid": [
+            96,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1283841612048128_tensorptrbf16gmemal_2",
+          "profiler_grid_cta_per_sm_ratio": 0.564706,
+          "registers_per_thread": 126
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 28.819499537348747,
+        "cpu_dispatch_median_us": 22.966,
+        "end_to_end_median_us": 40.339,
+        "separate_cupti_stage_median_us": {
+          "post": 2.272,
+          "s01": 10.368,
+          "s2": 5.904,
+          "s3": 8.0
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/final.sass",
+        "sha256": "bf54dafbd510b4d455fd7a7046d46a6f157861a9a7808c14e37cfbccc8e55ee3"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/sass-summary.json",
+        "sha256": "e8a6b655157dc65871b0bcee7fb899e388aaeddc32c5f0ef2b93d29b7529a15b"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 46,
+        "branch_control": 381,
+        "constant_load": 115,
+        "control_noop": 141,
+        "conversion": 397,
+        "global_load": 121,
+        "global_store": 154,
+        "integer_address": 2489,
+        "memory_wait": 178,
+        "move_select": 1196,
+        "predicate_compare": 425,
+        "shared_load": 647,
+        "shared_store": 225,
+        "simt_fp": 1219,
+        "special_function": 140,
+        "system_register": 58,
+        "tensor": 334,
+        "warp_collective": 391
+      },
+      "static_instruction_sites": 8688
+    },
+    {
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/composite.cubin",
+        "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+      },
+      "case_id": "s404",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 7,
+        "P": 448,
+        "S": 404,
+        "tail": 20
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/disassembly_receipt.json",
+        "sha256": "3341f1e623bfb39c497e15f62afc965a6a6d681590cab72c4ce215a565999518"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12864641128_tensorptrbf16gmemalign16o128404161i6412_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 16,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 67,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 29,
+            "branch_control": 218,
+            "constant_load": 36,
+            "control_noop": 57,
+            "conversion": 329,
+            "global_load": 26,
+            "global_store": 122,
+            "integer_address": 1945,
+            "memory_wait": 161,
+            "move_select": 1003,
+            "predicate_compare": 309,
+            "shared_load": 439,
+            "shared_store": 197,
+            "simt_fp": 924,
+            "special_function": 77,
+            "system_register": 12,
+            "tensor": 142,
+            "warp_collective": 378
+          },
+          "static_instruction_sites": 6424
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 21,
+            "constant_load": 19,
+            "control_noop": 20,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 170,
+            "memory_wait": 12,
+            "move_select": 80,
+            "predicate_compare": 21,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 536
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1284041612048128_tensorptrbf16gmemal_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 3,
+            "branch_control": 112,
+            "constant_load": 51,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 79,
+            "global_store": 16,
+            "integer_address": 307,
+            "memory_wait": 5,
+            "move_select": 98,
+            "predicate_compare": 82,
+            "shared_load": 176,
+            "shared_store": 21,
+            "simt_fp": 200,
+            "special_function": 47,
+            "system_register": 27,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1480
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            539,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12864641128_tensorptrbf16gmemalign16o128404161i6412_3",
+          "profiler_grid_cta_per_sm_ratio": 3.170588,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.6588235294117647,
+          "dynamic_shared_memory_bytes": 58624,
+          "grid": [
+            112,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 0.658824,
+          "registers_per_thread": 144
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 76
+        },
+        "s3": {
+          "block": [
+            512,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.6588235294117647,
+          "dynamic_shared_memory_bytes": 73984,
+          "grid": [
+            112,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1284041612048128_tensorptrbf16gmemal_2",
+          "profiler_grid_cta_per_sm_ratio": 0.658824,
+          "registers_per_thread": 126
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 28.867000713944435,
+        "cpu_dispatch_median_us": 23.1205,
+        "end_to_end_median_us": 42.129,
+        "separate_cupti_stage_median_us": {
+          "post": 2.3045,
+          "s01": 10.6085,
+          "s2": 6.8645,
+          "s3": 8.064
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/final.sass",
+        "sha256": "12a5897891d5ecba3f08cddca5c736d91cca7197c7316137e6c7f4326fc1f1e9"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/sass-summary.json",
+        "sha256": "8eb9919259c13a7ab106048b8ac23192f061a1064e11b89af605b70f425a2c60"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 46,
+        "branch_control": 381,
+        "constant_load": 115,
+        "control_noop": 141,
+        "conversion": 397,
+        "global_load": 121,
+        "global_store": 154,
+        "integer_address": 2489,
+        "memory_wait": 178,
+        "move_select": 1196,
+        "predicate_compare": 425,
+        "shared_load": 647,
+        "shared_store": 225,
+        "simt_fp": 1219,
+        "special_function": 140,
+        "system_register": 58,
+        "tensor": 334,
+        "warp_collective": 391
+      },
+      "static_instruction_sites": 8688
+    },
+    {
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.cubin",
+        "sha256": "f8fa515b3dd11ca527f0aae38f959173e562abd13c9f51a8924efbd3fe2b7f2d"
+      },
+      "case_id": "s512",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 8,
+        "P": 512,
+        "S": 512,
+        "tail": 64
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/disassembly_receipt.json",
+        "sha256": "ae75a289c75fc9c4660f179ee45d51dce1fafa4a1d127d039e3fabef869b3fc2"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12881921128_tensorptrbf16gmemalign16o128512161i6412_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 15,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 68,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 29,
+            "branch_control": 218,
+            "constant_load": 36,
+            "control_noop": 57,
+            "conversion": 329,
+            "global_load": 26,
+            "global_store": 122,
+            "integer_address": 1945,
+            "memory_wait": 161,
+            "move_select": 1003,
+            "predicate_compare": 309,
+            "shared_load": 439,
+            "shared_store": 197,
+            "simt_fp": 924,
+            "special_function": 77,
+            "system_register": 12,
+            "tensor": 142,
+            "warp_collective": 378
+          },
+          "static_instruction_sites": 6424
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 21,
+            "constant_load": 19,
+            "control_noop": 20,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 170,
+            "memory_wait": 12,
+            "move_select": 80,
+            "predicate_compare": 21,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 536
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1285121612048128_tensorptrbf16gmemal_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 3,
+            "branch_control": 112,
+            "constant_load": 51,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 79,
+            "global_store": 16,
+            "integer_address": 307,
+            "memory_wait": 5,
+            "move_select": 98,
+            "predicate_compare": 82,
+            "shared_load": 176,
+            "shared_store": 21,
+            "simt_fp": 200,
+            "special_function": 47,
+            "system_register": 27,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1480
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            1024,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o12881921128_tensorptrbf16gmemalign16o128512161i6412_3",
+          "profiler_grid_cta_per_sm_ratio": 6.02353,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 58624,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 144
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 76
+        },
+        "s3": {
+          "block": [
+            512,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 73984,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1285121612048128_tensorptrbf16gmemal_2",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 126
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 30.955500900745392,
+        "cpu_dispatch_median_us": 23.228,
+        "end_to_end_median_us": 43.887,
+        "separate_cupti_stage_median_us": {
+          "post": 3.216,
+          "s01": 10.912,
+          "s2": 7.68,
+          "s3": 8.176
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/final.sass",
+        "sha256": "6ba4b70c28dd326f87a78150254aea5fcb29a0dcf8d5d7d26c92e445517d51bf"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/sass-summary.json",
+        "sha256": "d273de6e340ced8709c615e179093108f921973ff1deb3b8275dd4e7b8553d97"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 46,
+        "branch_control": 381,
+        "constant_load": 115,
+        "control_noop": 140,
+        "conversion": 397,
+        "global_load": 121,
+        "global_store": 154,
+        "integer_address": 2490,
+        "memory_wait": 178,
+        "move_select": 1196,
+        "predicate_compare": 425,
+        "shared_load": 647,
+        "shared_store": 225,
+        "simt_fp": 1219,
+        "special_function": 140,
+        "system_register": 58,
+        "tensor": 334,
+        "warp_collective": 391
+      },
+      "static_instruction_sites": 8688
+    },
+    {
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/composite.cubin",
+        "sha256": "f2d8d3eafb34d0dfa50540f19525a91ac717be2e3d474a17536468be7ae596f2"
+      },
+      "case_id": "s640",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 10,
+        "P": 640,
+        "S": 640,
+        "tail": 64
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/disassembly_receipt.json",
+        "sha256": "5f53d09dd98cd3a108cc6dda01620751c2a31a6415431d3cca190322b56107b7"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128102401128_tensorptrbf16gmemalign16o128640161i641_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 15,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 68,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 29,
+            "branch_control": 218,
+            "constant_load": 36,
+            "control_noop": 57,
+            "conversion": 329,
+            "global_load": 26,
+            "global_store": 122,
+            "integer_address": 1945,
+            "memory_wait": 161,
+            "move_select": 1003,
+            "predicate_compare": 309,
+            "shared_load": 439,
+            "shared_store": 197,
+            "simt_fp": 924,
+            "special_function": 77,
+            "system_register": 12,
+            "tensor": 142,
+            "warp_collective": 378
+          },
+          "static_instruction_sites": 6424
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 21,
+            "constant_load": 19,
+            "control_noop": 20,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 170,
+            "memory_wait": 12,
+            "move_select": 80,
+            "predicate_compare": 21,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 536
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1286401612048128_tensorptrbf16gmemal_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 3,
+            "branch_control": 112,
+            "constant_load": 51,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 79,
+            "global_store": 16,
+            "integer_address": 307,
+            "memory_wait": 5,
+            "move_select": 98,
+            "predicate_compare": 82,
+            "shared_load": 176,
+            "shared_store": 21,
+            "simt_fp": 200,
+            "special_function": 47,
+            "system_register": 27,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1480
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            1280,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128102401128_tensorptrbf16gmemalign16o128640161i641_3",
+          "profiler_grid_cta_per_sm_ratio": 7.529412,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            384,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.9411764705882353,
+          "dynamic_shared_memory_bytes": 58624,
+          "grid": [
+            160,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 0.941176,
+          "registers_per_thread": 144
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 76
+        },
+        "s3": {
+          "block": [
+            512,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.9411764705882353,
+          "dynamic_shared_memory_bytes": 73984,
+          "grid": [
+            160,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_short_raw_sm120S3PackedEpiW16RawKernelSm120_object_at__tensorptrbf16gmemalign16o1286401612048128_tensorptrbf16gmemal_2",
+          "profiler_grid_cta_per_sm_ratio": 0.941176,
+          "registers_per_thread": 126
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 34.93649885058403,
+        "cpu_dispatch_median_us": 18.844,
+        "end_to_end_median_us": 44.914,
+        "separate_cupti_stage_median_us": {
+          "post": 3.68,
+          "s01": 11.504,
+          "s2": 9.36,
+          "s3": 8.417
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/final.sass",
+        "sha256": "08dcc4ff3aa208a8b09d1f8ad2ad8b256236991cc845fd43b3f302d47396390e"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/sass-summary.json",
+        "sha256": "940392fd69086770dac1740c006a31ad4e6e91f38d5f1128aa8948135701e84b"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 46,
+        "branch_control": 381,
+        "constant_load": 115,
+        "control_noop": 140,
+        "conversion": 397,
+        "global_load": 121,
+        "global_store": 154,
+        "integer_address": 2490,
+        "memory_wait": 178,
+        "move_select": 1196,
+        "predicate_compare": 425,
+        "shared_load": 647,
+        "shared_store": 225,
+        "simt_fp": 1219,
+        "special_function": 140,
+        "system_register": 58,
+        "tensor": 334,
+        "warp_collective": 391
+      },
+      "static_instruction_sites": 8688
+    },
+    {
+      "binary_identity": {
+        "bytes": 230144,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/composite.cubin",
+        "sha256": "9fed358579e40c2a2384b1626e405c18d70e29145e4422229c578a123ddd4767"
+      },
+      "case_id": "s768",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 12,
+        "P": 768,
+        "S": 768,
+        "tail": 64
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/disassembly_receipt.json",
+        "sha256": "e73beef185bafac25f1925812c32d32c9f5e9d53f883841a2078b3a95f795354"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128122881128_tensorptrbf16gmemalign16o128768161i641_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 15,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 68,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 28,
+            "branch_control": 302,
+            "constant_load": 75,
+            "control_noop": 67,
+            "conversion": 413,
+            "global_load": 74,
+            "global_store": 258,
+            "integer_address": 1984,
+            "memory_wait": 130,
+            "move_select": 1079,
+            "predicate_compare": 334,
+            "shared_load": 427,
+            "shared_store": 149,
+            "simt_fp": 1070,
+            "special_function": 90,
+            "system_register": 8,
+            "tensor": 206,
+            "warp_collective": 398
+          },
+          "static_instruction_sites": 7112
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 21,
+            "constant_load": 19,
+            "control_noop": 20,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 170,
+            "memory_wait": 12,
+            "move_select": 80,
+            "predicate_compare": 21,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 536
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_long_raw_sm120S3PackedWorkspaceDecayRawKernelSm120_object_at__tensorptrbf16gmemalign16o1287681612048128_tensorptrbf1_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 5,
+            "branch_control": 123,
+            "constant_load": 63,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 91,
+            "global_store": 32,
+            "integer_address": 382,
+            "memory_wait": 2,
+            "move_select": 102,
+            "predicate_compare": 88,
+            "shared_load": 193,
+            "shared_store": 34,
+            "simt_fp": 154,
+            "special_function": 32,
+            "system_register": 19,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1576
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            1536,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128122881128_tensorptrbf16gmemalign16o128768161i641_3",
+          "profiler_grid_cta_per_sm_ratio": 9.035295,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            128,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 42368,
+          "grid": [
+            192,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 1.129412,
+          "registers_per_thread": 204
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 76
+        },
+        "s3": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 49408,
+          "grid": [
+            192,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_long_raw_sm120S3PackedWorkspaceDecayRawKernelSm120_object_at__tensorptrbf16gmemalign16o1287681612048128_tensorptrbf1_2",
+          "profiler_grid_cta_per_sm_ratio": 1.129412,
+          "registers_per_thread": 120
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 46.907998621463776,
+        "cpu_dispatch_median_us": 22.969,
+        "end_to_end_median_us": 58.546,
+        "separate_cupti_stage_median_us": {
+          "post": 3.8075,
+          "s01": 18.975,
+          "s2": 10.927,
+          "s3": 11.007
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/final.sass",
+        "sha256": "f4a3659e2374adddbe98092d0f022aa13f210ed881cec8d812bcc243753c6d05"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/sass-summary.json",
+        "sha256": "6bc7c3b78596ee9b2a25ff074d7bf768996d213739410fd9df6f5d5ccc31ad6c"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 47,
+        "branch_control": 476,
+        "constant_load": 166,
+        "control_noop": 150,
+        "conversion": 481,
+        "global_load": 181,
+        "global_store": 306,
+        "integer_address": 2604,
+        "memory_wait": 144,
+        "move_select": 1276,
+        "predicate_compare": 456,
+        "shared_load": 652,
+        "shared_store": 190,
+        "simt_fp": 1319,
+        "special_function": 138,
+        "system_register": 46,
+        "tensor": 398,
+        "warp_collective": 411
+      },
+      "static_instruction_sites": 9472
+    },
+    {
+      "binary_identity": {
+        "bytes": 229120,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/composite.cubin",
+        "sha256": "85cc24e0e53eb4145780b0de34f37d27ecfc6b813c729f3715a390f50c25dc0a"
+      },
+      "case_id": "s1024",
+      "dimensions": {
+        "B": 1,
+        "C": 64,
+        "D": 128,
+        "H": 16,
+        "J": 16,
+        "P": 1024,
+        "S": 1024,
+        "tail": 64
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/disassembly_receipt.json",
+        "sha256": "6987e7bae925fe60f65e09a5ba41efcc45d527dd71c9af0a44de96bbb7d02371"
+      },
+      "functions": [
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128163841128_tensorptrbf16gmemalign16o1281024161i64_3",
+          "stage_id": "post",
+          "static_class_counts": {
+            "branch_control": 30,
+            "constant_load": 9,
+            "control_noop": 15,
+            "conversion": 4,
+            "global_load": 12,
+            "global_store": 4,
+            "integer_address": 68,
+            "move_select": 15,
+            "predicate_compare": 13,
+            "simt_fp": 58,
+            "special_function": 13,
+            "system_register": 2,
+            "warp_collective": 5
+          },
+          "static_instruction_sites": 248
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "stage_id": "s01",
+          "static_class_counts": {
+            "async_copy": 20,
+            "barrier": 28,
+            "branch_control": 302,
+            "constant_load": 75,
+            "control_noop": 67,
+            "conversion": 413,
+            "global_load": 74,
+            "global_store": 258,
+            "integer_address": 1984,
+            "memory_wait": 130,
+            "move_select": 1079,
+            "predicate_compare": 334,
+            "shared_load": 427,
+            "shared_store": 149,
+            "simt_fp": 1070,
+            "special_function": 90,
+            "system_register": 8,
+            "tensor": 206,
+            "warp_collective": 398
+          },
+          "static_instruction_sites": 7112
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "stage_id": "s2",
+          "static_class_counts": {
+            "async_copy": 11,
+            "barrier": 14,
+            "branch_control": 20,
+            "constant_load": 14,
+            "control_noop": 15,
+            "conversion": 16,
+            "global_load": 4,
+            "global_store": 12,
+            "integer_address": 169,
+            "memory_wait": 12,
+            "move_select": 78,
+            "predicate_compare": 19,
+            "shared_load": 32,
+            "shared_store": 7,
+            "simt_fp": 37,
+            "special_function": 3,
+            "system_register": 17,
+            "tensor": 32,
+            "warp_collective": 8
+          },
+          "static_instruction_sites": 520
+        },
+        {
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_long_raw_sm120S3PackedWorkspaceDecayRawKernelSm120_object_at__tensorptrbf16gmemalign16o12810241612048128_tensorptrbf_2",
+          "stage_id": "s3",
+          "static_class_counts": {
+            "barrier": 5,
+            "branch_control": 123,
+            "constant_load": 63,
+            "control_noop": 48,
+            "conversion": 48,
+            "global_load": 91,
+            "global_store": 32,
+            "integer_address": 382,
+            "memory_wait": 2,
+            "move_select": 102,
+            "predicate_compare": 88,
+            "shared_load": 193,
+            "shared_store": 34,
+            "simt_fp": 154,
+            "special_function": 32,
+            "system_register": 19,
+            "tensor": 160
+          },
+          "static_instruction_sites": 1576
+        }
+      ],
+      "launches": {
+        "post": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 0,
+          "grid": [
+            2048,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_post_sm120S3GatedRMSKernelSm120_object_at__tensorptrbf16gmemalign16o128163841128_tensorptrbf16gmemalign16o1281024161i64_3",
+          "profiler_grid_cta_per_sm_ratio": 12.047059,
+          "registers_per_thread": 24
+        },
+        "s01": {
+          "block": [
+            128,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 42368,
+          "grid": [
+            256,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s01_sm120FLACuteS01KernelSm120_object_at__CopyAtom_ThrID10_TVLayoutSrc1409601_TVLayoutDst1409601_Valuetypebf16_tensor00_0",
+          "profiler_grid_cta_per_sm_ratio": 1.505882,
+          "registers_per_thread": 204
+        },
+        "s2": {
+          "block": [
+            160,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 0.7529411764705882,
+          "dynamic_shared_memory_bytes": 76672,
+          "grid": [
+            128,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s2_sm120Qwen35FlaS2StageSm120_object_at__Copy_Atom_ThrID_10_TV_Layout_Src_1819201_TV_Layout_Dst_1819201_Value_type_bf16_1",
+          "profiler_grid_cta_per_sm_ratio": 0.752941,
+          "registers_per_thread": 78
+        },
+        "s3": {
+          "block": [
+            256,
+            1,
+            1
+          ],
+          "coverage_semantics": "geometric upper bound from grid.x/170, not measured active-SM coverage and not resident blocks per SM",
+          "derived_maximum_one_wave_sm_coverage": 1.0,
+          "dynamic_shared_memory_bytes": 49408,
+          "grid": [
+            256,
+            1,
+            1
+          ],
+          "kernel_name": "kernel_cutlass_kernel_flashinfergdn_kernelsdelta_rule_dslqwen35_fla_s3_long_raw_sm120S3PackedWorkspaceDecayRawKernelSm120_object_at__tensorptrbf16gmemalign16o12810241612048128_tensorptrbf_2",
+          "profiler_grid_cta_per_sm_ratio": 1.505882,
+          "registers_per_thread": 120
+        }
+      },
+      "production_timing": {
+        "acceptance_graph_gpu_active_median_us": 51.346998661756516,
+        "cpu_dispatch_median_us": 18.7735,
+        "end_to_end_median_us": 61.852,
+        "separate_cupti_stage_median_us": {
+          "post": 4.528499999999999,
+          "s01": 19.265,
+          "s2": 14.2085,
+          "s3": 11.136
+        }
+      },
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/final.sass",
+        "sha256": "3ef910627cc790cd5bf221e81ef8ec27d1af44ac972b539572514be4fbccffc7"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/sass-summary.json",
+        "sha256": "a0d85c6a50c0d3fed9ed29f13fa0922dd50bf2903dad00466e49eb169b0d293a"
+      },
+      "static_class_counts": {
+        "async_copy": 31,
+        "barrier": 47,
+        "branch_control": 475,
+        "constant_load": 161,
+        "control_noop": 145,
+        "conversion": 481,
+        "global_load": 181,
+        "global_store": 306,
+        "integer_address": 2603,
+        "memory_wait": 144,
+        "move_select": 1274,
+        "predicate_compare": 454,
+        "shared_load": 652,
+        "shared_store": 190,
+        "simt_fp": 1319,
+        "special_function": 138,
+        "system_register": 46,
+        "tensor": 398,
+        "warp_collective": 411
+      },
+      "static_instruction_sites": 9456
+    }
+  ]
+}

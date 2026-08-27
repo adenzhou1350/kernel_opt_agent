@@ -1,0 +1,35 @@
+{
+  "candidate_disposition": "NONE",
+  "compiled_callable_invocations": 0,
+  "cuda_kernel_launches": 0,
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_03/experiment/experiment.json",
+    "sha256": "0c9a987f49fb0c45a4dc2fc56c2c88d143b31f33c72dd07503a92a3deab1a3d9"
+  },
+  "gpu_performance_samples": 0,
+  "lifecycle": "PASS_ONLY_INVALID",
+  "request_id": "req-n2-layout-view-static-v2",
+  "review_outcome": "PREAPPROVAL_VETO_NO_EXECUTION",
+  "reviewers": [
+    {
+      "role": "GLOBAL_SCHEDULER",
+      "verdict": "VETO",
+      "blocking_reason": "static request was incorrectly rebound to 98 dynamic resource rows and stale active model/request semantics"
+    },
+    {
+      "role": "MICROARCHITECTURE_ANALYST",
+      "verdict": "VETO",
+      "blocking_reason": "production guard AST did not match exact source and compile-time assertion semantics lacked frozen implementation plus PTX/SASS trap audit"
+    },
+    {
+      "role": "EXPERIMENT_AGENT",
+      "verdict": "VETO",
+      "blocking_reason": "CuTe/CUDA toolchain identities and exact immutable legacy negative-control AST identity were incomplete"
+    }
+  ],
+  "schema_version": "preapproval-review-receipt-v1",
+  "sealed_experiment_sha256": "0c9a987f49fb0c45a4dc2fc56c2c88d143b31f33c72dd07503a92a3deab1a3d9",
+  "status": "ARCHIVED_VETO",
+  "substantive_revision_consumed": false,
+  "scope": "preapproval evidence closure within the sole authorized revision"
+}

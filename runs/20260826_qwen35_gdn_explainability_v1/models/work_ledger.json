@@ -1,0 +1,815 @@
+{
+  "assumptions": [
+    "equal case weights because production frequency prior was not supplied"
+  ],
+  "cases": [
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s256",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 3145984,
+            "s01": 7372928,
+            "s2": 6307840,
+            "s3": 6307840
+          },
+          "current_schedule_total": 23134592,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 3145984,
+            "s01": 7372928,
+            "s2": 6307840,
+            "s3": 6307840
+          },
+          "legal_four_stage_minimum_total": 23134592,
+          "s3_post_fusion_eliminable_raw_o_store_read": 2097152
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 201326592,
+          "s01_valid_dense_flop": 101187584,
+          "s2_algorithm_exact_flop": 201326592,
+          "s2_current_schedule_flop": 268435456,
+          "s2_m16_feasible_flop": 201326592,
+          "s3_current_dense_schedule_flop": 268435456,
+          "s3_valid_dense_flop": 202375168,
+          "total_current_dense_schedule_flop": 738197504,
+          "total_schedule_minus_valid_dense_flop": 233308160,
+          "total_valid_dense_flop": 504889344
+        },
+        "padding_tokens": 0,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 201326592,
+          "current_schedule_flop": 268435456,
+          "m16_feasible_flop": 201326592
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 4096,
+          "post_gate_sigmoid": 524288,
+          "post_rms_rsqrt": 4096,
+          "qk_l2norm_rsqrt": 8192,
+          "total_evaluations": 540672
+        },
+        "dense_tensor_flop": 504889344,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 101187584,
+          "s2": 201326592,
+          "s3": 202375168
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 4,
+          "P": 256,
+          "S": 256,
+          "tail": 64
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 3145984,
+            "s01": 7372928,
+            "s2": 6307840,
+            "s3": 6307840
+          },
+          "current_schedule_total": 23134592,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 3145984,
+            "s01": 7372928,
+            "s2": 6307840,
+            "s3": 6307840
+          },
+          "legal_four_stage_minimum_total": 23134592,
+          "s3_post_fusion_eliminable_raw_o_store_read": 2097152
+        },
+        "reductions": {
+          "post_rms_rows": 4096,
+          "qk_l2norm_rows": 8192,
+          "row_width": 128
+        }
+      }
+    },
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s384",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 4718848,
+            "s01": 11059328,
+            "s2": 9461760,
+            "s3": 9461760
+          },
+          "current_schedule_total": 34701696,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 4718848,
+            "s01": 11059328,
+            "s2": 9461760,
+            "s3": 9461760
+          },
+          "legal_four_stage_minimum_total": 34701696,
+          "s3_post_fusion_eliminable_raw_o_store_read": 3145728
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 301989888,
+          "s01_valid_dense_flop": 151781376,
+          "s2_algorithm_exact_flop": 335544320,
+          "s2_current_schedule_flop": 402653184,
+          "s2_m16_feasible_flop": 335544320,
+          "s3_current_dense_schedule_flop": 402653184,
+          "s3_valid_dense_flop": 303562752,
+          "total_current_dense_schedule_flop": 1107296256,
+          "total_schedule_minus_valid_dense_flop": 316407808,
+          "total_valid_dense_flop": 790888448
+        },
+        "padding_tokens": 0,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 335544320,
+          "current_schedule_flop": 402653184,
+          "m16_feasible_flop": 335544320
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 6144,
+          "post_gate_sigmoid": 786432,
+          "post_rms_rsqrt": 6144,
+          "qk_l2norm_rsqrt": 12288,
+          "total_evaluations": 811008
+        },
+        "dense_tensor_flop": 790888448,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 151781376,
+          "s2": 335544320,
+          "s3": 303562752
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 6,
+          "P": 384,
+          "S": 384,
+          "tail": 64
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 4718848,
+            "s01": 11059328,
+            "s2": 9461760,
+            "s3": 9461760
+          },
+          "current_schedule_total": 34701696,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 4718848,
+            "s01": 11059328,
+            "s2": 9461760,
+            "s3": 9461760
+          },
+          "legal_four_stage_minimum_total": 34701696,
+          "s3_post_fusion_eliminable_raw_o_store_read": 3145728
+        },
+        "reductions": {
+          "post_rms_rows": 6144,
+          "qk_l2norm_rows": 12288,
+          "row_width": 128
+        }
+      }
+    },
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s404",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 1630464,
+          "current_schedule_by_stage": {
+            "post": 4964608,
+            "s01": 12178816,
+            "s2": 11038720,
+            "s3": 10678272
+          },
+          "current_schedule_total": 38860416,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 4964608,
+            "s01": 11635328,
+            "s2": 10315008,
+            "s3": 10315008
+          },
+          "legal_four_stage_minimum_total": 37229952,
+          "s3_post_fusion_eliminable_raw_o_store_read": 3309568
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 352321536,
+          "s01_valid_dense_flop": 154279936,
+          "s2_algorithm_exact_flop": 379584512,
+          "s2_current_schedule_flop": 469762048,
+          "s2_m16_feasible_flop": 385875968,
+          "s3_current_dense_schedule_flop": 469762048,
+          "s3_valid_dense_flop": 315768832,
+          "total_current_dense_schedule_flop": 1291845632,
+          "total_schedule_minus_valid_dense_flop": 442212352,
+          "total_valid_dense_flop": 849633280
+        },
+        "padding_tokens": 44,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 379584512,
+          "current_schedule_flop": 469762048,
+          "m16_feasible_flop": 385875968
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 6464,
+          "post_gate_sigmoid": 827392,
+          "post_rms_rsqrt": 6464,
+          "qk_l2norm_rsqrt": 12928,
+          "total_evaluations": 853248
+        },
+        "dense_tensor_flop": 849633280,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 154279936,
+          "s2": 379584512,
+          "s3": 315768832
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 7,
+          "P": 448,
+          "S": 404,
+          "tail": 20
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 1630464,
+          "current_schedule_by_stage": {
+            "post": 4964608,
+            "s01": 12178816,
+            "s2": 11038720,
+            "s3": 10678272
+          },
+          "current_schedule_total": 38860416,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 4964608,
+            "s01": 11635328,
+            "s2": 10315008,
+            "s3": 10315008
+          },
+          "legal_four_stage_minimum_total": 37229952,
+          "s3_post_fusion_eliminable_raw_o_store_read": 3309568
+        },
+        "reductions": {
+          "post_rms_rows": 6464,
+          "qk_l2norm_rows": 12928,
+          "row_width": 128
+        }
+      }
+    },
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s512",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 6291712,
+            "s01": 14745728,
+            "s2": 12615680,
+            "s3": 12615680
+          },
+          "current_schedule_total": 46268800,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 6291712,
+            "s01": 14745728,
+            "s2": 12615680,
+            "s3": 12615680
+          },
+          "legal_four_stage_minimum_total": 46268800,
+          "s3_post_fusion_eliminable_raw_o_store_read": 4194304
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 402653184,
+          "s01_valid_dense_flop": 202375168,
+          "s2_algorithm_exact_flop": 469762048,
+          "s2_current_schedule_flop": 536870912,
+          "s2_m16_feasible_flop": 469762048,
+          "s3_current_dense_schedule_flop": 536870912,
+          "s3_valid_dense_flop": 404750336,
+          "total_current_dense_schedule_flop": 1476395008,
+          "total_schedule_minus_valid_dense_flop": 399507456,
+          "total_valid_dense_flop": 1076887552
+        },
+        "padding_tokens": 0,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 469762048,
+          "current_schedule_flop": 536870912,
+          "m16_feasible_flop": 469762048
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 8192,
+          "post_gate_sigmoid": 1048576,
+          "post_rms_rsqrt": 8192,
+          "qk_l2norm_rsqrt": 16384,
+          "total_evaluations": 1081344
+        },
+        "dense_tensor_flop": 1076887552,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 202375168,
+          "s2": 469762048,
+          "s3": 404750336
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 8,
+          "P": 512,
+          "S": 512,
+          "tail": 64
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 6291712,
+            "s01": 14745728,
+            "s2": 12615680,
+            "s3": 12615680
+          },
+          "current_schedule_total": 46268800,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 6291712,
+            "s01": 14745728,
+            "s2": 12615680,
+            "s3": 12615680
+          },
+          "legal_four_stage_minimum_total": 46268800,
+          "s3_post_fusion_eliminable_raw_o_store_read": 4194304
+        },
+        "reductions": {
+          "post_rms_rows": 8192,
+          "qk_l2norm_rows": 16384,
+          "row_width": 128
+        }
+      }
+    },
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s640",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 7864576,
+            "s01": 18432128,
+            "s2": 15769600,
+            "s3": 15769600
+          },
+          "current_schedule_total": 57835904,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 7864576,
+            "s01": 18432128,
+            "s2": 15769600,
+            "s3": 15769600
+          },
+          "legal_four_stage_minimum_total": 57835904,
+          "s3_post_fusion_eliminable_raw_o_store_read": 5242880
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 503316480,
+          "s01_valid_dense_flop": 252968960,
+          "s2_algorithm_exact_flop": 603979776,
+          "s2_current_schedule_flop": 671088640,
+          "s2_m16_feasible_flop": 603979776,
+          "s3_current_dense_schedule_flop": 671088640,
+          "s3_valid_dense_flop": 505937920,
+          "total_current_dense_schedule_flop": 1845493760,
+          "total_schedule_minus_valid_dense_flop": 482607104,
+          "total_valid_dense_flop": 1362886656
+        },
+        "padding_tokens": 0,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 603979776,
+          "current_schedule_flop": 671088640,
+          "m16_feasible_flop": 603979776
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 10240,
+          "post_gate_sigmoid": 1310720,
+          "post_rms_rsqrt": 10240,
+          "qk_l2norm_rsqrt": 20480,
+          "total_evaluations": 1351680
+        },
+        "dense_tensor_flop": 1362886656,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 252968960,
+          "s2": 603979776,
+          "s3": 505937920
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 10,
+          "P": 640,
+          "S": 640,
+          "tail": 64
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 7864576,
+            "s01": 18432128,
+            "s2": 15769600,
+            "s3": 15769600
+          },
+          "current_schedule_total": 57835904,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 7864576,
+            "s01": 18432128,
+            "s2": 15769600,
+            "s3": 15769600
+          },
+          "legal_four_stage_minimum_total": 57835904,
+          "s3_post_fusion_eliminable_raw_o_store_read": 5242880
+        },
+        "reductions": {
+          "post_rms_rows": 10240,
+          "qk_l2norm_rows": 20480,
+          "row_width": 128
+        }
+      }
+    },
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s768",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 9437440,
+            "s01": 22118528,
+            "s2": 18923520,
+            "s3": 18923520
+          },
+          "current_schedule_total": 69403008,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 9437440,
+            "s01": 22118528,
+            "s2": 18923520,
+            "s3": 18923520
+          },
+          "legal_four_stage_minimum_total": 69403008,
+          "s3_post_fusion_eliminable_raw_o_store_read": 6291456
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 603979776,
+          "s01_valid_dense_flop": 303562752,
+          "s2_algorithm_exact_flop": 738197504,
+          "s2_current_schedule_flop": 805306368,
+          "s2_m16_feasible_flop": 738197504,
+          "s3_current_dense_schedule_flop": 805306368,
+          "s3_valid_dense_flop": 607125504,
+          "total_current_dense_schedule_flop": 2214592512,
+          "total_schedule_minus_valid_dense_flop": 565706752,
+          "total_valid_dense_flop": 1648885760
+        },
+        "padding_tokens": 0,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 738197504,
+          "current_schedule_flop": 805306368,
+          "m16_feasible_flop": 738197504
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 12288,
+          "post_gate_sigmoid": 1572864,
+          "post_rms_rsqrt": 12288,
+          "qk_l2norm_rsqrt": 24576,
+          "total_evaluations": 1622016
+        },
+        "dense_tensor_flop": 1648885760,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 303562752,
+          "s2": 738197504,
+          "s3": 607125504
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 12,
+          "P": 768,
+          "S": 768,
+          "tail": 64
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 9437440,
+            "s01": 22118528,
+            "s2": 18923520,
+            "s3": 18923520
+          },
+          "current_schedule_total": 69403008,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 9437440,
+            "s01": 22118528,
+            "s2": 18923520,
+            "s3": 18923520
+          },
+          "legal_four_stage_minimum_total": 69403008,
+          "s3_post_fusion_eliminable_raw_o_store_read": 6291456
+        },
+        "reductions": {
+          "post_rms_rows": 12288,
+          "qk_l2norm_rows": 24576,
+          "row_width": 128
+        }
+      }
+    },
+    {
+      "assumptions": [
+        "BF16=2 bytes, FP32=4 bytes, FMA=2 FLOP",
+        "logical bytes count useful tensor boundary requests, not cache-line transactions or DRAM traffic",
+        "initial_state=None and output_final_state=False"
+      ],
+      "case_id": "s1024",
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+          "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+          "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+        },
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json",
+          "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+        }
+      ],
+      "padded_or_redundant_work": {
+        "current_logical_schedule": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 12583168,
+            "s01": 29491328,
+            "s2": 25231360,
+            "s3": 25231360
+          },
+          "current_schedule_total": 92537216,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 12583168,
+            "s01": 29491328,
+            "s2": 25231360,
+            "s3": 25231360
+          },
+          "legal_four_stage_minimum_total": 92537216,
+          "s3_post_fusion_eliminable_raw_o_store_read": 8388608
+        },
+        "dense_tensor_schedule": {
+          "s01_current_dense_schedule_flop": 805306368,
+          "s01_valid_dense_flop": 404750336,
+          "s2_algorithm_exact_flop": 1006632960,
+          "s2_current_schedule_flop": 1073741824,
+          "s2_m16_feasible_flop": 1006632960,
+          "s3_current_dense_schedule_flop": 1073741824,
+          "s3_valid_dense_flop": 809500672,
+          "total_current_dense_schedule_flop": 2952790016,
+          "total_schedule_minus_valid_dense_flop": 731906048,
+          "total_valid_dense_flop": 2220883968
+        },
+        "padding_tokens": 0,
+        "s2_tail_rounding": {
+          "algorithm_exact_flop": 1006632960,
+          "current_schedule_flop": 1073741824,
+          "m16_feasible_flop": 1006632960
+        }
+      },
+      "valid_work": {
+        "algorithmic_special_functions": {
+          "decay_exponential": 16384,
+          "post_gate_sigmoid": 2097152,
+          "post_rms_rsqrt": 16384,
+          "qk_l2norm_rsqrt": 32768,
+          "total_evaluations": 2162688
+        },
+        "dense_tensor_flop": 2220883968,
+        "dense_tensor_flop_by_stage": {
+          "post": 0,
+          "s01": 404750336,
+          "s2": 1006632960,
+          "s3": 809500672
+        },
+        "dimensions": {
+          "B": 1,
+          "C": 64,
+          "D": 128,
+          "H": 16,
+          "J": 16,
+          "P": 1024,
+          "S": 1024,
+          "tail": 64
+        },
+        "logical_four_stage_minimum_bytes": {
+          "current_minus_minimum": 0,
+          "current_schedule_by_stage": {
+            "post": 12583168,
+            "s01": 29491328,
+            "s2": 25231360,
+            "s3": 25231360
+          },
+          "current_schedule_total": 92537216,
+          "legal_four_stage_minimum_by_stage": {
+            "post": 12583168,
+            "s01": 29491328,
+            "s2": 25231360,
+            "s3": 25231360
+          },
+          "legal_four_stage_minimum_total": 92537216,
+          "s3_post_fusion_eliminable_raw_o_store_read": 8388608
+        },
+        "reductions": {
+          "post_rms_rows": 16384,
+          "qk_l2norm_rows": 32768,
+          "row_width": 128
+        }
+      }
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/modeling_derivation.md",
+      "sha256": "00ad443356ac8dd2f19dbfa20e2a0c34b6f820da572a1e70354d5aebbdc7075d"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/case_binary_resource_coverage.json",
+      "sha256": "aa68aba3d73bd5f54cdee1e13d498c93dfe51ae6b774744e62e828041c1a307e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/models/baseline.json",
+      "sha256": "f0f21ad5cc118f31d9bd1a631e1f0aa16815fbb1baaef485bd968ed16434c1fd"
+    }
+  ],
+  "padded_or_redundant_work": {
+    "scope": "per-case records are authoritative"
+  },
+  "schema_version": "mandatory-work-ledger-v1",
+  "valid_work": {
+    "bytes_by_boundary": {
+      "status": "DERIVED_LOGICAL_NOT_PHYSICAL"
+    },
+    "handoffs": [
+      "s01_to_s2",
+      "s01_to_s3",
+      "s2_to_s3",
+      "s3_raw_to_post"
+    ],
+    "reductions": {
+      "row_width": 128
+    },
+    "scope": "per-case records are authoritative",
+    "sfu_operations": {
+      "status": "ALGORITHMIC_EVALUATIONS_ONLY"
+    },
+    "simt_operations": {
+      "status": "DYNAMIC_COUNT_UNKNOWN"
+    },
+    "synchronization_sites": 0,
+    "tensor_operations": {
+      "fma_convention": 2,
+      "unit": "FLOP"
+    }
+  },
+  "workload_case": "production-prior-seven-prefill-shapes"
+}

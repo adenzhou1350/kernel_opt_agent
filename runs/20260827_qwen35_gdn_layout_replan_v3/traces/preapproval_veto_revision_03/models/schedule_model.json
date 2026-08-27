@@ -1,0 +1,367 @@
+{
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/baseline_s404_composite.cubin",
+    "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+  },
+  "coupled_resource_models": [
+    {
+      "request_id": "req-n2-static-layout-admissibility",
+      "resources": [
+        "cta_allocation",
+        "instruction_front_end",
+        "integer_address_pipe",
+        "l1_shared_boundary",
+        "load_store_request",
+        "predicate_compute",
+        "predicate_storage",
+        "register_storage",
+        "shared_bank_service",
+        "shared_memory",
+        "synchronization",
+        "tensor_compute",
+        "tensor_issue",
+        "warp_issue"
+      ]
+    }
+  ],
+  "dependency_graph": [
+    {
+      "from": "O1_accumulator",
+      "status": "STATIC_VIEW_GATE",
+      "to": "scoreV_accumulator"
+    }
+  ],
+  "dynamic_instruction_method": {
+    "reason": "N2 is not admitted; static site counts cannot be treated as dynamic work",
+    "status": "DEFERRED"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/baseline_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/final.sass",
+      "sha256": "12a5897891d5ecba3f08cddca5c736d91cca7197c7316137e6c7f4326fc1f1e9"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_discovery.json",
+      "sha256": "b4e90f3c23bd63039eafcecb4e82c79e3741f0d88e7f8f632873d3700b1957ed"
+    }
+  ],
+  "resource_mapping": [
+    {
+      "resource_id": "async_copy_engine",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "constant_memory_path",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "conversion_pipe",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "cta_allocation",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "device_memory_boundary",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "instruction_front_end",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "integer_address_pipe",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "kernel_dispatch",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "l1_shared_boundary",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "l2_boundary",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "load_store_request",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "predicate_compute",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "predicate_storage",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "register_storage",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "scoreboard_wait",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "shared_bank_service",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "shared_memory",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "simt_compute",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "special_function",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "synchronization",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "system_register_path",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "tensor_compute",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "tensor_issue",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "warp_collective",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    },
+    {
+      "resource_id": "warp_issue",
+      "status": "DISCOVERED_FROM_FINAL_BINARY"
+    }
+  ],
+  "sass_control_flow": [
+    {
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/final.sass",
+        "sha256": "12a5897891d5ecba3f08cddca5c736d91cca7197c7316137e6c7f4326fc1f1e9"
+      },
+      "scope": "N0 exact baseline",
+      "status": "STATIC_CLASSIFIED"
+    }
+  ],
+  "schema_version": "resource-schedule-model-v1",
+  "status": "INITIALIZED",
+  "unknown_scheduler_or_cache_behavior": [
+    "deferred because it cannot alter the compiler/type-level N2 gate"
+  ],
+  "workload_cases": [
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s256",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 26.667999103665352,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    },
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s384",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 28.819499537348747,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    },
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s404",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 28.867000713944435,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    },
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s512",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 30.955500900745392,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    },
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s640",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 34.93649885058403,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    },
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s768",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 46.907998621463776,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    },
+    {
+      "bounds": {
+        "dependency": {
+          "status": "STATIC_GATE_PENDING"
+        },
+        "feasible_schedule": {
+          "status": "N0_MEASURED_N1_N2_UNRANKED"
+        },
+        "resource_service": {
+          "status": "UNKNOWN"
+        },
+        "silicon_lower": {
+          "status": "UNKNOWN"
+        }
+      },
+      "case_id": "s1024",
+      "dynamic_instruction_work": {
+        "status": "UNKNOWN"
+      },
+      "predicted_production_us": {
+        "n0_median": 51.346998661756516,
+        "n1": null,
+        "n2": null
+      },
+      "uncertainty": {
+        "single_quantity": "N2 zero-copy layout admissibility"
+      }
+    }
+  ]
+}

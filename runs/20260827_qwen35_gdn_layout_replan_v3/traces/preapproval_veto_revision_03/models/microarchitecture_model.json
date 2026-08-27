@@ -1,0 +1,1246 @@
+{
+  "allocation_constraints": [
+    {
+      "evidence": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/hardware_evidence.json",
+        "sha256": "853150bc007ae783694ba3e12822a256603e319db04048f3c86f06e92d49037e"
+      },
+      "resource": "cta_allocation",
+      "sm_count": 170
+    }
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/hardware.json",
+      "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/hardware_evidence.json",
+      "sha256": "853150bc007ae783694ba3e12822a256603e319db04048f3c86f06e92d49037e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_discovery.json",
+      "sha256": "b4e90f3c23bd63039eafcecb4e82c79e3741f0d88e7f8f632873d3700b1957ed"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/baseline_s404_composite.cubin",
+      "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/static/final.sass",
+      "sha256": "12a5897891d5ecba3f08cddca5c736d91cca7197c7316137e6c7f4326fc1f1e9"
+    }
+  ],
+  "latency_constraints": [
+    {
+      "reason": "not needed to resolve the exact static layout predicate",
+      "status": "UNKNOWN"
+    }
+  ],
+  "overlap_constraints": [
+    {
+      "scope": "four-kernel topology",
+      "status": "UNCHANGED_BY_STATIC_GATE"
+    }
+  ],
+  "resource_edges": [
+    {
+      "from": "register_storage",
+      "status": "N2_STATIC_LAYOUT_UNRESOLVED",
+      "to": "tensor_compute"
+    },
+    {
+      "from": "shared_memory",
+      "status": "FORBIDDEN_N2_FALLBACK",
+      "to": "tensor_compute"
+    }
+  ],
+  "resource_nodes": [
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "async_copy_engine",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "5.1.3 Constant State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "constant_memory_path",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "constant_load",
+          "static_sites": 115
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Data Movement and Conversion Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "conversion_pipe",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "conversion",
+          "static_sites": 397
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        }
+      ],
+      "resource_id": "cta_allocation",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "launched_binary",
+          "static_sites": 1
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "device_memory_boundary",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.11 Control Flow Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.16 no operation",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "instruction_front_end",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "branch_control",
+          "static_sites": 381
+        },
+        {
+          "instruction_class": "control_noop",
+          "static_sites": 141
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.1 Integer Arithmetic Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "integer_address_pipe",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "integer_address",
+          "static_sites": 2489
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        }
+      ],
+      "resource_id": "kernel_dispatch",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "launched_binary",
+          "static_sites": 1
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "l1_shared_boundary",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "l2_boundary",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "5.1.3 Constant State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.10 store",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "load_store_request",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "constant_load",
+          "static_sites": 115
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "global_store",
+          "static_sites": 154
+        },
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "shared_store",
+          "static_sites": 225
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "predicate_compute",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "predicate_storage",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "5.1.3 Constant State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Data Movement and Conversion Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.2 Memory Hierarchy and 9.7.9 load",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.1 Integer Arithmetic Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "10 Special Registers",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Warp-level data movement and vote",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "register_storage",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "constant_load",
+          "static_sites": 115
+        },
+        {
+          "instruction_class": "conversion",
+          "static_sites": 397
+        },
+        {
+          "instruction_class": "global_load",
+          "static_sites": 121
+        },
+        {
+          "instruction_class": "integer_address",
+          "static_sites": 2489
+        },
+        {
+          "instruction_class": "move_select",
+          "static_sites": 1196
+        },
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        },
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "simt_fp",
+          "static_sites": 1219
+        },
+        {
+          "instruction_class": "special_function",
+          "static_sites": 140
+        },
+        {
+          "instruction_class": "system_register",
+          "static_sites": 58
+        },
+        {
+          "instruction_class": "tensor",
+          "static_sites": 334
+        },
+        {
+          "instruction_class": "warp_collective",
+          "static_sites": 391
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.13.15 mbarrier.try_wait",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "scoreboard_wait",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "memory_wait",
+          "static_sites": 178
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "shared_bank_service",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "shared_store",
+          "static_sites": 225
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "shared_memory",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "async_copy",
+          "static_sites": 31
+        },
+        {
+          "instruction_class": "shared_load",
+          "static_sites": 647
+        },
+        {
+          "instruction_class": "shared_store",
+          "static_sites": 225
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "simt_compute",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "simt_fp",
+          "static_sites": 1219
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "special_function",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "special_function",
+          "static_sites": 140
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.12 Parallel Synchronization",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.13.15 mbarrier.try_wait",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "synchronization",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "barrier",
+          "static_sites": 46
+        },
+        {
+          "instruction_class": "memory_wait",
+          "static_sites": 178
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "10 Special Registers",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "system_register_path",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "system_register",
+          "static_sites": 58
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "tensor_compute",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "tensor",
+          "static_sites": 334
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "1.4.1.1 Occupancy",
+          "role": "architecture_tuning",
+          "source_id": "blackwell-tuning-guide-13.0-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html"
+        },
+        {
+          "locator": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "tensor_issue",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "tensor",
+          "static_sites": 334
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Warp-level data movement and vote",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "warp_collective",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "warp_collective",
+          "static_sites": 391
+        }
+      ]
+    },
+    {
+      "documented_performance_parameters": [],
+      "empirical_service_parameters": [],
+      "official_evidence": [
+        {
+          "locator": "1.3.1 Compute Capability and Streaming Multiprocessor Versions",
+          "role": "programming_model",
+          "source_id": "cuda-programming-guide-13.2.1-cc120",
+          "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html"
+        },
+        {
+          "locator": "1.3 PTX ISA Version 8.7",
+          "role": "instruction_set",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.12 Parallel Synchronization",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.11 Control Flow Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.16 no operation",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Data Movement and Conversion Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.1 Integer Arithmetic Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.13.15 mbarrier.try_wait",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.6 Comparison and Selection Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "10 Special Registers",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        },
+        {
+          "locator": "9.7.8 Warp-level data movement and vote",
+          "role": "instruction_resource_mapping",
+          "source_id": "ptx-isa-8.7-sm120",
+          "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html"
+        }
+      ],
+      "resource_id": "warp_issue",
+      "status": "DETECTED",
+      "triggers": [
+        {
+          "instruction_class": "barrier",
+          "static_sites": 46
+        },
+        {
+          "instruction_class": "branch_control",
+          "static_sites": 381
+        },
+        {
+          "instruction_class": "control_noop",
+          "static_sites": 141
+        },
+        {
+          "instruction_class": "conversion",
+          "static_sites": 397
+        },
+        {
+          "instruction_class": "integer_address",
+          "static_sites": 2489
+        },
+        {
+          "instruction_class": "memory_wait",
+          "static_sites": 178
+        },
+        {
+          "instruction_class": "move_select",
+          "static_sites": 1196
+        },
+        {
+          "instruction_class": "predicate_compare",
+          "static_sites": 425
+        },
+        {
+          "instruction_class": "simt_fp",
+          "static_sites": 1219
+        },
+        {
+          "instruction_class": "special_function",
+          "static_sites": 140
+        },
+        {
+          "instruction_class": "system_register",
+          "static_sites": 58
+        },
+        {
+          "instruction_class": "warp_collective",
+          "static_sites": 391
+        }
+      ]
+    }
+  ],
+  "schema_version": "microarchitecture-model-v1",
+  "scope": "resources observed in the exact production S404 composite cubin plus official target resources",
+  "service_curves": [
+    {
+      "reason": "defer service calibration until the final Top2 has one ranking-sensitive resource",
+      "status": "UNKNOWN"
+    }
+  ],
+  "status": "INITIALIZED",
+  "target_identity": {
+    "architecture": "sm_120",
+    "compute_capability": "12.0",
+    "device": "NVIDIA GeForce RTX 5090",
+    "device_index": 6,
+    "sm_count": 170,
+    "vendor": "NVIDIA"
+  },
+  "unknowns": [
+    {
+      "decision_relevance": "N2 admission",
+      "quantity_id": "exact_o1_n16_fragment_view",
+      "request_id": "req-n2-static-layout-admissibility"
+    }
+  ],
+  "workload_mappings": [
+    {
+      "case_id": "s256",
+      "logical_bytes_unchanged": 23134592,
+      "n0_flop": 738197504,
+      "n1_removed_flop": 25165824,
+      "n2_removed_flop_if_admitted": 50331648,
+      "sequence": 256
+    },
+    {
+      "case_id": "s384",
+      "logical_bytes_unchanged": 34701696,
+      "n0_flop": 1107296256,
+      "n1_removed_flop": 37748736,
+      "n2_removed_flop_if_admitted": 75497472,
+      "sequence": 384
+    },
+    {
+      "case_id": "s404",
+      "logical_bytes_unchanged": 38860416,
+      "n0_flop": 1291845632,
+      "n1_removed_flop": 51380224,
+      "n2_removed_flop_if_admitted": 102760448,
+      "sequence": 404
+    },
+    {
+      "case_id": "s512",
+      "logical_bytes_unchanged": 46268800,
+      "n0_flop": 1476395008,
+      "n1_removed_flop": 50331648,
+      "n2_removed_flop_if_admitted": 100663296,
+      "sequence": 512
+    },
+    {
+      "case_id": "s640",
+      "logical_bytes_unchanged": 57835904,
+      "n0_flop": 1845493760,
+      "n1_removed_flop": 62914560,
+      "n2_removed_flop_if_admitted": 125829120,
+      "sequence": 640
+    },
+    {
+      "case_id": "s768",
+      "logical_bytes_unchanged": 69403008,
+      "n0_flop": 2214592512,
+      "n1_removed_flop": 75497472,
+      "n2_removed_flop_if_admitted": 150994944,
+      "sequence": 768
+    },
+    {
+      "case_id": "s1024",
+      "logical_bytes_unchanged": 92537216,
+      "n0_flop": 2952790016,
+      "n1_removed_flop": 100663296,
+      "n2_removed_flop_if_admitted": 201326592,
+      "sequence": 1024
+    }
+  ]
+}

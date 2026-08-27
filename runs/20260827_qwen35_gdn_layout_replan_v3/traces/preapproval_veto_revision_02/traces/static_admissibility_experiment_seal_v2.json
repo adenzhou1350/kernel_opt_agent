@@ -1,0 +1,89 @@
+{
+  "compiled_callable_invocations_authorized": 0,
+  "contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+    "sha256": "50f520b372c59a9b5fbbb5744072fe9efa19b41bb69a9ddab77977bd4149f207"
+  },
+  "cuda_kernel_launches_authorized": 0,
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+    "sha256": "60e9e254f5d2a97ada618bc4718f56479101d5970cfbb0667e030705173fa380"
+  },
+  "gpu_performance_samples_authorized": 0,
+  "process_launches": 6,
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "0d9b0cf5ae57e263a6f6c941e929fd6b32d162e2196e349ab0b168e8708716b0"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "schema_version": "static-admissibility-experiment-seal-v2",
+  "sealed_at": "2026-08-27T08:22:09.287078+00:00",
+  "source_audit": {
+    "compile_sites": [
+      [
+        "clean_build.py",
+        44
+      ]
+    ],
+    "compiled_launch_sites": [
+      [
+        "layout_proof.py",
+        277
+      ],
+      [
+        "layout_proof.py",
+        293
+      ]
+    ],
+    "forbidden_dynamic_or_timing_calls": [],
+    "status": "PASS",
+    "subprocess_sites": [
+      [
+        "static_audit.py",
+        54
+      ]
+    ]
+  },
+  "source_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+      "sha256": "c9f6f2b09b40ac8782ed05517fe7a019437860955dd3c898a1ef13aafc0d1d5f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+      "sha256": "f290bf6c35dbe1cea83d20233c6431d42aad9e2a42fb7bf1bf94f67417dc98f9"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/common.py",
+      "sha256": "e3c957dc404a2e2019840593d9e21af6ffbc5229ff7db46990d055bfe1835950"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+      "sha256": "b2c051158bfc3a17777b94c45e0e804699b6c9c01469edf1a469fe1622f1a6f2"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+      "sha256": "dc3ae22e0d85a9af32e96691155a5e7fffd04a21bc3fdd38fa9d6ab1a65d7117"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+      "sha256": "1d95606894b54c52d749efa08df614c677142b0a14e74689573b42e51b11ee11"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+      "sha256": "e05e10a67718e3105e8f5170c827c00cb4b9850a38806ec2704867fe41caa271"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+      "sha256": "3862fc82400a07a50e6481c7566d621cf01984c2316aa3016eea34135a43fb3f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+      "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+      "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+    }
+  ]
+}

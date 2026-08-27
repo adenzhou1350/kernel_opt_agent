@@ -1,0 +1,11 @@
+{
+  "schema_version": "experiment-validity-review-v1",
+  "status": "TECHNICAL_FAILURE",
+  "request_id": "req-register-collective",
+  "attempt": 1,
+  "performance_samples_exist": false,
+  "failed_gate": "function-scoped ptxas resource identity",
+  "cause": "The audit substring ILi<N>EE matched both register_probe<N> and register_allocation_probe<N>, so the observed REG set contained an unrelated legacy function.",
+  "scientific_disposition": "No mechanism or production claim is permitted from this attempt; execution stopped before correctness, warmup, and measure.",
+  "repair": "Match the full register_allocation_probeILi<N>EE function marker and preserve exact REG/LOCAL/STACK equality checks."
+}

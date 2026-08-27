@@ -1,0 +1,129 @@
+{
+  "candidate_rejection_authorized": false,
+  "compiled_callable_invocations_authorized": 0,
+  "contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_contracts/n2_zero_copy_layout_v1.json",
+    "sha256": "4a1ac12ba20c24a25df23272eb3d355f38b98b5daa3d9785e17a3f093af3c8e6"
+  },
+  "cuda_kernel_launches_authorized": 0,
+  "experiment_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/experiment.json",
+    "sha256": "98d882c42bf6939cd57c1458c300ab1782f0392854e55053c804dc3ad69c85f1"
+  },
+  "gpu_performance_samples_authorized": 0,
+  "lifecycle": "PASS_ONLY_INVALID",
+  "process_launches": 6,
+  "queue_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+    "sha256": "5cc28f4d3a119fd269f8100549e8d16fffd9949be92a438b0726cf74deda1d73"
+  },
+  "request_id": "req-n2-layout-view-static-v2",
+  "revision": 2,
+  "schema_version": "static-admissibility-experiment-seal-v3",
+  "sealed_at": "2026-08-27T09:49:15.147547+00:00",
+  "source_audit": {
+    "compile_sites": [
+      [
+        "clean_build.py",
+        66
+      ]
+    ],
+    "compiled_launch_sites": [
+      [
+        "layout_proof.py",
+        502
+      ]
+    ],
+    "forbidden_dynamic_or_timing_calls": [],
+    "lifecycle": "PASS_ONLY_INVALID",
+    "status": "PASS",
+    "subprocess_sites": [
+      [
+        "static_audit.py",
+        182
+      ]
+    ]
+  },
+  "source_identities": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/analyze.py",
+      "sha256": "cd16a948ca3719f87b014aee487ae1050d5cfad0c7239b2ae0b8585a3fe4e9f5"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/clean_build.py",
+      "sha256": "d658ec117c2dd8132a24601e8c8816702d49f4e24e2b97ecbe9ce0773c0c8b1d"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/common.py",
+      "sha256": "ea3447ad25ad6467234648a36f9a9b903a63c35d8cc513d526d322394afb2d24"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/correctness.py",
+      "sha256": "af86a8d1d704f81c07a9656d0e8861cc1c2bc7deff47ef8808a99b9b2bbf50df"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+      "sha256": "3827e0b9b0d12fbc847a41c7b0d025ae1f148548e32a11ff35de7609b20864b7"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/measure.py",
+      "sha256": "73f8d0d45b9d5d94fc672f78744d54c80f3559980491dc9c92260f4c54cc26b6"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/static_audit.py",
+      "sha256": "e531de3fd040ed9080c4f7593847a4fb24f065e1d7aefffb5ce97efcf5c2a529"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/warmup.py",
+      "sha256": "3862fc82400a07a50e6481c7566d621cf01984c2316aa3016eea34135a43fb3f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+      "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+      "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/atom.py",
+      "sha256": "41a61c0dcc44eb1f852db9e6cf1a42d6098f66e42c7059015d1d04879d3de848"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/core.py",
+      "sha256": "035c764686c4e5a94c1f2432b55ba2e6cc572a27db4d857278ccd785a6f7f6f3"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/tensor.py",
+      "sha256": "c0707b064be449f726ffb895a6a745ffa9ea7cc814da3b97f86ce8c1597b6a27"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/nvgpu/warp/mma.py",
+      "sha256": "afd7a67d9ecc87494929f1099d2e2da42371034ca55a8db5a7052e25c0d7c773"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_preprocessor.py",
+      "sha256": "97c9acb67af2bf2fb01d73c39556e906954ede8251a42b73315d0330d3c554c8"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/base_dsl/ast_helpers.py",
+      "sha256": "5b357a0084b72b6c9cc6391921e8a5d08e743652f2b60d649a88bf50957abcfc"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/_mlir/_mlir_libs/_cutlass_ir.cu13.cpython-312-x86_64-linux-gnu.so",
+      "sha256": "e20f9ddef63b8e4257fc26d87b80d15f81cb62104d84e7a6a7d079d913559a75"
+    },
+    {
+      "path": "/usr/local/cuda/bin/ptxas",
+      "sha256": "7fdd01a4cf50e30746da98989c9272a907f491e6fd7fecfda14642e4375f88fb"
+    },
+    {
+      "path": "/usr/local/cuda/bin/cuobjdump",
+      "sha256": "8690c347b8b4ce8ce0491a2fd10de9c99e02ec3600d1c7e101cf27719500a6ad"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/legacy_attempt2_short_source.py",
+      "sha256": "089272013fc3e1f009d371b639ac50e72805b6a47136ccb5879fff3330f716f6"
+    }
+  ]
+}

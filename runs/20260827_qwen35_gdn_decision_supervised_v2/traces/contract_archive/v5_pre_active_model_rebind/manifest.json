@@ -1,0 +1,16 @@
+{
+  "archived_at": "2026-08-27T06:33:18.024211+00:00",
+  "artifacts": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v5_pre_active_model_rebind/microarchitecture_model.json",
+      "sha256": "cc18cff378131c00e421fd4a8b70c60b4de8868949ebf9859cc03071c9a11925"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v5_pre_active_model_rebind/microbenchmark_plan.json",
+      "sha256": "0dd8d1d50bb5d18a76ea04b0fd496cc473c13021e3a464951cd56439928bcae3"
+    }
+  ],
+  "reason": "Active model still exposed deferred seven-shape and graph/direct qualification questions.",
+  "schema_version": "active-model-archive-receipt-v1",
+  "status": "PASS"
+}

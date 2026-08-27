@@ -1,0 +1,286 @@
+{
+  "artifacts": {
+    "raw_samples": "experiments/req-compute-service/raw/samples.json",
+    "reproduction_log": "experiments/req-compute-service/reproduction.json",
+    "result": "experiments/req-compute-service/result.json",
+    "static_audit": "experiments/req-compute-service/static/instruction_audit.json"
+  },
+  "commands": {
+    "analyze": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-compute-service",
+        "--phase",
+        "analyze"
+      ]
+    ],
+    "clean_build": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-compute-service",
+        "--phase",
+        "clean_build"
+      ]
+    ],
+    "correctness": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-compute-service",
+        "--phase",
+        "correctness"
+      ]
+    ],
+    "measure": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-compute-service",
+        "--phase",
+        "measure"
+      ]
+    ],
+    "static_audit": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-compute-service",
+        "--phase",
+        "static_audit"
+      ]
+    ],
+    "warmup": [
+      [
+        "/workspace/dance/qwen35/.venv-cu13/bin/python",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "--run",
+        "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1",
+        "--request-id",
+        "req-compute-service",
+        "--phase",
+        "warmup"
+      ]
+    ]
+  },
+  "controls": [
+    "dependent and independent chains",
+    "matched datatype and instruction family",
+    "fixed clocks/power policy",
+    "zero-work control",
+    "warm code and allocation",
+    "zero control: zero-work launch establishes the timer and launch bracket",
+    "positive control: live production-shaped work must exceed the zero-work bracket",
+    "negative control: deliberately adverse dependency, bank, cache, or synchronization pattern must move the predicted metric",
+    "live sink control: output is copied or atomically accumulated so the measured work cannot be eliminated"
+  ],
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-compute-service/catalog_query_receipt.json",
+      "sha256": "1477f56ea7d26e9fa8d458f4634a9e1fbc0b7fbaad76cf5c4c0771bc42d730b9"
+    }
+  ],
+  "expected_sass": [
+    "UTMALDG/UTMACCTL",
+    "FFMA/FADD/FMUL",
+    "MUFU",
+    "F2FP",
+    "IADD3/IMAD",
+    "ISETP/PLOP3"
+  ],
+  "level": "P1",
+  "measurement_contract": {
+    "cache": "explicit per experiment",
+    "geometry": "production-matched or declared sensitivity sweep",
+    "samples": "immutable raw samples with warmup/convergence and competing-load receipts",
+    "timer": "P0-qualified CUDA GPU events for GPU-active; separate host clock for CPU dispatch and end-to-end"
+  },
+  "model_update_contract": {
+    "decision_changed": "Choose stage tiling, warp roles, instruction mix, and arithmetic-for-memory tradeoffs.",
+    "model_field": "resource_balance.*.matched_saturation and utilization for arithmetic resources",
+    "summary_fields": [
+      "dependent_latency",
+      "independent_throughput",
+      "tensor_issue_curve",
+      "SFU_and_SIMT_coupling"
+    ]
+  },
+  "parameter_matrix": [
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "fma_dep"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "fma_ilp4"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "sfu"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "integer"
+    },
+    {
+      "batches": 16,
+      "block": 384,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s01",
+      "variant": "tensor"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "fma_dep"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "fma_ilp4"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "sfu"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "integer"
+    },
+    {
+      "batches": 16,
+      "block": 160,
+      "grid": 128,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s2",
+      "variant": "tensor"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "fma_dep"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "fma_ilp4"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "sfu"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "integer"
+    },
+    {
+      "batches": 16,
+      "block": 512,
+      "grid": 112,
+      "repeats": 128,
+      "samples": 31,
+      "stage_geometry": "s3",
+      "variant": "tensor"
+    }
+  ],
+  "question": "What are matched production-shaped latency/throughput curves for tensor, SIMT, SFU, conversion, address, and predicate work, including their concurrency limits?",
+  "request_id": "req-compute-service",
+  "revision_history": [
+    {
+      "reason": "shared mutable source identity was revised before this request executed; redispatch with a per-request immutable source snapshot",
+      "status": "WITHDRAWN_BEFORE_EXECUTION"
+    }
+  ],
+  "schema_version": "executable-experiment-v1",
+  "source": {
+    "candidate_path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service",
+    "identities": [
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/experiment_driver.py",
+        "sha256": "e19f301ffbe7bc9b2e795004fb85f7607158f996d547c4dae478fc37db6487fb"
+      },
+      {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/microbench_candidates/req-compute-service/resource_probe.cu",
+        "sha256": "d01d98ae5cd79e577993bfd0d7ffa5493d4faac71e406cf3e3ff06206373d3e2"
+      }
+    ],
+    "mode": "CREATE_RUN_LOCAL",
+    "package_id": null
+  },
+  "status": "MATERIALIZED"
+}

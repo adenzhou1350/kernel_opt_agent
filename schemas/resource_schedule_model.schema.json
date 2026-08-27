@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resource_schedule_model.schema.json",
+  "title": "SASS and microarchitecture resource schedule",
+  "type": "object",
+  "required": ["schema_version", "status", "binary_identity", "sass_control_flow", "dynamic_instruction_method", "resource_mapping", "dependency_graph", "workload_cases", "coupled_resource_models", "unknown_scheduler_or_cache_behavior", "evidence"],
+  "properties": {
+    "schema_version": {"const": "resource-schedule-model-v1"},
+    "status": {"enum": ["DRAFT", "INITIALIZED", "CALIBRATED", "VALIDATED", "BLOCKED"]},
+    "sass_control_flow": {"type": "array"},
+    "resource_mapping": {"type": "array"},
+    "workload_cases": {"type": "array"},
+    "coupled_resource_models": {"type": "array"}
+  }
+}

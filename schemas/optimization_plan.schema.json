@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "optimization_plan.schema.json",
+  "title": "Kernel optimization plan",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "status",
+    "objective",
+    "global_scheduler_owner",
+    "global_supervisor_owner",
+    "candidate_limit",
+    "screening_budget",
+    "qualification_budget",
+    "max_revisions_per_decision",
+    "experiment_queue",
+    "correctness_gates",
+    "evidence_gates",
+    "model_error_tolerances_percent",
+    "stop_criteria",
+    "revision_history"
+  ],
+  "properties": {
+    "schema_version": {"const": "optimization-plan-v1"},
+    "status": {"enum": ["DRAFT", "EXECUTABLE", "COMPLETE", "BLOCKED"]},
+    "objective": {},
+    "global_scheduler_owner": {"type": "string", "minLength": 1},
+    "global_supervisor_owner": {"type": "string", "minLength": 1},
+    "candidate_limit": {"type": "integer", "minimum": 2, "maximum": 4},
+    "screening_budget": {"type": "object"},
+    "qualification_budget": {"type": "object"},
+    "max_revisions_per_decision": {"type": "integer", "minimum": 0},
+    "experiment_queue": {"type": "array"},
+    "correctness_gates": {"type": "array"},
+    "evidence_gates": {"type": "array"},
+    "model_error_tolerances_percent": {"type": "object"},
+    "stop_criteria": {"type": "array"},
+    "revision_history": {"type": "array"}
+  }
+}

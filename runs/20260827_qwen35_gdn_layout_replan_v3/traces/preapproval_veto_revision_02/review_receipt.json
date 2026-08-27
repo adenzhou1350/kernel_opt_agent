@@ -1,0 +1,32 @@
+{
+  "disposition": "ONE_ALLOWED_REVISION_REQUIRED_NO_CANDIDATE_DISPOSITION",
+  "execution_observed": {
+    "compilation": false,
+    "cuda_kernel_launch": false,
+    "dispatch": false,
+    "gpu_performance_samples": 0,
+    "supervisor_approval": false
+  },
+  "independent_reviews": [
+    {
+      "decision": "VETO",
+      "reason": "active plan, mutable evidence, candidate scope and deferred implementation gates were not closed",
+      "role": "GLOBAL_SUPERVISOR"
+    },
+    {
+      "decision": "VETO",
+      "reason": "hand-written mapping self-compared, backing offsets were assumed, and negative control was artificial",
+      "role": "MICROARCHITECTURE_ANALYST"
+    },
+    {
+      "decision": "VETO",
+      "reason": "real CuTe predicate failure was misclassified as infrastructure while contract authorized VALID reject",
+      "role": "EXPERIMENT_AGENT"
+    }
+  ],
+  "request_id": "req-n2-layout-view-static-v2",
+  "required_revision": "PASS-only admission with actual CuTe TV/partition/offset evidence and immutable status snapshot",
+  "reviewed_at": "2026-08-27T09:01:47.260707+00:00",
+  "schema_version": "preapproval-veto-receipt-v1",
+  "sealed_experiment_sha256": "60e9e254f5d2a97ada618bc4718f56479101d5970cfbb0667e030705173fa380"
+}

@@ -1,0 +1,77 @@
+{
+  "coupling_tests": [
+    {
+      "coupling": "accumulator lane/register ownership across O1 and scoreV tiled MMA",
+      "request_id": "req-n2-static-layout-admissibility"
+    }
+  ],
+  "cross_layer_prediction_gates": [
+    {
+      "gate": "Static proof may only change N2 admissibility; no latency prediction or acceptance.",
+      "status": "ENFORCED"
+    }
+  ],
+  "levels": {
+    "P0": {
+      "evidence": [
+        {
+          "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/p0-reused/p0_receipt.json",
+          "sha256": "0fa232d5a24497708a6fd4fa0260f2d773061186cfb58b86fe74581e1f4595fb"
+        }
+      ],
+      "experiments": [
+        "p0-reused"
+      ],
+      "reason": "Immutable P0 raw evidence was rebound and recalibrated only because operator/workload/hardware/hardware-evidence hashes are identical.",
+      "required": true,
+      "status": "PASS"
+    },
+    "P1": {
+      "evidence": [],
+      "experiments": [
+        "req-n2-static-layout-admissibility"
+      ],
+      "reason": "exact static layout predicate",
+      "required": true,
+      "status": "PLANNED"
+    },
+    "P2": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "no dynamic coupling claim is made by the static admission gate",
+      "required": false,
+      "status": "NOT_APPLICABLE"
+    },
+    "P3": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "production candidate A/B only after N2 disposition and bound ranking",
+      "required": true,
+      "status": "DEFERRED_UNTIL_FINAL_TOP2"
+    },
+    "P4": {
+      "evidence": [],
+      "experiments": [],
+      "reason": "production validation is not part of static admission",
+      "required": true,
+      "status": "DEFERRED_UNTIL_CANDIDATE_SELECTION"
+    }
+  },
+  "qualification_order": [
+    "DRAFT",
+    "STATIC_VALIDATED",
+    "MECHANISM_VALIDATED",
+    "DEVICE_CALIBRATED",
+    "PRODUCTION_PREDICTIVE"
+  ],
+  "schema_version": "microbenchmark-plan-v1",
+  "status": "EXECUTABLE",
+  "target_questions": [
+    {
+      "method": "COMPILER_TYPE_LAYOUT_PROOF_NO_GPU",
+      "quantity_id": "n2_zero_copy_layout_decision_value_us",
+      "question": "Does the exact production accumulator admit a same-iterator N16 scoreV MMA view with no transport or ordering change?"
+    }
+  ],
+  "unresolved_questions": []
+}

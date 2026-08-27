@@ -1,0 +1,69 @@
+{
+  "artifacts": {
+    "dag.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/dag.json",
+      "sha256": "c9d5049eb67ddac696aa6d23b827cfcd59ee193cd16e98b672d074d20e7fd9e7"
+    },
+    "decision_contract.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/decision_contract.json",
+      "sha256": "6a71c82fb5068cb8a118ab976ce9cdc1c11c9af5b62689a85a7a216d3352d691"
+    },
+    "experiment_queue.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/experiment_queue.json",
+      "sha256": "3ac92d04bef883537b0b83bffba8d3ba963c154ac8be055c65e57897c604e239"
+    },
+    "global_schedule_state.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/global_schedule_state.json",
+      "sha256": "cb8204543961e057dba5ded1563e15a0b9c8315fff2cbf1ec2d5642ed8c3b9eb"
+    },
+    "measurability_contract.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/measurability_contract.json",
+      "sha256": "6d467125be3b84c2bef176a4eb72e5f1c2cd046fabaa4b50efd7d2bdb73a1ebf"
+    },
+    "microarchitecture_model.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/microarchitecture_model.json",
+      "sha256": "115c88c67c5fea77a552b360d5eb885dfd46de1c9964d3f55a475197d934b0a7"
+    },
+    "microbenchmark_plan.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/microbenchmark_plan.json",
+      "sha256": "d6647660fb7061c213141bdc2dba129c7ba945cea4a466c09a364db5a3d65ce3"
+    },
+    "objective.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/objective.json",
+      "sha256": "bf6636060e699ba748dd2504841290bc21c98cef1076a666d08d2b781191179f"
+    },
+    "optimization_plan.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/optimization_plan.json",
+      "sha256": "7bd69019961f8c436a2b78016ea64f43bf6dc955134f34d50de86070f6d7f24d"
+    },
+    "resource_balance.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/resource_balance.json",
+      "sha256": "200df775318f835370423d9bc7e067b97ac617f4f86fddca74f820649db45f9c"
+    },
+    "schedule_model.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/schedule_model.json",
+      "sha256": "49281443219b134246ccf416e214144c99dcf411b2e6a010ea55590b89637fb5"
+    },
+    "tradeoff_frontier.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/tradeoff_frontier.json",
+      "sha256": "58fcd2fd69308c14fd797d6389ef0f8abe21682d3905fa7844a61275a47c9d3f"
+    },
+    "work_ledger.json": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/work_ledger.json",
+      "sha256": "cd10c8a5c224b87339c95a7998105f81123931bb400fdd7da2a5818e212e8219"
+    }
+  },
+  "candidate_ids": [
+    "N0",
+    "N1",
+    "N2"
+  ],
+  "created_at": "2026-08-27T07:19:03.442208+00:00",
+  "gpu_launches": 0,
+  "performance_samples": 0,
+  "proposed_request_ids": [
+    "req-n2-static-layout-admissibility"
+  ],
+  "schema_version": "layout-replan-planning-v1",
+  "status": "PASS"
+}

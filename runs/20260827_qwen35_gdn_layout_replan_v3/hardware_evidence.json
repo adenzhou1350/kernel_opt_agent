@@ -1,0 +1,689 @@
+{
+  "developer_input_request": null,
+  "empirical_measurements": [],
+  "facts": [
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-async-copy-v1",
+      "field": "instruction_class.async_copy.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Asynchronous copy",
+        "support_text_sha256": "e9d0fb0e945520081611937c6310dbfd51b83dd8a35641f8ad5811307fd375ac",
+        "value": "9.7.16 Asynchronous Operations and Tensor Memory Data Movement"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.async_copy.resource_ids=[\"async_copy_engine\",\"load_store_request\",\"shared_memory\",\"l2_boundary\",\"device_memory_boundary\"]",
+        "reviewed_at": "2026-08-26T14:26:16.760604+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "async_copy_engine",
+        "load_store_request",
+        "shared_memory",
+        "l2_boundary",
+        "device_memory_boundary"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-barrier-v1",
+      "field": "instruction_class.barrier.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Parallel Synchronization",
+        "support_text_sha256": "da85c1adf043abd7d67ce28a50e7bada64adeefcca69f7460eac834bac93d66e",
+        "value": "9.7.12 Parallel Synchronization"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.barrier.resource_ids=[\"synchronization\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:17.060569+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "synchronization",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-branch-control-v1",
+      "field": "instruction_class.branch_control.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Control Flow Instructions",
+        "support_text_sha256": "9f4e9d3fa2a79ffe7f997a1080471c1a567e3bfb051bde0cc7820f50602e164d",
+        "value": "9.7.11 Control Flow Instructions"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.branch_control.resource_ids=[\"instruction_front_end\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:17.337447+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "instruction_front_end",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-constant-load-v1",
+      "field": "instruction_class.constant_load.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "constant memory",
+        "support_text_sha256": "7b1532335029e2f133cbe9214b671f05bd2331ca1c1891e73d4bea01ffef1bf3",
+        "value": "5.1.3 Constant State Space"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.constant_load.resource_ids=[\"constant_memory_path\",\"load_store_request\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:26:17.682034+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "constant_memory_path",
+        "load_store_request",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-control-noop-v1",
+      "field": "instruction_class.control_noop.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "no operation",
+        "support_text_sha256": "a3e78ee9a927551f537ab05655d5aac60179470095addb2bf3d9afe46c8ecd7d",
+        "value": "9.7.16 no operation"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.control_noop.resource_ids=[\"instruction_front_end\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:18.060033+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "instruction_front_end",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-conversion-v1",
+      "field": "instruction_class.conversion.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Conversion Instructions",
+        "support_text_sha256": "55ad23e0496f3994b5c3d1a1e45661916ed43b9b6e1379a93742a0f84fd3875e",
+        "value": "9.7.8 Data Movement and Conversion Instructions"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.conversion.resource_ids=[\"conversion_pipe\",\"register_storage\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:34.610314+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "conversion_pipe",
+        "register_storage",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-global-load-v1",
+      "field": "instruction_class.global_load.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Memory Hierarchy",
+        "support_text_sha256": "b4a4f1a02e29fb4eb75e02bff6ce81f288565ee4012bf404fd445478e3e21509",
+        "value": "3.2 Memory Hierarchy and 9.7.9 load"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.global_load.resource_ids=[\"load_store_request\",\"l1_shared_boundary\",\"l2_boundary\",\"device_memory_boundary\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:26:35.127744+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "load_store_request",
+        "l1_shared_boundary",
+        "l2_boundary",
+        "device_memory_boundary",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-global-store-v1",
+      "field": "instruction_class.global_store.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Memory Hierarchy",
+        "support_text_sha256": "b4a4f1a02e29fb4eb75e02bff6ce81f288565ee4012bf404fd445478e3e21509",
+        "value": "3.2 Memory Hierarchy and 9.7.10 store"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.global_store.resource_ids=[\"load_store_request\",\"l1_shared_boundary\",\"l2_boundary\",\"device_memory_boundary\"]",
+        "reviewed_at": "2026-08-26T14:26:35.655367+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "load_store_request",
+        "l1_shared_boundary",
+        "l2_boundary",
+        "device_memory_boundary"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-integer-address-v1",
+      "field": "instruction_class.integer_address.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Integer Arithmetic Instructions",
+        "support_text_sha256": "802365d82e2fcf82d9c8009471640fc451c2263b63a9b3a215ddca6738a7c743",
+        "value": "9.7.1 Integer Arithmetic Instructions"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.integer_address.resource_ids=[\"integer_address_pipe\",\"register_storage\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:36.187009+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "integer_address_pipe",
+        "register_storage",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-memory-wait-v1",
+      "field": "instruction_class.memory_wait.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "mbarrier.try_wait",
+        "support_text_sha256": "c1c49031875b996491f32b75846486d06c16573a98bd297a036231787e56ae50",
+        "value": "9.7.13.15 mbarrier.try_wait"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.memory_wait.resource_ids=[\"scoreboard_wait\",\"synchronization\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:36.794661+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "scoreboard_wait",
+        "synchronization",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-move-select-v1",
+      "field": "instruction_class.move_select.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Data Movement",
+        "support_text_sha256": "065be798db8bec49f1cf1f9412b99e19e334e291dca9ed091855cd352acf962c",
+        "value": "9.7.8 Data Movement and Conversion Instructions"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.move_select.resource_ids=[\"register_storage\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:26:55.663894+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "register_storage",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-predicate-compare-v1",
+      "field": "instruction_class.predicate_compare.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Comparison and Selection Instructions",
+        "support_text_sha256": "952a9328e56fea657825c02969f479b86ff192be6546b11a2498933b127827f4",
+        "value": "9.7.6 Comparison and Selection Instructions"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.predicate_compare.resource_ids=[\"predicate_compute\",\"predicate_storage\",\"warp_issue\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:26:56.370309+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "predicate_compute",
+        "predicate_storage",
+        "warp_issue",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-shared-load-v1",
+      "field": "instruction_class.shared_load.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Shared Memory",
+        "support_text_sha256": "414c2f8ccefe9317d53ac12c207691cc385f3a1b7c76d7fb50410c9052fab415",
+        "value": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.shared_load.resource_ids=[\"shared_memory\",\"shared_bank_service\",\"load_store_request\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:26:57.130140+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "shared_memory",
+        "shared_bank_service",
+        "load_store_request",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-shared-store-v1",
+      "field": "instruction_class.shared_store.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Shared Memory",
+        "support_text_sha256": "414c2f8ccefe9317d53ac12c207691cc385f3a1b7c76d7fb50410c9052fab415",
+        "value": "3.3 On-chip Shared Memory and 5.1.7 Shared State Space"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.shared_store.resource_ids=[\"shared_memory\",\"shared_bank_service\",\"load_store_request\"]",
+        "reviewed_at": "2026-08-26T14:26:57.872288+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "shared_memory",
+        "shared_bank_service",
+        "load_store_request"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-simt-fp-v1",
+      "field": "instruction_class.simt_fp.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Floating Point Instructions",
+        "support_text_sha256": "ef71fb2866d04eb6db73065c747d6ffda2ef734f9ad938e3e1ed4d65a5a59a6d",
+        "value": "9.7.3 Floating Point Instructions"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.simt_fp.resource_ids=[\"simt_compute\",\"warp_issue\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:26:58.652874+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "simt_compute",
+        "warp_issue",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-special-function-v1",
+      "field": "instruction_class.special_function.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "ex2",
+        "support_text_sha256": "eef70f4158cde69e1d7f9da732a78575689ca0d42fd5fe21de01c0b441cd21ce",
+        "value": "9.7.3 Floating Point Instructions: ex2, lg2, rcp, rsqrt"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.special_function.resource_ids=[\"special_function\",\"warp_issue\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:27:17.290540+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "special_function",
+        "warp_issue",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-system-register-v1",
+      "field": "instruction_class.system_register.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Special Registers",
+        "support_text_sha256": "9109d2b02c642da23203411aed90e0ca21357053440daaa7ef7f6f1d269d273c",
+        "value": "10 Special Registers"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.system_register.resource_ids=[\"system_register_path\",\"register_storage\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:27:18.199153+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "system_register_path",
+        "register_storage",
+        "warp_issue"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-tensor-v1",
+      "field": "instruction_class.tensor.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "Issue Granularity",
+        "support_text_sha256": "6fbdf5621c527c27e0672162bad317f92b75a89c76a0472176a4c8049f007c1e",
+        "value": "9.7.16.5 Issue Granularity and 9.7.16.10 TensorCore Operations"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.tensor.resource_ids=[\"tensor_compute\",\"tensor_issue\",\"register_storage\"]",
+        "reviewed_at": "2026-08-26T14:27:19.116195+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "tensor_compute",
+        "tensor_issue",
+        "register_storage"
+      ]
+    },
+    {
+      "evidence_class": "DOCUMENTED_FACT",
+      "fact_id": "map-warp-collective-v1",
+      "field": "instruction_class.warp_collective.resource_ids",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "warp-level",
+        "support_text_sha256": "bbd9d393a05f3f1c72425e981d53b30728ed3321393a0bf84dc0064a6ae2000d",
+        "value": "9.7.8 Warp-level data movement and vote"
+      },
+      "scope": "ARCHITECTURE",
+      "semantic_review": {
+        "claim": "instruction_class.warp_collective.resource_ids=[\"warp_collective\",\"register_storage\",\"warp_issue\"]",
+        "reviewed_at": "2026-08-26T14:27:20.144636+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "unit": null,
+      "value": [
+        "warp_collective",
+        "register_storage",
+        "warp_issue"
+      ]
+    }
+  ],
+  "official_source_policy": {
+    "allowed_official_domains": [
+      "docs.nvidia.com",
+      "developer.nvidia.com",
+      "nvidia.com",
+      "www.nvidia.com"
+    ],
+    "policy": {
+      "architecture_name_is_not_evidence": true,
+      "developer_document_required_when_official_search_is_inconclusive": true,
+      "neighboring_architecture_extrapolation_forbidden": true,
+      "undocumented_numeric_hardware_fact_forbidden": true
+    },
+    "vendor": "NVIDIA"
+  },
+  "required_document_roles": [
+    "programming_model",
+    "instruction_set",
+    "architecture_tuning",
+    "device_product_specification"
+  ],
+  "schema_version": "hardware-evidence-manifest-v2",
+  "sources": [
+    {
+      "applicability": {
+        "compute_capabilities": [
+          "12.0"
+        ],
+        "device_models": [],
+        "vendor": "NVIDIA"
+      },
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "CC 12.0 have SM version",
+        "support_text_sha256": "82ffa26277f571a9a713f26c43846a207692a43a3e1969a6e9bf81b2413606b4",
+        "value": "1.3.1 Compute Capability and Streaming Multiprocessor Versions"
+      },
+      "retrieval": {
+        "artifact_path": "hardware_docs/cuda-programming-guide-13-2-1-cc120.html",
+        "final_url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html",
+        "http_status": 200,
+        "method": "AGENT_HTTPS_DOWNLOAD",
+        "receipt_path": "hardware_docs/cuda-programming-guide-13-2-1-cc120.retrieval.json",
+        "receipt_sha256": "48f0f5d9f8f63c2a0d758f6bb5461de368edbae341354ee0553985e72fd0028e",
+        "requested_url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html",
+        "retrieved_at": "2026-08-26T14:12:56.619578+00:00",
+        "retriever": "python urllib.request",
+        "sha256": "e20904a6aa4982e4698fa338ab1ca8406e2b25eae4ae3e56106d1bdca84c8f5b"
+      },
+      "role": "programming_model",
+      "role_review": {
+        "claim": "archived document supports role=programming_model for the declared applicability",
+        "reviewed_at": "2026-08-26T14:12:56.619578+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "cuda-programming-guide-13.2.1-cc120",
+      "title": "CUDA Programming Guide",
+      "url": "https://docs.nvidia.com/cuda/archive/13.2.1/cuda-programming-guide/01-introduction/cuda-platform.html",
+      "version": "13.2.1"
+    },
+    {
+      "applicability": {
+        "compute_capabilities": [
+          "12.0"
+        ],
+        "device_models": [],
+        "vendor": "NVIDIA"
+      },
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "sm_120",
+        "support_text_sha256": "dd1d13d125159224aaf9c8131b975334c8e7c0f952ffa15054fb847d5999559a",
+        "value": "1.3 PTX ISA Version 8.7"
+      },
+      "retrieval": {
+        "artifact_path": "hardware_docs/ptx-isa-8-7-sm120.html",
+        "final_url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html",
+        "http_status": 200,
+        "method": "AGENT_HTTPS_DOWNLOAD",
+        "receipt_path": "hardware_docs/ptx-isa-8-7-sm120.retrieval.json",
+        "receipt_sha256": "89bcca4dbc643551166fa5d06530009cf8fc0af6f20ff8a6284230f834bf9a22",
+        "requested_url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html",
+        "retrieved_at": "2026-08-26T14:13:11.619344+00:00",
+        "retriever": "python urllib.request",
+        "sha256": "9d1c040b76dbdca1a1612818a351a4513eabf75754b9118ca933f0dcb9b6c3b7"
+      },
+      "role": "instruction_set",
+      "role_review": {
+        "claim": "archived document supports role=instruction_set for the declared applicability",
+        "reviewed_at": "2026-08-26T14:13:11.619344+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "ptx-isa-8.7-sm120",
+      "title": "PTX ISA",
+      "url": "https://docs.nvidia.com/cuda/archive/12.8.2/parallel-thread-execution/index.html",
+      "version": "8.7 / CUDA 12.8.2 archive"
+    },
+    {
+      "applicability": {
+        "compute_capabilities": [
+          "12.0"
+        ],
+        "device_models": [],
+        "vendor": "NVIDIA"
+      },
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "locator": {
+        "kind": "SECTION",
+        "support_text": "48 for compute capability 12.0",
+        "support_text_sha256": "d77f35abf63add87638b6a93c27f4e56582700ada1266cfc76417e2fcaafdb55",
+        "value": "1.4.1.1 Occupancy"
+      },
+      "retrieval": {
+        "artifact_path": "hardware_docs/blackwell-tuning-guide-13-0-cc120.html",
+        "final_url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html",
+        "http_status": 200,
+        "method": "AGENT_HTTPS_DOWNLOAD",
+        "receipt_path": "hardware_docs/blackwell-tuning-guide-13-0-cc120.retrieval.json",
+        "receipt_sha256": "4269a75b24f2e4c68cbcd6b91e7cf878b29a8e54bf44bd36f0366b285c435b33",
+        "requested_url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html",
+        "retrieved_at": "2026-08-26T14:13:22.519183+00:00",
+        "retriever": "python urllib.request",
+        "sha256": "3e9ef918f31fe74be789b7468275e8eca298996ec1b6908a872eced1922e9ab7"
+      },
+      "role": "architecture_tuning",
+      "role_review": {
+        "claim": "archived document supports role=architecture_tuning for the declared applicability",
+        "reviewed_at": "2026-08-26T14:13:22.519183+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "blackwell-tuning-guide-13.0-cc120",
+      "title": "NVIDIA Blackwell Tuning Guide",
+      "url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html",
+      "version": "CUDA 13.0"
+    },
+    {
+      "applicability": {
+        "compute_capabilities": [
+          "12.0"
+        ],
+        "device_models": [
+          "NVIDIA GeForce RTX 5090"
+        ],
+        "vendor": "NVIDIA"
+      },
+      "authority": "VENDOR_OFFICIAL_DOCUMENT",
+      "locator": {
+        "kind": "TABLE",
+        "support_text": "12.0",
+        "support_text_sha256": "77c52f3feed5acdd119b1f8449d5ccc2d39be94bd0314d5b7302f36e20b6cea9",
+        "value": "Specs / GPU Engine Specs / CUDA Capability"
+      },
+      "retrieval": {
+        "artifact_path": "hardware_docs/rtx5090-product-spec.html",
+        "final_url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+        "http_status": 200,
+        "method": "AGENT_HTTPS_DOWNLOAD",
+        "receipt_path": "hardware_docs/rtx5090-product-spec.retrieval.json",
+        "receipt_sha256": "170a876441d35cfd5eae16a74730f46fca1472d60b8866394d00b0db4d3c9fed",
+        "requested_url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+        "retrieved_at": "2026-08-26T14:13:37.418816+00:00",
+        "retriever": "python urllib.request",
+        "sha256": "737ca7353aab2fba86d66b6dc8e5c34ac8f37d1907aba53e70d068e05a37a4e6"
+      },
+      "role": "device_product_specification",
+      "role_review": {
+        "claim": "archived document supports role=device_product_specification for the declared applicability",
+        "reviewed_at": "2026-08-26T14:13:37.418816+00:00",
+        "reviewer": "codex-global-scheduler",
+        "status": "APPROVED"
+      },
+      "source_id": "rtx5090-product-spec",
+      "title": "GeForce RTX 5090 Graphics Cards",
+      "url": "https://www.nvidia.com/en-us/geforce/graphics-cards/50-series/rtx-5090/",
+      "version": "retrieved 2026-08-26"
+    }
+  ],
+  "status": "READY",
+  "target_identity": {
+    "architecture": "sm_120",
+    "compute_capability": "12.0",
+    "device_index": 6,
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "max_threads_per_block": 1024,
+    "max_threads_per_sm": 1536,
+    "memory_bytes": 33670758400,
+    "registers_per_sm": 65536,
+    "shared_memory_per_block_bytes": 49152,
+    "shared_memory_per_block_optin_bytes": 101376,
+    "shared_memory_per_sm_bytes": 102400,
+    "sm_count": 170,
+    "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+    "vendor": "NVIDIA",
+    "warp_size": 32
+  },
+  "trusted_policy_identity": {
+    "path": "hardware/adapters/nvidia/official_source_policy.json",
+    "sha256": "fc8b3c4d978d2c53b9539b579fd4ce81c498cf17bea914c8dec50160928e1d8b"
+  },
+  "unknowns": []
+}

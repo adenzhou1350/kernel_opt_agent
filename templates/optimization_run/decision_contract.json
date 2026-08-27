@@ -1,0 +1,31 @@
+{
+  "schema_version": "decision-contract-v1",
+  "decision_id": null,
+  "status": "DRAFT",
+  "issued_by": {"role": "GLOBAL_SCHEDULER", "owner_id": null},
+  "objective_identity": {},
+  "frontier_identity": {},
+  "candidate_bindings": [],
+  "top_two_candidate_ids": [],
+  "decision_metric": {"name": "weighted_gpu_active_us", "unit": "us", "direction": "minimize"},
+  "measurement_need": {
+    "quantity_id": null,
+    "model_location": null,
+    "equation": null,
+    "current_interval": {"lower": null, "upper": null, "unit": "us"},
+    "top_two_delta_interval": {"lower": null, "upper": null, "unit": "us"},
+    "decision_boundary": {"value": null, "unit": "us"},
+    "required_precision": {"value": null, "unit": "us"},
+    "outcome_mapping": [],
+    "maximum_decision_value": {"value": null, "unit": "us"}
+    ,"decision_flip_probability": null
+    ,"expected_uncertainty_reduction": null
+  },
+  "experiment_budget": {
+    "screening": {"max_configurations": null, "max_samples_per_configuration": null, "max_process_launches": null, "max_wall_clock_minutes": null},
+    "qualification": {"max_configurations": null, "max_samples_per_configuration": null, "max_process_launches": null, "max_wall_clock_minutes": null},
+    "max_revisions": 0
+  },
+  "stop_rules": [],
+  "evidence": []
+}

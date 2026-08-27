@@ -1,0 +1,4 @@
+Synthetic vendor official test document.
+
+This fixture exists only to test source-domain, locator, archive and hash gates.
+It does not contain reusable hardware facts or performance parameters.

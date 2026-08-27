@@ -1,0 +1,44 @@
+{
+  "created_at": "2026-08-26T19:13:01.133924+00:00",
+  "operator": "qwen35-sm120-postconv-gdn-prefill-four-stage",
+  "run_id": "20260827_qwen35_gdn_decision_supervised_v2",
+  "schema_version": "optimization-intake-v1",
+  "source_identities": {
+    "hardware.json": {
+      "sha256": "3a8369efd136f79c04a82598adc71ffc89f519fc0e7f203113c7d11b7448d266",
+      "source": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/hardware.json"
+    },
+    "hardware_evidence.json": {
+      "sha256": "4759f8108a024f70ecc00d9ccdc81b80debb9ebbae9fa632172450d9940305c2",
+      "source": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/hardware_evidence.json"
+    },
+    "operator.json": {
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0",
+      "source": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/operator.json"
+    },
+    "workload.json": {
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca",
+      "source": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/workload.json"
+    }
+  },
+  "status": "READY",
+  "target": {
+    "architecture": "sm_120",
+    "compute_capability": "12.0",
+    "device_index": 6,
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "max_threads_per_block": 1024,
+    "max_threads_per_sm": 1536,
+    "memory_bytes": 33670758400,
+    "registers_per_sm": 65536,
+    "shared_memory_per_block_bytes": 49152,
+    "shared_memory_per_block_optin_bytes": 101376,
+    "shared_memory_per_sm_bytes": 102400,
+    "sm_count": 170,
+    "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+    "vendor": "NVIDIA",
+    "warp_size": 32
+  },
+  "user_confirmation_required_for_reuse": true,
+  "workload": "qwen35-gdn-prefill-seven-shape-equal-weight-grid"
+}

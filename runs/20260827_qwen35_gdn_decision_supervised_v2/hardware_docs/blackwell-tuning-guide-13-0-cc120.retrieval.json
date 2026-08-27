@@ -1,0 +1,13 @@
+{
+  "artifact_path": "hardware_docs/blackwell-tuning-guide-13-0-cc120.html",
+  "artifact_sha256": "3e9ef918f31fe74be789b7468275e8eca298996ec1b6908a872eced1922e9ab7",
+  "content_type": "text/html; charset=utf-8",
+  "etag": "\"918f1efe98152cf79cd824a3b2ea5b13\"",
+  "final_url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html",
+  "http_status": 200,
+  "last_modified": "Thu, 30 Oct 2025 00:09:01 GMT",
+  "requested_url": "https://docs.nvidia.com/cuda/archive/13.0.0/blackwell-tuning-guide/index.html",
+  "retrieved_at": "2026-08-26T14:13:22.519183+00:00",
+  "retriever": "python urllib.request",
+  "schema_version": "official-document-retrieval-v1"
+}

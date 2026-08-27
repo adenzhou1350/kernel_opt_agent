@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "mandatory_work_ledger.schema.json",
+  "title": "Per-workload mathematical mandatory-work ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "workload_case", "cases", "valid_work", "padded_or_redundant_work", "assumptions", "evidence"],
+  "properties": {
+    "schema_version": {"const": "mandatory-work-ledger-v1"},
+    "workload_case": {"type": ["string", "null"]},
+    "cases": {
+      "type": "array",
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["case_id", "valid_work", "padded_or_redundant_work", "assumptions", "evidence"],
+        "properties": {
+          "case_id": {"type": "string", "minLength": 1},
+          "valid_work": {"type": "object"},
+          "padded_or_redundant_work": {"type": "object"},
+          "assumptions": {"type": "array"},
+          "evidence": {"type": "array"}
+        }
+      }
+    },
+    "valid_work": {"type": "object"},
+    "padded_or_redundant_work": {"type": "object"},
+    "assumptions": {"type": "array"},
+    "evidence": {"type": "array"}
+  }
+}

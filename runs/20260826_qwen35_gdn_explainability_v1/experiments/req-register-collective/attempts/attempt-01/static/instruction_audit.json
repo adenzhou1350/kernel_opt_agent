@@ -1,0 +1,507 @@
+{
+  "binary_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/static/resource_probe",
+    "sha256": "1959c56e6c407ba53d8d419cc4c5a5ab89c74462d1d027f5f38f33c8730a9d30"
+  },
+  "expected_tokens": 6,
+  "function_resource_usage": {
+    "_Z10zero_probePf": {
+      "CONSTANT[0]": 904,
+      "LOCAL": 0,
+      "REG": 6,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z12shared_probePKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 16,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z12tensor_probePK6__halfS1_Pfi": {
+      "CONSTANT[0]": 924,
+      "LOCAL": 0,
+      "REG": 18,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14constant_probePfii": {
+      "CONSTANT[0]": 912,
+      "LOCAL": 0,
+      "REG": 10,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi112EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 123,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi128EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 143,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi144EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 158,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi16EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 33,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi24EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 40,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi32EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 40,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi48EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 56,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi64EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 72,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi8EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 22,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z14register_probeILi96EEvPKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 109,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z15sync_copy_probePKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 18,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z16collective_probePKfPfii": {
+      "CONSTANT[0]": 920,
+      "LOCAL": 0,
+      "REG": 17,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z18simt_compute_probePKfPfii": {
+      "CONSTANT[0]": 920,
+      "CONSTANT[2]": 12,
+      "LOCAL": 0,
+      "REG": 17,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z20global_request_probePK6float4PS_Pfmii": {
+      "CONSTANT[0]": 936,
+      "LOCAL": 0,
+      "REG": 22,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi0EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 22,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi112EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 128,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi116EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 130,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi120EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 164,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi124EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 164,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi128EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 164,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi32EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 48,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi64EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 80,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z25register_allocation_probeILi96EEvPKfPfi": {
+      "CONSTANT[0]": 916,
+      "LOCAL": 0,
+      "REG": 124,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    },
+    "_Z9init_halfP6__halfi": {
+      "CONSTANT[0]": 908,
+      "LOCAL": 0,
+      "REG": 10,
+      "SAMPLER": 0,
+      "SHARED": 1024,
+      "STACK": 0,
+      "SURFACE": 0,
+      "TEXTURE": 0
+    }
+  },
+  "function_scoped_requirements": {
+    "collective_probe": {
+      "matching_functions": [
+        "_Z16collective_probePKfPfii"
+      ],
+      "required_tokens": {
+        "SHFL": true,
+        "STG": true
+      }
+    },
+    "ptxas_resource_contract": {
+      "semantics": "source variant names are labels only; ptxas REG/LOCAL/STACK values are the measured allocation contract",
+      "status": "FAIL",
+      "variants": {
+        "alloc0": {
+          "actual_registers_per_thread": [
+            22
+          ],
+          "expected_registers_per_thread": 22,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z25register_allocation_probeILi0EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "PASS"
+        },
+        "alloc112": {
+          "actual_registers_per_thread": [
+            123,
+            128
+          ],
+          "expected_registers_per_thread": 128,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z14register_probeILi112EEvPKfPfii",
+            "_Z25register_allocation_probeILi112EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "FAIL"
+        },
+        "alloc116": {
+          "actual_registers_per_thread": [
+            130
+          ],
+          "expected_registers_per_thread": 130,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z25register_allocation_probeILi116EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "PASS"
+        },
+        "alloc124": {
+          "actual_registers_per_thread": [
+            164
+          ],
+          "expected_registers_per_thread": 164,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z25register_allocation_probeILi124EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "PASS"
+        },
+        "alloc32": {
+          "actual_registers_per_thread": [
+            40,
+            48
+          ],
+          "expected_registers_per_thread": 48,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z14register_probeILi32EEvPKfPfii",
+            "_Z25register_allocation_probeILi32EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "FAIL"
+        },
+        "alloc64": {
+          "actual_registers_per_thread": [
+            72,
+            80
+          ],
+          "expected_registers_per_thread": 80,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z14register_probeILi64EEvPKfPfii",
+            "_Z25register_allocation_probeILi64EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "FAIL"
+        },
+        "alloc96": {
+          "actual_registers_per_thread": [
+            109,
+            124
+          ],
+          "expected_registers_per_thread": 124,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z14register_probeILi96EEvPKfPfii",
+            "_Z25register_allocation_probeILi96EEvPKfPfi"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "FAIL"
+        },
+        "shfl_dep": {
+          "actual_registers_per_thread": [
+            17
+          ],
+          "expected_registers_per_thread": 17,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z16collective_probePKfPfii"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "PASS"
+        },
+        "shfl_ilp4": {
+          "actual_registers_per_thread": [
+            17
+          ],
+          "expected_registers_per_thread": 17,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z16collective_probePKfPfii"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "PASS"
+        },
+        "zero": {
+          "actual_registers_per_thread": [
+            6
+          ],
+          "expected_registers_per_thread": 6,
+          "local_bytes": [
+            0
+          ],
+          "matching_functions": [
+            "_Z10zero_probePf"
+          ],
+          "stack_bytes": [
+            0
+          ],
+          "status": "PASS"
+        }
+      }
+    },
+    "register_allocation_probe": {
+      "matching_functions": [
+        "_Z25register_allocation_probeILi0EEvPKfPfi",
+        "_Z25register_allocation_probeILi112EEvPKfPfi",
+        "_Z25register_allocation_probeILi116EEvPKfPfi",
+        "_Z25register_allocation_probeILi120EEvPKfPfi",
+        "_Z25register_allocation_probeILi124EEvPKfPfi",
+        "_Z25register_allocation_probeILi128EEvPKfPfi",
+        "_Z25register_allocation_probeILi32EEvPKfPfi",
+        "_Z25register_allocation_probeILi64EEvPKfPfi",
+        "_Z25register_allocation_probeILi96EEvPKfPfi"
+      ],
+      "required_tokens": {
+        "LDG": true,
+        "STG": true
+      }
+    }
+  },
+  "note": "function-scoped instruction and ptxas resource contracts are required for the active probe mode before result binding",
+  "observed": {
+    "ELECT": false,
+    "R2P/P2R": false,
+    "REDUX": false,
+    "S2R": true,
+    "SHFL": true,
+    "VOTE": false
+  },
+  "sass_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-register-collective/static/resource_probe.sass",
+    "sha256": "0b5b40f365a62bde0a7d7a9d8ebdf9210a6b7c853450c7e8a2f982409ff20c9d"
+  },
+  "schema_version": "run-local-static-audit-v1",
+  "status": "FAIL"
+}

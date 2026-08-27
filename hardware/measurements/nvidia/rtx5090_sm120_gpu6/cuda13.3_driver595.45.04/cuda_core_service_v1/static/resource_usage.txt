@@ -1,0 +1,82 @@
+
+Fatbin elf code:
+================
+arch = sm_120a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/particle_bench.cu 
+
+Resource usage:
+ Common:
+  GLOBAL:0
+
+Fatbin ptx code:
+================
+arch = sm_120
+code version = [9,3]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/particle_bench.cu
+ptxasOptions =  --generate-line-info 
+
+Fatbin elf code:
+================
+arch = sm_120a
+code version = [1,8]
+host = linux
+compile_size = 64bit
+identifier = /workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/particle_bench.cu
+
+Resource usage:
+ Common:
+  GLOBAL:0
+ Function _Z14barrier_kernelILi16EEvPj:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12store_kernelILi16EEvP5uint4m:
+  REG:22 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11load_kernelILi16EEvPK5uint4Pjm:
+  REG:18 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14barrier_kernelILi8EEvPj:
+  REG:14 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12store_kernelILi8EEvP5uint4m:
+  REG:22 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11load_kernelILi8EEvPK5uint4Pjm:
+  REG:18 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14barrier_kernelILi4EEvPj:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12store_kernelILi4EEvP5uint4m:
+  REG:22 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11load_kernelILi4EEvPK5uint4Pjm:
+  REG:18 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14barrier_kernelILi2EEvPj:
+  REG:13 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12store_kernelILi2EEvP5uint4m:
+  REG:20 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11load_kernelILi2EEvPK5uint4Pjm:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14barrier_kernelILi1EEvPj:
+  REG:10 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12store_kernelILi1EEvP5uint4m:
+  REG:18 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11load_kernelILi1EEvPK5uint4Pjm:
+  REG:16 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z14barrier_kernelILi0EEvPj:
+  REG:8 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z12store_kernelILi0EEvP5uint4m:
+  REG:8 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:912 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z11load_kernelILi0EEvPK5uint4Pjm:
+  REG:10 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:920 TEXTURE:0 SURFACE:0 SAMPLER:0
+ Function _Z18launch_sink_kernelPj:
+  REG:8 STACK:0 SHARED:1024 LOCAL:0 CONSTANT[0]:904 TEXTURE:0 SURFACE:0 SAMPLER:0
+
+Fatbin ptx code:
+================
+arch = sm_120a
+code version = [9,3]
+host = linux
+compile_size = 64bit
+compressed
+identifier = /workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/particle_bench.cu
+ptxasOptions =  --generate-line-info 

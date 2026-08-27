@@ -1,0 +1,68 @@
+{
+  "causal_mapping": {
+    "assumptions": [
+      "S404 and S768 exercise the short/tail and long production dispatch families.",
+      "C0/C1 inputs, ABI, stream, four-kernel topology and timing semantics differ only in registered S3 scheduling.",
+      "One statistical measurement process is acceptable only because screening cannot accept C1; lifecycle gate processes emit no decision samples.",
+      "Candidate paired variance remains compatible with the preregistered precision expectation; otherwise screening is INCONCLUSIVE."
+    ],
+    "confounders": [
+      "Wrong Harrix/FlashInfer import path, stale JIT cache or identical C0/C1 cubin",
+      "Unregistered S01/S2/post, launch, input, layout, alignment, stream or graph change",
+      "Clock/load/order drift, cold compilation/allocation or CPU enqueue gaps",
+      "S404 tail masking or stale upper-score shared values",
+      "ptxas register/spill/shared/control changes that invalidate a narrow tile-cost attribution"
+    ],
+    "controls": [
+      "Use distinct C0/C1 ABI/cache keys; archive source/cubin/SASS and prove loaded cubins differ.",
+      "Require PYTHONPATH prefix /workspace/dance/qwen35/new/harrix/python:/workspace/dance/qwen35/flashinfer and reject old Harrix/site-packages resolution.",
+      "Bitwise stage-boundary/final-BF16 plus deterministic graph/direct correctness at S404 and S768; prove skipped score tiles are never read.",
+      "SASS gate proves upper-tile QK and score-times-V work removal, unchanged S01/S2/post, resources, barriers and launch geometry.",
+      "Balanced randomized AB/BA, identical seeds/addresses/alignment, same explicit stream/GPU UUID, warm plans, graph_batch=64 and P0 PASS.",
+      "CUPTI is collected separately and never mixed into the screening distribution."
+    ],
+    "falsification_condition": "Identity/static/bitwise failure rejects or invalidates C1. CI half-width>0.10us at 15 pairs/shape is SCREENING_INCONCLUSIVE with no budget expansion. No screening outcome may accept C1 or update production.",
+    "formula": "For S in {404,768}, d_S,i=t_C1,S,i-t_C0,S,i from matched randomized AB/BA pair i; x_screen=0.5*(mean_i d_404,i + mean_i d_768,i). Use a paired two-sided 95% Studentized/bootstrap CI. CI_low>+0.25us rejects; otherwise a valid CI half-width<=0.10us only admits a new qualification contract."
+  },
+  "decision_contract_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/decision_contract.json",
+    "sha256": "dcc6c9c233e0f54d785bfb8e219843f96a50515d4b4e00131e74aeb586ca30b6"
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/operator.json",
+      "sha256": "827d4aa16de6c5a40894bec76048de619d486b91a94aaf6e966426e2fd7d4ad0"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/workload.json",
+      "sha256": "b98fd20d6fa29973bca27abc6b0e8987598c15d369befd803e0dee115a3613ca"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/baseline.json",
+      "sha256": "e90fdaf35d850482e24eadcc0308c550b700b202201053473caa075cc3c13e89"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/experiments/p0-reused/p0_receipt.json",
+      "sha256": "d9bdf52dd02066621f700b94c3f6b0179188da8e0bfadeb90f57fa08e5527578"
+    }
+  ],
+  "expected_precision": {
+    "absolute": 0.1,
+    "unit": "us"
+  },
+  "identifiability": "PARTIALLY_IDENTIFIABLE",
+  "issued_by": {
+    "analyst_id": "microarchitecture-analyst-linear-v2",
+    "role": "MICROARCHITECTURE_ANALYST"
+  },
+  "observable": {
+    "measurement_window": "At S404 and S768, randomized interleaved C0/C1 exact four-kernel measurement-only graph blocks; each block times 64 replays with CUDA events on the same explicit stream. The single measure[0] process performs its own in-process warmup and emits fifteen paired blocks per shape. The five other mandatory lifecycle phase processes emit no decision samples.",
+    "name": "two-path screening mean of paired full-pipeline deltas: 0.5*(Delta_s404+Delta_s768)",
+    "unit": "us"
+  },
+  "quantity_id": "screening_two_path_mean_delta_c1_minus_c0",
+  "required_tier": "SCREENING",
+  "schema_version": "measurability-contract-v1",
+  "selected_method": "CANDIDATE_AB",
+  "status": "READY_FOR_SUPERVISOR"
+}

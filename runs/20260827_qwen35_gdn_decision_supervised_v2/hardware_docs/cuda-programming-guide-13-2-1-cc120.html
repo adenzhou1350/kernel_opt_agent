@@ -1,0 +1,719 @@
+
+
+<!DOCTYPE html>
+
+
+<html lang="en" data-content_root="../" >
+
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <title>1.3. The CUDA platform &#8212; CUDA Programming Guide</title>
+  
+  
+  
+  <script data-cfasync="false">
+    document.documentElement.dataset.mode = localStorage.getItem("mode") || "";
+    document.documentElement.dataset.theme = localStorage.getItem("theme") || "";
+  </script>
+  <!--
+    this give us a css class that will be invisible only if js is disabled
+  -->
+  <noscript>
+    <style>
+      .pst-js-only { display: none !important; }
+
+    </style>
+  </noscript>
+  
+  <!-- Loaded before other Sphinx assets -->
+  <link href="../_static/styles/theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+<link href="../_static/styles/pydata-sphinx-theme.css?digest=8878045cc6db502f8baf" rel="stylesheet" />
+
+    <link rel="stylesheet" type="text/css" href="../_static/pygments.css?v=8f2a1f02" />
+    <link rel="stylesheet" type="text/css" href="../_static/styles/nvidia-sphinx-theme.css?v=933278ad" />
+    <link rel="stylesheet" type="text/css" href="../_static/custom.css?v=767de534" />
+    <link rel="stylesheet" type="text/css" href="../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../_static/tables.css?v=0bf25c72" />
+  
+  <!-- So that users can add custom icons -->
+  <script src="../_static/scripts/fontawesome.js?digest=8878045cc6db502f8baf"></script>
+  <!-- Pre-loaded scripts that we'll load fully later -->
+  <link rel="preload" as="script" href="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf" />
+<link rel="preload" as="script" href="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf" />
+
+
+<script src="https://cdn.cookielaw.org/scripttemplates/otSDKStub.js" type="text/javascript"
+  data-document-language="true" charset="UTF-8" data-domain-script="3e2b62ff-7ae7-4ac5-87c8-d5949ecafff5">
+</script>
+<script type="text/javascript">
+  function OptanonWrapper() {
+    var event = new Event('bannerLoaded');
+    window.dispatchEvent(event);
+  }
+</script>
+<script src="https://images.nvidia.com/aem-dam/Solutions/ot-js/ot-custom.js" type="text/javascript">
+</script>
+
+
+    <script rel="preload" src="../_static/modal-table.js"></script>
+    <script src="../_static/documentation_options.js?v=d2f8c407"></script>
+    <script src="../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../_static/scrollspy-patch.js?v=edc4054a"></script>
+    <script src="../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../_static/copybutton.js?v=65e89d2a"></script>
+    <script src="../_static/design-tabs.js?v=f930bc37"></script>
+    <script>DOCUMENTATION_OPTIONS.pagename = '01-introduction/cuda-platform';</script>
+    <script src="../_static/version-patch.js?v=3e13fdd2"></script>
+
+<script type="text/javascript" src="https://assets.adobedtm.com/5d4962a43b79/c1061d2c5e7b/launch-191c2462b890.min.js"></script>
+
+    <link rel="icon" href="../_static/favicon.ico"/>
+
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="2. Programming GPUs in CUDA" href="../part2.html" />
+    <link rel="prev" title="1.2. Programming Model" href="programming-model.html" />
+
+<link rel="preload" as="image" href="https://www.nvidia.com/content/dam/1x1-00000000.png">
+
+
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="docsearch:language" content="en"/>
+  <meta name="docsearch:version" content="" />
+    <meta name="docbuild:last-update" content="Mar 04, 2026"/>
+
+
+  </head>
+
+  
+  
+  <body data-bs-spy="scroll" data-bs-target=".bd-toc-nav" data-offset="180" data-bs-root-margin="0px 0px -60%" data-default-mode="">
+
+  
+  
+  <div id="pst-skip-link" class="skip-link d-print-none"><a href="#main-content">Skip to main content</a></div>
+
+<img src="https://www.nvidia.com/content/dam/1x1-00000000.png" width="1" height="1" style="display:none;" alt="country_code">
+
+
+  
+  <div id="pst-scroll-pixel-helper"></div>
+  
+  <button type="button" class="btn rounded-pill" id="pst-back-to-top">
+    <i class="fa-solid fa-arrow-up"></i>Back to top</button>
+
+  
+  <dialog id="pst-search-dialog">
+    
+<form class="bd-search d-flex align-items-center"
+      action="../search.html"
+      method="get">
+  <i class="fa-solid fa-magnifying-glass"></i>
+  <input type="search"
+         class="form-control"
+         name="q"
+         placeholder="Search the docs ..."
+         aria-label="Search the docs ..."
+         autocomplete="off"
+         autocorrect="off"
+         autocapitalize="off"
+         spellcheck="false"/>
+  <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd>K</kbd></span>
+</form>
+  </dialog>
+
+  <div class="pst-async-banner-revealer d-none">
+  <aside id="bd-header-version-warning" class="d-none d-print-none" aria-label="Version warning"></aside>
+</div>
+
+  
+    <header class="bd-header navbar navbar-expand-lg bd-navbar d-print-none">
+<div class="bd-header__inner bd-page-width">
+  <button class="pst-navbar-icon sidebar-toggle primary-toggle" aria-label="Site navigation">
+    <span class="fa-solid fa-bars"></span>
+  </button>
+  
+  
+  <div class="col-lg-3 navbar-header-items__start">
+    
+      <div class="navbar-item">
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../contents.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="CUDA Programming Guide - Home"/>
+    <img src="../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="CUDA Programming Guide - Home"/>
+  
+  
+    <p class="title logo__title">CUDA Programming Guide</p>
+  
+</a></div>
+    
+  </div>
+  
+  <div class="col-lg-9 navbar-header-items">
+    
+    <div class="me-auto navbar-header-items__center">
+      
+        <div class="navbar-item">
+
+
+<div>
+  <ul class="bd-navbar-elements navbar-nav">
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <span>v13.2 |</span>
+      
+    </li>
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <a class="nav-link nav-external" href="https://docs.nvidia.com/cuda/cuda-programming-guide/pdf/cuda-programming-guide.pdf">PDF</a>
+      
+    </li>
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <span>|</span>
+      
+    </li>
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <a class="nav-link nav-external" href="https://developer.nvidia.com/cuda-toolkit-archive">Archive</a>
+      
+    </li>
+  
+  </ul>
+</div>
+</div>
+      
+    </div>
+    
+    
+    <div class="navbar-header-items__end">
+      
+        <div class="navbar-item navbar-persistent--container">
+          
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+        </div>
+      
+      
+        <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+      
+    </div>
+    
+  </div>
+  
+  
+    <div class="navbar-persistent--mobile">
+
+<button class="btn search-button-field search-button__button pst-js-only" title="Search" aria-label="Search" data-bs-placement="bottom" data-bs-toggle="tooltip">
+ <i class="fa-solid fa-magnifying-glass"></i>
+ <span class="search-button__default-text">Search</span>
+ <span class="search-button__kbd-shortcut"><kbd class="kbd-shortcut__modifier">Ctrl</kbd>+<kbd class="kbd-shortcut__modifier">K</kbd></span>
+</button>
+    </div>
+  
+
+  
+    <button class="pst-navbar-icon sidebar-toggle secondary-toggle" aria-label="On this page">
+      <span class="fa-solid fa-outdent"></span>
+    </button>
+  
+</div>
+
+    </header>
+  
+
+  <div class="bd-container">
+    <div class="bd-container__inner bd-page-width">
+      
+      
+      
+      <dialog id="pst-primary-sidebar-modal"></dialog>
+      <div id="pst-primary-sidebar" class="bd-sidebar-primary bd-sidebar">
+        
+
+
+
+  
+    
+  
+
+<a class="navbar-brand logo" href="../contents.html">
+  
+  
+  
+  
+  
+    
+    
+      
+    
+    
+    <img src="../_static/nvidia-logo-horiz-rgb-blk-for-screen.svg" class="logo__image only-light" alt="CUDA Programming Guide - Home"/>
+    <img src="../_static/nvidia-logo-horiz-rgb-wht-for-screen.svg" class="logo__image only-dark pst-js-only" alt="CUDA Programming Guide - Home"/>
+  
+  
+    <p class="title logo__title">CUDA Programming Guide</p>
+  
+</a>
+
+
+  
+  <div class="sidebar-header-items sidebar-primary__section">
+    
+    
+      <div class="sidebar-header-items__center">
+        
+          
+          
+            <div class="navbar-item">
+
+
+<div>
+  <ul class="bd-navbar-elements navbar-nav">
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <span>v13.2 |</span>
+      
+    </li>
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <a class="nav-link nav-external" href="https://docs.nvidia.com/cuda/cuda-programming-guide/pdf/cuda-programming-guide.pdf">PDF</a>
+      
+    </li>
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <span>|</span>
+      
+    </li>
+  
+    <li class="nav-item pst-header-nav-item">
+      
+      <a class="nav-link nav-external" href="https://developer.nvidia.com/cuda-toolkit-archive">Archive</a>
+      
+    </li>
+  
+  </ul>
+</div>
+</div>
+          
+        
+      </div>
+    
+    
+    
+      <div class="sidebar-header-items__end">
+        
+          <div class="navbar-item">
+
+<button class="btn btn-sm nav-link pst-navbar-icon theme-switch-button pst-js-only" aria-label="Color mode" data-bs-title="Color mode"  data-bs-placement="bottom" data-bs-toggle="tooltip">
+  <i class="theme-switch fa-solid fa-sun                fa-lg" data-mode="light" title="Light"></i>
+  <i class="theme-switch fa-solid fa-moon               fa-lg" data-mode="dark"  title="Dark"></i>
+  <i class="theme-switch fa-solid fa-circle-half-stroke fa-lg" data-mode="auto"  title="System Settings"></i>
+</button></div>
+        
+      </div>
+    
+  </div>
+  
+    <div class="sidebar-primary-items__start sidebar-primary__section">
+        <div class="sidebar-primary-item">
+
+
+
+<nav class="bd-docs-nav bd-links"
+     aria-label="Table of Contents">
+  <p class="bd-links__title" role="heading" aria-level="1">Table of Contents</p>
+  <div class="bd-toc-item navbar-nav"><ul class="current nav bd-sidenav">
+<li class="toctree-l1 current active has-children"><a class="reference internal" href="../index.html">CUDA Programming Guide</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l2 current active has-children"><a class="reference internal" href="../part1.html">1. Introduction to CUDA</a><details open="open"><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul class="current">
+<li class="toctree-l3"><a class="reference internal" href="introduction.html">1.1. Introduction</a></li>
+<li class="toctree-l3"><a class="reference internal" href="programming-model.html">1.2. Programming Model</a></li>
+<li class="toctree-l3 current active"><a class="current reference internal" href="#">1.3. The CUDA platform</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../part2.html">2. Programming GPUs in CUDA</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../02-basics/intro-to-cuda-cpp.html">2.1. Intro to CUDA C++</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02-basics/writing-cuda-kernels.html">2.2. Writing CUDA SIMT Kernels</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02-basics/asynchronous-execution.html">2.3. Asynchronous Execution</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02-basics/understanding-memory.html">2.4. Unified and System Memory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../02-basics/nvcc.html">2.5. NVCC: The NVIDIA CUDA Compiler</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../part3.html">3. Advanced CUDA</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../03-advanced/advanced-host-programming.html">3.1. Advanced CUDA APIs and Features</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03-advanced/advanced-kernel-programming.html">3.2. Advanced Kernel Programming</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03-advanced/driver-api.html">3.3. The CUDA Driver API</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03-advanced/multi-gpu-systems.html">3.4. Programming Systems with Multiple GPUs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../03-advanced/feature-survey.html">3.5. A Tour of CUDA Features</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../part4.html">4. CUDA Features</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/unified-memory.html">4.1. Unified Memory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/cuda-graphs.html">4.2. CUDA Graphs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/stream-ordered-memory-allocation.html">4.3. Stream-Ordered Memory Allocator</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/cooperative-groups.html">4.4. Cooperative Groups</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/programmatic-dependent-launch.html">4.5. Programmatic Dependent Launch and Synchronization</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/green-contexts.html">4.6. Green Contexts</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/lazy-loading.html">4.7. Lazy Loading</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/error-log-management.html">4.8. Error Log Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/async-barriers.html">4.9. Asynchronous Barriers</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/pipelines.html">4.10. Pipelines</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/async-copies.html">4.11. Asynchronous Data Copies</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/cluster-launch-control.html">4.12. Work Stealing with Cluster Launch Control</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/l2-cache-control.html">4.13. L2 Cache Control</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/memory-sync-domains.html">4.14. Memory Synchronization Domains</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/inter-process-communication.html">4.15. Interprocess Communication</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/virtual-memory-management.html">4.16. Virtual Memory Management</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/extended-gpu-memory.html">4.17. Extended GPU Memory</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/dynamic-parallelism.html">4.18. CUDA Dynamic Parallelism</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/graphics-interop.html">4.19. CUDA Interoperability with APIs</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../04-special-topics/driver-entry-point-access.html">4.20. Driver Entry Point Access</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2 has-children"><a class="reference internal" href="../part5.html">5. Technical Appendices</a><details><summary><span class="toctree-toggle" role="presentation"><i class="fa-solid fa-chevron-down"></i></span></summary><ul>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/compute-capabilities.html">5.1. Compute Capabilities</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/environment-variables.html">5.2. CUDA Environment Variables</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/cpp-language-support.html">5.3. C++ Language Support</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/cpp-language-extensions.html">5.4. C/C++ Language Extensions</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/mathematical-functions.html">5.5. Floating-Point Computation</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/device-callable-apis.html">5.6. Device-Callable APIs and Intrinsics</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/cuda-cpp-memory-model.html">5.7. CUDA C++ Memory Model</a></li>
+<li class="toctree-l3"><a class="reference internal" href="../05-appendices/cuda-cpp-execution-model.html">5.8. CUDA C++ Execution model</a></li>
+</ul>
+</details></li>
+<li class="toctree-l2"><a class="reference internal" href="../notices.html">6. Notices</a></li>
+</ul>
+</details></li>
+</ul>
+</div>
+</nav></div>
+    </div>
+  
+  
+  <div class="sidebar-primary-items__end sidebar-primary__section">
+  </div>
+
+
+
+      </div>
+      
+      <main id="main-content" class="bd-main" role="main">
+        
+        
+          <div class="bd-content">
+            <div class="bd-article-container">
+              
+              <div class="bd-header-article d-print-none">
+<div class="header-article-items header-article__inner">
+  
+    <div class="header-article-items__start">
+      
+        <div class="header-article-item">
+
+<nav aria-label="Breadcrumb" class="d-print-none">
+  <ul class="bd-breadcrumbs">
+    
+    <li class="breadcrumb-item breadcrumb-home">
+      <a href="../contents.html" class="nav-link" aria-label="Home">
+        <i class="fa-solid fa-home"></i>
+      </a>
+    </li>
+    
+    <li class="breadcrumb-item"><a href="../index.html" class="nav-link">CUDA Programming Guide</a></li>
+    
+    
+    <li class="breadcrumb-item"><a href="../part1.html" class="nav-link"><span class="section-number">1. </span>Introduction to CUDA</a></li>
+    
+    <li class="breadcrumb-item active" aria-current="page"><span class="ellipsis"><span class="section-number">1.3. </span>The CUDA platform</span></li>
+  </ul>
+</nav>
+</div>
+      
+    </div>
+  
+  
+    <div class="header-article-items__end">
+      
+        <div class="header-article-item">
+<div class="header-article-item">
+  <div class="d-flex justify-content-end w-100">
+    <a href="https://surveys.hotjar.com/4904bf71-6484-47a7-83ff-4715cceabdb5" id="openPopupButton">Is this page helpful?</a>
+  </div>
+</div></div>
+      
+    </div>
+  
+</div>
+</div>
+              
+              
+              
+                
+<div id="searchbox"></div>
+                <article class="bd-article">
+                  
+  <section id="the-cuda-platform">
+<span id="cuda-platform"></span><h1><span class="section-number">1.3. </span>The CUDA platform<a class="headerlink" href="#the-cuda-platform" title="Link to this heading">#</a></h1>
+<p>The NVIDIA CUDA platform consists of many pieces of software and hardware and many important technologies developed to enable computing on heterogeneous systems. This chapter serves to introduce some of the fundamental concepts and components of the CUDA platform that are important for application developers to understand. This chapter, like <a class="reference internal" href="programming-model.html#programming-model"><span class="std std-ref">Programming Model</span></a>, is not specific to any programming language, but applies to everything that uses the CUDA platform.</p>
+<section id="compute-capability-and-streaming-multiprocessor-versions">
+<span id="cuda-platform-compute-capability-sm-version"></span><h2><span class="section-number">1.3.1. </span>Compute Capability and Streaming Multiprocessor Versions<a class="headerlink" href="#compute-capability-and-streaming-multiprocessor-versions" title="Link to this heading">#</a></h2>
+<p>Every NVIDIA GPU has a <em>Compute Capability</em> (CC) number, which indicates what features are supported by that GPU and specifies some hardware parameters for that GPU. These specifications are documented in the <a class="reference internal" href="../05-appendices/compute-capabilities.html#compute-capabilities"><span class="std std-numref">Section 5.1</span></a> appendix.  A list of all NVIDIA GPUs and their compute capabilities is maintained on the <a class="reference external" href="https://developer.nvidia.com/cuda-gpus">CUDA GPU Compute Capability page</a>.</p>
+<p>Compute capability is denoted as a major and minor version number in the format X.Y where X is the major version number and Y is the minor version number. For example, CC 12.0 has a major version of 12 and a minor version of 0. The compute capability directly corresponds to the version number of the SM. For example, the SMs within a GPU of CC 12.0 have SM version <cite>sm_120</cite>. This version is used to label binaries.</p>
+<p><a class="reference internal" href="../05-appendices/compute-capabilities.html#compute-capabilities-querying"><span class="std std-numref">Section 5.1.1</span></a> shows how to query and determine the compute capability of the GPU(s) in a system.</p>
+</section>
+<section id="cuda-toolkit-and-nvidia-driver">
+<span id="cuda-platform-compatibility"></span><h2><span class="section-number">1.3.2. </span>CUDA Toolkit and NVIDIA Driver<a class="headerlink" href="#cuda-toolkit-and-nvidia-driver" title="Link to this heading">#</a></h2>
+<p>The <em>NVIDIA Driver</em> can be thought of as the operating system of the GPU. The NVIDIA Driver is a software component which must be installed on the host system’s operating system and is necessary for all GPU uses, including display and graphical functionality. The NVIDIA Driver is foundational to the CUDA platform. In addition to CUDA, the NVIDIA Driver provides all other methods of using the GPU, for example Vulkan and Direct3D. The NVIDIA Driver has version numbers such as r580.</p>
+<p>The <em>CUDA Toolkit</em> is a set of libraries, headers, and tools for writing, building, and analyzing software which utilizes GPU computing. The CUDA Toolkit is a separate software product from the NVIDIA driver</p>
+<p>The <em>CUDA runtime</em> is a special case of one of the libraries provided by the CUDA Toolkit. The CUDA runtime provides both an API and some language extensions to handle common tasks such as allocating memory, copying data between GPUs and other GPUs or CPUs, and launching kernels. The API components of the CUDA runtime are referred to as the CUDA runtime API.</p>
+<p>The <a class="reference external" href="https://docs.nvidia.com/deploy/cuda-compatibility/index.html">CUDA Compatibility</a> document provides full details of compatibility between different GPUs, NVIDIA Drivers, and CUDA Toolkit versions.</p>
+<section id="cuda-runtime-api-and-cuda-driver-api">
+<span id="cuda-platform-driver-and-runtime"></span><h3><span class="section-number">1.3.2.1. </span>CUDA Runtime API and CUDA Driver API<a class="headerlink" href="#cuda-runtime-api-and-cuda-driver-api" title="Link to this heading">#</a></h3>
+<p>The CUDA runtime API is implemented on top of a lower-level API called the <em>CUDA driver API</em>, which is an API exposed by the NVIDIA Driver. This guide focuses on the APIs exposed by the CUDA runtime API. All the same functionality can be achieved using only the driver API if desired. Some features are only available using the driver API. Applications may use either API or both interoperably. Section <a class="reference internal" href="../03-advanced/driver-api.html#driver-api"><span class="std std-ref">The CUDA Driver API</span></a> covers interoperation between the runtime and driver APIs.</p>
+<p>The full API reference for the CUDA runtime API functions can be found in the <a class="reference external" href="https://docs.nvidia.com/cuda/cuda-runtime-api/index.html">CUDA Runtime API Documentation</a> .</p>
+<p>The full API reference for the CUDA driver API can be found in the <a class="reference external" href="https://docs.nvidia.com/cuda/cuda-driver-api/index.html">CUDA Driver API Documentation</a> .</p>
+</section>
+</section>
+<section id="parallel-thread-execution-ptx">
+<span id="cuda-platform-ptx"></span><h2><span class="section-number">1.3.3. </span>Parallel Thread Execution (PTX)<a class="headerlink" href="#parallel-thread-execution-ptx" title="Link to this heading">#</a></h2>
+<p>A fundamental but sometimes invisible layer of the CUDA platform is the <em>Parallel Thread Execution</em> (PTX) virtual instruction set architecture (ISA). PTX is a high-level assembly language for NVIDIA GPUs. PTX provides an abstraction layer over the physical ISA of real GPU hardware. Like other platforms, applications can be written directly in this assembly language, though doing so can add unnecessary complexity and difficulty to software development.</p>
+<p>Domain-specific languages and compilers for high-level languages can generate PTX code as an intermediate representation (IR) and then use NVIDIA’s offline or just-in-time (JIT) compilation tools to produce executable binary GPU code. This enables the CUDA platform to be programmable from languages other than just those supported by NVIDIA-provided tools such as <a class="reference internal" href="../02-basics/nvcc.html#nvcc"><span class="std std-ref">NVCC: The NVIDIA CUDA Compiler</span></a>.</p>
+<p>Since GPU capabilities change and grow over time, the PTX virtual ISA specification is versioned. PTX versions, like SM versions, correspond to a compute capability. For example, PTX which supports all the features of compute capability 8.0 is called <cite>compute_80</cite>.</p>
+<p>Full documentation on PTX can be found in the <a class="reference external" href="https://docs.nvidia.com/cuda/parallel-thread-execution/index.html">PTX ISA</a> .</p>
+</section>
+<section id="cubins-and-fatbins">
+<span id="cuda-platform-cubins-fatbins"></span><h2><span class="section-number">1.3.4. </span>Cubins and Fatbins<a class="headerlink" href="#cubins-and-fatbins" title="Link to this heading">#</a></h2>
+<p>CUDA applications and libraries are usually written in a higher-level language like C++. That higher-level language is compiled to PTX, and then the PTX is compiled into real binary for a physical GPU, called a <em>CUDA binary</em>, or <em>cubin</em> for short. A cubin has a specific binary format for a specific SM version, such as <cite>sm_120</cite>.</p>
+<p>Executables and library binaries that use GPU computing contain both CPU and GPU code. The GPU code is stored within a container called a <em>fatbin</em>. Fatbins can contain cubins and PTX for multiple different targets. For example, an application could be built with binaries for multiple different GPU architectures, that is, different SM versions. When an application is run, its GPU code is loaded onto a specific GPU and the best binary for that GPU from the fatbin is used.</p>
+<figure class="align-center" id="fatbin-graphic">
+<a class="reference internal image-reference" href="../_images/fatbin.png"><img alt="Fatbin containers within executables or libraries can contain multiple GPU code versions" src="../_images/fatbin.png" style="width: 454px;" />
+</a>
+<figcaption>
+<p><span class="caption-number">Figure 8 </span><span class="caption-text">The binary for an executable or library contains both CPU binary code and a fatbin container for GPU code. A fatbin can contain both cubin GPU binary code and PTX virtual ISA code. PTX code can be JIT compiled for future targets.</span><a class="headerlink" href="#fatbin-graphic" title="Link to this image">#</a></p>
+</figcaption>
+</figure>
+<p>Fatbins can also contain one or more PTX versions of GPU code, the use for which is described in <a class="reference internal" href="#cuda-platform-ptx-compatibility"><span class="std std-ref">PTX Compatibility</span></a>. <a class="reference internal" href="#fatbin-graphic"><span class="std std-numref">Figure 8</span></a> shows an example of an application or library binary which contains multiple cubin versions of GPU code as well as one version of PTX code.</p>
+<section id="binary-compatibility">
+<span id="cuda-platform-compute-binary-compatibility"></span><h3><span class="section-number">1.3.4.1. </span>Binary Compatibility<a class="headerlink" href="#binary-compatibility" title="Link to this heading">#</a></h3>
+<p>NVIDIA GPUs guarantee binary compatibility in certain circumstances. Specifically, within a major version of compute capability, GPUs with minor compute capability greater than or equal to the targeted version of cubin can load and execute that cubin. For example, if an application contains a cubin with code compiled for compute capability 8.6, that cubin can be loaded and executed on GPUs with compute capability 8.6 or 8.9. It cannot, however, be loaded on GPUs with compute capability 8.0, because the GPU’s CC minor version, 0, is lower than the code’s minor version, 6.</p>
+<p>NVIDIA GPUs are not binary compatible between major compute capability versions. That is, cubin code compiled for compute capability 8.6 will not load on GPUs of compute capability 9.0.</p>
+<p>When discussing binary code, the binary code is often referred to as having a version such as <cite>sm_86</cite> in the above example. This is the same as saying the binary was built for compute capability 8.6. This shorthand is often used because it is how a developer specifies this binary build target to the NVIDIA CUDA compiler, <a class="reference internal" href="../02-basics/nvcc.html#nvcc"><span class="std std-ref">nvcc</span></a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Binary compatibility is promised only for binaries created by NVIDIA tools such as <code class="docutils literal notranslate"><span class="pre">nvcc</span></code>. Manual editing or generating binary code for NVIDIA GPUs is not supported. Compatibility promises are invalidated if binaries are modified in any way.</p>
+</div>
+</section>
+<section id="ptx-compatibility">
+<span id="cuda-platform-ptx-compatibility"></span><h3><span class="section-number">1.3.4.2. </span>PTX Compatibility<a class="headerlink" href="#ptx-compatibility" title="Link to this heading">#</a></h3>
+<p>GPU code can be stored in executables in binary or PTX form, which is covered in <a class="reference internal" href="#cuda-platform-cubins-fatbins"><span class="std std-ref">Cubins and Fatbins</span></a>. When an application stores the PTX version of GPU code, that PTX can be JIT compiled at application runtime for any compute capability equal or higher to the compute capability of the PTX code. For example, if an application contains PTX for <cite>compute_80</cite>, that PTX code can be JIT compiled to later SM versions, such as <cite>sm_120</cite> at application runtime. This enables forward compatibility with future GPUs without the need to rebuild applications or libraries.</p>
+</section>
+<section id="just-in-time-compilation">
+<span id="cuda-platform-just-in-time-compilation"></span><h3><span class="section-number">1.3.4.3. </span>Just-in-Time Compilation<a class="headerlink" href="#just-in-time-compilation" title="Link to this heading">#</a></h3>
+<p>PTX code loaded by an application at runtime is compiled to binary code by the device driver. This is called just-in-time (JIT) compilation. Just-in-time compilation increases application load time, but allows the application to benefit from any new compiler improvements coming with each new device driver. It also enables applications to run on devices that did not exist at the time the application was compiled.</p>
+<p>When the device driver just-in-time compiles PTX code for an application, it automatically caches a copy of the generated binary code in order to avoid repeating the compilation in subsequent invocations of the application. The cache - called the compute cache - is automatically invalidated when the device driver is upgraded, so that applications can benefit from the improvements in the new just-in-time compiler built into the device driver.</p>
+<p>How and when PTX is JIT compiled at runtime has been relaxed since the earliest versions of CUDA, allowing more flexibility for when and if to JIT compile some or all kernels. The section <a class="reference internal" href="../04-special-topics/lazy-loading.html#lazy-loading"><span class="std std-ref">Lazy Loading</span></a> describes the available options and how to control JIT behavior. There are also a few environment variables which control just-in-time compilation behavior, as described in <a class="reference internal" href="../05-appendices/environment-variables.html#cuda-environment-variables"><span class="std std-ref">CUDA Environment Variables</span></a>.</p>
+<p>As an alternative to using <code class="docutils literal notranslate"><span class="pre">nvcc</span></code> to compile CUDA C++ device code, NVRTC can be used to compile CUDA C++ device code to PTX at runtime. NVRTC is a runtime compilation library for CUDA C++; more information can be found in the NVRTC User guide.</p>
+</section>
+</section>
+</section>
+
+
+                </article>
+              
+              
+              
+              
+              
+                <footer class="prev-next-footer d-print-none">
+                  
+<div class="prev-next-area">
+    <a class="left-prev"
+       href="programming-model.html"
+       title="previous page">
+      <i class="fa-solid fa-angle-left"></i>
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">previous</p>
+        <p class="prev-next-title"><span class="section-number">1.2. </span>Programming Model</p>
+      </div>
+    </a>
+    <a class="right-next"
+       href="../part2.html"
+       title="next page">
+      <div class="prev-next-info">
+        <p class="prev-next-subtitle">next</p>
+        <p class="prev-next-title"><span class="section-number">2. </span>Programming GPUs in CUDA</p>
+      </div>
+      <i class="fa-solid fa-angle-right"></i>
+    </a>
+</div>
+                </footer>
+              
+            </div>
+            
+            
+
+
+              
+                <dialog id="pst-secondary-sidebar-modal"></dialog>
+                <div id="pst-secondary-sidebar" class="bd-sidebar-secondary bd-toc"><div class="sidebar-secondary-items sidebar-secondary__inner">
+
+
+  <div class="sidebar-secondary-item">
+<div
+    id="pst-page-navigation-heading-2"
+    class="page-toc tocsection onthispage">
+    <i class="fa-solid fa-list"></i> On this page
+  </div>
+  <nav class="bd-toc-nav page-toc" aria-labelledby="pst-page-navigation-heading-2">
+    <ul class="visible nav section-nav flex-column">
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#compute-capability-and-streaming-multiprocessor-versions">1.3.1. Compute Capability and Streaming Multiprocessor Versions</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cuda-toolkit-and-nvidia-driver">1.3.2. CUDA Toolkit and NVIDIA Driver</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#cuda-runtime-api-and-cuda-driver-api">1.3.2.1. CUDA Runtime API and CUDA Driver API</a></li>
+</ul>
+</li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#parallel-thread-execution-ptx">1.3.3. Parallel Thread Execution (PTX)</a></li>
+<li class="toc-h2 nav-item toc-entry"><a class="reference internal nav-link" href="#cubins-and-fatbins">1.3.4. Cubins and Fatbins</a><ul class="nav section-nav flex-column">
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#binary-compatibility">1.3.4.1. Binary Compatibility</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#ptx-compatibility">1.3.4.2. PTX Compatibility</a></li>
+<li class="toc-h3 nav-item toc-entry"><a class="reference internal nav-link" href="#just-in-time-compilation">1.3.4.3. Just-in-Time Compilation</a></li>
+</ul>
+</li>
+</ul>
+  </nav></div>
+
+</div></div>
+              
+            
+
+          </div>
+          <footer class="bd-footer-content">
+            
+          </footer>
+        
+      </main>
+    </div>
+  </div>
+  
+
+  <!-- Scripts loaded after <body> so the DOM is not blocked -->
+  <script defer src="../_static/scripts/bootstrap.js?digest=8878045cc6db502f8baf"></script>
+<script defer src="../_static/scripts/pydata-sphinx-theme.js?digest=8878045cc6db502f8baf"></script>
+
+
+<script type="text/javascript">if (typeof _satellite !== "undefined") {_satellite.pageBottom();}</script>
+
+  <footer class="bd-footer">
+<div class="bd-footer__inner bd-page-width">
+  
+    <div class="footer-items__start">
+      
+        <div class="footer-item">
+<a class="footer-brand logo" href="https://www.nvidia.com">
+  <img src="../_static/nvidia-logo-horiz-rgb-1c-blk-for-screen.svg" class="logo__image only-light" alt="NVIDIA"/>
+  <img src="../_static/nvidia-logo-horiz-rgb-1c-wht-for-screen.svg" class="logo__image only-dark" alt="NVIDIA"/>
+</a></div>
+      
+        <div class="footer-item">
+
+<div class="footer-links">
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-policy/">Privacy Policy</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/privacy-center/">Your Privacy Choices</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/terms-of-service/">Terms of Service</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/accessibility/">Accessibility</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/about-nvidia/company-policies/">Corporate Policies</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/product-security/">Product Security</a>
+   | 
+  
+  
+  
+  <a class="external" href="https://www.nvidia.com/en-us/contact/">Contact</a>
+  
+  
+  
+</div>
+</div>
+      
+        <div class="footer-item">
+
+
+
+
+  <p class="copyright">
+    
+      Copyright © 2007-2026, NVIDIA Corporation &amp; affiliates. All rights reserved.
+      <br/>
+    
+  </p>
+</div>
+      
+        <div class="footer-item"><p class="last-updated">
+  Last updated on Mar 04, 2026.
+  <br/>
+</p></div>
+      
+    </div>
+  
+  
+  
+</div>
+
+  </footer>
+  </body>
+</html>

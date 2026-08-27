@@ -1,0 +1,63 @@
+{
+  "attempt": 4,
+  "causal_validity": "REJECT",
+  "checks": [
+    {
+      "check": "P0_receipt_bound",
+      "status": "PASS"
+    },
+    {
+      "check": "no_competing_process",
+      "status": "PASS"
+    },
+    {
+      "check": "active_clock_cv",
+      "status": "PASS",
+      "value": 0.017954936877213275
+    },
+    {
+      "check": "function_scoped_SASS",
+      "status": "PASS"
+    },
+    {
+      "check": "deterministic_sink",
+      "status": "PASS"
+    },
+    {
+      "check": "address_pattern_observable",
+      "status": "PASS"
+    },
+    {
+      "check": "nonzero_AB_BA_drift_below_10_percent",
+      "maximum": 0.18988648683811105,
+      "status": "FAIL",
+      "worst_key": "s3/shared/2"
+    },
+    {
+      "check": "positive_minus_zero_at_least_0.5us",
+      "differences_us": {
+        "post": 4.861999629999999,
+        "s01": 0.5109998000000004,
+        "s2": 2.344999879,
+        "s3": -0.1825001249999998
+      },
+      "status": "FAIL"
+    }
+  ],
+  "consequence": "No timing from this attempt may update resource service curves or production resource balance.",
+  "execution_receipt_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/execution_receipt.json",
+    "sha256": "bd4bbae839de25d732c701c7f94e9f141101d09ed18714aea1b023b54f4f6960"
+  },
+  "raw_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/raw/samples.json",
+    "sha256": "22ab1bb8d260a7f2d38e0eae089ccd200a6b3679bab7f1ae94157bd6586796e0"
+  },
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-validity-review-v1",
+  "static_audit_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/experiments/req-shared-request-service/static/instruction_audit.json",
+    "sha256": "139ff45d02992a8dc9079c61a4129ed624de9a223aad28bfb7dbfee4b71ac3b4"
+  },
+  "technical_execution": "PASS"
+}

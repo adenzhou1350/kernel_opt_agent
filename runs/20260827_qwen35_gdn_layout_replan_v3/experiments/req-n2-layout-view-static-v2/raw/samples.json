@@ -1,0 +1,33 @@
+{
+  "aggregate": "logical_and(short,long)",
+  "control_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/experiments/req-n2-layout-view-static-v2/controls/no_gpu_warmup.json",
+    "sha256": "72efd252892f4475bc9b9ced8714094b4a71a8e64a04bd37cce33923669a9399"
+  },
+  "cuda_kernel_launches": 0,
+  "duplicated_samples": false,
+  "gpu_performance_samples": 0,
+  "metric": "n2_layout_view_feasible",
+  "observations": [
+    {
+      "independent_timing_sample": false,
+      "production_path": "short",
+      "unit": "binary_pass",
+      "value": 1.0
+    },
+    {
+      "independent_timing_sample": false,
+      "production_path": "long",
+      "unit": "binary_pass",
+      "value": 1.0
+    }
+  ],
+  "samples": [
+    1.0,
+    1.0
+  ],
+  "schema_version": "deterministic-static-observations-v1",
+  "statistical_interpretation": "FORBIDDEN",
+  "timer": "none_compiler_typecheck",
+  "unit": "binary_pass"
+}

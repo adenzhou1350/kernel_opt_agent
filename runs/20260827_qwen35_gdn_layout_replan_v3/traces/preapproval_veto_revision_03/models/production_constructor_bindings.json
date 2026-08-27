@@ -1,0 +1,58 @@
+{
+  "cutlass_layout_implementation_identities": [
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/atom.py",
+      "sha256": "41a61c0dcc44eb1f852db9e6cf1a42d6098f66e42c7059015d1d04879d3de848"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/core.py",
+      "sha256": "035c764686c4e5a94c1f2432b55ba2e6cc572a27db4d857278ccd785a6f7f6f3"
+    },
+    {
+      "path": "/workspace/dance/qwen35/.venv-cu13/lib/python3.12/site-packages/nvidia_cutlass_dsl/dsl_packages/cutlass/cute/tensor.py",
+      "sha256": "c0707b064be449f726ffb895a6a745ffa9ea7cc814da3b97f86ce8c1597b6a27"
+    }
+  ],
+  "legacy_negative_source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/static_admissibility_revision_02/legacy_attempt2_short_source.py",
+    "sha256": "089272013fc3e1f009d371b639ac50e72805b6a47136ccb5879fff3330f716f6"
+  },
+  "production_bindings": [
+    {
+      "active_thread_domain": "tidx<256 of block512",
+      "production_path": "short",
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_short_raw_sm120.py",
+        "sha256": "2b61b0da46b13802fcc75620fe7f87fe50d4de6660259327ee08696b0b83929f"
+      }
+    },
+    {
+      "active_thread_domain": "tidx<256 of block256",
+      "production_path": "long",
+      "source_identity": {
+        "path": "/workspace/dance/qwen35/flashinfer/flashinfer/gdn_kernels/delta_rule_dsl/qwen35_fla_s3_long_raw_sm120.py",
+        "sha256": "2b647e3971a36929a2239c1ade1b4afec33894e0cb6ec638d6b0b046871e149f"
+      }
+    }
+  ],
+  "proof_source_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/microbench_candidates/req-n2-layout-view-static-v2/layout_proof.py",
+    "sha256": "ca55388c0e44b072d103d936901e64f86856138b09bcde5093fdd1799cb8d6cb"
+  },
+  "regex_only_binding_forbidden": true,
+  "required_equality": "layout_signature_sha256(short)==layout_signature_sha256(long)==layout_signature_sha256(proof)",
+  "required_normalized_ast_fields": [
+    "D",
+    "BT",
+    "active_threads",
+    "acc_dtype",
+    "MMA op",
+    "atom shape",
+    "thread layout",
+    "permutation_mnk",
+    "get_slice(tidx)",
+    "make_fragment_C(partition_shape_C((D,BT)))"
+  ],
+  "schema_version": "production-constructor-binding-v2",
+  "status": "SOURCE_TOOLCHAIN_AND_PROOF_HASH_BOUND_AST_TRIPLET_PENDING_EXECUTION"
+}

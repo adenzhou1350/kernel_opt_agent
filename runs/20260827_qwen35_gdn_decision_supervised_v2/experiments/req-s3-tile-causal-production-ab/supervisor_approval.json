@@ -1,0 +1,76 @@
+{
+  "action": "DISPATCH_SCREENING",
+  "approval_id": "approval-req-s3-tile-causal-production-ab-53c50a86be6b",
+  "approved_budget": {
+    "max_configurations": 4,
+    "max_process_launches": 6,
+    "max_samples_per_configuration": 15,
+    "max_wall_clock_minutes": 20
+  },
+  "decision_contract_identity": {
+    "path": "models/decision_contract.json",
+    "sha256": "47c5eded075f19679b35d4a47ef4a926cebb8078714ad59c4fcce0b3a7b33a18"
+  },
+  "experiment_identity": {
+    "path": "experiments/req-s3-tile-causal-production-ab/experiment.json",
+    "sha256": "53c50a86be6bd535784c004225152a5b97ad6bf8b2c813e1df682f427b05bf36"
+  },
+  "frontier_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/tradeoff_frontier.json",
+    "sha256": "93d7d208af522a3e3005f65ddd825d205ba1325057aa5ad483aeb923c85502cd"
+  },
+  "gate_results": [
+    {
+      "gate": "CANDIDATE_COUNT_2_TO_4",
+      "status": "PASS"
+    },
+    {
+      "gate": "TOP_TWO_ORDER_CAN_FLIP",
+      "status": "PASS"
+    },
+    {
+      "gate": "ONE_DECISION_UNCERTAINTY",
+      "status": "PASS"
+    },
+    {
+      "gate": "METHOD_IDENTIFIABLE",
+      "status": "PASS"
+    },
+    {
+      "gate": "EXPECTED_PRECISION_SUFFICIENT",
+      "status": "PASS"
+    },
+    {
+      "gate": "BUDGET_WITHIN_CONTRACT",
+      "status": "PASS"
+    },
+    {
+      "gate": "SEPARATION_OF_DUTIES",
+      "status": "PASS"
+    }
+  ],
+  "issued_at": "2026-08-27T06:58:43.369190+00:00",
+  "issued_by": {
+    "role": "GLOBAL_SUPERVISOR",
+    "supervisor_id": "global-supervisor-root-v2"
+  },
+  "measurability_contract_identity": {
+    "path": "models/measurability_contract.json",
+    "sha256": "889ede83fa9359533d178921d46e73c5ab2237ae7022b63b4316662ab19ed583"
+  },
+  "objective_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/objective.json",
+    "sha256": "3fd7379169bf7b2a88ae0858ed58608b24419374b0a20f67367b2f61ed46dc14"
+  },
+  "rationale": "Attempt-1 technical failure was isolated before candidate compilation to top-level candidate_pkg relative-import semantics. The single budgeted revision changes only candidate composite imports for unchanged production S01/S2/post to their absolute FlashInfer modules; import smoke and all materialized/decision/measurability/budget validators PASS. C1 S3 source, layout assertion, commands, statistic, workload and no-fallback rules are unchanged. Fresh approval is hash-bound to attempt-2.",
+  "request_id": "req-s3-tile-causal-production-ab",
+  "schema_version": "supervisor-approval-v1",
+  "separation_of_duties": {
+    "all_distinct": true,
+    "analyst_id": "microarchitecture-analyst-linear-v2",
+    "experimenter_id": "experiment-agent-linear-v2",
+    "scheduler_id": "global-scheduler-linear-v2"
+  },
+  "single_use": true,
+  "status": "APPROVED"
+}

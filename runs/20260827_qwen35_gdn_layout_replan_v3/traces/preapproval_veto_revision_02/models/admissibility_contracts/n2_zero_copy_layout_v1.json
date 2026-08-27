@@ -1,0 +1,132 @@
+{
+  "allowed_model_updates": [
+    "N2 static admissibility status",
+    "survivor candidate set",
+    "trigger fresh performance-bound rebuild"
+  ],
+  "analysis_owner": {
+    "analyst_id": "microarchitecture-analyst-linear-v3",
+    "role": "MICROARCHITECTURE_ANALYST"
+  },
+  "candidate_binding": {
+    "artifact_identity": {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/architecture_candidates/n2.json",
+      "sha256": "2bc75b5f33e8bcf05f184eddbf16fdfd082fa46e5f11c980d46a1885295fee8f"
+    },
+    "candidate_id": "N2"
+  },
+  "device_budget": {
+    "cuda_kernel_launches": 0,
+    "gpu_performance_samples": 0
+  },
+  "evidence": [
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/traces/preapproval_veto_revision_01/review_receipt.json",
+      "sha256": "55c920e5d1a106d87b9b0fe0887bc5986e4b83f8af778cb18be9f4741f29929f"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/production_constructor_bindings.json",
+      "sha256": "800dfdb1eec29d89c32aa0beff2fbfa68323d44230c5a463bdc78db55cfc7fb7"
+    },
+    {
+      "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3/models/admissibility_status.json",
+      "sha256": "84e13a2cd480a50f474e8d41fac3b932627db0c2304195b5899b99742107c4c1"
+    }
+  ],
+  "explicit_non_claims": [
+    "no latency value",
+    "no speedup value",
+    "no performance Top2 ordering",
+    "no numerical correctness conclusion",
+    "no K-loop accumulation-order proof",
+    "no production physical-register, SASS, resource-usage or acceptance claim"
+  ],
+  "forbidden_model_updates": [
+    "latency interval",
+    "objective value",
+    "performance Top2",
+    "ranking score",
+    "production source",
+    "global candidate acceptance"
+  ],
+  "gates": [
+    {
+      "gate_id": "G1_EXACT_PATH_IDENTITY",
+      "requirement": "hash-bind short/long sources and normalized AST of D=128, BT=64, dtype, FP32 accumulator, O1 MMA, slice, fragment construction and short active-thread guard"
+    },
+    {
+      "gate_id": "G2_SAME_ITERATOR",
+      "requirement": "all four N16 tensors share the exact O1 backing engine with only static fragment offsets; no second accumulator or copy"
+    },
+    {
+      "gate_id": "G3_BIJECTIVE_MAPPING",
+      "requirement": "enumerate 256*4*8 records and prove identical global coordinate, owner tid/lane, logical backing offset, per-tile disjointness and full union"
+    },
+    {
+      "gate_id": "G4_SCOREV_FRAGMENT_COMPATIBILITY",
+      "requirement": "short-512-active256 and long-256 each compile a live O1 producer whose same-backing slices are scoreV cute.gemm C/D operands"
+    },
+    {
+      "gate_id": "G5_NEGATIVE_CONTROL",
+      "requirement": "legacy one-warp append mapping is unequal and deterministically detected as REJECT"
+    },
+    {
+      "gate_id": "G6_ZERO_DYNAMIC_EXECUTION",
+      "requirement": "compiled callable invocations=0, CUDA kernel launches=0, GPU timing samples=0"
+    }
+  ],
+  "host_budget": {
+    "max_configurations": 2,
+    "max_process_launches": 6,
+    "max_revisions": 1,
+    "max_samples_per_configuration": 1,
+    "max_wall_clock_minutes": 15
+  },
+  "issued_by": {
+    "owner_id": "global-scheduler-linear-v3",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "observations": {
+    "aggregate": "logical_and(short,long)",
+    "duplicated_samples_forbidden": true,
+    "long": {
+      "count": 1,
+      "unit": "binary_pass"
+    },
+    "short": {
+      "count": 1,
+      "unit": "binary_pass"
+    }
+  },
+  "outcomes": [
+    {
+      "condition": "all G1..G6 pass",
+      "outcome": "ADMIT_N2_LAYOUT_VIEW_PENDING_IMPLEMENTATION"
+    },
+    {
+      "condition": "recognized deterministic mapping/layout/alias/coverage predicate false",
+      "outcome": "REJECT_N2_STATIC_LAYOUT"
+    },
+    {
+      "condition": "identity/import/tool/compiler infrastructure failure",
+      "outcome": "INVALID_HALT_WITHOUT_N2_DISPOSITION"
+    }
+  ],
+  "phase": "MODELING",
+  "predicate": {
+    "domain": {
+      "lower": 0,
+      "upper": 1
+    },
+    "equation": "x=1 iff G1&&G2&&G3&&G4&&G5&&G6 pass for both short and long; x=0 only for a recognized deterministic predicate failure",
+    "fail_condition": "x == 0",
+    "pass_condition": "x == 1",
+    "quantity_id": "n2_layout_view_feasible",
+    "statistical_precision": "NOT_APPLICABLE_DETERMINISTIC",
+    "unit": "binary_pass"
+  },
+  "run_id": "20260827_qwen35_gdn_layout_replan_v3",
+  "schema_version": "candidate-admissibility-contract-v1",
+  "status": "READY_FOR_SUPERVISOR",
+  "subdecision_id": "admit-n2-zero-copy-layout-v1"
+}

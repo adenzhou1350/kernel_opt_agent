@@ -1,0 +1,439 @@
+{
+  "cases": [
+    {
+      "J": 4,
+      "P": 256,
+      "S": 256,
+      "binary_identity": {
+        "bytes": 228632,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/composite.cubin",
+        "sha256": "e802eeed0962d4646a5d4b903af500c1ba9142d0097e4af0fff50447dd100523"
+      },
+      "case_id": "s256",
+      "coverage": {
+        "classified_static_sites": 8648,
+        "classified_unique_mnemonics": 146,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 8648,
+        "unique_mnemonics": 146
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/disassembly_receipt.json",
+        "sha256": "6893f536376f79a201bcdc1ad86d5a9afc63022dded16c5788601adccd251dd3"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/final.sass",
+        "sha256": "897832867c2f82b47e68601696f50deadb8dded128d6a926f49967734ed9a699"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/sass-summary.json",
+        "sha256": "049d87c8d8dca8d1efef5206bc2ac1452c5ccee65f3a93a1cc9a76165cfeca6a"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 571000,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s256/final.sass",
+        "sha256": "a04ccd9f19bbcd6de57b43495f2f234f3c51f9a6321e7d3eac55bd5f89e01437"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    },
+    {
+      "J": 6,
+      "P": 384,
+      "S": 384,
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/composite.cubin",
+        "sha256": "9a716fcb2faa9ee87044ee20bcff4e8c94c22c54300ac72a3eed3b949530ed92"
+      },
+      "case_id": "s384",
+      "coverage": {
+        "classified_static_sites": 8688,
+        "classified_unique_mnemonics": 147,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 8688,
+        "unique_mnemonics": 147
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/disassembly_receipt.json",
+        "sha256": "63636249b1da8c57743d5c089e4425598adc79b1ab221791440ac82dd1232e27"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/final.sass",
+        "sha256": "bf54dafbd510b4d455fd7a7046d46a6f157861a9a7808c14e37cfbccc8e55ee3"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/sass-summary.json",
+        "sha256": "e8a6b655157dc65871b0bcee7fb899e388aaeddc32c5f0ef2b93d29b7529a15b"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 574082,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s384/final.sass",
+        "sha256": "5ee2584d578be95d50e517d4bcbb8e645fc12dab486379b2b70392b8edfd3629"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    },
+    {
+      "J": 7,
+      "P": 448,
+      "S": 404,
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/composite.cubin",
+        "sha256": "ac0a9b859bd3506a75a06c80806f58238e1827432e87612b43bf89190f2cc04e"
+      },
+      "case_id": "s404",
+      "coverage": {
+        "classified_static_sites": 8688,
+        "classified_unique_mnemonics": 147,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 8688,
+        "unique_mnemonics": 147
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/disassembly_receipt.json",
+        "sha256": "3341f1e623bfb39c497e15f62afc965a6a6d681590cab72c4ce215a565999518"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/final.sass",
+        "sha256": "12a5897891d5ecba3f08cddca5c736d91cca7197c7316137e6c7f4326fc1f1e9"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/sass-summary.json",
+        "sha256": "8eb9919259c13a7ab106048b8ac23192f061a1064e11b89af605b70f425a2c60"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 574082,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s404/final.sass",
+        "sha256": "02155226345ee823b2922f9dd1a8ad4b6775e16d59d506c1415f2c86e4ba78c6"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    },
+    {
+      "J": 8,
+      "P": 512,
+      "S": 512,
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/composite.cubin",
+        "sha256": "f8fa515b3dd11ca527f0aae38f959173e562abd13c9f51a8924efbd3fe2b7f2d"
+      },
+      "case_id": "s512",
+      "coverage": {
+        "classified_static_sites": 8688,
+        "classified_unique_mnemonics": 146,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 8688,
+        "unique_mnemonics": 146
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/disassembly_receipt.json",
+        "sha256": "ae75a289c75fc9c4660f179ee45d51dce1fafa4a1d127d039e3fabef869b3fc2"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/final.sass",
+        "sha256": "6ba4b70c28dd326f87a78150254aea5fcb29a0dcf8d5d7d26c92e445517d51bf"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/sass-summary.json",
+        "sha256": "d273de6e340ced8709c615e179093108f921973ff1deb3b8275dd4e7b8553d97"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 574121,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s512/final.sass",
+        "sha256": "9d4f4b238fb46a0748a9386f7af5b7c420e86d7d23fee3122d09990981c63966"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    },
+    {
+      "J": 10,
+      "P": 640,
+      "S": 640,
+      "binary_identity": {
+        "bytes": 229184,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/composite.cubin",
+        "sha256": "f2d8d3eafb34d0dfa50540f19525a91ac717be2e3d474a17536468be7ae596f2"
+      },
+      "case_id": "s640",
+      "coverage": {
+        "classified_static_sites": 8688,
+        "classified_unique_mnemonics": 147,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 8688,
+        "unique_mnemonics": 147
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/disassembly_receipt.json",
+        "sha256": "5f53d09dd98cd3a108cc6dda01620751c2a31a6415431d3cca190322b56107b7"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/final.sass",
+        "sha256": "08dcc4ff3aa208a8b09d1f8ad2ad8b256236991cc845fd43b3f302d47396390e"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/sass-summary.json",
+        "sha256": "940392fd69086770dac1740c006a31ad4e6e91f38d5f1128aa8948135701e84b"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 574130,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s640/final.sass",
+        "sha256": "b7e1245b46535dc26e4ee26fddac8a4d069d9468aa2d8d2b67afc25d96ca6b8f"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    },
+    {
+      "J": 12,
+      "P": 768,
+      "S": 768,
+      "binary_identity": {
+        "bytes": 230144,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/composite.cubin",
+        "sha256": "9fed358579e40c2a2384b1626e405c18d70e29145e4422229c578a123ddd4767"
+      },
+      "case_id": "s768",
+      "coverage": {
+        "classified_static_sites": 9472,
+        "classified_unique_mnemonics": 148,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 9472,
+        "unique_mnemonics": 148
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/disassembly_receipt.json",
+        "sha256": "e73beef185bafac25f1925812c32d32c9f5e9d53f883841a2078b3a95f795354"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/final.sass",
+        "sha256": "f4a3659e2374adddbe98092d0f022aa13f210ed881cec8d812bcc243753c6d05"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/sass-summary.json",
+        "sha256": "6bc7c3b78596ee9b2a25ff074d7bf768996d213739410fd9df6f5d5ccc31ad6c"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 634420,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s768/final.sass",
+        "sha256": "34adb498b363e695c5f1125d245d2bf94471f1f2dc567d751a3843afd5881a3e"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    },
+    {
+      "J": 16,
+      "P": 1024,
+      "S": 1024,
+      "binary_identity": {
+        "bytes": 229120,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/composite.cubin",
+        "sha256": "85cc24e0e53eb4145780b0de34f37d27ecfc6b813c729f3715a390f50c25dc0a"
+      },
+      "case_id": "s1024",
+      "coverage": {
+        "classified_static_sites": 9456,
+        "classified_unique_mnemonics": 149,
+        "site_coverage_fraction": 1.0,
+        "status": "PASS",
+        "total_static_sites": 9456,
+        "unique_mnemonics": 149
+      },
+      "disassembly_receipt_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/disassembly_receipt.json",
+        "sha256": "6987e7bae925fe60f65e09a5ba41efcc45d527dd71c9af0a44de96bbb7d02371"
+      },
+      "function_count": 4,
+      "instruction_classes": [
+        "async_copy",
+        "barrier",
+        "branch_control",
+        "constant_load",
+        "control_noop",
+        "conversion",
+        "global_load",
+        "global_store",
+        "integer_address",
+        "memory_wait",
+        "move_select",
+        "predicate_compare",
+        "shared_load",
+        "shared_store",
+        "simt_fp",
+        "special_function",
+        "system_register",
+        "tensor",
+        "warp_collective"
+      ],
+      "sass_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/final.sass",
+        "sha256": "3ef910627cc790cd5bf221e81ef8ec27d1af44ac972b539572514be4fbccffc7"
+      },
+      "sass_summary_identity": {
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/sass-summary.json",
+        "sha256": "a0d85c6a50c0d3fed9ed29f13fa0922dd50bf2903dad00466e49eb169b0d293a"
+      },
+      "source_manifest_sass_identity": {
+        "bytes": 633470,
+        "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/s1024/final.sass",
+        "sha256": "c96ec2c426c4f5af583d9dc7efffb489ef78513735ec0a0d2d1c0e83cc79be77"
+      },
+      "source_manifest_sass_identity_status": "SUPERSEDED_BY_REPRODUCIBLE_DISASSEMBLY_RECEIPT"
+    }
+  ],
+  "contract": {
+    "cases": [
+      "s256",
+      "s384",
+      "s404",
+      "s512",
+      "s640",
+      "s768",
+      "s1024"
+    ],
+    "note": "same classes does not imply same dynamic counts or service behavior",
+    "same_material_instruction_class_set": true,
+    "site_coverage_fraction": 1.0,
+    "unknown_or_ambiguous_mnemonics": 0
+  },
+  "created_at": "2026-08-26T16:07:43.190815+00:00",
+  "manifest_identity": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260826_qwen35_gdn_explainability_v1/static/cases/manifest.json",
+    "sha256": "0aa8b9fee5898156ebce70606657e70d9ff9607b12ea7cea657a2d095aabe685"
+  },
+  "schema_version": "production-case-binary-resource-coverage-v1",
+  "status": "PASS"
+}

@@ -1,0 +1,1188 @@
+{
+  "derived_fits": {
+    "fit_barrier": {
+      "beta_p025": 0.020389402905360367,
+      "beta_p975": 0.02321751159509309,
+      "beta_us_per_repeat": 0.022057602171270965,
+      "r_squared": 0.9880749186143742
+    },
+    "fit_load_cache_region": {
+      "beta_p025": 4.055521256353228,
+      "beta_p975": 4.0732713998238,
+      "beta_us_per_repeat": 4.064614219334256,
+      "effective_GBps": 4127.628132627047,
+      "r_squared": 0.9999371515119857
+    },
+    "fit_load_large_working_set": {
+      "beta_p025": 10.972280986650002,
+      "beta_p975": 11.030470021037498,
+      "beta_us_per_repeat": 11.002531275175,
+      "effective_GBps": 1524.850562147859,
+      "r_squared": 1.0
+    },
+    "fit_store_cache_region": {
+      "beta_p025": 4.941600097154629,
+      "beta_p975": 4.970728790597315,
+      "beta_us_per_repeat": 4.952035496730172,
+      "effective_GBps": 3387.9434045006324,
+      "r_squared": 0.9998165162922988
+    },
+    "fit_store_large_working_set": {
+      "beta_p025": 10.484687984012501,
+      "beta_p975": 10.5719696730875,
+      "beta_us_per_repeat": 10.525719262675002,
+      "effective_GBps": 1593.9258478509187,
+      "r_squared": 1.0
+    }
+  },
+  "hardware": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+    "sha256": "b6182e069f437479509be3687a2eed24e2db57f94735ceef6c4199fdac1f2514"
+  },
+  "interpretation": [
+    "A slope is a calibrated achievable service rate, not automatically a silicon bound.",
+    "A slope change at larger working sets is evidence of a cache/regime transition, not proof of a specific cache capacity without counters."
+  ],
+  "manifest": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/manifest.json",
+    "sha256": "907c0d0cb0f3cc3c115c46752f9813e0df34274d608bf3b2ee5472303f05a7aa"
+  },
+  "records": [
+    {
+      "benchmark": "nvidia.cuda-core-service-curves.v1:barrier",
+      "controlled_variables": {
+        "device": 6,
+        "source_and_binary_fixed": true
+      },
+      "correctness": {
+        "checksums_by_repeat": {
+          "0": 93522531363584,
+          "1": 93522531407104,
+          "16": 93522532059904,
+          "2": 93522531450624,
+          "4": 93522531537664,
+          "8": 93522531711744
+        },
+        "live_checksum_present": true
+      },
+      "environment": {
+        "hardware_snapshot": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+        "software": {
+          "driver": "595.45.04",
+          "nvcc": "Build cuda_13.3.r13.3/compiler.37862127_0",
+          "torch": "2.10.0+cu130",
+          "torch_cuda_runtime": "13.0"
+        },
+        "target": {
+          "architecture": "sm_120",
+          "compute_capability": "12.0",
+          "device_index": 6,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "max_threads_per_block": 1024,
+          "max_threads_per_sm": 1536,
+          "memory_bytes": 33670758400,
+          "registers_per_sm": 65536,
+          "shared_memory_per_block_bytes": 49152,
+          "shared_memory_per_block_optin_bytes": 101376,
+          "shared_memory_per_sm_bytes": 102400,
+          "sm_count": 170,
+          "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+          "vendor": "NVIDIA",
+          "warp_size": 32
+        }
+      },
+      "independent_variables": {
+        "bytes_per_repeat": 16777216,
+        "repeat": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16
+        ]
+      },
+      "launch": {
+        "blocks": 170,
+        "dynamic_smem_bytes": 0,
+        "graph_nodes": 128,
+        "threads": 256
+      },
+      "measurement": {
+        "metric": "GPU active-equivalent graph-node time",
+        "semantics": "native CUDA graph with N kernel nodes, event duration divided by N",
+        "unit": "microseconds"
+      },
+      "question": "What is the marginal time of one necessary block barrier plus its shared producer/consumer pair?",
+      "raw_samples": [
+        0.599750026595,
+        0.578499981202,
+        0.574500008952,
+        0.57299999753,
+        0.572499993723,
+        0.578999985009,
+        0.571499986108,
+        0.573249999434,
+        0.564999994822,
+        0.580249994528,
+        0.563999987207,
+        0.566500006244,
+        0.574500008952,
+        0.574000005145,
+        0.587249989621,
+        0.582250009757,
+        0.574500008952,
+        0.57024997659,
+        0.564499991015,
+        0.581250002142,
+        0.574000005145,
+        0.566500006244,
+        0.564249989111,
+        0.57299999753,
+        0.566500006244,
+        0.669749977533,
+        0.657249998767,
+        0.640999991447,
+        0.635750009678,
+        0.646999978926,
+        0.651250011288,
+        0.634750002064,
+        0.640249985736,
+        0.64400001429,
+        0.652250018902,
+        0.637750024907,
+        0.647499982733,
+        0.631499977317,
+        0.627500005066,
+        0.626749999356,
+        0.628750014585,
+        0.630000024103,
+        0.62100001378,
+        0.613500014879,
+        0.629500020295,
+        0.623999978416,
+        0.630000024103,
+        0.621500017587,
+        0.629500020295,
+        0.61425002059,
+        0.720750016626,
+        0.69249997614,
+        0.696500006597,
+        0.649499997962,
+        0.64400001429,
+        0.652250018902,
+        0.651750015095,
+        0.65350002842,
+        0.65399997402,
+        0.67024998134,
+        0.652750022709,
+        0.654499977827,
+        0.658750010189,
+        0.653250026517,
+        0.667500018608,
+        0.654249975923,
+        0.653749972116,
+        0.653000024613,
+        0.644750020001,
+        0.645999971312,
+        0.646249973215,
+        0.64724998083,
+        0.645250023808,
+        0.654749979731,
+        0.646749977022,
+        0.72499999078,
+        0.692749978043,
+        0.69249997614,
+        0.700749980751,
+        0.684999977238,
+        0.707999977749,
+        0.684000027832,
+        0.700499978848,
+        0.686249986757,
+        0.699250027537,
+        0.700749980751,
+        0.692999979947,
+        0.701499986462,
+        0.701499986462,
+        0.701249984559,
+        0.694249989465,
+        0.685749982949,
+        0.69875002373,
+        0.69249997614,
+        0.701249984559,
+        0.694749993272,
+        0.694249989465,
+        0.691500026733,
+        0.701499986462,
+        0.685749982949,
+        0.816999992821,
+        0.804750015959,
+        0.775000022259,
+        0.799749977887,
+        0.778249988798,
+        0.795750005636,
+        0.775750027969,
+        0.801999995019,
+        0.777999986894,
+        0.783999974374,
+        0.784499978181,
+        0.777499983087,
+        0.785749987699,
+        0.785999989603,
+        0.795250001829,
+        0.784249976277,
+        0.799249974079,
+        0.784749980085,
+        0.776749977376,
+        0.78649999341,
+        0.777749984991,
+        0.783250026871,
+        0.777499983087,
+        0.800749985501,
+        0.793749990407,
+        0.962499994785,
+        0.950250017922,
+        0.947499996983,
+        0.956000003498,
+        0.950500019826,
+        0.945499981754,
+        0.942750019021,
+        0.934500014409,
+        0.937749980949,
+        0.936499971431,
+        0.944999977946,
+        0.951749971136,
+        0.946499989368,
+        0.937749980949,
+        0.950250017922,
+        0.958500022534,
+        0.943750026636,
+        0.938249984756,
+        0.936749973334,
+        0.944999977946,
+        0.938249984756,
+        0.944749976043,
+        0.92850002693,
+        0.950250017922,
+        0.93849998666
+      ],
+      "runtime_evidence": {
+        "native_graph_node_count": 128
+      },
+      "schema_version": "benchmark-result-v1",
+      "source_identity": {
+        "binary_sha256": "a7928ff7ad7af384978d1140f39ce6315380d503d71fa513644dff742bef3b9e",
+        "source_sha256": "d5a920b1dbf83bf95d484c9e1c0a828b3aff0430692a1d44e6311f6beeb17846"
+      },
+      "static_evidence": {
+        "available": true,
+        "directory": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/static",
+        "files": {
+          "binary.sha256": {
+            "bytes": 156,
+            "sha256": "a7071ac6d7b4b63e41e85b7fe67853239433a99e06faa1b7b211c471cc24bdc7"
+          },
+          "cuobjdump.version.txt": {
+            "bytes": 219,
+            "sha256": "7840d76ecfabd9ecf49b32c076e9fefd048bec44145ea6a91d35f4561e414abe"
+          },
+          "elf_list.txt": {
+            "bytes": 88,
+            "sha256": "8d70a5b1ca24c8dab012de660650ad574a0d73015c278ad0ab987baf556e8ef5"
+          },
+          "nvdisasm.version.txt": {
+            "bytes": 212,
+            "sha256": "525be0d84b1604ce45640ba1694fa9b5827ebf48675a5a4e9ea55c61af29112c"
+          },
+          "resource_usage.txt": {
+            "bytes": 3367,
+            "sha256": "5bab5b2c7ac57eb3817fac77bcf9c734ff95f64324bcba0397d2732101cc4070"
+          },
+          "sass.txt": {
+            "bytes": 424870,
+            "sha256": "49aeb84cd47795cab37edf362a093bc2ca374f299e9c6d27e19f3aab4777c070"
+          }
+        }
+      },
+      "summary": {
+        "median_us_by_repeat": {
+          "0": 0.573249999434,
+          "1": 0.631499977317,
+          "16": 0.944999977946,
+          "2": 0.653250026517,
+          "4": 0.694749993272,
+          "8": 0.784749980085
+        },
+        "monotonic_non_decreasing": true
+      },
+      "validity": {
+        "claims_allowed": [
+          "service curve for this recorded source, environment and geometry"
+        ],
+        "claims_forbidden": [
+          "absolute DRAM bandwidth",
+          "production operator lower bound",
+          "cross-device rate portability"
+        ],
+        "dce_guard": "live global sink/destination copied to host and checksummed",
+        "known_pollution": [
+          "graph replay overhead divided by node count",
+          "shared store and peer load per barrier"
+        ],
+        "status": "VALID"
+      }
+    },
+    {
+      "benchmark": "nvidia.cuda-core-service-curves.v1:launch",
+      "controlled_variables": {
+        "device": 6,
+        "source_and_binary_fixed": true
+      },
+      "correctness": {
+        "checksums_by_repeat": {
+          "0": 115520871443200,
+          "1": 115520871443200,
+          "16": 115520871443200,
+          "2": 115520871443200,
+          "4": 115520871443200,
+          "8": 115520871443200
+        },
+        "live_checksum_present": true
+      },
+      "environment": {
+        "hardware_snapshot": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+        "software": {
+          "driver": "595.45.04",
+          "nvcc": "Build cuda_13.3.r13.3/compiler.37862127_0",
+          "torch": "2.10.0+cu130",
+          "torch_cuda_runtime": "13.0"
+        },
+        "target": {
+          "architecture": "sm_120",
+          "compute_capability": "12.0",
+          "device_index": 6,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "max_threads_per_block": 1024,
+          "max_threads_per_sm": 1536,
+          "memory_bytes": 33670758400,
+          "registers_per_sm": 65536,
+          "shared_memory_per_block_bytes": 49152,
+          "shared_memory_per_block_optin_bytes": 101376,
+          "shared_memory_per_sm_bytes": 102400,
+          "sm_count": 170,
+          "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+          "vendor": "NVIDIA",
+          "warp_size": 32
+        }
+      },
+      "independent_variables": {
+        "bytes_per_repeat": 16777216,
+        "repeat": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16
+        ]
+      },
+      "launch": {
+        "blocks": 170,
+        "dynamic_smem_bytes": 0,
+        "graph_nodes": 128,
+        "threads": 256
+      },
+      "measurement": {
+        "metric": "GPU active-equivalent graph-node time",
+        "semantics": "native CUDA graph with N kernel nodes, event duration divided by N",
+        "unit": "microseconds"
+      },
+      "question": "What is the matched native-graph launch/grid/block envelope?",
+      "raw_samples": [
+        0.612750009168,
+        0.598500017077,
+        0.581500004046,
+        0.588750001043,
+        0.581250002142,
+        0.587999995332,
+        0.580249994528,
+        0.589500006754,
+        0.582750013564,
+        0.597000005655,
+        0.580499996431,
+        0.583000015467,
+        0.581250002142,
+        0.58250001166,
+        0.588499999139,
+        0.589750008658,
+        0.582750013564,
+        0.628000008874,
+        0.594499986619,
+        0.582000007853,
+        0.593749980908,
+        0.581500004046,
+        0.588750001043,
+        0.600499974098,
+        0.588750001043,
+        0.6154999719,
+        0.598250015173,
+        0.588249997236,
+        0.589000002947,
+        0.589500006754,
+        0.596249999944,
+        0.586749985814,
+        0.589500006754,
+        0.587999995332,
+        0.586749985814,
+        0.587749993429,
+        0.590500014368,
+        0.589750008658,
+        0.590250012465,
+        0.588249997236,
+        0.582250009757,
+        0.589500006754,
+        0.586249982007,
+        0.580749998335,
+        0.581000000238,
+        0.590000010561,
+        0.662249978632,
+        0.588750001043,
+        0.606250017881,
+        0.590500014368,
+        0.617249985225,
+        0.58250001166,
+        0.582250009757,
+        0.590250012465,
+        0.582000007853,
+        0.588249997236,
+        0.591750023887,
+        0.5857499782,
+        0.589000002947,
+        0.59599999804,
+        0.590000010561,
+        0.581500004046,
+        0.582250009757,
+        0.581000000238,
+        0.588499999139,
+        0.582750013564,
+        0.589750008658,
+        0.580249994528,
+        0.574500008952,
+        0.588750001043,
+        0.582750013564,
+        0.583750021178,
+        0.579499988817,
+        0.606000015978,
+        0.582000007853,
+        0.617499987129,
+        0.580499996431,
+        0.581500004046,
+        0.581500004046,
+        0.589750008658,
+        0.589000002947,
+        0.581000000238,
+        0.582250009757,
+        0.581750005949,
+        0.594499986619,
+        0.581000000238,
+        0.582000007853,
+        0.582250009757,
+        0.582750013564,
+        0.587999995332,
+        0.582000007853,
+        0.58250001166,
+        0.587999995332,
+        0.581000000238,
+        0.581500004046,
+        0.582750013564,
+        0.582250009757,
+        0.587749993429,
+        0.587999995332,
+        0.58250001166,
+        0.622250023298,
+        0.610749993939,
+        0.610749993939,
+        0.595499994233,
+        0.600999977905,
+        0.646999978926,
+        0.591250020079,
+        0.607999972999,
+        0.603749998845,
+        0.599500024691,
+        0.605500012171,
+        0.60874997871,
+        0.593249977101,
+        0.607749971095,
+        0.598500017077,
+        0.598000013269,
+        0.607000023592,
+        0.602749991231,
+        0.591500021983,
+        0.608499976806,
+        0.592250027694,
+        0.600999977905,
+        0.599000020884,
+        0.599250022788,
+        0.607749971095,
+        0.61824999284,
+        0.597750011366,
+        0.594749988522,
+        0.587999995332,
+        0.588249997236,
+        0.604500004556,
+        0.606500019785,
+        0.60199998552,
+        0.60199998552,
+        0.607250025496,
+        0.581250002142,
+        0.59599999804,
+        0.594499986619,
+        0.584250024986,
+        0.600499974098,
+        0.594249984715,
+        0.594999990426,
+        0.600499974098,
+        0.606500019785,
+        0.59249997139,
+        0.582250009757,
+        0.581750005949,
+        0.587499991525,
+        0.605750014074,
+        0.590500014368
+      ],
+      "runtime_evidence": {
+        "native_graph_node_count": 128
+      },
+      "schema_version": "benchmark-result-v1",
+      "source_identity": {
+        "binary_sha256": "a7928ff7ad7af384978d1140f39ce6315380d503d71fa513644dff742bef3b9e",
+        "source_sha256": "d5a920b1dbf83bf95d484c9e1c0a828b3aff0430692a1d44e6311f6beeb17846"
+      },
+      "static_evidence": {
+        "available": true,
+        "directory": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/static",
+        "files": {
+          "binary.sha256": {
+            "bytes": 156,
+            "sha256": "a7071ac6d7b4b63e41e85b7fe67853239433a99e06faa1b7b211c471cc24bdc7"
+          },
+          "cuobjdump.version.txt": {
+            "bytes": 219,
+            "sha256": "7840d76ecfabd9ecf49b32c076e9fefd048bec44145ea6a91d35f4561e414abe"
+          },
+          "elf_list.txt": {
+            "bytes": 88,
+            "sha256": "8d70a5b1ca24c8dab012de660650ad574a0d73015c278ad0ab987baf556e8ef5"
+          },
+          "nvdisasm.version.txt": {
+            "bytes": 212,
+            "sha256": "525be0d84b1604ce45640ba1694fa9b5827ebf48675a5a4e9ea55c61af29112c"
+          },
+          "resource_usage.txt": {
+            "bytes": 3367,
+            "sha256": "5bab5b2c7ac57eb3817fac77bcf9c734ff95f64324bcba0397d2732101cc4070"
+          },
+          "sass.txt": {
+            "bytes": 424870,
+            "sha256": "49aeb84cd47795cab37edf362a093bc2ca374f299e9c6d27e19f3aab4777c070"
+          }
+        }
+      },
+      "summary": {
+        "median_us_by_repeat": {
+          "0": 0.588499999139,
+          "1": 0.589500006754,
+          "16": 0.594999990426,
+          "2": 0.583750021178,
+          "4": 0.582250009757,
+          "8": 0.602749991231
+        },
+        "monotonic_non_decreasing": true
+      },
+      "validity": {
+        "claims_allowed": [
+          "service curve for this recorded source, environment and geometry"
+        ],
+        "claims_forbidden": [
+          "absolute DRAM bandwidth",
+          "production operator lower bound",
+          "cross-device rate portability"
+        ],
+        "dce_guard": "live global sink/destination copied to host and checksummed",
+        "known_pollution": [
+          "graph replay overhead divided by node count"
+        ],
+        "status": "VALID"
+      }
+    },
+    {
+      "benchmark": "nvidia.cuda-core-service-curves.v1:load",
+      "controlled_variables": {
+        "device": 6,
+        "source_and_binary_fixed": true
+      },
+      "correctness": {
+        "checksums_by_repeat": {
+          "0": 946973440,
+          "1": 11384120257280,
+          "16": 946973440,
+          "2": 946973440,
+          "4": 946973440,
+          "8": 946973440
+        },
+        "live_checksum_present": true
+      },
+      "environment": {
+        "hardware_snapshot": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+        "software": {
+          "driver": "595.45.04",
+          "nvcc": "Build cuda_13.3.r13.3/compiler.37862127_0",
+          "torch": "2.10.0+cu130",
+          "torch_cuda_runtime": "13.0"
+        },
+        "target": {
+          "architecture": "sm_120",
+          "compute_capability": "12.0",
+          "device_index": 6,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "max_threads_per_block": 1024,
+          "max_threads_per_sm": 1536,
+          "memory_bytes": 33670758400,
+          "registers_per_sm": 65536,
+          "shared_memory_per_block_bytes": 49152,
+          "shared_memory_per_block_optin_bytes": 101376,
+          "shared_memory_per_sm_bytes": 102400,
+          "sm_count": 170,
+          "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+          "vendor": "NVIDIA",
+          "warp_size": 32
+        }
+      },
+      "independent_variables": {
+        "bytes_per_repeat": 16777216,
+        "repeat": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16
+        ]
+      },
+      "launch": {
+        "blocks": 170,
+        "dynamic_smem_bytes": 0,
+        "graph_nodes": 128,
+        "threads": 256
+      },
+      "measurement": {
+        "metric": "GPU active-equivalent graph-node time",
+        "semantics": "native CUDA graph with N kernel nodes, event duration divided by N",
+        "unit": "microseconds"
+      },
+      "question": "What is the warm contiguous global-load service curve as working set grows?",
+      "raw_samples": [
+        0.611750001553,
+        0.586999987718,
+        0.580249994528,
+        0.59524999233,
+        0.589000002947,
+        0.589000002947,
+        0.587749993429,
+        0.605500012171,
+        0.632499984931,
+        0.581750005949,
+        0.579999992624,
+        0.581750005949,
+        0.585999980103,
+        0.589500006754,
+        0.589500006754,
+        0.587499991525,
+        0.606000015978,
+        0.588249997236,
+        0.588750001043,
+        0.590000010561,
+        0.590500014368,
+        0.597000005655,
+        0.588499999139,
+        0.582750013564,
+        0.580749998335,
+        4.82900021598,
+        4.79175010696,
+        4.80525009334,
+        4.77975001559,
+        4.79225022718,
+        4.78825019673,
+        4.78524994105,
+        4.79099992663,
+        4.77400003001,
+        4.79099992663,
+        4.77349990979,
+        4.78674983606,
+        4.76999999955,
+        4.78499988094,
+        4.78499988094,
+        4.77949995548,
+        4.77850018069,
+        4.77650016546,
+        4.78375004604,
+        4.77050011978,
+        4.78425016627,
+        4.7862501815,
+        4.76724980399,
+        4.76900022477,
+        4.77850018069,
+        8.79300013185,
+        8.78224987537,
+        8.77100042999,
+        8.77050030977,
+        8.77125002444,
+        8.76324996352,
+        8.77175014466,
+        8.78274999559,
+        8.79300013185,
+        8.77275038511,
+        8.78675002605,
+        8.77975020558,
+        8.78449995071,
+        8.77125002444,
+        8.75450018793,
+        8.76475032419,
+        8.78825038671,
+        8.75225011259,
+        8.76324996352,
+        8.78624990582,
+        8.76499991864,
+        8.77575017512,
+        8.77050030977,
+        8.78500007093,
+        8.77649988979,
+        16.9102493674,
+        16.8767496943,
+        16.8872494251,
+        16.8795008212,
+        16.895249486,
+        16.8834999204,
+        16.8590005487,
+        16.880499199,
+        16.9012509286,
+        16.9034991413,
+        16.8817508966,
+        16.8927498162,
+        16.8777499348,
+        16.8892499059,
+        16.8847497553,
+        16.876000911,
+        16.875250265,
+        16.8705005199,
+        16.9179998338,
+        16.8849993497,
+        16.8765000999,
+        16.8884992599,
+        16.8837495148,
+        16.8970003724,
+        16.8914999813,
+        90.2250036597,
+        90.1522487402,
+        90.2144983411,
+        90.0925025344,
+        90.2064964175,
+        90.0067463517,
+        90.0714993477,
+        90.1369974017,
+        90.2025029063,
+        90.1032537222,
+        90.1487469673,
+        90.1279971004,
+        90.1945009828,
+        90.1082530618,
+        90.2569964528,
+        90.115249157,
+        90.1105031371,
+        90.1102498174,
+        90.1682525873,
+        90.0840014219,
+        90.0807529688,
+        90.1150032878,
+        90.3122499585,
+        90.1307463646,
+        90.1359990239,
+        178.250744939,
+        178.277507424,
+        178.06699872,
+        177.990496159,
+        178.181499243,
+        178.150996566,
+        178.024500608,
+        178.25050652,
+        178.366497159,
+        178.164497018,
+        178.035244346,
+        178.091496229,
+        178.007498384,
+        178.313747048,
+        178.168743849,
+        178.164750338,
+        178.009256721,
+        178.132995963,
+        178.12025547,
+        178.228244185,
+        178.007006645,
+        178.092256188,
+        178.243756294,
+        178.158253431,
+        178.096503019
+      ],
+      "runtime_evidence": {
+        "native_graph_node_count": 128
+      },
+      "schema_version": "benchmark-result-v1",
+      "source_identity": {
+        "binary_sha256": "a7928ff7ad7af384978d1140f39ce6315380d503d71fa513644dff742bef3b9e",
+        "source_sha256": "d5a920b1dbf83bf95d484c9e1c0a828b3aff0430692a1d44e6311f6beeb17846"
+      },
+      "static_evidence": {
+        "available": true,
+        "directory": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/static",
+        "files": {
+          "binary.sha256": {
+            "bytes": 156,
+            "sha256": "a7071ac6d7b4b63e41e85b7fe67853239433a99e06faa1b7b211c471cc24bdc7"
+          },
+          "cuobjdump.version.txt": {
+            "bytes": 219,
+            "sha256": "7840d76ecfabd9ecf49b32c076e9fefd048bec44145ea6a91d35f4561e414abe"
+          },
+          "elf_list.txt": {
+            "bytes": 88,
+            "sha256": "8d70a5b1ca24c8dab012de660650ad574a0d73015c278ad0ab987baf556e8ef5"
+          },
+          "nvdisasm.version.txt": {
+            "bytes": 212,
+            "sha256": "525be0d84b1604ce45640ba1694fa9b5827ebf48675a5a4e9ea55c61af29112c"
+          },
+          "resource_usage.txt": {
+            "bytes": 3367,
+            "sha256": "5bab5b2c7ac57eb3817fac77bcf9c734ff95f64324bcba0397d2732101cc4070"
+          },
+          "sass.txt": {
+            "bytes": 424870,
+            "sha256": "49aeb84cd47795cab37edf362a093bc2ca374f299e9c6d27e19f3aab4777c070"
+          }
+        }
+      },
+      "summary": {
+        "median_us_by_repeat": {
+          "0": 0.588750001043,
+          "1": 4.78425016627,
+          "16": 178.150996566,
+          "2": 8.77275038511,
+          "4": 16.8847497553,
+          "8": 90.1307463646
+        },
+        "monotonic_non_decreasing": true
+      },
+      "validity": {
+        "claims_allowed": [
+          "service curve for this recorded source, environment and geometry"
+        ],
+        "claims_forbidden": [
+          "absolute DRAM bandwidth",
+          "production operator lower bound",
+          "cross-device rate portability"
+        ],
+        "dce_guard": "live global sink/destination copied to host and checksummed",
+        "known_pollution": [
+          "graph replay overhead divided by node count",
+          "integer checksum operations"
+        ],
+        "status": "VALID"
+      }
+    },
+    {
+      "benchmark": "nvidia.cuda-core-service-curves.v1:store",
+      "controlled_variables": {
+        "device": 6,
+        "source_and_binary_fixed": true
+      },
+      "correctness": {
+        "checksums_by_repeat": {
+          "0": 6063483240,
+          "1": 11116385946,
+          "16": 11116385946,
+          "2": 11116385946,
+          "4": 11116385946,
+          "8": 11116385946
+        },
+        "live_checksum_present": true
+      },
+      "environment": {
+        "hardware_snapshot": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/hardware_snapshot.json",
+        "software": {
+          "driver": "595.45.04",
+          "nvcc": "Build cuda_13.3.r13.3/compiler.37862127_0",
+          "torch": "2.10.0+cu130",
+          "torch_cuda_runtime": "13.0"
+        },
+        "target": {
+          "architecture": "sm_120",
+          "compute_capability": "12.0",
+          "device_index": 6,
+          "device_name": "NVIDIA GeForce RTX 5090",
+          "max_threads_per_block": 1024,
+          "max_threads_per_sm": 1536,
+          "memory_bytes": 33670758400,
+          "registers_per_sm": 65536,
+          "shared_memory_per_block_bytes": 49152,
+          "shared_memory_per_block_optin_bytes": 101376,
+          "shared_memory_per_sm_bytes": 102400,
+          "sm_count": 170,
+          "uuid": "GPU-4bf81ba2-1b9f-c716-6d72-0f916131e326",
+          "vendor": "NVIDIA",
+          "warp_size": 32
+        }
+      },
+      "independent_variables": {
+        "bytes_per_repeat": 16777216,
+        "repeat": [
+          0,
+          1,
+          2,
+          4,
+          8,
+          16
+        ]
+      },
+      "launch": {
+        "blocks": 170,
+        "dynamic_smem_bytes": 0,
+        "graph_nodes": 128,
+        "threads": 256
+      },
+      "measurement": {
+        "metric": "GPU active-equivalent graph-node time",
+        "semantics": "native CUDA graph with N kernel nodes, event duration divided by N",
+        "unit": "microseconds"
+      },
+      "question": "What is the contiguous global-store issue service curve as working set grows?",
+      "raw_samples": [
+        0.495749991387,
+        0.469499995233,
+        0.460500014015,
+        0.474750006106,
+        0.464999990072,
+        0.460500014015,
+        0.460500014015,
+        0.477749999845,
+        0.476499990327,
+        0.476249988424,
+        0.460749986814,
+        0.46250000014,
+        0.461999996332,
+        0.466500001494,
+        0.455250003142,
+        0.464749988168,
+        0.462249998236,
+        0.467500009108,
+        0.453499989817,
+        0.469499995233,
+        0.463250005851,
+        0.470500002848,
+        0.47599998652,
+        0.470750004752,
+        0.463000003947,
+        5.70750003681,
+        5.66950021312,
+        5.65249985084,
+        5.66074997187,
+        5.64874988049,
+        5.67399989814,
+        5.68174989894,
+        5.66824991256,
+        5.68324979395,
+        5.65874995664,
+        5.65999979153,
+        5.68075012416,
+        5.66024985164,
+        5.66799985245,
+        5.67624997348,
+        5.6537501514,
+        5.65224979073,
+        5.66725013778,
+        5.64449978992,
+        5.66925015301,
+        5.65925007686,
+        5.65950013697,
+        5.67624997348,
+        5.66849997267,
+        5.66049991176,
+        10.5892503634,
+        10.56674961,
+        10.5424998328,
+        10.5649996549,
+        10.5702504516,
+        10.5584999546,
+        10.5482498184,
+        10.5590000749,
+        10.5584999546,
+        10.5662504211,
+        10.5502502993,
+        10.5367498472,
+        10.5187501758,
+        10.5515001342,
+        10.5659998953,
+        10.638250038,
+        10.5482498184,
+        10.5320001021,
+        10.5520002544,
+        10.5477496982,
+        10.5902496725,
+        10.5957500637,
+        10.5692502111,
+        10.573499836,
+        10.5537502095,
+        20.3924998641,
+        20.4009991139,
+        20.3370004892,
+        20.3789994121,
+        20.3354991972,
+        20.4022508115,
+        20.3312505037,
+        20.3329995275,
+        20.3224997967,
+        20.3547496349,
+        20.346250385,
+        20.3002505004,
+        20.3399993479,
+        20.3237496316,
+        20.3074999154,
+        20.3162506223,
+        20.3467495739,
+        20.3392505646,
+        20.3154999763,
+        20.3085001558,
+        20.3095003963,
+        20.3089993447,
+        20.3337501734,
+        20.4050000757,
+        20.3489996493,
+        82.3662504554,
+        82.3524966836,
+        82.3599994183,
+        82.3387503624,
+        82.3765024543,
+        82.4567526579,
+        82.3509991169,
+        82.3087468743,
+        82.2927504778,
+        82.3054984212,
+        82.3932513595,
+        82.3355019093,
+        82.3320001364,
+        82.5162529945,
+        82.3047533631,
+        82.3022499681,
+        82.3442488909,
+        82.3479965329,
+        82.5122520328,
+        82.2279974818,
+        82.360252738,
+        82.3652520776,
+        82.5645029545,
+        82.5752466917,
+        82.3919996619,
+        166.480749846,
+        166.567742825,
+        166.33425653,
+        166.456252337,
+        166.505753994,
+        166.558250785,
+        166.365742683,
+        166.534751654,
+        166.536748409,
+        166.346743703,
+        166.436254978,
+        166.457995772,
+        166.641250253,
+        166.749253869,
+        166.729256511,
+        166.825503111,
+        166.576251388,
+        166.569754481,
+        166.935756803,
+        166.536256671,
+        166.61849618,
+        166.617497802,
+        166.60374403,
+        166.712999344,
+        166.409254074
+      ],
+      "runtime_evidence": {
+        "native_graph_node_count": 128
+      },
+      "schema_version": "benchmark-result-v1",
+      "source_identity": {
+        "binary_sha256": "a7928ff7ad7af384978d1140f39ce6315380d503d71fa513644dff742bef3b9e",
+        "source_sha256": "d5a920b1dbf83bf95d484c9e1c0a828b3aff0430692a1d44e6311f6beeb17846"
+      },
+      "static_evidence": {
+        "available": true,
+        "directory": "/workspace/dance/qwen35/kernel_opt_agent/hardware/measurements/nvidia/rtx5090_sm120_gpu6/cuda13.3_driver595.45.04/cuda_core_service_v1/static",
+        "files": {
+          "binary.sha256": {
+            "bytes": 156,
+            "sha256": "a7071ac6d7b4b63e41e85b7fe67853239433a99e06faa1b7b211c471cc24bdc7"
+          },
+          "cuobjdump.version.txt": {
+            "bytes": 219,
+            "sha256": "7840d76ecfabd9ecf49b32c076e9fefd048bec44145ea6a91d35f4561e414abe"
+          },
+          "elf_list.txt": {
+            "bytes": 88,
+            "sha256": "8d70a5b1ca24c8dab012de660650ad574a0d73015c278ad0ab987baf556e8ef5"
+          },
+          "nvdisasm.version.txt": {
+            "bytes": 212,
+            "sha256": "525be0d84b1604ce45640ba1694fa9b5827ebf48675a5a4e9ea55c61af29112c"
+          },
+          "resource_usage.txt": {
+            "bytes": 3367,
+            "sha256": "5bab5b2c7ac57eb3817fac77bcf9c734ff95f64324bcba0397d2732101cc4070"
+          },
+          "sass.txt": {
+            "bytes": 424870,
+            "sha256": "49aeb84cd47795cab37edf362a093bc2ca374f299e9c6d27e19f3aab4777c070"
+          }
+        }
+      },
+      "summary": {
+        "median_us_by_repeat": {
+          "0": 0.464999990072,
+          "1": 5.66725013778,
+          "16": 166.558250785,
+          "2": 10.5584999546,
+          "4": 20.3354991972,
+          "8": 82.3524966836
+        },
+        "monotonic_non_decreasing": true
+      },
+      "validity": {
+        "claims_allowed": [
+          "service curve for this recorded source, environment and geometry"
+        ],
+        "claims_forbidden": [
+          "absolute DRAM bandwidth",
+          "production operator lower bound",
+          "cross-device rate portability"
+        ],
+        "dce_guard": "live global sink/destination copied to host and checksummed",
+        "known_pollution": [
+          "graph replay overhead divided by node count"
+        ],
+        "status": "VALID"
+      }
+    }
+  ],
+  "schema_version": "benchmark-suite-summary-v1",
+  "status": "VALID"
+}

@@ -1,0 +1,17 @@
+{
+  "action": "CHECK_PHASE_GATE",
+  "blocking_inputs": [],
+  "commands": [
+    [
+      "/workspace/dance/qwen35/.venv-cu13/bin/python",
+      "/workspace/dance/qwen35/kernel_opt_agent/scripts/advance_run.py",
+      "--run",
+      "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_layout_replan_v3",
+      "--to",
+      "PRODUCTION_VALIDATION",
+      "--check-only"
+    ]
+  ],
+  "reason": "no runnable unresolved request remains; validate the next phase instead of inventing another experiment",
+  "schema_version": "optimizer-next-action-v1"
+}

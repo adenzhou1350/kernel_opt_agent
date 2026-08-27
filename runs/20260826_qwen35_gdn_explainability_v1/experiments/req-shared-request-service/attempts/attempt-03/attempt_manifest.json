@@ -1,0 +1,110 @@
+{
+  "archived_at": "2026-08-26T16:31:09.965731+00:00",
+  "attempt": 3,
+  "files": [
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/build.json",
+      "sha256": "c086256a089346c366b1c4c85f03010d361456ef0b87f265e38d17682c3941c5"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/catalog_query_receipt.json",
+      "sha256": "abe7a1170ecc37c987c1707d7e70b3ce41190d8f52bd7d565c4b1aecff4a5600"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/correctness.json",
+      "sha256": "1de53626d5fc1080f6aa57c5453d62553fd18c99cd4406a64d549b6cf48b4083"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/analyze-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/analyze-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/clean_build-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/clean_build-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/correctness-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/correctness-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/measure-0.stderr.txt",
+      "sha256": "0a3fed82eae67be9cbca773bd3220b26639da4a6d4b97b693455876f9e10ed6b"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/measure-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/static_audit-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/static_audit-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/warmup-0.stderr.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_logs/warmup-0.stdout.txt",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/execution_receipt.json",
+      "sha256": "64ea7abc74c5a2a567d4432b29be6eb0ce146e3663b5b1a37f9d1ee87e45bf35"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/experiment.json",
+      "sha256": "0307bf483c21bc493d9a355298a573d8b2698c1a195323e0869f5b96af21641a"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/raw/samples.json",
+      "sha256": "6101d7dd918b2e5fdf7dadeea45d024273e2bd985a46b2a7630dc2d59e8438ec"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/reproduction.json",
+      "sha256": "a513e7fa50b4f20732dfddb45938de251d13fb01a9d870dbef6d7612f0c22889"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/result.json",
+      "sha256": "0cb40c0280d8898b3c1995314ae7771d413aa0ec86ea93929a13fc63307fe74f"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/static/instruction_audit.json",
+      "sha256": "7d37a61dc1da98df5aec8e11f54006080b54f53f43acd13bde99ab445c2e84f8"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/static/resource_probe",
+      "sha256": "b0652cdafa90336a90865592ffb7a33240cb167512618afa76919026147f98db"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/static/resource_probe.sass",
+      "sha256": "a1d71f357bd81dec29a2e4390bfada24c33a83b1e649285f59de2bb68324db42"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/validity_review.json",
+      "sha256": "64ea7abc74c5a2a567d4432b29be6eb0ce146e3663b5b1a37f9d1ee87e45bf35"
+    },
+    {
+      "path": "experiments/req-shared-request-service/attempts/attempt-03/warmup.json",
+      "sha256": "6814699edba4c3819c02cb5db96536f11789787060caff49cbcf8086b8578b03"
+    }
+  ],
+  "reason": "attempt-03 technical failure: container NVML permission forbids GPU clock locking; replace with active-clock CV gate identical in threshold to qualified P0",
+  "request_id": "req-shared-request-service",
+  "schema_version": "experiment-attempt-archive-v1",
+  "status": "TECHNICAL_FAILURE_REVISED"
+}

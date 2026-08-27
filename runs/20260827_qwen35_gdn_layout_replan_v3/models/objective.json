@@ -1,0 +1,44 @@
+{
+  "created_at": "2026-08-27T07:19:03.442208+00:00",
+  "decision_indifference_band_us": 0.1,
+  "direction": "minimize",
+  "measurement_semantics": {
+    "primary": "CUDA-event device elapsed after P0; CPU dispatch is reported separately",
+    "static_gate": "compiler/type proof has no GPU timing and may only admit N2 logical same-backing layout feasibility; any failure is INVALID/BLOCKED without candidate disposition",
+    "transfer_gate": "future performance acceptance requires paired graph and direct-execution agreement"
+  },
+  "metric": "equal-weight mean of per-shape production-exact four-kernel GPU device-elapsed medians",
+  "objective_id": "qwen35-gdn-prefill-equal-weight-device-execution-v3",
+  "schema_version": "registered-objective-v1",
+  "unit": "us",
+  "workload_cases": [
+    {
+      "case_id": "s256",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s384",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s404",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s512",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s640",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s768",
+      "weight": 0.14285714285714285
+    },
+    {
+      "case_id": "s1024",
+      "weight": 0.14285714285714285
+    }
+  ]
+}

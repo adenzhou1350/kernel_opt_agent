@@ -1,0 +1,23 @@
+{
+  "active_quantity": "screening_two_path_mean_delta_c1_minus_c0",
+  "archived_pre_rebind": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/traces/contract_archive/v5_pre_active_model_rebind/manifest.json",
+    "sha256": "65236df63def88a4f8dc70db2f1a93f1495896fc1a081733bbb30b8582c27297"
+  },
+  "authorized_by": {
+    "owner_id": "global-scheduler-linear-v2",
+    "role": "GLOBAL_SCHEDULER"
+  },
+  "created_at": "2026-08-27T06:33:18.024211+00:00",
+  "gpu_or_dispatch_authorized": false,
+  "microarchitecture_model": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/microarchitecture_model.json",
+    "sha256": "97d84b6de21661c6a0654267d5d3bdb5f6daaa53635d83687adb8d8ca22a248f"
+  },
+  "microbenchmark_plan": {
+    "path": "/workspace/dance/qwen35/kernel_opt_agent/runs/20260827_qwen35_gdn_decision_supervised_v2/models/microbenchmark_plan.json",
+    "sha256": "d97fcc2dbda3b40b277d5597572e3882f593cc9784a08d4fc37a1201a83f9df1"
+  },
+  "schema_version": "active-model-rebind-receipt-v1",
+  "status": "PASS"
+}

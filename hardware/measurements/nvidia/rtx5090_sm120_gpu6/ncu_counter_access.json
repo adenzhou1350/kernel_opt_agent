@@ -1,0 +1,33 @@
+{
+  "captured_at": "2026-08-26T03:21:59.723838+00:00",
+  "command": [
+    "/usr/local/cuda/bin/ncu",
+    "--set",
+    "basic",
+    "--launch-count",
+    "1",
+    "/workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/build/particle_bench",
+    "--mode",
+    "launch",
+    "--device",
+    "6",
+    "--blocks",
+    "1",
+    "--threads",
+    "32",
+    "--repeats",
+    "0",
+    "--rounds",
+    "1",
+    "--graph-nodes",
+    "1",
+    "--warmup",
+    "0"
+  ],
+  "interpretation": "Tool installation and performance-counter permission are separate capabilities.",
+  "returncode": 1,
+  "schema_version": "ncu-counter-access-probe-v1",
+  "status": "DENIED",
+  "stderr": "",
+  "stdout": "==PROF== Connected to process 412644 (/workspace/dance/qwen35/kernel_opt_agent/microbench/nvidia/cuda_core/build/particle_bench)\n==ERROR== ERR_NVGPUCTRPERM - The user does not have permission to access NVIDIA GPU Performance Counters on the target device 6. For instructions on enabling permissions and to get more information see https://developer.nvidia.com/ERR_NVGPUCTRPERM\n{\"schema_version\":\"cuda-particle-result-v1\",\"mode\":\"launch\",\"device\":6,\"device_name\":\"NVIDIA GeForce RTX 5090\",\"compute_capability\":\"12.0\",\"sm_count\":170,\"driver_version\":13020,\"runtime_version\":13030,\"blocks\":1,\"threads\":32,\"repeats\":0,\"bytes_per_repeat\":16777216,\"dynamic_smem_bytes\":0,\"graph_nodes\":1,\"rounds\":1,\"checksum\":84941944304,\"samples_gpu_us\":[1326.07996464]}\n==PROF== Disconnected from process 412644\n"
+}
