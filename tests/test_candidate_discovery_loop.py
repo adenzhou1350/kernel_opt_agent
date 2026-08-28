@@ -33,7 +33,10 @@ def run_cli(run: Path, *args: str, expected: int = 0) -> dict:
         stderr=subprocess.PIPE,
     )
     assert completed.returncode == expected, (completed.stdout, completed.stderr)
-    assert completed.stdout.strip(), (args, completed.returncode, completed.stdout, completed.stderr)
+    if expected == 0:
+        assert completed.stdout.strip(), (args, completed.returncode, completed.stdout, completed.stderr)
+    else:
+        assert completed.stderr.strip(), (args, completed.returncode, completed.stdout, completed.stderr)
     return json.loads(completed.stdout) if completed.stdout.strip() else {}
 
 
@@ -123,6 +126,18 @@ Path('../smoke.json').write_text(json.dumps(result))
         opportunity_cli(run, "add", "--spec", str(opportunity_spec))
         opportunity_cli(run, "rank")
         run_cli(run, "add", "--spec", str(spec_path))
+
+        # Candidate execution must fail closed if ranked evidence is edited
+        # after registration. Reranking repairs the derived score and digest.
+        opportunity_map_path = run / "models/opportunity_map.json"
+        opportunity_map = json.loads(opportunity_map_path.read_text(encoding="utf-8"))
+        opportunity_map["opportunities"][0]["priority_score"] = 999.0
+        write(opportunity_map_path, opportunity_map)
+        run_cli(run, "run", "--candidate-id", "c1", expected=1)
+        pool = json.loads((run / "models/candidate_pool.json").read_text(encoding="utf-8"))
+        assert pool["candidates"][0]["attempts"] == []
+        opportunity_cli(run, "rank")
+
         failed = run_cli(run, "run", "--candidate-id", "c1")
         assert failed.get("status") == "DEVELOPING", failed
         pool = json.loads((run / "models/candidate_pool.json").read_text(encoding="utf-8"))
@@ -154,6 +169,15 @@ Path('../smoke.json').write_text(json.dumps(result))
         assert strongest["commands"][0][-1] == "c2"
         pool["candidates"].pop()
         write(run / "models/candidate_pool.json", pool)
+
+        # Direct promotion is also evidence-gated, even if the candidate was
+        # screened while the opportunity map was valid.
+        opportunity_map = json.loads(opportunity_map_path.read_text(encoding="utf-8"))
+        opportunity_map["opportunities"][0]["priority_score"] = 999.0
+        write(opportunity_map_path, opportunity_map)
+        run_cli(run, "promote", "--candidate-id", "c1", expected=1)
+        opportunity_cli(run, "rank")
+
         promoted = run_cli(run, "promote", "--candidate-id", "c1")
         assert promoted["status"] == "PROMOTED_TO_QUALIFICATION"
         qualification = discovery_action(run, ROOT / "scripts")

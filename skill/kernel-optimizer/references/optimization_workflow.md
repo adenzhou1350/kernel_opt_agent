@@ -9,18 +9,21 @@ rerun without `--check-only` only after every finding is resolved.  Do not edit
 At every step run `scripts/kernel_opt.py next --run <run>`. Its action order is:
 
 1. capture a correct production discovery baseline;
-2. build 6--12 candidates across at least four architecture families;
-3. repair compilation/correctness failures and cheaply screen anchor/edge cases;
-4. promote at most 2--4 survivors;
-5. close exact official hardware evidence and finalist-binary resource mapping;
-6. calibrate P0 and identify the single uncertainty that can flip the finalist
+2. derive and rank 4--12 quantified global opportunities across at least four
+   rewrite families;
+3. bind 6--12 production candidates to at least three ranked opportunities and
+   cover at least four architecture families;
+4. repair compilation/correctness failures and cheaply screen anchor/edge cases;
+5. promote at most 2--4 survivors;
+6. close exact official hardware evidence and finalist-binary resource mapping;
+7. calibrate P0 and identify the single uncertainty that can flip the finalist
    top-two ordering;
-7. map that uncertainty to a defensible observable and choose screening or
+8. map that uncertainty to a defensible observable and choose screening or
    qualification;
-8. materialize the bounded experiment and obtain independent supervisor approval;
-9. execute and bind immutable evidence;
-10. reconcile resource balance, schedule DAG, frontier and queue;
-11. check the next phase gate.
+9. materialize the bounded experiment and obtain independent supervisor approval;
+10. execute and bind immutable evidence;
+11. reconcile resource balance, schedule DAG, frontier and queue;
+12. check the next phase gate.
 
 The controller may safely create manifests and receipts. It must not execute an
 incomplete command contract or interpret an arbitrary result without the global

@@ -363,6 +363,17 @@ def command_run(args: argparse.Namespace) -> dict:
     item = candidate(pool, args.candidate_id)
     if item.get("status") not in ACTIVE_STATUSES:
         raise ValueError(f"candidate {args.candidate_id} is not development-runnable: {item.get('status')}")
+    opportunities = load_opportunity_map(run)
+    validate_opportunity_map(opportunities, require_ready=True, run=run)
+    opportunity = next(
+        (
+            row for row in opportunities.get("opportunities", [])
+            if row.get("opportunity_id") == item.get("opportunity_id")
+        ),
+        None,
+    )
+    if opportunity is None:
+        raise ValueError(f"candidate references an unknown opportunity_id: {item.get('opportunity_id')}")
     candidate_execution_minutes = sum(
         float(stage.get("duration_seconds", 0.0))
         for attempt_record in item.get("attempts", [])
@@ -459,8 +470,6 @@ def command_run(args: argparse.Namespace) -> dict:
     })
     atomic_json(attempt / "attempt.json", record)
     atomic_json(pool_path(run), pool)
-    opportunities = load_opportunity_map(run)
-    opportunity = next(row for row in opportunities["opportunities"] if row["opportunity_id"] == item["opportunity_id"])
     opportunity.setdefault("observations", []).append({
         "at": now(), "candidate_id": item["candidate_id"], **item["prediction_check"],
     })
@@ -476,9 +485,14 @@ def command_promote(args: argparse.Namespace) -> dict:
     if item.get("status") != "QUALIFICATION_READY":
         raise ValueError("only a QUALIFICATION_READY candidate can be promoted")
     policy = pool["policy"]
-    families = {row.get("family") for row in pool.get("candidates", [])}
+    families = {row.get("family") for row in pool.get("candidates", []) if row.get("family")}
     opportunities = load_opportunity_map(run)
-    covered_opportunities = {row.get("opportunity_id") for row in pool.get("candidates", [])}
+    validate_opportunity_map(opportunities, require_ready=True, run=run)
+    covered_opportunities = {
+        row.get("opportunity_id")
+        for row in pool.get("candidates", [])
+        if row.get("opportunity_id")
+    }
     if len(pool.get("candidates", [])) < int(policy["min_candidates"]):
         raise ValueError("candidate portfolio is smaller than min_candidates")
     if len(families) < int(policy["min_families"]):
@@ -526,7 +540,7 @@ def command_status(args: argparse.Namespace) -> dict:
     return {
         "status": pool.get("status"),
         "candidate_count": len(candidates),
-        "family_count": len({item.get("family") for item in candidates}),
+        "family_count": len({item.get("family") for item in candidates if item.get("family")}),
         "candidates": [
             {
                 "candidate_id": item.get("candidate_id"),
