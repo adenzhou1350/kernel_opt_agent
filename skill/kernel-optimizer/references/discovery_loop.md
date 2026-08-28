@@ -44,6 +44,9 @@ Use discovery budget in this order:
 4. promote at most two candidates to supervised qualification;
 5. apply full resource modeling and limit certification only to finalists.
 
+Promotion is blocked while any registered candidate remains proposed or under
+repair, so a convenient early result cannot suppress unexplored families.
+
 Do not build a new atomic microbenchmark when a direct candidate smoke test can
 eliminate a candidate more cheaply. Do not wait for every resource-model field
 to close before writing the first production candidate.

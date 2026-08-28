@@ -428,6 +428,13 @@ def command_promote(args: argparse.Namespace) -> dict:
         raise ValueError("candidate portfolio is smaller than min_candidates")
     if len(families) < int(policy["min_families"]):
         raise ValueError("candidate portfolio lacks the required architecture-family diversity")
+    unevaluated = [
+        row.get("candidate_id")
+        for row in pool.get("candidates", [])
+        if row.get("status") in ACTIVE_STATUSES
+    ]
+    if unevaluated:
+        raise ValueError(f"all registered candidates must finish discovery screening before promotion: {unevaluated}")
     promotion = {
         "schema_version": "discovery-promotion-v1",
         "candidate_id": item["candidate_id"],
