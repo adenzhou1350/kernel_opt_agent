@@ -68,7 +68,7 @@ result = {
     "schema_version": "candidate-smoke-result-v1",
     "status": "PASS",
     "candidate_id": "c1",
-    "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us"},
+    "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us_weighted"},
     "cases": [{"case_id": "anchor", "role": "ANCHOR"}, {"case_id": "edge", "role": "EDGE"}],
 }
 Path('../smoke.json').write_text(json.dumps(result))

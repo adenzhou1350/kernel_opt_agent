@@ -442,7 +442,7 @@ def command_run(args: argparse.Namespace) -> dict:
     prediction = item["predicted_global_gain_us"]
     predicted_midpoint = (float(prediction["lower"]) + float(prediction["upper"])) / 2.0
     observed_gain_us = None
-    if smoke["objective"].get("unit") == "us":
+    if smoke["objective"].get("unit") in {"us", "us_weighted"}:
         baseline = float(smoke["objective"]["baseline"])
         observed = float(smoke["objective"]["candidate"])
         observed_gain_us = baseline - observed if smoke["objective"]["direction"] == "minimize" else observed - baseline
