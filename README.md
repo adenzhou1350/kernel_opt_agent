@@ -3,6 +3,9 @@
 For a human review of the framework boundary, execution flow, directory
 ownership and contract map, start with [REVIEW.md](REVIEW.md). This README is
 the operator quick start; `AGENTS.md` contains mandatory agent policy.
+The design rationale and validation report for opportunity-driven search is
+available in
+[skill/kernel-optimizer/references/opportunity_driven_search_design.md](skill/kernel-optimizer/references/opportunity_driven_search_design.md).
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
