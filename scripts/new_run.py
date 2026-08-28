@@ -262,6 +262,12 @@ def main() -> int:
         json.dumps(discovery_pool, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
     )
+    opportunity_map = read_json(templates / "opportunity_map.json")
+    opportunity_map["created_at"] = now.isoformat()
+    (run_dir / "models" / "opportunity_map.json").write_text(
+        json.dumps(opportunity_map, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     shutil.copyfile(templates / "microarchitecture_model.json", run_dir / "models" / "microarchitecture_model.json")
     shutil.copyfile(templates / "baseline.json", run_dir / "models" / "baseline.json")
     shutil.copyfile(templates / "microbenchmark_plan.json", run_dir / "models" / "microbenchmark_plan.json")
@@ -291,7 +297,7 @@ def main() -> int:
         "completed_phases": ["INTAKE"],
         "current_phase": "PLANNING",
         "allowed_next_phase": "BASELINE",
-        "next_action": "Capture a correct discovery baseline, build a diverse production-candidate portfolio, then qualify survivors with the evidence-closed workflow.",
+        "next_action": "Capture a correct discovery baseline, rank quantified global opportunities, implement a diverse production-candidate portfolio, then qualify survivors with the evidence-closed workflow.",
         "terminal": False,
     }
     if not args.test_legacy_contract:

@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from evidence_utils import read_object, validate_hardware_evidence
+from opportunity_map import validate_map as validate_opportunity_map
 
 
 def action(kind: str, reason: str, commands: list[list[str]], blocking_inputs=None) -> dict:
@@ -51,19 +52,79 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             [],
             [{"required": "models/baseline.json status VALID with correctness PASS", "claim_scope": "DISCOVERY_ONLY"}],
         )
+    opportunity_path = run / "models" / "opportunity_map.json"
+    if not opportunity_path.is_file():
+        return action(
+            "BUILD_OPPORTUNITY_MAP",
+            "the baseline is valid, but no quantified map connects model terms to globally material rewrites",
+            [[sys.executable, str(scripts / "kernel_opt.py"), "opportunity", "init", "--run", str(run)]],
+            [{"required": "derive conditional gain ceilings from the work ledger and schedule, then add 4-12 opportunities"}],
+        )
+    opportunities = read_object(opportunity_path)
+    if opportunities.get("schema_version") != "opportunity-map-v1":
+        return action("BLOCK_INVALID_OPPORTUNITY_MAP", "the opportunity map schema is missing or unsupported", [], [])
+    if opportunities.get("status") == "PAUSED":
+        return action("OPPORTUNITY_REVIEW", "the opportunity program is paused and cannot authorize more implementation or measurement", [], [])
+    opportunity_rows = opportunities.get("opportunities", [])
+    opportunity_policy = opportunities.get("policy", {})
+    rewrite_families = {family for item in opportunity_rows for family in item.get("rewrite_families", [])}
+    if (
+        len(opportunity_rows) < int(opportunity_policy.get("min_opportunities", 1))
+        or len(rewrite_families) < int(opportunity_policy.get("min_rewrite_families", 1))
+    ):
+        return action(
+            "EXPAND_OPPORTUNITY_MAP",
+            "enumerate several globally distinct rewrites before implementing or measuring a favorite local idea",
+            [],
+            [{
+                "opportunity_count": len(opportunity_rows),
+                "required_opportunities": int(opportunity_policy.get("min_opportunities", 1)),
+                "rewrite_family_count": len(rewrite_families),
+                "required_rewrite_families": int(opportunity_policy.get("min_rewrite_families", 1)),
+                "required_action": "add quantified opportunity specs with kernel_opt.py opportunity add",
+            }],
+        )
+    if opportunities.get("status") != "READY":
+        return action(
+            "RANK_OPPORTUNITIES",
+            "rank expected global gain per implementation minute before spending hardware-measurement budget",
+            [[sys.executable, str(scripts / "kernel_opt.py"), "opportunity", "rank", "--run", str(run)]],
+        )
+    try:
+        validate_opportunity_map(opportunities, require_ready=True, run=run)
+    except ValueError as error:
+        return action(
+            "BLOCK_INVALID_OPPORTUNITY_MAP",
+            "a READY opportunity map failed recomputation; do not implement or measure from hand-edited priorities",
+            [],
+            [{"error": str(error)}],
+        )
     candidates = pool.get("candidates", [])
     policy = pool.get("policy", {})
     families = {item.get("family") for item in candidates if item.get("family")}
-    if len(candidates) < int(policy.get("min_candidates", 1)) or len(families) < int(policy.get("min_families", 1)):
+    covered_opportunities = {item.get("opportunity_id") for item in candidates if item.get("opportunity_id")}
+    minimum_opportunity_coverage = int(opportunity_policy.get("min_candidate_opportunities", 1))
+    if (
+        len(candidates) < int(policy.get("min_candidates", 1))
+        or len(families) < int(policy.get("min_families", 1))
+        or len(covered_opportunities) < minimum_opportunity_coverage
+    ):
+        target = next(
+            (item for item in opportunity_rows if item.get("opportunity_id") not in covered_opportunities),
+            opportunity_rows[0] if opportunity_rows else None,
+        )
         return action(
             "EXPAND_DISCOVERY_PORTFOLIO",
-            "generate materially different production implementations before polishing one local idea",
+            "implement high-ranked, materially different global opportunities before polishing one local idea",
             [],
             [{
                 "candidate_count": len(candidates),
                 "required_candidates": int(policy.get("min_candidates", 1)),
                 "family_count": len(families),
                 "required_families": int(policy.get("min_families", 1)),
+                "opportunity_count": len(covered_opportunities),
+                "required_opportunity_count": minimum_opportunity_coverage,
+                "next_ranked_uncovered_opportunity": target,
                 "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
             }],
         )
@@ -79,6 +140,7 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             ]],
             [{
                 "candidate_id": developing["candidate_id"],
+                "opportunity_id": developing.get("opportunity_id"),
                 "family": developing.get("family"),
                 "hypothesis": developing.get("hypothesis"),
                 "latest_failure": developing.get("latest_failure"),
@@ -163,6 +225,24 @@ def main() -> int:
         output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
         print(json.dumps(result, indent=2, sort_keys=True))
         return 0
+    if not synthetic_legacy:
+        pool = read_object(run / "models" / "candidate_pool.json")
+        working = [
+            item for item in pool.get("candidates", [])
+            if item.get("opportunity_id") and item.get("status") in {"QUALIFICATION_READY", "PROMOTED_TO_QUALIFICATION"}
+        ]
+        if not working:
+            result = action(
+                "BLOCK_MEASUREMENT_WITHOUT_WORKING_CANDIDATE",
+                "hardware evidence and microbenchmarks are not the next action until opportunity-linked production code survives smoke screening",
+                [],
+                [{"required": "at least one opportunity-linked QUALIFICATION_READY or PROMOTED_TO_QUALIFICATION candidate"}],
+            )
+            output = run / "traces/next_action.json"
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+            print(json.dumps(result, indent=2, sort_keys=True))
+            return 0
     hardware_evidence_path = run / "hardware_evidence.json"
     hardware_path = run / "hardware.json"
     hardware_errors = validate_hardware_evidence(hardware_evidence_path, hardware_path) if hardware_evidence_path.exists() else ["manifest missing"]

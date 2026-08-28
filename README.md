@@ -11,9 +11,10 @@ It deliberately contains no application-specific algorithm, workload or
 performance result.  Hardware facts are separated from empirical measurements;
 measurements are keyed by device and software environment.
 
-The workflow has two lanes. Fast discovery writes and repairs a diverse set of
-run-local production candidates, then uses cheap anchor/edge screening and
-successive halving. Only survivors enter the existing evidence-closed
+The workflow has two lanes. Fast discovery first compiles conditional model
+terms into a ranked opportunity map, then writes and repairs a diverse set of
+run-local production candidates linked to those opportunities. It uses cheap
+anchor/edge screening and successive halving. Only survivors enter the evidence-closed
 qualification and limit-certification lane. A technical build failure never
 counts as a causal performance rejection.
 
@@ -46,21 +47,33 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
-After a correct discovery baseline is present, manage the production-candidate
-portfolio with:
+After a correct discovery baseline is present, quantify several global
+opportunities before managing the production-candidate portfolio:
 
 ```bash
+python3 scripts/kernel_opt.py opportunity init --run runs/<run-id> --if-missing
+python3 scripts/kernel_opt.py opportunity add --run runs/<run-id> --spec opportunity-spec.json
+python3 scripts/kernel_opt.py opportunity rank --run runs/<run-id>
 python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
 python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
 python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-id <id>
 ```
 
-Discovery requires 6--12 candidates across at least four architecture families
+The default opportunity map requires 4--12 quantified opportunities across at
+least four rewrite families. Each opportunity states the current global
+contribution, a conditional optimistic gain ceiling, a likely gain interval,
+confidence, implementation cost and hash-bound model evidence. Absolute-global-optimum labels are
+rejected: a decomposition-specific minimum is not a semantic lower bound.
+Candidates must bind to a ranked opportunity, stay below its gain ceiling and
+cover at least three opportunities by default.
+
+Discovery then requires 6--12 candidates across at least four architecture families
 by default. The default discovery budget is two hours overall, twenty minutes
 per candidate and eight technical repairs per candidate; expiry stops further
 measurement for plan review. Candidates are ranked by weighted screening gain
-and at most two are promoted by default. Its timing is a routing signal, not
+and at most two are promoted by default. Screening records prediction-versus-
+observation residuals. Its timing is a routing signal, not
 production acceptance evidence.
 
 Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact

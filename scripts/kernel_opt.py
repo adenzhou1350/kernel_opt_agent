@@ -27,6 +27,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "audit": Command("audit_repository.py", "verify reusable-zone purity"),
     },
     "candidate discovery": {
+        "opportunity": Command("opportunity_map.py", "validate and rank global gain opportunities before implementation"),
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
     },
     "hardware": {

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import subprocess
 import sys
 import tempfile
@@ -33,6 +34,15 @@ def run_cli(run: Path, *args: str, expected: int = 0) -> dict:
     )
     assert completed.returncode == expected, (completed.stdout, completed.stderr)
     assert completed.stdout.strip(), (args, completed.returncode, completed.stdout, completed.stderr)
+    return json.loads(completed.stdout) if completed.stdout.strip() else {}
+
+
+def opportunity_cli(run: Path, *args: str, expected: int = 0) -> dict:
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/kernel_opt.py"), "opportunity", *args, "--run", str(run)],
+        text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+    )
+    assert completed.returncode == expected, (completed.stdout, completed.stderr)
     return json.loads(completed.stdout) if completed.stdout.strip() else {}
 
 
@@ -66,11 +76,13 @@ Path('../smoke.json').write_text(json.dumps(result))
         spec_path = run / "candidates" / "c1" / "spec.json"
         write(spec_path, {
             "candidate_id": "c1",
+            "opportunity_id": "fuse-transfer",
             "name": "repairable candidate",
             "family": "layout-redesign",
             "change_axes": ["layout", "warp-ownership"],
             "hypothesis": "remove a materialized transfer",
             "expected_global_effect": "reduce weighted production latency",
+            "predicted_global_gain_us": {"lower": 1.0, "upper": 3.0},
             "source_paths": ["candidates/c1/workspace/kernel.py"],
             "commands": {
                 "build": {"argv": ["{python}", "build.py"], "cwd": "candidates/c1/workspace", "timeout_seconds": 30},
@@ -86,6 +98,30 @@ Path('../smoke.json').write_text(json.dumps(result))
             "--max-candidate-wall-clock-minutes", "5", "--max-total-wall-clock-minutes", "10",
             "--promotion-threshold-percent", "1.0",
         )
+        opportunity_cli(
+            run, "init", "--min-opportunities", "1", "--max-opportunities", "2",
+            "--min-rewrite-families", "1", "--min-candidate-opportunities", "1",
+        )
+        opportunity_spec = run / "models" / "opportunity-spec.json"
+        baseline_hash = hashlib.sha256((run / "models/baseline.json").read_bytes()).hexdigest()
+        write(opportunity_spec, {
+            "opportunity_id": "fuse-transfer",
+            "name": "fuse materialized transfer",
+            "model_scope": "DECOMPOSITION_CONDITIONAL",
+            "source_model_term": "raw_o write plus read",
+            "affected_stages": ["S3", "post"],
+            "current_contribution_us": 4.0,
+            "optimistic_gain_ceiling_us": 3.0,
+            "likely_gain_interval_us": {"lower": 1.0, "upper": 2.5},
+            "confidence": "HIGH",
+            "rewrite_families": ["layout-redesign", "persistent-grid"],
+            "implementation_budget_minutes": 10,
+            "hypothesis": "fusion removes a materialized global-memory boundary",
+            "derivation": "stage timing minus the mandatory semantic output store",
+            "evidence": [{"path": "models/baseline.json", "sha256": baseline_hash, "claim": "current objective contribution"}],
+        })
+        opportunity_cli(run, "add", "--spec", str(opportunity_spec))
+        opportunity_cli(run, "rank")
         run_cli(run, "add", "--spec", str(spec_path))
         failed = run_cli(run, "run", "--candidate-id", "c1")
         assert failed.get("status") == "DEVELOPING", failed
@@ -100,9 +136,14 @@ Path('../smoke.json').write_text(json.dumps(result))
         screened = run_cli(run, "run", "--candidate-id", "c1")
         assert screened["status"] == "QUALIFICATION_READY"
         assert abs(screened["improvement_percent"] - 20.0) < 1e-9
+        opportunity_map = json.loads((run / "models/opportunity_map.json").read_text(encoding="utf-8"))
+        observation = opportunity_map["opportunities"][0]["observations"][0]
+        assert observation["observed_global_gain_us"] == 2.0
+        assert observation["residual_us"] == 0.0
         pool = json.loads((run / "models/candidate_pool.json").read_text(encoding="utf-8"))
         pool["candidates"].append({
             "candidate_id": "c2",
+            "opportunity_id": "fuse-transfer",
             "family": "persistent-grid",
             "status": "QUALIFICATION_READY",
             "screening": {"improvement_percent": 30.0},

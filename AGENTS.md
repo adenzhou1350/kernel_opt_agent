@@ -36,9 +36,15 @@ mutation requires new authority.
   sources first. If the exact architecture/device is not documented clearly,
   ask the developer for the official document location and stop hardware-model
   construction. Never infer from a neighboring architecture or product.
-- After a correct production baseline exists, use the discovery lane to write
-  and cheaply screen 6--12 run-local production candidates across at least four
-  materially different architecture families. Full resource-model closure is
+- After a correct production baseline exists, create and rank 4--12 quantified
+  global opportunities across at least four rewrite families. Distinguish
+  decomposition-conditional work, current-schedule work and empirical
+  bottlenecks; never label one of them an absolute global optimum. Rank by
+  expected global gain, confidence and implementation cost before measuring.
+- Bind every discovery candidate to a ranked opportunity and a predicted global
+  gain interval, then write and cheaply screen 6--12 run-local production
+  candidates across at least four materially different architecture families
+  and at least three opportunities. Full resource-model closure is
   not required for discovery-only compilation, correctness and anchor/edge
   timing. Read `skill/kernel-optimizer/references/discovery_loop.md`.
 - Promote at most 2--4 discovery survivors into supervised qualification. For
@@ -53,6 +59,10 @@ mutation requires new authority.
 - Use an atomic microbenchmark only when a measurability contract shows that
   its observable identifies the decision quantity with sufficient precision.
   Otherwise use candidate A/B, existing evidence or no measurement.
+- Do not authorize hardware measurement merely because a model field is
+  unknown. Until opportunity-linked production code survives smoke screening,
+  the next action is implementation or repair. Record the prediction residual
+  after screening and use it to recalibrate subsequent opportunity estimates.
 - Separate screening from qualification. Freeze configuration, sample,
   process-launch, wall-clock and revision budgets before materialization.
 - Separate technical repair from causal revision. Compiler/import/layout/type,
@@ -129,7 +139,8 @@ construction or delegation.  Missing ownership, resource coverage, utilization
 semantics, tradeoff accounting or model-driven experiment requests is a phase-
 gate failure, not a documentation omission.
 
-Use `scripts/kernel_opt.py candidate` for the fast discovery portfolio and
+Use `scripts/kernel_opt.py opportunity` for the quantified global opportunity
+map, then `scripts/kernel_opt.py candidate` for the fast discovery portfolio and
 repair loop. Discovery evidence can only route a candidate into qualification;
 it cannot accept production performance or support a limit claim.
 
@@ -149,7 +160,7 @@ Use the public `scripts/kernel_opt.py` command surface for normal operation;
 direct script entrypoints are implementation modules. Use `new-run` to create
 a run. Keep raw samples immutable and derive
 summaries from them.  A completed run contains the frozen inputs, baseline,
-optimization plan, microarchitecture model, work ledger,
+optimization plan, opportunity map, microarchitecture model, work ledger,
   mathematical/current DAGs, global scheduling state, per-resource balance,
   compute-memory tradeoff frontier, model-driven experiment queue,
   per-candidate instruction audits, model-driven experiment requests and candidate decisions,

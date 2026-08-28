@@ -1224,6 +1224,7 @@ def main():
             "--run", str(strict_run),
         ])
         assert (strict_run / "models/candidate_pool.json").is_file()
+        assert (strict_run / "models/opportunity_map.json").is_file()
         assert json.loads(next_action.stdout)["action"] == "CAPTURE_DISCOVERY_BASELINE"
         strict_gate = run([
             sys.executable, str(ROOT / "scripts/advance_run.py"),

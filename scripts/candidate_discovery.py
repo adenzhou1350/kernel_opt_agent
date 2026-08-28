@@ -14,6 +14,8 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from opportunity_map import load_map as load_opportunity_map, map_path as opportunity_map_path, validate_map as validate_opportunity_map
+
 
 POOL_SCHEMA = "candidate-pool-v1"
 SMOKE_SCHEMA = "candidate-smoke-result-v1"
@@ -106,8 +108,9 @@ def validate_command(command: dict, label: str) -> None:
 
 def validate_spec(run: Path, spec: dict) -> None:
     required = (
-        "candidate_id", "name", "family", "change_axes", "hypothesis",
+        "candidate_id", "opportunity_id", "name", "family", "change_axes", "hypothesis",
         "expected_global_effect", "source_paths", "commands", "smoke_result_path",
+        "predicted_global_gain_us",
     )
     missing = [field for field in required if not spec.get(field)]
     if missing:
@@ -116,6 +119,15 @@ def validate_spec(run: Path, spec: dict) -> None:
         raise ValueError("candidate_id must use lowercase stable characters")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", str(spec["family"])):
         raise ValueError("family must use lowercase kebab-case")
+    prediction = spec["predicted_global_gain_us"]
+    if not isinstance(prediction, dict) or set(prediction) != {"lower", "upper"}:
+        raise ValueError("predicted_global_gain_us must contain exactly lower and upper")
+    try:
+        lower, upper = float(prediction["lower"]), float(prediction["upper"])
+    except (TypeError, ValueError) as error:
+        raise ValueError("predicted_global_gain_us bounds must be numeric") from error
+    if not 0 <= lower <= upper:
+        raise ValueError("predicted_global_gain_us requires 0 <= lower <= upper")
     axes = spec["change_axes"]
     if not isinstance(axes, list) or not axes or len(axes) != len(set(map(str, axes))):
         raise ValueError("change_axes must be a non-empty unique array")
@@ -294,13 +306,28 @@ def command_add(args: argparse.Namespace) -> dict:
     pool = load_pool(run)
     spec = read_object(args.spec.resolve())
     validate_spec(run, spec)
+    opportunities = load_opportunity_map(run)
+    if opportunities.get("status") != "READY":
+        raise ValueError("opportunity map must be READY before candidates are registered")
+    validate_opportunity_map(opportunities, require_ready=True, run=run)
+    opportunity = next(
+        (row for row in opportunities.get("opportunities", []) if row.get("opportunity_id") == spec["opportunity_id"]),
+        None,
+    )
+    if opportunity is None:
+        raise ValueError(f"unknown opportunity_id: {spec['opportunity_id']}")
+    if spec["family"] not in opportunity.get("rewrite_families", []):
+        raise ValueError("candidate family is not allowed by the linked opportunity")
+    if float(spec["predicted_global_gain_us"]["upper"]) > float(opportunity["optimistic_gain_ceiling_us"]):
+        raise ValueError("candidate prediction exceeds the linked opportunity gain ceiling")
     if any(row.get("candidate_id") == spec["candidate_id"] for row in pool.get("candidates", [])):
         raise ValueError(f"duplicate candidate_id: {spec['candidate_id']}")
     if len(pool.get("candidates", [])) >= int(pool["policy"]["max_candidates"]):
         raise ValueError("candidate pool maximum is reached")
     item = {key: spec[key] for key in (
-        "candidate_id", "name", "family", "change_axes", "hypothesis",
+        "candidate_id", "opportunity_id", "name", "family", "change_axes", "hypothesis",
         "expected_global_effect", "source_paths", "commands", "smoke_result_path",
+        "predicted_global_gain_us",
     )}
     item.update({
         "status": "PROPOSED",
@@ -320,10 +347,13 @@ def command_add(args: argparse.Namespace) -> dict:
     if item["development_budget"]["max_wall_clock_minutes"] <= 0:
         raise ValueError("max_wall_clock_minutes must be positive")
     pool["candidates"].append(item)
+    opportunity.setdefault("candidate_ids", []).append(item["candidate_id"])
+    opportunity["status"] = "IMPLEMENTING"
     if not pool.get("discovery_started_at"):
         pool["discovery_started_at"] = now()
     pool["events"].append({"at": now(), "candidate_id": item["candidate_id"], "event": "ADDED"})
     atomic_json(pool_path(run), pool)
+    atomic_json(opportunity_map_path(run), opportunities)
     return item
 
 
@@ -409,6 +439,19 @@ def command_run(args: argparse.Namespace) -> dict:
         "result": record["smoke_result"],
         "objective": smoke["objective"],
     }
+    prediction = item["predicted_global_gain_us"]
+    predicted_midpoint = (float(prediction["lower"]) + float(prediction["upper"])) / 2.0
+    observed_gain_us = None
+    if smoke["objective"].get("unit") == "us":
+        baseline = float(smoke["objective"]["baseline"])
+        observed = float(smoke["objective"]["candidate"])
+        observed_gain_us = baseline - observed if smoke["objective"]["direction"] == "minimize" else observed - baseline
+    item["prediction_check"] = {
+        "predicted_midpoint_us": predicted_midpoint,
+        "observed_global_gain_us": observed_gain_us,
+        "residual_us": None if observed_gain_us is None else observed_gain_us - predicted_midpoint,
+        "claim_scope": "DISCOVERY_ONLY",
+    }
     item["status"] = "QUALIFICATION_READY" if improvement >= threshold else "SCREENED_OUT"
     pool["events"].append({
         "at": now(), "candidate_id": item["candidate_id"], "event": item["status"],
@@ -416,6 +459,13 @@ def command_run(args: argparse.Namespace) -> dict:
     })
     atomic_json(attempt / "attempt.json", record)
     atomic_json(pool_path(run), pool)
+    opportunities = load_opportunity_map(run)
+    opportunity = next(row for row in opportunities["opportunities"] if row["opportunity_id"] == item["opportunity_id"])
+    opportunity.setdefault("observations", []).append({
+        "at": now(), "candidate_id": item["candidate_id"], **item["prediction_check"],
+    })
+    opportunity["status"] = "HAS_SURVIVOR" if item["status"] == "QUALIFICATION_READY" else "OBSERVED"
+    atomic_json(opportunity_map_path(run), opportunities)
     return {"candidate_id": item["candidate_id"], "status": item["status"], "improvement_percent": improvement}
 
 
@@ -427,10 +477,14 @@ def command_promote(args: argparse.Namespace) -> dict:
         raise ValueError("only a QUALIFICATION_READY candidate can be promoted")
     policy = pool["policy"]
     families = {row.get("family") for row in pool.get("candidates", [])}
+    opportunities = load_opportunity_map(run)
+    covered_opportunities = {row.get("opportunity_id") for row in pool.get("candidates", [])}
     if len(pool.get("candidates", [])) < int(policy["min_candidates"]):
         raise ValueError("candidate portfolio is smaller than min_candidates")
     if len(families) < int(policy["min_families"]):
         raise ValueError("candidate portfolio lacks the required architecture-family diversity")
+    if len(covered_opportunities) < int(opportunities["policy"]["min_candidate_opportunities"]):
+        raise ValueError("candidate portfolio lacks the required opportunity diversity")
     unevaluated = [
         row.get("candidate_id")
         for row in pool.get("candidates", [])
@@ -444,6 +498,7 @@ def command_promote(args: argparse.Namespace) -> dict:
     promotion = {
         "schema_version": "discovery-promotion-v1",
         "candidate_id": item["candidate_id"],
+        "opportunity_id": item["opportunity_id"],
         "promoted_at": now(),
         "status": "QUALIFICATION_CONTRACT_REQUIRED",
         "family": item["family"],
@@ -452,6 +507,7 @@ def command_promote(args: argparse.Namespace) -> dict:
         "expected_global_effect": item["expected_global_effect"],
         "source_identities": source_identities(run, item),
         "screening": item["screening"],
+        "prediction_check": item["prediction_check"],
         "claims_allowed": ["candidate survived discovery screening and may enter supervised qualification"],
         "claims_forbidden": ["production acceptance", "SOTA", "theoretical limit", "portable hardware fact"],
     }
@@ -474,6 +530,7 @@ def command_status(args: argparse.Namespace) -> dict:
         "candidates": [
             {
                 "candidate_id": item.get("candidate_id"),
+                "opportunity_id": item.get("opportunity_id"),
                 "family": item.get("family"),
                 "status": item.get("status"),
                 "attempts": len(item.get("attempts", [])),
