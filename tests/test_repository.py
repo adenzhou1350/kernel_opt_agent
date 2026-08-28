@@ -205,6 +205,12 @@ def main():
 
     cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"])
     assert "new-run" in cli_help.stdout and "experiment-execute" in cli_help.stdout
+    with tempfile.TemporaryDirectory() as temporary:
+        failed_cli = run([
+            sys.executable, str(ROOT / "scripts/kernel_opt.py"), "candidate", "status",
+            "--run", str(Path(temporary) / "missing-run"),
+        ], expected=1)
+        assert "candidate pool is missing" in failed_cli.stderr
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([

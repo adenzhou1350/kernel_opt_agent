@@ -264,6 +264,8 @@ def command_init(args: argparse.Namespace) -> dict:
         raise ValueError("candidate bounds are invalid")
     if args.min_families < 1 or args.min_families > args.min_candidates:
         raise ValueError("min_families must be between one and min_candidates")
+    if args.max_promotions < 1 or args.max_promotions > args.max_candidates:
+        raise ValueError("max_promotions must be between one and max_candidates")
     pool = {
         "schema_version": POOL_SCHEMA,
         "status": "ACTIVE",
@@ -273,6 +275,7 @@ def command_init(args: argparse.Namespace) -> dict:
             "min_candidates": args.min_candidates,
             "max_candidates": args.max_candidates,
             "min_families": args.min_families,
+            "max_promotions": args.max_promotions,
             "max_technical_attempts_per_candidate": args.max_technical_attempts,
             "max_candidate_wall_clock_minutes": args.max_candidate_wall_clock_minutes,
             "max_total_wall_clock_minutes": args.max_total_wall_clock_minutes,
@@ -435,6 +438,9 @@ def command_promote(args: argparse.Namespace) -> dict:
     ]
     if unevaluated:
         raise ValueError(f"all registered candidates must finish discovery screening before promotion: {unevaluated}")
+    promoted_count = sum(row.get("status") == "PROMOTED_TO_QUALIFICATION" for row in pool.get("candidates", []))
+    if promoted_count >= int(policy.get("max_promotions", 2)):
+        raise ValueError("discovery promotion limit is reached")
     promotion = {
         "schema_version": "discovery-promotion-v1",
         "candidate_id": item["candidate_id"],
@@ -486,6 +492,7 @@ def parse_args() -> argparse.Namespace:
     init.add_argument("--min-candidates", type=int, default=6)
     init.add_argument("--max-candidates", type=int, default=12)
     init.add_argument("--min-families", type=int, default=4)
+    init.add_argument("--max-promotions", type=int, default=2)
     init.add_argument("--max-technical-attempts", type=int, default=8)
     init.add_argument("--max-candidate-wall-clock-minutes", type=float, default=20.0)
     init.add_argument("--max-total-wall-clock-minutes", type=float, default=120.0)

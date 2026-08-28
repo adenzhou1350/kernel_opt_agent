@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -95,8 +96,7 @@ def main() -> int:
     # modules import shared helpers from scripts/; disable bytecode generation
     # before exec so normal framework use never creates scripts/__pycache__.
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
-    os.execv(sys.executable, [sys.executable, str(target), *forwarded])
-    return 127
+    return subprocess.call([sys.executable, str(target), *forwarded])
 
 
 if __name__ == "__main__":

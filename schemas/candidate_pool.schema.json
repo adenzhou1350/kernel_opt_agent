@@ -12,7 +12,7 @@
     "discovery_started_at": {"type": ["string", "null"]},
     "policy": {
       "type": "object",
-      "required": ["min_candidates", "max_candidates", "min_families", "max_technical_attempts_per_candidate", "max_candidate_wall_clock_minutes", "max_total_wall_clock_minutes", "promotion_threshold_percent", "screening_claim_scope"]
+      "required": ["min_candidates", "max_candidates", "min_families", "max_promotions", "max_technical_attempts_per_candidate", "max_candidate_wall_clock_minutes", "max_total_wall_clock_minutes", "promotion_threshold_percent", "screening_claim_scope"]
     },
     "candidates": {"type": "array"},
     "events": {"type": "array"}

@@ -59,8 +59,9 @@ python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-
 Discovery requires 6--12 candidates across at least four architecture families
 by default. The default discovery budget is two hours overall, twenty minutes
 per candidate and eight technical repairs per candidate; expiry stops further
-measurement for plan review. Its timing is a routing signal, not production
-acceptance evidence.
+measurement for plan review. Candidates are ranked by weighted screening gain
+and at most two are promoted by default. Its timing is a routing signal, not
+production acceptance evidence.
 
 Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture

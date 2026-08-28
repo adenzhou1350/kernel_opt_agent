@@ -84,30 +84,36 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 "latest_failure": developing.get("latest_failure"),
             }],
         )
-    survivor = next((item for item in candidates if item.get("status") == "QUALIFICATION_READY"), None)
-    if survivor:
-        return action(
-            "PROMOTE_DISCOVERY_CANDIDATE",
-            "the candidate survived cheap screening and now needs a sealed production-matched qualification contract",
-            [[
-                sys.executable, str(scripts / "kernel_opt.py"), "candidate", "promote",
-                "--run", str(run), "--candidate-id", str(survivor["candidate_id"]),
-            ]],
-        )
-    promoted = next((item for item in candidates if item.get("status") == "PROMOTED_TO_QUALIFICATION"), None)
+    promoted = [item for item in candidates if item.get("status") == "PROMOTED_TO_QUALIFICATION"]
     if promoted:
         queue = read_object(run / "models" / "experiment_queue.json")
-        linked = any(
-            request.get("discovery_candidate_id") == promoted.get("candidate_id")
+        linked_ids = {
+            request.get("discovery_candidate_id")
             for request in queue.get("requests", [])
-        )
-        if not linked:
+        }
+        unlinked = next((item for item in promoted if item.get("candidate_id") not in linked_ids), None)
+        if unlinked:
             return action(
                 "BUILD_QUALIFICATION_CONTRACT",
                 "a discovery survivor exists; bind it to the top-two supervised A/B flow instead of returning to open-ended microbenchmarking",
                 [],
-                [{"candidate_id": promoted["candidate_id"], "promotion": promoted.get("promotion")}],
+                [{"candidate_id": unlinked["candidate_id"], "promotion": unlinked.get("promotion")}],
             )
+    survivors = [item for item in candidates if item.get("status") == "QUALIFICATION_READY"]
+    if survivors and len(promoted) < int(policy.get("max_promotions", 2)):
+        survivor = max(
+            survivors,
+            key=lambda item: float(item.get("screening", {}).get("improvement_percent", float("-inf"))),
+        )
+        return action(
+            "PROMOTE_DISCOVERY_CANDIDATE",
+            "promote the strongest remaining discovery survivor for sealed production-matched qualification",
+            [[
+                sys.executable, str(scripts / "kernel_opt.py"), "candidate", "promote",
+                "--run", str(run), "--candidate-id", str(survivor["candidate_id"]),
+            ]],
+            [{"candidate_id": survivor["candidate_id"], "improvement_percent": survivor.get("screening", {}).get("improvement_percent")}],
+        )
     if not any(item.get("status") in {"QUALIFICATION_READY", "PROMOTED_TO_QUALIFICATION"} for item in candidates):
         if len(candidates) < int(policy.get("max_candidates", len(candidates))):
             return action(

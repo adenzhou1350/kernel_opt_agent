@@ -32,6 +32,7 @@ def run_cli(run: Path, *args: str, expected: int = 0) -> dict:
         stderr=subprocess.PIPE,
     )
     assert completed.returncode == expected, (completed.stdout, completed.stderr)
+    assert completed.stdout.strip(), (args, completed.returncode, completed.stdout, completed.stderr)
     return json.loads(completed.stdout) if completed.stdout.strip() else {}
 
 
@@ -87,7 +88,7 @@ Path('../smoke.json').write_text(json.dumps(result))
         )
         run_cli(run, "add", "--spec", str(spec_path))
         failed = run_cli(run, "run", "--candidate-id", "c1")
-        assert failed["status"] == "DEVELOPING"
+        assert failed.get("status") == "DEVELOPING", failed
         pool = json.loads((run / "models/candidate_pool.json").read_text(encoding="utf-8"))
         item = pool["candidates"][0]
         assert item["attempts"][0]["status"] == "TECHNICAL_FAILURE"
@@ -99,6 +100,19 @@ Path('../smoke.json').write_text(json.dumps(result))
         screened = run_cli(run, "run", "--candidate-id", "c1")
         assert screened["status"] == "QUALIFICATION_READY"
         assert abs(screened["improvement_percent"] - 20.0) < 1e-9
+        pool = json.loads((run / "models/candidate_pool.json").read_text(encoding="utf-8"))
+        pool["candidates"].append({
+            "candidate_id": "c2",
+            "family": "persistent-grid",
+            "status": "QUALIFICATION_READY",
+            "screening": {"improvement_percent": 30.0},
+        })
+        write(run / "models/candidate_pool.json", pool)
+        strongest = discovery_action(run, ROOT / "scripts")
+        assert strongest and strongest["action"] == "PROMOTE_DISCOVERY_CANDIDATE"
+        assert strongest["commands"][0][-1] == "c2"
+        pool["candidates"].pop()
+        write(run / "models/candidate_pool.json", pool)
         promoted = run_cli(run, "promote", "--candidate-id", "c1")
         assert promoted["status"] == "PROMOTED_TO_QUALIFICATION"
         qualification = discovery_action(run, ROOT / "scripts")
