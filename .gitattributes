@@ -1,0 +1,6 @@
+* text=auto eol=lf
+*.cubin binary
+*.csv binary
+*.fatbin binary
+*.ncu-rep binary
+*.so binary

@@ -1217,7 +1217,8 @@ def main():
             sys.executable, str(ROOT / "scripts/optimizer_step.py"),
             "--run", str(strict_run),
         ])
-        assert json.loads(next_action.stdout)["action"] == "DISCOVER_FINAL_BINARY_RESOURCES"
+        assert (strict_run / "models/candidate_pool.json").is_file()
+        assert json.loads(next_action.stdout)["action"] == "CAPTURE_DISCOVERY_BASELINE"
         strict_gate = run([
             sys.executable, str(ROOT / "scripts/advance_run.py"),
             "--run", str(strict_run), "--to", "BASELINE", "--check-only",

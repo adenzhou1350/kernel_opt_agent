@@ -22,6 +22,109 @@ def action(kind: str, reason: str, commands: list[list[str]], blocking_inputs=No
     }
 
 
+def discovery_action(run: Path, scripts: Path) -> dict | None:
+    """Route fast candidate work before expensive evidence closure.
+
+    Discovery results only decide which implementation deserves supervised
+    qualification. They never bypass the existing acceptance gates.
+    """
+    path = run / "models" / "candidate_pool.json"
+    if not path.is_file():
+        return None
+    pool = read_object(path)
+    if pool.get("schema_version") != "candidate-pool-v1":
+        return None
+    if pool.get("status") == "PAUSED":
+        return action(
+            "DISCOVERY_BUDGET_REVIEW",
+            "the discovery wall-clock budget expired; do not start more measurement until the portfolio and budget are reviewed",
+            [],
+            [{"required": "review candidate failures/survivors and explicitly resume, replace the plan, or stop"}],
+        )
+    if pool.get("status") != "ACTIVE":
+        return None
+    baseline = read_object(run / "models" / "baseline.json")
+    if baseline.get("status") != "VALID" or baseline.get("correctness", {}).get("status") != "PASS":
+        return action(
+            "CAPTURE_DISCOVERY_BASELINE",
+            "candidate discovery needs a correct production baseline, but full resource-model closure is not required yet",
+            [],
+            [{"required": "models/baseline.json status VALID with correctness PASS", "claim_scope": "DISCOVERY_ONLY"}],
+        )
+    candidates = pool.get("candidates", [])
+    policy = pool.get("policy", {})
+    families = {item.get("family") for item in candidates if item.get("family")}
+    if len(candidates) < int(policy.get("min_candidates", 1)) or len(families) < int(policy.get("min_families", 1)):
+        return action(
+            "EXPAND_DISCOVERY_PORTFOLIO",
+            "generate materially different production implementations before polishing one local idea",
+            [],
+            [{
+                "candidate_count": len(candidates),
+                "required_candidates": int(policy.get("min_candidates", 1)),
+                "family_count": len(families),
+                "required_families": int(policy.get("min_families", 1)),
+                "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
+            }],
+        )
+    developing = next((item for item in candidates if item.get("status") in {"PROPOSED", "DEVELOPING"}), None)
+    if developing:
+        kind = "IMPLEMENT_DISCOVERY_CANDIDATE" if developing.get("status") == "PROPOSED" else "REPAIR_DISCOVERY_CANDIDATE"
+        return action(
+            kind,
+            "compile/correctness failures are repairable discovery events and do not reject the performance hypothesis",
+            [[
+                sys.executable, str(scripts / "kernel_opt.py"), "candidate", "run",
+                "--run", str(run), "--candidate-id", str(developing["candidate_id"]),
+            ]],
+            [{
+                "candidate_id": developing["candidate_id"],
+                "family": developing.get("family"),
+                "hypothesis": developing.get("hypothesis"),
+                "latest_failure": developing.get("latest_failure"),
+            }],
+        )
+    survivor = next((item for item in candidates if item.get("status") == "QUALIFICATION_READY"), None)
+    if survivor:
+        return action(
+            "PROMOTE_DISCOVERY_CANDIDATE",
+            "the candidate survived cheap screening and now needs a sealed production-matched qualification contract",
+            [[
+                sys.executable, str(scripts / "kernel_opt.py"), "candidate", "promote",
+                "--run", str(run), "--candidate-id", str(survivor["candidate_id"]),
+            ]],
+        )
+    promoted = next((item for item in candidates if item.get("status") == "PROMOTED_TO_QUALIFICATION"), None)
+    if promoted:
+        queue = read_object(run / "models" / "experiment_queue.json")
+        linked = any(
+            request.get("discovery_candidate_id") == promoted.get("candidate_id")
+            for request in queue.get("requests", [])
+        )
+        if not linked:
+            return action(
+                "BUILD_QUALIFICATION_CONTRACT",
+                "a discovery survivor exists; bind it to the top-two supervised A/B flow instead of returning to open-ended microbenchmarking",
+                [],
+                [{"candidate_id": promoted["candidate_id"], "promotion": promoted.get("promotion")}],
+            )
+    if not any(item.get("status") in {"QUALIFICATION_READY", "PROMOTED_TO_QUALIFICATION"} for item in candidates):
+        if len(candidates) < int(policy.get("max_candidates", len(candidates))):
+            return action(
+                "GENERATE_REPLACEMENT_CANDIDATES",
+                "the current portfolio produced no survivor; create a new architecture family within the discovery budget",
+                [],
+                [{"screened_or_blocked": [item.get("candidate_id") for item in candidates]}],
+            )
+        return action(
+            "DISCOVERY_PORTFOLIO_EXHAUSTED",
+            "the maximum candidate portfolio produced no survivor; further measurement is blocked until the architecture plan changes",
+            [],
+            [{"candidates": [item.get("candidate_id") for item in candidates]}],
+        )
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run", type=Path, required=True)
@@ -47,6 +150,13 @@ def main() -> int:
         output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
         print(json.dumps(result, indent=2, sort_keys=True))
         return 1
+    result = discovery_action(run, scripts) if not synthetic_legacy else None
+    if result is not None:
+        output = run / "traces/next_action.json"
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0
     hardware_evidence_path = run / "hardware_evidence.json"
     hardware_path = run / "hardware.json"
     hardware_errors = validate_hardware_evidence(hardware_evidence_path, hardware_path) if hardware_evidence_path.exists() else ["manifest missing"]

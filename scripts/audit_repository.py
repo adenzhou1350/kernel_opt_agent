@@ -25,6 +25,7 @@ from evidence_utils import validate_hardware_spec, validate_identity
 
 ALLOWED_TOP_LEVEL = {
     ".git",
+    ".gitattributes",
     ".gitignore",
     "AGENTS.md",
     "README.md",
@@ -97,7 +98,7 @@ def main() -> int:
         manifest_paths = set()
         for manifest_path in manifests:
             package = manifest_path.parent
-            relative_package = str(package.relative_to(root / "microbench"))
+            relative_package = package.relative_to(root / "microbench").as_posix()
             manifest_paths.add(relative_package)
             try:
                 definition = read_object(manifest_path)

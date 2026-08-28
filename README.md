@@ -11,6 +11,12 @@ It deliberately contains no application-specific algorithm, workload or
 performance result.  Hardware facts are separated from empirical measurements;
 measurements are keyed by device and software environment.
 
+The workflow has two lanes. Fast discovery writes and repairs a diverse set of
+run-local production candidates, then uses cheap anchor/edge screening and
+successive halving. Only survivors enter the existing evidence-closed
+qualification and limit-certification lane. A technical build failure never
+counts as a causal performance rejection.
+
 ## Start a run
 
 An agent launched with this directory as its working tree is governed by
@@ -40,11 +46,29 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
-The run is intentionally blocked until `hardware_evidence.json` archives exact
+After a correct discovery baseline is present, manage the production-candidate
+portfolio with:
+
+```bash
+python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
+python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
+python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
+python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-id <id>
+```
+
+Discovery requires 6--12 candidates across at least four architecture families
+by default. The default discovery budget is two hours overall, twenty minutes
+per candidate and eight technical repairs per candidate; expiry stops further
+measurement for plan review. Its timing is a routing signal, not production
+acceptance evidence.
+
+Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
 official documents, the developer must provide its location; inferred hardware
-facts and neighboring-device values are forbidden.
+facts and neighboring-device values are forbidden. Discovery-only production
+implementation and cheap screening may proceed after a correct baseline; those
+results cannot support a production acceptance or limit claim.
 
 After the exact launched binary is archived inside the run, disassemble it with
 a hash-bound tool/architecture receipt, classify every static instruction site,

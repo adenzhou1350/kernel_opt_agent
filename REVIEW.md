@@ -11,7 +11,7 @@
 算子计算契约 + 加权目标工作负载 + 精确目标硬件
                          │
                          ▼
-规划 → 基线 → 建模 → 密封实验
+规划 → 正确基线 → 多架构候选发现 → 建模/严格实验
                          │
                          ▼
 生产验证 → 极限证书 → 中文人工审核报告
@@ -29,7 +29,7 @@
 | 2 | `skill/kernel-optimizer/SKILL.md` | Agent 如何根据阶段加载规则并推进工作？ |
 | 3 | `scripts/kernel_opt.py` | 对外命令是否完整、唯一且职责清楚？ |
 | 4 | `scripts/new_run.py` | 算子、负载和硬件三项输入如何冻结？ |
-| 5 | `scripts/advance_run.py` | 每个阶段依靠哪些证据才能关闭？ |
+| 5 | `scripts/candidate_discovery.py`、`scripts/advance_run.py` | 候选如何快速产生、修复和筛选；每个严格阶段依靠哪些证据才能关闭？ |
 | 6 | `schemas/*.schema.json` | 哪些结果被持久化并由机器严格验证？ |
 | 7 | `tests/test_evidence_closed_workflow.py` | 一条完整正向证据链能否跑通？ |
 | 8 | `tests/test_repository.py` | 不完整、越权或伪造状态是否会失败关闭？ |
@@ -52,6 +52,7 @@ python3 scripts/kernel_opt.py <command> ...
 | 输入冻结 | `new-run`、`hardware-*` | 三项输入契约和官方目标硬件证据 |
 | 规划 | `sass-archive`、`sass-count`、`resources-discover` | 最终二进制身份和完整候选资源集合 |
 | 基线 | `p0-calibrate`、`paired-compare` | 生产一致的 CPU、GPU 和端到端基线 |
+| 候选发现 | `candidate init/add/run/promote` | 6--12 个跨架构族生产候选、技术修复记录和廉价筛选结果 |
 | 建模 | `service-curve-fit`、`next`、`advance` | 必要工作、DAG、调度、资源平衡和实验队列 |
 | 实验 | `experiment-*` | 密封执行、绑定结果、候选决策和模型闭环 |
 | 经验复用 | `microbench-*` | 通过资格审查的应用无关原子探针 |
@@ -83,11 +84,13 @@ PLANNING → BASELINE → MODELING → EXPERIMENT
 
 ## 5. `scripts/` 的职责分组
 
-`scripts/` 当前共有 41 个文件。为了保持直接执行和同级导入的确定性，物理
+`scripts/` 当前共有 47 个文件。为了保持直接执行和同级导入的确定性，物理
 目录保持扁平；逻辑所有权严格分组如下：
 
 - 运行生命周期：`new_run.py`、`optimizer_step.py`、`advance_run.py`、
   `audit_repository.py`。
+- 候选发现：`candidate_discovery.py`。技术失败进入可修复循环，只有通过
+  anchor/edge 正确性和廉价性能筛选的候选才会送入严格资格验证。
 - 硬件证据：`discover_hardware.py`、`init_hardware_evidence.py`、
   `add_official_hardware_source.py`、`add_documented_hardware_fact.py`、
   `validate_hardware_evidence.py`、`register_measurement.py`、
@@ -119,6 +122,7 @@ python3 scripts/kernel_opt.py --help
 
 - 运行与输入：`run_state`、`operator_contract`、`workload`、
   `hardware_snapshot`。
+- 候选发现：`candidate_pool`、`candidate_smoke_result`。
 - 官方证据与测量：`hardware_evidence_manifest`、
   `p0_calibration_receipt`、`benchmark_result`。
 - 规划与建模：`optimization_plan`、`microarchitecture_model`、
