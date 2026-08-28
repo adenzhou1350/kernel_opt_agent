@@ -128,7 +128,20 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
             }],
         )
-    developing = next((item for item in candidates if item.get("status") in {"PROPOSED", "DEVELOPING"}), None)
+    opportunity_ranks = {
+        item.get("opportunity_id"): int(item.get("priority_rank", 10**9))
+        for item in opportunity_rows
+    }
+    developing_rows = [item for item in candidates if item.get("status") in {"PROPOSED", "DEVELOPING"}]
+    developing = min(
+        developing_rows,
+        key=lambda item: (
+            opportunity_ranks.get(item.get("opportunity_id"), 10**9),
+            0 if item.get("status") == "DEVELOPING" else 1,
+            str(item.get("candidate_id", "")),
+        ),
+        default=None,
+    )
     if developing:
         kind = "IMPLEMENT_DISCOVERY_CANDIDATE" if developing.get("status") == "PROPOSED" else "REPAIR_DISCOVERY_CANDIDATE"
         return action(

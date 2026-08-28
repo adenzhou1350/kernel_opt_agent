@@ -85,6 +85,16 @@ def main() -> None:
         assert implement and implement["action"] == "EXPAND_DISCOVERY_PORTFOLIO", implement
         target = implement["blocking_inputs"][0]["next_ranked_uncovered_opportunity"]
         assert target["opportunity_id"] == "large-cheap", target
+        pool_path = run / "models" / "candidate_pool.json"
+        pool = json.loads(pool_path.read_text(encoding="utf-8"))
+        pool["candidates"] = [
+            {"candidate_id": "low-first", "opportunity_id": "small-expensive", "family": "tile-retune", "status": "PROPOSED"},
+            {"candidate_id": "high-second", "opportunity_id": "large-cheap", "family": "cross-stage-fusion", "status": "PROPOSED"},
+        ]
+        write(pool_path, pool)
+        ranked_implementation = discovery_action(run, ROOT / "scripts")
+        assert ranked_implementation and ranked_implementation["action"] == "IMPLEMENT_DISCOVERY_CANDIDATE"
+        assert ranked_implementation["blocking_inputs"][0]["candidate_id"] == "high-second", ranked_implementation
 
         invalid = opportunity_spec("false-proof", "bad-family", (1.0, 2.0), 2.0, 10.0, evidence_sha256)
         invalid["model_scope"] = "ABSOLUTE_GLOBAL_OPTIMUM"
