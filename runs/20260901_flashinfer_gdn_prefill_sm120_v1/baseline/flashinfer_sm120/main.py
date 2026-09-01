@@ -8,14 +8,16 @@ from flashinfer.gdn_prefill import chunk_gated_delta_rule
 
 @torch.no_grad()
 def run(q, k, v, state, A_log, a, dt_bias, b, cu_seqlens, scale):
-    # FlashInfer accepts the forget gate in log space and beta after sigmoid.
+    # The SM120 fully fused path consumes the positive forget multiplier.  Its
+    # AlphaProcessor forms log2/cumulative products inside the kernel.
     log_g = -torch.exp(A_log.float()) * F.softplus(a.float() + dt_bias.float())
+    g = torch.exp(log_g)
     beta = torch.sigmoid(b.float())
     return chunk_gated_delta_rule(
         q=q,
         k=k,
         v=v,
-        g=log_g,
+        g=g,
         beta=beta,
         scale=scale,
         initial_state=state,
