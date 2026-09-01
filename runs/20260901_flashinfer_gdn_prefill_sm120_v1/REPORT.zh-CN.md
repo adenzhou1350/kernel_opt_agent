@@ -1,6 +1,6 @@
 # Kernel Opt Agent：SM120 GDN 实践与验证报告
 
-更新时间：2026-09-01  
+更新时间：2026-09-01
 分支：`feature/opportunity-driven-search`
 
 ## 结论先行
