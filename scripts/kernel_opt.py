@@ -22,6 +22,7 @@ class Command:
 COMMAND_GROUPS: dict[str, dict[str, Command]] = {
     "run lifecycle": {
         "new-run": Command("new_run.py", "freeze intake and create a run"),
+        "trace-intake": Command("import_flashinfer_trace.py", "convert FlashInfer Trace into frozen intake contracts"),
         "next": Command("optimizer_step.py", "select the next evidence-driven action"),
         "advance": Command("advance_run.py", "validate and advance one phase gate"),
         "audit": Command("audit_repository.py", "verify reusable-zone purity"),
