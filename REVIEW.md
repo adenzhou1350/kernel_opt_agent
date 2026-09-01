@@ -52,7 +52,7 @@ python3 scripts/kernel_opt.py <command> ...
 | 输入冻结 | `new-run`、`hardware-*` | 三项输入契约和官方目标硬件证据 |
 | 规划 | `sass-archive`、`sass-count`、`resources-discover` | 最终二进制身份和完整候选资源集合 |
 | 基线 | `p0-calibrate`、`paired-compare` | 生产一致的 CPU、GPU 和端到端基线 |
-| 机会与候选发现 | `opportunity init/add/rank`、`candidate init/add/run/promote` | 条件收益上界及价值排序；6--12 个跨架构族、跨机会生产候选、技术修复和预测残差 |
+| 机会与候选发现 | `opportunity init/add/rank`、`method validate/recommend`、`candidate init/add/run/promote` | 条件收益上界及价值排序；可迁移方法先验；6--12 个跨架构族、跨机会生产候选、技术修复和预测残差 |
 | 建模 | `service-curve-fit`、`next`、`advance` | 必要工作、DAG、调度、资源平衡和实验队列 |
 | 实验 | `experiment-*` | 密封执行、绑定结果、候选决策和模型闭环 |
 | 经验复用 | `microbench-*` | 通过资格审查的应用无关原子探针 |
@@ -124,7 +124,8 @@ python3 scripts/kernel_opt.py --help
 
 - 运行与输入：`run_state`、`operator_contract`、`workload`、
   `hardware_snapshot`。
-- 机会与候选发现：`opportunity_map`、`candidate_pool`、`candidate_smoke_result`。
+- 机会与候选发现：`opportunity_map`、`optimization_method`、
+  `method_match_receipt`、`candidate_pool`、`candidate_smoke_result`。
 - 官方证据与测量：`hardware_evidence_manifest`、
   `p0_calibration_receipt`、`benchmark_result`。
 - 规划与建模：`optimization_plan`、`microarchitecture_model`、

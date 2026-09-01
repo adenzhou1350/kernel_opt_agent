@@ -33,6 +33,21 @@ ceiling. Cover at least three opportunities by default rather than producing
 many variants of the same hypothesis. Give every family a small implementation budget before
 spending qualification effort on any one family.
 
+When the portfolio lacks architecture diversity, run `kernel_opt.py method
+recommend --run <run>`. It matches reusable, source-attributed method cards to
+the frozen operator, workload, hardware and ranked opportunity map. A match is
+only a `DISCOVERY_PRIOR_ONLY` candidate-generation hint: it cannot increase a
+modeled gain, validate a hardware capability, accept a candidate or support a
+limit claim. Missing hard capabilities fail closed, architecture affinities
+outside the source scope require adaptation, and every recommendation receipt
+is hash-bound to both run inputs and the reusable card set.
+
+Turn a matched method into one or more run-local production candidates, not a
+literature summary. Preserve its stated failure modes, bottleneck shifts and
+validation recipe in the candidate hypothesis. If no method applies, widen the
+opportunity/decomposition analysis rather than forcing a fashionable technique
+onto the operator.
+
 ## Repairable implementation loop
 
 Candidate source lives under `runs/<run>/candidates/<id>/`. Register an argv-form

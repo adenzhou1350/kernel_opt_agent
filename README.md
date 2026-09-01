@@ -6,6 +6,9 @@ the operator quick start; `AGENTS.md` contains mandatory agent policy.
 The design rationale and validation report for opportunity-driven search is
 available in
 [skill/kernel-optimizer/references/opportunity_driven_search_design.md](skill/kernel-optimizer/references/opportunity_driven_search_design.md).
+The transfer-aware method-learning layer and its two-device validation are
+documented in
+[skill/kernel-optimizer/references/method_learning_design.md](skill/kernel-optimizer/references/method_learning_design.md).
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
@@ -57,6 +60,7 @@ opportunities before managing the production-candidate portfolio:
 python3 scripts/kernel_opt.py opportunity init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py opportunity add --run runs/<run-id> --spec opportunity-spec.json
 python3 scripts/kernel_opt.py opportunity rank --run runs/<run-id>
+python3 scripts/kernel_opt.py method recommend --run runs/<run-id>
 python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
 python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
@@ -70,6 +74,13 @@ confidence, implementation cost and hash-bound model evidence. Absolute-global-o
 rejected: a decomposition-specific minimum is not a semantic lower bound.
 Candidates must bind to a ranked opportunity, stay below its gain ceiling and
 cover at least three opportunities by default.
+
+If that portfolio is still narrow, `method recommend` matches reusable method
+cards against the frozen operator, workload, hardware and opportunity map. The
+receipt is hash-bound to all four inputs and the card library. Literature and
+vendor guidance remain discovery priors only: they cannot increase a gain
+estimate, prove a hardware capability, accept a candidate or support a limit
+claim. Unverified hard capabilities fail closed.
 
 Discovery then requires 6--12 candidates across at least four architecture families
 by default. The default discovery budget is two hours overall, twenty minutes
@@ -113,7 +124,7 @@ python3 scripts/kernel_opt.py next --run runs/<run-id>
 Use `scripts/kernel_opt.py hardware-discover` to create a hardware snapshot,
 then use the selected microbenchmarks and analysis commands to build evidence. `runs/` is
 for generated artifacts; reusable knowledge belongs in `hardware/`,
-`microbench/`, `schemas/` or the skill references.
+`knowledge/`, `microbench/`, `schemas/` or the skill references.
 
 Each run designates one `GLOBAL_SCHEDULER` and an independent
 `GLOBAL_SUPERVISOR`. The scheduler maintains the global resource balance,

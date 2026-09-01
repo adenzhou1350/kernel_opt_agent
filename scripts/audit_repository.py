@@ -31,6 +31,7 @@ ALLOWED_TOP_LEVEL = {
     "README.md",
     "REVIEW.md",
     "hardware",
+    "knowledge",
     "microbench",
     "runs",
     "schemas",
@@ -72,10 +73,11 @@ def main() -> int:
             errors.append(f"forbidden cache/temp name: {path.relative_to(root)}")
 
     historical_terms = ["f" + "la", "q" + "wen", "g" + "dn", "delta" + "_rule"]
-    for zone_name in REUSABLE_ZONES:
+    for zone_name in (*REUSABLE_ZONES, "knowledge"):
         zone = root / zone_name
         if not zone.exists():
-            errors.append(f"missing reusable zone: {zone_name}")
+            if zone_name in REUSABLE_ZONES:
+                errors.append(f"missing reusable zone: {zone_name}")
             continue
         for path in zone.rglob("*"):
             if path.is_file() and path.suffix.lower() in GENERATED_SUFFIXES:

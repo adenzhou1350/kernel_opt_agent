@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 from evidence_utils import read_object, validate_hardware_evidence
+from method_library import validate_receipt as validate_method_receipt
 from opportunity_map import validate_map as validate_opportunity_map
 
 
@@ -113,6 +114,32 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             (item for item in opportunity_rows if item.get("opportunity_id") not in covered_opportunities),
             opportunity_rows[0] if opportunity_rows else None,
         )
+        method_path = run / "models" / "method_matches.json"
+        method_receipt = None
+        method_error = None
+        if method_path.is_file():
+            try:
+                method_receipt = read_object(method_path)
+                validate_method_receipt(method_receipt, run)
+            except (OSError, ValueError, json.JSONDecodeError) as error:
+                method_error = str(error)
+                method_receipt = None
+        if method_receipt is None:
+            return action(
+                "RETRIEVE_OPTIMIZATION_METHODS",
+                "the candidate portfolio is narrow; match transfer-aware method cards before inventing more variants of the same idea",
+                [[sys.executable, str(scripts / "kernel_opt.py"), "method", "recommend", "--run", str(run)]],
+                [{
+                    "opportunity_id": target.get("opportunity_id") if target else None,
+                    "stale_or_missing_receipt": method_error or "models/method_matches.json is missing",
+                    "claim_scope": "DISCOVERY_PRIOR_ONLY",
+                }],
+            )
+        matched = next(
+            (item.get("matches", []) for item in method_receipt.get("recommendations", [])
+             if target and item.get("opportunity_id") == target.get("opportunity_id")),
+            [],
+        )
         return action(
             "EXPAND_DISCOVERY_PORTFOLIO",
             "implement high-ranked, materially different global opportunities before polishing one local idea",
@@ -125,6 +152,8 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 "opportunity_count": len(covered_opportunities),
                 "required_opportunity_count": minimum_opportunity_coverage,
                 "next_ranked_uncovered_opportunity": target,
+                "transfer_aware_method_matches": matched,
+                "evaluation_guards": method_receipt.get("evaluation_guards", []),
                 "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
             }],
         )

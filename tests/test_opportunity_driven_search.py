@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import hashlib
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -53,6 +54,8 @@ def main() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         run = Path(temporary) / "run"
         (run / "models").mkdir(parents=True)
+        for name in ("operator.json", "workload.json", "hardware.json"):
+            shutil.copyfile(ROOT / "tests" / "fixtures" / name, run / name)
         write(run / "models" / "baseline.json", {"status": "VALID", "correctness": {"status": "PASS"}})
         evidence_sha256 = hashlib.sha256((run / "models/baseline.json").read_bytes()).hexdigest()
         cli("candidate", run, "init", "--min-candidates", "2", "--max-candidates", "4", "--min-families", "2")
@@ -81,6 +84,9 @@ def main() -> None:
         blocked = discovery_action(run, ROOT / "scripts")
         assert blocked and blocked["action"] == "BLOCK_INVALID_OPPORTUNITY_MAP", blocked
         cli("opportunity", run, "rank")
+        retrieve = discovery_action(run, ROOT / "scripts")
+        assert retrieve and retrieve["action"] == "RETRIEVE_OPTIMIZATION_METHODS", retrieve
+        cli("method", run, "recommend")
         implement = discovery_action(run, ROOT / "scripts")
         assert implement and implement["action"] == "EXPAND_DISCOVERY_PORTFOLIO", implement
         target = implement["blocking_inputs"][0]["next_ranked_uncovered_opportunity"]
