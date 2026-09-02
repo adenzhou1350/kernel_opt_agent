@@ -1,6 +1,6 @@
 # Kernel Opt Agent：SM120 GDN 实践与验证报告
 
-更新时间：2026-09-01
+更新时间：2026-09-02
 分支：`feature/opportunity-driven-search`
 
 ## 结论先行
@@ -49,6 +49,16 @@
 - 本地 RTX 4060 Laptop 是 SM89；当前 FlashInfer GDN 实现只路由 SM90/100/120，因此不能冒充目标算子性能环境。它仍可用于框架测试、数据准备和架构无关的阶段代理测试。
 - 4060 上已直接加载 `gate_fusion_auto/main.py` 中的同一 Triton gate kernel：6/6 筛选形状和一组宽值域压力输入均通过 `atol=rtol=1e-5`；PyTorch eager 路径每次 9 个 CUDA kernel，融合路径每次 1 个；交错 AB/BA 配对测得 gate 阶段形状平均约 3.30 倍加速。该数字只证明融合机制值得保留，不能外推为完整 GDN 或 5090 加速。
 
+### 4060 第二轮：编译器、手写核与搜索成本
+
+这一轮预先冻结为两个问题，完成固定矩阵后停止，没有继续追逐单点最优：
+
+1. 先在短、长两个形状筛选 `torch.compile` 模式：`reduce-overhead` 因 CUDA Graph 双输出拷贝约为 `149～157us`，`default` 与 `max-autotune-no-cudagraphs` 约为 `98～99us`，因此正式 6-case 比较采用更强的 `default`，而不是拿较弱模式当对手。正式结果中的 eager、最强自动编译与手写 Triton 均通过 `1e-5` 正确性；形状平均延迟约为 `121.17us`、`97.99us`、`36.05us`，手写路径仍比最强自动编译快约 `2.72x`。profiler 显示 eager 为 9 个 CUDA kernel，自动编译降为 2 个，手写路径为 1 个。说明自动编译已经消掉大部分中间算术，但两个独立输出仍没有合并进同一 program，手写融合有真实机制价值。
+2. 固定扫描 `BLOCK={64,128,256,512}` × `num_warps={1,2,4}`。不同形状的单点冠军不稳定；本轮全局冠军为 `b256_w2`，但“每形状选冠军”相对一个全局配置的平均潜在收益只有 `2.08%`，落入预先规定的 `2%～5%` 不确定区间。因此不在 SM89 上增加 shape dispatch，也不把代理机冠军搬到 SM120；目标机再测。
+3. 原候选把 `n_elements` 声明为 `tl.constexpr`，6 个冻结形状产生 5 个进程内编译 specialization。仅删除注解并不够，因为 Triton 仍会隐式按值/对齐特化；同时使用 `do_not_specialize` 和 `do_not_specialize_on_alignment` 后降为 1 个 specialization。配对稳态测量只慢约 `1.13%`，因此新增 `gate_fusion_runtime_extent_auto` 候选，保留原 `BLOCK=256`，只迁移“减少无必要编译分叉”这一架构无关结论。
+
+这组实验把两类成本分开了：GPU 稳态延迟决定候选是否值得保留，编译 specialization 数和编译路径墙钟决定 agent 每小时能完成多少次有效假设。对应经验已沉淀为通用 method card `triton-dynamic-extent-specialization-control`，后续 agent 不应再通过无限枚举动态长度来消耗搜索预算。
+
 ## 当前候选
 
 首轮已经产出三个可打包实现，而不是继续空测：
@@ -56,6 +66,7 @@
 1. `gate_fusion_auto`：用一个 Triton kernel 融合 `A_log/softplus/exp/sigmoid` 门控预处理，再调用 SM120 主体；目标是减少短序列上多个逐元素 launch。
 2. `torch_force_cp`：保持精确门控表达式，强制 context-parallel，用于验证官方路由阈值是否保守。
 3. `torch_force_non_cp`：保持精确门控表达式，强制普通路径，用于验证 CP 是否在部分形状上反而亏损。
+4. `gate_fusion_runtime_extent_auto`：保持 gate 融合公式和原始 SM120 launch 几何，只抑制动态 `n_elements` 的值/对齐特化；4060 代理证据显示 specialization 从 5 降到 1，稳态差异约 1.13%，仍需在 5090 上裁决。
 
 冻结 workload 显示，官方自动策略会将 82/100 例路由到 CP、18/100 例路由到非 CP。先验证这个高影响离散决策，比在未知瓶颈下连续微调 tile 更有信息价值。
 
