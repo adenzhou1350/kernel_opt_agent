@@ -59,6 +59,14 @@
 
 这组实验把两类成本分开了：GPU 稳态延迟决定候选是否值得保留，编译 specialization 数和编译路径墙钟决定 agent 每小时能完成多少次有效假设。对应经验已沉淀为通用 method card `triton-dynamic-extent-specialization-control`，后续 agent 不应再通过无限枚举动态长度来消耗搜索预算。
 
+### 4060 第三轮：成本栈与 producer-consumer 直接融合
+
+进一步把同一个 gate kernel 拆成三个观察层：CUPTI kernel active、CPU 串行 launch 外围的 CUDA-event effective timeline，以及同步 host wall。固定 6 个形状并用 3 个独立进程重复后，预分配输出的跨进程中位平均 effective timeline 约 `19.93us`（`19.70～23.65us`），每次分配输出约 `34.65us`（`34.35～40.61us`），而 CUPTI kernel active 中位数只有约 `1.464us`（`1.346～1.468us`）。active 仅占 effective timeline 的中位数约 `6.75%`，所以继续雕刻 gate 核内指令的全局上限很低；输出生命周期、launch 和与消费者的边界才是主要机会。
+
+为验证这个判断，新增 matched synthetic consumer：物化路径先写出 FP32 `g/beta` 再由第二个 kernel 消费；融合路径在同一个 kernel 中计算并立即消费。三次独立进程均为 6/6 形状通过 `1e-5`，两核到一核的跨进程中位平均 effective timeline 为 `37.77us -> 20.44us`，平均加速中位数 `1.87x`（`1.84～1.91x`）；CUPTI active 总和为 `2.776us -> 1.591us`，平均加速中位数 `1.79x`（`1.77～1.79x`）。因此“直接 producer-consumer 融合”通过预设双重 `1.05x` 门槛，应晋级到 5090 目标机候选；该 synthetic consumer 不等价于 recurrent GDN，数字不得外推。
+
+本机 Nsight Compute 2022.4.1 能连接目标进程，但硬件计数器被 `ERR_NVGPUCTRPERM` 权限阻断。原始日志和结构化 receipt 已保留，因此本轮不声称 occupancy、SFU、L2 或 DRAM 结论。详细实验设计、复现命令和读数方法见 `SM89_OPTIMIZATION_TUTORIAL.zh-CN.md`。
+
 ## 当前候选
 
 首轮已经产出三个可打包实现，而不是继续空测：
