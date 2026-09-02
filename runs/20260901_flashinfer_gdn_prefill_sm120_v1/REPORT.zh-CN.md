@@ -46,7 +46,8 @@
 - 官方 B200/SM100 baseline 不能直接迁移：其 `tcgen05` MMA 只接受 SM100/103/110，在 SM120a 编译立即失败。流程只尝试一次便标记 `TECHNICALLY_BLOCKED`，没有浪费时间修补错误架构。
 - 第一版 wrapper 把 `log_g` 传给 SM120 AlphaProcessor，导致全量 NaN。检查实际 ABI 后改为正值 `g=exp(log_g)`；最小例全部元素正确，最大绝对误差约 `9.67e-4`。
 - 一次全量跑在 69 例通过后出现 7 个 runtime error。检查时发现 ComfyUI 在运行中重新占用约 26.8GB 显存，因此该批次已经标记为 `INVALID_COMPETING_LOAD`，没有被当作候选缺陷或性能证据。
-- 本地 RTX 4060 Laptop 是 SM89；当前 FlashInfer GDN 实现只路由 SM90/100/120，故本地机用于框架测试和数据准备，不能冒充目标算子性能环境。
+- 本地 RTX 4060 Laptop 是 SM89；当前 FlashInfer GDN 实现只路由 SM90/100/120，因此不能冒充目标算子性能环境。它仍可用于框架测试、数据准备和架构无关的阶段代理测试。
+- 4060 上已直接加载 `gate_fusion_auto/main.py` 中的同一 Triton gate kernel：6/6 筛选形状和一组宽值域压力输入均通过 `atol=rtol=1e-5`；PyTorch eager 路径每次 9 个 CUDA kernel，融合路径每次 1 个；交错 AB/BA 配对测得 gate 阶段形状平均约 3.30 倍加速。该数字只证明融合机制值得保留，不能外推为完整 GDN 或 5090 加速。
 
 ## 当前候选
 
