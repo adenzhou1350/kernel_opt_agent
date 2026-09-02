@@ -61,6 +61,26 @@ def main() -> None:
         cli("candidate", run, "init", "--min-candidates", "2", "--max-candidates", "4", "--min-families", "2")
         first = discovery_action(run, ROOT / "scripts")
         assert first and first["action"] == "BUILD_OPPORTUNITY_MAP", first
+        bound_path = run / "models" / "optimistic-bound.json"
+        write(bound_path, {"maximum_speedup": 1.1, "target_speedup": 2.0})
+        write(run / "models" / "feasibility_gate.json", {
+            "schema_version": "optimization-feasibility-gate-v1",
+            "status": "VALID",
+            "decision": "TARGET_INFEASIBLE",
+            "target": {"metric": "gpu_active_us", "speedup": 2.0},
+            "bound": {"maximum_speedup": 1.1, "optimistic_latency_floor_ms": 1.0},
+            "evidence": [{"path": "models/optimistic-bound.json", "sha256": hashlib.sha256(bound_path.read_bytes()).hexdigest()}],
+            "required_reframe_options": ["relax the target or contract"],
+        })
+        infeasible = discovery_action(run, ROOT / "scripts")
+        assert infeasible and infeasible["action"] == "STOP_OR_REFRAME_INFEASIBLE_TARGET", infeasible
+        invalid_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        invalid_gate["bound"]["maximum_speedup"] = 2.1
+        write(run / "models" / "feasibility_gate.json", invalid_gate)
+        blocked_gate = discovery_action(run, ROOT / "scripts")
+        assert blocked_gate and blocked_gate["action"] == "BLOCK_INVALID_FEASIBILITY_GATE", blocked_gate
+        (run / "models" / "feasibility_gate.json").unlink()
+        bound_path.unlink()
         cli(
             "opportunity", run, "init", "--min-opportunities", "2", "--max-opportunities", "4",
             "--min-rewrite-families", "2", "--min-candidate-opportunities", "2",

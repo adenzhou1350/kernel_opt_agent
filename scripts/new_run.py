@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from evidence_utils import resolve_evidence_path, validate_hardware_evidence
+from schema_utils import validate_instance
 
 
 REMINDER = """Kernel optimization intake is required:
@@ -72,6 +73,17 @@ def validate_intake_semantics(operator: dict, workload: dict, hardware: dict) ->
         raise ValueError("hardware target requires exact vendor and device_name")
     if not hardware.get("provenance", {}).get("queries"):
         raise ValueError("hardware snapshot requires non-empty query provenance")
+
+
+def validate_intake_schemas(project_root: Path, artifacts: tuple[tuple[str, dict, str], ...]) -> None:
+    """Reject a malformed intake before creating any run directories or files."""
+    errors: list[str] = []
+    for label, instance, schema_name in artifacts:
+        schema_path = project_root / "schemas" / schema_name
+        schema = read_json(schema_path)
+        errors.extend(f"{label}: {error}" for error in validate_instance(instance, schema))
+    if errors:
+        raise ValueError("intake schema validation failed: " + "; ".join(errors))
 
 
 def slug(value: str) -> str:
@@ -142,6 +154,11 @@ def main() -> int:
     require(operator, "operator-contract-v1", ("name", "computation", "inputs", "outputs", "numerics", "abi"), "operator")
     require(workload, "workload-v1", ("name", "cases", "objective"), "workload")
     require(hardware, "hardware-snapshot-v1", ("captured_at", "host", "target", "software", "tools", "provenance"), "hardware")
+    validate_intake_schemas(project_root, (
+        ("operator", operator, "operator_contract.schema.json"),
+        ("workload", workload, "workload.schema.json"),
+        ("hardware", hardware, "hardware_snapshot.schema.json"),
+    ))
     validate_intake_semantics(operator, workload, hardware)
     if args.test_legacy_contract and str(hardware.get("target", {}).get("vendor", "")).upper() != "TEST":
         raise ValueError("--test-legacy-contract is restricted to synthetic repository tests")

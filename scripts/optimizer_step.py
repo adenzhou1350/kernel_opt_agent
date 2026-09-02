@@ -9,7 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from evidence_utils import read_object, validate_hardware_evidence
+from evidence_utils import read_object, validate_hardware_evidence, validate_identity
 from method_library import validate_receipt as validate_method_receipt
 from opportunity_map import validate_map as validate_opportunity_map
 
@@ -53,6 +53,57 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             [],
             [{"required": "models/baseline.json status VALID with correctness PASS", "claim_scope": "DISCOVERY_ONLY"}],
         )
+    feasibility_path = run / "models" / "feasibility_gate.json"
+    if feasibility_path.is_file():
+        feasibility = read_object(feasibility_path)
+        errors: list[str] = []
+        if feasibility.get("schema_version") != "optimization-feasibility-gate-v1":
+            errors.append("unsupported schema_version")
+        if feasibility.get("status") != "VALID":
+            errors.append("status must be VALID")
+        target = feasibility.get("target", {})
+        bound = feasibility.get("bound", {})
+        if not isinstance(target.get("speedup"), (int, float)) or float(target.get("speedup", 0)) <= 1:
+            errors.append("target.speedup must be greater than one")
+        if not isinstance(bound.get("maximum_speedup"), (int, float)) or float(bound.get("maximum_speedup", 0)) <= 0:
+            errors.append("bound.maximum_speedup must be positive")
+        decision = feasibility.get("decision")
+        if decision not in {"TARGET_INFEASIBLE", "TARGET_NOT_REJECTED"}:
+            errors.append("decision must be TARGET_INFEASIBLE or TARGET_NOT_REJECTED")
+        if (
+            decision == "TARGET_INFEASIBLE"
+            and isinstance(target.get("speedup"), (int, float))
+            and isinstance(bound.get("maximum_speedup"), (int, float))
+            and float(bound["maximum_speedup"]) >= float(target["speedup"])
+        ):
+            errors.append("TARGET_INFEASIBLE requires maximum_speedup below target.speedup")
+        evidence = feasibility.get("evidence", [])
+        if not isinstance(evidence, list) or not evidence:
+            errors.append("hash-bound evidence is required")
+        else:
+            for index, identity in enumerate(evidence):
+                if not isinstance(identity, dict):
+                    errors.append(f"feasibility evidence {index}: identity must be an object")
+                else:
+                    validate_identity(run, identity, f"feasibility evidence {index}", errors, containment_root=run)
+        if errors:
+            return action(
+                "BLOCK_INVALID_FEASIBILITY_GATE",
+                "the target-feasibility result is incomplete or its evidence changed; do not use it to stop search",
+                [],
+                [{"errors": errors}],
+            )
+        if feasibility.get("decision") == "TARGET_INFEASIBLE":
+            return action(
+                "STOP_OR_REFRAME_INFEASIBLE_TARGET",
+                "a hash-bound optimistic resource floor already excludes the requested speedup; more exact-lane tuning cannot reach it",
+                [],
+                [{
+                    "target": target,
+                    "bound": bound,
+                    "required_reframe_options": feasibility.get("required_reframe_options", []),
+                }],
+            )
     opportunity_path = run / "models" / "opportunity_map.json"
     if not opportunity_path.is_file():
         return action(

@@ -1,0 +1,26 @@
+{
+  "bound": {
+    "claim_scope": "CONSERVATIVE_EXACT_BF16_BATCH1_DECODE_BOUND",
+    "maximum_speedup": 1.0999608122769045,
+    "optimistic_latency_floor_ms": 6.193794870998321
+  },
+  "decision": "TARGET_INFEASIBLE",
+  "evidence": [
+    {
+      "path": "models/bandwidth_bound.json",
+      "sha256": "9f1a29d6e3d53a1ed668cf2302181d3581dd7f90f24c92bfdd787606fa48a9d5"
+    }
+  ],
+  "required_reframe_options": [
+    "reduce mandatory weight bytes with a separately accepted quantization contract",
+    "amortize weight reads across multiple useful tokens or requests",
+    "change the model or hardware target",
+    "replace the 2x goal with the measured exact-BF16 headroom"
+  ],
+  "schema_version": "optimization-feasibility-gate-v1",
+  "status": "VALID",
+  "target": {
+    "metric": "batch1_tpot_ms",
+    "speedup": 2.0
+  }
+}

@@ -237,6 +237,22 @@ def main():
 
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
+        invalid_operator = json.loads((ROOT / "tests/fixtures/operator.json").read_text())
+        invalid_operator["inputs"][0]["shape"] = "[invalid-string-shape]"
+        invalid_operator_path = root / "invalid-operator.json"
+        invalid_operator_path.write_text(json.dumps(invalid_operator))
+        invalid = run([
+            sys.executable, str(ROOT / "scripts/new_run.py"),
+            "--root", str(root), "--run-id", "invalid-intake",
+            "--operator", str(invalid_operator_path),
+            "--workload", str(ROOT / "tests/fixtures/workload.json"),
+            "--hardware", str(ROOT / "tests/fixtures/hardware.json"),
+            "--test-legacy-contract",
+        ], expected=1)
+        assert "intake schema validation failed" in invalid.stderr
+        assert not (root / "runs/invalid-intake").exists()
+        invalid_operator_path.unlink()
+
         complete = run([
             sys.executable, str(ROOT / "scripts/new_run.py"),
             "--root", str(root), "--run-id", "self-test",
