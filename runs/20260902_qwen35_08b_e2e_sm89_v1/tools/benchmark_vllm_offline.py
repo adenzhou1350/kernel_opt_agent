@@ -8,18 +8,13 @@ import dataclasses
 import hashlib
 import json
 import os
+import re
+import shutil
 import statistics
+import subprocess
 import time
 from datetime import datetime, timezone
 from pathlib import Path
-
-import torch
-import transformers
-import triton
-import vllm
-from transformers import AutoTokenizer
-from vllm import LLM, SamplingParams
-
 
 CASES = (
     ("prompt-128-generate-128", 128, 0.2),
@@ -48,6 +43,17 @@ def median(values: list[float]) -> float:
     return float(statistics.median(values))
 
 
+def nvcc_release() -> str | None:
+    executable = shutil.which("nvcc")
+    if executable is None:
+        return None
+    result = subprocess.run(
+        [executable, "--version"], capture_output=True, text=True, check=False
+    )
+    match = re.search(r"release\s+(\d+\.\d+)", result.stdout + result.stderr)
+    return match.group(1) if match else None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
@@ -56,7 +62,25 @@ def main() -> None:
     parser.add_argument("--trials", type=int, default=3)
     parser.add_argument("--new-tokens", type=int, default=128)
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.70)
+    parser.add_argument("--kv-cache-memory-bytes", type=int, default=None)
     parser.add_argument("--enforce-eager", action="store_true")
+    parser.add_argument("--max-num-seqs", type=int, default=None)
+    parser.add_argument("--max-num-batched-tokens", type=int, default=None)
+    parser.add_argument(
+        "--chunked-prefill",
+        choices=("default", "on", "off"),
+        default="default",
+    )
+    parser.add_argument(
+        "--kv-cache-dtype",
+        choices=("auto", "fp8"),
+        default="auto",
+    )
+    parser.add_argument(
+        "--custom-ops",
+        choices=("default", "all", "none"),
+        default="default",
+    )
     parser.add_argument(
         "--quantization",
         choices=("none", "fp8", "int8_per_channel_weight_only"),
@@ -65,6 +89,35 @@ def main() -> None:
     args = parser.parse_args()
     if args.warmups < 1 or args.trials < 1:
         raise ValueError("warmups and trials must both be positive")
+    if args.max_num_seqs is not None and args.max_num_seqs < 1:
+        raise ValueError("max-num-seqs must be positive")
+    if args.max_num_batched_tokens is not None and args.max_num_batched_tokens < 1:
+        raise ValueError("max-num-batched-tokens must be positive")
+    if args.kv_cache_memory_bytes is not None:
+        if args.kv_cache_memory_bytes < 1:
+            raise ValueError("kv-cache-memory-bytes must be positive")
+        if args.max_num_seqs is None:
+            raise ValueError(
+                "fixed KV cache requires explicit --max-num-seqs so the high "
+                "engine default cannot cause an avoidable late Mamba-cache failure"
+            )
+    import torch
+
+    selected_nvcc = nvcc_release()
+    if args.kv_cache_dtype == "fp8":
+        runtime_cuda = str(torch.version.cuda or "")
+        if selected_nvcc is None or selected_nvcc != runtime_cuda:
+            raise RuntimeError(
+                "FP8 KV cache requires FlashInfer JIT in this environment, but "
+                f"nvcc={selected_nvcc!r} and torch CUDA runtime={runtime_cuda!r}; "
+                "align compiler and runtime headers before launching the engine"
+            )
+
+    import transformers
+    import triton
+    import vllm
+    from transformers import AutoTokenizer
+    from vllm import LLM, SamplingParams
 
     model_path = args.model.resolve()
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
@@ -78,17 +131,30 @@ def main() -> None:
     )
 
     init_started = time.perf_counter()
+    engine_overrides = {}
+    if args.max_num_seqs is not None:
+        engine_overrides["max_num_seqs"] = args.max_num_seqs
+    if args.max_num_batched_tokens is not None:
+        engine_overrides["max_num_batched_tokens"] = args.max_num_batched_tokens
+    if args.chunked_prefill != "default":
+        engine_overrides["enable_chunked_prefill"] = args.chunked_prefill == "on"
+    if args.custom_ops != "default":
+        engine_overrides["compilation_config"] = {"custom_ops": [args.custom_ops]}
+
     llm = LLM(
         model=str(model_path),
         dtype="bfloat16",
         quantization=None if args.quantization == "none" else args.quantization,
         max_model_len=4096,
         gpu_memory_utilization=args.gpu_memory_utilization,
+        kv_cache_memory_bytes=args.kv_cache_memory_bytes,
         enforce_eager=args.enforce_eager,
         language_model_only=True,
         enable_prefix_caching=False,
         disable_log_stats=False,
+        kv_cache_dtype=args.kv_cache_dtype,
         seed=20260902,
+        **engine_overrides,
     )
     init_seconds = time.perf_counter() - init_started
 
@@ -169,10 +235,15 @@ def main() -> None:
             "vllm": vllm.__version__,
             "torch": torch.__version__,
             "cuda": torch.version.cuda,
+            "nvcc_release": selected_nvcc,
             "triton": triton.__version__,
             "transformers": transformers.__version__,
             "vllm_use_v2_model_runner": os.environ.get("VLLM_USE_V2_MODEL_RUNNER"),
             "vllm_use_flashinfer_sampler": os.environ.get("VLLM_USE_FLASHINFER_SAMPLER"),
+            "vllm_gdn_decode_kernel": os.environ.get("VLLM_GDN_DECODE_KERNEL", "cuda(default)"),
+            "vllm_enable_fla_packed_recurrent_decode": os.environ.get(
+                "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE", "1(default)"
+            ),
         },
         "controls": {
             "language_model_only": True,
@@ -182,6 +253,12 @@ def main() -> None:
             "enable_prefix_caching": False,
             "enforce_eager": args.enforce_eager,
             "gpu_memory_utilization": args.gpu_memory_utilization,
+            "kv_cache_memory_bytes": args.kv_cache_memory_bytes,
+            "max_num_seqs": args.max_num_seqs,
+            "max_num_batched_tokens": args.max_num_batched_tokens,
+            "chunked_prefill": args.chunked_prefill,
+            "kv_cache_dtype": args.kv_cache_dtype,
+            "custom_ops": args.custom_ops,
             "warmups": args.warmups,
             "trials": args.trials,
             "case_order": "rotated per iteration",

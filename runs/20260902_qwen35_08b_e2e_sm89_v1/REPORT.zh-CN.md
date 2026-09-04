@@ -57,6 +57,51 @@ Transformers 当前缺少 `flash-linear-attention` 与 `causal-conv1d`，因此�
 
 这说明模型级“大幅提升”主要来自选对生产 runtime、专用 GDN kernel、编译和 CUDA Graph。不能把这部分收益再次记到自研算子名下。
 
+## 4060 持续候选搜索（第二轮）
+
+第二轮没有把原始 Transformers 当作优化起点，而是直接以成熟 vLLM BF16 路径为对手。候选覆盖运行时专用化、GDN decode 后端、chunked prefill、编译 custom-op 策略和 FP8 KV cache。所有成功运行的候选都与冻结 vLLM baseline 的三组完整 128-token 输出逐 token 相等。
+
+为降低实验闭环延迟，模型另复制到 WSL EXT4：同一 1.63 GiB checkpoint 的权重加载从 9P 上的 17.42 秒降到 EXT4 热缓存下的 0.33--1.23 秒。这个收益只减少启动等待，不改变 GPU 稳态推理。
+
+当前同一时段的主要 discovery 结果如下。加权值使用冻结 workload 的 0.2/0.3/0.5 权重；不同 engine 进程间尚未做交错 paired qualification，所以小于约 2% 的差异均视为噪声，不作胜出声明。
+
+| 候选 | trials | 加权 E2E | 加权 TPOT | 初始化 | 决策 |
+|---|---:|---:|---:|---:|---|
+| CUDA GDN、max_num_seqs=1、512 MiB 固定 cache | 7 | 961.44 ms | 6.957 ms | 25.60 s | 保留为快速实验配置 |
+| Triton GDN decode、其余相同 | 7 | 1014.18 ms | 7.290 ms | 24.93 s | 淘汰 |
+| CUDA GDN、max_num_seqs=80、512 MiB 固定 cache | 7 | 959.76 ms | 6.922 ms | 31.06 s | 延迟差异不确定，启动更慢 |
+| 关闭 chunked prefill | 3 | 968.15 ms | 7.003 ms | 22.84 s | vLLM 明确警告该模型不正式支持；淘汰 |
+| 强制全部 custom ops | 3 | 963.10 ms | 6.957 ms | 97.88 s（首次编译） | 无可测收益；淘汰 |
+| max_num_seqs=1、自动显存 profile | 3 | 972.20 ms | 7.028 ms | 26.41 s | 固定 cache 的热启动收益仅 1.03x |
+
+明确结论：
+
+- CUDA fused GDN 相比 Triton GDN 的加权 E2E 快 1.055x、TPOT 快 1.048x，验证 vLLM 默认选择正确。
+- max_num_seqs 从 80 专用化到 1 后，缓存热启动快 1.21x；稳态 E2E 差异只有约 0.2%，不能宣称推理加速。
+- 固定 KV cache 本身在缓存已热时只把初始化从 26.41 秒降到 25.60 秒（1.03x）。此前观察到的约 4x 必须归因于固定 cache、编译缓存命中和文件系统迁移的合成效果，不能单独记到固定 cache 名下。
+- 冻结 vLLM baseline 的加权 E2E 是 936.15 ms，仍优于本轮最快的跨进程候选。本轮没有发现可宣称的 strict-BF16 vLLM 之上加速，当前答案是 **1.00x（无可测提升）**，不是 2x。
+
+FP8 KV cache 仍是技术失败而非性能失败：它令 full-attention 后端切换到 FlashInfer，但 JIT 首先误用系统 CUDA 12.0 `nvcc`；改用虚拟环境 CUDA 13.3 `nvcc` 后，又与当前 CUDA 13.0 runtime headers 不兼容。因此没有生成可比较性能数据，也没有把该方向判成“算法无效”。考虑到 Qwen3.5-0.8B 只有 6 层 full attention、当前 batch=1 又主要受权重流限制，这个修复的预期全局收益很低，按预算停止继续追查。
+
+### 推荐的快速复现实验配置
+
+下面配置用于候选 screening，目标是缩短 agent 周转，而不是替代生产服务容量配置：
+
+```bash
+VLLM_USE_V2_MODEL_RUNNER=0 \
+VLLM_USE_FLASHINFER_SAMPLER=0 \
+VLLM_GDN_DECODE_KERNEL=cuda \
+/home/aden/.venvs/qwen35-vllm-4060/bin/python \
+  tools/benchmark_vllm_offline.py \
+  --model /home/aden/models/Qwen3.5-0.8B \
+  --output traces/<candidate>.json \
+  --warmups 1 --trials 3 \
+  --max-num-seqs 1 \
+  --kv-cache-memory-bytes 536870912
+```
+
+只有候选越过噪声阈值后，才恢复生产容量设置并做交错 paired qualification。这样把“每次全量启动并深测”改成“缓存热身一次、短筛、最多两个晋级”，正面解决几十小时停留在实验测量的问题。
+
 ## 为什么严格 BF16 的 2 倍不可行
 
 使用与活跃语言权重同量级的 BF16 read-only Triton stream，在本机得到：
@@ -151,6 +196,7 @@ Transformers 当前缺少 `flash-linear-attention` 与 `causal-conv1d`，因此�
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
 - FlashInfer top-k/top-p sampler 首次 JIT 需要虚拟环境 `ninja` 在 PATH；本工作负载是 greedy，固定 `VLLM_USE_FLASHINFER_SAMPLER=0`，避免无关采样器污染主干验证。
+- 当前虚拟环境同时存在 CUDA 13.0 runtime headers、CUDA 13.3 `nvcc`，系统还有 CUDA 12.0 `nvcc`。需要 JIT 的候选必须先做 compiler/header 一致性 preflight；本轮 FP8 KV cache 因此只记技术失败，不作性能拒绝。
 - 当前 Nsight Compute counters 受 `ERR_NVGPUCTRPERM` 限制，所以没有伪造 cache/issue/stall 归因。
 - 5090 未被访问或占用，遵守其正在运行 MiniMax-H3 的约束。
 - discovery baseline 不是最终 SOTA certificate；尚未完成 nsys GPU-active 拆分、正式 3×10、功耗/温度控制和最终 binary/SASS 审计。
@@ -172,5 +218,10 @@ Transformers 当前缺少 `flash-linear-attention` 与 `causal-conv1d`，因此�
 - `traces/sm89_memory_stream_model_sized.json`
 - `models/bandwidth_bound.json`
 - `models/feasibility_gate.json`
+- `models/vllm_candidate_search.json`
+- `traces/vllm_confirm_fastloop_cuda_a_w1_n7.json`
+- `traces/vllm_confirm_fastloop_triton_w1_n7.json`
+- `traces/vllm_confirm_maxseq80_cache512m_repeat_w1_n7.json`
+- `tools/summarize_vllm_search.py`
 
 ModelScope 模型页：<https://modelscope.cn/models/Qwen/Qwen3.5-0.8B>
