@@ -22,13 +22,31 @@
       "q8_perplexity": 25.4991,
       "q8_relative_to_bf16": 1.0015003397366158,
       "qualification": "8-chunk in-domain corpus discovery only"
+    },
+    "strict_bf16_gdn_launch_candidate": {
+      "candidate": "packed recurrent decode launch sweep",
+      "candidate_num_stages_2_e2e_ms": 1105.619938833333,
+      "candidate_bv64_stages_4_e2e_ms": 1227.1380496666661,
+      "stock_num_stages_3_e2e_ms": 1058.5819548333195,
+      "candidate_num_stages_2_speedup": 0.957453765118977,
+      "candidate_bv64_stages_4_speedup": 0.862642877461219,
+      "decision": "REJECT: both apparent isolated-kernel winners lost the adjacent full-model A/B by 4.44% and 15.93% respectively"
+    },
+    "vllm_awq_marlin_rejected": {
+      "raw_e2e_ms_before_quality_gate": 888.2399943333513,
+      "raw_tpot_ms_before_quality_gate": 6.6400452007875,
+      "raw_speedup_vs_adjacent_bf16": 1.191772501671971,
+      "quality_gate": "FAIL: all 6 natural cases collapsed to 2-3 distinct tokens in 128 generated tokens",
+      "independent_transformers_check": "FAIL: the decompressed checkpoint repeats <think>/<\/think>, so this is a checkpoint failure rather than a Marlin-only failure",
+      "decision": "REJECT: deterministic garbage is not a valid performance winner"
     }
   },
   "decision": {
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Keep vLLM. The llama.cpp BF16 route is slower, and no strict token-parity vLLM-beating kernel was found."
+    "strict_bf16": "Keep stock vLLM. The llama.cpp BF16 route is slower; both exact GDN launch candidates lost adjacent full-model A/B tests; no strict token-parity vLLM-beating kernel was found.",
+    "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
     "llamacpp_bf16": {
@@ -66,6 +84,30 @@
     "vllm_slow": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_baseline_confirm_w1_n3.json",
       "sha256": "6f290ed1bb4ff1f7b39fbbf6b9d5b1e47dc9da546426ffa8f33bb370cdc8a5f4"
+    },
+    "gdn_microbenchmark": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\microbench_candidates\\gdn_packed_decode_sm89.json",
+      "sha256": "1cf8e7c081a14c3c5e5bb0681fbaafc94de0b12dcd04f0376b1382e6b572e310"
+    },
+    "gdn_candidate_s2": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_gdn_s2_a_w1_n3.json",
+      "sha256": "bc1d5c816336c342b2dc52674c992f83ebea04872170bc0e90ab82e35ef06820"
+    },
+    "gdn_stock_s3_control": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_gdn_s3_b_w1_n3.json",
+      "sha256": "ae2c3e5fec0054bf0de1ad9d1a56ace60ee37a6b6f45c7b0dbc0faff083278d5"
+    },
+    "gdn_candidate_bv64_s4": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_gdn_bv64_s4_c_w1_n3.json",
+      "sha256": "cda85290a5aeaf4545be6e9eb1b82eb2ab13656378e4a8ed4279a38b40eb4962"
+    },
+    "vllm_awq_quality_gate": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_awq_int4_marlin_qualitygate_w1_n1.json",
+      "sha256": "1c97d321f302fc5bdce6674c2b31470cd81723f568bbb888ae3429791ed19860"
+    },
+    "transformers_awq_quality_gate": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\raw\\transformers_awq_int4_smoke.json",
+      "sha256": "437a79a35593648b9f7f15e3f301928b845ef280097525516948bbf579487047"
     }
   },
   "measurement_risk": {

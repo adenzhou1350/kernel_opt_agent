@@ -58,6 +58,20 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def weight_manifest_sha256(model_path: Path) -> str:
+    """Hash every safetensors shard without assuming a checkpoint filename."""
+    shards = sorted(model_path.glob("*.safetensors"))
+    if not shards:
+        raise FileNotFoundError(f"no safetensors weights found under {model_path}")
+    digest = hashlib.sha256()
+    for shard in shards:
+        digest.update(shard.name.encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(sha256(shard).encode("ascii"))
+        digest.update(b"\n")
+    return digest.hexdigest()
+
+
 def exact_prompt(tokenizer, length: int) -> list[int]:
     seed_text = "Kernel optimization must preserve semantics while reducing global latency. "
     seed = tokenizer.encode(seed_text, add_special_tokens=False)
@@ -68,6 +82,21 @@ def exact_prompt(tokenizer, length: int) -> list[int]:
 
 def median(values: list[float]) -> float:
     return float(statistics.median(values))
+
+
+def generation_sanity(token_ids: list[int]) -> dict:
+    """Catch deterministic-but-useless short cycles before scoring speed."""
+    distinct = len(set(token_ids))
+    distinct_fraction = distinct / max(len(token_ids), 1)
+    min_distinct = min(8, max(len(token_ids) // 4, 2))
+    sane = len(token_ids) > 0 and distinct >= min_distinct
+    return {
+        "status": "PASS" if sane else "FAIL",
+        "distinct_token_count": distinct,
+        "distinct_token_fraction": distinct_fraction,
+        "minimum_distinct_tokens": min_distinct,
+        "reason": None if sane else "degenerate low-diversity token cycle",
+    }
 
 
 def nvcc_release() -> str | None:
@@ -84,6 +113,11 @@ def nvcc_release() -> str | None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
+    parser.add_argument(
+        "--tokenizer",
+        type=Path,
+        help="Optional tokenizer/template path; useful for incomplete quantized checkpoints.",
+    )
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--warmups", type=int, default=1)
     parser.add_argument("--trials", type=int, default=3)
@@ -127,7 +161,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--quantization",
-        choices=("none", "fp8", "int8_per_channel_weight_only"),
+        choices=(
+            "none",
+            "fp8",
+            "int8_per_channel_weight_only",
+            "compressed-tensors",
+        ),
         default="none",
     )
     args = parser.parse_args()
@@ -174,7 +213,10 @@ def main() -> None:
     from vllm import LLM, SamplingParams
 
     model_path = args.model.resolve()
-    tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+    tokenizer_path = (
+        args.tokenizer.resolve() if args.tokenizer is not None else model_path
+    )
+    tokenizer = AutoTokenizer.from_pretrained(tokenizer_path, local_files_only=True)
     if args.prompt_suite == "synthetic":
         cases = list(SYNTHETIC_CASES)
         prompts = {
@@ -233,6 +275,7 @@ def main() -> None:
 
     llm = LLM(
         model=str(model_path),
+        tokenizer=str(tokenizer_path),
         dtype="bfloat16",
         quantization=None if args.quantization == "none" else args.quantization,
         max_model_len=4096,
@@ -292,6 +335,7 @@ def main() -> None:
         measured = [sample for sample in samples if sample["case_id"] == case_id and sample["phase"] == "measure"]
         reference_ids = measured[0]["generated_token_ids"]
         exact_repeat = all(sample["generated_token_ids"] == reference_ids for sample in measured)
+        sanity = generation_sanity(reference_ids)
         summaries.append({
             "case_id": case_id,
             "weight": weight,
@@ -300,7 +344,14 @@ def main() -> None:
                 json.dumps(prompts[case_id], separators=(",", ":")).encode("utf-8")
             ).hexdigest(),
             "generated_tokens": args.new_tokens,
-            "correctness": "PASS" if exact_repeat and len(reference_ids) == args.new_tokens else "FAIL",
+            "correctness": (
+                "PASS"
+                if exact_repeat
+                and len(reference_ids) == args.new_tokens
+                and sanity["status"] == "PASS"
+                else "FAIL"
+            ),
+            "generation_sanity": sanity,
             "generated_token_ids": reference_ids,
             "median_end_to_end_ms": median([sample["end_to_end_ms"] for sample in measured]),
             "median_ttft_ms": median([sample["ttft_ms"] for sample in measured]),
@@ -319,8 +370,9 @@ def main() -> None:
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "model": {
             "path": str(model_path),
+            "tokenizer_path": str(tokenizer_path),
             "config_sha256": sha256(model_path / "config.json"),
-            "weight_sha256": sha256(model_path / "model.safetensors-00001-of-00001.safetensors"),
+            "weight_manifest_sha256": weight_manifest_sha256(model_path),
         },
         "environment": {
             "gpu": torch.cuda.get_device_name(0),

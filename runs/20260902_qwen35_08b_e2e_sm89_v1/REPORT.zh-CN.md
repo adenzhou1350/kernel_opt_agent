@@ -231,6 +231,46 @@ VLLM_GDN_DECODE_KERNEL=cuda \
 - `models/vllm_speculation_search.json`、`models/runtime_frontier.json`：机器可读决策；
 - `traces/llamacpp_server_natural_*.json`、`traces/llamacpp_quantization_ppl_c512_n8.json`：原始样本、输出与二进制/模型 SHA256。
 
+## 第四轮：vLLM 是否已经最优，以及量化 vLLM 的实测
+
+### “同参数量”不是同一推理合同
+
+Q8、Q4 与 BF16 可以拥有相同数量的权重元素，但每个元素的表示和值都不同。对本机 batch=1 decode，BF16 每 token 至少读取约 1.542 GB 活跃权重；Q8/Q4 的主要收益来自减少这些字节，而不是找到了一个数学上等价、却凭空快数倍的 BF16 kernel。因此量化实现战胜 BF16 vLLM 不能证明其 runtime 更强，必须再与使用相同量化格式的 vLLM 比较。
+
+vLLM 也不是抽象意义上的“理论最优”。但在本机高性能状态中，它的 6.497--6.895 ms TPOT 已经接近 6.194 ms 的乐观 BF16 权重流下界，对 batch=1 严格 BF16 只剩约 5%--11% 的理论空间。此时继续微调小算子不可能兑现 2x；要获得数量级更大的变化，必须减少权重字节、摊薄权重读取，或减少需要执行的目标模型 token step。
+
+### GDN 局部候选被整模 A/B 淘汰
+
+Qwen3.5-0.8B 每 token 执行 18 个 GDN 层。当前 vLLM packed recurrent Triton kernel 固定 `BV=32, num_warps=1, num_stages=3`。穷举 `BV={16,32,64,128}`、warps `{1,2,4,8}`、stages `{2,3,4}` 后，首轮曾因把 stock wrapper 与候选 direct launch 混测，误报 `num_stages=2` 快 1.315x；修正为两侧都 direct launch 后，原版为 53.51 us，局部最快 `BV=64, warps=1, stages=4` 为 38.99 us，表面快 1.372x，且输出和更新后的 FP32 recurrent state 均逐元素相等。
+
+但这只是一个受功耗漂移和 wrapper 开销影响的局部数字。把候选真正装入 vLLM 后做相邻自然 workload A/B：
+
+| 路径 | 加权 E2E | 加权 TPOT | 相对原版 |
+|---|---:|---:|---:|
+| GDN `num_stages=2` 候选 | 1105.62 ms | 8.291 ms | 0.957x |
+| 恢复原版 `num_stages=3` | 1058.58 ms | 7.959 ms | 1.000x |
+| GDN `BV=64, stages=4` 局部冠军 | 1227.14 ms | 9.231 ms | 0.863x |
+
+两个候选整模分别慢 4.44% 和 15.93%，均被淘汰，本机安装的 vLLM 也已恢复原版；本轮没有可晋级的严格 BF16 修改。这一例说明 agent 的晋级单位必须是“可移除的端到端时间”，而不能是单个微基准的最好数字。它也说明微基准必须确保 baseline 与 candidate 走同一调用层级，否则 wrapper 开销会制造假胜利。
+
+### vLLM W4A16/Marlin：速度通过，质量失败
+
+下载并测试了第三方 `BlivionIaG/Qwen3.5-0.8B-AWQ-INT4` checkpoint。它是 compressed-tensors W4A16、group size 128，vLLM 成功选择 `MarlinLinearKernel`。在质量门加入前，其自然套件表面结果为 888.24 ms E2E、6.640 ms TPOT，相邻 BF16 原版为 1058.58 ms、7.959 ms，即表面约 1.19x。
+
+但六个自然请求都退化为只有 2--3 个 distinct token 的特殊 token 循环，例如重复 `<think>\n\n</think>`。将 checkpoint 在 Transformers 中解压回 BF16 后仍得到同样循环，证明这是 checkpoint/量化结果失效，不是 vLLM Marlin 独有错误。该候选最终状态是 **FAIL / REJECT**，不能把 1.19x 当成可用结论。
+
+benchmark 现新增低多样性退化门，并修复两类量化 checkpoint 兼容问题：
+
+- 不再把“同一垃圾输出可以稳定重复”判作正确；
+- 支持独立指定原模型 tokenizer/chat template，避免第三方量化目录缺模板；
+- 权重证据改为 safetensors shard manifest hash，不再假设固定 shard 文件名；
+- `compressed-tensors` 成为显式量化选项，报告会记录实际量化合同。
+- 新增独立的 `scripts/audit_generation_quality.py`，让任何 runtime trace 都能在进入性能排行榜前先过低成本输出退化门；该门只排除明显坏结果，不替代 perplexity 与任务质量评测。
+
+这个 checkpoint 的 734 MB 中仍保留 BF16 `lm_head`，而 248,320 x 1,024 的 tied vocabulary matrix 本身约 508 MB，并且每个生成 token 都要读取。其余层即使压到 INT4，也无法把全模型字节流缩成四分之一；再加上未量化层、GDN state、反量化与 launch 开销，正确实现的实际加速本来也会显著小于理论 4x。
+
+当前结论是：量化 vLLM 在机制上应该参与公平竞赛，Marlin 已证明能执行并产生约 1.2x 的原始速度变化；但本次可获得的 AWQ checkpoint 质量失效，所以可用的 vLLM 量化冠军仍为空。下一步应从官方 BF16 权重生成分层量化前沿：先只量化 MLP，再加入 full-attention projection，最后才尝试 GDN q/k/v projection；每一级先过自然输出、perplexity/任务质量门，再测速度。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
