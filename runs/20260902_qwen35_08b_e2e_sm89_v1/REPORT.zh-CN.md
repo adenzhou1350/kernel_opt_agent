@@ -5,7 +5,7 @@
 本次验证证明了两件不同的事：
 
 1. 这台 8GB RTX 4060 Laptop 能运行并研究 Qwen3.5-0.8B 的真实生产推理路径。vLLM 自动选择了 Triton/FLA GDN prefill、CUDA GDN decode 与 FlashAttention 2；三种 workload 的 128 个输出 token 均与 Transformers BF16 reference 完全一致。
-2. 在“同一 BF16 权重、batch=1、单 token 自回归、禁止量化/推测解码/跳层”的严格赛道里，通用的 2 倍目标仍不成立，但 vLLM 并非每个形状都已最优。针对 SM89 上 `M=1, N=248320, K=1024` 的 BF16 `lm_head`，专用 Triton GEMV 在相邻 3 warmup × 10 trial 验证中把加权 E2E 从 1262.67 ms 降到 1070.37 ms，TPOT 从 9.623 ms 降到 8.128 ms，即 **1.180x / 1.184x**；六类自然请求的 128-token 输出均逐 token 相等。
+2. 在“同一 BF16 权重、batch=1、单 token 自回归、禁止量化/推测解码/跳层”的严格赛道里，通用的 2 倍目标仍不成立，但 vLLM 并非每个形状都已最优。针对 SM89 上 `M=1, N=248320, K=1024` 的 BF16 `lm_head`，专用 Triton GEMV 在相邻 3 warmup × 10 trial 验证中达到 **1.180x / 1.184x**；随后又在同一份源码、同一编译缓存、仅切换运行时开关的 C-S-S-C 复验中达到 **1.193x E2E / 1.199x TPOT**。两轮六类自然请求的 128-token 输出均逐 token 相等。
 
 所以，“比朴素 Transformers 快很多倍”已经实现；“在这个具体低并发形状上进一步快过 stock vLLM 约 18%”也已实现；“严格 BF16 下普遍再快 2 倍”仍不能成立。若业务目标必须是 2 倍，需要显式进入第二赛道：降低每 token 的权重字节数（量化）、一次权重读取产出多个有效 token（推测/MTP）或改变模型/硬件。
 
@@ -288,7 +288,7 @@ benchmark 现新增低多样性退化门，并修复两类量化 checkpoint 兼�
 
 vLLM 是面向多模型、多 GPU、多 batch 和高并发的通用 serving runtime，不保证每个 `M=1` GEMV 都拥有针对具体消费卡的最优 kernel。本模型的语言头是一个 `1 x 1024` 向量乘 `248320 x 1024` BF16 权重；在 Ada SM89 上，当前版本的 FlashInfer BF16 backend 只支持 SM100，CuTeDSL skinny GEMM 又只支持 SM90+，所以该形状最终退回 `torch.nn.functional.linear`/cuBLAS。
 
-单形状微基准中，SM89 Triton GEMV 将该投影从 4076.13 us 降到 2049.69 us（1.989x），读取约 508 MB 权重，对应约 248 GB/s，已经接近本机实测显存读服务率。随机输入相对 torch 结果的最大绝对差为 0.00390625、平均绝对差约 2.5e-7，argmax 相同。这个局部收益足够大且每 token 只调用一次，才值得进入整模验证。
+最初的顺序式单形状微基准把该投影测成 4076.13 us 对 2049.69 us（1.989x）；新增交错、每轮反转顺序的 paired 测量后，两边变为 2054.90 us 对 2046.79 us（1.004x）。这说明消费级笔记本 GPU 的升频/热状态足以让“先测完 torch、再测 Triton”的局部数字严重失真，微基准只能用于候选筛选，不能作为端到端收益的因果证明。Triton 核读取约 508 MB 权重，对应约 248 GB/s，仍接近本机实测显存读服务率；随机输入最大绝对差为 0.00390625、平均绝对差约 2.5e-7，argmax 相同。最终晋级依据是下面的整模复验，而不是 1.989x 的旧局部数字。
 
 ### 3×10 自然请求 qualification
 
@@ -302,11 +302,23 @@ vLLM 是面向多模型、多 GPU、多 batch 和高并发的通用 serving runt
 
 六类任务各自的 E2E 加速均在 1.173x--1.186x，TPOT 加速在 1.177x--1.193x；两边完整 128-token 序列 6/6 精确相等。候选没有靠更高核心频率取得收益。这是当前 4060 环境中首个通过同权重、同 BF16、自然 workload、逐 token 回归和功耗遥测的 vLLM 之上候选。
 
+为排除“改源码导致另一份 Inductor 图”这一混杂因素，又把补丁改成默认关闭、由 `VLLM_SM89_BF16_LM_HEAD=1` 开启；stock 与 candidate 因而共享完全相同的 `utils.py` SHA256（`a2b0d1ac...3dc23`）和编译缓存。按 C1-S1-S2-C2 顺序各做 1 warmup × 3 trial：
+
+| 同源复验 | 加权 E2E | 加权 TPOT | 核心频率中位数 | 功耗中位数 |
+|---|---:|---:|---:|---:|
+| candidate C1 | 1060.27 ms | 8.084 ms | 915 MHz | 37.28 W |
+| stock S1 | 1262.98 ms | 9.683 ms | 952.5 MHz | 36.69 W |
+| stock S2 | 1264.43 ms | 9.684 ms | 922.5 MHz | 36.71 W |
+| candidate C2 | 1058.61 ms | 8.075 ms | 892.5 MHz | 37.61 W |
+| 两边均值之比 | **1.193x** | **1.199x** | 候选更低 | 近似相同 |
+
+两组配对比较都为 6/6 token-exact，且每个任务均胜出。paired 微基准与整模结果不矛盾于“候选有效”的判定：前者证明局部计时会受前序 workload 影响，后者才覆盖真实权重布局、调用节奏、CUDA Graph 与 runtime 调度。由于本机旧版 Nsight Systems 无法解析 CUDA 13 trace，尚不能把约 1.6 ms/token 的差异完整拆到单个 GPU kernel；因此机制描述保守限定为“替换真实 vLLM 路径后稳定减少端到端延迟”，不声称已完成硬件 counter 级归因。
+
 这个结论的边界也很明确：它是单请求延迟胜出，不是高并发吞吐 SOTA；逐 token 相等覆盖当前六类 qualification 请求，不等于对所有可能输入证明浮点 bitwise 等价；历史高功耗状态与当前低功耗状态不能横向混排。补丁位于 `patches/vllm_0.28.1_sm89_bf16_lm_head.patch`，机器可读证据位于 `models/sm89_lm_head_candidate.json`。
 
 ### 为什么没有把同一 GEMV 铺满主干
 
-孤立微基准曾预测多个主干投影也会变快，但第一次整模运行因复用旧编译图而没有真正命中。强制新 `VLLM_CACHE_ROOT` 后，主干候选只比 lm_head-only 再快约 1%，并使 4/6 自然任务的生成序列改变。该扩展因此被拒绝。新增的 source SHA256 guard、backend guard 与空编译缓存 guard，会在昂贵启动前拦截“源码不是预期版本”“环境选择了另一条 backend”“旧图掩盖候选”三类假实验。
+孤立微基准曾预测多个主干投影也会变快，但第一次整模运行因复用旧编译图而没有真正命中。强制新 `VLLM_CACHE_ROOT` 后又做了逐形状消融：只替换 GDN `8192x1024` 比 lm_head-only 慢 2.4%；只替换 MLP `7168x1024 + 1024x3584` 慢 1.0%，并只有 2/6 序列 token-exact；把四个局部看似更快的形状全开也慢 1.1%。该扩展因此被拒绝。新增的 source SHA256 guard、backend guard、路径开关 guard 与空编译缓存 guard，会在昂贵启动前拦截“源码不是预期版本”“环境选择了另一条 backend”“旧图掩盖候选”三类假实验。
 
 这一轮也修正了原先过强的理论推断：整模型权重流下界能排除严格 BF16 的普遍 2x，但不能证明 stock vLLM 的每个子算子已高效。理论模型应输出“剩余总预算”和“按算子可移除时间”两个层级；只要某个大算子明显低于同机带宽屋顶，局部专用化仍可能兑现两位数的端到端收益。
 
@@ -320,17 +332,18 @@ cd /mnt/d/codes/kernel_opt_agent/runs/20260902_qwen35_08b_e2e_sm89_v1
 VLLM_USE_V2_MODEL_RUNNER=0 \
 VLLM_USE_FLASHINFER_SAMPLER=0 \
 VLLM_GDN_DECODE_KERNEL=cuda \
+VLLM_SM89_BF16_LM_HEAD=1 \
 /home/aden/.venvs/qwen35-vllm-4060/bin/python tools/benchmark_vllm_offline.py \
   --model /home/aden/models/Qwen3.5-0.8B \
   --output traces/reproduction.json \
   --prompt-suite natural --new-tokens 128 \
   --warmups 3 --trials 10 --max-num-seqs 1 \
   --kv-cache-memory-bytes 536870912 \
-  --expect-gdn-decode-kernel cuda --gpu-telemetry \
-  --expect-source-sha256 /home/aden/.venvs/qwen35-vllm-4060/lib/python3.12/site-packages/vllm/model_executor/layers/utils.py=22a62ced476858c5e1182f106a4ad5e87dc946297d24f77e5c8099147a042724
+  --expect-gdn-decode-kernel cuda --expect-sm89-lm-head triton --gpu-telemetry \
+  --expect-source-sha256 /home/aden/.venvs/qwen35-vllm-4060/lib/python3.12/site-packages/vllm/model_executor/layers/utils.py=a2b0d1ac0600564dae318afc544d7876e13b2e847e44cb1d5632bec7d213dc23
 ```
 
-正式比较 stock 时应先反向应用补丁并确认 `utils.py` SHA256 恢复为 `bc4f5701...502fe`。若修改的是编译图内部路径，还应给每个候选设置独立、初始为空的 `VLLM_CACHE_ROOT` 并增加 `--require-empty-vllm-cache-root`；本候选的 `lm_head` 位于已编译 backbone 之外，但仍保留 source hash 门以防装错版本。
+正式比较 stock 时使用同一份已打补丁源码，取消 `VLLM_SM89_BF16_LM_HEAD`，并指定 `--expect-sm89-lm-head stock`；这样无需通过反向打补丁制造两份不同源码。若修改的是编译图内部路径，还应给每个候选设置独立、初始为空的 `VLLM_CACHE_ROOT` 并增加 `--require-empty-vllm-cache-root`；本候选的 `lm_head` 位于已编译 backbone 之外，但仍保留 source hash 与实际路径门以防跑错版本。
 
 ## 技术失败与环境边界
 
@@ -338,6 +351,7 @@ VLLM_GDN_DECODE_KERNEL=cuda \
 - FlashInfer top-k/top-p sampler 首次 JIT 需要虚拟环境 `ninja` 在 PATH；本工作负载是 greedy，固定 `VLLM_USE_FLASHINFER_SAMPLER=0`，避免无关采样器污染主干验证。
 - 当前虚拟环境同时存在 CUDA 13.0 runtime headers、CUDA 13.3 `nvcc`，系统还有 CUDA 12.0 `nvcc`。需要 JIT 的候选必须先做 compiler/header 一致性 preflight；本轮 FP8 KV cache 因此只记技术失败，不作性能拒绝。
 - 当前 Nsight Compute counters 受 `ERR_NVGPUCTRPERM` 限制，所以没有伪造 cache/issue/stall 归因。
+- WSL 内的 Nsight Systems 2022.4 无法导入 CUDA 13 profiler-range capture，Torch profiler 在 `--enforce-eager` 下也只得到 CPU events；这些文件只作为技术失败证据，不用于性能结论。
 - 5090 未被访问或占用，遵守其正在运行 MiniMax-H3 的约束。
 - `lm_head` 候选已完成带功耗/温度遥测的 3×10，但仍不是最终 SOTA certificate；尚未完成锁定电源模式后的随机进程交错、nsys GPU-active 拆分、更大质量集和最终 binary/SASS 审计。
 
@@ -368,6 +382,10 @@ VLLM_GDN_DECODE_KERNEL=cuda \
 - `patches/vllm_0.28.1_sm89_bf16_lm_head.patch`
 - `models/sm89_lm_head_candidate.json`
 - `models/sm89_lm_head_comparison.json`
+- `models/sm89_lm_head_abba.json`
+- `models/sm89_selective_backbone_ablations.json`
+- `comparisons/vllm_lmhead_toggle_pair1.json`
+- `comparisons/vllm_lmhead_toggle_pair2.json`
 - `traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json`
 - `traces/vllm_natural_stock_qual_o_w3_n10.json`
 

@@ -45,6 +45,18 @@
       "qualification": "3 warmups x 10 trials per side with per-request GPU telemetry",
       "decision": "PROMOTE as a qualified discovery winner for SM89 batch-1 latency"
     },
+    "strict_bf16_sm89_lm_head_same_source_abba": {
+      "candidate": "environment-gated SM89 BF16 lm_head Triton GEMV",
+      "source_sha256_both_paths": "a2b0d1ac0600564dae318afc544d7876e13b2e847e44cb1d5632bec7d213dc23",
+      "stock_mean_e2e_ms": 1263.702336916689,
+      "candidate_mean_e2e_ms": 1059.4445576666846,
+      "e2e_speedup": 1.19279704423595,
+      "stock_mean_tpot_ms": 9.68380774081364,
+      "candidate_mean_tpot_ms": 8.07912004068239,
+      "tpot_speedup": 1.19862159394227,
+      "exact_generated_token_cases_each_pair": "6/6",
+      "decision": "PASS: same source and compile cache remove source-induced graph variation"
+    },
     "vllm_awq_marlin_rejected": {
       "raw_e2e_ms_before_quality_gate": 888.2399943333513,
       "raw_tpot_ms_before_quality_gate": 6.6400452007875,
@@ -58,7 +70,7 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: 1.180x E2E and 1.184x TPOT over adjacent stock vLLM with 6/6 token-exact natural cases. Reject the wider backbone GEMV extension and the reachable GDN launch candidate.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Reject selective backbone GEMV extensions and the reachable GDN launch candidate.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
@@ -133,6 +145,14 @@
     "sm89_lm_head_stock_qualification": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_stock_qual_o_w3_n10.json",
       "sha256": "942eba3c580810fc26d013c351eb13146d795cc096624796b036eb30cacf4601"
+    },
+    "sm89_lm_head_same_source_abba": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_lm_head_abba.json",
+      "sha256": "a70bad5c89b846a98a93e482129cdbcf6e6f54b1c9440e10f08fd9f3fa0585e2"
+    },
+    "sm89_selective_backbone_ablations": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_selective_backbone_ablations.json",
+      "sha256": "39708e9fb8285708685c6901082e383dfe1a8ff2e88d37e5e5285ab5ecf12365"
     },
     "sm89_backbone_extension_rejected": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_main_gemv_freshcache_m_w1_n1.json",

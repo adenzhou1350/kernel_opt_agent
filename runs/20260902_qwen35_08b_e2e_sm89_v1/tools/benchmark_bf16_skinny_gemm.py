@@ -98,11 +98,55 @@ def elapsed_us(fn, iterations: int, repeats: int) -> list[float]:
     return samples
 
 
+def paired_elapsed_us(
+    baseline_fn,
+    candidate_fn,
+    iterations: int,
+    repeats: int,
+) -> dict:
+    """Interleave both sides so laptop boost drift cannot favor one backend."""
+    for _ in range(20):
+        baseline_fn()
+        candidate_fn()
+    torch.cuda.synchronize()
+    samples = {"baseline_us": [], "candidate_us": [], "order": []}
+    for repeat in range(repeats):
+        order = (
+            (("baseline", baseline_fn), ("candidate", candidate_fn))
+            if repeat % 2 == 0
+            else (("candidate", candidate_fn), ("baseline", baseline_fn))
+        )
+        samples["order"].append([name for name, _ in order])
+        for name, fn in order:
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+            for _ in range(iterations):
+                fn()
+            end.record()
+            end.synchronize()
+            samples[f"{name}_us"].append(
+                start.elapsed_time(end) * 1000.0 / iterations
+            )
+    baseline_median = statistics.median(samples["baseline_us"])
+    candidate_median = statistics.median(samples["candidate_us"])
+    samples.update(
+        {
+            "baseline_median_us": baseline_median,
+            "candidate_median_us": candidate_median,
+            "speedup": baseline_median / candidate_median,
+        }
+    )
+    return samples
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--iterations", type=int, default=100)
     parser.add_argument("--repeats", type=int, default=7)
+    parser.add_argument("--paired-iterations", type=int, default=50)
+    parser.add_argument("--paired-repeats", type=int, default=9)
     args = parser.parse_args()
 
     torch.manual_seed(20260905)
@@ -175,6 +219,21 @@ def main() -> None:
             if candidate.get("correct") and "median_us" in candidate
         ]
         best = min(valid, key=lambda candidate: candidate["median_us"]) if valid else None
+        paired = None
+        if best is not None:
+            block_n = int(best["block_n"])
+            num_warps = int(best["num_warps"])
+            paired = paired_elapsed_us(
+                lambda: F.linear(x, weight),
+                lambda: triton_gemv(
+                    x,
+                    weight,
+                    block_n=block_n,
+                    num_warps=num_warps,
+                ),
+                args.paired_iterations,
+                args.paired_repeats,
+            )
         rows.append(
             {
                 "name": name,
@@ -184,6 +243,7 @@ def main() -> None:
                 "torch_median_us": torch_median,
                 "torch_samples_us": torch_times,
                 "best_triton": best,
+                "paired_best_vs_torch": paired,
                 "candidates": candidates,
             }
         )
@@ -198,12 +258,22 @@ def main() -> None:
         row["best_triton"]["median_us"] * row["multiplicity"]
         for row in comparable
     )
+    paired_torch_total = sum(
+        row["paired_best_vs_torch"]["baseline_median_us"] * row["multiplicity"]
+        for row in comparable
+    )
+    paired_skinny_total = sum(
+        row["paired_best_vs_torch"]["candidate_median_us"] * row["multiplicity"]
+        for row in comparable
+    )
     result = {
-        "schema_version": "qwen35-bf16-triton-gemv-screen-v2",
+        "schema_version": "qwen35-bf16-triton-gemv-screen-v3",
         "device": torch.cuda.get_device_name(),
         "torch_version": torch.__version__,
         "iterations": args.iterations,
         "repeats": args.repeats,
+        "paired_iterations": args.paired_iterations,
+        "paired_repeats": args.paired_repeats,
         "cutedsl_probe": {
             "python_package_available": shape_dynamic_skinny_gemm.is_available(),
             "sm89_compatible": False,
@@ -214,6 +284,13 @@ def main() -> None:
             "skinny": skinny_total,
             "speedup": torch_total / skinny_total if skinny_total else None,
             "warning": "sum of isolated medians is a screening estimate, not end-to-end latency",
+        },
+        "paired_weighted_shape_sum_us": {
+            "torch": paired_torch_total,
+            "skinny": paired_skinny_total,
+            "speedup": paired_torch_total / paired_skinny_total,
+            "method": "same-process interleaved order, reversed every repeat",
+            "warning": "still an isolated shape sum; use only to decide full-model promotion",
         },
         "results": rows,
     }

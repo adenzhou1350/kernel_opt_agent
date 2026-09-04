@@ -1,14 +1,19 @@
 diff --git a/vllm/model_executor/layers/utils.py b/vllm/model_executor/layers/utils.py
 --- a/vllm/model_executor/layers/utils.py
 +++ b/vllm/model_executor/layers/utils.py
-@@ -11,5 +11,6 @@ from vllm._aiter_ops import rocm_aiter_ops
+@@ -5,3 +5,4 @@
+ import functools
++import os
+ from collections.abc import Callable
+ from dataclasses import dataclass
+@@ -11,5 +12,6 @@ from vllm._aiter_ops import rocm_aiter_ops
  from vllm.logger import init_logger
  from vllm.platforms import CpuArchEnum, current_platform
 +from vllm.triton_utils import tl, triton
  from vllm.utils.flashinfer import (
      flashinfer_bf16_mm,
      is_flashinfer_cutedsl_bf16_gemm_supported,
-@@ -27,6 +28,74 @@ MOE_LAYER_ROUTER_GATE_SUFFIXES = {
+@@ -27,6 +29,74 @@ MOE_LAYER_ROUTER_GATE_SUFFIXES = {
      "expert_gate",
  }
  
@@ -83,12 +88,13 @@ diff --git a/vllm/model_executor/layers/utils.py b/vllm/model_executor/layers/ut
  def get_token_bin_counts_and_mask(
      tokens: torch.Tensor,
      vocab_size: int,
-@@ -89,6 +158,18 @@ def default_unquantized_gemm(
+@@ -89,6 +159,19 @@ def default_unquantized_gemm(
      weight: torch.Tensor,
      bias: torch.Tensor | None = None,
  ):
 +    if (
-+        bias is None
++        os.environ.get("VLLM_SM89_BF16_LM_HEAD", "0") == "1"
++        and bias is None
 +        and x.is_cuda
 +        and x.dtype == torch.bfloat16
 +        and weight.dtype == torch.bfloat16

@@ -37,15 +37,30 @@
     "candidate_trace": "../traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json",
     "stock_trace": "../traces/vllm_natural_stock_qual_o_w3_n10.json"
   },
+  "same_source_abba_replication": {
+    "status": "PASS",
+    "order": "candidate-stock-stock-candidate",
+    "source_sha256_both_paths": "a2b0d1ac0600564dae318afc544d7876e13b2e847e44cb1d5632bec7d213dc23",
+    "stock_mean_weighted_e2e_ms": 1263.702336916689,
+    "candidate_mean_weighted_e2e_ms": 1059.4445576666846,
+    "e2e_speedup": 1.19279704423595,
+    "stock_mean_weighted_tpot_ms": 9.68380774081364,
+    "candidate_mean_weighted_tpot_ms": 8.07912004068239,
+    "tpot_speedup": 1.19862159394227,
+    "exact_generated_token_cases_each_pair": "6/6",
+    "evidence": "sm89_lm_head_abba.json"
+  },
   "numerics": {
     "claim": "The six qualification sequences are token-exact; the kernel is not claimed bitwise-equal for every possible input.",
     "main_backbone_extension": "REJECT",
-    "main_backbone_reason": "Fresh-cache execution changed 4/6 generated sequences while adding only about one percentage point of speedup."
+    "main_backbone_reason": "Fresh-cache selective ablations lost 1.0-2.4% versus lm_head-only; the MLP-only extension was token-exact on only 2/6 cases."
   },
   "installation": {
     "patch": "../patches/vllm_0.28.1_sm89_bf16_lm_head.patch",
     "stock_utils_sha256": "bc4f5701aad407bdd5a7f02872dfb1e14b75d247199619e218482555451502fe",
-    "qualified_candidate_utils_sha256": "22a62ced476858c5e1182f106a4ad5e87dc946297d24f77e5c8099147a042724"
+    "qualified_candidate_utils_sha256": "a2b0d1ac0600564dae318afc544d7876e13b2e847e44cb1d5632bec7d213dc23",
+    "default_path": "stock",
+    "enable_environment_variable": "VLLM_SM89_BF16_LM_HEAD=1"
   },
   "claim_limit": "This is a single-request latency result on one SM89 laptop GPU, not a throughput or cross-hardware SOTA claim."
 }

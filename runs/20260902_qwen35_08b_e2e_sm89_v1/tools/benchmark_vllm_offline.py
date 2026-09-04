@@ -208,9 +208,19 @@ def main() -> None:
         help="Fail before engine startup unless the requested candidate path is selected.",
     )
     parser.add_argument(
+        "--expect-sm89-lm-head",
+        choices=("stock", "triton"),
+        help="Fail before engine startup unless the requested lm_head path is selected.",
+    )
+    parser.add_argument(
         "--gpu-telemetry",
         action="store_true",
         help="Record nvidia-smi point samples immediately before and after each request.",
+    )
+    parser.add_argument(
+        "--cuda-profiler-range",
+        action="store_true",
+        help="Wrap only measured requests in cudaProfilerStart/Stop for nsys capture.",
     )
     parser.add_argument(
         "--expect-source-sha256",
@@ -294,6 +304,20 @@ def main() -> None:
             "candidate path is unreachable: "
             f"expected VLLM_GDN_DECODE_KERNEL={args.expect_gdn_decode_kernel}, "
             f"got {actual_gdn_kernel!r}"
+        )
+    actual_sm89_lm_head = (
+        "triton"
+        if os.environ.get("VLLM_SM89_BF16_LM_HEAD", "0") == "1"
+        else "stock"
+    )
+    if (
+        args.expect_sm89_lm_head is not None
+        and actual_sm89_lm_head != args.expect_sm89_lm_head
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: "
+            f"expected SM89 lm_head={args.expect_sm89_lm_head}, "
+            f"got {actual_sm89_lm_head}"
         )
     if args.ngram_prompt_lookup_min < 1:
         raise ValueError("ngram-prompt-lookup-min must be positive")
@@ -441,11 +465,17 @@ def main() -> None:
         order = case_ids[iteration % len(case_ids):] + case_ids[: iteration % len(case_ids)]
         for case_id in order:
             samples.append(request(case_id, "warmup", iteration))
+    if args.cuda_profiler_range:
+        torch.cuda.synchronize()
+        torch.cuda.cudart().cudaProfilerStart()
     for iteration in range(args.trials):
         shift = (iteration + args.warmups) % len(case_ids)
         order = case_ids[shift:] + case_ids[:shift]
         for case_id in order:
             samples.append(request(case_id, "measure", iteration))
+    if args.cuda_profiler_range:
+        torch.cuda.synchronize()
+        torch.cuda.cudart().cudaProfilerStop()
 
     summaries = []
     for case_id, prompt_tokens, weight in cases:
@@ -503,6 +533,12 @@ def main() -> None:
             "vllm_use_v2_model_runner": os.environ.get("VLLM_USE_V2_MODEL_RUNNER"),
             "vllm_use_flashinfer_sampler": os.environ.get("VLLM_USE_FLASHINFER_SAMPLER"),
             "vllm_gdn_decode_kernel": os.environ.get("VLLM_GDN_DECODE_KERNEL", "cuda(default)"),
+            "vllm_sm89_bf16_lm_head": os.environ.get(
+                "VLLM_SM89_BF16_LM_HEAD", "0(default)"
+            ),
+            "vllm_sm89_bf16_gemv": os.environ.get(
+                "VLLM_SM89_BF16_GEMV", "none(default)"
+            ),
             "vllm_enable_fla_packed_recurrent_decode": os.environ.get(
                 "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE", "1(default)"
             ),
@@ -519,7 +555,10 @@ def main() -> None:
             "enforce_eager": args.enforce_eager,
             "expected_gdn_decode_kernel": args.expect_gdn_decode_kernel,
             "actual_gdn_decode_kernel": actual_gdn_kernel,
+            "expected_sm89_lm_head": args.expect_sm89_lm_head,
+            "actual_sm89_lm_head": actual_sm89_lm_head,
             "gpu_telemetry": args.gpu_telemetry,
+            "cuda_profiler_range": args.cuda_profiler_range,
             "require_empty_vllm_cache_root": args.require_empty_vllm_cache_root,
             "gpu_memory_utilization": args.gpu_memory_utilization,
             "kv_cache_memory_bytes": args.kv_cache_memory_bytes,
