@@ -379,6 +379,24 @@ Qwen3.5-0.8B checkpoint 自带一层 MTP 权重。一个看似有潜力的架构
 - `traces/vllm_natural_sm89_lmhead_mtp1_acceptance_w1_n1_t64.json`
 - `models/sm89_mtp1_acceptance_economics.json`
 
+### 第十轮：修复热 L2 微基准造成的“假大收益”
+
+进一步扩展 LM-head 搜索到 72 组 block/warp/stage 调度后，样本最优配置相对当前配置的交错复测只有 **0.9985x**，因此保持当前 `BLOCK_N=4, num_warps=8, num_stages=1`。Nsight 中后续 argmax 平均只有 19.72 us、占 GPU 时间约 0.235%；即使完全融合也达不到当前物质性门槛，所以没有为 greedy-only 特例破坏通用 logits 接口。
+
+更重要的发现来自 backbone GEMV：本机通过 `torch.cuda.get_device_properties` 读到 32 MiB L2，而单个 GDN QKVZ、MLP gate/up、MLP down 权重分别只有 16 MiB、14 MiB、7 MiB。原微基准连续重复同一个矩阵，权重可以驻留 L2；真实 decode 每 token 依次读取约 1.542 GB 活跃权重，不可能保持这些矩阵驻留。因此原先约 1.6x 的 isolated GEMV 数字系统性高估生产收益。
+
+微基准现在增加 64 MiB 驱逐缓冲：每次计时前先读写该缓冲，CUDA event 放在驱逐之后，因此只测一个冷缓存 GEMV。相同候选的结果变成：
+
+| 投影 | 热缓存速度比 | 冷缓存速度比 | 每 token 次数 |
+|---|---:|---:|---:|
+| GDN QKVZ | 1.629x | 1.041x | 18 |
+| MLP gate/up | 1.571x | 1.071x | 24 |
+| MLP down | 0.965x | 1.019x | 24 |
+
+这解释了为什么此前热微基准预测能省接近 1.8 ms，而 Nsight/整模型只兑现约 0.13--0.25 ms。为了检查是否仍有安全的小胜利，又实现并运行了只替换 `mlp_down` 的生产候选：直接 M=1/M=2 数值探针均与 torch 完全相等，但自然请求中随着自回归误差传播仍只有 5/6 逐 token 相同；相邻全模型筛选的 TPOT 为 7.9764 -> 7.9689 ms（**1.00094x**），E2E 为 **0.9982x**。候选低于 1% 晋级线并在 E2E 上回退，已经淘汰，安装环境恢复到 hash `a2b0d1...` 的 LM-head-only 源码。
+
+agent 因此新增一条强制规则：如果孤立权重小于 L2、但生产迭代的唯一权重流大于 L2，则只能用冷缓存单次计时或整模型 trace 排名；热重复结果不能支持晋级。这不是单纯增加一个 profiler，而是把“局部实验的 cache 初始条件是否与全局执行一致”加入因果合同，直接解决候选在错误局部指标上反复迭代的问题。机器可读审计见 `models/sm89_cache_residency_gate.json`。
+
 复现补丁与 qualification：
 
 ```bash

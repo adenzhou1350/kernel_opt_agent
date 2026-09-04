@@ -75,6 +75,7 @@ def triton_gemv(
     *,
     block_n: int,
     num_warps: int,
+    num_stages: int,
 ) -> torch.Tensor:
     m, k = x.shape
     n = weight.shape[0]
@@ -92,7 +93,7 @@ def triton_gemv(
         BLOCK_N=block_n,
         BLOCK_K=block_k,
         num_warps=num_warps,
-        num_stages=1,
+        num_stages=num_stages,
     )
     return output
 
@@ -156,6 +157,57 @@ def paired_elapsed_us(
     return samples
 
 
+def cold_paired_elapsed_us(
+    baseline_fn,
+    candidate_fn,
+    eviction: torch.Tensor,
+    repeats: int,
+) -> dict:
+    """Time one invocation after evicting weights from the last-level cache."""
+
+    def evict() -> None:
+        # The mutation forces a read and write of a buffer larger than SM89 L2.
+        # It is deliberately queued before the start event and excluded from
+        # the measured interval.
+        eviction.add_(1)
+
+    for _ in range(5):
+        evict()
+        baseline_fn()
+        evict()
+        candidate_fn()
+    torch.cuda.synchronize()
+    samples = {"baseline_us": [], "candidate_us": [], "order": []}
+    for repeat in range(repeats):
+        order = (
+            (("baseline", baseline_fn), ("candidate", candidate_fn))
+            if repeat % 2 == 0
+            else (("candidate", candidate_fn), ("baseline", baseline_fn))
+        )
+        samples["order"].append([name for name, _ in order])
+        for name, fn in order:
+            evict()
+            start = torch.cuda.Event(enable_timing=True)
+            end = torch.cuda.Event(enable_timing=True)
+            start.record()
+            fn()
+            end.record()
+            end.synchronize()
+            samples[f"{name}_us"].append(start.elapsed_time(end) * 1000.0)
+    baseline_median = statistics.median(samples["baseline_us"])
+    candidate_median = statistics.median(samples["candidate_us"])
+    samples.update(
+        {
+            "baseline_median_us": baseline_median,
+            "candidate_median_us": candidate_median,
+            "speedup": baseline_median / candidate_median,
+            "method": "single invocation after an untimed L2-eviction mutation",
+            "eviction_bytes": eviction.numel() * eviction.element_size(),
+        }
+    )
+    return samples
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path)
@@ -163,6 +215,18 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=7)
     parser.add_argument("--paired-iterations", type=int, default=50)
     parser.add_argument("--paired-repeats", type=int, default=9)
+    parser.add_argument("--cold-cache-repeats", type=int, default=11)
+    parser.add_argument("--cold-cache-eviction-mib", type=int, default=64)
+    parser.add_argument(
+        "--production-stream-bytes",
+        type=int,
+        help="Total unique bytes streamed by one production iteration.",
+    )
+    parser.add_argument(
+        "--extended-schedule-search",
+        action="store_true",
+        help="Search a larger block/warp/stage space for the selected shapes.",
+    )
     parser.add_argument(
         "--shape",
         action="append",
@@ -172,6 +236,7 @@ def main() -> None:
     args = parser.parse_args()
 
     torch.manual_seed(20260905)
+    device_l2_bytes = int(torch.cuda.get_device_properties(0).L2_cache_size)
     rows = []
     selected_shapes = (
         tuple(shape for shape in SHAPES if shape[0] in args.shape)
@@ -187,11 +252,28 @@ def main() -> None:
         )
         torch_median = statistics.median(torch_times)
         candidates = []
-        for block_n in (1, 2, 4, 8):
-            for num_warps in (4, 8):
-                try:
+        schedules = (
+            (
+                (block_n, num_warps, num_stages)
+                for block_n in (1, 2, 4, 8, 16, 32)
+                for num_warps in (1, 2, 4, 8)
+                for num_stages in (1, 2, 3)
+            )
+            if args.extended_schedule_search
+            else (
+                (block_n, num_warps, 1)
+                for block_n in (1, 2, 4, 8)
+                for num_warps in (4, 8)
+            )
+        )
+        for block_n, num_warps, num_stages in schedules:
+            try:
                     candidate = triton_gemv(
-                        x, weight, block_n=block_n, num_warps=num_warps
+                        x,
+                        weight,
+                        block_n=block_n,
+                        num_warps=num_warps,
+                        num_stages=num_stages,
                     )
                     torch.cuda.synchronize()
                     max_abs = float(
@@ -209,11 +291,12 @@ def main() -> None:
                         )
                     )
                     times = elapsed_us(
-                        lambda block_n=block_n, num_warps=num_warps: triton_gemv(
+                        lambda block_n=block_n, num_warps=num_warps, num_stages=num_stages: triton_gemv(
                             x,
                             weight,
                             block_n=block_n,
                             num_warps=num_warps,
+                            num_stages=num_stages,
                         ),
                         args.iterations,
                         args.repeats,
@@ -223,6 +306,7 @@ def main() -> None:
                         {
                             "block_n": block_n,
                             "num_warps": num_warps,
+                            "num_stages": num_stages,
                             "correct": close,
                             "max_abs": max_abs,
                             "mean_abs": mean_abs,
@@ -231,15 +315,16 @@ def main() -> None:
                             "samples_us": times,
                         }
                     )
-                except Exception as exc:
-                    candidates.append(
-                        {
-                            "block_n": block_n,
-                            "num_warps": num_warps,
-                            "correct": False,
-                            "error": f"{type(exc).__name__}: {exc}",
-                        }
-                    )
+            except Exception as exc:
+                candidates.append(
+                    {
+                        "block_n": block_n,
+                        "num_warps": num_warps,
+                        "num_stages": num_stages,
+                        "correct": False,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    }
+                )
         valid = [
             candidate
             for candidate in candidates
@@ -247,9 +332,12 @@ def main() -> None:
         ]
         best = min(valid, key=lambda candidate: candidate["median_us"]) if valid else None
         paired = None
+        cold_paired = None
+        paired_vs_incumbent = None
         if best is not None:
             block_n = int(best["block_n"])
             num_warps = int(best["num_warps"])
+            num_stages = int(best["num_stages"])
             paired = paired_elapsed_us(
                 lambda: F.linear(x, weight),
                 lambda: triton_gemv(
@@ -257,20 +345,65 @@ def main() -> None:
                     weight,
                     block_n=block_n,
                     num_warps=num_warps,
+                    num_stages=num_stages,
                 ),
                 args.paired_iterations,
                 args.paired_repeats,
             )
+            eviction = torch.zeros(
+                args.cold_cache_eviction_mib * 1024 * 1024 // 2,
+                dtype=torch.bfloat16,
+                device="cuda",
+            )
+            cold_paired = cold_paired_elapsed_us(
+                lambda: F.linear(x, weight),
+                lambda: triton_gemv(
+                    x,
+                    weight,
+                    block_n=block_n,
+                    num_warps=num_warps,
+                    num_stages=num_stages,
+                ),
+                eviction,
+                args.cold_cache_repeats,
+            )
+            if args.extended_schedule_search and name == "lm_head":
+                paired_vs_incumbent = paired_elapsed_us(
+                    lambda: triton_gemv(
+                        x,
+                        weight,
+                        block_n=4,
+                        num_warps=8,
+                        num_stages=1,
+                    ),
+                    lambda: triton_gemv(
+                        x,
+                        weight,
+                        block_n=block_n,
+                        num_warps=num_warps,
+                        num_stages=num_stages,
+                    ),
+                    args.paired_iterations,
+                    args.paired_repeats,
+                )
         rows.append(
             {
                 "name": name,
                 "shape": [m, n, k],
                 "multiplicity": multiplicity,
                 "weight_bytes": n * k * 2,
+                "weight_fits_l2": n * k * 2 <= device_l2_bytes,
+                "production_cache_mismatch": bool(
+                    args.production_stream_bytes
+                    and n * k * 2 <= device_l2_bytes
+                    and args.production_stream_bytes > device_l2_bytes
+                ),
                 "torch_median_us": torch_median,
                 "torch_samples_us": torch_times,
                 "best_triton": best,
                 "paired_best_vs_torch": paired,
+                "cold_paired_best_vs_torch": cold_paired,
+                "paired_best_vs_incumbent": paired_vs_incumbent,
                 "candidates": candidates,
             }
         )
@@ -296,11 +429,20 @@ def main() -> None:
     result = {
         "schema_version": "qwen35-bf16-triton-gemv-screen-v3",
         "device": torch.cuda.get_device_name(),
+        "device_l2_bytes": device_l2_bytes,
         "torch_version": torch.__version__,
         "iterations": args.iterations,
         "repeats": args.repeats,
         "paired_iterations": args.paired_iterations,
         "paired_repeats": args.paired_repeats,
+        "cold_cache_repeats": args.cold_cache_repeats,
+        "cold_cache_eviction_mib": args.cold_cache_eviction_mib,
+        "production_stream_bytes": args.production_stream_bytes,
+        "cache_interpretation": (
+            "Use cold-cache timings for production prediction when an isolated "
+            "weight fits L2 but the production iteration streams more than L2."
+        ),
+        "extended_schedule_search": args.extended_schedule_search,
         "cutedsl_probe": {
             "python_package_available": shape_dynamic_skinny_gemm.is_available(),
             "sm89_compatible": False,

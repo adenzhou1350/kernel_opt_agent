@@ -57,6 +57,17 @@
       "exact_generated_token_cases_each_pair": "6/6",
       "decision": "PASS: same source and compile cache remove source-induced graph variation"
     },
+    "strict_bf16_sm89_residual_search": {
+      "lm_head_schedules_screened": 72,
+      "lm_head_best_paired_speedup_vs_incumbent": 0.9985247324592953,
+      "backbone_cache_finding": "isolated projection weights fit 32 MiB L2 while one production decode iteration streams 1,541,502,656 active weight bytes",
+      "mlp_down_control_tpot_ms": 7.976409312169299,
+      "mlp_down_candidate_tpot_ms": 7.968948113756669,
+      "mlp_down_tpot_speedup": 1.0009362839745122,
+      "mlp_down_e2e_speedup": 0.9982186885992151,
+      "mlp_down_exact_generated_token_cases": "5/6",
+      "decision": "REJECT residual LM-head retuning and independent backbone GEMV substitution; retain LM-head-only winner"
+    },
     "strict_bf16_sm89_reachable_backbone": {
       "candidate": "opaque custom-op substitutions for GDN and MLP decode projections",
       "reachability": "PASS: Nsight observed exactly 3,540 and 12,468 candidate kernel instances in the two profiled variants",
@@ -80,7 +91,7 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Retract the old unreachable backbone ablations; reject only their Nsight-proven replacements, which average about 1.6% TPOT gain but pass token equality on just 2/6 cases.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. A 72-schedule residual search found no further lm-head gain. Cold-cache-calibrated backbone screening explains the old warm-L2 overprediction, and an mlp_down-only production candidate delivered only 1.00094x TPOT, 0.9982x E2E, and 5/6 token parity; reject it and retain the lm-head-only winner.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
@@ -168,6 +179,10 @@
     "sm89_nsys_operator_map": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_nsys_operator_map.json",
       "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
+    },
+    "sm89_cache_residency_gate": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_cache_residency_gate.json",
+      "sha256": "75755b488482948524a57b80716bcd6e76446ae4eae22385654da16871fceb8f"
     },
     "sm89_backbone_extension_retracted": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_main_gemv_freshcache_m_w1_n1.json",
