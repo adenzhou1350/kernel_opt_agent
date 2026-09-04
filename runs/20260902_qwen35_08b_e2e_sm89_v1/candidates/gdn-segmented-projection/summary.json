@@ -47,6 +47,22 @@
     "evidence": "comparisons/vllm_sm89_gdn_segmented_latehalf_vs_control.json",
     "evidence_sha256": "d2976737e7ca2844cc8d9e1ae408d2419bdc7551ca75187ec5e86fce0d1952b3"
   },
-  "decision": "RETAIN_NUMERICALLY_COMPATIBLE_DISCOVERY_FRONTIER",
-  "qualification": "The kernel is deterministic and BF16-elementwise exact in the isolated screen, but changed reduction ordering compounds through autoregressive generation. It is not the strict token-exact winner and requires task-quality evaluation before production promotion."
+  "task_quality_screen": {
+    "dataset": "official GSM8K test split",
+    "dataset_commit": "3101c7d5072418e28b9008a6636bde82a006892c",
+    "sample_count": 512,
+    "control_accuracy": 0.091796875,
+    "candidate_accuracy": 0.08984375,
+    "candidate_minus_control_accuracy": -0.001953125,
+    "answer_agreement_rate": 0.947265625,
+    "token_exact_rate": 0.931640625,
+    "paired_control_only_correct": 2,
+    "paired_candidate_only_correct": 1,
+    "mcnemar_exact_two_sided_p": 1.0,
+    "evidence": "comparisons/vllm_sm89_gdn_quality_gsm8k_n512.json",
+    "evidence_sha256": "6d6a32c32e389a4da0be613db4b2ec41eedef2b80de08813496bb0249b7e4889",
+    "decision": "LIMITED_TASK_QUALITY_PASS"
+  },
+  "decision": "RETAIN_LIMITED_TASK_QUALITY_FRONTIER",
+  "qualification": "The kernel is deterministic and BF16-elementwise exact in the isolated screen. A 512-example deterministic GSM8K screen found no detectable paired accuracy regression, but changed reduction ordering still compounds through autoregressive generation. It is not the strict token-exact winner; broader tasks and sampling modes remain required before production promotion."
 }

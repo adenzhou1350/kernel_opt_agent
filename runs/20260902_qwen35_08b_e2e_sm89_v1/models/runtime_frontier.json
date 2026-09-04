@@ -86,7 +86,11 @@
       "standalone_e2e_speedup_over_lm_head_baseline": 1.03629,
       "standalone_tpot_speedup_over_lm_head_baseline": 1.04006,
       "cross_mode_exact_generated_token_cases": "3/6",
-      "decision": "RETAIN as a deterministic numerically-compatible discovery; do not promote to the strict token-exact frontier before a task-quality gate"
+      "gsm8k_quality_sample_count": 512,
+      "gsm8k_control_accuracy": 0.091796875,
+      "gsm8k_candidate_accuracy": 0.08984375,
+      "gsm8k_paired_mcnemar_p": 1.0,
+      "decision": "RETAIN under a limited task-quality BF16 numerical contract; do not promote to the strict token-exact frontier or claim broad quality equivalence"
     },
     "bf16_sm89_combined_direct_cssc": {
       "candidate": "SM89 BF16 lm_head plus all-layer segmented GDN projection",
@@ -99,7 +103,15 @@
       "control_repeat_exact_cases": "6/6",
       "candidate_repeat_exact_cases": "6/6",
       "cross_mode_exact_generated_token_cases": "3/6",
-      "decision": "DISCOVERY PASS under a relaxed BF16 numerical contract; quality evaluation remains mandatory"
+      "decision": "LIMITED TASK-QUALITY PASS under a relaxed BF16 numerical contract; broader tasks and sampling evaluation remain mandatory"
+    },
+    "sm89_mtp_m2_projection_bound": {
+      "candidate": "replace every screened M=2 decode projection with its best cold-cache Triton schedule",
+      "projected_cycle_saving_ms": 1.4622719641774893,
+      "projected_tpot_ms_at_measured_acceptance": 8.027915796497252,
+      "projected_speedup_vs_non_speculative": 0.9849178961191433,
+      "additional_non_projection_saving_needed_for_1_03x_ms": 0.6181581574797512,
+      "decision": "SCREEN OUT projection-only implementation before production wiring"
     },
     "vllm_awq_marlin_rejected": {
       "raw_e2e_ms_before_quality_gate": 888.2399943333513,
@@ -113,9 +125,9 @@
   "decision": {
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
-    "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. A 72-schedule residual search found no further lm-head gain. Cold-cache-calibrated backbone screening explains the old warm-L2 overprediction, and an mlp_down-only production candidate delivered only 1.00094x TPOT, 0.9982x E2E, and 5/6 token parity; reject it and retain the lm_head-only strict winner.",
-    "relaxed_bf16": "Retain the combined lm_head plus segmented-GDN candidate as a separate discovery frontier: direct C-S-S-C reached 1.190x E2E/1.200x TPOT versus stock, with deterministic 6/6 repeats inside each mode but only 3/6 cross-mode token parity. It is not quantized, but changed BF16 reduction order still requires a task-quality gate.",
+    "speculation": "Reject current MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload. Even replacing every screened M=2 projection by its best cold-cache schedule projects to only 0.985x at measured acceptance and still needs 0.618 ms of independent cycle saving to clear the 1.03x promotion gate.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Its 2.058 ms invocation is already within 0.7% of the calibrated lm-head weight-stream floor, and a 72-schedule residual search found no further gain. It is the winner of the bounded tested portfolio, not proof of a global theoretical optimum.",
+    "relaxed_bf16": "Retain the combined lm_head plus segmented-GDN candidate as a separate limited-task-quality frontier: direct C-S-S-C reached 1.190x E2E/1.200x TPOT versus stock, with deterministic 6/6 repeats inside each mode but only 3/6 cross-mode token parity. On a deterministic 512-example GSM8K screen it scored 46 versus control 47, with McNemar p=1.0; this finds no detectable paired accuracy regression but does not prove broad quality equivalence.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
@@ -219,7 +231,19 @@
     },
     "sm89_segmented_gdn_projection": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\gdn-segmented-projection\\summary.json",
-      "sha256": "8f95c5cfeb6e5132ca7a291eb5c2b6929575f4d40c0d73061526bafc71ec5cfc"
+      "sha256": "33db393c350a5414276f545a5d60cfd56098b026600ea9f110d7be9df5e2ce22"
+    },
+    "sm89_gdn_gsm8k_quality": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\comparisons\\vllm_sm89_gdn_quality_gsm8k_n512.json",
+      "sha256": "6d6a32c32e389a4da0be613db4b2ec41eedef2b80de08813496bb0249b7e4889"
+    },
+    "sm89_mtp_m2_projection_bound": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_mtp_m2_projection_bound.json",
+      "sha256": "572c15fd922fbf4f9bde5ede0b5068e6ee4e907df4a5c66bd0f2ffff798bb495"
+    },
+    "sm89_strict_bf16_residual_certificate": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_strict_bf16_residual_certificate.json",
+      "sha256": "724f1b975f9e7fdaae26fedc9657c9a776aadc9fd4e38ec3acf1cbb6bbcdf169"
     },
     "vllm_awq_quality_gate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_awq_int4_marlin_qualitygate_w1_n1.json",

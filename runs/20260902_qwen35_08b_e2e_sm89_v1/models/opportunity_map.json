@@ -226,7 +226,8 @@
       "observations": [
         "The segmented QKVZ+BA Triton prototype was observed exactly 3,348 times by Nsight and reduced projection launches from 36 to 18 per decode step.",
         "Standalone C-S-S-C delivered 1.036x E2E and 1.040x TPOT over the lm_head baseline, while direct stock-to-combined C-S-S-C delivered 1.190x E2E and 1.200x TPOT.",
-        "The candidate is deterministic within mode but only 3/6 token-exact against stock at 64 tokens, so it remains a numerically compatible discovery pending a task-quality gate."
+        "The candidate is deterministic within mode but only 3/6 token-exact against stock at 64 tokens.",
+        "A deterministic 512-example official GSM8K screen scored control 47/512 and candidate 46/512; paired McNemar p=1.0 found no detectable regression, so the candidate clears a limited task-quality gate but not broad production qualification."
       ],
       "opportunity_id": "sm89-decode-projection-fusion",
       "optimistic_gain_ceiling_us": 300.0,
@@ -238,7 +239,7 @@
         "weight-stream-specialization"
       ],
       "source_model_term": "Nsight cublas_gemvx time across 114 decode projections",
-      "status": "DISCOVERY_PASS_QUALITY_PENDING"
+      "status": "LIMITED_TASK_QUALITY_PASS"
     },
     {
       "affected_stages": [
@@ -303,7 +304,10 @@
       },
       "model_scope": "EMPIRICAL_BOTTLENECK",
       "name": "Close the remaining lm-head bandwidth residual",
-      "observations": [],
+      "observations": [
+        "The accepted 2.0575 ms invocation is within 0.0141 ms of the calibrated 2.0434 ms weight-stream floor, achieving 99.31% of the measured service roof.",
+        "A bounded 72-schedule residual sweep found a best paired speedup of 0.9985x; close this search until the algorithm or data movement changes."
+      ],
       "opportunity_id": "sm89-lm-head-residual",
       "optimistic_gain_ceiling_us": 200.0,
       "priority_rank": 6,
@@ -313,7 +317,7 @@
         "weight-stream-specialization"
       ],
       "source_model_term": "SM89-specialized BF16 lm-head candidate kernel",
-      "status": "UNIMPLEMENTED"
+      "status": "CLOSED_AT_MEASURED_ROOF"
     }
   ],
   "policy": {

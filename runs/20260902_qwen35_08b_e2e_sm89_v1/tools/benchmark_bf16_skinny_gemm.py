@@ -29,6 +29,16 @@ SHAPES = (
     ("mlp_gate_up", 1, 7168, 1024, 24),
     ("mlp_down", 1, 1024, 3584, 24),
     ("lm_head", 1, 248320, 1024, 1),
+    # MTP-1 target verification evaluates two positions. These shapes test
+    # whether one kernel can reuse each BF16 weight row for both positions;
+    # the single-token decode results do not predict this amortization.
+    ("gdn_qkvz_m2", 2, 8192, 1024, 18),
+    ("gdn_ba_m2", 2, 32, 1024, 18),
+    ("gdn_out_m2", 2, 1024, 2048, 18),
+    ("attention_qkv_m2", 2, 5120, 1024, 6),
+    ("attention_out_m2", 2, 1024, 2048, 6),
+    ("mlp_gate_up_m2", 2, 7168, 1024, 24),
+    ("mlp_down_m2", 2, 1024, 3584, 24),
     # MTP-1 verifies the target token and one draft token together.  The
     # production M=1 specialization deliberately falls back for this shape,
     # so screen a kernel that reads each vocabulary row once and computes both

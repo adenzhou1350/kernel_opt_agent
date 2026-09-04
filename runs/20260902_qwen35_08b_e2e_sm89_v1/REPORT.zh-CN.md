@@ -474,6 +474,27 @@ VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
 
 机器可读总表为 `models/sm89_combined_bf16_frontier.json`，候选机制、冷/热缓存、Nsight 与淘汰实验为 `candidates/gdn-segmented-projection/summary.json`。这轮证明的是“同精度通用框架仍有约 20% 专用化空间”，不是理论全局最优；要继续接近最优，应优先做质量门和更低层的持久化/图边界改写，而不是默认转向量化或继续扫无关 launch 参数。
 
+### 第十二轮：质量门、剩余下界与 MTP 架构止损
+
+上一轮组合候选只有逐 token 一致性，无法回答“输出变了但能力是否退化”。本轮从 OpenAI 官方 `grade-school-math` 仓库固定 commit `3101c7d5072418e28b9008a6636bde82a006892c`，用相同 BF16 权重、greedy、关闭 thinking、固定随机子集做 512 题 GSM8K 配对筛选：
+
+| 路径 | 正确题数 | 正确率 | 相对 control |
+|---|---:|---:|---:|
+| lm-head-only control | 47/512 | 9.180% | — |
+| lm-head + segmented GDN | 46/512 | 8.984% | -0.195 个百分点 |
+
+两边最终数值答案一致 485/512，完整 token 一致 477/512；配对结果为双方都对 45、仅 control 对 2、仅 candidate 对 1、双方都错 464，McNemar 双侧精确检验 `p=1.0`。因此没有检测到候选导致的任务正确率退化，可以把它从 `QUALITY_UNKNOWN` 升为 **limited task-quality pass**；但 512 道低正确率数学题不能证明全任务、采样生成或生产质量等价，严格前沿仍保持 lm-head-only。
+
+同时把“还可能快多少”分成三个边界：
+
+- 当前严格候选 TPOT 为 8.079 ms；全部活跃 BF16 权重按本机校准读取服务计算的乐观地板是 6.194 ms。即便假设 attention、状态更新、同步和采样全部免费，绝对乐观上限也只有 **1.304x**，所以它只能用于排除 2x，不能冒充可达到的预测。
+- `lm_head` 每步必须读取 508,559,360 bytes，带宽地板 2.0434 ms，实测候选 2.0575 ms，已经达到校准服务屋顶的 **99.31%**；72 个后续 schedule 的最好配对结果也只有 0.9985x。继续调 block/warp 是已关闭死路。
+- 除 `lm_head` 外的 backbone 权重地板约 4.150 ms，而 profile 中 cuBLAS projection service 为 5.036 ms；原始差额 0.885 ms 仍包含不可消除的计算，因此下一次搜索必须改变数据移动、跨层持久化或状态布局，不能把整段差额都当成收益。
+
+为了验证“让 MTP 一轮处理两个位置，是否能绕过单 token 权重流地板”，本轮还把所有主要 `M=2` projection 做了 64 MiB 冷缓存微基准。若乐观地把每个 shape 都替换成各自最佳 Triton schedule，推算每个 speculative cycle 可省 **1.462 ms**；但按实测平均接受长度 1.759，MTP 的预测 TPOT 仍是 8.028 ms，相对非投机路径只有 **0.985x**。达到 1.03x 晋级门还缺独立的 **0.618 ms/cycle**。因此没有花时间把这批很漂亮的局部 kernel 接入生产图：局部加权约 1.20x--1.27x，不等于端到端能赢。
+
+这形成了 agent 应采用的决策方式：同时保留严格 token-exact 前沿和有限任务质量前沿；先用整步经济账判断架构方向，再实现 kernel；每个方向必须有收益上限、晋级阈值和退出证书。机器可读结论在 `models/sm89_strict_bf16_residual_certificate.json` 与 `models/sm89_mtp_m2_projection_bound.json`。当前可以证明的是“测试过的有界候选集中，lm-head-only 是严格最优”；不能证明它是所有未知架构中的理论最优。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -515,6 +536,8 @@ VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
 - `models/sm89_selective_backbone_ablations.json`
 - `models/sm89_nsys_operator_map.json`
 - `models/sm89_combined_bf16_frontier.json`
+- `models/sm89_strict_bf16_residual_certificate.json`
+- `models/sm89_mtp_m2_projection_bound.json`
 - `models/nsys2025_gdn_segmented_candidate_map.json`
 - `models/nsys2025_lmhead_opportunity_map.json`
 - `models/nsys2025_reachable_gdnqkvz_map.json`
@@ -531,6 +554,11 @@ VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
 - `profiles/nsys2025_reachable_all_b.sqlite`
 - `comparisons/vllm_lmhead_toggle_pair1.json`
 - `comparisons/vllm_lmhead_toggle_pair2.json`
+- `comparisons/vllm_sm89_gdn_quality_gsm8k_n512.json`
+- `microbench_candidates/bf16_triton_mtp_m2_backbone_sm89.json`
+- `tools/analyze_mtp_m2_projection_bound.py`
+- `tools/benchmark_vllm_gsm8k_quality.py`
+- `tools/compare_gsm8k_quality.py`
 - `traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json`
 - `traces/vllm_natural_stock_qual_o_w3_n10.json`
 - `traces/vllm_lmhead_restored_smoke_w1_n1_t16.json`
