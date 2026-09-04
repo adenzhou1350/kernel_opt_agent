@@ -67,7 +67,7 @@ def main() -> None:
         candidate_source.write_text("candidate = True\n", encoding="utf-8")
         smoke_path = run / "smoke.json"
         smoke = {
-            "schema_version": "candidate-smoke-result-v2",
+            "schema_version": "candidate-smoke-result-v3",
             "status": "PASS",
             "candidate_id": "c1",
             "objective": {
@@ -84,6 +84,13 @@ def main() -> None:
                 "expected_path": "candidate-kernel",
                 "observed_path": "fallback-kernel",
                 "compile_cache_policy": "SOURCE_HASHED",
+                "execution_proof": {
+                    "kind": "KERNEL_INSTANCE_COUNT",
+                    "scope": "candidate kernel inside compiled decode graph",
+                    "observed_count": 1,
+                    "minimum_count": 1,
+                    "evidence_index": 0,
+                },
                 "evidence": [
                     {
                         "path": "candidates/c1/kernel.py",
@@ -101,6 +108,27 @@ def main() -> None:
             assert "execution path was not reached" in str(exc)
         else:
             raise AssertionError("unreachable candidate passed the smoke gate")
+
+        smoke["reachability"]["observed_path"] = "candidate-kernel"
+        smoke["reachability"]["execution_proof"]["observed_count"] = 0
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "execution count" in str(exc)
+        else:
+            raise AssertionError("zero runtime kernel count passed reachability")
+
+        smoke["reachability"]["execution_proof"].update(
+            {"kind": "DIRECT_SENTINEL", "observed_count": 1}
+        )
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "compiled candidates" in str(exc)
+        else:
+            raise AssertionError("compiled candidate accepted a host-only sentinel")
 
     print("candidate reachability test: PASS")
 

@@ -52,8 +52,9 @@
   },
   "numerics": {
     "claim": "The six qualification sequences are token-exact; the kernel is not claimed bitwise-equal for every possible input.",
-    "main_backbone_extension": "REJECT",
-    "main_backbone_reason": "Fresh-cache selective ablations lost 1.0-2.4% versus lm_head-only; the MLP-only extension was token-exact on only 2/6 cases."
+    "main_backbone_extension": "REJECT_CURRENT_REACHABLE_VARIANTS",
+    "main_backbone_reason": "The earlier fresh-cache ablations were retracted after proving their compiled branch could be frozen away. Nsight-backed replacements executed the candidate kernels 3,540/12,468 times, but non-profiled production screening showed only about 0.7-1.7% and just 2/6 token-exact cases.",
+    "main_backbone_evidence": "sm89_nsys_operator_map.json"
   },
   "installation": {
     "patch": "../patches/vllm_0.28.1_sm89_bf16_lm_head.patch",
@@ -61,6 +62,16 @@
     "qualified_candidate_utils_sha256": "a2b0d1ac0600564dae318afc544d7876e13b2e847e44cb1d5632bec7d213dc23",
     "default_path": "stock",
     "enable_environment_variable": "VLLM_SM89_BF16_LM_HEAD=1"
+  },
+  "restoration_smoke": {
+    "status": "PASS",
+    "source_sha256": "a2b0d1ac0600564dae318afc544d7876e13b2e847e44cb1d5632bec7d213dc23",
+    "actual_sm89_lm_head": "triton",
+    "actual_gdn_decode_kernel": "cuda",
+    "natural_cases": 6,
+    "generated_tokens_per_case": 16,
+    "trace": "../traces/vllm_lmhead_restored_smoke_w1_n1_t16.json",
+    "trace_sha256": "7a0e4e321a3b4e454614c6db8f40c37d3e59d7467fd0d23495de79b570bbb77f"
   },
   "claim_limit": "This is a single-request latency result on one SM89 laptop GPU, not a throughput or cross-hardware SOTA claim."
 }

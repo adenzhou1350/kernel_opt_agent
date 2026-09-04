@@ -57,6 +57,16 @@
       "exact_generated_token_cases_each_pair": "6/6",
       "decision": "PASS: same source and compile cache remove source-induced graph variation"
     },
+    "strict_bf16_sm89_reachable_backbone": {
+      "candidate": "opaque custom-op substitutions for GDN and MLP decode projections",
+      "reachability": "PASS: Nsight observed exactly 3,540 and 12,468 candidate kernel instances in the two profiled variants",
+      "non_profiler_control_tpot_ms": 8.124619254593036,
+      "non_profiler_candidate_mean_tpot_ms": 7.993045621390883,
+      "non_profiler_mean_tpot_speedup": 1.016461013665434,
+      "exact_generated_token_cases_each_candidate_pair": "2/6",
+      "decision": "REJECT: real but small and power-sensitive gain; fails the frozen token-exact contract",
+      "supersedes": "The earlier fresh-cache ablations were unreachable and are retracted as causal evidence."
+    },
     "vllm_awq_marlin_rejected": {
       "raw_e2e_ms_before_quality_gate": 888.2399943333513,
       "raw_tpot_ms_before_quality_gate": 6.6400452007875,
@@ -70,7 +80,7 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Reject selective backbone GEMV extensions and the reachable GDN launch candidate.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Retract the old unreachable backbone ablations; reject only their Nsight-proven replacements, which average about 1.6% TPOT gain but pass token equality on just 2/6 cases.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
@@ -152,11 +162,17 @@
     },
     "sm89_selective_backbone_ablations": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_selective_backbone_ablations.json",
-      "sha256": "39708e9fb8285708685c6901082e383dfe1a8ff2e88d37e5e5285ab5ecf12365"
+      "sha256": "26dd595acba75a10bcf38ac7bf76815a22ae6fe718753ca6127244cf3c4c858b",
+      "status": "RETRACTED_UNREACHABLE"
     },
-    "sm89_backbone_extension_rejected": {
+    "sm89_nsys_operator_map": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_nsys_operator_map.json",
+      "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
+    },
+    "sm89_backbone_extension_retracted": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_main_gemv_freshcache_m_w1_n1.json",
-      "sha256": "28e5e6f754d6916ca05cfd6b91288e0735b6c3e05b2face4130e086700914e48"
+      "sha256": "28e5e6f754d6916ca05cfd6b91288e0735b6c3e05b2face4130e086700914e48",
+      "status": "RETRACTED_UNREACHABLE"
     },
     "vllm_awq_quality_gate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_awq_int4_marlin_qualitygate_w1_n1.json",

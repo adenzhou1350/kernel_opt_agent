@@ -69,7 +69,7 @@ import json
 import hashlib
 from pathlib import Path
 result = {
-    "schema_version": "candidate-smoke-result-v2",
+    "schema_version": "candidate-smoke-result-v3",
     "status": "PASS",
     "candidate_id": "c1",
     "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us_weighted"},
@@ -79,6 +79,13 @@ result = {
         "expected_path": "test-candidate-kernel",
         "observed_path": "test-candidate-kernel",
         "compile_cache_policy": "NOT_COMPILED",
+        "execution_proof": {
+            "kind": "DIRECT_SENTINEL",
+            "scope": "test-candidate-kernel direct smoke invocation",
+            "observed_count": 1,
+            "minimum_count": 1,
+            "evidence_index": 0,
+        },
         "evidence": [{
             "path": "candidates/c1/workspace/kernel.py",
             "sha256": hashlib.sha256(Path("kernel.py").read_bytes()).hexdigest(),

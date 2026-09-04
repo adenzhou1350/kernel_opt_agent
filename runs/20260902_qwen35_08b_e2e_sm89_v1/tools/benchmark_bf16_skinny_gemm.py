@@ -23,7 +23,8 @@ SHAPES = (
     ("gdn_qkvz", 1, 8192, 1024, 18),
     ("gdn_ba", 1, 32, 1024, 18),
     ("gdn_out", 1, 1024, 2048, 18),
-    ("attention_qkv", 1, 3072, 1024, 6),
+    # vLLM stacks q=4096, k=512, and v=512 into one projection.
+    ("attention_qkv", 1, 5120, 1024, 6),
     ("attention_out", 1, 1024, 2048, 6),
     ("mlp_gate_up", 1, 7168, 1024, 24),
     ("mlp_down", 1, 1024, 3584, 24),
@@ -147,11 +148,22 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=7)
     parser.add_argument("--paired-iterations", type=int, default=50)
     parser.add_argument("--paired-repeats", type=int, default=9)
+    parser.add_argument(
+        "--shape",
+        action="append",
+        choices=tuple(shape[0] for shape in SHAPES),
+        help="Benchmark only the named shape; repeat to select more than one.",
+    )
     args = parser.parse_args()
 
     torch.manual_seed(20260905)
     rows = []
-    for name, m, n, k, multiplicity in SHAPES:
+    selected_shapes = (
+        tuple(shape for shape in SHAPES if shape[0] in args.shape)
+        if args.shape
+        else SHAPES
+    )
+    for name, m, n, k, multiplicity in selected_shapes:
         x = torch.randn(m, k, device="cuda", dtype=torch.bfloat16) * 0.1
         weight = torch.randn(n, k, device="cuda", dtype=torch.bfloat16) * 0.1
         reference = F.linear(x, weight)

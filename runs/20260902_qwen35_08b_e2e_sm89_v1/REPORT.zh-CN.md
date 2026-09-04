@@ -165,13 +165,14 @@ VLLM_GDN_DECODE_KERNEL=cuda \
 
 ### 4. 候选执行路径证明
 
-`candidate-smoke-result` 升级为 v2。smoke 除了正确性和目标值，还必须提供：
+`candidate-smoke-result` 升级为 v3。smoke 除了正确性和目标值，还必须提供：
 
 - `expected_path` 与实际观测的 `observed_path`，两者必须相等；
 - 至少一个位于 run 内、SHA256 闭合的源码或执行证据；
 - `FRESH`、`SOURCE_HASHED` 或 `NOT_COMPILED` 编译缓存策略。
+- 运行时 `execution_proof`：kernel 实例数、插桩调用数或非编译直调 sentinel，并绑定到上述证据。对 `torch.compile`/CUDA Graph 候选禁止只用 host sentinel。
 
-不满足时，`candidate_discovery.py` 把结果视为技术失败，不能进入 `QUALIFICATION_READY`；晋级凭证也会携带 reachability 记录。真实 vLLM harness 另增加 backend、source hash、空 cache root 三个启动前门和逐请求 GPU 遥测。这直接防止“改了 Triton 文件，运行时却走 CUDA op”以及“旧编译图掩盖源码修改”两类假实验。
+不满足时，`candidate_discovery.py` 把结果视为技术失败，不能进入 `QUALIFICATION_READY`；晋级凭证也会携带 reachability 记录。真实 vLLM harness 另增加 backend、source hash、空 cache root 三个启动前门和逐请求 GPU 遥测。源码/缓存门防止跑错版本，运行时计数则进一步防止 Python 条件在图捕获时被冻结、候选 custom op 实际没有进入 decode 图。
 
 ## 推荐的双赛道
 
@@ -312,13 +313,25 @@ vLLM 是面向多模型、多 GPU、多 batch 和高并发的通用 serving runt
 | candidate C2 | 1058.61 ms | 8.075 ms | 892.5 MHz | 37.61 W |
 | 两边均值之比 | **1.193x** | **1.199x** | 候选更低 | 近似相同 |
 
-两组配对比较都为 6/6 token-exact，且每个任务均胜出。paired 微基准与整模结果不矛盾于“候选有效”的判定：前者证明局部计时会受前序 workload 影响，后者才覆盖真实权重布局、调用节奏、CUDA Graph 与 runtime 调度。由于本机旧版 Nsight Systems 无法解析 CUDA 13 trace，尚不能把约 1.6 ms/token 的差异完整拆到单个 GPU kernel；因此机制描述保守限定为“替换真实 vLLM 路径后稳定减少端到端延迟”，不声称已完成硬件 counter 级归因。
+两组配对比较都为 6/6 token-exact，且每个任务均胜出。paired 微基准与整模结果不矛盾于“候选有效”的判定：前者证明局部计时会受前序 workload 影响，后者才覆盖真实权重布局、调用节奏、CUDA Graph 与 runtime 调度。
+
+随后在用户目录安装 Nsight Systems 2025.5.1，并用 `--cuda-graph-trace=node` 成功展开 CUDA Graph。六个 32-token 自然请求共生成 192 token，其中 186 个稳定 decode 图步骤。`lm_head` 候选被观察到 192 次，平均 2057.54 us；主干 cuBLAS GEMV 被观察到 21,204 次，即每个 decode 步骤 114 次，总计约 5.036 ms/step。这个 timeline 同时给出了后续搜索的全局预算，但 node tracing 会扰动短 kernel，因此只用于机会排序和执行路径证明，不把它的百分比当作生产 qualification。
 
 这个结论的边界也很明确：它是单请求延迟胜出，不是高并发吞吐 SOTA；逐 token 相等覆盖当前六类 qualification 请求，不等于对所有可能输入证明浮点 bitwise 等价；历史高功耗状态与当前低功耗状态不能横向混排。补丁位于 `patches/vllm_0.28.1_sm89_bf16_lm_head.patch`，机器可读证据位于 `models/sm89_lm_head_candidate.json`。
 
 ### 为什么没有把同一 GEMV 铺满主干
 
-孤立微基准曾预测多个主干投影也会变快，但第一次整模运行因复用旧编译图而没有真正命中。强制新 `VLLM_CACHE_ROOT` 后又做了逐形状消融：只替换 GDN `8192x1024` 比 lm_head-only 慢 2.4%；只替换 MLP `7168x1024 + 1024x3584` 慢 1.0%，并只有 2/6 序列 token-exact；把四个局部看似更快的形状全开也慢 1.1%。该扩展因此被拒绝。新增的 source SHA256 guard、backend guard、路径开关 guard 与空编译缓存 guard，会在昂贵启动前拦截“源码不是预期版本”“环境选择了另一条 backend”“旧图掩盖候选”三类假实验。
+孤立微基准曾预测多个主干投影也会变快。旧实验即使使用了新 `VLLM_CACHE_ROOT`，其 `x.numel()==x.shape[-1]` Python 分支仍可能在 `torch.compile` 动态图捕获时被冻结；因此旧的 GDN/MLP/全开消融没有证明候选 custom op 被执行。此前写下的“慢 1.0%--2.4%”因果归因现正式撤回，原始数据只保留为不可达实验记录。
+
+修复后的候选让所选权重形状无条件经过 opaque custom op，并在 op 内部决定 `M=1` 使用 Triton、其他形状回退 `F.linear`。Nsight 分别观察到预期的 **3,540/3,540** 和 **12,468/12,468** 个候选 kernel，证明它们真正进入了 decode 图：
+
+| 可达候选 | 局部证据 | 非 profiler 端到端筛选 | 输出合同 | 决定 |
+|---|---:|---:|---:|---|
+| GDN `8192x1024` | 80.46 → 72.54 us | profiler E2E 1.022x | 5/6 exact | 淘汰 |
+| GDN + MLP gate-up | kernel 均下降 | C-S-C 平均 TPOT 1.016x | 2/6 exact | 淘汰 |
+| attention stacked QKV `5120x1024` | micro 1.625x | screening TPOT 1.007x | 2/6 exact | 淘汰 |
+
+这里还修正了 attention QKV 的真实输出宽度：vLLM 把 `q=4096, k=512, v=512` 堆叠为 5120，而不是旧记录中的 3072。结果说明这些局部替换确实能减少 kernel 时间，但独立替换每个 GEMV 的全局收益只剩约 0.7%--1.7%，且改变 BF16 累加顺序后未通过当前 token-exact 合同。它们不能进入补丁；下一代候选必须通过跨投影融合、持久化或物化消除，移除流量/launch，而不是继续扫单个 GEMV 参数。
 
 这一轮也修正了原先过强的理论推断：整模型权重流下界能排除严格 BF16 的普遍 2x，但不能证明 stock vLLM 的每个子算子已高效。理论模型应输出“剩余总预算”和“按算子可移除时间”两个层级；只要某个大算子明显低于同机带宽屋顶，局部专用化仍可能兑现两位数的端到端收益。
 
@@ -351,9 +364,9 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 - FlashInfer top-k/top-p sampler 首次 JIT 需要虚拟环境 `ninja` 在 PATH；本工作负载是 greedy，固定 `VLLM_USE_FLASHINFER_SAMPLER=0`，避免无关采样器污染主干验证。
 - 当前虚拟环境同时存在 CUDA 13.0 runtime headers、CUDA 13.3 `nvcc`，系统还有 CUDA 12.0 `nvcc`。需要 JIT 的候选必须先做 compiler/header 一致性 preflight；本轮 FP8 KV cache 因此只记技术失败，不作性能拒绝。
 - 当前 Nsight Compute counters 受 `ERR_NVGPUCTRPERM` 限制，所以没有伪造 cache/issue/stall 归因。
-- WSL 内的 Nsight Systems 2022.4 无法导入 CUDA 13 profiler-range capture，Torch profiler 在 `--enforce-eager` 下也只得到 CPU events；这些文件只作为技术失败证据，不用于性能结论。
+- WSL 系统自带的 Nsight Systems 2022.4 无法导入 CUDA 13 profiler-range capture；后来在用户目录安装 2025.5.1 后已经成功获得 CUDA Graph node timeline。旧失败文件仍只作技术记录，新 SQLite timeline 用于机会排序和运行时可达性证明。
 - 5090 未被访问或占用，遵守其正在运行 MiniMax-H3 的约束。
-- `lm_head` 候选已完成带功耗/温度遥测的 3×10，但仍不是最终 SOTA certificate；尚未完成锁定电源模式后的随机进程交错、nsys GPU-active 拆分、更大质量集和最终 binary/SASS 审计。
+- `lm_head` 候选已完成带功耗/温度遥测的 3×10、同源 C-S-S-C 和 nsys GPU-active 拆分，但仍不是最终 SOTA certificate；尚未完成锁定电源模式后的随机进程交错、更大质量集和最终 binary/SASS 审计。
 
 ## 复现入口
 
@@ -384,9 +397,18 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 - `models/sm89_lm_head_comparison.json`
 - `models/sm89_lm_head_abba.json`
 - `models/sm89_selective_backbone_ablations.json`
+- `models/sm89_nsys_operator_map.json`
+- `models/nsys2025_lmhead_opportunity_map.json`
+- `models/nsys2025_reachable_gdnqkvz_map.json`
+- `models/nsys2025_reachable_all_map.json`
+- `models/nsys_tool_identity.json`
+- `profiles/nsys2025_lmhead_candidate_nodes.sqlite`
+- `profiles/nsys2025_reachable_gdnqkvz_b.sqlite`
+- `profiles/nsys2025_reachable_all_b.sqlite`
 - `comparisons/vllm_lmhead_toggle_pair1.json`
 - `comparisons/vllm_lmhead_toggle_pair2.json`
 - `traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json`
 - `traces/vllm_natural_stock_qual_o_w3_n10.json`
+- `traces/vllm_lmhead_restored_smoke_w1_n1_t16.json`
 
 ModelScope 模型页：<https://modelscope.cn/models/Qwen/Qwen3.5-0.8B>

@@ -3,4 +3,6 @@
 *.csv binary
 *.fatbin binary
 *.ncu-rep binary
+*.nsys-rep binary
+*.sqlite binary
 *.so binary

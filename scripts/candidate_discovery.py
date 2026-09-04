@@ -18,7 +18,7 @@ from opportunity_map import load_map as load_opportunity_map, map_path as opport
 
 
 POOL_SCHEMA = "candidate-pool-v1"
-SMOKE_SCHEMA = "candidate-smoke-result-v2"
+SMOKE_SCHEMA = "candidate-smoke-result-v3"
 ACTIVE_STATUSES = {"PROPOSED", "DEVELOPING"}
 
 
@@ -241,7 +241,7 @@ def record_failure(pool: dict, item: dict, attempt_record: dict, reason: str) ->
 def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, float]:
     result = read_object(path)
     if result.get("schema_version") != SMOKE_SCHEMA or result.get("status") != "PASS":
-        raise ValueError("smoke result must record candidate-smoke-result-v2 PASS")
+        raise ValueError("smoke result must record candidate-smoke-result-v3 PASS")
     if result.get("candidate_id") != item["candidate_id"]:
         raise ValueError("smoke result candidate_id mismatch")
     cases = result.get("cases")
@@ -265,9 +265,47 @@ def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, floa
         "NOT_COMPILED",
     }:
         raise ValueError("reachability.compile_cache_policy is missing or unsupported")
+    execution_proof = reachability.get("execution_proof")
+    if not isinstance(execution_proof, dict):
+        raise ValueError("reachability requires runtime execution_proof")
+    proof_kind = execution_proof.get("kind")
+    allowed_proof_kinds = {
+        "KERNEL_INSTANCE_COUNT",
+        "INSTRUMENTED_CALL_COUNT",
+        "DIRECT_SENTINEL",
+    }
+    if proof_kind not in allowed_proof_kinds:
+        raise ValueError("reachability execution_proof.kind is unsupported")
+    if (
+        reachability.get("compile_cache_policy") in {"FRESH", "SOURCE_HASHED"}
+        and proof_kind == "DIRECT_SENTINEL"
+    ):
+        raise ValueError(
+            "compiled candidates require a kernel or instrumented call count"
+        )
+    observed_count = execution_proof.get("observed_count")
+    minimum_count = execution_proof.get("minimum_count")
+    if (
+        isinstance(observed_count, bool)
+        or not isinstance(observed_count, int)
+        or isinstance(minimum_count, bool)
+        or not isinstance(minimum_count, int)
+        or minimum_count < 1
+        or observed_count < minimum_count
+    ):
+        raise ValueError("candidate runtime execution count did not reach its minimum")
+    if not isinstance(execution_proof.get("scope"), str) or not execution_proof[
+        "scope"
+    ]:
+        raise ValueError("reachability execution_proof.scope must be non-empty")
+    evidence_index = execution_proof.get("evidence_index")
+    if isinstance(evidence_index, bool) or not isinstance(evidence_index, int):
+        raise ValueError("reachability execution_proof.evidence_index must be an integer")
     reachability_evidence = reachability.get("evidence")
     if not isinstance(reachability_evidence, list) or not reachability_evidence:
         raise ValueError("reachability requires hash-bound evidence")
+    if evidence_index < 0 or evidence_index >= len(reachability_evidence):
+        raise ValueError("reachability execution proof is not bound to evidence")
     for index, identity in enumerate(reachability_evidence):
         if not isinstance(identity, dict):
             raise ValueError(f"reachability evidence {index} must be an object")
