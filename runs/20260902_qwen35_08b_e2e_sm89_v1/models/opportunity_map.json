@@ -1,7 +1,280 @@
 {
   "created_at": "2026-09-02T14:43:28.641627+00:00",
-  "events": [],
-  "opportunities": [],
+  "events": [
+    {
+      "at": "2026-09-04T21:03:49.811759+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-decode-projection-fusion"
+    },
+    {
+      "at": "2026-09-04T21:03:50.093831+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-recurrent-state-fusion"
+    },
+    {
+      "at": "2026-09-04T21:03:50.388876+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-normalization-epilogue-fusion"
+    },
+    {
+      "at": "2026-09-04T21:03:50.666615+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-attention-kv-layout"
+    },
+    {
+      "at": "2026-09-04T21:03:50.954568+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-lm-head-residual"
+    },
+    {
+      "at": "2026-09-04T21:03:51.238146+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-decode-graph-compaction"
+    },
+    {
+      "at": "2026-09-04T21:03:51.522812+00:00",
+      "event": "RANKED",
+      "order": [
+        "sm89-decode-projection-fusion",
+        "sm89-normalization-epilogue-fusion",
+        "sm89-recurrent-state-fusion",
+        "sm89-decode-graph-compaction",
+        "sm89-attention-kv-layout",
+        "sm89-lm-head-residual"
+      ]
+    }
+  ],
+  "opportunities": [
+    {
+      "affected_stages": [
+        "gdn-projections",
+        "attention-projections",
+        "mlp-projections"
+      ],
+      "candidate_ids": [],
+      "confidence": "HIGH",
+      "created_at": "2026-09-04T21:03:49.811749+00:00",
+      "current_contribution_us": 5035.625,
+      "derivation": "Nsight observes 21,204 cuBLAS GEMV launches over 186 decode steps (5.036 ms/step); reachable isolated replacements delivered only about 0.37 ms of modeled kernel savings, bounding the likely interval below the 0.8 ms discovery ceiling.",
+      "evidence": [
+        {
+          "claim": "Runtime launch counts, logical shape mapping and reachable-candidate residuals.",
+          "path": "models/sm89_nsys_operator_map.json",
+          "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
+        }
+      ],
+      "hypothesis": "Remove launch and intermediate traffic across related projections instead of replacing isolated cuBLAS GEMVs.",
+      "implementation_budget_minutes": 120,
+      "likely_gain_interval_us": {
+        "lower": 200.0,
+        "upper": 500.0
+      },
+      "model_scope": "EMPIRICAL_BOTTLENECK",
+      "name": "Fuse or persist batch-1 decode projections",
+      "observations": [],
+      "opportunity_id": "sm89-decode-projection-fusion",
+      "optimistic_gain_ceiling_us": 800.0,
+      "priority_rank": 1,
+      "priority_score": 2.9166666666666665,
+      "rewrite_families": [
+        "cross-projection-fusion",
+        "persistent-scheduling",
+        "weight-stream-specialization"
+      ],
+      "source_model_term": "Nsight cublas_gemvx time across 114 decode projections",
+      "status": "UNIMPLEMENTED"
+    },
+    {
+      "affected_stages": [
+        "normalization",
+        "activation",
+        "residual-update"
+      ],
+      "candidate_ids": [],
+      "confidence": "MEDIUM",
+      "created_at": "2026-09-04T21:03:50.388853+00:00",
+      "current_contribution_us": 302.152,
+      "derivation": "Nsight attributes 0.251 ms/step to normalization and 0.051 ms/step to one repeated fused pointwise family; only a subset can be removed because normalization reductions remain mandatory.",
+      "evidence": [
+        {
+          "claim": "Expanded graph timing for normalization and pointwise families.",
+          "path": "models/nsys2025_lmhead_opportunity_map.json",
+          "sha256": "2489e67cd0c268c13ddac379a801630b17908f7f3d7ebbe244e04e4bc5a33026"
+        }
+      ],
+      "hypothesis": "Fold normalization, activation and residual transforms into their producer or consumer while preserving the BF16 numerical contract.",
+      "implementation_budget_minutes": 60,
+      "likely_gain_interval_us": {
+        "lower": 20.0,
+        "upper": 80.0
+      },
+      "model_scope": "CURRENT_SCHEDULE",
+      "name": "Fuse normalization and elementwise epilogues",
+      "observations": [],
+      "opportunity_id": "sm89-normalization-epilogue-fusion",
+      "optimistic_gain_ceiling_us": 150.0,
+      "priority_rank": 2,
+      "priority_score": 0.5416666666666666,
+      "rewrite_families": [
+        "epilogue-fusion",
+        "materialization-elimination"
+      ],
+      "source_model_term": "Normalization plus adjacent pointwise kernels",
+      "status": "UNIMPLEMENTED"
+    },
+    {
+      "affected_stages": [
+        "gdn-recurrence",
+        "causal-convolution",
+        "state-update"
+      ],
+      "candidate_ids": [],
+      "confidence": "MEDIUM",
+      "created_at": "2026-09-04T21:03:50.093821+00:00",
+      "current_contribution_us": 305.52,
+      "derivation": "The recurrent kernel alone consumes 0.306 ms/decode step in the expanded CUDA graph; the ceiling leaves mandatory recurrence work intact and treats only state traffic and neighboring launch overhead as removable.",
+      "evidence": [
+        {
+          "claim": "Per-family GPU-active time for recurrent decode and neighboring kernels.",
+          "path": "models/nsys2025_lmhead_opportunity_map.json",
+          "sha256": "2489e67cd0c268c13ddac379a801630b17908f7f3d7ebbe244e04e4bc5a33026"
+        }
+      ],
+      "hypothesis": "Keep recurrent state in the consumer layout and fuse adjacent transforms to remove round trips and small launches.",
+      "implementation_budget_minutes": 90,
+      "likely_gain_interval_us": {
+        "lower": 30.0,
+        "upper": 100.0
+      },
+      "model_scope": "CURRENT_SCHEDULE",
+      "name": "Reduce recurrent-state materialization",
+      "observations": [],
+      "opportunity_id": "sm89-recurrent-state-fusion",
+      "optimistic_gain_ceiling_us": 180.0,
+      "priority_rank": 3,
+      "priority_score": 0.46944444444444444,
+      "rewrite_families": [
+        "producer-consumer-fusion",
+        "state-layout",
+        "materialization-elimination"
+      ],
+      "source_model_term": "Fused recurrent decode kernel and adjacent state operations",
+      "status": "UNIMPLEMENTED"
+    },
+    {
+      "affected_stages": [
+        "decode-graph",
+        "sampling-boundary"
+      ],
+      "candidate_ids": [],
+      "confidence": "LOW",
+      "created_at": "2026-09-04T21:03:51.238132+00:00",
+      "current_contribution_us": 1239.0,
+      "derivation": "After the measured GEMV, lm-head, recurrent, normalization and attention families, roughly 1.24 ms/step remains in the expanded trace; node tracing inflates short kernels, so the likely interval is deliberately narrow and low confidence.",
+      "evidence": [
+        {
+          "claim": "Complete expanded CUDA kernel inventory and residual tail.",
+          "path": "models/nsys2025_lmhead_opportunity_map.json",
+          "sha256": "2489e67cd0c268c13ddac379a801630b17908f7f3d7ebbe244e04e4bc5a33026"
+        }
+      ],
+      "hypothesis": "Collapse repeated sub-10-us kernels only when a producer-consumer boundary can be removed without changing graph semantics.",
+      "implementation_budget_minutes": 60,
+      "likely_gain_interval_us": {
+        "lower": 20.0,
+        "upper": 100.0
+      },
+      "model_scope": "EMPIRICAL_BOTTLENECK",
+      "name": "Compact repeated short decode kernels",
+      "observations": [],
+      "opportunity_id": "sm89-decode-graph-compaction",
+      "optimistic_gain_ceiling_us": 200.0,
+      "priority_rank": 4,
+      "priority_score": 0.35,
+      "rewrite_families": [
+        "graph-specialization",
+        "kernel-fusion",
+        "persistent-scheduling"
+      ],
+      "source_model_term": "Non-GEMV short-kernel tail in expanded CUDA Graph",
+      "status": "UNIMPLEMENTED"
+    },
+    {
+      "affected_stages": [
+        "full-attention",
+        "kv-cache-update",
+        "qk-rope"
+      ],
+      "candidate_ids": [],
+      "confidence": "MEDIUM",
+      "created_at": "2026-09-04T21:03:50.666605+00:00",
+      "current_contribution_us": 273.928,
+      "derivation": "The expanded graph records about 0.221 ms/step for FlashAttention, 0.027 ms for cache reshape/update and 0.026 ms for fused QK normalization/rope; the ceiling targets only layout and boundary overhead.",
+      "evidence": [
+        {
+          "claim": "GPU-active attention, QK transform and KV update contributions.",
+          "path": "models/nsys2025_lmhead_opportunity_map.json",
+          "sha256": "2489e67cd0c268c13ddac379a801630b17908f7f3d7ebbe244e04e4bc5a33026"
+        }
+      ],
+      "hypothesis": "Avoid layout conversion and cache-update launches by emitting Q/K/V directly in the decode attention consumer layout.",
+      "implementation_budget_minutes": 90,
+      "likely_gain_interval_us": {
+        "lower": 10.0,
+        "upper": 50.0
+      },
+      "model_scope": "CURRENT_SCHEDULE",
+      "name": "Co-design attention and KV-cache layout",
+      "observations": [],
+      "opportunity_id": "sm89-attention-kv-layout",
+      "optimistic_gain_ceiling_us": 100.0,
+      "priority_rank": 5,
+      "priority_score": 0.21666666666666667,
+      "rewrite_families": [
+        "attention-fusion",
+        "kv-layout",
+        "producer-consumer-fusion"
+      ],
+      "source_model_term": "FlashAttention, QK normalization/rope and KV reshape/cache",
+      "status": "UNIMPLEMENTED"
+    },
+    {
+      "affected_stages": [
+        "lm-head"
+      ],
+      "candidate_ids": [],
+      "confidence": "LOW",
+      "created_at": "2026-09-04T21:03:50.954559+00:00",
+      "current_contribution_us": 2057.54,
+      "derivation": "Nsight observes 2.058 ms per lm-head invocation after the 1.19x end-to-end win; the low-confidence interval prevents another unbounded launch-parameter sweep near the bandwidth roof.",
+      "evidence": [
+        {
+          "claim": "Accepted lm-head invocation time and strict-production decision boundary.",
+          "path": "models/sm89_nsys_operator_map.json",
+          "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
+        }
+      ],
+      "hypothesis": "Try only bounded instruction/layout changes because the accepted kernel already streams roughly 508 MB near the measured memory-service rate.",
+      "implementation_budget_minutes": 45,
+      "likely_gain_interval_us": {
+        "lower": 0.0,
+        "upper": 50.0
+      },
+      "model_scope": "EMPIRICAL_BOTTLENECK",
+      "name": "Close the remaining lm-head bandwidth residual",
+      "observations": [],
+      "opportunity_id": "sm89-lm-head-residual",
+      "optimistic_gain_ceiling_us": 200.0,
+      "priority_rank": 6,
+      "priority_score": 0.19444444444444445,
+      "rewrite_families": [
+        "load-coalescing",
+        "weight-stream-specialization"
+      ],
+      "source_model_term": "SM89-specialized BF16 lm-head candidate kernel",
+      "status": "UNIMPLEMENTED"
+    }
+  ],
   "policy": {
     "confidence_weights": {
       "HIGH": 1.0,
@@ -15,7 +288,7 @@
     "min_rewrite_families": 4,
     "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes"
   },
-  "ranked_at": null,
+  "ranked_at": "2026-09-04T21:03:51.522801+00:00",
   "schema_version": "opportunity-map-v1",
-  "status": "DRAFT"
+  "status": "READY"
 }

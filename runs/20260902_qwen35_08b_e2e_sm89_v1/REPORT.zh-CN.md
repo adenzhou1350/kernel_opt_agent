@@ -333,6 +333,21 @@ vLLM 是面向多模型、多 GPU、多 batch 和高并发的通用 serving runt
 
 这里还修正了 attention QKV 的真实输出宽度：vLLM 把 `q=4096, k=512, v=512` 堆叠为 5120，而不是旧记录中的 3072。结果说明这些局部替换确实能减少 kernel 时间，但独立替换每个 GEMV 的全局收益只剩约 0.7%--1.7%，且改变 BF16 累加顺序后未通过当前 token-exact 合同。它们不能进入补丁；下一代候选必须通过跨投影融合、持久化或物化消除，移除流量/launch，而不是继续扫单个 GEMV 参数。
 
+### 下一轮由全局机会图决定
+
+Nsight 结果已通过公共 `kernel_opt.py opportunity` 入口写回正式机会图，并覆盖 12 个不同 rewrite family。按“预期全局收益 × 置信度 / 实现分钟数”排序如下：
+
+| 排名 | 机会 | 可能移除的时间/step | 实现预算 | 含义 |
+|---:|---|---:|---:|---|
+| 1 | 跨投影融合/持久调度 | 200--500 us | 120 min | 唯一值得优先投入的主路径 |
+| 2 | normalization/epilogue 融合 | 20--80 us | 60 min | 小而较便宜 |
+| 3 | recurrent state 融合与布局 | 30--100 us | 90 min | 需跨算子边界 |
+| 4 | decode graph 小 kernel 压缩 | 20--100 us | 60 min | node tracing 下低置信度 |
+| 5 | attention/KV 布局协同 | 10--50 us | 90 min | 预期收益较小 |
+| 6 | 继续微调 lm-head | 0--50 us | 45 min | 已接近带宽屋顶，停止无界 sweep |
+
+因此 agent 下一步不能再随机挑一个 launch 参数：先给排名 1 的跨投影候选最多两小时实现预算；若 production smoke 没有至少约 2% 的可测收益，就转向排名 2/3，而不是在同一形状上继续几十小时。这里的区间是经验搜索先验，不是理论最优证明；实际结果必须再由运行时可达性、正确性和交错 A/B 更新。
+
 这一轮也修正了原先过强的理论推断：整模型权重流下界能排除严格 BF16 的普遍 2x，但不能证明 stock vLLM 的每个子算子已高效。理论模型应输出“剩余总预算”和“按算子可移除时间”两个层级；只要某个大算子明显低于同机带宽屋顶，局部专用化仍可能兑现两位数的端到端收益。
 
 复现补丁与 qualification：
@@ -402,6 +417,8 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 - `models/nsys2025_reachable_gdnqkvz_map.json`
 - `models/nsys2025_reachable_all_map.json`
 - `models/nsys_tool_identity.json`
+- `models/opportunity_map.json`
+- `models/opportunity_specs/*.json`
 - `profiles/nsys2025_lmhead_candidate_nodes.sqlite`
 - `profiles/nsys2025_reachable_gdnqkvz_b.sqlite`
 - `profiles/nsys2025_reachable_all_b.sqlite`
