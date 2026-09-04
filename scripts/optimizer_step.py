@@ -7,6 +7,7 @@ import argparse
 import json
 import subprocess
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from evidence_utils import read_object, validate_hardware_evidence, validate_identity
@@ -53,6 +54,9 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             [],
             [{"required": "models/baseline.json status VALID with correctness PASS", "claim_scope": "DISCOVERY_ONLY"}],
         )
+    residual_search_authorized = False
+    residual_search_min_gain_us: float | None = None
+    residual_search_max_minutes: float | None = None
     feasibility_path = run / "models" / "feasibility_gate.json"
     if feasibility_path.is_file():
         feasibility = read_object(feasibility_path)
@@ -86,6 +90,53 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                     errors.append(f"feasibility evidence {index}: identity must be an object")
                 else:
                     validate_identity(run, identity, f"feasibility evidence {index}", errors, containment_root=run)
+        residual_policy = feasibility.get("residual_search_policy")
+        if residual_policy is not None:
+            if not isinstance(residual_policy, dict):
+                errors.append("residual_search_policy must be an object")
+            else:
+                residual_search_authorized = (
+                    residual_policy.get("status") == "AUTHORIZED"
+                    and residual_policy.get("objective_mode")
+                    == "BEST_FEASIBLE_WITHIN_FROZEN_CONTRACT"
+                )
+                if not residual_search_authorized:
+                    errors.append(
+                        "residual_search_policy requires AUTHORIZED status and "
+                        "BEST_FEASIBLE_WITHIN_FROZEN_CONTRACT objective_mode"
+                    )
+                for field in (
+                    "minimum_likely_gain_us",
+                    "max_total_wall_clock_minutes",
+                ):
+                    value = residual_policy.get(field)
+                    if (
+                        isinstance(value, bool)
+                        or not isinstance(value, (int, float))
+                        or float(value) <= 0
+                    ):
+                        errors.append(f"residual_search_policy.{field} must be positive")
+                if isinstance(residual_policy.get("minimum_likely_gain_us"), (int, float)):
+                    residual_search_min_gain_us = float(
+                        residual_policy["minimum_likely_gain_us"]
+                    )
+                if isinstance(residual_policy.get("max_total_wall_clock_minutes"), (int, float)):
+                    residual_search_max_minutes = float(
+                        residual_policy["max_total_wall_clock_minutes"]
+                    )
+                stop_conditions = residual_policy.get("stop_conditions")
+                if (
+                    not isinstance(stop_conditions, list)
+                    or not stop_conditions
+                    or not all(isinstance(item, str) and item for item in stop_conditions)
+                ):
+                    errors.append(
+                        "residual_search_policy.stop_conditions must be a non-empty string array"
+                    )
+                if not isinstance(residual_policy.get("authorization"), str) or not residual_policy[
+                    "authorization"
+                ].strip():
+                    errors.append("residual_search_policy.authorization is required")
         if errors:
             return action(
                 "BLOCK_INVALID_FEASIBILITY_GATE",
@@ -93,7 +144,10 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 [],
                 [{"errors": errors}],
             )
-        if feasibility.get("decision") == "TARGET_INFEASIBLE":
+        if (
+            feasibility.get("decision") == "TARGET_INFEASIBLE"
+            and not residual_search_authorized
+        ):
             return action(
                 "STOP_OR_REFRAME_INFEASIBLE_TARGET",
                 "a hash-bound optimistic resource floor already excludes the requested speedup; more exact-lane tuning cannot reach it",
@@ -151,6 +205,55 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             [],
             [{"error": str(error)}],
         )
+    if residual_search_authorized and residual_search_min_gain_us is not None:
+        eligible_rows = []
+        for item in opportunity_rows:
+            interval = item.get("likely_gain_interval_us", {})
+            try:
+                midpoint = (float(interval["lower"]) + float(interval["upper"])) / 2.0
+            except (KeyError, TypeError, ValueError):
+                continue
+            if midpoint >= residual_search_min_gain_us:
+                eligible_rows.append(item)
+        if not eligible_rows:
+            return action(
+                "STOP_RESIDUAL_SEARCH_AT_MATERIALITY_FLOOR",
+                "the original target is infeasible and no ranked opportunity clears the authorized residual-gain floor",
+                [],
+                [{
+                    "minimum_likely_gain_us": residual_search_min_gain_us,
+                    "ranked_opportunity_count": len(opportunity_rows),
+                }],
+            )
+        opportunity_rows = eligible_rows
+    if residual_search_authorized and residual_search_max_minutes is not None:
+        started_at = pool.get("discovery_started_at")
+        if started_at:
+            try:
+                started = datetime.fromisoformat(str(started_at).replace("Z", "+00:00"))
+                if started.tzinfo is None:
+                    started = started.replace(tzinfo=timezone.utc)
+                elapsed = max(
+                    0.0,
+                    (datetime.now(timezone.utc) - started).total_seconds() / 60.0,
+                )
+            except ValueError:
+                return action(
+                    "BLOCK_INVALID_CANDIDATE_POOL",
+                    "candidate discovery_started_at is not an ISO-8601 timestamp",
+                    [],
+                    [{"discovery_started_at": started_at}],
+                )
+            if elapsed >= residual_search_max_minutes:
+                return action(
+                    "STOP_RESIDUAL_SEARCH_AT_TIME_BUDGET",
+                    "the authorized best-feasible residual-search wall-clock budget is exhausted",
+                    [],
+                    [{
+                        "elapsed_minutes": elapsed,
+                        "maximum_minutes": residual_search_max_minutes,
+                    }],
+                )
     candidates = pool.get("candidates", [])
     policy = pool.get("policy", {})
     families = {item.get("family") for item in candidates if item.get("family")}

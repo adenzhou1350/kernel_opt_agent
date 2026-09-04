@@ -17,6 +17,18 @@
     "change the model or hardware target",
     "replace the 2x goal with the measured exact-BF16 headroom"
   ],
+  "residual_search_policy": {
+    "status": "AUTHORIZED",
+    "objective_mode": "BEST_FEASIBLE_WITHIN_FROZEN_CONTRACT",
+    "minimum_likely_gain_us": 50.0,
+    "max_total_wall_clock_minutes": 120.0,
+    "stop_conditions": [
+      "no ranked opportunity has a likely-gain midpoint of at least 50 us per decode step",
+      "every implemented architecture family fails correctness or runtime reachability",
+      "the bounded candidate portfolio produces no survivor above measurement noise"
+    ],
+    "authorization": "The active user objective asks for the best feasible BF16 vLLM-derived solution after the 2x target was shown infeasible."
+  },
   "schema_version": "optimization-feasibility-gate-v1",
   "status": "VALID",
   "target": {

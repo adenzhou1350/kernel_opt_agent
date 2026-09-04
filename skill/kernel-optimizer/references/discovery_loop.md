@@ -33,6 +33,14 @@ ceiling. Cover at least three opportunities by default rather than producing
 many variants of the same hypothesis. Give every family a small implementation budget before
 spending qualification effort on any one family.
 
+Before registration, every candidate must include a hash-bound
+`dependency_contract` with status `PROVEN_LEGAL`. It records the mathematical
+dependencies that remain, the implementation boundaries that change, forbidden
+rewrites, numerical-ordering constraints and the source evidence used for that
+decision. A literature or profiler match is not a legality proof. If the
+contract cannot explain why the rewrite preserves the operator DAG, do not
+compile it; re-audit the dataflow or choose another opportunity.
+
 When the portfolio lacks architecture diversity, run `kernel_opt.py method
 recommend --run <run>`. It matches reusable, source-attributed method cards to
 the frozen operator, workload, hardware and ranked opportunity map. A match is

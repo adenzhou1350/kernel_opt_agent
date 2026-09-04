@@ -74,7 +74,25 @@ def main() -> None:
         })
         infeasible = discovery_action(run, ROOT / "scripts")
         assert infeasible and infeasible["action"] == "STOP_OR_REFRAME_INFEASIBLE_TARGET", infeasible
+        authorized_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        authorized_gate["residual_search_policy"] = {
+            "status": "AUTHORIZED",
+            "objective_mode": "BEST_FEASIBLE_WITHIN_FROZEN_CONTRACT",
+            "minimum_likely_gain_us": 1.0,
+            "max_total_wall_clock_minutes": 60.0,
+            "stop_conditions": ["no ranked opportunity exceeds the material-gain floor"],
+            "authorization": "test fixture explicitly authorizes bounded residual search",
+        }
+        write(run / "models" / "feasibility_gate.json", authorized_gate)
+        residual = discovery_action(run, ROOT / "scripts")
+        assert residual and residual["action"] == "BUILD_OPPORTUNITY_MAP", residual
+        malformed_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        malformed_gate["residual_search_policy"]["minimum_likely_gain_us"] = 0
+        write(run / "models" / "feasibility_gate.json", malformed_gate)
+        malformed = discovery_action(run, ROOT / "scripts")
+        assert malformed and malformed["action"] == "BLOCK_INVALID_FEASIBILITY_GATE", malformed
         invalid_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        invalid_gate.pop("residual_search_policy")
         invalid_gate["bound"]["maximum_speedup"] = 2.1
         write(run / "models" / "feasibility_gate.json", invalid_gate)
         blocked_gate = discovery_action(run, ROOT / "scripts")
@@ -97,6 +115,42 @@ def main() -> None:
         assert before_rank and before_rank["action"] == "RANK_OPPORTUNITIES", before_rank
         ranked = cli("opportunity", run, "rank")
         assert ranked["opportunities"][0]["opportunity_id"] == "large-cheap", ranked
+        residual_bound_path = run / "models" / "residual-bound.json"
+        write(residual_bound_path, {"maximum_speedup": 1.1, "target_speedup": 2.0})
+        write(run / "models" / "feasibility_gate.json", {
+            "schema_version": "optimization-feasibility-gate-v1",
+            "status": "VALID",
+            "decision": "TARGET_INFEASIBLE",
+            "target": {"metric": "gpu_active_us", "speedup": 2.0},
+            "bound": {"maximum_speedup": 1.1, "optimistic_latency_floor_ms": 1.0},
+            "evidence": [{
+                "path": "models/residual-bound.json",
+                "sha256": hashlib.sha256(residual_bound_path.read_bytes()).hexdigest(),
+            }],
+            "required_reframe_options": ["relax the target or contract"],
+            "residual_search_policy": {
+                "status": "AUTHORIZED",
+                "objective_mode": "BEST_FEASIBLE_WITHIN_FROZEN_CONTRACT",
+                "minimum_likely_gain_us": 10.0,
+                "max_total_wall_clock_minutes": 60.0,
+                "stop_conditions": ["no opportunity clears the gain floor"],
+                "authorization": "test fixture authorizes bounded residual search",
+            },
+        })
+        materiality_stop = discovery_action(run, ROOT / "scripts")
+        assert materiality_stop and materiality_stop["action"] == "STOP_RESIDUAL_SEARCH_AT_MATERIALITY_FLOOR", materiality_stop
+        timed_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        timed_gate["residual_search_policy"]["minimum_likely_gain_us"] = 1.0
+        write(run / "models" / "feasibility_gate.json", timed_gate)
+        timed_pool = json.loads((run / "models" / "candidate_pool.json").read_text())
+        timed_pool["discovery_started_at"] = "2000-01-01T00:00:00+00:00"
+        write(run / "models" / "candidate_pool.json", timed_pool)
+        time_stop = discovery_action(run, ROOT / "scripts")
+        assert time_stop and time_stop["action"] == "STOP_RESIDUAL_SEARCH_AT_TIME_BUDGET", time_stop
+        timed_pool["discovery_started_at"] = None
+        write(run / "models" / "candidate_pool.json", timed_pool)
+        (run / "models" / "feasibility_gate.json").unlink()
+        residual_bound_path.unlink()
         map_path = run / "models" / "opportunity_map.json"
         tampered = json.loads(map_path.read_text(encoding="utf-8"))
         tampered["opportunities"][0]["priority_score"] = 999.0

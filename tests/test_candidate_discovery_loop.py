@@ -62,6 +62,7 @@ def main() -> None:
         })
         write(run / "models/experiment_queue.json", {"requests": []})
         write(workspace / "kernel.py", "VALUE = 1\n")
+        kernel_hash = hashlib.sha256((workspace / "kernel.py").read_bytes()).hexdigest()
         write(workspace / "build.py", "from pathlib import Path\nraise SystemExit(0 if Path('ready.flag').exists() else 3)\n")
         write(workspace / "correctness.py", "raise SystemExit(0)\n")
         write(workspace / "smoke.py", """
@@ -95,7 +96,7 @@ result = {
 Path('../smoke.json').write_text(json.dumps(result))
 """.lstrip())
         spec_path = run / "candidates" / "c1" / "spec.json"
-        write(spec_path, {
+        candidate_spec = {
             "candidate_id": "c1",
             "opportunity_id": "fuse-transfer",
             "name": "repairable candidate",
@@ -104,6 +105,18 @@ Path('../smoke.json').write_text(json.dumps(result))
             "hypothesis": "remove a materialized transfer",
             "expected_global_effect": "reduce weighted production latency",
             "predicted_global_gain_us": {"lower": 1.0, "upper": 3.0},
+            "dependency_contract": {
+                "status": "PROVEN_LEGAL",
+                "preserved_dependencies": ["the output still depends on the same input values"],
+                "changed_boundaries": ["the candidate changes only the implementation boundary"],
+                "prohibited_rewrites": ["cached or constant outputs are forbidden"],
+                "numerical_ordering": "The fixture preserves its scalar operation order.",
+                "evidence": [{
+                    "path": "candidates/c1/workspace/kernel.py",
+                    "sha256": kernel_hash,
+                    "claim": "candidate implementation used by the dependency audit",
+                }],
+            },
             "source_paths": ["candidates/c1/workspace/kernel.py"],
             "commands": {
                 "build": {"argv": ["{python}", "build.py"], "cwd": "candidates/c1/workspace", "timeout_seconds": 30},
@@ -112,7 +125,13 @@ Path('../smoke.json').write_text(json.dumps(result))
             },
             "smoke_result_path": "candidates/c1/smoke.json",
             "development_budget": {"max_technical_attempts": 3}
-        })
+        }
+        missing_dependency = dict(candidate_spec)
+        missing_dependency.pop("dependency_contract")
+        missing_dependency_path = run / "candidates" / "c1" / "missing-dependency.json"
+        write(missing_dependency_path, missing_dependency)
+        run_cli(run, "add", "--spec", str(missing_dependency_path), expected=1)
+        write(spec_path, candidate_spec)
         run_cli(
             run, "init", "--min-candidates", "1", "--max-candidates", "2",
             "--min-families", "1", "--max-technical-attempts", "3",

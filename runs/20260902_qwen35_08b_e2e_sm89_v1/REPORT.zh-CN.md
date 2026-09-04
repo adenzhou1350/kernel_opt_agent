@@ -339,14 +339,22 @@ Nsight 结果已通过公共 `kernel_opt.py opportunity` 入口写回正式机�
 
 | 排名 | 机会 | 可能移除的时间/step | 实现预算 | 含义 |
 |---:|---|---:|---:|---|
-| 1 | 跨投影融合/持久调度 | 200--500 us | 120 min | 唯一值得优先投入的主路径 |
-| 2 | normalization/epilogue 融合 | 20--80 us | 60 min | 小而较便宜 |
-| 3 | recurrent state 融合与布局 | 30--100 us | 90 min | 需跨算子边界 |
-| 4 | decode graph 小 kernel 压缩 | 20--100 us | 60 min | node tracing 下低置信度 |
+| 1 | normalization/epilogue 融合 | 20--80 us | 60 min | 小而较便宜 |
+| 2 | recurrent state 融合与布局 | 30--100 us | 90 min | 需跨算子边界 |
+| 3 | decode graph 小 kernel 压缩 | 20--100 us | 60 min | node tracing 下低置信度 |
+| 4 | 分段持久投影调度 | 20--120 us | 90 min | 简单 QKVZ+BA 拼接已被快速否决，降为低置信度 |
 | 5 | attention/KV 布局协同 | 10--50 us | 90 min | 预期收益较小 |
 | 6 | 继续微调 lm-head | 0--50 us | 45 min | 已接近带宽屋顶，停止无界 sweep |
 
-因此 agent 下一步不能再随机挑一个 launch 参数：先给排名 1 的跨投影候选最多两小时实现预算；若 production smoke 没有至少约 2% 的可测收益，就转向排名 2/3，而不是在同一形状上继续几十小时。这里的区间是经验搜索先验，不是理论最优证明；实际结果必须再由运行时可达性、正确性和交错 A/B 更新。
+因此 agent 下一步不能再随机挑一个 launch 参数，而要先验证真实数据流，再按收益/成本比选择架构。这里的区间是经验搜索先验，不是理论最优证明；实际结果必须再由运行时可达性、正确性和交错 A/B 更新。
+
+### 第八轮：先证明融合合法，再用廉价整模型筛选快速止损
+
+源码审计表明，vLLM 已经合并了 MLP `gate+up`、全注意力 `Q/K/V/gate` 和 GDN `Q/K/V/Z`；跨越 SiLU、attention、recurrent state 或 residual/RMSNorm 的“跨投影融合”存在真实数学依赖，不能通过调度直接消掉。唯一尚未合并、又共享相同输入的重复边界，是每个 GDN 层的 `8192x1024 QKVZ` 与 `32x1024 BA`，24 层中出现 18 次。机器可读的数据流审计见 `models/qwen35_projection_dataflow_audit.json`。
+
+实现的一次性 `8224x1024` 合并投影成功加载 checkpoint，并在 6 个自然请求、每请求 16 token 的廉价筛选中保持 6/6 逐 token 相等；但相对保留专用 lm-head 的 stock 路径，TPOT 仅为 **0.943x**、E2E 仅为 **0.931x**，即反而慢约 5.7% 和 6.9%。最可能的原因是把 tile 友好的 8192 行主投影改成 8224 行后，主 GEMV 调度退化超过省掉 32 行 BA launch 的收益；这项原因尚未由 kernel counter 证明，所以只作为解释性推断。候选源码和原始结果保存在 `candidates/gdn-qkvz-ba-fusion/`，当前结论是 discovery screen-out，不是 production qualification。
+
+这个失败直接校准了搜索图：原排名第一的“跨投影融合”从 200--500 us、高置信度、120 分钟预算，降为只剩分段 persistent schedule 的 20--120 us、低置信度、90 分钟预算，排名降到第四。更重要的是，agent 现在不会因为“2x 目标数学上不可达”就原地停止：`residual_search_policy` 可以在冻结合同内授权有收益下限和总时限的 best-feasible 搜索；每个新候选还必须提交 hash-bound `dependency_contract`，先证明 DAG 与数值顺序合法，才允许注册和编译。
 
 这一轮也修正了原先过强的理论推断：整模型权重流下界能排除严格 BF16 的普遍 2x，但不能证明 stock vLLM 的每个子算子已高效。理论模型应输出“剩余总预算”和“按算子可移除时间”两个层级；只要某个大算子明显低于同机带宽屋顶，局部专用化仍可能兑现两位数的端到端收益。
 
@@ -418,7 +426,9 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 - `models/nsys2025_reachable_all_map.json`
 - `models/nsys_tool_identity.json`
 - `models/opportunity_map.json`
+- `models/qwen35_projection_dataflow_audit.json`
 - `models/opportunity_specs/*.json`
+- `candidates/gdn-qkvz-ba-fusion/screening_summary.json`
 - `profiles/nsys2025_lmhead_candidate_nodes.sqlite`
 - `profiles/nsys2025_reachable_gdnqkvz_b.sqlite`
 - `profiles/nsys2025_reachable_all_b.sqlite`

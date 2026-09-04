@@ -110,7 +110,7 @@ def validate_spec(run: Path, spec: dict) -> None:
     required = (
         "candidate_id", "opportunity_id", "name", "family", "change_axes", "hypothesis",
         "expected_global_effect", "source_paths", "commands", "smoke_result_path",
-        "predicted_global_gain_us",
+        "predicted_global_gain_us", "dependency_contract",
     )
     missing = [field for field in required if not spec.get(field)]
     if missing:
@@ -138,6 +138,45 @@ def validate_spec(run: Path, spec: dict) -> None:
         path = run_path(run, value, f"source_paths[{index}]", must_exist=True)
         if not path.is_file():
             raise ValueError(f"source_paths[{index}] must name a file")
+    dependency = spec["dependency_contract"]
+    if not isinstance(dependency, dict) or dependency.get("status") != "PROVEN_LEGAL":
+        raise ValueError("dependency_contract.status must be PROVEN_LEGAL")
+    for field in (
+        "preserved_dependencies",
+        "changed_boundaries",
+        "prohibited_rewrites",
+    ):
+        values = dependency.get(field)
+        if (
+            not isinstance(values, list)
+            or not values
+            or not all(isinstance(value, str) and value.strip() for value in values)
+        ):
+            raise ValueError(f"dependency_contract.{field} must be a non-empty string array")
+    if not isinstance(dependency.get("numerical_ordering"), str) or not dependency[
+        "numerical_ordering"
+    ].strip():
+        raise ValueError("dependency_contract.numerical_ordering is required")
+    dependency_evidence = dependency.get("evidence")
+    if not isinstance(dependency_evidence, list) or not dependency_evidence:
+        raise ValueError("dependency_contract.evidence must be a non-empty array")
+    for index, identity in enumerate(dependency_evidence):
+        if not isinstance(identity, dict) or set(identity) != {"path", "sha256", "claim"}:
+            raise ValueError(
+                f"dependency_contract.evidence[{index}] must contain exactly path, sha256, and claim"
+            )
+        evidence_path = run_path(
+            run,
+            identity.get("path"),
+            f"dependency_contract.evidence[{index}]",
+            must_exist=True,
+        )
+        if not evidence_path.is_file():
+            raise ValueError(f"dependency_contract.evidence[{index}] must name a file")
+        if identity.get("sha256") != digest(evidence_path):
+            raise ValueError(f"dependency_contract.evidence[{index}] SHA256 mismatch")
+        if not isinstance(identity.get("claim"), str) or not identity["claim"].strip():
+            raise ValueError(f"dependency_contract.evidence[{index}].claim is required")
     commands = spec["commands"]
     if not isinstance(commands, dict):
         raise ValueError("commands must be an object")
@@ -394,7 +433,7 @@ def command_add(args: argparse.Namespace) -> dict:
     item = {key: spec[key] for key in (
         "candidate_id", "opportunity_id", "name", "family", "change_axes", "hypothesis",
         "expected_global_effect", "source_paths", "commands", "smoke_result_path",
-        "predicted_global_gain_us",
+        "predicted_global_gain_us", "dependency_contract",
     )}
     item.update({
         "status": "PROPOSED",

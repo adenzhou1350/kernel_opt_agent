@@ -42,48 +42,33 @@
         "sm89-attention-kv-layout",
         "sm89-lm-head-residual"
       ]
+    },
+    {
+      "at": "2026-09-04T21:31:08.695200+00:00",
+      "event": "RANKED",
+      "order": [
+        "sm89-normalization-epilogue-fusion",
+        "sm89-recurrent-state-fusion",
+        "sm89-decode-graph-compaction",
+        "sm89-decode-projection-fusion",
+        "sm89-attention-kv-layout",
+        "sm89-lm-head-residual"
+      ]
+    },
+    {
+      "at": "2026-09-04T21:40:36.780200+00:00",
+      "event": "RANKED",
+      "order": [
+        "sm89-normalization-epilogue-fusion",
+        "sm89-recurrent-state-fusion",
+        "sm89-decode-graph-compaction",
+        "sm89-decode-projection-fusion",
+        "sm89-attention-kv-layout",
+        "sm89-lm-head-residual"
+      ]
     }
   ],
   "opportunities": [
-    {
-      "affected_stages": [
-        "gdn-projections",
-        "attention-projections",
-        "mlp-projections"
-      ],
-      "candidate_ids": [],
-      "confidence": "HIGH",
-      "created_at": "2026-09-04T21:03:49.811749+00:00",
-      "current_contribution_us": 5035.625,
-      "derivation": "Nsight observes 21,204 cuBLAS GEMV launches over 186 decode steps (5.036 ms/step); reachable isolated replacements delivered only about 0.37 ms of modeled kernel savings, bounding the likely interval below the 0.8 ms discovery ceiling.",
-      "evidence": [
-        {
-          "claim": "Runtime launch counts, logical shape mapping and reachable-candidate residuals.",
-          "path": "models/sm89_nsys_operator_map.json",
-          "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
-        }
-      ],
-      "hypothesis": "Remove launch and intermediate traffic across related projections instead of replacing isolated cuBLAS GEMVs.",
-      "implementation_budget_minutes": 120,
-      "likely_gain_interval_us": {
-        "lower": 200.0,
-        "upper": 500.0
-      },
-      "model_scope": "EMPIRICAL_BOTTLENECK",
-      "name": "Fuse or persist batch-1 decode projections",
-      "observations": [],
-      "opportunity_id": "sm89-decode-projection-fusion",
-      "optimistic_gain_ceiling_us": 800.0,
-      "priority_rank": 1,
-      "priority_score": 2.9166666666666665,
-      "rewrite_families": [
-        "cross-projection-fusion",
-        "persistent-scheduling",
-        "weight-stream-specialization"
-      ],
-      "source_model_term": "Nsight cublas_gemvx time across 114 decode projections",
-      "status": "UNIMPLEMENTED"
-    },
     {
       "affected_stages": [
         "normalization",
@@ -113,7 +98,7 @@
       "observations": [],
       "opportunity_id": "sm89-normalization-epilogue-fusion",
       "optimistic_gain_ceiling_us": 150.0,
-      "priority_rank": 2,
+      "priority_rank": 1,
       "priority_score": 0.5416666666666666,
       "rewrite_families": [
         "epilogue-fusion",
@@ -151,7 +136,7 @@
       "observations": [],
       "opportunity_id": "sm89-recurrent-state-fusion",
       "optimistic_gain_ceiling_us": 180.0,
-      "priority_rank": 3,
+      "priority_rank": 2,
       "priority_score": 0.46944444444444444,
       "rewrite_families": [
         "producer-consumer-fusion",
@@ -189,7 +174,7 @@
       "observations": [],
       "opportunity_id": "sm89-decode-graph-compaction",
       "optimistic_gain_ceiling_us": 200.0,
-      "priority_rank": 4,
+      "priority_rank": 3,
       "priority_score": 0.35,
       "rewrite_families": [
         "graph-specialization",
@@ -197,6 +182,55 @@
         "persistent-scheduling"
       ],
       "source_model_term": "Non-GEMV short-kernel tail in expanded CUDA Graph",
+      "status": "UNIMPLEMENTED"
+    },
+    {
+      "affected_stages": [
+        "gdn-projections",
+        "attention-projections",
+        "mlp-projections"
+      ],
+      "candidate_ids": [],
+      "confidence": "LOW",
+      "created_at": "2026-09-04T21:03:49.811749+00:00",
+      "current_contribution_us": 5035.625,
+      "derivation": "Nsight observes 21,204 cuBLAS GEMV launches over 186 decode steps (5.036 ms/step), but source-level dataflow audit shows that vLLM already fuses nearly every dependency-free projection group. The remaining legal QKVZ+BA fusion was exact on all six cheap-screen requests yet regressed TPOT by 5.7%, leaving only higher-risk persistent or segmented schedules with a much smaller likely interval.",
+      "evidence": [
+        {
+          "claim": "Runtime launch counts, logical shape mapping and reachable-candidate residuals.",
+          "path": "models/sm89_nsys_operator_map.json",
+          "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
+        },
+        {
+          "claim": "Source-bound mathematical dependencies, already-fused regions and the one remaining dependency-free projection pair.",
+          "path": "models/qwen35_projection_dataflow_audit.json",
+          "sha256": "c3dc322975b71baabc07bbcc265be25a97cdfa74a9d0958f98d3da2a86564738"
+        },
+        {
+          "claim": "Discovery-only exact-token and timing screen for the legal QKVZ+BA fused projection prototype.",
+          "path": "candidates/gdn-qkvz-ba-fusion/screening_summary.json",
+          "sha256": "cae670b4083bef9933262b024414ab8a6cf58685264daaee4b828d4b747b414c"
+        }
+      ],
+      "hypothesis": "A segmented persistent schedule may remove projection launch overhead without changing the tile-friendly 8192-row QKVZ schedule that the simple concatenation prototype damaged.",
+      "implementation_budget_minutes": 90,
+      "likely_gain_interval_us": {
+        "lower": 20.0,
+        "upper": 120.0
+      },
+      "model_scope": "EMPIRICAL_BOTTLENECK",
+      "name": "Fuse or persist batch-1 decode projections",
+      "observations": [],
+      "opportunity_id": "sm89-decode-projection-fusion",
+      "optimistic_gain_ceiling_us": 300.0,
+      "priority_rank": 4,
+      "priority_score": 0.2722222222222222,
+      "rewrite_families": [
+        "cross-projection-fusion",
+        "persistent-scheduling",
+        "weight-stream-specialization"
+      ],
+      "source_model_term": "Nsight cublas_gemvx time across 114 decode projections",
       "status": "UNIMPLEMENTED"
     },
     {
@@ -288,7 +322,7 @@
     "min_rewrite_families": 4,
     "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes"
   },
-  "ranked_at": "2026-09-04T21:03:51.522801+00:00",
+  "ranked_at": "2026-09-04T21:40:36.780190+00:00",
   "schema_version": "opportunity-map-v1",
   "status": "READY"
 }

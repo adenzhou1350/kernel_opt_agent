@@ -1,12 +1,184 @@
 {
-  "action": "CAPTURE_DISCOVERY_BASELINE",
+  "action": "EXPAND_DISCOVERY_PORTFOLIO",
   "blocking_inputs": [
     {
-      "claim_scope": "DISCOVERY_ONLY",
-      "required": "models/baseline.json status VALID with correctness PASS"
+      "candidate_count": 0,
+      "evaluation_guards": [
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
+                "test distribution",
+                "baseline parity",
+                "memory accounting"
+              ],
+              "family": "evaluation-guard",
+              "name": "held-out verification harness",
+              "template": "Seal public smoke cases for discovery and reserve separate correctness, numerical, and memory cases for finalist verification."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "baseline",
+            "correctness",
+            "kernel",
+            "memory"
+          ],
+          "expected_bottleneck_shifts": [
+            "A candidate that appears faster under a weak harness may disappear after realistic numerical and memory constraints are restored."
+          ],
+          "failure_modes": [
+            "Baseline and candidate use different numerical modes.",
+            "Visible tests let the generator specialize away required generality.",
+            "Latency improves by excessive temporary memory or invalid cached outputs."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Freeze baseline numerical modes, compilation settings, and measurement semantics before search.",
+            "Keep hidden or held-out shape/value cases unavailable to candidate generation.",
+            "Treat peak memory and prohibited fallback paths as first-class acceptance checks."
+          ],
+          "kind": "EVALUATION_GUARD",
+          "method_id": "kernelbench-verified-evaluation",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "kernel",
+            "memory"
+          ],
+          "score": 10.0,
+          "source": {
+            "claim_scope": "Evaluation study of LLM-generated kernels; use as a harness-design warning rather than a transformation recipe.",
+            "evidence_tier": "PRIMARY_PREPRINT",
+            "title": "KernelBench-Verified: Do LLM-Generated Kernels Actually Beat PyTorch?",
+            "url": "https://arxiv.org/abs/2607.16241",
+            "version": "arXiv:2607.16241v1"
+          },
+          "title": "Guard kernel search against benchmark and correctness reward hacking",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Rerun finalists on held-out distributions and adversarial numerical cases.",
+            "Verify that the candidate performs the required work and does not exploit harness gaps.",
+            "Report geometric or workload-weighted aggregate results with failures included."
+          ]
+        }
+      ],
+      "family_count": 0,
+      "next_ranked_uncovered_opportunity": {
+        "affected_stages": [
+          "normalization",
+          "activation",
+          "residual-update"
+        ],
+        "candidate_ids": [],
+        "confidence": "MEDIUM",
+        "created_at": "2026-09-04T21:03:50.388853+00:00",
+        "current_contribution_us": 302.152,
+        "derivation": "Nsight attributes 0.251 ms/step to normalization and 0.051 ms/step to one repeated fused pointwise family; only a subset can be removed because normalization reductions remain mandatory.",
+        "evidence": [
+          {
+            "claim": "Expanded graph timing for normalization and pointwise families.",
+            "path": "models/nsys2025_lmhead_opportunity_map.json",
+            "sha256": "2489e67cd0c268c13ddac379a801630b17908f7f3d7ebbe244e04e4bc5a33026"
+          }
+        ],
+        "hypothesis": "Fold normalization, activation and residual transforms into their producer or consumer while preserving the BF16 numerical contract.",
+        "implementation_budget_minutes": 60,
+        "likely_gain_interval_us": {
+          "lower": 20.0,
+          "upper": 80.0
+        },
+        "model_scope": "CURRENT_SCHEDULE",
+        "name": "Fuse normalization and elementwise epilogues",
+        "observations": [],
+        "opportunity_id": "sm89-normalization-epilogue-fusion",
+        "optimistic_gain_ceiling_us": 150.0,
+        "priority_rank": 1,
+        "priority_score": 0.5416666666666666,
+        "rewrite_families": [
+          "epilogue-fusion",
+          "materialization-elimination"
+        ],
+        "source_model_term": "Normalization plus adjacent pointwise kernels",
+        "status": "UNIMPLEMENTED"
+      },
+      "opportunity_count": 0,
+      "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
+      "required_candidates": 6,
+      "required_families": 4,
+      "required_opportunity_count": 3,
+      "transfer_aware_method_matches": [
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
+                "mathematical decomposition",
+                "fusion boundary",
+                "intermediate ownership"
+              ],
+              "family": "operator-fission",
+              "name": "fission then selective refusion",
+              "template": "Split a compound stage into legal primitives, then fuse each primitive with the consumer that removes the most weighted materialization."
+            },
+            {
+              "change_axes": [
+                "launch count",
+                "materialized bytes",
+                "duplicated compute"
+              ],
+              "family": "cross-stage-fusion",
+              "name": "weighted orchestration frontier",
+              "template": "Implement a small Pareto set spanning minimal launches, minimal bytes, and minimal duplicated work."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "fusion",
+            "operator"
+          ],
+          "expected_bottleneck_shifts": [
+            "Removing launches and intermediates can shift the kernel toward register pressure or redundant computation.",
+            "Fission can expose better fusion boundaries while increasing the orchestration search space."
+          ],
+          "failure_modes": [
+            "Greedy fusion creates a large kernel whose occupancy or instruction cache behavior regresses.",
+            "Fission duplicates expensive work or violates numerical ordering constraints.",
+            "A locally faster stage produces an incompatible downstream layout."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Decompose compound operators into legal primitive regions before selecting fusion boundaries.",
+            "Enumerate orchestration alternatives that include fission-plus-refusion, not only greedy adjacent fusion.",
+            "Score each alternative on weighted end-to-end latency and materialized bytes under explicit compatibility constraints."
+          ],
+          "kind": "ORCHESTRATION",
+          "method_id": "korch-fission-orchestration",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "fusion",
+            "materialization"
+          ],
+          "score": 11.0,
+          "source": {
+            "claim_scope": "Tensor-program orchestration evaluated on V100 and A100; reported speedups do not transfer directly to other workloads or devices.",
+            "evidence_tier": "PEER_REVIEWED_PRIMARY",
+            "title": "Optimal Kernel Orchestration for Tensor Programs with Korch",
+            "url": "https://arxiv.org/abs/2406.09465",
+            "version": "ASPLOS 2024 / arXiv:2406.09465v1"
+          },
+          "title": "Explore fission before choosing global kernel orchestration",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Preserve an unfused and a greedily fused control alongside the selected orchestration.",
+            "Check every workload case because the best fusion boundary may be shape dependent.",
+            "Attribute gains to removed launches/materializations and record any duplicated compute."
+          ]
+        }
+      ]
     }
   ],
   "commands": [],
-  "reason": "candidate discovery needs a correct production baseline, but full resource-model closure is not required yet",
+  "reason": "implement high-ranked, materially different global opportunities before polishing one local idea",
   "schema_version": "optimizer-next-action-v1"
 }
