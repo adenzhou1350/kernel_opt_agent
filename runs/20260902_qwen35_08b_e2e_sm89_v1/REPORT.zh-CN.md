@@ -192,6 +192,45 @@ VLLM_GDN_DECODE_KERNEL=cuda \
 
 因此，“在线把现有 checkpoint 量化一下”并不能直接得到 2 倍。下一次有效的 2 倍尝试应使用明确量化了 dense linear 层的 checkpoint/配置，并先过相同的 2-token launched-mechanism gate。
 
+## 第三轮：怎样在 4060 上真正快过 vLLM
+
+这一轮把问题拆成三个不同合同：严格 BF16、可验证投机、量化运行时。新增 6 类自然请求（中文解释、Python 代码、算术推理、编辑、系统设计、翻译），每类固定生成 128 token，禁用 prefix/prompt cache，1 次 warmup、3 次 measurement，并轮换 case 顺序。
+
+### 投机解码不是这个小模型的答案
+
+合成 prompt 的输出高度周期性，n-gram-4 在该数据上得到 397.89 ms，对默认 vLLM 的 936.15 ms 看似有 2.353x；但换成自然请求后，默认 vLLM 为 940.98 ms，n-gram-4 变成 1813.21 ms（0.519x），且 6/6 输出都与默认路径不同。MTP-1 在自然请求上也只有 1138.91 ms（0.826x），仅 2/6 输出相同。llama.cpp 的 MTP-1 同样从 Q8 默认的 789.22 ms 退化到 1348.59 ms。
+
+因此合成 n-gram 的 2.353x 是 benchmark exploitation，不是可推广的模型加速。agent 现在必须先通过代表性 workload 和输出合同，才能晋级候选。
+
+### 轻量运行时与量化前沿
+
+使用官方 llama.cpp Windows CUDA build `b10700`，将同一 BF16 checkpoint 转成 GGUF BF16，并另测官方 Q8_0、Q4_0。服务器保持常驻、单 slot、全部层在 GPU、Flash Attention 开启、提示缓存关闭。高性能状态下的量化 discovery 如下：
+
+| 路径 | 加权 E2E | 输出速度 | 相对 vLLM BF16 | 数值合同 |
+|---|---:|---:|---:|---|
+| vLLM BF16 | 940.98 ms | 143.4 tok/s | 1.000x | 冻结 BF16 reference |
+| llama.cpp Q8_0 | 789.22 ms | 175.4 tok/s | **1.192x** | 量化，需质量门 |
+| llama.cpp Q4_0 | 700.18 ms | 201.7 tok/s | **1.344x** | 更激进量化，需质量门 |
+
+后段低功耗状态下，llama.cpp BF16 为 2063.14 ms，而相邻时段 vLLM BF16 为 1222.63 ms，前者仍慢 1.687x，并且没有维持逐 token parity。这说明“只换掉 vLLM”并不会赢；实际胜点来自更少权重字节和适合 batch=1 的量化 kernel/轻量服务路径共同作用。
+
+质量 discovery 使用本报告作为中英技术语料，512 context、8 chunks。llama.cpp BF16 perplexity 为 25.4609，Q8_0 为 25.4991（+0.15%），Q4_0 为 27.9038（+9.59%）。这不是下游任务 qualification，但足以把 Q8_0 排为当前质量优先候选，把 Q4_0 标为明确的延迟优先候选。
+
+### 为什么现在还不能承诺稳定 1.34x
+
+本机后段发生明显功耗状态漂移：vLLM 相同自然套件从 940.98 ms 变为 1222.63 ms（1.299x 变慢）；紧邻的 Q4_0 复测为 1147.39 ms，只领先 1.066x。独立的 21 点负载采样记录到中位 26.64 W、核心 780 MHz、显存 8001 MHz、GPU 利用率 87%，而设备默认功耗上限为 80 W。当前数据证明“存在胜出配置”，但还不是电源锁定、随机交错的 qualification。
+
+下一道正式门应是：锁定笔记本性能模式；每个样本记录功耗、核心/显存时钟、温度；vLLM/Q8/Q4 随机交错；至少 3 warmups × 10 trials；再跑真实任务质量集。通过后才能把 1.19x 或 1.34x 写成产品承诺。
+
+新增的可复现入口：
+
+- `tools/benchmark_llamacpp_server.py`：启动持久 llama.cpp server 并跑自然请求套件；
+- `tools/benchmark_llamacpp_perplexity.py`：量化质量 discovery；
+- `tools/summarize_vllm_speculation.py`：识别合成投机假胜利；
+- `tools/summarize_runtime_frontier.py`：合并速度、质量与功耗漂移证据；
+- `models/vllm_speculation_search.json`、`models/runtime_frontier.json`：机器可读决策；
+- `traces/llamacpp_server_natural_*.json`、`traces/llamacpp_quantization_ppl_c512_n8.json`：原始样本、输出与二进制/模型 SHA256。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。

@@ -1,0 +1,133 @@
+{
+  "claim_scope": "RTX_4060_LAPTOP_BATCH1_NATURAL_SUITE_128_OUTPUT_TOKENS",
+  "comparisons": {
+    "degraded_power_adjacent_observation": {
+      "llamacpp_q4_ms": 1147.385700023733,
+      "q4_speedup_vs_vllm": 1.065574973880226,
+      "qualification": "adjacent runs, not randomized interleaving",
+      "vllm_bf16_ms": 1222.6254873333341
+    },
+    "high_power_observation": {
+      "llamacpp_q4_ms": 700.1847999636084,
+      "llamacpp_q8_ms": 789.2187666924049,
+      "q4_speedup_vs_vllm": 1.3439048967961353,
+      "q8_speedup_vs_vllm": 1.192295243151586,
+      "qualification": "not power-controlled",
+      "vllm_bf16_ms": 940.9817813333158
+    },
+    "quality_screen": {
+      "bf16_perplexity": 25.4609,
+      "q4_perplexity": 27.9038,
+      "q4_relative_to_bf16": 1.0959471189156709,
+      "q8_perplexity": 25.4991,
+      "q8_relative_to_bf16": 1.0015003397366158,
+      "qualification": "8-chunk in-domain corpus discovery only"
+    }
+  },
+  "decision": {
+    "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
+    "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
+    "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
+    "strict_bf16": "Keep vLLM. The llama.cpp BF16 route is slower, and no strict token-parity vLLM-beating kernel was found."
+  },
+  "evidence": {
+    "llamacpp_bf16": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_bf16_w1_n3.json",
+      "sha256": "1bddedd387d8a6dc2a0545414daed2a412ace4e1141113fd8bea09d41f5d5a7e"
+    },
+    "power_probe": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q4_0_powerprobe_w1_n1.json",
+      "sha256": "4c4c3c185afc8d4d367d384076f94981c100d3ca6085e4f2e53bd1aee9a66e92"
+    },
+    "ppl": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_quantization_ppl_c512_n8.json",
+      "sha256": "1f4cc78742153ecaf94143e09ca7181ce58b781c6e4e921194d1191ee7517a06"
+    },
+    "q4_fast": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q4_0_w1_n3.json",
+      "sha256": "7c354cd18903b808c442ea23fb55abf3bcda888b0a2437ca4a52b7313f40a436"
+    },
+    "q4_slow": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q4_0_confirm_w1_n3.json",
+      "sha256": "3ffdaeefb2824bf3f9ed1dd98c62f7d17e36c5f7b8c4c0ac5d283256c0e9f726"
+    },
+    "q8_fast": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q8_0_w1_n3.json",
+      "sha256": "187b876c1f3ca4497a9ff1d5b1385e8e187843eddfcde914ff2d9096a512a669"
+    },
+    "q8_mtp": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q8_0_mtp1_w1_n3.json",
+      "sha256": "d73b27a7792798d4ae3ade767df0a751a6a92056cfd98202081a158396de2ad2"
+    },
+    "vllm_fast": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_baseline_w1_n3.json",
+      "sha256": "f5e378913737a48f1dc0aac9f9c52d609373432b800e1d9870c435926709e8a0"
+    },
+    "vllm_slow": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_baseline_confirm_w1_n3.json",
+      "sha256": "6f290ed1bb4ff1f7b39fbbf6b9d5b1e47dc9da546426ffa8f33bb370cdc8a5f4"
+    }
+  },
+  "measurement_risk": {
+    "observed_absolute_latency_drift": 1.299308351752513,
+    "power_probe_median_gpu_utilization_percent": 87.0,
+    "power_probe_median_graphics_clock_mhz": 780.0,
+    "power_probe_median_memory_clock_mhz": 8001.0,
+    "power_probe_median_power_w": 26.64,
+    "power_probe_sample_count": 21,
+    "required_next_gate": "Lock power mode, record clocks/power per sample, randomize runtime order, then run at least 3 warmups and 10 trials."
+  },
+  "measurements": {
+    "llamacpp_bf16": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_bf16_w1_n3.json",
+      "evidence_sha256": "1bddedd387d8a6dc2a0545414daed2a412ace4e1141113fd8bea09d41f5d5a7e",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 63.75295738664547,
+      "weighted_e2e_ms": 2063.143799973962
+    },
+    "q4_fast": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q4_0_w1_n3.json",
+      "evidence_sha256": "7c354cd18903b808c442ea23fb55abf3bcda888b0a2437ca4a52b7313f40a436",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 201.7156988617927,
+      "weighted_e2e_ms": 700.1847999636084
+    },
+    "q4_slow": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q4_0_confirm_w1_n3.json",
+      "evidence_sha256": "3ffdaeefb2824bf3f9ed1dd98c62f7d17e36c5f7b8c4c0ac5d283256c0e9f726",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 119.20870529908065,
+      "weighted_e2e_ms": 1147.385700023733
+    },
+    "q8_fast": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q8_0_w1_n3.json",
+      "evidence_sha256": "187b876c1f3ca4497a9ff1d5b1385e8e187843eddfcde914ff2d9096a512a669",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 175.36930884265456,
+      "weighted_e2e_ms": 789.2187666924049
+    },
+    "q8_mtp": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\llamacpp_server_natural_q8_0_mtp1_w1_n3.json",
+      "evidence_sha256": "d73b27a7792798d4ae3ade767df0a751a6a92056cfd98202081a158396de2ad2",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 101.9814090172409,
+      "weighted_e2e_ms": 1348.5935666443158
+    },
+    "vllm_fast": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_baseline_w1_n3.json",
+      "evidence_sha256": "f5e378913737a48f1dc0aac9f9c52d609373432b800e1d9870c435926709e8a0",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 143.3320724456681,
+      "weighted_e2e_ms": 940.9817813333158
+    },
+    "vllm_slow": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_baseline_confirm_w1_n3.json",
+      "evidence_sha256": "6f290ed1bb4ff1f7b39fbbf6b9d5b1e47dc9da546426ffa8f33bb370cdc8a5f4",
+      "status": "PASS",
+      "weighted_decode_tokens_per_second": 109.31311592262013,
+      "weighted_e2e_ms": 1222.6254873333341
+    }
+  },
+  "schema_version": "qwen35-runtime-frontier-v1",
+  "status": "DISCOVERY_COMPLETE_QUALIFICATION_PENDING"
+}
