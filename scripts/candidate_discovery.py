@@ -18,7 +18,7 @@ from opportunity_map import load_map as load_opportunity_map, map_path as opport
 
 
 POOL_SCHEMA = "candidate-pool-v1"
-SMOKE_SCHEMA = "candidate-smoke-result-v1"
+SMOKE_SCHEMA = "candidate-smoke-result-v2"
 ACTIVE_STATUSES = {"PROPOSED", "DEVELOPING"}
 
 
@@ -238,10 +238,10 @@ def record_failure(pool: dict, item: dict, attempt_record: dict, reason: str) ->
     })
 
 
-def validate_smoke_result(path: Path, item: dict) -> tuple[dict, float]:
+def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, float]:
     result = read_object(path)
     if result.get("schema_version") != SMOKE_SCHEMA or result.get("status") != "PASS":
-        raise ValueError("smoke result must record candidate-smoke-result-v1 PASS")
+        raise ValueError("smoke result must record candidate-smoke-result-v2 PASS")
     if result.get("candidate_id") != item["candidate_id"]:
         raise ValueError("smoke result candidate_id mismatch")
     cases = result.get("cases")
@@ -250,6 +250,35 @@ def validate_smoke_result(path: Path, item: dict) -> tuple[dict, float]:
     roles = {case.get("role") for case in cases if isinstance(case, dict)}
     if not {"ANCHOR", "EDGE"} <= roles:
         raise ValueError("smoke result must cover ANCHOR and EDGE roles")
+    reachability = result.get("reachability")
+    if not isinstance(reachability, dict) or reachability.get("status") != "PASS":
+        raise ValueError("smoke result requires reachability.status PASS")
+    expected_path = reachability.get("expected_path")
+    observed_path = reachability.get("observed_path")
+    if not isinstance(expected_path, str) or not expected_path:
+        raise ValueError("reachability.expected_path must be non-empty")
+    if observed_path != expected_path:
+        raise ValueError("candidate execution path was not reached")
+    if reachability.get("compile_cache_policy") not in {
+        "FRESH",
+        "SOURCE_HASHED",
+        "NOT_COMPILED",
+    }:
+        raise ValueError("reachability.compile_cache_policy is missing or unsupported")
+    reachability_evidence = reachability.get("evidence")
+    if not isinstance(reachability_evidence, list) or not reachability_evidence:
+        raise ValueError("reachability requires hash-bound evidence")
+    for index, identity in enumerate(reachability_evidence):
+        if not isinstance(identity, dict):
+            raise ValueError(f"reachability evidence {index} must be an object")
+        evidence_path = run_path(
+            run,
+            identity.get("path"),
+            f"reachability evidence {index}",
+            must_exist=True,
+        )
+        if identity.get("sha256") != digest(evidence_path):
+            raise ValueError(f"reachability evidence {index} SHA256 mismatch")
     objective = result.get("objective", {})
     direction = objective.get("direction")
     if direction not in {"minimize", "maximize"}:
@@ -429,7 +458,7 @@ def command_run(args: argparse.Namespace) -> dict:
         atomic_json(pool_path(run), pool)
         return {"candidate_id": item["candidate_id"], "status": item["status"], "reason": record["reason"]}
     try:
-        smoke, improvement = validate_smoke_result(smoke_path, item)
+        smoke, improvement = validate_smoke_result(run, smoke_path, item)
     except ValueError as error:
         record_failure(pool, item, record, f"INVALID_SMOKE_RESULT: {error}")
         atomic_json(attempt / "attempt.json", record)
@@ -521,6 +550,9 @@ def command_promote(args: argparse.Namespace) -> dict:
         "expected_global_effect": item["expected_global_effect"],
         "source_identities": source_identities(run, item),
         "screening": item["screening"],
+        "reachability": read_object(
+            run_path(run, item["screening"]["result"]["path"], "screening result", must_exist=True)
+        )["reachability"],
         "prediction_check": item["prediction_check"],
         "claims_allowed": ["candidate survived discovery screening and may enter supervised qualification"],
         "claims_forbidden": ["production acceptance", "SOTA", "theoretical limit", "portable hardware fact"],

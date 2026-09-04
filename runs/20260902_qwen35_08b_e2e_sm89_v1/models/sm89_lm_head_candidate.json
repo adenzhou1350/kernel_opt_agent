@@ -1,0 +1,51 @@
+{
+  "schema_version": "kernel-candidate-evidence-v1",
+  "candidate": "vllm-sm89-bf16-qwen35-08b-lm-head-gemv",
+  "status": "QUALIFIED_DISCOVERY_WINNER",
+  "scope": {
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "compute_capability": "8.9",
+    "runtime": "vLLM 0.28.1rc1.dev312+g41848caa6",
+    "model": "Qwen3.5-0.8B",
+    "dtype": "bfloat16",
+    "batch_size": 1,
+    "projection_shape": [1, 248320, 1024]
+  },
+  "mechanism": "Replace torch/cuBLAS M=1 BF16 lm_head linear with an SM89-specialized Triton GEMV; keep every model weight and the sampler contract unchanged.",
+  "configuration": {
+    "block_n": 4,
+    "block_k": 1024,
+    "num_warps": 8,
+    "num_stages": 1
+  },
+  "qualification": {
+    "prompt_suite": "six natural requests",
+    "warmups": 3,
+    "trials": 10,
+    "generated_tokens_per_request": 128,
+    "stock_weighted_e2e_ms": 1262.6712566666733,
+    "candidate_weighted_e2e_ms": 1070.3661334999997,
+    "e2e_speedup": 1.1796629369595741,
+    "stock_weighted_tpot_ms": 9.623029452099763,
+    "candidate_weighted_tpot_ms": 8.12794336614178,
+    "tpot_speedup": 1.1839439595735863,
+    "exact_generated_token_cases": "6/6",
+    "candidate_median_graphics_clock_mhz": 915.0,
+    "stock_median_graphics_clock_mhz": 930.0,
+    "candidate_median_power_w": 37.7,
+    "stock_median_power_w": 37.025,
+    "candidate_trace": "../traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json",
+    "stock_trace": "../traces/vllm_natural_stock_qual_o_w3_n10.json"
+  },
+  "numerics": {
+    "claim": "The six qualification sequences are token-exact; the kernel is not claimed bitwise-equal for every possible input.",
+    "main_backbone_extension": "REJECT",
+    "main_backbone_reason": "Fresh-cache execution changed 4/6 generated sequences while adding only about one percentage point of speedup."
+  },
+  "installation": {
+    "patch": "../patches/vllm_0.28.1_sm89_bf16_lm_head.patch",
+    "stock_utils_sha256": "bc4f5701aad407bdd5a7f02872dfb1e14b75d247199619e218482555451502fe",
+    "qualified_candidate_utils_sha256": "22a62ced476858c5e1182f106a4ad5e87dc946297d24f77e5c8099147a042724"
+  },
+  "claim_limit": "This is a single-request latency result on one SM89 laptop GPU, not a throughput or cross-hardware SOTA claim."
+}

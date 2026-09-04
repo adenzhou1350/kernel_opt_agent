@@ -25,12 +25,25 @@
     },
     "strict_bf16_gdn_launch_candidate": {
       "candidate": "packed recurrent decode launch sweep",
-      "candidate_num_stages_2_e2e_ms": 1105.619938833333,
-      "candidate_bv64_stages_4_e2e_ms": 1227.1380496666661,
-      "stock_num_stages_3_e2e_ms": 1058.5819548333195,
-      "candidate_num_stages_2_speedup": 0.957453765118977,
-      "candidate_bv64_stages_4_speedup": 0.862642877461219,
-      "decision": "REJECT: both apparent isolated-kernel winners lost the adjacent full-model A/B by 4.44% and 15.93% respectively"
+      "retracted_runs": "The original full-model runs selected the CUDA GDN backend, so edits to the Triton wrapper were unreachable and their apparent regressions cannot be attributed to the candidates.",
+      "reachable_candidate_bv64_stages_4_e2e_ms": 990.432,
+      "reachable_candidate_bv64_stages_4_tpot_ms": 7.5184,
+      "reachable_stock_num_stages_3_e2e_ms": 893.916,
+      "reachable_stock_num_stages_3_tpot_ms": 6.7891,
+      "reachable_candidate_speedup": 0.902529,
+      "decision": "REJECT: after forcing VLLM_GDN_DECODE_KERNEL=triton, the candidate was token-exact but 10.8% slower"
+    },
+    "strict_bf16_sm89_lm_head": {
+      "candidate": "SM89-specialized BF16 M=1 lm_head Triton GEMV",
+      "stock_e2e_ms": 1262.6712566666733,
+      "candidate_e2e_ms": 1070.3661334999997,
+      "e2e_speedup": 1.1796629369595741,
+      "stock_tpot_ms": 9.623029452099763,
+      "candidate_tpot_ms": 8.12794336614178,
+      "tpot_speedup": 1.1839439595735863,
+      "exact_generated_token_cases": "6/6",
+      "qualification": "3 warmups x 10 trials per side with per-request GPU telemetry",
+      "decision": "PROMOTE as a qualified discovery winner for SM89 batch-1 latency"
     },
     "vllm_awq_marlin_rejected": {
       "raw_e2e_ms_before_quality_gate": 888.2399943333513,
@@ -45,7 +58,7 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Keep stock vLLM. The llama.cpp BF16 route is slower; both exact GDN launch candidates lost adjacent full-model A/B tests; no strict token-parity vLLM-beating kernel was found.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: 1.180x E2E and 1.184x TPOT over adjacent stock vLLM with 6/6 token-exact natural cases. Reject the wider backbone GEMV extension and the reachable GDN launch candidate.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
@@ -101,6 +114,30 @@
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_gdn_bv64_s4_c_w1_n3.json",
       "sha256": "cda85290a5aeaf4545be6e9eb1b82eb2ab13656378e4a8ed4279a38b40eb4962"
     },
+    "gdn_candidate_bv64_s4_reachable": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_gdn_triton_bv64_s4_reachable_w1_n1.json",
+      "sha256": "d640a085aa8f8cac474cd8756947e85b0278afb97f69fafe557e75624ec22311"
+    },
+    "gdn_stock_s3_reachable": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_gdn_triton_stock_reachable_e_w1_n1.json",
+      "sha256": "ba3ca6d154350b7c065c7d12f9e721a92a81caf58bf9a0c89a730c63a7337d7c"
+    },
+    "sm89_lm_head_microbenchmark": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\microbench_candidates\\bf16_triton_gemv_sm89.json",
+      "sha256": "bb282d614e2a32a231fdf958272b2ec1e74e9b2ab8ba6c5b2edbe9b175245c52"
+    },
+    "sm89_lm_head_candidate_qualification": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json",
+      "sha256": "1c81388272aa059cbcf94dae7aa5b63a006163e4824c372e73c34600713567cd"
+    },
+    "sm89_lm_head_stock_qualification": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_stock_qual_o_w3_n10.json",
+      "sha256": "942eba3c580810fc26d013c351eb13146d795cc096624796b036eb30cacf4601"
+    },
+    "sm89_backbone_extension_rejected": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_main_gemv_freshcache_m_w1_n1.json",
+      "sha256": "28e5e6f754d6916ca05cfd6b91288e0735b6c3e05b2face4130e086700914e48"
+    },
     "vllm_awq_quality_gate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_awq_int4_marlin_qualitygate_w1_n1.json",
       "sha256": "1c97d321f302fc5bdce6674c2b31470cd81723f568bbb888ae3429791ed19860"
@@ -117,7 +154,7 @@
     "power_probe_median_memory_clock_mhz": 8001.0,
     "power_probe_median_power_w": 26.64,
     "power_probe_sample_count": 21,
-    "required_next_gate": "Lock power mode, record clocks/power per sample, randomize runtime order, then run at least 3 warmups and 10 trials."
+    "required_next_gate": "For a production claim, repeat randomized stock/candidate process order under a locked power mode and add a larger task-quality suite; the 3x10 same-state discovery gate is complete."
   },
   "measurements": {
     "llamacpp_bf16": {
@@ -168,8 +205,22 @@
       "status": "PASS",
       "weighted_decode_tokens_per_second": 109.31311592262013,
       "weighted_e2e_ms": 1222.6254873333341
+    },
+    "vllm_stock_qualified_adjacent": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_stock_qual_o_w3_n10.json",
+      "evidence_sha256": "942eba3c580810fc26d013c351eb13146d795cc096624796b036eb30cacf4601",
+      "status": "PASS",
+      "weighted_tpot_ms": 9.623029452099763,
+      "weighted_e2e_ms": 1262.6712566666733
+    },
+    "vllm_sm89_lm_head_qualified": {
+      "evidence": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json",
+      "evidence_sha256": "1c81388272aa059cbcf94dae7aa5b63a006163e4824c372e73c34600713567cd",
+      "status": "PASS",
+      "weighted_tpot_ms": 8.12794336614178,
+      "weighted_e2e_ms": 1070.3661334999997
     }
   },
   "schema_version": "qwen35-runtime-frontier-v1",
-  "status": "DISCOVERY_COMPLETE_QUALIFICATION_PENDING"
+  "status": "STRICT_BF16_DISCOVERY_WINNER_QUALIFIED_PRODUCTION_REPLICATION_PENDING"
 }

@@ -110,6 +110,80 @@ def nvcc_release() -> str | None:
     return match.group(1) if match else None
 
 
+def gpu_telemetry() -> dict | None:
+    """Take a cheap point sample so power-state drift cannot stay invisible."""
+    fields = (
+        "pstate,power.draw,clocks.current.graphics,clocks.current.memory,"
+        "temperature.gpu,utilization.gpu"
+    )
+    try:
+        completed = subprocess.run(
+            [
+                "nvidia-smi",
+                f"--query-gpu={fields}",
+                "--format=csv,noheader,nounits",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        values = [
+            value.strip()
+            for value in completed.stdout.splitlines()[0].split(",")
+        ]
+        if len(values) != 6:
+            raise ValueError(f"unexpected nvidia-smi row: {values!r}")
+        return {
+            "pstate": values[0],
+            "power_w": float(values[1]),
+            "graphics_clock_mhz": float(values[2]),
+            "memory_clock_mhz": float(values[3]),
+            "temperature_c": float(values[4]),
+            "utilization_percent": float(values[5]),
+        }
+    except (FileNotFoundError, IndexError, subprocess.SubprocessError, ValueError):
+        return None
+
+
+def expected_source_hashes(specs: list[str]) -> dict[str, str]:
+    """Validate PATH=SHA256 guards before an expensive engine startup."""
+    observed = {}
+    for spec in specs:
+        try:
+            raw_path, expected = spec.rsplit("=", 1)
+        except ValueError as exc:
+            raise ValueError(
+                f"invalid --expect-source-sha256 {spec!r}; expected PATH=SHA256"
+            ) from exc
+        path = Path(raw_path).expanduser().resolve()
+        expected = expected.lower()
+        if not re.fullmatch(r"[0-9a-f]{64}", expected):
+            raise ValueError(f"invalid SHA256 in source guard: {expected!r}")
+        actual = sha256(path)
+        if actual != expected:
+            raise RuntimeError(
+                "candidate source mismatch: "
+                f"{path} expected {expected}, observed {actual}"
+            )
+        observed[str(path)] = actual
+    return observed
+
+
+def require_empty_vllm_cache_root(cache_root_raw: str | None) -> str:
+    """Reject a candidate run that could silently reuse a compiled graph."""
+    if not cache_root_raw:
+        raise RuntimeError(
+            "--require-empty-vllm-cache-root needs an explicit VLLM_CACHE_ROOT"
+        )
+    cache_root = Path(cache_root_raw).expanduser().resolve()
+    if cache_root.exists() and any(cache_root.iterdir()):
+        raise RuntimeError(
+            f"candidate path may be stale: VLLM_CACHE_ROOT is not empty: {cache_root}"
+        )
+    return str(cache_root)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
@@ -128,6 +202,31 @@ def main() -> None:
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.70)
     parser.add_argument("--kv-cache-memory-bytes", type=int, default=None)
     parser.add_argument("--enforce-eager", action="store_true")
+    parser.add_argument(
+        "--expect-gdn-decode-kernel",
+        choices=("cuda", "triton"),
+        help="Fail before engine startup unless the requested candidate path is selected.",
+    )
+    parser.add_argument(
+        "--gpu-telemetry",
+        action="store_true",
+        help="Record nvidia-smi point samples immediately before and after each request.",
+    )
+    parser.add_argument(
+        "--expect-source-sha256",
+        action="append",
+        default=[],
+        metavar="PATH=SHA256",
+        help="Fail before engine startup unless a candidate source file has this hash.",
+    )
+    parser.add_argument(
+        "--require-empty-vllm-cache-root",
+        action="store_true",
+        help=(
+            "Require VLLM_CACHE_ROOT to name an absent or empty directory, proving "
+            "that a source candidate is compiled into a fresh graph."
+        ),
+    )
     parser.add_argument("--max-num-seqs", type=int, default=None)
     parser.add_argument("--max-num-batched-tokens", type=int, default=None)
     parser.add_argument(
@@ -182,6 +281,20 @@ def main() -> None:
         raise ValueError("ngram-speculative-tokens must be non-negative")
     if args.speculative_tokens and args.ngram_speculative_tokens:
         raise ValueError("MTP and n-gram speculation are mutually exclusive")
+    guarded_sources = expected_source_hashes(args.expect_source_sha256)
+    cache_root_raw = os.environ.get("VLLM_CACHE_ROOT")
+    if args.require_empty_vllm_cache_root:
+        cache_root_raw = require_empty_vllm_cache_root(cache_root_raw)
+    actual_gdn_kernel = os.environ.get("VLLM_GDN_DECODE_KERNEL", "cuda").lower()
+    if (
+        args.expect_gdn_decode_kernel is not None
+        and actual_gdn_kernel != args.expect_gdn_decode_kernel
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: "
+            f"expected VLLM_GDN_DECODE_KERNEL={args.expect_gdn_decode_kernel}, "
+            f"got {actual_gdn_kernel!r}"
+        )
     if args.ngram_prompt_lookup_min < 1:
         raise ValueError("ngram-prompt-lookup-min must be positive")
     if args.ngram_prompt_lookup_max < args.ngram_prompt_lookup_min:
@@ -292,9 +405,11 @@ def main() -> None:
     init_seconds = time.perf_counter() - init_started
 
     def request(case_id: str, phase: str, iteration: int) -> dict:
+        telemetry_before = gpu_telemetry() if args.gpu_telemetry else None
         started = time.perf_counter()
         outputs = llm.generate({"prompt_token_ids": prompts[case_id]}, params, use_tqdm=False)
         wall_seconds = time.perf_counter() - started
+        telemetry_after = gpu_telemetry() if args.gpu_telemetry else None
         output = outputs[0]
         token_ids = list(output.outputs[0].token_ids)
         stats = output.metrics
@@ -315,6 +430,8 @@ def main() -> None:
             "tpot_ms": decode_seconds * 1000.0 / decode_intervals,
             "output_tokens_per_second": decode_intervals / decode_seconds if decode_seconds > 0 else None,
             "engine_metrics": raw_stats,
+            "gpu_telemetry_before": telemetry_before,
+            "gpu_telemetry_after": telemetry_after,
         }
 
     samples: list[dict] = []
@@ -389,6 +506,8 @@ def main() -> None:
             "vllm_enable_fla_packed_recurrent_decode": os.environ.get(
                 "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE", "1(default)"
             ),
+            "vllm_cache_root": cache_root_raw,
+            "guarded_source_sha256": guarded_sources,
         },
         "controls": {
             "language_model_only": True,
@@ -398,6 +517,10 @@ def main() -> None:
             "max_model_len": 4096,
             "enable_prefix_caching": False,
             "enforce_eager": args.enforce_eager,
+            "expected_gdn_decode_kernel": args.expect_gdn_decode_kernel,
+            "actual_gdn_decode_kernel": actual_gdn_kernel,
+            "gpu_telemetry": args.gpu_telemetry,
+            "require_empty_vllm_cache_root": args.require_empty_vllm_cache_root,
             "gpu_memory_utilization": args.gpu_memory_utilization,
             "kv_cache_memory_bytes": args.kv_cache_memory_bytes,
             "max_num_seqs": args.max_num_seqs,

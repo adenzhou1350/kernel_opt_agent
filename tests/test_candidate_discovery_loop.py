@@ -66,13 +66,24 @@ def main() -> None:
         write(workspace / "correctness.py", "raise SystemExit(0)\n")
         write(workspace / "smoke.py", """
 import json
+import hashlib
 from pathlib import Path
 result = {
-    "schema_version": "candidate-smoke-result-v1",
+    "schema_version": "candidate-smoke-result-v2",
     "status": "PASS",
     "candidate_id": "c1",
     "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us_weighted"},
     "cases": [{"case_id": "anchor", "role": "ANCHOR"}, {"case_id": "edge", "role": "EDGE"}],
+    "reachability": {
+        "status": "PASS",
+        "expected_path": "test-candidate-kernel",
+        "observed_path": "test-candidate-kernel",
+        "compile_cache_policy": "NOT_COMPILED",
+        "evidence": [{
+            "path": "candidates/c1/workspace/kernel.py",
+            "sha256": hashlib.sha256(Path("kernel.py").read_bytes()).hexdigest(),
+        }],
+    },
 }
 Path('../smoke.json').write_text(json.dumps(result))
 """.lstrip())
