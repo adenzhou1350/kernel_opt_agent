@@ -95,7 +95,10 @@
       },
       "model_scope": "CURRENT_SCHEDULE",
       "name": "Fuse normalization and elementwise epilogues",
-      "observations": [],
+      "observations": [
+        "Reusing the MTP fused post-convolution+normalization kernel for ordinary decode was reachable and 6/6 token-exact, but regressed E2E by 3.24% and changed TPOT by only -0.44%.",
+        "Reject this implementation family for ordinary one-token decode; its fixed work exceeds the saved launch cost."
+      ],
       "opportunity_id": "sm89-normalization-epilogue-fusion",
       "optimistic_gain_ceiling_us": 150.0,
       "priority_rank": 1,
@@ -105,7 +108,7 @@
         "materialization-elimination"
       ],
       "source_model_term": "Normalization plus adjacent pointwise kernels",
-      "status": "UNIMPLEMENTED"
+      "status": "REJECTED_MEASURED"
     },
     {
       "affected_stages": [
@@ -220,7 +223,11 @@
       },
       "model_scope": "EMPIRICAL_BOTTLENECK",
       "name": "Fuse or persist batch-1 decode projections",
-      "observations": [],
+      "observations": [
+        "The segmented QKVZ+BA Triton prototype was observed exactly 3,348 times by Nsight and reduced projection launches from 36 to 18 per decode step.",
+        "Standalone C-S-S-C delivered 1.036x E2E and 1.040x TPOT over the lm_head baseline, while direct stock-to-combined C-S-S-C delivered 1.190x E2E and 1.200x TPOT.",
+        "The candidate is deterministic within mode but only 3/6 token-exact against stock at 64 tokens, so it remains a numerically compatible discovery pending a task-quality gate."
+      ],
       "opportunity_id": "sm89-decode-projection-fusion",
       "optimistic_gain_ceiling_us": 300.0,
       "priority_rank": 4,
@@ -231,7 +238,7 @@
         "weight-stream-specialization"
       ],
       "source_model_term": "Nsight cublas_gemvx time across 114 decode projections",
-      "status": "UNIMPLEMENTED"
+      "status": "DISCOVERY_PASS_QUALITY_PENDING"
     },
     {
       "affected_stages": [

@@ -576,6 +576,9 @@ def main() -> None:
             "vllm_sm89_bf16_gemv": os.environ.get(
                 "VLLM_SM89_BF16_GEMV", "none(default)"
             ),
+            "vllm_sm89_segmented_gdn_projection": os.environ.get(
+                "VLLM_SM89_SEGMENTED_GDN_PROJECTION", "0(default)"
+            ),
             "vllm_enable_fla_packed_recurrent_decode": os.environ.get(
                 "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE", "1(default)"
             ),

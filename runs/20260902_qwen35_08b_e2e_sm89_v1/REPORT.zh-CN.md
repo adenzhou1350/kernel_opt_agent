@@ -420,6 +420,60 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 
 正式比较 stock 时使用同一份已打补丁源码，取消 `VLLM_SM89_BF16_LM_HEAD`，并指定 `--expect-sm89-lm-head stock`；这样无需通过反向打补丁制造两份不同源码。若修改的是编译图内部路径，还应给每个候选设置独立、初始为空的 `VLLM_CACHE_ROOT` 并增加 `--require-empty-vllm-cache-root`；本候选的 `lm_head` 位于已编译 backbone 之外，但仍保留 source hash 与实际路径门以防跑错版本。
 
+### 第十一轮：不量化，直接在 vLLM 内继续压缩 BF16 decode
+
+这一轮专门回答“vLLM 是否已经最优、量化是否必然更快”。结论是否定的：vLLM 优化的是多模型、多 GPU、多 batch/并发与通用接口的生产折中，不是 RTX 4060 Laptop、Qwen3.5-0.8B、batch=1、固定 decode shape 的理论最优。量化能减少权重流量，但也增加反量化、类型转换、量化 kernel 覆盖与质量校准成本；当 LM-head、kernel launch、采样或状态更新占主导时，量化并不自动兑现等比例端到端收益。
+
+先尝试复用 vLLM 已存在的 MTP fused GDN post-convolution+normalization kernel处理普通单 token decode。候选可达且 6/6 token 完全一致，但 E2E 只有 **0.968x**、TPOT **0.996x**；MTP kernel 的固定工作抵消了少一次 normalization launch 的收益，立即淘汰。这是 opportunity map 中 normalization/epilogue 方向的有证据止损，不再继续扫参数。
+
+随后实现了分段 GDN 投影：QKVZ `8192x1024` 和 BA `32x1024` 仍使用各自适合的 tile，但由一个 Triton launch 分派两个 segment，避免上一轮粗暴拼成 8224 行破坏主投影调度。结果分三层验证：
+
+| 证据层 | stock | candidate | 结果 |
+|---|---:|---:|---:|
+| 热缓存孤立投影 | 91.135 us | 51.343 us | **1.775x** |
+| 64 MiB 驱逐后的冷缓存投影 | 111.616 us | 99.328 us | **1.124x** |
+| lm-head 已开启的整模型 C-S-S-C | TPOT 8.280 ms | TPOT 7.961 ms | **1.040x** |
+
+Nsight Systems 2025.5.1 在 186 个 decode step 中观察到候选 kernel **3348/3348** 次，恰好等于 18 个 GDN 层乘 186；每 step 的投影调用由 36 次降为 18 次，cuBLAS 总调用由 114 次降为 78 次。说明收益来自真正进入生产图的 launch/调度变化，而不是不可达代码或只在微基准成立。
+
+最后使用相同 vLLM 源码和 BF16 模型做直接 C-S-S-C：对照关闭两个专用开关，候选同时开启 SM89 lm-head 与 segmented GDN；首个 control/candidate 各用独立空编译缓存，六个自然请求、每请求 64 token、每进程 1 次 warmup + 3 次测量。
+
+| 前沿 | 加权 E2E | 加权 TPOT | 约合 decode tok/s | 相对原版 BF16 vLLM | 跨模式 token 一致性 |
+|---|---:|---:|---:|---:|---:|
+| 原版 vLLM 均值 | 653.063 ms | 9.750 ms | 102.6 | 1.000x | 基准 |
+| 组合 BF16 均值 | 548.625 ms | 8.125 ms | 123.1 | **1.190x E2E / 1.200x TPOT** | 3/6 |
+| 严格 BF16 前沿（先前 128-token qualification） | 见 `models/sm89_lm_head_abba.json` | 见同左 | — | **1.193x E2E / 1.199x TPOT** | **6/6** |
+
+两次 control 彼此 6/6 相等，两次组合候选也彼此 6/6 相等；组合路径是确定性的。模式之间只有 3/6 完全相同，原因是 segmented Triton 与 cuBLAS 的 BF16 归约顺序不同，小数值差异在 greedy 临界 logits 上经自回归放大。因此这里明确保留两条前沿：
+
+- **严格前沿**仍是 lm-head-only：对 stock 6/6 token-exact，已有 128-token、同源 C-S-S-C 的约 1.20x 证据。
+- **数值兼容 discovery 前沿**是 lm-head + segmented GDN：本次直接 BF16 对照同样约 1.20x，并证明 GDN 局部还有约 4%，但在更大任务质量评测前不能宣传为生产 winner，更不能把 BF16 标签当作 bitwise-equivalent。
+
+只替换后半 GDN 层的折中也已测试：E2E **0.994x**、TPOT **1.003x**，跨模式仍为 3/6 exact，因此同时失去物质性收益与严格复现价值，已经淘汰。这个结果阻止 agent 在“选哪些层”上继续无界组合搜索。
+
+复现激进候选时，先应用已有 lm-head 补丁，再应用：
+
+```bash
+cd /home/aden/.venvs/qwen35-vllm-4060/lib/python3.12/site-packages
+git apply --ignore-space-change /mnt/d/codes/kernel_opt_agent/runs/20260902_qwen35_08b_e2e_sm89_v1/candidates/gdn-segmented-projection/vllm_qwen_gdn_segmented_projection.patch
+
+VLLM_USE_V2_MODEL_RUNNER=0 \
+VLLM_USE_FLASHINFER_SAMPLER=0 \
+VLLM_GDN_DECODE_KERNEL=cuda \
+VLLM_SM89_BF16_LM_HEAD=1 \
+VLLM_SM89_SEGMENTED_GDN_PROJECTION=all \
+VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
+/home/aden/.venvs/qwen35-vllm-4060/bin/python /mnt/d/codes/kernel_opt_agent/runs/20260902_qwen35_08b_e2e_sm89_v1/tools/benchmark_vllm_offline.py \
+  --model /home/aden/models/Qwen3.5-0.8B \
+  --output traces/reproduction_combined.json \
+  --prompt-suite natural --new-tokens 64 --warmups 1 --trials 3 \
+  --max-num-seqs 1 --kv-cache-memory-bytes 536870912 \
+  --expect-gdn-decode-kernel cuda --expect-sm89-lm-head triton \
+  --require-empty-vllm-cache-root --gpu-telemetry
+```
+
+机器可读总表为 `models/sm89_combined_bf16_frontier.json`，候选机制、冷/热缓存、Nsight 与淘汰实验为 `candidates/gdn-segmented-projection/summary.json`。这轮证明的是“同精度通用框架仍有约 20% 专用化空间”，不是理论全局最优；要继续接近最优，应优先做质量门和更低层的持久化/图边界改写，而不是默认转向量化或继续扫无关 launch 参数。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -460,6 +514,8 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 - `models/sm89_lm_head_abba.json`
 - `models/sm89_selective_backbone_ablations.json`
 - `models/sm89_nsys_operator_map.json`
+- `models/sm89_combined_bf16_frontier.json`
+- `models/nsys2025_gdn_segmented_candidate_map.json`
 - `models/nsys2025_lmhead_opportunity_map.json`
 - `models/nsys2025_reachable_gdnqkvz_map.json`
 - `models/nsys2025_reachable_all_map.json`
@@ -468,6 +524,8 @@ VLLM_SM89_BF16_LM_HEAD=1 \
 - `models/qwen35_projection_dataflow_audit.json`
 - `models/opportunity_specs/*.json`
 - `candidates/gdn-qkvz-ba-fusion/screening_summary.json`
+- `candidates/gdn-segmented-projection/summary.json`
+- `candidates/gdn-segmented-projection/vllm_qwen_gdn_segmented_projection.patch`
 - `profiles/nsys2025_lmhead_candidate_nodes.sqlite`
 - `profiles/nsys2025_reachable_gdnqkvz_b.sqlite`
 - `profiles/nsys2025_reachable_all_b.sqlite`

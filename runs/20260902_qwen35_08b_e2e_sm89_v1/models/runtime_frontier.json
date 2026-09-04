@@ -78,6 +78,29 @@
       "decision": "REJECT: real but small and power-sensitive gain; fails the frozen token-exact contract",
       "supersedes": "The earlier fresh-cache ablations were unreachable and are retracted as causal evidence."
     },
+    "bf16_sm89_segmented_gdn_projection": {
+      "candidate": "single-launch segmented QKVZ+BA projection that preserves independent output tiling",
+      "microbenchmark_warm_speedup": 1.775,
+      "microbenchmark_cold_speedup": 1.12371,
+      "nsys_reachability": "PASS: expected and observed 3,348 candidate kernel instances",
+      "standalone_e2e_speedup_over_lm_head_baseline": 1.03629,
+      "standalone_tpot_speedup_over_lm_head_baseline": 1.04006,
+      "cross_mode_exact_generated_token_cases": "3/6",
+      "decision": "RETAIN as a deterministic numerically-compatible discovery; do not promote to the strict token-exact frontier before a task-quality gate"
+    },
+    "bf16_sm89_combined_direct_cssc": {
+      "candidate": "SM89 BF16 lm_head plus all-layer segmented GDN projection",
+      "stock_mean_e2e_ms": 653.0632908333421,
+      "candidate_mean_e2e_ms": 548.6253730000167,
+      "e2e_speedup": 1.19036296809836,
+      "stock_mean_tpot_ms": 9.750452873016006,
+      "candidate_mean_tpot_ms": 8.125436337301667,
+      "tpot_speedup": 1.19998892369038,
+      "control_repeat_exact_cases": "6/6",
+      "candidate_repeat_exact_cases": "6/6",
+      "cross_mode_exact_generated_token_cases": "3/6",
+      "decision": "DISCOVERY PASS under a relaxed BF16 numerical contract; quality evaluation remains mandatory"
+    },
     "vllm_awq_marlin_rejected": {
       "raw_e2e_ms_before_quality_gate": 888.2399943333513,
       "raw_tpot_ms_before_quality_gate": 6.6400452007875,
@@ -91,7 +114,8 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. A 72-schedule residual search found no further lm-head gain. Cold-cache-calibrated backbone screening explains the old warm-L2 overprediction, and an mlp_down-only production candidate delivered only 1.00094x TPOT, 0.9982x E2E, and 5/6 token parity; reject it and retain the lm-head-only winner.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. A 72-schedule residual search found no further lm-head gain. Cold-cache-calibrated backbone screening explains the old warm-L2 overprediction, and an mlp_down-only production candidate delivered only 1.00094x TPOT, 0.9982x E2E, and 5/6 token parity; reject it and retain the lm_head-only strict winner.",
+    "relaxed_bf16": "Retain the combined lm_head plus segmented-GDN candidate as a separate discovery frontier: direct C-S-S-C reached 1.190x E2E/1.200x TPOT versus stock, with deterministic 6/6 repeats inside each mode but only 3/6 cross-mode token parity. It is not quantized, but changed BF16 reduction order still requires a task-quality gate.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
   "evidence": {
@@ -188,6 +212,14 @@
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_sm89_main_gemv_freshcache_m_w1_n1.json",
       "sha256": "28e5e6f754d6916ca05cfd6b91288e0735b6c3e05b2face4130e086700914e48",
       "status": "RETRACTED_UNREACHABLE"
+    },
+    "sm89_combined_bf16_frontier": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_combined_bf16_frontier.json",
+      "sha256": "2f4c59f701c27d613d4f729e84ba1a4b58eb78b4567423defb7a74fa4d4e4bcf"
+    },
+    "sm89_segmented_gdn_projection": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\gdn-segmented-projection\\summary.json",
+      "sha256": "8f95c5cfeb6e5132ca7a291eb5c2b6929575f4d40c0d73061526bafc71ec5cfc"
     },
     "vllm_awq_quality_gate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_awq_int4_marlin_qualitygate_w1_n1.json",
