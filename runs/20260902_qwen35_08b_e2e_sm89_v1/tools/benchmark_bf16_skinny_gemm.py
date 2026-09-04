@@ -29,6 +29,11 @@ SHAPES = (
     ("mlp_gate_up", 1, 7168, 1024, 24),
     ("mlp_down", 1, 1024, 3584, 24),
     ("lm_head", 1, 248320, 1024, 1),
+    # MTP-1 verifies the target token and one draft token together.  The
+    # production M=1 specialization deliberately falls back for this shape,
+    # so screen a kernel that reads each vocabulary row once and computes both
+    # logits before considering a full-model speculative-decode experiment.
+    ("lm_head_m2", 2, 248320, 1024, 1),
 )
 
 
@@ -39,20 +44,29 @@ def _gemv_kernel(
     output_ptr,
     n: tl.constexpr,
     k: tl.constexpr,
+    m: tl.constexpr,
     BLOCK_N: tl.constexpr,
     BLOCK_K: tl.constexpr,
 ):
     pid = tl.program_id(0)
     offsets_n = pid * BLOCK_N + tl.arange(0, BLOCK_N)
     offsets_k = tl.arange(0, BLOCK_K)
-    x = tl.load(x_ptr + offsets_k, mask=offsets_k < k, other=0.0)
+    x0 = tl.load(x_ptr + offsets_k, mask=offsets_k < k, other=0.0)
     weight = tl.load(
         weight_ptr + offsets_n[:, None] * k + offsets_k[None, :],
         mask=(offsets_n[:, None] < n) & (offsets_k[None, :] < k),
         other=0.0,
     )
-    accum = tl.sum(weight.to(tl.float32) * x[None, :].to(tl.float32), axis=1)
-    tl.store(output_ptr + offsets_n, accum, mask=offsets_n < n)
+    accum0 = tl.sum(
+        weight.to(tl.float32) * x0[None, :].to(tl.float32), axis=1
+    )
+    tl.store(output_ptr + offsets_n, accum0, mask=offsets_n < n)
+    if m == 2:
+        x1 = tl.load(x_ptr + k + offsets_k, mask=offsets_k < k, other=0.0)
+        accum1 = tl.sum(
+            weight.to(tl.float32) * x1[None, :].to(tl.float32), axis=1
+        )
+        tl.store(output_ptr + n + offsets_n, accum1, mask=offsets_n < n)
 
 
 def triton_gemv(
@@ -64,9 +78,9 @@ def triton_gemv(
 ) -> torch.Tensor:
     m, k = x.shape
     n = weight.shape[0]
-    if m != 1:
-        raise ValueError("screening kernel only supports M=1")
-    output = torch.empty((1, n), dtype=x.dtype, device=x.device)
+    if m not in (1, 2):
+        raise ValueError("screening kernel only supports M=1 or M=2")
+    output = torch.empty((m, n), dtype=x.dtype, device=x.device)
     block_k = triton.next_power_of_2(k)
     _gemv_kernel[(triton.cdiv(n, block_n),)](
         x,
@@ -74,6 +88,7 @@ def triton_gemv(
         output,
         n=n,
         k=k,
+        m=m,
         BLOCK_N=block_n,
         BLOCK_K=block_k,
         num_warps=num_warps,

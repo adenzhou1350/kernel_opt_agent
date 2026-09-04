@@ -358,6 +358,27 @@ Nsight 结果已通过公共 `kernel_opt.py opportunity` 入口写回正式机�
 
 这一轮也修正了原先过强的理论推断：整模型权重流下界能排除严格 BF16 的普遍 2x，但不能证明 stock vLLM 的每个子算子已高效。理论模型应输出“剩余总预算”和“按算子可移除时间”两个层级；只要某个大算子明显低于同机带宽屋顶，局部专用化仍可能兑现两位数的端到端收益。
 
+### 第九轮：用接受率经济账淘汰 MTP，而不是只看最终延迟
+
+Qwen3.5-0.8B checkpoint 自带一层 MTP 权重。一个看似有潜力的架构方向是让 target 一次验证两个位置，把一次主模型权重读取摊给多个 token。先做的 `M=2, N=248320, K=1024` BF16 LM-head 微基准确实证明 cuBLAS 已经能共享这次权重读取：交错测量中 cuBLAS 为 2085.27 us，专用 Triton 为 2057.80 us，只快 **1.013x**。这远低于 3% 的晋级阈值，因此没有把 M=2 kernel 接进生产路径。
+
+随后在保留现有 SM89 M=1 LM-head 优化的前提下，对 MTP-1 做了相邻自然请求筛选，并开启 vLLM 的逐请求接受率统计。64-token 六用例结果为：
+
+- 非投机路径加权 TPOT 7.907 ms，MTP-1 为 8.859 ms，即 **0.893x**；E2E 为 **0.867x**。
+- 216 个 draft 中接受 164 个，draft 接受率 **75.93%**，每轮平均产出 1.759 个 token。
+- 按实测 `cycle_cost = speculative_TPOT × mean_acceptance_length` 反推，一轮 proposer+verify 约 15.585 ms；要打平非投机路径，MTP-1 接受率需约 **97.11%**。
+- 即使假设 100% 接受且 cycle cost 不变，TPOT 乐观下界也只有 7.793 ms，相对 control 的上限仅 **1.0146x**，仍低于 3% 晋级门槛。
+- 64-token 输出仅 2/6 与非投机路径逐 token 相同。投机验证在概率语义上不应改变 target 分布；这里更可能是 M=1 Triton 与 M=2 cuBLAS 的归约/舍入路径不同，在 greedy 临界 logits 上放大成 token 分叉。因此它也不满足本 run 更严格的逐 token 冻结合同。
+
+这次没有继续深挖 MTP 内部小 kernel，因为“完美接受上限”已经给出止损证明。新增通用 `scripts/analyze_speculation_economics.py`，会把接受率、每轮成本、打平所需接受率、完美接受上限与 token 一致性一起写入决策；`tools/benchmark_vllm_offline.py` 在启用 MTP/ngram 时也会自动记录 per-request acceptance metrics。由此避免两类典型误判：只因合成重复文本接受率高就宣称 2x，以及在理论上最多只剩约 1% 时继续花数小时调 proposer。
+
+机器可读证据：
+
+- `microbench_candidates/bf16_triton_lm_head_m2_sm89.json`
+- `traces/vllm_natural_sm89_lmhead_mtp_acceptance_control_w1_n1_t64.json`
+- `traces/vllm_natural_sm89_lmhead_mtp1_acceptance_w1_n1_t64.json`
+- `models/sm89_mtp1_acceptance_economics.json`
+
 复现补丁与 qualification：
 
 ```bash

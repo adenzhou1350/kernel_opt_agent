@@ -402,6 +402,11 @@ def main() -> None:
             "method": "mtp",
             "num_speculative_tokens": args.speculative_tokens,
         }
+        # Acceptance is the central feasibility signal for speculative decode.
+        # Collecting only latency lets repetitive synthetic text look like a
+        # general architecture win and gives the optimizer no way to separate
+        # proposer cost from rejected drafts.
+        engine_overrides["per_request_spec_decode_metrics"] = "summary"
     elif args.ngram_speculative_tokens:
         engine_overrides["speculative_config"] = {
             "method": "ngram",
@@ -409,6 +414,7 @@ def main() -> None:
             "prompt_lookup_min": args.ngram_prompt_lookup_min,
             "prompt_lookup_max": args.ngram_prompt_lookup_max,
         }
+        engine_overrides["per_request_spec_decode_metrics"] = "summary"
 
     llm = LLM(
         model=str(model_path),
@@ -435,7 +441,13 @@ def main() -> None:
         wall_seconds = time.perf_counter() - started
         telemetry_after = gpu_telemetry() if args.gpu_telemetry else None
         output = outputs[0]
-        token_ids = list(output.outputs[0].token_ids)
+        completion = output.outputs[0]
+        token_ids = list(completion.token_ids)
+        spec_decode_metrics = (
+            completion.spec_decode_metrics.to_dict()
+            if completion.spec_decode_metrics is not None
+            else None
+        )
         stats = output.metrics
         if stats is None:
             raise RuntimeError("vLLM request metrics are unavailable with disable_log_stats=False")
@@ -454,6 +466,7 @@ def main() -> None:
             "tpot_ms": decode_seconds * 1000.0 / decode_intervals,
             "output_tokens_per_second": decode_intervals / decode_seconds if decode_seconds > 0 else None,
             "engine_metrics": raw_stats,
+            "spec_decode_metrics": spec_decode_metrics,
             "gpu_telemetry_before": telemetry_before,
             "gpu_telemetry_after": telemetry_after,
         }
@@ -483,6 +496,29 @@ def main() -> None:
         reference_ids = measured[0]["generated_token_ids"]
         exact_repeat = all(sample["generated_token_ids"] == reference_ids for sample in measured)
         sanity = generation_sanity(reference_ids)
+        spec_metrics = [
+            sample["spec_decode_metrics"]
+            for sample in measured
+            if sample["spec_decode_metrics"] is not None
+        ]
+        spec_summary = None
+        if spec_metrics:
+            total_steps = sum(item["num_spec_steps"] for item in spec_metrics)
+            total_accepted = sum(
+                item["num_accepted_draft_tokens"] for item in spec_metrics
+            )
+            total_drafted = sum(item["num_draft_tokens"] for item in spec_metrics)
+            spec_summary = {
+                "num_spec_steps": total_steps,
+                "num_accepted_draft_tokens": total_accepted,
+                "num_draft_tokens": total_drafted,
+                "mean_acceptance_length": (
+                    1.0 + total_accepted / total_steps if total_steps else 1.0
+                ),
+                "draft_acceptance_rate": (
+                    total_accepted / total_drafted if total_drafted else 0.0
+                ),
+            }
         summaries.append({
             "case_id": case_id,
             "weight": weight,
@@ -504,6 +540,7 @@ def main() -> None:
             "median_ttft_ms": median([sample["ttft_ms"] for sample in measured]),
             "median_tpot_ms": median([sample["tpot_ms"] for sample in measured]),
             "median_output_tokens_per_second": median([sample["output_tokens_per_second"] for sample in measured]),
+            "spec_decode_metrics": spec_summary,
         })
 
     payload = {
@@ -565,6 +602,11 @@ def main() -> None:
             "max_num_seqs": args.max_num_seqs,
             "max_num_batched_tokens": args.max_num_batched_tokens,
             "speculative_tokens": args.speculative_tokens,
+            "per_request_spec_decode_metrics": (
+                "summary"
+                if args.speculative_tokens or args.ngram_speculative_tokens
+                else "none"
+            ),
             "ngram_speculative_tokens": args.ngram_speculative_tokens,
             "ngram_prompt_lookup_min": args.ngram_prompt_lookup_min,
             "ngram_prompt_lookup_max": args.ngram_prompt_lookup_max,
