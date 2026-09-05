@@ -109,11 +109,24 @@ def validate_trace(trace: dict, variant: dict, trace_path: Path, *, qualified: b
         guarded = environment.get("guarded_source_sha256", {})
         require(guarded, f"{trace_path}: guarded source hashes are missing")
     for switch, expected in variant.get("required_switches", {}).items():
-        require(
-            controls.get(f"expected_{switch}") == expected
-            and controls.get(f"actual_{switch}") == expected,
-            f"{trace_path}: runtime switch {switch} is not proven {expected}",
-        )
+        expected_key = f"expected_{switch}"
+        actual_key = f"actual_{switch}"
+        if qualified:
+            require(
+                controls.get(expected_key) == expected
+                and controls.get(actual_key) == expected,
+                f"{trace_path}: runtime switch {switch} is not proven {expected}",
+            )
+        else:
+            recorded = [
+                controls[key]
+                for key in (expected_key, actual_key)
+                if controls.get(key) is not None
+            ]
+            require(
+                all(value == expected for value in recorded),
+                f"{trace_path}: challenger runtime switch {switch} contradicts {expected}",
+            )
     curve = trace.get("service_curve", [])
     require(curve, f"{trace_path}: service curve is empty")
     curve_batches = [int(point["batch_size"]) for point in curve]
@@ -259,6 +272,11 @@ def derive(spec_path: Path) -> dict:
     routes = []
     evidence = {}
     for contract in spec["contracts"]:
+        contract_inputs = bind_inputs(spec_path, contract.get("evidence", []))
+        if contract_inputs:
+            evidence[f"contract:{contract['id']}"] = {
+                "contract_inputs": contract_inputs,
+            }
         require(contract["baseline"] in variants, f"{contract['id']}: baseline variant is unknown")
         require(variants[contract["baseline"]]["spec"]["role"] == "baseline", f"{contract['id']}: baseline role is invalid")
         require(contract["id"] in variants[contract["baseline"]]["spec"]["supported_contracts"], f"{contract['id']}: baseline does not support contract")
@@ -320,7 +338,11 @@ def derive(spec_path: Path) -> dict:
             else:
                 selected = contract["baseline"]
                 selected_row = None
-                reason = "; ".join(rejection_reasons) or "no eligible candidate"
+                reason = (
+                    "; ".join(rejection_reasons)
+                    or contract.get("baseline_only_reason")
+                    or "no candidate admitted by the frozen numerical contract"
+                )
             route = {
                 "numerical_contract": contract["id"],
                 "active_decode_batch": batch_size,

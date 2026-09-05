@@ -85,9 +85,32 @@
     "stock_vs_candidate_exact_tokens": ["192/192", "384/384", "721/768", "1433/1536"],
     "policy": "Opt-in rerank at batch 1; consider at batch 2 only when its approximate contract is acceptable; use stock GPTQ-Marlin at batch 4 and above."
   },
+  "strict_production_pipeline_frontier": {
+    "status": "PROMOTE_APPROXIMATE_BATCH_1_AND_2_ONLY",
+    "protocol": "two independent cold VLLM_CACHE_ROOT traces per implementation, frozen harness and prompt-token hashes, guarded source hashes, one warmup and three measured trials, 64 generated tokens",
+    "production_components": [
+      "gptq_quantize_weights",
+      "pack_rows",
+      "gptq_marlin_repack",
+      "marlin_permute_scales",
+      "marlin_make_workspace_new"
+    ],
+    "stock_trace_output_tokens_per_second": [
+      [120.0016099708493, 274.7651555383369, 496.1733358305478, 928.5315857812509],
+      [120.80861608675056, 258.7569586207419, 483.2661670748113, 890.2160124124904]
+    ],
+    "candidate_trace_output_tokens_per_second": [
+      [177.01781913502967, 325.3522337671589, 483.26187479126884, 894.0121933891626],
+      [179.92291573610734, 327.9078141883769, 488.07540556060525, 906.6318344393684]
+    ],
+    "conservative_speedup_over_baseline_envelope": [1.4198914087888317, 1.1547272712531187, 0.8838859123567889, 0.9628236745839461],
+    "load_memory_gib_stock_candidate": [0.85, 0.99],
+    "policy": "Under the bounded approximate greedy quality contract, route active batch 1 and 2 to rerank; route batch 4 and 8 to stock GPTQ-Marlin. Under stock-GPTQ token identity, always route stock."
+  },
   "implementation_limitations": [
-    "Prototype quantization happens during first use and temporarily raises peak activation memory; production must load prepacked tensors.",
-    "The implementation imports a vLLM test packing helper and is therefore evidence code, not merge-ready production code.",
+    "Output-head quantization and Marlin repacking now happen during weight post-processing, followed by a load-time warmup; the first request no longer performs packing.",
+    "The implementation uses vLLM production GPTQ quantization, row-packing, Marlin repacking, scale permutation and workspace APIs; it no longer imports a test helper.",
+    "The dense tied output-head weight remains resident beside the packed representation, adding about 0.14 GiB; checkpoint-native packed tensors are the next deployment step.",
     "The top-128 contract is bounded empirical greedy-token identity, not full-logit or all-input mathematical equivalence.",
     "The 512-case quality result supports an explicit approximate-speed mode only; broader tasks, sampling modes, concurrency and high-clock interleaving remain required before wider promotion."
   ],
@@ -100,6 +123,7 @@
     "gptq_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
     "w4_scan_only_screen": "comparisons/vllm_gptq_marlin_w4_scan_only_boundary.json",
     "batch_service_frontier": "comparisons/vllm_bf16_gptq_rerank_service_frontier.json",
+    "automatic_gptq_policy": "models/gptq_serving_policy_auto.json",
     "prototype_patch": "candidates/marlin-w4-bf16-shortlist-rerank/vllm_utils_marlin_w4_bf16_shortlist_rerank.patch"
   },
   "decision": "Expose only as an opt-in approximate low-concurrency greedy mode. Prefer it at batch 1, consider it at batch 2 when the approximate quality contract is accepted, and retain stock GPTQ-Marlin at batch 4 and above. It is not a lossless default because the larger quality screen is not token-identical. Reject MTP-1 at this deployment point."

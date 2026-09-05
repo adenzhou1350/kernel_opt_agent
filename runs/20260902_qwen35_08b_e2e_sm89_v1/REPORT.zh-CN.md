@@ -907,6 +907,23 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 机器可读输入为 `models/bf16_serving_policy_spec.json`，自动重算结果为 `models/bf16_serving_policy_auto.json`，严格原始记录为 `traces/vllm_bf16_exact_strict_{stock,candidate}_{a,b}_service_curve.json`。单元测试覆盖数值契约分流、batch 回退、冷缓存隔离、重复不足、生命周期未 ready、workload 不一致，以及“弱基线只可否决不可晋级”。这依然不构成理论最优证明；它只是让 agent 对当前候选集作出更难自欺、可复算的部署决定。
 
+### 第三十四轮：量化 vLLM 也不是单点最优，但胜出必须绑定质量合同
+
+上一轮自动策略只闭合了 BF16。本轮用同一套 fail-closed 规则重新验证 GPTQ：stock 与候选各跑两份独立冷 `VLLM_CACHE_ROOT`，冻结模型、GPU、vLLM/Torch/CUDA、基准脚本 SHA、实际 prompt-token SHA、batch、生成长度和运行开关。候选的输出头 W4 构建也从 `marlin_utils_test` 迁移到正式运行时组件：`gptq_quantize_weights`、`pack_rows`、`gptq_marlin_repack`、`marlin_permute_scales` 和 `marlin_make_workspace_new`；pack 与一次零输入 warmup 均进入 tied embedding 的权重后处理阶段，所以首个服务请求不再承担量化、repack 或冷内核成本。
+
+| active batch | stock GPTQ 正式两轮 | candidate 正式两轮 | 候选最慢 / stock 保守包络最快 | 自动路由（允许有界近似） |
+|---:|---:|---:|---:|---|
+| 1 | 120.00 / 120.81 tok/s | **177.02 / 179.92 tok/s** | **1.420x**（历史 stock 上限 124.67） | candidate |
+| 2 | 274.77 / 258.76 tok/s | **325.35 / 327.91 tok/s** | **1.155x**（历史 stock 上限 281.76） | candidate |
+| 4 | 496.17 / 483.27 tok/s | 483.26 / 488.08 tok/s | 0.884x（历史 stock 上限 546.75） | stock |
+| 8 | **928.53 / 890.22 tok/s** | 894.01 / 906.63 tok/s | 0.963x | stock |
+
+这组结果回答了“vLLM 量化不就更快吗”：是的，stock GPTQ-Marlin 已经显著快于 stock BF16；但在 active batch 1/2，未量化的超大 tied `lm_head` 仍是残余热点，W4 全词表 shortlist 加 BF16 top-128 回排还能在 vLLM 内部继续取得约 **42.0% / 15.5%** 的保守收益。到 batch 4/8，矩阵路径摊薄权重流量，候选反而落后，所以不存在跨 shape 的单一冠军。
+
+数值合同决定这不是 stock GPTQ 的无条件替代。512 道 GSM8K 中两边都答对 42 道，但只有 457/512 完整 token 序列一致；本轮冻结服务样本的 paired token identity 在 B1/B2/B4/B8 也分别只有 89.1%/96.1%/94.6%/95.0%。因此 `stock_gptq_token_identity` 合同始终自动路由 stock；只有显式接受 `approximate_w4_greedy_quality_bounded` 时，B1/B2 才启用候选。质量 JSON 的 SHA 已作为合同输入绑定，不能只换吞吐 trace 就绕过质量门。
+
+代价同样被显式记录：候选加载占用约 0.99 GiB，stock 约 0.85 GiB，因为当前实现保留 tied dense 权重和 packed 输出头两份表示；加载时间多约三秒。下一步真正有价值的架构改动不是继续调一个 thread/block 小参数，而是设计 checkpoint-native 的预打包输出头，删除双表示及运行时转换。机器可读输入和结果分别为 `models/gptq_serving_policy_spec.json`、`models/gptq_serving_policy_auto.json`，原始记录为 `traces/vllm_gptq_prod_{stock,candidate}_{a,b}_service_curve.json`。这证明的是冻结部署点与候选集合中的条件最优，不是理论全局最优。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -1005,12 +1022,18 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 - `models/qwen35_sm89_serving_policy.json`
 - `models/bf16_serving_policy_spec.json`
 - `models/bf16_serving_policy_auto.json`
+- `models/gptq_serving_policy_spec.json`
+- `models/gptq_serving_policy_auto.json`
 - `traces/vllm_bf16_exact_strict_stock_a_service_curve.json`
 - `traces/vllm_bf16_exact_strict_stock_b_service_curve.json`
 - `traces/vllm_bf16_exact_strict_candidate_a_service_curve.json`
 - `traces/vllm_bf16_exact_strict_candidate_b_service_curve.json`
 - `traces/vllm_bf16_exact_load_warm_service_curve_b1_b2_b4_b8.json`
 - `traces/vllm_bf16_exact_load_warm_stock_close_service_curve_b1_b2_b4_b8.json`
+- `traces/vllm_gptq_prod_stock_a_service_curve.json`
+- `traces/vllm_gptq_prod_stock_b_service_curve.json`
+- `traces/vllm_gptq_prod_candidate_a_service_curve.json`
+- `traces/vllm_gptq_prod_candidate_b_service_curve.json`
 - `traces/vllm_gptq_marlin_w4_stock_natural_128_low_power.json`
 - `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_natural_128_low_power.json`
 - `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_k512_screen.json`

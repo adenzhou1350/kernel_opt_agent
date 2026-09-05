@@ -160,6 +160,29 @@ def test_policy_routes_by_contract_and_batch(tmp_path: Path) -> None:
     assert result["global_optimum_proven"] is False
 
 
+def test_baseline_only_contract_binds_evidence_and_never_promotes(tmp_path: Path) -> None:
+    spec_path = make_spec(tmp_path)
+    spec = json.loads(spec_path.read_text(encoding="utf-8"))
+    spec["contracts"][0]["candidates"] = []
+    spec["contracts"][0]["evidence"] = ["lifecycle.json"]
+    spec["contracts"][0]["baseline_only_reason"] = "candidate failed quality authority"
+    write_json(spec_path, spec)
+
+    result = derive(spec_path)
+    exact_routes = [
+        row for row in result["routes"]
+        if row["numerical_contract"] == "stock_token_identity"
+    ]
+    assert all(row["route"] == "stock" for row in exact_routes)
+    assert all(
+        row["reason"] == "candidate failed quality authority"
+        for row in exact_routes
+    )
+    contract_inputs = result["evidence"]["contract:stock_token_identity"]["contract_inputs"]
+    assert contract_inputs[0]["path"] == "lifecycle.json"
+    assert len(contract_inputs[0]["sha256"]) == 64
+
+
 def test_policy_rejects_unisolated_cache(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="not isolated"):
         derive(make_spec(tmp_path, candidate_cache="baseline-cache"))

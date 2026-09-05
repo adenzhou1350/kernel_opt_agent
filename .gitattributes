@@ -1,4 +1,5 @@
 * text=auto eol=lf
+*.patch whitespace=-blank-at-eol
 *.cubin binary
 *.csv binary
 *.fatbin binary

@@ -47,7 +47,8 @@
         "active_decode_batch": 1
       },
       "route": "gptq_marlin_w4_scan_plus_bf16_top128_rerank",
-      "measured_conservative_speedup_over_stock_gptq": 1.4187068416234292
+      "measured_conservative_speedup_over_stock_gptq": 1.4198914087888317,
+      "qualification": "Two production-pipeline candidate and two same-source stock traces use distinct guarded VLLM_CACHE_ROOT values; an older faster stock trace remains a veto-only envelope."
     },
     {
       "when": {
@@ -55,7 +56,7 @@
         "active_decode_batch": 2
       },
       "route": "gptq_marlin_w4_scan_plus_bf16_top128_rerank",
-      "measured_conservative_speedup_over_stock_gptq": 1.1231784011614327,
+      "measured_conservative_speedup_over_stock_gptq": 1.1547272712531187,
       "qualification": "Enable only when the approximate quality contract and operational complexity justify the smaller gain."
     },
     {
@@ -77,9 +78,10 @@
   "evidence": {
     "bf16_service_integration": "comparisons/vllm_bf16_exact_packed_service_integration.json",
     "bf16_automatic_policy": "models/bf16_serving_policy_auto.json",
+    "quantized_automatic_policy": "models/gptq_serving_policy_auto.json",
     "quantized_service_frontier": "comparisons/vllm_bf16_gptq_rerank_service_frontier.json",
     "quantized_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
     "strict_bf16_residual_bound": "models/sm89_strict_bf16_residual_certificate.json"
   },
-  "global_optimum": "NOT_PROVEN. The policy is the best measured member of the bounded local portfolio. The BF16 batch-1 route is now automatically derived from two strictly guarded runs per implementation plus a veto-only historical baseline envelope. Architecture-level decoding, load-time checkpoint formats, broader prompts, sampling, sequence lengths, power-locked repeats, other GPUs, and future vLLM releases remain open dimensions."
+  "global_optimum": "NOT_PROVEN. The policy is the best measured member of the bounded local portfolio. Both BF16 and GPTQ routes are automatically derived from two strictly guarded runs per implementation plus veto-only historical baseline envelopes. Architecture-level decoding, checkpoint-native packed formats, broader prompts, sampling, sequence lengths, power-locked repeats, other GPUs, and future vLLM releases remain open dimensions."
 }
