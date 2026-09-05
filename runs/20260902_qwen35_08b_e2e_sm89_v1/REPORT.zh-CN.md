@@ -606,6 +606,23 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 
 这两个实验继续收紧了“最优”的含义：完整 logits 的物化确实不是理论必需，但它只占几十微秒；多个 memory-bound 局部赢家共享同一显存服务后也不能线性叠加。下一条可能产生物质性收益的算法必须减少 **权重读取本身**，例如带可验证上界的 vocabulary pruning / exact maximum-inner-product search，而不是继续减少小张量写回或把独立 kernel 的节省相加。
 
+### 第十九轮：精确词表剪枝也无法避开权重读取
+
+沿着上一轮的重开条件，本轮没有直接写 GPU kernel，而是先问一个更便宜、也更决定性的问题：对真实自回归 hidden state，带严格正确性证明的 maximum-inner-product 上界究竟能排除多少词表行？实验采集了六类自然提示各 32 个 token，共 192 个 Qwen3.5-0.8B BF16 decode state；对 248,320 行输出权重构建 256 个离线聚类，并使用分块 L2 residual bound 保证任何被跳过的 cluster 都不可能包含 top-1。
+
+所有经验上界均有效，真实 winner cluster 也全部保留，但性能可行性完全不成立：
+
+| 精确筛选口径 | 中位需读取权重行 | 加索引后的总字节比例 | 理想整步加速 |
+|---|---:|---:|---:|
+| 可执行 cluster bound | 99.9734% | 100.1828% | **0.99953x** |
+| oracle 单行 norm bound | 100.0000% | 100.1953% | **0.99950x** |
+
+第二行是更强的必要条件：它作弊使用已经算出的真实 top-1 分数作为 lower bound，再用每行 `||w_i||·||h||` 判断该行是否可能获胜。即便知道答案，这个上界仍不能删除任何一行，因此不是聚类数或 k-means 质量没有调好，而是这类范数界在本模型 hidden-state 几何上过松。实际 GPU kernel 还要付出 bound evaluation、索引、gather 和不规则访存成本，只会更差。
+
+所以 exact cluster/norm pruning 已在写 kernel 之前用上界证书关闭，避免 agent 再花数小时扫 cluster、block 和 launch 参数。只有出现明显更紧的可证明索引，并在更大 hidden-state 集合上使 p90 总读取字节不超过 dense 的 75%，才允许重开。证据为 `models/sm89_exact_vocab_pruning_feasibility.json`，结案摘要为 `candidates/exact-vocab-pruning/summary.json`。
+
+这进一步界定了 BF16 与量化路线：严格 BF16 若要继续取得数量级更大的收益，不能依赖通用 Cauchy-Schwarz 剪枝；而量化确实能直接减少权重流量，但公平基线必须同时切到相同量化格式的 vLLM，不能拿自研量化路径与 BF16 vLLM 比出一个虚假的倍数。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -666,8 +683,11 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 - `candidates/reachable-backbone-gemv/vllm_utils_reachable_backbone_gemv.patch`
 - `candidates/fused-lmhead-argmax/summary.json`
 - `candidates/combined-gdn-down/summary.json`
+- `candidates/exact-vocab-pruning/summary.json`
 - `microbench_candidates/fused_lmhead_argmax_sm89.json`
 - `tools/benchmark_sm89_fused_lmhead_argmax.py`
+- `models/sm89_exact_vocab_pruning_feasibility.json`
+- `tools/analyze_exact_vocab_pruning.py`
 - `traces/vllm_reachable_downw2_64.json`
 - `traces/vllm_reachable_downw8_64.json`
 - `comparisons/vllm_sm89_mlp_quality_gsm8k_n512.json`
