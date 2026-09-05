@@ -26,6 +26,7 @@ INDEX_SCHEMA = "community-corpus-index-v1"
 EVENT_SCHEMA = "community-optimization-event-v1"
 GRAPH_SCHEMA = "community-optimization-graph-v1"
 MATCH_SCHEMA = "community-match-receipt-v1"
+SYNC_SCHEMA = "community-sync-receipt-v1"
 RUN_INPUT_PATHS = (
     "operator.json",
     "workload.json",
@@ -63,6 +64,21 @@ TOKEN_STOPWORDS = {
     "the",
     "to",
     "vllm",
+}
+DISCOVERY_PATTERNS = {
+    "PERFORMANCE_CHANGE": (
+        "benchmark",
+        "faster",
+        "latency",
+        "optimiz",
+        "perf",
+        "speedup",
+        "throughput",
+    ),
+    "REGRESSION": ("regress", "slowdown"),
+    "REVERT": ("revert", "rollback"),
+    "KERNEL_OR_RUNTIME": ("cuda", "gemm", "kernel", "nccl", "rdma", "triton"),
+    "DATA_MOVEMENT": ("all-to-all", "bandwidth", "communication", "memory", "transfer"),
 }
 
 
@@ -165,6 +181,40 @@ class GitHubClient:
     def bytes(self, url: str, accept: str) -> tuple[bytes, list[str]]:
         payload, _ = self.request(url, accept)
         return payload, [url]
+
+    def search_pull_requests(
+        self,
+        repository: str,
+        since: str,
+        until: str,
+        maximum: int = 1000,
+    ) -> tuple[list[dict], list[str], int, bool]:
+        query = f"repo:{repository} is:pr updated:{since}..{until}"
+        parameters = urllib.parse.urlencode(
+            {"q": query, "sort": "updated", "order": "desc", "per_page": 100}
+        )
+        url = f"{self.api_base}/search/issues?{parameters}"
+        items: list[dict] = []
+        urls = []
+        total_count = 0
+        incomplete = False
+        while url and len(items) < maximum:
+            payload, headers = self.request(url, "application/vnd.github+json")
+            value = json.loads(payload)
+            if not isinstance(value, dict) or not isinstance(value.get("items"), list):
+                raise ValueError("GitHub issue search returned an unexpected shape")
+            urls.append(url)
+            total_count = int(value.get("total_count", 0))
+            incomplete = incomplete or bool(value.get("incomplete_results", False))
+            items.extend(item for item in value["items"] if isinstance(item, dict))
+            url = parse_link_header(headers.get("Link")).get("next", "")
+        selected = items[:maximum]
+        return (
+            selected,
+            urls,
+            total_count,
+            incomplete or total_count > len(selected),
+        )
 
 
 def endpoint_for(repository: str, number: int, kind: str) -> str:
@@ -481,6 +531,224 @@ def capture_pr(
     finally:
         if staging.exists():
             shutil.rmtree(staging)
+
+
+def bounded_timestamp(value: str, label: str) -> datetime:
+    parsed = parse_source_timestamp(value)
+    if parsed is None:
+        raise ValueError(f"{label} must be an ISO-8601 timestamp with timezone")
+    return parsed
+
+
+def contains_discovery_pattern(text: str, pattern: str) -> bool:
+    special = {
+        "optimiz": r"\boptimi[sz](?:e|es|ed|ing|ation|ations)\b",
+        "perf": r"\bperf(?:ormance)?\b",
+        "regress": r"\bregress(?:ion|ions|ed|es|ing)?\b",
+        "revert": r"\brevert(?:ed|ing|s)?\b",
+    }
+    expression = special.get(pattern)
+    if expression is not None:
+        return bool(re.search(expression, text))
+    if re.fullmatch(r"[a-z0-9]+", pattern):
+        return bool(re.search(rf"\b{re.escape(pattern)}\b", text))
+    return pattern in text
+
+
+def discovery_classifications(item: dict) -> list[str]:
+    labels = item.get("labels", [])
+    label_names = [
+        str(label.get("name", ""))
+        for label in labels
+        if isinstance(label, dict)
+    ]
+    title = str(item.get("title", "")).lower()
+    labels_text = " ".join(label_names).lower()
+    headline = f"{title} {labels_text}"
+    body = str(item.get("body", "")).lower()
+    metric_signal = bool(
+        re.search(
+            r"\b\d+(?:\.\d+)?\s*(?:x|us|ms|ns|s|%|tok/s|tokens/s|gb/s|tb/s)\b",
+            body,
+        )
+        or re.search(r"\d+(?:\.\d+)?\s*[µμ]s", body)
+    )
+    headline_hits = {
+        classification
+        for classification, patterns in DISCOVERY_PATTERNS.items()
+        if any(contains_discovery_pattern(headline, pattern) for pattern in patterns)
+    }
+    body_performance = metric_signal and any(
+        contains_discovery_pattern(body, pattern)
+        for pattern in DISCOVERY_PATTERNS["PERFORMANCE_CHANGE"]
+    )
+    primary = {
+        classification
+        for classification in ("PERFORMANCE_CHANGE", "REGRESSION", "REVERT")
+        if classification in headline_hits
+    }
+    if any(
+        contains_discovery_pattern(title, pattern)
+        for pattern in DISCOVERY_PATTERNS["KERNEL_OR_RUNTIME"]
+    ):
+        primary.add("KERNEL_OR_RUNTIME")
+    if not primary:
+        return []
+
+    classifications = set(primary)
+    for classification in ("KERNEL_OR_RUNTIME", "DATA_MOVEMENT"):
+        if classification in headline_hits or (
+            body_performance
+            and any(
+                contains_discovery_pattern(body, pattern)
+                for pattern in DISCOVERY_PATTERNS[classification]
+            )
+        ):
+            classifications.add(classification)
+    return sorted(classifications)
+
+
+def discovery_selection_score(item: dict, classifications: list[str]) -> int:
+    title = str(item.get("title", "")).lower()
+    labels = " ".join(
+        str(label.get("name", ""))
+        for label in item.get("labels", [])
+        if isinstance(label, dict)
+    ).lower()
+    body = str(item.get("body", "")).lower()
+    score = 0
+    if any(
+        contains_discovery_pattern(title, pattern)
+        for kind in ("REGRESSION", "REVERT")
+        for pattern in DISCOVERY_PATTERNS[kind]
+    ):
+        score += 100
+    if any(
+        contains_discovery_pattern(title, pattern)
+        for pattern in DISCOVERY_PATTERNS["PERFORMANCE_CHANGE"]
+        if pattern != "benchmark"
+    ):
+        score += 80
+    if any(
+        contains_discovery_pattern(title, pattern)
+        for pattern in DISCOVERY_PATTERNS["KERNEL_OR_RUNTIME"]
+    ):
+        score += 40
+    if any(
+        contains_discovery_pattern(labels, pattern)
+        for pattern in DISCOVERY_PATTERNS["PERFORMANCE_CHANGE"]
+    ):
+        score += 20
+    if re.search(r"\b\d+(?:\.\d+)?\s*(?:x|us|ms|ns|%|tok/s|tokens/s|gb/s)\b", body):
+        score += 10
+    if "DATA_MOVEMENT" in classifications:
+        score += 5
+    return max(score, 1)
+
+
+def sync_repository(
+    repository: str,
+    since: str,
+    until: str,
+    corpus: Path,
+    receipt_path: Path,
+    client: GitHubClient,
+    max_captures: int = 20,
+    dry_run: bool = False,
+    root: Path | None = None,
+) -> dict:
+    """Discover a bounded PR window and archive each selected PR snapshot."""
+    root = root or repository_root()
+    if not REPOSITORY_PATTERN.fullmatch(repository):
+        raise ValueError("repository must use the owner/name GitHub form")
+    since_time = bounded_timestamp(since, "since")
+    until_time = bounded_timestamp(until, "until")
+    if since_time >= until_time:
+        raise ValueError("sync window requires since < until")
+    if not 1 <= max_captures <= 100:
+        raise ValueError("max_captures must be between 1 and 100")
+
+    items, query_urls, total_count, truncated = client.search_pull_requests(
+        repository,
+        since,
+        until,
+        maximum=min(1000, max(100, max_captures * 5)),
+    )
+    candidates = []
+    for item in items:
+        classifications = discovery_classifications(item)
+        if not classifications:
+            continue
+        number = item.get("number")
+        title = item.get("title")
+        updated_at = item.get("updated_at")
+        if not isinstance(number, int) or number < 1:
+            raise ValueError("GitHub search candidate has no valid PR number")
+        if not isinstance(title, str) or not title:
+            raise ValueError(f"GitHub search candidate #{number} has no title")
+        bounded_timestamp(str(updated_at), f"candidate #{number} updated_at")
+        candidates.append(
+            {
+                "pr_number": number,
+                "title": title,
+                "updated_at": updated_at,
+                "classifications": classifications,
+                "selection_score": discovery_selection_score(item, classifications),
+            }
+        )
+    candidates.sort(
+        key=lambda item: (
+            -item["selection_score"],
+            -bounded_timestamp(item["updated_at"], "candidate updated_at").timestamp(),
+            item["pr_number"],
+        )
+    )
+
+    rows = []
+    for index, candidate in enumerate(candidates):
+        if dry_run:
+            decision = "DRY_RUN"
+            snapshot = None
+        elif index >= max_captures:
+            decision = "BUDGET_SKIPPED"
+            snapshot = None
+        else:
+            captured = capture_pr(
+                repository, candidate["pr_number"], corpus, client, root
+            )
+            manifest_path = Path(captured["manifest"])
+            manifest = read_object(manifest_path)
+            decision = "CAPTURED"
+            snapshot = {
+                "snapshot_id": captured["snapshot_id"],
+                "manifest_sha256": sha256_file(manifest_path),
+                "lifecycle": lifecycle(manifest),
+            }
+        rows.append({**candidate, "decision": decision, "snapshot": snapshot})
+
+    receipt = {
+        "schema_version": SYNC_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "DISCOVERY_INDEX_ONLY",
+        "repository": repository,
+        "window": {"since": since, "until": until},
+        "query_urls": query_urls,
+        "authenticated": client.authenticated,
+        "search_total_count": total_count,
+        "coverage_truncated": truncated,
+        "max_captures": max_captures,
+        "candidate_count": len(rows),
+        "candidates": rows,
+        "next_since": until,
+    }
+    errors = validate_instance(
+        receipt,
+        read_object(root / "schemas" / "community_sync_receipt.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid community sync receipt: " + "; ".join(errors))
+    atomic_json(receipt_path.resolve(), receipt)
+    return receipt
 
 
 def validate_corpus(corpus: Path, root: Path | None = None) -> dict:
@@ -1180,6 +1448,18 @@ def parse_args() -> argparse.Namespace:
     capture.add_argument("--number", type=int, required=True)
     capture.add_argument("--corpus", type=Path, required=True)
     capture.add_argument("--timeout", type=float, default=30.0)
+    sync = subparsers.add_parser(
+        "sync-repository",
+        help="discover and capture a bounded window of performance-related PRs",
+    )
+    sync.add_argument("--repository", required=True)
+    sync.add_argument("--since", required=True)
+    sync.add_argument("--until", required=True)
+    sync.add_argument("--corpus", type=Path, required=True)
+    sync.add_argument("--receipt", type=Path, required=True)
+    sync.add_argument("--max-captures", type=int, default=20)
+    sync.add_argument("--dry-run", action="store_true")
+    sync.add_argument("--timeout", type=float, default=30.0)
     validate = subparsers.add_parser(
         "validate-corpus", help="validate every indexed snapshot and hash"
     )
@@ -1224,6 +1504,18 @@ def main() -> int:
         if args.operation == "capture-pr":
             client = GitHubClient(os.environ.get("GITHUB_TOKEN"), timeout=args.timeout)
             result = capture_pr(args.repository, args.number, args.corpus, client)
+        elif args.operation == "sync-repository":
+            client = GitHubClient(os.environ.get("GITHUB_TOKEN"), timeout=args.timeout)
+            result = sync_repository(
+                args.repository,
+                args.since,
+                args.until,
+                args.corpus,
+                args.receipt,
+                client,
+                args.max_captures,
+                args.dry_run,
+            )
         elif args.operation == "validate-corpus":
             result = validate_corpus(args.corpus)
         elif args.operation == "validate-event":

@@ -19,6 +19,12 @@ python scripts/kernel_opt.py community capture-pr \
   --repository vllm-project/vllm --number 48870 \
   --corpus /path/to/community-corpus
 
+python scripts/kernel_opt.py community sync-repository \
+  --repository vllm-project/vllm \
+  --since 2026-08-01T00:00:00Z --until 2026-09-01T00:00:00Z \
+  --max-captures 20 --corpus /path/to/community-corpus \
+  --receipt /path/to/sync-receipts/vllm-2026-08.json
+
 python scripts/kernel_opt.py community validate-corpus \
   --corpus /path/to/community-corpus
 
@@ -34,10 +40,24 @@ python scripts/kernel_opt.py community attach-graph \
   --corpus /path/to/community-corpus
 ```
 
+`sync-repository` searches an explicit, closed update window, classifies
+performance changes, regressions, reverts, kernel/runtime work and data-movement
+changes, then captures at most the declared PR budget. The receipt records every
+matched candidate, budget skip, query URL and whether GitHub truncated search
+coverage. Feed its `next_since` into the next scheduled window; never silently
+advance a cursor after a failed run.
+
 Never treat merge status, a PR author's benchmark, review approval or a method
 match as proof that a technique improves the current target. Reverts, closed
 changes, regression reports and contradictory reviews remain first-class
 evidence and must not be filtered out of the source lake.
+
+Event cards also declare machine-readable hard requirements for compute
+capability, explicit parallel width and workload context. Routing fails closed
+when those requirements are missing or contradicted, and records the rejected
+event plus blockers instead of letting topical similarity create an invalid
+candidate. `COMPLEMENTS` means implementation-composable; mutually exclusive
+representations must use `CONFLICTS` even when they address the same bottleneck.
 
 ## Temporal A/B evaluation
 

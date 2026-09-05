@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_sync_receipt.schema.json",
+  "title": "Bounded incremental GitHub performance-PR discovery receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "repository", "window", "query_urls", "authenticated", "search_total_count", "coverage_truncated", "max_captures", "candidate_count", "candidates", "next_since"],
+  "properties": {
+    "schema_version": {"const": "community-sync-receipt-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DISCOVERY_INDEX_ONLY"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["since", "until"],
+      "properties": {
+        "since": {"type": "string", "format": "date-time"},
+        "until": {"type": "string", "format": "date-time"}
+      }
+    },
+    "query_urls": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": "^https://"}},
+    "authenticated": {"type": "boolean"},
+    "search_total_count": {"type": "integer", "minimum": 0},
+    "coverage_truncated": {"type": "boolean"},
+    "max_captures": {"type": "integer", "minimum": 1, "maximum": 100},
+    "candidate_count": {"type": "integer", "minimum": 0},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pr_number", "title", "updated_at", "classifications", "selection_score", "decision", "snapshot"],
+        "properties": {
+          "pr_number": {"type": "integer", "minimum": 1},
+          "title": {"type": "string", "minLength": 1},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "classifications": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z][A-Z_]+$"}},
+          "selection_score": {"type": "integer", "minimum": 1},
+          "decision": {"enum": ["CAPTURED", "BUDGET_SKIPPED", "DRY_RUN"]},
+          "snapshot": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "required": ["snapshot_id", "manifest_sha256", "lifecycle"],
+            "properties": {
+              "snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+              "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+              "lifecycle": {"enum": ["OPEN", "MERGED", "CLOSED_UNMERGED"]}
+            }
+          }
+        }
+      }
+    },
+    "next_since": {"type": "string", "format": "date-time"}
+  }
+}

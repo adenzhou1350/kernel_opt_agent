@@ -20,8 +20,10 @@ from community_knowledge import (
     build_graph,
     build_match_receipt,
     capture_pr,
+    discovery_classifications,
     read_object,
     sha256_file,
+    sync_repository,
     validate_corpus,
     validate_event,
     validate_graph,
@@ -78,6 +80,32 @@ class FakeGitHubClient:
     def bytes(self, url: str, accept: str) -> tuple[bytes, list[str]]:
         del accept
         return b"diff --git a/kernel.py b/kernel.py\n", [url]
+
+    def search_pull_requests(
+        self, repository: str, since: str, until: str, maximum: int = 1000
+    ) -> tuple[list[dict], list[str], int, bool]:
+        del repository, since, until, maximum
+        return (
+            [
+                {
+                    "number": 7,
+                    "title": "Fix kernel performance regression",
+                    "body": "Restore the faster fused path.",
+                    "updated_at": "2026-01-03T00:00:00Z",
+                    "labels": [{"name": "performance"}],
+                },
+                {
+                    "number": 8,
+                    "title": "Update documentation",
+                    "body": "Template: check performance and regression; no measurements.",
+                    "updated_at": "2026-01-02T00:00:00Z",
+                    "labels": [],
+                },
+            ],
+            ["https://api.github.test/search/issues?page=1"],
+            2,
+            False,
+        )
 
 
 def evidence_ref(manifest: dict, kind: str, locator: str) -> dict:
@@ -170,6 +198,9 @@ def event_for(manifest_path: Path) -> dict:
 
 def main() -> None:
     assert len(ARTIFACT_SPECS) == 8
+    assert not discovery_classifications(
+        {"title": "Add autoregressive model", "body": "", "labels": []}
+    )
     with tempfile.TemporaryDirectory() as temporary:
         corpus = Path(temporary) / "corpus"
         client = FakeGitHubClient()
@@ -183,6 +214,22 @@ def main() -> None:
         third = capture_pr("example/project", 7, corpus, client, ROOT)
         assert third["snapshot_id"] != first["snapshot_id"]
         assert third["corpus_snapshot_count"] == 2
+        assert validate_corpus(corpus, ROOT)["snapshot_count"] == 2
+
+        sync_receipt = sync_repository(
+            "example/project",
+            "2026-01-01T00:00:00Z",
+            "2026-01-04T00:00:00Z",
+            corpus,
+            Path(temporary) / "sync.json",
+            client,
+            max_captures=1,
+            root=ROOT,
+        )
+        assert sync_receipt["candidate_count"] == 1
+        assert sync_receipt["candidates"][0]["decision"] == "CAPTURED"
+        assert "REGRESSION" in sync_receipt["candidates"][0]["classifications"]
+        assert sync_receipt["next_since"] == "2026-01-04T00:00:00Z"
         assert validate_corpus(corpus, ROOT)["snapshot_count"] == 2
 
         manifest_path = Path(third["manifest"])
