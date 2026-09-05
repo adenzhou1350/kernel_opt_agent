@@ -741,6 +741,31 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 机器可读正式隔离为 `comparisons/vllm_fp8_native_vs_exact_qualification.json`，多并发退出证书为 `candidates/exact-bf16-packed-lmhead-small-batch/summary.json`。
 
+### 第二十四轮：画像驱动的 INT8 lm-head，把同量化 vLLM 提升到 1.219x
+
+对上一轮 `FP8 per-block backbone + exact-packed BF16 lm-head` 前沿做 Nsight Systems 2025.5.1 画像后，机会排序变得非常集中：exact-packed lm-head 每生成 token 约占 1.528 ms，在观测 CUDA kernel 时间中占 **90.17%**；全部 Marlin backbone 和其他 kernel 合计只占余下约 9.83%。因此没有继续在 attention、采样或几十微秒的小 kernel 上试错，而是直接建立有损 lm-head 压缩候选族。
+
+候选用 signed INT8 保存 248320×1024 输出投影，沿 K 维每 32/64/128/256/1024 个值共享一个 FP16 scale，并在 batch-1 Triton GEMV 内完成反量化与 FP32 reduction。五种 group、每种四个可编译 schedule 的有界微基准显示：group-32/128/1024 相对 exact-packed head 分别最快约 1.459x/1.525x/1.540x。没有直接选择最快的 per-row（1024）量化，而是选择误差更低的 group-32 进入端到端，这是把质量预算显式放入搜索目标，而不是只追逐局部速度。
+
+正式 C-S-S-C 固定相同源码、相同 FP8 per-block Marlin backbone、`max_num_seqs=1`、512 MiB KV cache、六类自然提示、128 输出 token，每个状态每例 3 warmup × 10 trials：
+
+| 正式对照 | FP8 + exact BF16 head | FP8 + INT8 group-32 head | 加速 |
+|---|---:|---:|---:|
+| mean E2E | 629.299 ms | **570.171 ms** | **1.1037x** |
+| mean TPOT | 4.6798 ms | **4.2010 ms** | **1.1140x** |
+| 四个交叉 TPOT 范围 | — | — | **1.1104x--1.1176x** |
+| 相对原生 vLLM FP8 TPOT | 5.1190 ms | **4.2010 ms** | **1.2185x** |
+
+四个进程的 graphics clock 中位数均为 2610 MHz。自然提示有 5/6 完整 token 相同，说明它不是严格等价替代。冻结的 512 题 GSM8K 上，exact-head control 为 40/512，INT8 group-32 为 42/512，答案一致 495/512、token exact 493/512，McNemar 双侧精确检验 `p=0.625`。这只能说明当前任务筛选未检测到退化，不能证明广泛质量等价。
+
+所以现在有三档明确策略，而不是一句“量化更快”：
+
+- 严格同输出、单序列：FP8 backbone + exact-packed BF16 head，相对原生 vLLM FP8 为 1.094x。
+- 经目标任务质量校准、单序列延迟优先：FP8 backbone + INT8 group-32 head，相对原生 vLLM FP8 为 **1.219x**，但必须承认有损。
+- 多序列/吞吐优先：保留原生 vLLM FP8；已有 custom small-batch 路径没有在完整服务中组合成功。
+
+这轮也验证了 agent 应有的闭环：先用 profile 把 90% 热点找出来，再以格式/架构候选族覆盖速度—质量 Pareto，局部筛选后才做端到端 C-S-S-C 与 512 题质量门。完整证据见 `candidates/int8-groupwise-lmhead/summary.json` 和 `comparisons/vllm_fp8_exact_vs_int8head_g32_qualification.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。

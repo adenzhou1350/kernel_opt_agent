@@ -621,6 +621,9 @@ def main() -> None:
             "vllm_sm89_exact_packed_lm_head": os.environ.get(
                 "VLLM_SM89_EXACT_PACKED_LM_HEAD", "0(default)"
             ),
+            "vllm_sm89_int8_groupwise_lm_head": os.environ.get(
+                "VLLM_SM89_INT8_GROUPWISE_LM_HEAD", "off(default)"
+            ),
             "vllm_sm89_fused_swiglu_down": os.environ.get(
                 "VLLM_SM89_FUSED_SWIGLU_DOWN", "0(default)"
             ),
