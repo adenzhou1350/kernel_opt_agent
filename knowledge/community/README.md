@@ -68,18 +68,22 @@ candidate/compile/measurement/wall-clock budgets. Validation rejects training
 snapshots captured after the cutoff and target PRs already present in the
 training graph.
 
-`materialize-trial` creates either a control directory with the community graph
-withheld or an augmented directory containing only the frozen graph. It never
-copies the hidden oracle. Run both arms with networking disabled, write their
-raw `community-trial-result-v1` records and then assess and compare them:
+`materialize-suite` uses the suite's frozen random seed to create every task,
+repeat and arm in a hash-bound execution schedule. A control trial withholds the
+community graph; an augmented trial contains only the frozen graph. Neither arm
+receives the hidden oracle. Execute `schedule.json` in order with networking
+disabled, write each raw `community-trial-result-v1`, then assess and compare:
 
 ```bash
 python scripts/kernel_opt.py community-eval validate-suite \
   --suite /path/to/suite/suite.json --corpus /path/to/corpus
 
-python scripts/kernel_opt.py community-eval materialize-trial \
+python scripts/kernel_opt.py community-eval materialize-suite \
   --suite /path/to/suite/suite.json --corpus /path/to/corpus \
-  --task heldout-task --arm CONTROL --repeat 1 --output /path/to/control
+  --output /path/to/materialized-schedule
+
+python scripts/kernel_opt.py community-eval validate-schedule \
+  --schedule /path/to/materialized-schedule/schedule.json
 
 python scripts/kernel_opt.py community-eval assess-trial --trial /path/to/control
 

@@ -17,7 +17,9 @@ sys.path.insert(0, str(ROOT / "tests"))
 from community_evaluation import (
     assess_trial,
     compare_trials,
+    materialize_suite,
     materialize_trial,
+    validate_schedule,
     validate_suite,
 )
 from community_knowledge import (
@@ -132,6 +134,7 @@ def main() -> None:
                 "arms": ["CONTROL", "COMMUNITY_AUGMENTED"],
                 "repeats": 2,
                 "randomized_order": True,
+                "random_seed": 20260906,
                 "network_policy": "DISABLED_AFTER_MATERIALIZATION",
                 "model_identity": "same-model-same-settings",
                 "prompt_identity": identity(prompt_path, suite_dir),
@@ -169,6 +172,28 @@ def main() -> None:
         suite_path = suite_dir / "suite.json"
         atomic_json(suite_path, suite)
         assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+
+        schedule_dir = base / "scheduled"
+        schedule_result = materialize_suite(
+            suite_path, corpus, schedule_dir, ROOT
+        )
+        assert schedule_result["entry_count"] == 4
+        schedule_path = schedule_dir / "schedule.json"
+        assert validate_schedule(schedule_path, ROOT)["status"] == "PASS"
+        scheduled = json.loads(schedule_path.read_text(encoding="utf-8"))
+        assert {
+            (entry["repeat_index"], entry["arm"])
+            for entry in scheduled["entries"]
+        } == {
+            (1, "CONTROL"),
+            (1, "COMMUNITY_AUGMENTED"),
+            (2, "CONTROL"),
+            (2, "COMMUNITY_AUGMENTED"),
+        }
+        assert all(
+            not (schedule_dir / entry["trial_directory"] / "input" / "oracle.json").exists()
+            for entry in scheduled["entries"]
+        )
 
         control_dir = base / "control"
         community_dir = base / "community"

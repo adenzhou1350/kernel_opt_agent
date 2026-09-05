@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 from datetime import datetime
@@ -25,6 +26,7 @@ TRIAL_SCHEMA = "community-evaluation-trial-v1"
 RESULT_SCHEMA = "community-trial-result-v1"
 ASSESSMENT_SCHEMA = "community-trial-assessment-v1"
 REPORT_SCHEMA = "community-ab-report-v1"
+SCHEDULE_SCHEMA = "community-evaluation-schedule-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -211,6 +213,135 @@ def materialize_trial(
         raise ValueError("invalid materialized trial: " + "; ".join(errors))
     atomic_json(output / "trial.json", manifest)
     return manifest
+
+
+def schedule_key(seed: int, *parts: object) -> str:
+    value = ":".join([str(seed), *(str(part) for part in parts)])
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def planned_trials(suite: dict) -> list[tuple[str, int, str]]:
+    seed = int(suite["protocol"]["random_seed"])
+    blocks = [
+        (task["task_id"], repeat_index)
+        for task in suite["tasks"]
+        for repeat_index in range(1, int(suite["protocol"]["repeats"]) + 1)
+    ]
+    blocks.sort(key=lambda item: schedule_key(seed, *item))
+    plan = []
+    for task_id, repeat_index in blocks:
+        arms = sorted(
+            ARMS,
+            key=lambda arm: schedule_key(seed, task_id, repeat_index, arm),
+        )
+        plan.extend((task_id, repeat_index, arm) for arm in arms)
+    return plan
+
+
+def validate_schedule(
+    schedule_path: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    schedule_path = schedule_path.resolve()
+    errors = validate_json_file(
+        schedule_path,
+        root / "schemas" / "community_evaluation_schedule.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid evaluation schedule: " + "; ".join(errors))
+    schedule = read_object(schedule_path)
+    suite_identity = schedule["suite_identity"]
+    suite_path = Path(suite_identity["path"]).resolve()
+    if not suite_path.is_file() or sha256_file(suite_path) != suite_identity["sha256"]:
+        raise ValueError("evaluation schedule suite identity is stale")
+    suite = read_object(suite_path)
+    if schedule["random_seed"] != suite["protocol"]["random_seed"]:
+        raise ValueError("evaluation schedule random seed differs from suite")
+    expected = planned_trials(suite)
+    observed = [
+        (entry["task_id"], entry["repeat_index"], entry["arm"])
+        for entry in schedule["entries"]
+    ]
+    if observed != expected:
+        raise ValueError("evaluation schedule order was edited or incompletely materialized")
+    if [entry["order_index"] for entry in schedule["entries"]] != list(
+        range(1, len(expected) + 1)
+    ):
+        raise ValueError("evaluation schedule order indices are not contiguous")
+    for entry in schedule["entries"]:
+        trial_dir = resolve_inside(schedule_path.parent, entry["trial_directory"])
+        trial_manifest = trial_dir / "trial.json"
+        if (
+            not trial_manifest.is_file()
+            or sha256_file(trial_manifest) != entry["trial_manifest_sha256"]
+        ):
+            raise ValueError(
+                f"scheduled trial manifest changed: {entry['trial_directory']}"
+            )
+        validate_trial(trial_dir, root)
+    return {
+        "status": "PASS",
+        "entry_count": len(expected),
+        "random_seed": schedule["random_seed"],
+    }
+
+
+def materialize_suite(
+    suite_path: Path,
+    corpus: Path,
+    output: Path,
+    root: Path | None = None,
+) -> dict:
+    root = root or repository_root()
+    validate_suite(suite_path, corpus, root)
+    suite_path = suite_path.resolve()
+    suite = read_object(suite_path)
+    output = output.resolve()
+    if output.exists() and any(output.iterdir()):
+        raise ValueError(f"schedule directory is not empty: {output}")
+    output.mkdir(parents=True, exist_ok=True)
+    entries = []
+    for order_index, (task_id, repeat_index, arm) in enumerate(
+        planned_trials(suite), start=1
+    ):
+        directory_name = (
+            f"{order_index:03d}-{task_id}-r{repeat_index}-{arm.lower()}"
+        )
+        trial_dir = output / "trials" / directory_name
+        materialize_trial(
+            suite_path,
+            corpus,
+            task_id,
+            arm,
+            repeat_index,
+            trial_dir,
+            root,
+        )
+        entries.append(
+            {
+                "order_index": order_index,
+                "task_id": task_id,
+                "repeat_index": repeat_index,
+                "arm": arm,
+                "trial_directory": f"trials/{directory_name}",
+                "trial_manifest_sha256": sha256_file(trial_dir / "trial.json"),
+            }
+        )
+    schedule = {
+        "schema_version": SCHEDULE_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "EXECUTION_ORDER_ONLY",
+        "suite_identity": {
+            "path": str(suite_path),
+            "sha256": sha256_file(suite_path),
+        },
+        "random_seed": suite["protocol"]["random_seed"],
+        "entries": entries,
+    }
+    schedule_path = output / "schedule.json"
+    atomic_json(schedule_path, schedule)
+    result = validate_schedule(schedule_path, root)
+    return {**result, "schedule": str(schedule_path)}
 
 
 def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
@@ -473,6 +604,12 @@ def parse_args() -> argparse.Namespace:
     materialize.add_argument("--arm", choices=ARMS, required=True)
     materialize.add_argument("--repeat", type=int, default=1)
     materialize.add_argument("--output", type=Path, required=True)
+    materialize_all = subparsers.add_parser("materialize-suite")
+    materialize_all.add_argument("--suite", type=Path, required=True)
+    materialize_all.add_argument("--corpus", type=Path, required=True)
+    materialize_all.add_argument("--output", type=Path, required=True)
+    validate_order = subparsers.add_parser("validate-schedule")
+    validate_order.add_argument("--schedule", type=Path, required=True)
     assess = subparsers.add_parser("assess-trial")
     assess.add_argument("--trial", type=Path, required=True)
     compare = subparsers.add_parser("compare")
@@ -496,6 +633,10 @@ def main() -> int:
                 args.repeat,
                 args.output,
             )
+        elif args.operation == "materialize-suite":
+            result = materialize_suite(args.suite, args.corpus, args.output)
+        elif args.operation == "validate-schedule":
+            result = validate_schedule(args.schedule)
         elif args.operation == "assess-trial":
             result = assess_trial(args.trial)
         else:

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_evaluation_schedule.schema.json",
+  "title": "Deterministic randomized community A/B execution schedule",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "suite_identity", "random_seed", "entries"],
+  "properties": {
+    "schema_version": {"const": "community-evaluation-schedule-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "EXECUTION_ORDER_ONLY"},
+    "suite_identity": {"$ref": "#/$defs/identity"},
+    "random_seed": {"type": "integer", "minimum": 0},
+    "entries": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["order_index", "task_id", "repeat_index", "arm", "trial_directory", "trial_manifest_sha256"],
+        "properties": {
+          "order_index": {"type": "integer", "minimum": 1},
+          "task_id": {"type": "string", "minLength": 1},
+          "repeat_index": {"type": "integer", "minimum": 1},
+          "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+          "trial_directory": {"type": "string", "pattern": "^trials/[a-z0-9._-]+$"},
+          "trial_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
