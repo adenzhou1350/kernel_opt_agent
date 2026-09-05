@@ -63,16 +63,30 @@ representations must use `CONFLICTS` even when they address the same bottleneck.
 
 Use `community-eval` to test whether the knowledge layer actually improves the
 agent instead of merely producing plausible recommendations. A suite freezes a
-cutoff, graph, task packet, hidden oracle, model/prompt identity, arm order and
-candidate/compile/measurement/wall-clock budgets. Validation rejects training
+cutoff, graph, task packet, hidden oracle, full source revision, model/prompt identity,
+arm order and candidate/compile/measurement/per-command/wall-clock budgets.
+Validation rejects training
 snapshots captured after the cutoff and target PRs already present in the
 training graph.
+
+The suite also freezes a `minimum_material_speedup` greater than 1.0. The
+assessor uses this threshold for time-to-first-improvement so a nominal 1.001x
+result inside timing noise cannot count as successful discovery.
 
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
 community graph; an augmented trial contains only the frozen graph. Neither arm
-receives the hidden oracle. Execute `schedule.json` in order with networking
-disabled, write each raw `community-trial-result-v1`, then assess and compare:
+receives the hidden oracle. Each trial also carries a hash-bound JSON result
+contract so an isolated executor does not have to guess the reporting format.
+The materialized executor prompt also freezes the filesystem boundary, runtime
+adapter and evidence-writing rules shared by both arms.
+Execute `schedule.json` in order with networking
+disabled. Before execution, materialize the exact historical commit from a local
+repository into each trial. The source receipt binds the commit, Git tree and every
+extracted file hash, and validation rejects later source edits. On Windows, Git
+symlinks are materialized as inert target-text blobs rather than live links so they
+cannot escape the trial root; the original Git tree identity remains bound. Write each raw
+`community-trial-result-v1`, then assess and compare:
 
 ```bash
 python scripts/kernel_opt.py community-eval validate-suite \
@@ -85,7 +99,19 @@ python scripts/kernel_opt.py community-eval materialize-suite \
 python scripts/kernel_opt.py community-eval validate-schedule \
   --schedule /path/to/materialized-schedule/schedule.json
 
-python scripts/kernel_opt.py community-eval assess-trial --trial /path/to/control
+python scripts/kernel_opt.py community-eval prepare-source \
+  --trial /path/to/materialized-schedule/trials/001-control \
+  --repository /path/to/local/source-repository
+
+python scripts/kernel_opt.py community-eval validate-source \
+  --trial /path/to/materialized-schedule/trials/001-control
+
+python scripts/kernel_opt.py community-eval audit-execution \
+  --trial /path/to/materialized-schedule/trials/001-control \
+  --sandbox-mode AUDITED_UNRESTRICTED
+
+python scripts/kernel_opt.py community-eval assess-trial --trial /path/to/control \
+  --require-execution-audit
 
 python scripts/kernel_opt.py community-eval compare \
   --control /path/to/control --community /path/to/community \
@@ -98,3 +124,11 @@ speedup and upstream readiness from candidate-level evidence. It rejects stale
 hashes, incomplete upstream claims and any trial that exceeds its frozen
 budget. A paired report is scoped to one task and repeat; repeated-task
 statistics must not be inferred from a single pair.
+
+`audit-execution` independently parses Codex JSONL rather than trusting the
+Agent's final summary. It rejects incomplete turns, missing/invalid results,
+network or remote-Git commands, parent/external data paths and a failed-command
+lower bound above the frozen technical-repair budget. An audited unrestricted
+run is therefore evidence only when its complete transcript passes this gate.
+Strict assessment additionally binds the passing audit to the current trial and
+result hashes, so editing a result after audit cannot silently enter a comparison.

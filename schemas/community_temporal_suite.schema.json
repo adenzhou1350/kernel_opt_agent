@@ -30,7 +30,9 @@
         "network_policy",
         "model_identity",
         "prompt_identity",
+        "environment_identity",
         "budgets",
+        "minimum_material_speedup",
         "metrics"
       ],
       "properties": {
@@ -41,11 +43,13 @@
         "network_policy": {"const": "DISABLED_AFTER_MATERIALIZATION"},
         "model_identity": {"type": "string", "minLength": 1},
         "prompt_identity": {"$ref": "#/$defs/identity"},
+        "environment_identity": {"$ref": "#/$defs/identity"},
         "budgets": {
           "type": "object",
           "additionalProperties": false,
           "required": [
             "wall_clock_seconds",
+            "max_command_seconds",
             "max_candidates",
             "max_compile_attempts",
             "max_measurements",
@@ -54,6 +58,7 @@
           ],
           "properties": {
             "wall_clock_seconds": {"type": "number", "exclusiveMinimum": 0},
+            "max_command_seconds": {"type": "number", "exclusiveMinimum": 0},
             "max_candidates": {"type": "integer", "minimum": 1},
             "max_compile_attempts": {"type": "integer", "minimum": 0},
             "max_measurements": {"type": "integer", "minimum": 0},
@@ -61,6 +66,7 @@
             "max_causal_revisions": {"type": "integer", "minimum": 0}
           }
         },
+        "minimum_material_speedup": {"type": "number", "exclusiveMinimum": 1},
         "metrics": {
           "type": "array",
           "minItems": 7,
@@ -100,7 +106,7 @@
           "available_at": {"type": "string", "format": "date-time"},
           "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
           "pr_number": {"type": "integer", "minimum": 1},
-          "base_revision": {"type": "string", "minLength": 7},
+          "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
           "target_hardware": {"type": "string", "minLength": 1},
           "packet": {"$ref": "#/$defs/identity"},
           "hidden_oracle": {"$ref": "#/$defs/identity"}

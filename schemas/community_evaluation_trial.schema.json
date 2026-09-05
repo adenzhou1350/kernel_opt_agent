@@ -15,9 +15,14 @@
     "arm",
     "status",
     "budget",
+    "success_thresholds",
     "access_policy",
+    "source_checkout",
     "task_input",
     "prompt_input",
+    "environment_input",
+    "result_contract",
+    "executor_prompt",
     "community_graph"
   ],
   "properties": {
@@ -31,6 +36,14 @@
     "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
     "status": {"const": "MATERIALIZED"},
     "budget": {"type": "object"},
+    "success_thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_material_speedup"],
+      "properties": {
+        "minimum_material_speedup": {"type": "number", "exclusiveMinimum": 1}
+      }
+    },
     "access_policy": {
       "type": "object",
       "additionalProperties": false,
@@ -40,8 +53,20 @@
         "community_knowledge": {"enum": ["WITHHELD", "FROZEN_GRAPH_ONLY"]}
       }
     },
+    "source_checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "revision"],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
     "task_input": {"$ref": "#/$defs/identity"},
     "prompt_input": {"$ref": "#/$defs/identity"},
+    "environment_input": {"$ref": "#/$defs/identity"},
+    "result_contract": {"$ref": "#/$defs/identity"},
+    "executor_prompt": {"$ref": "#/$defs/identity"},
     "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
   },
   "$defs": {

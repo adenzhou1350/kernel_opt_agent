@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_trial_execution_audit.schema.json",
+  "title": "Independent audit of an isolated Codex trial execution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "status",
+    "sandbox_mode",
+    "trial_identity",
+    "transcript_identity",
+    "stderr_identity",
+    "result_identity",
+    "observations",
+    "violations"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-trial-execution-audit-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "TRANSCRIPT_AND_RESULT_INTEGRITY_ONLY"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "sandbox_mode": {"enum": ["WORKSPACE_WRITE", "AUDITED_UNRESTRICTED"]},
+    "trial_identity": {"$ref": "#/$defs/identity"},
+    "transcript_identity": {"$ref": "#/$defs/identity"},
+    "stderr_identity": {"$ref": "#/$defs/identity"},
+    "result_identity": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "command_count",
+        "completed_command_count",
+        "failed_command_count",
+        "declined_command_count",
+        "max_agent_declared_technical_repairs",
+        "technical_repair_lower_bound",
+        "turn_completed",
+        "malformed_line_count",
+        "external_path_hashes"
+      ],
+      "properties": {
+        "command_count": {"type": "integer", "minimum": 0},
+        "completed_command_count": {"type": "integer", "minimum": 0},
+        "failed_command_count": {"type": "integer", "minimum": 0},
+        "declined_command_count": {"type": "integer", "minimum": 0},
+        "max_agent_declared_technical_repairs": {"type": "integer", "minimum": 0},
+        "technical_repair_lower_bound": {"type": "integer", "minimum": 0},
+        "turn_completed": {"type": "boolean"},
+        "malformed_line_count": {"type": "integer", "minimum": 0},
+        "external_path_hashes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "violations": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "NETWORK_COMMAND",
+          "REMOTE_GIT_COMMAND",
+          "PARENT_TRAVERSAL",
+          "EXTERNAL_DATA_PATH",
+          "MALFORMED_TRANSCRIPT",
+          "TECHNICAL_REPAIR_BUDGET_EXCEEDED",
+          "TURN_NOT_COMPLETED",
+          "RESULT_MISSING",
+          "RESULT_SCHEMA_INVALID"
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

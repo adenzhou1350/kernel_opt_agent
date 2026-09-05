@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 import tempfile
 from datetime import datetime, timedelta
@@ -15,10 +16,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from community_evaluation import (
+    audit_codex_execution,
     assess_trial,
     compare_trials,
     materialize_suite,
     materialize_trial,
+    prepare_trial_source,
+    validate_source_receipt,
     validate_schedule,
     validate_suite,
 )
@@ -106,6 +110,7 @@ def main() -> None:
         task_path = assets / "task.json"
         oracle_path = assets / "oracle.json"
         prompt_path = assets / "prompt.md"
+        environment_path = assets / "environment.json"
         atomic_json(graph_path, graph)
         atomic_json(
             task_path,
@@ -119,6 +124,47 @@ def main() -> None:
             {"hidden_until_after_trial": True, "known_family": "operator-fusion"},
         )
         prompt_path.write_text("Optimize the frozen task under its budget.\n")
+        atomic_json(
+            environment_path,
+            {
+                "claim_boundary": "PRE_TRIAL_READ_ONLY_ENVIRONMENT_FACTS",
+                "device": "test GPU",
+            },
+        )
+
+        source_repository = base / "source-repository"
+        source_repository.mkdir()
+        subprocess.run(["git", "init", "-q"], cwd=source_repository, check=True)
+        subprocess.run(
+            ["git", "config", "user.name", "Community Evaluation Test"],
+            cwd=source_repository,
+            check=True,
+        )
+        subprocess.run(
+            ["git", "config", "user.email", "test@example.invalid"],
+            cwd=source_repository,
+            check=True,
+        )
+        (source_repository / "operator.py").write_text(
+            "def project(hidden, weight):\n    return hidden @ weight.T\n",
+            encoding="utf-8",
+        )
+        subprocess.run(
+            ["git", "add", "operator.py"], cwd=source_repository, check=True
+        )
+        subprocess.run(
+            ["git", "commit", "-q", "-m", "historical baseline"],
+            cwd=source_repository,
+            check=True,
+        )
+        base_revision = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=source_repository,
+            check=True,
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+        ).stdout.strip()
 
         captured_at = datetime.fromisoformat(
             json.loads(Path(captured["manifest"]).read_text())["captured_at"]
@@ -138,14 +184,17 @@ def main() -> None:
                 "network_policy": "DISABLED_AFTER_MATERIALIZATION",
                 "model_identity": "same-model-same-settings",
                 "prompt_identity": identity(prompt_path, suite_dir),
+                "environment_identity": identity(environment_path, suite_dir),
                 "budgets": {
                     "wall_clock_seconds": 900,
+                    "max_command_seconds": 120,
                     "max_candidates": 4,
                     "max_compile_attempts": 6,
                     "max_measurements": 6,
                     "max_technical_repairs": 2,
                     "max_causal_revisions": 2,
                 },
+                "minimum_material_speedup": 1.02,
                 "metrics": [
                     "TIME_TO_FIRST_CORRECT",
                     "TIME_TO_FIRST_IMPROVEMENT",
@@ -162,7 +211,7 @@ def main() -> None:
                     "available_at": (cutoff + timedelta(hours=1)).isoformat(),
                     "repository": "other/project",
                     "pr_number": 8,
-                    "base_revision": "1234567",
+                    "base_revision": base_revision,
                     "target_hardware": "test GPU",
                     "packet": identity(task_path, suite_dir),
                     "hidden_oracle": identity(oracle_path, suite_dir),
@@ -219,6 +268,69 @@ def main() -> None:
         assert (community_dir / "knowledge" / "community_graph.json").is_file()
         assert not (control_dir / "input" / "oracle.json").exists()
         assert not (community_dir / "input" / "oracle.json").exists()
+        assert (control_dir / "input" / "result.schema.json").is_file()
+        assert (control_dir / "input" / "executor.md").is_file()
+        assert (control_dir / "input" / "environment.json").is_file()
+        assert base_revision in control_dir.joinpath("trial.json").read_text(
+            encoding="utf-8"
+        )
+
+        source_receipt = prepare_trial_source(control_dir, source_repository, ROOT)
+        assert source_receipt["status"] == "PASS"
+        assert source_receipt["revision"] == base_revision
+        assert source_receipt["file_count"] == 1
+        assert validate_source_receipt(control_dir, ROOT) == source_receipt
+        (control_dir / "source" / "operator.py").write_text(
+            "tampered\n", encoding="utf-8"
+        )
+        try:
+            validate_source_receipt(control_dir, ROOT)
+        except ValueError as error:
+            assert "changed after binding" in str(error)
+        else:
+            raise AssertionError("tampered historical source tree was accepted")
+
+        invalid_execution = base / "invalid-execution"
+        materialize_trial(
+            suite_path,
+            corpus,
+            "heldout.logits",
+            "CONTROL",
+            2,
+            invalid_execution,
+            ROOT,
+        )
+        events = [
+            {"type": "thread.started", "thread_id": "isolated"},
+            *[
+                {
+                    "type": "item.started",
+                    "item": {
+                        "type": "command_execution",
+                        "command": f"python evidence/failure-{index}.py",
+                    },
+                }
+                for index in range(3)
+            ],
+            *[
+                {
+                    "type": "item.completed",
+                    "item": {"type": "command_execution", "status": "failed"},
+                }
+                for _ in range(3)
+            ],
+        ]
+        (invalid_execution / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in events),
+            encoding="utf-8",
+        )
+        (invalid_execution / "executor.stderr.log").write_text("", encoding="utf-8")
+        execution_audit = audit_codex_execution(invalid_execution, root=ROOT)
+        assert execution_audit["status"] == "FAIL"
+        assert execution_audit["observations"]["technical_repair_lower_bound"] == 3
+        assert "TECHNICAL_REPAIR_BUDGET_EXCEEDED" in execution_audit["violations"]
+        assert "TURN_NOT_COMPLETED" in execution_audit["violations"]
+        assert "RESULT_MISSING" in execution_audit["violations"]
 
         for trial_dir in (control_dir, community_dir):
             evidence_path = trial_dir / "evidence.json"
@@ -264,9 +376,19 @@ def main() -> None:
                 elapsed = 500
             write_result(trial_dir, rows, elapsed)
 
+        try:
+            assess_trial(control_dir, ROOT, require_execution_audit=True)
+        except ValueError as error:
+            assert "execution audit required" in str(error)
+        else:
+            raise AssertionError("unaudited trial was accepted by strict assessment")
+
         control_assessment = assess_trial(control_dir, ROOT)
         community_assessment = assess_trial(community_dir, ROOT)
         assert control_assessment["metrics"]["best_speedup"] == 1.04
+        assert control_assessment["success_thresholds"][
+            "minimum_material_speedup"
+        ] == 1.02
         assert community_assessment["metrics"]["upstream_ready_count"] == 1
         report = compare_trials(
             control_dir, community_dir, base / "comparison.json", ROOT

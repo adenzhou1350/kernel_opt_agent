@@ -6,9 +6,13 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import shutil
+import subprocess
+import tempfile
+import zipfile
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from community_knowledge import (
     atomic_json,
@@ -27,6 +31,8 @@ RESULT_SCHEMA = "community-trial-result-v1"
 ASSESSMENT_SCHEMA = "community-trial-assessment-v1"
 REPORT_SCHEMA = "community-ab-report-v1"
 SCHEDULE_SCHEMA = "community-evaluation-schedule-v1"
+SOURCE_RECEIPT_SCHEMA = "community-trial-source-receipt-v1"
+EXECUTION_AUDIT_SCHEMA = "community-trial-execution-audit-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -104,6 +110,9 @@ def validate_suite(
         training_sources.add((source["repository"], source["pr_number"]))
 
     validate_identity(base, suite["protocol"]["prompt_identity"], "trial prompt")
+    validate_identity(
+        base, suite["protocol"]["environment_identity"], "runtime environment"
+    )
     task_ids: set[str] = set()
     for task in suite["tasks"]:
         if task["task_id"] in task_ids:
@@ -133,6 +142,322 @@ def identity_for(path: Path, base: Path) -> dict:
         "path": path.resolve().relative_to(base.resolve()).as_posix(),
         "sha256": sha256_file(path),
     }
+
+
+def source_tree_snapshot(source: Path) -> dict:
+    """Return a deterministic content-only identity for a materialized source tree."""
+    source = source.resolve()
+    if not source.is_dir():
+        raise FileNotFoundError(f"materialized source tree is missing: {source}")
+    entries = []
+    for path in sorted(item for item in source.rglob("*") if item.is_file()):
+        entries.append(
+            {
+                "path": path.relative_to(source).as_posix(),
+                "size": path.stat().st_size,
+                "sha256": sha256_file(path),
+            }
+        )
+    if not entries:
+        raise ValueError("materialized source tree is empty")
+    encoded = json.dumps(
+        entries, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    ).encode("utf-8")
+    return {
+        "schema_version": "community-source-tree-v1",
+        "file_count": len(entries),
+        "content_bytes": sum(item["size"] for item in entries),
+        "root_sha256": hashlib.sha256(encoded).hexdigest(),
+        "entries": entries,
+    }
+
+
+def safe_extract_zip(archive: Path, destination: Path) -> None:
+    """Extract a git archive without traversal or live-link materialization.
+
+    Git ZIP archives store a symlink's target as its blob payload. Writing that
+    payload as a regular file matches Git for Windows with ``core.symlinks=false``
+    and prevents a link from escaping the isolated trial.
+    """
+    destination = destination.resolve()
+    destination.mkdir(parents=True, exist_ok=False)
+    with zipfile.ZipFile(archive) as zipped:
+        for info in zipped.infolist():
+            relative = PurePosixPath(info.filename)
+            if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+                raise ValueError(f"unsafe source archive member: {info.filename}")
+            target = (destination / Path(*relative.parts)).resolve()
+            try:
+                target.relative_to(destination)
+            except ValueError as error:
+                raise ValueError(
+                    f"source archive member escapes destination: {info.filename}"
+                ) from error
+            if info.is_dir():
+                target.mkdir(parents=True, exist_ok=True)
+                continue
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with zipped.open(info) as source_stream, target.open("wb") as target_stream:
+                shutil.copyfileobj(source_stream, target_stream)
+
+
+def run_git(repository: Path, *arguments: str) -> str:
+    completed = subprocess.run(
+        ["git", *arguments],
+        cwd=repository,
+        text=True,
+        encoding="utf-8",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode:
+        detail = completed.stderr.strip() or completed.stdout.strip()
+        raise ValueError(f"git {' '.join(arguments)} failed: {detail}")
+    return completed.stdout.strip()
+
+
+def prepare_trial_source(
+    trial_dir: Path, repository: Path, root: Path | None = None
+) -> dict:
+    """Materialize and bind the exact historical source revision for one trial."""
+    root = root or repository_root()
+    trial_dir = trial_dir.resolve()
+    trial = validate_trial(trial_dir, root)
+    repository = repository.resolve()
+    if not repository.is_dir():
+        raise FileNotFoundError(f"source repository is missing: {repository}")
+    source_dir = trial_dir / "source"
+    receipt_path = trial_dir / "source_receipt.json"
+    tree_path = trial_dir / "source_tree.json"
+    if source_dir.exists() or receipt_path.exists() or tree_path.exists():
+        raise ValueError("trial source has already been materialized")
+
+    revision = trial["source_checkout"]["revision"]
+    resolved_revision = run_git(repository, "rev-parse", f"{revision}^{{commit}}")
+    if resolved_revision != revision:
+        raise ValueError(
+            f"source revision resolved to {resolved_revision}, expected {revision}"
+        )
+    tree_id = run_git(repository, "rev-parse", f"{revision}^{{tree}}")
+
+    with tempfile.TemporaryDirectory(prefix="source-materialization-", dir=trial_dir) as temporary:
+        temporary_path = Path(temporary)
+        archive_path = temporary_path / "source.zip"
+        archive_result = subprocess.run(
+            ["git", "archive", "--format=zip", "--output", str(archive_path), revision],
+            cwd=repository,
+            text=True,
+            encoding="utf-8",
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if archive_result.returncode:
+            detail = archive_result.stderr.strip() or archive_result.stdout.strip()
+            raise ValueError(f"git archive failed: {detail}")
+        archive_sha256 = sha256_file(archive_path)
+        extracted = temporary_path / "extracted"
+        safe_extract_zip(archive_path, extracted)
+        extracted.rename(source_dir)
+
+    source_tree = source_tree_snapshot(source_dir)
+    atomic_json(tree_path, source_tree)
+    receipt = {
+        "schema_version": SOURCE_RECEIPT_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "EXACT_HISTORICAL_SOURCE_MATERIALIZATION",
+        "trial_identity": identity_for(trial_dir / "trial.json", trial_dir),
+        "repository": trial["source_checkout"]["repository"],
+        "revision": revision,
+        "git_tree": tree_id,
+        "archive_sha256": archive_sha256,
+        "symlink_policy": "BLOB_TEXT_NO_LIVE_LINKS",
+        "source_root": "source",
+        "source_tree": identity_for(tree_path, trial_dir),
+        "source_root_sha256": source_tree["root_sha256"],
+    }
+    errors = validate_instance(
+        receipt,
+        read_object(root / "schemas" / "community_trial_source_receipt.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid source receipt: " + "; ".join(errors))
+    atomic_json(receipt_path, receipt)
+    return validate_source_receipt(trial_dir, root)
+
+
+def validate_source_receipt(
+    trial_dir: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    trial_dir = trial_dir.resolve()
+    trial = validate_trial(trial_dir, root)
+    receipt_path = trial_dir / "source_receipt.json"
+    errors = validate_json_file(
+        receipt_path,
+        root / "schemas" / "community_trial_source_receipt.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid source receipt: " + "; ".join(errors))
+    receipt = read_object(receipt_path)
+    validate_identity(trial_dir, receipt["trial_identity"], "source receipt trial")
+    if receipt["repository"] != trial["source_checkout"]["repository"]:
+        raise ValueError("source receipt repository differs from trial")
+    if receipt["revision"] != trial["source_checkout"]["revision"]:
+        raise ValueError("source receipt revision differs from trial")
+    tree_path = validate_identity(
+        trial_dir, receipt["source_tree"], "source tree manifest"
+    )
+    recorded_tree = read_object(tree_path)
+    observed_tree = source_tree_snapshot(resolve_inside(trial_dir, receipt["source_root"]))
+    if observed_tree != recorded_tree:
+        raise ValueError("materialized source tree changed after binding")
+    if receipt["source_root_sha256"] != observed_tree["root_sha256"]:
+        raise ValueError("source root hash differs from source tree manifest")
+    return {
+        "status": "PASS",
+        "trial_id": trial["trial_id"],
+        "revision": receipt["revision"],
+        "git_tree": receipt["git_tree"],
+        "file_count": observed_tree["file_count"],
+        "content_bytes": observed_tree["content_bytes"],
+        "source_root_sha256": observed_tree["root_sha256"],
+    }
+
+
+def audit_codex_execution(
+    trial_dir: Path,
+    transcript_name: str = "executor.jsonl",
+    stderr_name: str = "executor.stderr.log",
+    sandbox_mode: str = "AUDITED_UNRESTRICTED",
+    root: Path | None = None,
+) -> dict:
+    """Audit an isolated Codex JSONL transcript without trusting its summary."""
+    root = root or repository_root()
+    trial_dir = trial_dir.resolve()
+    trial = validate_trial(trial_dir, root)
+    transcript_path = resolve_inside(trial_dir, transcript_name)
+    stderr_path = resolve_inside(trial_dir, stderr_name)
+    if not transcript_path.is_file():
+        raise FileNotFoundError(f"executor transcript is missing: {transcript_path}")
+    if not stderr_path.is_file():
+        raise FileNotFoundError(f"executor stderr log is missing: {stderr_path}")
+
+    commands = []
+    completed_commands = 0
+    failed_commands = 0
+    declined_commands = 0
+    max_declared_repairs = 0
+    turn_completed = False
+    malformed_lines = 0
+    for line in transcript_path.read_text(encoding="utf-8").splitlines():
+        try:
+            event = json.loads(line)
+        except json.JSONDecodeError:
+            malformed_lines += 1
+            continue
+        if event.get("type") == "turn.completed":
+            turn_completed = True
+        item = event.get("item") or {}
+        if event.get("type") == "item.started" and item.get("type") == "command_execution":
+            commands.append(str(item.get("command", "")))
+        if event.get("type") == "item.completed" and item.get("type") == "command_execution":
+            status = item.get("status")
+            if status == "completed":
+                completed_commands += 1
+            elif status == "failed":
+                failed_commands += 1
+            elif status == "declined":
+                declined_commands += 1
+        if event.get("type") == "item.completed" and item.get("type") == "agent_message":
+            try:
+                message = json.loads(item.get("text", ""))
+            except (json.JSONDecodeError, TypeError):
+                continue
+            declared = message.get("technical_repair_attempts")
+            if isinstance(declared, int):
+                max_declared_repairs = max(max_declared_repairs, declared)
+
+    normalized = "\n".join(commands)
+    forbidden_patterns = {
+        "NETWORK_COMMAND": r"(?i)(Invoke-WebRequest|curl(?:\.exe)?\s|wget\s|https?://|ssh\s|scp\s)",
+        "REMOTE_GIT_COMMAND": r"(?i)git\s+(fetch|clone|pull|remote)\b",
+        "PARENT_TRAVERSAL": r"(?<!\.)\.\.[\\/]",
+    }
+    violations = [
+        name for name, pattern in forbidden_patterns.items() if re.search(pattern, normalized)
+    ]
+    trial_windows = str(trial_dir).lower()
+    trial_wsl = "/mnt/" + trial_windows[0] + trial_windows[2:].replace("\\", "/")
+    external_paths = []
+    for command in commands:
+        for match in re.findall(r"(?i)[a-z]:\\[^\s'\";]+", command):
+            lowered = match.rstrip(".,)").lower()
+            while "\\\\" in lowered:
+                lowered = lowered.replace("\\\\", "\\")
+            if lowered.startswith(trial_windows):
+                continue
+            if "codex-runtimes\\codex-primary-runtime" in lowered:
+                continue
+            external_paths.append(hashlib.sha256(lowered.encode()).hexdigest())
+        for match in re.findall(r"/mnt/[a-z]/[^\s'\";]+", command):
+            lowered = match.rstrip(".,)").lower()
+            if not lowered.startswith(trial_wsl):
+                external_paths.append(hashlib.sha256(lowered.encode()).hexdigest())
+    if external_paths:
+        violations.append("EXTERNAL_DATA_PATH")
+    if malformed_lines:
+        violations.append("MALFORMED_TRANSCRIPT")
+
+    repair_lower_bound = max(failed_commands, declined_commands, max_declared_repairs)
+    if repair_lower_bound > trial["budget"]["max_technical_repairs"]:
+        violations.append("TECHNICAL_REPAIR_BUDGET_EXCEEDED")
+    result_path = trial_dir / "result.json"
+    result_identity = identity_for(result_path, trial_dir) if result_path.is_file() else None
+    if not turn_completed:
+        violations.append("TURN_NOT_COMPLETED")
+    if result_identity is None:
+        violations.append("RESULT_MISSING")
+    else:
+        result_errors = validate_json_file(
+            result_path, root / "schemas" / "community_trial_result.schema.json"
+        )
+        if result_errors:
+            violations.append("RESULT_SCHEMA_INVALID")
+
+    violations = sorted(set(violations))
+    receipt = {
+        "schema_version": EXECUTION_AUDIT_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "TRANSCRIPT_AND_RESULT_INTEGRITY_ONLY",
+        "status": "PASS" if not violations else "FAIL",
+        "sandbox_mode": sandbox_mode,
+        "trial_identity": identity_for(trial_dir / "trial.json", trial_dir),
+        "transcript_identity": identity_for(transcript_path, trial_dir),
+        "stderr_identity": identity_for(stderr_path, trial_dir),
+        "result_identity": result_identity,
+        "observations": {
+            "command_count": len(commands),
+            "completed_command_count": completed_commands,
+            "failed_command_count": failed_commands,
+            "declined_command_count": declined_commands,
+            "max_agent_declared_technical_repairs": max_declared_repairs,
+            "technical_repair_lower_bound": repair_lower_bound,
+            "turn_completed": turn_completed,
+            "malformed_line_count": malformed_lines,
+            "external_path_hashes": sorted(set(external_paths)),
+        },
+        "violations": violations,
+    }
+    errors = validate_instance(
+        receipt,
+        read_object(root / "schemas" / "community_trial_execution_audit.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid execution audit: " + "; ".join(errors))
+    atomic_json(trial_dir / "execution_audit.json", receipt)
+    return receipt
 
 
 def materialize_trial(
@@ -165,10 +490,25 @@ def materialize_trial(
     prompt_source = validate_identity(
         suite_base, suite["protocol"]["prompt_identity"], "trial prompt"
     )
+    environment_source = validate_identity(
+        suite_base, suite["protocol"]["environment_identity"], "runtime environment"
+    )
     task_target = output / "input" / "task.json"
     prompt_target = output / "input" / "prompt.md"
+    environment_target = output / "input" / "environment.json"
+    result_schema_target = output / "input" / "result.schema.json"
+    executor_prompt_target = output / "input" / "executor.md"
     shutil.copyfile(task_source, task_target)
     shutil.copyfile(prompt_source, prompt_target)
+    shutil.copyfile(environment_source, environment_target)
+    shutil.copyfile(
+        root / "schemas" / "community_trial_result.schema.json",
+        result_schema_target,
+    )
+    shutil.copyfile(
+        root / "knowledge" / "community" / "executor_prompt.md",
+        executor_prompt_target,
+    )
 
     graph_identity = None
     knowledge_policy = "WITHHELD"
@@ -197,12 +537,24 @@ def materialize_trial(
         "arm": arm,
         "status": "MATERIALIZED",
         "budget": suite["protocol"]["budgets"],
+        "success_thresholds": {
+            "minimum_material_speedup": suite["protocol"][
+                "minimum_material_speedup"
+            ]
+        },
         "access_policy": {
             "network": "DISABLED",
             "community_knowledge": knowledge_policy,
         },
+        "source_checkout": {
+            "repository": task["repository"],
+            "revision": task["base_revision"],
+        },
         "task_input": identity_for(task_target, output),
         "prompt_input": identity_for(prompt_target, output),
+        "environment_input": identity_for(environment_target, output),
+        "result_contract": identity_for(result_schema_target, output),
+        "executor_prompt": identity_for(executor_prompt_target, output),
         "community_graph": graph_identity,
     }
     errors = validate_instance(
@@ -356,6 +708,17 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
     trial = read_object(trial_path)
     validate_identity(trial_dir, trial["task_input"], "trial task input")
     validate_identity(trial_dir, trial["prompt_input"], "trial prompt input")
+    validate_identity(
+        trial_dir, trial["environment_input"], "trial runtime environment"
+    )
+    validate_identity(trial_dir, trial["result_contract"], "trial result contract")
+    validate_identity(trial_dir, trial["executor_prompt"], "trial executor prompt")
+    source_checkout = trial["source_checkout"]
+    if len(source_checkout["revision"]) != 40 or any(
+        character not in "0123456789abcdef"
+        for character in source_checkout["revision"]
+    ):
+        raise ValueError("trial source revision must be a full lowercase commit hash")
     graph = trial["community_graph"]
     if trial["arm"] == "CONTROL":
         if graph is not None or (trial_dir / "knowledge").exists():
@@ -375,7 +738,11 @@ def nullable_max(values: list[float]) -> float | None:
     return max(values) if values else None
 
 
-def assess_trial(trial_dir: Path, root: Path | None = None) -> dict:
+def assess_trial(
+    trial_dir: Path,
+    root: Path | None = None,
+    require_execution_audit: bool = False,
+) -> dict:
     root = root or repository_root()
     trial_dir = trial_dir.resolve()
     trial = validate_trial(trial_dir, root)
@@ -389,6 +756,24 @@ def assess_trial(trial_dir: Path, root: Path | None = None) -> dict:
     for field in ("trial_id", "task_id", "arm"):
         if result[field] != trial[field]:
             raise ValueError(f"trial result {field} does not match manifest")
+
+    if require_execution_audit:
+        audit_path = trial_dir / "execution_audit.json"
+        if not audit_path.is_file():
+            raise ValueError("valid execution audit required: file is missing")
+        audit_errors = validate_json_file(
+            audit_path,
+            root / "schemas" / "community_trial_execution_audit.schema.json",
+        )
+        if audit_errors:
+            raise ValueError("valid execution audit required: " + "; ".join(audit_errors))
+        audit = read_object(audit_path)
+        if audit["status"] != "PASS":
+            raise ValueError("passing execution audit required")
+        if audit["trial_identity"] != identity_for(trial_dir / "trial.json", trial_dir):
+            raise ValueError("execution audit is stale for trial manifest")
+        if audit["result_identity"] != identity_for(result_path, trial_dir):
+            raise ValueError("execution audit is stale for trial result")
 
     candidate_ids: set[str] = set()
     for candidate in result["candidates"]:
@@ -452,10 +837,14 @@ def assess_trial(trial_dir: Path, root: Path | None = None) -> dict:
     correct = [
         item for item in result["candidates"] if item["correctness"] == "PASS"
     ]
+    minimum_material_speedup = trial["success_thresholds"][
+        "minimum_material_speedup"
+    ]
     improved = [
         item
         for item in correct
-        if item["speedup"] is not None and item["speedup"] > 1.0
+        if item["speedup"] is not None
+        and item["speedup"] >= minimum_material_speedup
     ]
     heldout = [
         item for item in correct if item["heldout_correctness"] == "PASS"
@@ -470,6 +859,7 @@ def assess_trial(trial_dir: Path, root: Path | None = None) -> dict:
         "task_id": trial["task_id"],
         "repeat_index": trial["repeat_index"],
         "arm": trial["arm"],
+        "success_thresholds": trial["success_thresholds"],
         "metrics": {
             "time_to_first_correct_seconds": nullable_min(
                 [item["evaluated_at_seconds"] for item in correct]
@@ -533,6 +923,8 @@ def compare_trials(
     for field in ("suite_id", "task_id", "repeat_index"):
         if control[field] != community[field]:
             raise ValueError(f"paired trials differ in {field}")
+    if control["success_thresholds"] != community["success_thresholds"]:
+        raise ValueError("paired trials differ in success thresholds")
     control_metrics = control["metrics"]
     community_metrics = community["metrics"]
     control_path = control_dir.resolve() / "assessment.json"
@@ -610,8 +1002,23 @@ def parse_args() -> argparse.Namespace:
     materialize_all.add_argument("--output", type=Path, required=True)
     validate_order = subparsers.add_parser("validate-schedule")
     validate_order.add_argument("--schedule", type=Path, required=True)
+    prepare_source = subparsers.add_parser("prepare-source")
+    prepare_source.add_argument("--trial", type=Path, required=True)
+    prepare_source.add_argument("--repository", type=Path, required=True)
+    validate_source = subparsers.add_parser("validate-source")
+    validate_source.add_argument("--trial", type=Path, required=True)
+    audit_execution = subparsers.add_parser("audit-execution")
+    audit_execution.add_argument("--trial", type=Path, required=True)
+    audit_execution.add_argument("--transcript", default="executor.jsonl")
+    audit_execution.add_argument("--stderr", default="executor.stderr.log")
+    audit_execution.add_argument(
+        "--sandbox-mode",
+        choices=("WORKSPACE_WRITE", "AUDITED_UNRESTRICTED"),
+        default="AUDITED_UNRESTRICTED",
+    )
     assess = subparsers.add_parser("assess-trial")
     assess.add_argument("--trial", type=Path, required=True)
+    assess.add_argument("--require-execution-audit", action="store_true")
     compare = subparsers.add_parser("compare")
     compare.add_argument("--control", type=Path, required=True)
     compare.add_argument("--community", type=Path, required=True)
@@ -637,8 +1044,19 @@ def main() -> int:
             result = materialize_suite(args.suite, args.corpus, args.output)
         elif args.operation == "validate-schedule":
             result = validate_schedule(args.schedule)
+        elif args.operation == "prepare-source":
+            result = prepare_trial_source(args.trial, args.repository)
+        elif args.operation == "validate-source":
+            result = validate_source_receipt(args.trial)
+        elif args.operation == "audit-execution":
+            result = audit_codex_execution(
+                args.trial, args.transcript, args.stderr, args.sandbox_mode
+            )
         elif args.operation == "assess-trial":
-            result = assess_trial(args.trial)
+            result = assess_trial(
+                args.trial,
+                require_execution_audit=args.require_execution_audit,
+            )
         else:
             result = compare_trials(args.control, args.community, args.output)
     except Exception as error:

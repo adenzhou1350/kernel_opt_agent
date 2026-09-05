@@ -14,6 +14,7 @@
     "task_id",
     "repeat_index",
     "arm",
+    "success_thresholds",
     "metrics",
     "budget_usage"
   ],
@@ -27,6 +28,14 @@
     "task_id": {"type": "string", "minLength": 1},
     "repeat_index": {"type": "integer", "minimum": 1},
     "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "success_thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_material_speedup"],
+      "properties": {
+        "minimum_material_speedup": {"type": "number", "exclusiveMinimum": 1}
+      }
+    },
     "metrics": {
       "type": "object",
       "additionalProperties": false,

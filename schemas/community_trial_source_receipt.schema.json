@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_trial_source_receipt.schema.json",
+  "title": "Exact historical source materialization receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "trial_identity",
+    "repository",
+    "revision",
+    "git_tree",
+    "archive_sha256",
+    "symlink_policy",
+    "source_root",
+    "source_tree",
+    "source_root_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-trial-source-receipt-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "EXACT_HISTORICAL_SOURCE_MATERIALIZATION"},
+    "trial_identity": {"$ref": "#/$defs/identity"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "git_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "archive_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "symlink_policy": {"const": "BLOB_TEXT_NO_LIVE_LINKS"},
+    "source_root": {"const": "source"},
+    "source_tree": {"$ref": "#/$defs/identity"},
+    "source_root_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

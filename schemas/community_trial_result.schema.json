@@ -18,12 +18,12 @@
     "notes"
   ],
   "properties": {
-    "schema_version": {"const": "community-trial-result-v1"},
+    "schema_version": {"type": "string", "const": "community-trial-result-v1"},
     "trial_id": {"type": "string", "minLength": 1},
     "task_id": {"type": "string", "minLength": 1},
-    "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "arm": {"type": "string", "enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
     "agent_identity": {"type": "string", "minLength": 1},
-    "completion_status": {"enum": ["COMPLETE", "BUDGET_EXHAUSTED", "BLOCKED"]},
+    "completion_status": {"type": "string", "enum": ["COMPLETE", "BUDGET_EXHAUSTED", "BLOCKED"]},
     "elapsed_seconds": {"type": "number", "minimum": 0},
     "technical_repair_attempts": {"type": "integer", "minimum": 0},
     "causal_revisions": {"type": "integer", "minimum": 0},
@@ -53,9 +53,9 @@
           "architecture_family": {"type": "string", "minLength": 1},
           "compile_attempts": {"type": "integer", "minimum": 0},
           "measurement_attempts": {"type": "integer", "minimum": 0},
-          "correctness": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+          "correctness": {"type": "string", "enum": ["PASS", "FAIL", "NOT_RUN"]},
           "speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
-          "heldout_correctness": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+          "heldout_correctness": {"type": "string", "enum": ["PASS", "FAIL", "NOT_RUN"]},
           "whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
           "upstream_ready": {"type": "boolean"},
           "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
