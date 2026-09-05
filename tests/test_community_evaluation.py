@@ -315,7 +315,11 @@ def main() -> None:
             *[
                 {
                     "type": "item.completed",
-                    "item": {"type": "command_execution", "status": "failed"},
+                    "item": {
+                        "type": "command_execution",
+                        "status": "completed",
+                        "exit_code": 1,
+                    },
                 }
                 for _ in range(3)
             ],

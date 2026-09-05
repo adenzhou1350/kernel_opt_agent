@@ -366,6 +366,8 @@ def audit_codex_execution(
             status = item.get("status")
             if status == "completed":
                 completed_commands += 1
+                if item.get("exit_code") not in (None, 0):
+                    failed_commands += 1
             elif status == "failed":
                 failed_commands += 1
             elif status == "declined":
