@@ -78,6 +78,7 @@
     "latency_first_fp8_block_exact_lm_head": {
       "candidate": "vLLM Marlin FP8 per-block weight-only backbone plus exact-packed BF16 lm_head",
       "strict_bf16": false,
+      "applicability": "max_num_seqs=1, batch-1 greedy decode; leave the exact head disabled for the current max_num_seqs>1 service configuration",
       "control_mean_e2e_ms": 1112.7884006249737,
       "candidate_mean_e2e_ms": 995.9107070000451,
       "e2e_speedup": 1.117357603250392,
@@ -93,7 +94,16 @@
       "gsm8k_control_accuracy": 0.087890625,
       "gsm8k_candidate_accuracy": 0.078125,
       "gsm8k_mcnemar_exact_two_sided_p": 0.42435622215270996,
-      "decision": "PROMOTE only as a limited opt-in latency-first discovery frontier; strict default remains exact-packed BF16"
+      "same_quantization_native_vllm_control_tpot_ms": 5.118950478015837,
+      "same_quantization_candidate_tpot_ms": 4.681179028547593,
+      "same_quantization_tpot_speedup": 1.0935173482574685,
+      "same_quantization_cross_pair_speedup_range": [
+        1.093337120554188,
+        1.0936976114401473
+      ],
+      "same_quantization_gsm8k_token_exact": "512/512",
+      "multi_sequence_service_decision": "REJECT exact/small-batch head for max_num_seqs=8; isolated 1.29x did not compose and full-service batch 1-4 fell to 0.48x-0.51x",
+      "decision": "PROMOTE only for the max_num_seqs=1 latency-first policy point; strict default remains exact-packed BF16 and multi-sequence service remains native vLLM FP8"
     },
     "strict_bf16_sm89_exact_packed_backbone": {
       "candidate": "extend exact BF16 block base-plus-delta packing to all material decode projections",
@@ -192,7 +202,7 @@
     }
   },
   "decision": {
-    "latency_first_quantized": "For the vLLM-native path, promote the FP8 per-block Marlin backbone plus exact-packed BF16 lm_head only as a limited opt-in discovery frontier: C-S-S-C measured 1.111x TPOT over the exact-packed BF16 control, while a 512-item GSM8K screen changed 45/512 to 40/512 (McNemar p=0.424). Historical llama.cpp Q4_0 can be faster in a non-power-controlled observation but raised the small-corpus perplexity by 9.59% and is not the same runtime contract.",
+    "latency_first_quantized": "Use a conditional policy. At max_num_seqs=1 batch-1, FP8 per-block Marlin plus exact-packed BF16 lm_head beats the same native vLLM FP8 baseline by 1.094x TPOT with 512/512 GSM8K token identity between the two FP8 paths. At max_num_seqs>1, leave the exact head disabled: the small-batch extension's isolated 1.29x failed production composition and made batch 1-4 service about 2x slower. FP8 versus BF16 remains a separate quality relaxation: the bounded GSM8K screen changed 45/512 to 40/512 (p=0.424).",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject current MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload. Even replacing every screened M=2 projection by its best cold-cache schedule projects to only 0.985x at measured acceptance and still needs 0.618 ms of independent cycle saving to clear the 1.03x promotion gate.",
     "strict_bf16": "Promote exact BF16 block base-plus-delta packing of lm_head as the bounded SM89 batch-1 frontier. It preserves every BF16 weight bit, stores the lm_head at 77.46% of dense bytes, and improves the accepted strict frontier by 1.048x E2E/1.051x TPOT with 6/6 token-exact natural cases under a 3-warmup x 10-trial gate. Extending the format to the backbone was rejected: a 1.205x zero-unpack-cost model became 0.845x in rotating-weight scalar GPU measurements, while a metadata-hoisted padded Tensor Core screen reached only 0.453x. At calibrated bandwidth, the current 1.427 GB active weight stream has a 5.733 ms service floor versus measured 6.657 ms TPOT, so even deleting all non-weight time would cap this strict scope near 1.161x. This is a bounded empirical frontier, not proof of a global theoretical optimum.",
@@ -328,7 +338,15 @@
     },
     "sm89_fp8_block_exact_lm_head": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\fp8-block-exact-lmhead\\summary.json",
-      "sha256": "f02a1b3c555c0e46186749385a560a171fc824fc4efada8df85103854dbea5e2"
+      "sha256": "1f6afce22a2405a7f105c884024f4fbca98ef3a1d1013622723d72a7f8158aa4"
+    },
+    "sm89_fp8_native_vs_exact_qualification": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\comparisons\\vllm_fp8_native_vs_exact_qualification.json",
+      "sha256": "73f7c353f55d9306b5cf546a65839d42b956b8f6c01f303b16f1ff75c84e2df3"
+    },
+    "sm89_exact_packed_lm_head_small_batch": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\exact-bf16-packed-lmhead-small-batch\\summary.json",
+      "sha256": "4570dfbc8aead18853abb46247a18ceae59d1af8524c527c92b06135da8b3e3b"
     },
     "sm89_vllm_online_quantization_screen": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\vllm-online-quantization-sm89\\summary.json",
@@ -354,7 +372,7 @@
     "power_probe_median_memory_clock_mhz": 8001.0,
     "power_probe_median_power_w": 26.64,
     "power_probe_sample_count": 21,
-    "required_next_gate": "For a production claim, repeat randomized BF16/FP8 process order under a locked power mode, replace the additive 375.691 MiB lm_head cache and transient packing peak with chunked CPU/load-time ownership transfer, and add broader reasoning, code, instruction-following, and sampled-generation quality suites. Do not reopen exact backbone packing unless a new data path first beats rotating-weight cuBLAS on every material shape."
+    "required_next_gate": "For a production claim, repeat randomized BF16/FP8 process order under a locked power mode, replace the additive 375.691 MiB lm_head cache and transient packing peak with chunked CPU/load-time ownership transfer, and add broader reasoning, code, instruction-following, and sampled-generation quality suites. Keep max_num_seqs=1 and multi-sequence policies separate. Do not reopen small-batch exact packing without graph-shape reachability plus a pointwise winning full service curve, and do not reopen exact backbone packing unless a new data path first beats rotating-weight cuBLAS on every material shape."
   },
   "measurements": {
     "llamacpp_bf16": {

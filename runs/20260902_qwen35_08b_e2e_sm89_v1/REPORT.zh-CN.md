@@ -706,6 +706,41 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 完整证据和复现入口见 `candidates/fp8-block-exact-lmhead/summary.json`；其他在线量化 sibling 的有界退出记录见 `candidates/vllm-online-quantization-sm89/summary.json`。
 
+### 第二十三轮：同量化 vLLM 上再快 9.35%，但不能外推到多并发
+
+上一轮已经证明混合 FP8 路线快于 BF16，但“增量到底来自 vLLM 自带量化还是自研 lm-head”仍缺正式隔离。本轮把两边都固定为相同的 `fp8_per_block` Marlin backbone、相同源码哈希和相同 512 MiB KV cache，只切换 stock BF16 lm-head 与 exact-packed BF16 lm-head，再执行 C-S-S-C、六提示、每例 3 warmup × 10 trials：
+
+| 同量化正式对照 | 原生 vLLM FP8 | FP8 + exact head | 加速 |
+|---|---:|---:|---:|
+| mean E2E | 686.649 ms | **629.648 ms** | **1.0905x** |
+| mean TPOT | 5.1190 ms | **4.6812 ms** | **1.0935x** |
+| 四个交叉 TPOT 范围 | — | — | **1.0933x--1.0937x** |
+| 六提示跨实现 token exact | — | **每一对 6/6** | 通过 |
+
+候选的 graphics clock 为 2610/2610 MHz，对照为 2625/2610 MHz，因此 9.35% TPOT 增量不是更高核心频率造成的。更强的 512 题 GSM8K 隔离中，两边都是 40/512，答案一致 512/512，生成 token 也一致 512/512。至此可以把贡献拆开：backbone FP8 决定相对 BF16 的质量变化，而 exact-packed lm-head 在同一 FP8 数值合同上提供额外、可重复的 batch-1 加速。
+
+随后没有直接把 M=1 结果外推到服务并发，而是实现了一个让同一 packed 权重 tile 在 CTA 内服务 2--4 行输入的小批量 sibling。孤立 CUDA Graph 微基准非常漂亮：batch 1/2/4 分别约 1.302x、1.295x、1.293x，batch 8 才降到 0.933x；所有最佳点 argmax 一致。但接入 `max_num_seqs=8` 的 vLLM 服务曲线后结果完全反转：
+
+| 并发 batch | stock wall | small-batch packed wall | stock/candidate |
+|---:|---:|---:|---:|
+| 1 | 362.183 ms | 749.664 ms | **0.483x** |
+| 2 | 375.764 ms | 763.663 ms | **0.492x** |
+| 3 | 385.669 ms | 796.334 ms | **0.484x** |
+| 4 | 410.332 ms | 806.530 ms | **0.509x** |
+| 8 | 468.441 ms | 465.631 ms | 1.006x（回退 stock） |
+
+为了判断是不是新增 M=2--4 kernel 单独造成的，又撤回该扩展，只保留此前成功的 M=1 exact kernel。`max_num_seqs=8` 下 batch=1 仍从 stock 362.183 ms 退化到 873.838 ms，而 batch=2--8 因选择器回退 stock 基本回到原曲线。batch=8 是同进程负对照，说明不能把整次候选进程简单归因为机器整体变慢。当前证据能证明“多并发配置不组合”，但尚不能在没有 graph timeline/clock trace 的情况下武断区分 CUDA Graph 边界、运行时 shape/layout 与功耗状态各占多少。
+
+因此前沿现在是**条件化选择**，而不是一个开关覆盖所有场景：
+
+- `max_num_seqs=1`、batch-1 latency：FP8 per-block + exact-packed head，相对同量化原生 vLLM 约 1.094x，当前赢家。
+- `max_num_seqs>1` 或持续并发吞吐：关闭当前 exact head，保留原生 vLLM FP8；small-batch sibling 已实测拒绝。
+- 若要重开小批量路线，必须先证明 kernel 位于预期 CUDA Graph、归档真实运行 shape，并在锁频或在线自适应选择下让完整服务曲线逐点不劣于 stock；不能再用孤立 GEMM 的 1.29x 作为晋级理由。
+
+这也是 agent 架构需要学习的更高层规则：优化结果必须是 `(硬件, 模型, 数值合同, batch/concurrency, runtime config)` 的策略表；所谓“最优 kernel”可能只是某一个服务点的最优，调度器应按实测前沿选择，而不是把单点赢家全局启用。
+
+机器可读正式隔离为 `comparisons/vllm_fp8_native_vs_exact_qualification.json`，多并发退出证书为 `candidates/exact-bf16-packed-lmhead-small-batch/summary.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -770,6 +805,8 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `candidates/exact-bf16-packed-lmhead/summary.json`
 - `candidates/fp8-block-exact-lmhead/summary.json`
 - `candidates/vllm-online-quantization-sm89/summary.json`
+- `comparisons/vllm_fp8_native_vs_exact_qualification.json`
+- `candidates/exact-bf16-packed-lmhead-small-batch/summary.json`
 - `candidates/exact-bf16-packed-lmhead/vllm_utils_exact_bf16_packed_lmhead.patch`
 - `candidates/exact-bf16-packed-backbone/summary.json`
 - `candidates/exact-lmhead-segmented-gdn/summary.json`

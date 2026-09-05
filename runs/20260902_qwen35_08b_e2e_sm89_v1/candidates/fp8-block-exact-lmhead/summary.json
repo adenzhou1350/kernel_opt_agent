@@ -45,11 +45,19 @@
     "mcnemar_exact_two_sided_p": 0.42435622215270996,
     "interpretation": "This bounded screen does not detect a statistically significant accuracy change, but it also does not establish quality equivalence. The point estimate is 0.98 percentage points lower and broader tasks are required before production defaulting."
   },
-  "vllm_quantized_baseline": {
-    "screening_only": true,
-    "fp8_per_block_without_exact_lm_head_tpot_ms": 9.020097,
-    "fp8_per_block_with_exact_lm_head_tpot_ms": 7.867204,
-    "note": "These absolute smoke values experienced power-state drift. The same smoke comparison against an adjacent exact-lm-head trace was only 1.0166x TPOT, so claim only that the hybrid direction remained promising enough for formal qualification, not a production-grade incremental percentage over vLLM FP8."
+  "same_quantization_vllm_qualification": {
+    "protocol": "same patched source, C-S-S-C, fp8_per_block on both sides, stock BF16 lm_head versus exact-packed BF16 lm_head",
+    "native_vllm_fp8_mean_e2e_ms": 686.6492591254124,
+    "candidate_mean_e2e_ms": 629.6484284584949,
+    "e2e_speedup": 1.09052802816719,
+    "native_vllm_fp8_mean_tpot_ms": 5.118950478015837,
+    "candidate_mean_tpot_ms": 4.681179028547593,
+    "tpot_speedup": 1.0935173482574685,
+    "cross_pair_tpot_speedup_range": [1.093337120554188, 1.0936976114401473],
+    "natural_suite_token_exact_cases_each_pair": "6/6",
+    "gsm8k_token_exact": "512/512",
+    "gsm8k_answer_agreement": "512/512",
+    "interpretation": "This isolates a stable custom-kernel contribution beyond the same vLLM quantized baseline. It does not make the FP8 backbone strict-BF16-equivalent."
   },
   "decision": "PROMOTE_LIMITED_LATENCY_FIRST_DISCOVERY_FRONTIER",
   "qualification": "Promoted only as an opt-in latency-first candidate for this GPU/model/batch-1 scope. The strict default remains exact-packed BF16. This is neither a global optimum nor proof of SOTA.",
@@ -61,6 +69,8 @@
   ],
   "evidence": {
     "performance_qualification": "comparisons/vllm_fp8block_exact_qualification.json",
+    "same_quantization_performance": "comparisons/vllm_fp8_native_vs_exact_qualification.json",
+    "same_quantization_quality": "comparisons/vllm_fp8_native_vs_exact_quality_gsm8k_n512.json",
     "control_c1": "traces/vllm_fp8block_exact_c1_w3_n10_t128.json",
     "candidate_s1": "traces/vllm_fp8block_exact_s1_w3_n10_t128.json",
     "candidate_s2": "traces/vllm_fp8block_exact_s2_w3_n10_t128.json",
