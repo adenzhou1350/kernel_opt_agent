@@ -49,6 +49,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
     "measurement": {
         "p0-calibrate": Command("calibrate_p0.py", "qualify timing and launch semantics"),
         "service-curve-fit": Command("fit_service_curve.py", "fit latency and throughput service curves"),
+        "service-policy": Command("derive_serving_policy.py", "derive a guarded batch-aware serving policy"),
         "paired-compare": Command("compare_paired.py", "compare interleaved baseline/candidate samples"),
     },
     "experiment": {

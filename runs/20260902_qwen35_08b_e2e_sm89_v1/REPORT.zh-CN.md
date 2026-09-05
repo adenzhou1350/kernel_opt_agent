@@ -888,6 +888,25 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 至此，本地最优不再是一个名字，而是一张有契约的路由表：stock-token-exact 始终走 stock BF16；允许 weight-exact 数值归约差异时，仅 batch 1 走 packed BF16；接受 W4 近似时 batch 1/2 走 W4 scan + BF16 rerank，batch 4 以上走 stock GPTQ-Marlin。机器可读策略见 `models/qwen35_sm89_serving_policy.json`，集成证据见 `comparisons/vllm_bf16_exact_packed_service_integration.json`。这仍是有限候选集上的实测最优，不是全局数学最优。
 
+### 第三十三轮：把“是否快过 vLLM”从人工判断变成 fail-closed 策略
+
+前两轮虽然已经得到分段结论，但策略仍由人手从 JSON 抄写，agent 自己还可能把一次降频的基线、未隔离的编译缓存或第一次服务时发生的 pack/JIT 误认为架构收益。本轮新增公共命令 `scripts/kernel_opt.py service-policy`、输入/输出 schema 和自动推导器。候选只有同时满足以下条件才可晋级：至少两份内容不同的独立 trace；模型、GPU、vLLM、Torch、CUDA、实际 prompt token 哈希和运行参数完全一致；每份正式 trace 的 `VLLM_CACHE_ROOT` 预期值与实测值一致且互不复用；源码哈希和运行时开关可达；预打包与 JIT 在服务前 ready；最后按每个 batch 用“候选各轮最慢值 / 基线各轮最快值”比较。要求 stock-token identity 的契约还会直接比较每个 measured request 的 token IDs。
+
+旧 trace 若缺少后来增加的缓存或 workload 哈希，不能帮助候选晋级；但它若显示更快的库存基线，仍可作为 `BASELINE_ENVELOPE_VETO_ONLY` 抬高门槛。这种非对称证据规则避免 agent 以“证据不够严格”为理由忽略一个对自己不利的强基线。
+
+为闭合输入身份，基准工具新增自身源码 SHA-256、六个实际 prompt-token 序列 SHA-256 和请求轮换规则。随后在本地 4060 上用四个互不相同的冷 `VLLM_CACHE_ROOT` 重跑两轮候选和两轮 stock；候选源码测试完成后已逆向 patch，vLLM 环境恢复原始哈希。
+
+| active batch | stock 正式两轮 | candidate 正式两轮 | 自动保守比值 | 自动路由 |
+|---:|---:|---:|---:|---|
+| 1 | 102.63 / **103.02** tok/s | 113.89 / **108.05** tok/s | **1.049x** | weight-exact 且允许归约漂移时 candidate |
+| 2 | 205.57 / **205.76** tok/s | 206.39 / **193.88** tok/s | 0.942x | stock |
+| 4 | 363.71 / 368.52 tok/s | 359.34 / **358.57** tok/s | 0.868x（含更快历史 stock 413.14） | stock |
+| 8 | 688.03 / 686.49 tok/s | 696.15 / **655.62** tok/s | 0.941x（含更快历史 stock 696.69） | stock |
+
+因此更严格的回答是：在当前 4060、Qwen3.5-0.8B、greedy、64-token、active batch 1 下，允许 BF16 权重逐 bit 重建但允许 FP32 归约顺序导致 token 漂移时，候选对 stock vLLM 的可保守复现收益是约 **4.9%**，不是翻倍；要求 stock token 完全一致时没有已证明胜出的路径。B2/B4/B8 自动回退 stock。此前的 9.3% 是有效的单轮保守包络结果，但新闭合重复表明它高估了稳定收益，因此部署策略采用 4.9%。这正是新架构要解决的“卡在局部数字、缺少大局观”问题：它产出的是带数值契约和 batch 条件的路由，而不是宣布一个永久最快算子。
+
+机器可读输入为 `models/bf16_serving_policy_spec.json`，自动重算结果为 `models/bf16_serving_policy_auto.json`，严格原始记录为 `traces/vllm_bf16_exact_strict_{stock,candidate}_{a,b}_service_curve.json`。单元测试覆盖数值契约分流、batch 回退、冷缓存隔离、重复不足、生命周期未 ready、workload 不一致，以及“弱基线只可否决不可晋级”。这依然不构成理论最优证明；它只是让 agent 对当前候选集作出更难自欺、可复算的部署决定。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -984,6 +1003,12 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 - `traces/vllm_gptq_mv_rerank_service_curve_same_cache_b1_b2_b4_b8.json`
 - `comparisons/vllm_bf16_exact_packed_service_integration.json`
 - `models/qwen35_sm89_serving_policy.json`
+- `models/bf16_serving_policy_spec.json`
+- `models/bf16_serving_policy_auto.json`
+- `traces/vllm_bf16_exact_strict_stock_a_service_curve.json`
+- `traces/vllm_bf16_exact_strict_stock_b_service_curve.json`
+- `traces/vllm_bf16_exact_strict_candidate_a_service_curve.json`
+- `traces/vllm_bf16_exact_strict_candidate_b_service_curve.json`
 - `traces/vllm_bf16_exact_load_warm_service_curve_b1_b2_b4_b8.json`
 - `traces/vllm_bf16_exact_load_warm_stock_close_service_curve_b1_b2_b4_b8.json`
 - `traces/vllm_gptq_marlin_w4_stock_natural_128_low_power.json`

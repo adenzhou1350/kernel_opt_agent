@@ -30,7 +30,8 @@
         "candidate_jit_ready": true
       },
       "route": "exact_bf16_packed_lm_head",
-      "measured_conservative_speedup_over_stock": 1.092786349708249
+      "measured_conservative_speedup_over_stock": 1.0488783219120628,
+      "qualification": "Two candidate and two stock traces have distinct guarded VLLM_CACHE_ROOT values and cryptographically identical prompt-token workloads."
     },
     {
       "when": {
@@ -75,9 +76,10 @@
   ],
   "evidence": {
     "bf16_service_integration": "comparisons/vllm_bf16_exact_packed_service_integration.json",
+    "bf16_automatic_policy": "models/bf16_serving_policy_auto.json",
     "quantized_service_frontier": "comparisons/vllm_bf16_gptq_rerank_service_frontier.json",
     "quantized_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
     "strict_bf16_residual_bound": "models/sm89_strict_bf16_residual_certificate.json"
   },
-  "global_optimum": "NOT_PROVEN. The policy is the best measured member of the bounded local portfolio. Architecture-level decoding, load-time checkpoint formats, broader prompts, sampling, sequence lengths, power-locked repeats, other GPUs, and future vLLM releases remain open dimensions."
+  "global_optimum": "NOT_PROVEN. The policy is the best measured member of the bounded local portfolio. The BF16 batch-1 route is now automatically derived from two strictly guarded runs per implementation plus a veto-only historical baseline envelope. Architecture-level decoding, load-time checkpoint formats, broader prompts, sampling, sequence lengths, power-locked repeats, other GPUs, and future vLLM releases remain open dimensions."
 }

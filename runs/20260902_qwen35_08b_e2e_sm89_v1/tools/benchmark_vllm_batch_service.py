@@ -168,6 +168,12 @@ def main() -> None:
             enable_thinking=False,
         )
         prompts.append(tokenizer.encode(rendered, add_special_tokens=False))
+    prompt_token_ids_sha256 = [
+        hashlib.sha256(
+            json.dumps(ids, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        for ids in prompts
+    ]
 
     init_started = time.perf_counter()
     llm = LLM(
@@ -287,6 +293,12 @@ def main() -> None:
         "status": "PASS",
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "model": str(model_path),
+        "workload_identity": {
+            "harness_sha256": sha256(Path(__file__).resolve()),
+            "prompt_token_ids_sha256": prompt_token_ids_sha256,
+            "prompt_count": len(prompts),
+            "request_selection": "prompt[(iteration + request_index) % prompt_count]",
+        },
         "environment": {
             "gpu": torch.cuda.get_device_name(0),
             "vllm": vllm.__version__,
