@@ -624,6 +624,9 @@ def main() -> None:
             "vllm_sm89_int8_groupwise_lm_head": os.environ.get(
                 "VLLM_SM89_INT8_GROUPWISE_LM_HEAD", "off(default)"
             ),
+            "vllm_sm89_int8_bf16_rerank_topk": os.environ.get(
+                "VLLM_SM89_INT8_BF16_RERANK_TOPK", "off(default)"
+            ),
             "vllm_sm89_fused_swiglu_down": os.environ.get(
                 "VLLM_SM89_FUSED_SWIGLU_DOWN", "0(default)"
             ),

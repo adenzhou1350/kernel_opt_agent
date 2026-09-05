@@ -96,6 +96,13 @@
         "sm89-lm-head-residual",
         "sm89-recurrent-state-fusion"
       ]
+    },
+    {
+      "at": "2026-09-05T05:56:29.718708+00:00",
+      "event": "REOPENED",
+      "opportunity_id": "sm89-lm-head-residual",
+      "previous_disposition": "AT_MEASURED_ROOF",
+      "reason": "A new algorithmic rewrite replaces the full BF16 vocabulary scan with INT8 recall plus exact BF16 shortlist rerank, satisfying the recorded algorithm-change reopen condition."
     }
   ],
   "opportunities": [
@@ -236,6 +243,56 @@
     },
     {
       "affected_stages": [
+        "lm-head"
+      ],
+      "candidate_ids": [
+        "int8-bf16-shortlist-rerank"
+      ],
+      "confidence": "LOW",
+      "created_at": "2026-09-04T21:03:50.954559+00:00",
+      "current_contribution_us": 2057.54,
+      "derivation": "Nsight observes 2.058 ms per lm-head invocation after the 1.19x end-to-end win; the low-confidence interval prevents another unbounded launch-parameter sweep near the bandwidth roof.",
+      "evidence": [
+        {
+          "claim": "Accepted lm-head invocation time and strict-production decision boundary.",
+          "path": "models/sm89_nsys_operator_map.json",
+          "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
+        }
+      ],
+      "hypothesis": "Try only bounded instruction/layout changes because the accepted kernel already streams roughly 508 MB near the measured memory-service rate.",
+      "implementation_budget_minutes": 45,
+      "likely_gain_interval_us": {
+        "lower": 0.0,
+        "upper": 50.0
+      },
+      "model_scope": "EMPIRICAL_BOTTLENECK",
+      "name": "Close the remaining lm-head bandwidth residual",
+      "observations": [
+        "The accepted 2.0575 ms invocation is within 0.0141 ms of the calibrated 2.0434 ms weight-stream floor, achieving 99.31% of the measured service roof.",
+        "A bounded 72-schedule residual sweep found a best paired speedup of 0.9985x; close this search until the algorithm or data movement changes.",
+        "Reopened because: A new algorithmic rewrite replaces the full BF16 vocabulary scan with INT8 recall plus exact BF16 shortlist rerank, satisfying the recorded algorithm-change reopen condition.",
+        {
+          "at": "2026-09-05T05:56:37.230860+00:00",
+          "candidate_id": "int8-bf16-shortlist-rerank",
+          "claim_scope": "DISCOVERY_ONLY",
+          "observed_global_gain_us": 400.0742598436009,
+          "predicted_midpoint_us": 150.0,
+          "residual_us": 250.07425984360088
+        }
+      ],
+      "opportunity_id": "sm89-lm-head-residual",
+      "optimistic_gain_ceiling_us": 200.0,
+      "priority_rank": 4,
+      "priority_score": 0.19444444444444445,
+      "rewrite_families": [
+        "load-coalescing",
+        "weight-stream-specialization"
+      ],
+      "source_model_term": "SM89-specialized BF16 lm-head candidate kernel",
+      "status": "HAS_SURVIVOR"
+    },
+    {
+      "affected_stages": [
         "normalization",
         "activation",
         "residual-update"
@@ -266,7 +323,7 @@
       ],
       "opportunity_id": "sm89-normalization-epilogue-fusion",
       "optimistic_gain_ceiling_us": 53.0,
-      "priority_rank": 4,
+      "priority_rank": 5,
       "priority_score": 0.1625,
       "rewrite_families": [
         "epilogue-fusion",
@@ -274,60 +331,6 @@
       ],
       "source_model_term": "Normalization plus adjacent pointwise kernels",
       "status": "OBSERVED"
-    },
-    {
-      "affected_stages": [
-        "lm-head"
-      ],
-      "candidate_ids": [],
-      "closure": {
-        "closed_at": "2026-09-04T23:59:49.3569224Z",
-        "disposition": "AT_MEASURED_ROOF",
-        "evidence": {
-          "claim": "Measured lm-head roof utilization, residual schedule sweep, and close-search decision.",
-          "path": "models/sm89_strict_bf16_residual_certificate.json",
-          "sha256": "724f1b975f9e7fdaae26fedc9657c9a776aadc9fd4e38ec3acf1cbb6bbcdf169"
-        },
-        "reason": "The accepted kernel reaches 99.31% of the calibrated weight-stream service roof, and a bounded 72-schedule residual sweep found no gain.",
-        "reopen_conditions": [
-          "the model vocabulary or hidden dimension changes",
-          "the device memory-service curve changes materially",
-          "a rewrite removes the full-logits materialization or changes the algorithm rather than launch parameters"
-        ]
-      },
-      "confidence": "LOW",
-      "created_at": "2026-09-04T21:03:50.954559+00:00",
-      "current_contribution_us": 2057.54,
-      "derivation": "Nsight observes 2.058 ms per lm-head invocation after the 1.19x end-to-end win; the low-confidence interval prevents another unbounded launch-parameter sweep near the bandwidth roof.",
-      "evidence": [
-        {
-          "claim": "Accepted lm-head invocation time and strict-production decision boundary.",
-          "path": "models/sm89_nsys_operator_map.json",
-          "sha256": "1c01492f85adec15ea27a11de9ed8d9f72d7c5f2b96d6171c74a36f59d01eb79"
-        }
-      ],
-      "hypothesis": "Try only bounded instruction/layout changes because the accepted kernel already streams roughly 508 MB near the measured memory-service rate.",
-      "implementation_budget_minutes": 45,
-      "likely_gain_interval_us": {
-        "lower": 0.0,
-        "upper": 50.0
-      },
-      "model_scope": "EMPIRICAL_BOTTLENECK",
-      "name": "Close the remaining lm-head bandwidth residual",
-      "observations": [
-        "The accepted 2.0575 ms invocation is within 0.0141 ms of the calibrated 2.0434 ms weight-stream floor, achieving 99.31% of the measured service roof.",
-        "A bounded 72-schedule residual sweep found a best paired speedup of 0.9985x; close this search until the algorithm or data movement changes."
-      ],
-      "opportunity_id": "sm89-lm-head-residual",
-      "optimistic_gain_ceiling_us": 200.0,
-      "priority_rank": 5,
-      "priority_score": 0.0,
-      "rewrite_families": [
-        "load-coalescing",
-        "weight-stream-specialization"
-      ],
-      "source_model_term": "SM89-specialized BF16 lm-head candidate kernel",
-      "status": "CLOSED"
     },
     {
       "affected_stages": [
@@ -419,7 +422,7 @@
     "min_rewrite_families": 4,
     "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes"
   },
-  "ranked_at": "2026-09-05T00:48:58.369293+00:00",
+  "ranked_at": "2026-09-05T05:56:29.723225+00:00",
   "schema_version": "opportunity-map-v1",
   "status": "READY"
 }

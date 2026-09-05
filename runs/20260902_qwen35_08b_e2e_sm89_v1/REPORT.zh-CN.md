@@ -766,6 +766,27 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 这轮也验证了 agent 应有的闭环：先用 profile 把 90% 热点找出来，再以格式/架构候选族覆盖速度—质量 Pareto，局部筛选后才做端到端 C-S-S-C 与 512 题质量门。完整证据见 `candidates/int8-groupwise-lmhead/summary.json` 和 `comparisons/vllm_fp8_exact_vs_int8head_g32_qualification.json`。
 
+### 第二十五轮：量化只做候选召回，BF16 复核把 1.199x 与同输出重新结合
+
+纯 INT8 lm-head 虽快，但上一轮只有 493/512 条 GSM8K token 流与 exact head 一致。本轮没有在“是否量化”之间二选一，而是把输出头改成两阶段决策：先用 INT8 扫描全部 248320 个词表行，只取近似 top-k；随后从原始 BF16 tied embedding 中读取这些候选行，以 FP32 reduction 精确重算，并让 greedy argmax 只在精确复核值中选择。
+
+先测试 group-32。top-2 在六类自然提示中有一例于第 92 个 token 分叉，因此拒绝；top-4 达到 6/6×128 token 和 GSM8K 512/512 token exact。Nsight 又显示 top-4 的 BF16 复核只有 0.00124 ms/token，远小于 INT8 全词表扫描，于是继续扩大候选而降低量化元数据：最终选择每行一个 scale（group-1024）配 top-128。它将 INT8 缓存压到 dense BF16 的 50.10%，而 top-128 BF16 复核仍只有 0.00229 ms/token。
+
+同源码 C-S-S-C 正式结果如下：
+
+| 正式对照 | FP8 + exact BF16 head | FP8 + INT8 per-row scan + BF16 top-128 | 加速 |
+|---|---:|---:|---:|
+| mean E2E | 632.805 ms | **582.469 ms** | **1.0864x** |
+| mean TPOT | 4.6760 ms | **4.2695 ms** | **1.0952x** |
+| 四个交叉 TPOT 范围 | — | — | **1.0937x--1.0967x** |
+| 相对原生 vLLM FP8 TPOT | 5.1190 ms | **4.2695 ms** | **1.1990x** |
+
+四个交叉对照均为 6/6×128 token exact；冻结 GSM8K 512 题上，两边都是 40/512，答案与整段 token 流均为 512/512 一致。Nsight 对 192 个生成步骤观测到 192 次 INT8 scan 和 192 次 exact rerank；scan 为 0.99290 ms/token、占 83.24% GPU kernel 时间，top-128 rerank 仅 0.00229 ms/token、占 0.19%。这证明实际运行的正是两阶段路径，也说明下一步若要继续加速，目标仍应是 full-vocab scan，而不是纠结复核 kernel。
+
+但这里必须区分三种“相同”：它对本轮自然提示和 GSM8K 是**逐 token 实证相同**；它不是全输入的数学保证；它也不是完整 logits 相同，因为 shortlist 外被置为 `-inf`。因此它只适用于经验证的 batch-1 greedy argmax，不可直接用于 logprobs、top-p 或随机采样。要升级为严格保证，需要给量化误差建立保守上界：只有当近似 shortlist 的边界间隔足以证明 BF16 winner 必在其中时走快路，否则自动回退完整 exact head。
+
+当前条件化前沿因此变成四档：严格全输入合同用 exact-packed BF16；有界实证同输出 greedy 用 per-row INT8 + BF16 top-128，约为原生 vLLM FP8 的 **1.199x**；允许目标任务校准有损时用 group-32 INT8，约 **1.219x**；多序列服务继续用原生 vLLM FP8。完整证据见 `candidates/int8-bf16-shortlist-rerank/summary.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -830,6 +851,9 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `candidates/exact-bf16-packed-lmhead/summary.json`
 - `candidates/fp8-block-exact-lmhead/summary.json`
 - `candidates/vllm-online-quantization-sm89/summary.json`
+- `candidates/int8-bf16-shortlist-rerank/summary.json`
+- `comparisons/vllm_fp8_exact_vs_rerank_g1024k128_qualification.json`
+- `models/nsys2025_int8_bf16_rerank_g1024k128_map.json`
 - `comparisons/vllm_fp8_native_vs_exact_qualification.json`
 - `candidates/exact-bf16-packed-lmhead-small-batch/summary.json`
 - `candidates/exact-bf16-packed-lmhead/vllm_utils_exact_bf16_packed_lmhead.patch`

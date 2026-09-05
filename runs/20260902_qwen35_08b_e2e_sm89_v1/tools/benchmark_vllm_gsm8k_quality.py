@@ -211,6 +211,9 @@ def main() -> None:
             "vllm_sm89_int8_groupwise_lm_head": os.environ.get(
                 "VLLM_SM89_INT8_GROUPWISE_LM_HEAD", "off(default)"
             ),
+            "vllm_sm89_int8_bf16_rerank_topk": os.environ.get(
+                "VLLM_SM89_INT8_BF16_RERANK_TOPK", "off(default)"
+            ),
             "vllm_cache_root": os.environ.get("VLLM_CACHE_ROOT"),
             "guarded_source_sha256": guarded_sources,
         },

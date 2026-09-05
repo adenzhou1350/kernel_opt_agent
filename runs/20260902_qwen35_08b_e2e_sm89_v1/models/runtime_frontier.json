@@ -127,6 +127,24 @@
       "gsm8k_mcnemar_exact_two_sided_p": 0.625,
       "decision": "PROMOTE only as a calibrated lossy max_num_seqs=1 policy point; strict same-output requests use exact-packed BF16 and multi-sequence service uses native vLLM FP8"
     },
+    "empirically_token_identical_greedy_int8_bf16_rerank": {
+      "candidate": "vLLM Marlin FP8 per-block backbone plus per-row INT8 lm-head scan and exact BF16 top-128 rerank",
+      "strict_all_input_guarantee": false,
+      "full_logits_equivalent": false,
+      "applicability": "max_num_seqs=1, batch-1 greedy argmax after bounded token-identity qualification",
+      "exact_head_control_mean_e2e_ms": 632.8053873335193,
+      "candidate_mean_e2e_ms": 582.469403000232,
+      "e2e_speedup_vs_exact_head": 1.0864182463044627,
+      "exact_head_control_mean_tpot_ms": 4.676016604660049,
+      "candidate_mean_tpot_ms": 4.269520799210822,
+      "tpot_speedup_vs_exact_head": 1.0952087657060632,
+      "tpot_speedup_vs_native_vllm_fp8": 1.1989519945568654,
+      "cross_pair_tpot_speedup_range": [1.0936698571117012, 1.0967488203244928],
+      "natural_prompt_token_exact_each_cross_pair": "6/6",
+      "gsm8k_answer_agreement": "512/512",
+      "gsm8k_token_exact": "512/512",
+      "decision": "PROMOTE as a bounded empirically token-identical greedy policy point; strict all-input or full-logit requests retain exact-packed BF16"
+    },
     "strict_bf16_sm89_exact_packed_backbone": {
       "candidate": "extend exact BF16 block base-plus-delta packing to all material decode projections",
       "weight_bit_exact": true,
@@ -224,7 +242,7 @@
     }
   },
   "decision": {
-    "latency_first_quantized": "Use a conditional policy. For strict same-output behavior inside the FP8 numerical contract at max_num_seqs=1, exact-packed BF16 lm_head beats native vLLM FP8 by 1.094x TPOT with 512/512 GSM8K token identity. If a workload-specific lossy quality gate is allowed, group-32 INT8 lm_head reaches 1.219x TPOT versus native vLLM FP8 and 1.114x versus the exact head; its GSM8K result changed 40/512 to 42/512 (p=0.625), but only 493/512 token streams matched, so it is not quality-equivalent. At max_num_seqs>1, use native vLLM FP8 because the custom small-batch paths did not compose with service execution.",
+    "latency_first_quantized": "Use a conditional policy. For a strict all-input/full-logit contract inside the FP8 numerical contract at max_num_seqs=1, exact-packed BF16 lm_head beats native vLLM FP8 by 1.094x TPOT. For bounded batch-1 greedy workloads, per-row INT8 full-vocabulary scan plus exact BF16 top-128 rerank reached 1.199x versus native vLLM FP8 and reproduced 6/6 natural cases plus 512/512 GSM8K token streams, but this is empirical rather than mathematical identity and shortlist-external logits are unavailable. If a workload-specific lossy quality gate is allowed, group-32 INT8 reaches 1.219x versus native vLLM FP8; only 493/512 GSM8K token streams matched. At max_num_seqs>1, use native vLLM FP8 because the custom small-batch paths did not compose with service execution.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject current MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload. Even replacing every screened M=2 projection by its best cold-cache schedule projects to only 0.985x at measured acceptance and still needs 0.618 ms of independent cycle saving to clear the 1.03x promotion gate.",
     "strict_bf16": "Promote exact BF16 block base-plus-delta packing of lm_head as the bounded SM89 batch-1 frontier. It preserves every BF16 weight bit, stores the lm_head at 77.46% of dense bytes, and improves the accepted strict frontier by 1.048x E2E/1.051x TPOT with 6/6 token-exact natural cases under a 3-warmup x 10-trial gate. Extending the format to the backbone was rejected: a 1.205x zero-unpack-cost model became 0.845x in rotating-weight scalar GPU measurements, while a metadata-hoisted padded Tensor Core screen reached only 0.453x. At calibrated bandwidth, the current 1.427 GB active weight stream has a 5.733 ms service floor versus measured 6.657 ms TPOT, so even deleting all non-weight time would cap this strict scope near 1.161x. This is a bounded empirical frontier, not proof of a global theoretical optimum.",
@@ -385,6 +403,10 @@
     "sm89_exact_lmhead_segmented_gdn": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\exact-lmhead-segmented-gdn\\summary.json",
       "sha256": "dc52e164564108cae1c3d57cfcae8b9ec7f6f03aafcebacd19b41f11133d0b89"
+    },
+    "sm89_int8_bf16_shortlist_rerank": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\int8-bf16-shortlist-rerank\\summary.json",
+      "status": "EMPIRICALLY_TOKEN_EXACT_GREEDY_PASS"
     }
   },
   "measurement_risk": {
