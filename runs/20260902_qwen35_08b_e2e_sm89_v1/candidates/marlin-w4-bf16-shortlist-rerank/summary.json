@@ -110,7 +110,8 @@
   "implementation_limitations": [
     "Output-head quantization and Marlin repacking now happen during weight post-processing, followed by a load-time warmup; the first request no longer performs packing.",
     "The implementation uses vLLM production GPTQ quantization, row-packing, Marlin repacking, scale permutation and workspace APIs; it no longer imports a test helper.",
-    "The dense tied output-head weight remains resident beside the packed representation, adding about 0.14 GiB; checkpoint-native packed tensors are the next deployment step.",
+    "The dense tied output-head weight remains resident beside the packed representation, adding about 0.14 GiB; it is required by both input embedding and BF16 shortlist reranking.",
+    "A prepacked sidecar can remove online conversion time, but removing the dense table requires a separate quantized-embedding candidate and a new quality qualification.",
     "The top-128 contract is bounded empirical greedy-token identity, not full-logit or all-input mathematical equivalence.",
     "The 512-case quality result supports an explicit approximate-speed mode only; broader tasks, sampling modes, concurrency and high-clock interleaving remain required before wider promotion."
   ],
@@ -124,6 +125,7 @@
     "w4_scan_only_screen": "comparisons/vllm_gptq_marlin_w4_scan_only_boundary.json",
     "batch_service_frontier": "comparisons/vllm_bf16_gptq_rerank_service_frontier.json",
     "automatic_gptq_policy": "models/gptq_serving_policy_auto.json",
+    "sidecar_lifecycle_candidate": "candidates/marlin-w4-lmhead-sidecar/summary.json",
     "prototype_patch": "candidates/marlin-w4-bf16-shortlist-rerank/vllm_utils_marlin_w4_bf16_shortlist_rerank.patch"
   },
   "decision": "Expose only as an opt-in approximate low-concurrency greedy mode. Prefer it at batch 1, consider it at batch 2 when the approximate quality contract is accepted, and retain stock GPTQ-Marlin at batch 4 and above. It is not a lossless default because the larger quality screen is not token-identical. Reject MTP-1 at this deployment point."

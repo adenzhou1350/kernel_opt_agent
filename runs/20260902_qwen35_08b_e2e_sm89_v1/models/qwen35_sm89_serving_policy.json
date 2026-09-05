@@ -83,5 +83,5 @@
     "quantized_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
     "strict_bf16_residual_bound": "models/sm89_strict_bf16_residual_certificate.json"
   },
-  "global_optimum": "NOT_PROVEN. The policy is the best measured member of the bounded local portfolio. Both BF16 and GPTQ routes are automatically derived from two strictly guarded runs per implementation plus veto-only historical baseline envelopes. Architecture-level decoding, checkpoint-native packed formats, broader prompts, sampling, sequence lengths, power-locked repeats, other GPUs, and future vLLM releases remain open dimensions."
+  "global_optimum": "NOT_PROVEN. The policy is the best measured member of the bounded local portfolio. Both BF16 and GPTQ routes are automatically derived from two strictly guarded runs per implementation plus veto-only historical baseline envelopes. Architecture-level decoding, quantized tied-embedding formats, broader prompts, sampling, sequence lengths, power-locked repeats, other GPUs, and future vLLM releases remain open dimensions. A prepacked sidecar removes online conversion time but does not change the steady-state route or eliminate the dense tied weight."
 }

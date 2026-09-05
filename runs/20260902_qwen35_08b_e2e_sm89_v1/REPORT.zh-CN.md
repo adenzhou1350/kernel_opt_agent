@@ -922,7 +922,19 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 数值合同决定这不是 stock GPTQ 的无条件替代。512 道 GSM8K 中两边都答对 42 道，但只有 457/512 完整 token 序列一致；本轮冻结服务样本的 paired token identity 在 B1/B2/B4/B8 也分别只有 89.1%/96.1%/94.6%/95.0%。因此 `stock_gptq_token_identity` 合同始终自动路由 stock；只有显式接受 `approximate_w4_greedy_quality_bounded` 时，B1/B2 才启用候选。质量 JSON 的 SHA 已作为合同输入绑定，不能只换吞吐 trace 就绕过质量门。
 
-代价同样被显式记录：候选加载占用约 0.99 GiB，stock 约 0.85 GiB，因为当前实现保留 tied dense 权重和 packed 输出头两份表示；加载时间多约三秒。下一步真正有价值的架构改动不是继续调一个 thread/block 小参数，而是设计 checkpoint-native 的预打包输出头，删除双表示及运行时转换。机器可读输入和结果分别为 `models/gptq_serving_policy_spec.json`、`models/gptq_serving_policy_auto.json`，原始记录为 `traces/vllm_gptq_prod_{stock,candidate}_{a,b}_service_curve.json`。这证明的是冻结部署点与候选集合中的条件最优，不是理论全局最优。
+代价同样被显式记录：候选加载占用约 0.99 GiB，stock 约 0.85 GiB，因为当前实现保留 tied dense 权重和 packed 输出头两份表示；加载时间多约三秒。预打包 sidecar 可以删除运行时转换，却不能直接删除 dense 表：输入 embedding 与 BF16 shortlist 回排都还要读取它。若要省掉 dense 表，必须另做量化 embedding/输出头共享格式并重新通过质量门，而不是把它伪装成无语义变化的 checkpoint 优化。机器可读输入和结果分别为 `models/gptq_serving_policy_spec.json`、`models/gptq_serving_policy_auto.json`，原始记录为 `traces/vllm_gptq_prod_{stock,candidate}_{a,b}_service_curve.json`。这证明的是冻结部署点与候选集合中的条件最优，不是理论全局最优。
+
+### 第三十五轮：预打包 sidecar 解决冷启动，不伪装成稳态或显存突破
+
+为了把上一轮候选从“每次启动都临时量化 lm-head”推进到可部署生命周期，本轮增加离线 sidecar 构建器。它读取 checkpoint 中唯一的 tied `embed_tokens.weight`；审计发现该张量物理存储是 FP16，而 vLLM 运行时将其转为 BF16，因此生成器显式复刻 FP16→BF16 后再调用正式的 GPTQ quantize、row pack、Marlin repack 和 scale permutation，分别记录 checkpoint FP16 与运行时 BF16 的 SHA-256。最终 sidecar 为 131,113,688 B，SHA-256 为 `b8a06c4...a1a793`。
+
+等价性测试在 4060 上分别走在线构建与 sidecar 加载：packed weight、permuted scales、空 `g_idx`、排序索引、两行随机输入的 rerank logits 和 argmax 全部逐 bit 相同；伪造 sidecar SHA 会 fail closed。在线 quantize+repack 为 2.047 秒，sidecar 文件哈希校验加 GPU 加载为 0.143 秒，物化阶段快 **14.34x**，减少约 **1.90 秒**。这是启动阶段收益，不应乘到 steady-state tok/s 上。
+
+第一次真实引擎冒烟把 sidecar 放在 Hugging Face 模型目录，vLLM 将目录内所有 `.safetensors` 识别为 checkpoint shards，因额外 tensor 名称失败。该次归类为 `TECHNICAL_FAILURE`，没有否决架构；修复是使用独立 `/home/aden/vllm-sidecars/...` 目录，并让生成器拒绝与 checkpoint 同目录的输出。修复后引擎日志明确报告 sidecar 已加载，模型加载为 2.155 秒、0.98 GiB，单次 discovery B1 为 180.38 tok/s，落在基础候选 177--180 tok/s 的既有范围。
+
+这轮也纠正了一个重要误区：Qwen3.5-0.8B 的 `lm_head` 和输入 embedding 共享同一个 `248320×1024` 权重，且 BF16 top-128 回排同样读取原始行。因此 sidecar 只替代“如何生成 packed 副本”，不能删除 BF16 主表，也不会降低稳态 0.14 GiB 的 packed 额外占用。若只保留 W4 表，就必须同时实现量化 embedding，并放弃现有 BF16 回排权威；那是新的数值候选，已有 W4-only 证据显示行为漂移显著，必须重新资格验证。
+
+所以本轮候选定性为 `DISCOVERY_SMOKE_PASS_LIFECYCLE_HARDENING_ONLY`：它使已有 B1/B2 极速模式更适合频繁冷启动，但不改变自动服务路由、不创造新的稳态吞吐最优，也不声称显存下降。证据见 `candidates/marlin-w4-lmhead-sidecar/summary.json`、`build_manifest.json`、`equivalence_validation.json` 与 `traces/vllm_gptq_sidecar_candidate_smoke_b1.json`。
 
 ## 技术失败与环境边界
 
@@ -1058,6 +1070,13 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 - `microbench_candidates/gdn_recurrent_norm_fusion_sm89.json`
 - `tools/analyze_mtp_m2_projection_bound.py`
 - `tools/benchmark_vllm_gsm8k_quality.py`
+- `tools/build_marlin_lmhead_sidecar.py`
+- `tools/validate_marlin_lmhead_sidecar.py`
+- `candidates/marlin-w4-lmhead-sidecar/summary.json`
+- `candidates/marlin-w4-lmhead-sidecar/build_manifest.json`
+- `candidates/marlin-w4-lmhead-sidecar/equivalence_validation.json`
+- `candidates/marlin-w4-lmhead-sidecar/vllm_utils_sidecar_loader.patch`
+- `traces/vllm_gptq_sidecar_candidate_smoke_b1.json`
 - `tools/benchmark_gdn_recurrent_norm_fusion.py`
 - `tools/compare_gsm8k_quality.py`
 - `traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json`

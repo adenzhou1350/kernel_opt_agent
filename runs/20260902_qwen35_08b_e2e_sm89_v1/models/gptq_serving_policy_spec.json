@@ -91,8 +91,9 @@
     "The result selects only among stock GPTQ-Marlin and one top-128 rerank implementation; it is not a theoretical or global optimum proof.",
     "The rerank implementation remains an opt-in approximate greedy mode because the GSM8K-512 comparison is not token-identical.",
     "The implementation now uses vLLM production GPTQ quantization, row packing, Marlin repacking and scale permutation APIs; no test helper is imported.",
-    "It still converts and retains the dense tied output-head weight at load time; a checkpoint-native prepacked representation is required to remove the roughly 0.14 GiB dual-representation overhead.",
-    "Load-time output-head packing adds about three seconds to model loading in these runs, while inference starts with the packed path already warm.",
+    "The dense tied weight must remain available to the input embedding and BF16 shortlist rerank; a prepacked sidecar removes online conversion time but cannot remove the roughly 0.14 GiB packed-representation overhead.",
+    "Removing the dense tied table requires a separate quantized-embedding/output candidate and a new quality contract; it is not merely a checkpoint-format change.",
+    "Online load-time packing adds roughly two to three seconds before service; the separately screened SHA-bound sidecar removes most of that conversion cost while retaining the same steady-state tensors.",
     "Two guarded runs per implementation do not fully characterize power, clock, prompt-distribution, sampling, or long-horizon variance.",
     "The result applies only to the frozen model, GPU, software stack, decode mode, output length, and batch points."
   ]
