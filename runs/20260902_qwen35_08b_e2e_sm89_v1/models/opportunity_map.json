@@ -107,6 +107,11 @@
           "claim": "Bounded BF16-state multiwarp ownership screen across 18 BV/warp/stage configurations.",
           "path": "microbench_candidates/gdn_packed_decode_bf16_state_multiwarp_sm89.json",
           "sha256": "e15c6d0567f57863e1357a584b035be9fa5d716e3632eb6f9302063712a5ad38"
+        },
+        {
+          "claim": "Bitwise-exact architecture screen of one-program-per-head recurrence plus gated RMSNorm under CUDA Graph replay and cache eviction.",
+          "path": "microbench_candidates/gdn_recurrent_norm_fusion_sm89.json",
+          "sha256": "8be1c00ca85ccc99aba88cd18e9899599fd82b0308636df0c19a051c7bfa7f1a"
         }
       ],
       "hypothesis": "Keep recurrent state in the consumer layout and fuse adjacent transforms to remove round trips and small launches.",
@@ -122,7 +127,8 @@
         "BV64/one-warp/four-stage was only 1.062x in the warm BF16-state sweep, projecting 33.9 us per whole step, below the 50 us residual materiality floor.",
         "With 64 MiB eviction and alternating order, the same schedule was 0.750x; the earlier reachable full-model candidate was also only 0.903x despite 6/6 token exactness.",
         "All 18 BF16-state BV64/BV128 multiwarp points preserved the immediate output but changed recurrent state by up to 2.98e-8, so they fail the strict state-transition contract before timing promotion.",
-        "Close launch-geometry retuning. Keep this opportunity open only for a producer-consumer or state-layout rewrite that predicts at least 50 us per whole step."
+        "Close launch-geometry retuning. Keep this opportunity open only for a producer-consumer or state-layout rewrite that predicts at least 50 us per whole step.",
+        "A bitwise-exact one-program-per-head recurrence+gated-RMSNorm fusion removed a launch and shared q/k loads, but CUDA Graph replay regressed from 16.398 us to 21.967 us (0.747x) because it serialized four BV32 tiles. Close this ownership design; any successor must preserve tile parallelism."
       ],
       "opportunity_id": "sm89-recurrent-state-fusion",
       "optimistic_gain_ceiling_us": 180.0,

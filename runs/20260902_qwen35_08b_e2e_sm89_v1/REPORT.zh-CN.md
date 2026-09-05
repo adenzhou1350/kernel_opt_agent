@@ -520,6 +520,21 @@ recurrent 方向还修正了一个重要实验口径。旧孤立 sweep 使用 FP
 
 重新标定后，normalization 的 likely interval 从 20--80 us 下调为 0--30 us；recurrent-state fusion 成为最高有效机会。机器可读证据在 `models/sm89_recurrent_state_search_bound.json`。这一轮没有产生新的端到端 winner，但消除了一个错误的 1.37x 先验，并保证 agent 不会因它再次浪费数十小时。
 
+### 第十四轮：融合不是天然更快，必须按 vLLM 的 CUDA Graph 口径判定
+
+针对当前最高优先级 recurrent 机会，实现了一个真正改变 ownership 的候选：stock 每层用 64 个小程序更新状态，再单独 launch gated RMSNorm；候选改为每个 value head 一个程序，顺序处理四个 BV32 state slice，并在同一程序完成 128 维 gated RMSNorm。候选的 recurrent state 与最终 BF16 输出均逐位一致，最大差异都是 0。
+
+如果按普通 Python 连续提交计时，候选看起来从 100.504 us 降到 23.259 us、达到 4.321x；但这个数字混入了 stock `rmsnorm_fn` 的张量分配和两次 host submission，不能代表 vLLM 的真实 decode。按 vLLM 生产路径的 CUDA Graph replay 重新测量后，结论反转：
+
+| 口径 | stock recurrent + norm | 融合候选 | 相对 stock |
+|---|---:|---:|---:|
+| CUDA Graph replay | 16.398 us | 21.967 us | **0.747x** |
+| 64 MiB 驱逐、交替单次 | 21.504 us | 24.576 us | **0.875x** |
+
+原因不是融合数学错误，而是并行度：stock 的四个 BV32 tile 可并行，候选把它们串行到 16 个 head program 中；省掉一次 launch 和重复 q/k 读取不足以补偿。该设计已拒绝，不接入整模型。recurrent 机会仍未整体关闭，但重开候选必须同时满足“保留四 tile 并行度”和“提供严格 128 维归一化同步边界”，并先在 CUDA Graph 下胜出。机器可读退出证书为 `models/sm89_recurrent_norm_fusion_stop.json`。
+
+这个实验也回答了为什么“自己写个 fused kernel”经常打不过 vLLM：错误计时口径能制造数倍假收益，而 vLLM 的 CUDA Graph 已把 host launch 开销压低；真正竞争的是 GPU 内部 occupancy、访存与依赖链，不是源码里 kernel 数量的多少。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -564,6 +579,7 @@ recurrent 方向还修正了一个重要实验口径。旧孤立 sweep 使用 FP
 - `models/sm89_strict_bf16_residual_certificate.json`
 - `models/sm89_mtp_m2_projection_bound.json`
 - `models/sm89_recurrent_state_search_bound.json`
+- `models/sm89_recurrent_norm_fusion_stop.json`
 - `models/nsys2025_gdn_segmented_candidate_map.json`
 - `models/nsys2025_lmhead_opportunity_map.json`
 - `models/nsys2025_reachable_gdnqkvz_map.json`
@@ -584,8 +600,10 @@ recurrent 方向还修正了一个重要实验口径。旧孤立 sweep 使用 FP
 - `microbench_candidates/bf16_triton_mtp_m2_backbone_sm89.json`
 - `microbench_candidates/gdn_packed_decode_bf16_state_sm89.json`
 - `microbench_candidates/gdn_packed_decode_bf16_state_multiwarp_sm89.json`
+- `microbench_candidates/gdn_recurrent_norm_fusion_sm89.json`
 - `tools/analyze_mtp_m2_projection_bound.py`
 - `tools/benchmark_vllm_gsm8k_quality.py`
+- `tools/benchmark_gdn_recurrent_norm_fusion.py`
 - `tools/compare_gsm8k_quality.py`
 - `traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json`
 - `traces/vllm_natural_stock_qual_o_w3_n10.json`
