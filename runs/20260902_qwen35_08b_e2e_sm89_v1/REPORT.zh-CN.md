@@ -677,6 +677,35 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 机器可读退出证书分别为 `candidates/exact-bf16-packed-backbone/summary.json` 和 `candidates/exact-lmhead-segmented-gdn/summary.json`。它们把“理论上值得试—实测为什么失败—什么条件才允许重开”写死，正是 agent 避免卡在局部死路的机制。
 
+### 第二十二轮：vLLM 不是理论最优；公平的量化比较要优化“量化后的剩余瓶颈”
+
+用户追问“既然只能靠量化，vLLM 自己量化不是更快吗”。这个问题的前半句需要先纠正：严格 BF16 路线并非完全没有空间，当前 exact-packed lm-head 就是在不丢失任何 BF16 权重位的前提下取得了约 4%--5% 的整模提升；但在已经接近权重访存下界后，继续期待 batch=1 解码翻倍并不符合当前测得的物理预算。量化可以直接减少 backbone 权重流量，不过公平基线必须是 **同一种量化模式的 vLLM**，而不是拿自研量化去打 BF16 vLLM。
+
+本轮先筛了 vLLM 自带在线量化路径。相邻短测中，FP8 per-tensor、per-channel 分别只提升约 1.6% 和 1.0% TPOT，没有跨过 3% 物质性门；`fp8_per_block` 选择 Marlin 的 weight-only kernel，约提升 10.8%，因此晋级。源码运行日志同时显示它转换了 164 个 backbone linear layer，但 tied embedding/lm-head 仍保留 BF16。这提供了一个明确的残余机会：保留 vLLM 的调度、CUDA Graph、attention/recurrent 和 Marlin backbone，只把未量化的大词表输出层换成上一轮已经验证过的 exact-packed BF16 kernel。
+
+正式实验固定 `max_num_seqs=1`、512 MiB KV cache、六类自然提示、128 输出 token，并按 C-S-S-C 顺序对“BF16 backbone + exact head”和“FP8 per-block backbone + exact head”各跑两次、每例 3 warmup × 10 trials：
+
+| 口径 | BF16+exact head | FP8-block+exact head | 加速 |
+|---|---:|---:|---:|
+| mean E2E | 1112.788 ms | **995.911 ms** | **1.1174x** |
+| mean TPOT | 8.3936 ms | **7.5539 ms** | **1.1112x** |
+| 四个 control/candidate 交叉 TPOT 范围 | — | — | **1.1028x--1.1196x** |
+| 重复运行自身 token exact | 6/6 | 6/6 | 确定性通过 |
+| BF16 与 FP8 跨模式 token exact | — | 0/6 | 非严格路线 |
+
+所有六类提示在每个交叉比较中都变快，而且候选的中位 graphics clock（915/930 MHz）还低于 control（945/960 MHz），因此不能把收益解释为候选恰好跑在更高频率。不过笔记本绝对延迟仍明显受功耗状态影响，正式结论使用 10.3%--12.0% 的交叉区间，不采用早期短测里最高的 27%。
+
+量化路径不能只看速度。冻结 512 道 GSM8K 后，BF16 control 为 45/512（8.79%），混合候选为 40/512（7.81%），点估计下降 0.98 个百分点；配对结果为 control-only 15、candidate-only 10，McNemar 双侧精确检验 `p=0.424`。这没有检测到统计显著差异，但答案一致率只有 65.23%，因此它只被标记为 **limited latency-first discovery frontier**，不升级为质量等价或生产默认。严格默认仍是 exact-packed BF16。
+
+这一轮得到的架构原则比某一个倍率更重要：
+
+1. vLLM 是强工程基线，不是对任意模型、GPU、batch 和质量目标都成立的理论最优。
+2. “参数量相同”不等于计算成本相同；格式字节数、kernel 是否匹配硬件、未量化层、调度与上下文分布都会改变瓶颈。
+3. 自研量化若不与相同量化的 vLLM 对照，倍率没有意义；真正可持续的优势是复用 vLLM 已做好的部分，再根据 profile 找出它在特定模型上留下的热点。
+4. 优化目标应是 Pareto 前沿，而不是一个无条件的“最快”：严格 BF16 档保语义，延迟优先档用质量预算换约 11% TPOT，二者都必须明确证据范围。
+
+完整证据和复现入口见 `candidates/fp8-block-exact-lmhead/summary.json`；其他在线量化 sibling 的有界退出记录见 `candidates/vllm-online-quantization-sm89/summary.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -739,6 +768,8 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `candidates/combined-gdn-down/summary.json`
 - `candidates/exact-vocab-pruning/summary.json`
 - `candidates/exact-bf16-packed-lmhead/summary.json`
+- `candidates/fp8-block-exact-lmhead/summary.json`
+- `candidates/vllm-online-quantization-sm89/summary.json`
 - `candidates/exact-bf16-packed-lmhead/vllm_utils_exact_bf16_packed_lmhead.patch`
 - `candidates/exact-bf16-packed-backbone/summary.json`
 - `candidates/exact-lmhead-segmented-gdn/summary.json`

@@ -274,10 +274,28 @@ def main() -> None:
         default="default",
     )
     parser.add_argument(
+        "--fuse-norm-quant",
+        action="store_true",
+        help="Enable vLLM's RMSNorm-to-quantization graph rewrite.",
+    )
+    parser.add_argument(
+        "--fuse-act-quant",
+        action="store_true",
+        help="Enable vLLM's activation-to-quantization graph rewrite.",
+    )
+    parser.add_argument(
+        "--fuse-attn-quant",
+        action="store_true",
+        help="Enable vLLM's attention-to-quantization graph rewrite.",
+    )
+    parser.add_argument(
         "--quantization",
         choices=(
             "none",
             "fp8",
+            "fp8_per_tensor",
+            "fp8_per_block",
+            "fp8_per_channel",
             "int8_per_channel_weight_only",
             "compressed-tensors",
         ),
@@ -413,8 +431,17 @@ def main() -> None:
         engine_overrides["max_num_batched_tokens"] = args.max_num_batched_tokens
     if args.chunked_prefill != "default":
         engine_overrides["enable_chunked_prefill"] = args.chunked_prefill == "on"
+    compilation_config = {}
     if args.custom_ops != "default":
-        engine_overrides["compilation_config"] = {"custom_ops": [args.custom_ops]}
+        compilation_config["custom_ops"] = [args.custom_ops]
+    if args.fuse_norm_quant or args.fuse_act_quant or args.fuse_attn_quant:
+        compilation_config["pass_config"] = {
+            "fuse_norm_quant": args.fuse_norm_quant,
+            "fuse_act_quant": args.fuse_act_quant,
+            "fuse_attn_quant": args.fuse_attn_quant,
+        }
+    if compilation_config:
+        engine_overrides["compilation_config"] = compilation_config
     if args.speculative_tokens:
         engine_overrides["speculative_config"] = {
             "method": "mtp",
@@ -642,6 +669,9 @@ def main() -> None:
             "chunked_prefill": args.chunked_prefill,
             "kv_cache_dtype": args.kv_cache_dtype,
             "custom_ops": args.custom_ops,
+            "fuse_norm_quant": args.fuse_norm_quant,
+            "fuse_act_quant": args.fuse_act_quant,
+            "fuse_attn_quant": args.fuse_attn_quant,
             "warmups": args.warmups,
             "trials": args.trials,
             "case_order": "rotated per iteration",

@@ -57,6 +57,11 @@ def main() -> None:
     parser.add_argument("--gpu-memory-utilization", type=float, default=0.70)
     parser.add_argument("--kv-cache-memory-bytes", type=int, default=536870912)
     parser.add_argument("--max-num-seqs", type=int, default=1)
+    parser.add_argument(
+        "--quantization",
+        choices=("none", "fp8", "fp8_per_tensor", "fp8_per_block", "fp8_per_channel"),
+        default="none",
+    )
     parser.add_argument("--expect-source-sha256", action="append", default=[])
     args = parser.parse_args()
 
@@ -123,18 +128,23 @@ def main() -> None:
         )
 
     init_started = time.perf_counter()
+    llm_kwargs = {
+        "model": str(model_path),
+        "tokenizer": str(model_path),
+        "dtype": "bfloat16",
+        "max_model_len": 4096,
+        "gpu_memory_utilization": args.gpu_memory_utilization,
+        "kv_cache_memory_bytes": args.kv_cache_memory_bytes,
+        "max_num_seqs": args.max_num_seqs,
+        "language_model_only": True,
+        "enable_prefix_caching": False,
+        "disable_log_stats": True,
+        "seed": args.selection_seed,
+    }
+    if args.quantization != "none":
+        llm_kwargs["quantization"] = args.quantization
     llm = LLM(
-        model=str(model_path),
-        tokenizer=str(model_path),
-        dtype="bfloat16",
-        max_model_len=4096,
-        gpu_memory_utilization=args.gpu_memory_utilization,
-        kv_cache_memory_bytes=args.kv_cache_memory_bytes,
-        max_num_seqs=args.max_num_seqs,
-        language_model_only=True,
-        enable_prefix_caching=False,
-        disable_log_stats=True,
-        seed=args.selection_seed,
+        **llm_kwargs,
     )
     init_seconds = time.perf_counter() - init_started
     params = SamplingParams(
@@ -195,11 +205,15 @@ def main() -> None:
             "vllm_sm89_segmented_gdn_projection": os.environ.get(
                 "VLLM_SM89_SEGMENTED_GDN_PROJECTION", "0"
             ),
+            "vllm_sm89_exact_packed_lm_head": os.environ.get(
+                "VLLM_SM89_EXACT_PACKED_LM_HEAD", "0"
+            ),
             "vllm_cache_root": os.environ.get("VLLM_CACHE_ROOT"),
             "guarded_source_sha256": guarded_sources,
         },
         "controls": {
             "dtype": "bfloat16",
+            "quantization": args.quantization,
             "temperature": 0.0,
             "max_tokens": args.max_tokens,
             "gpu_memory_utilization": args.gpu_memory_utilization,

@@ -75,6 +75,26 @@
       "runtime_cache_mib": 375.691,
       "decision": "PROMOTE as the new strict BF16 frontier for this SM89/model/batch-1 scope; retain the fresh-stock compiled-reduction caveat"
     },
+    "latency_first_fp8_block_exact_lm_head": {
+      "candidate": "vLLM Marlin FP8 per-block weight-only backbone plus exact-packed BF16 lm_head",
+      "strict_bf16": false,
+      "control_mean_e2e_ms": 1112.7884006249737,
+      "candidate_mean_e2e_ms": 995.9107070000451,
+      "e2e_speedup": 1.117357603250392,
+      "control_mean_tpot_ms": 8.393551044291765,
+      "candidate_mean_tpot_ms": 7.553913989173103,
+      "tpot_speedup": 1.111152583458337,
+      "cross_pair_tpot_speedup_range": [
+        1.1027750476736884,
+        1.1196288015969056
+      ],
+      "cross_mode_exact_generated_token_cases": "0/6",
+      "gsm8k_sample_count": 512,
+      "gsm8k_control_accuracy": 0.087890625,
+      "gsm8k_candidate_accuracy": 0.078125,
+      "gsm8k_mcnemar_exact_two_sided_p": 0.42435622215270996,
+      "decision": "PROMOTE only as a limited opt-in latency-first discovery frontier; strict default remains exact-packed BF16"
+    },
     "strict_bf16_sm89_exact_packed_backbone": {
       "candidate": "extend exact BF16 block base-plus-delta packing to all material decode projections",
       "weight_bit_exact": true,
@@ -172,12 +192,12 @@
     }
   },
   "decision": {
-    "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
+    "latency_first_quantized": "For the vLLM-native path, promote the FP8 per-block Marlin backbone plus exact-packed BF16 lm_head only as a limited opt-in discovery frontier: C-S-S-C measured 1.111x TPOT over the exact-packed BF16 control, while a 512-item GSM8K screen changed 45/512 to 40/512 (McNemar p=0.424). Historical llama.cpp Q4_0 can be faster in a non-power-controlled observation but raised the small-corpus perplexity by 9.59% and is not the same runtime contract.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject current MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload. Even replacing every screened M=2 projection by its best cold-cache schedule projects to only 0.985x at measured acceptance and still needs 0.618 ms of independent cycle saving to clear the 1.03x promotion gate.",
     "strict_bf16": "Promote exact BF16 block base-plus-delta packing of lm_head as the bounded SM89 batch-1 frontier. It preserves every BF16 weight bit, stores the lm_head at 77.46% of dense bytes, and improves the accepted strict frontier by 1.048x E2E/1.051x TPOT with 6/6 token-exact natural cases under a 3-warmup x 10-trial gate. Extending the format to the backbone was rejected: a 1.205x zero-unpack-cost model became 0.845x in rotating-weight scalar GPU measurements, while a metadata-hoisted padded Tensor Core screen reached only 0.453x. At calibrated bandwidth, the current 1.427 GB active weight stream has a 5.733 ms service floor versus measured 6.657 ms TPOT, so even deleting all non-weight time would cap this strict scope near 1.161x. This is a bounded empirical frontier, not proof of a global theoretical optimum.",
     "relaxed_bf16": "The historical lm_head plus segmented-GDN route remains only a limited-task-quality observation against its old stock control. It must not be multiplied into the current frontier: a new same-source test with exact-packed lm_head enabled throughout regressed to 0.980x TPOT and only 2/6 cross-mode token parity. There is currently no promoted composed relaxed frontier.",
-    "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
+    "vllm_quantized": "Reject the broken third-party W4A16 checkpoint. Among vLLM online conversions, per-tensor and per-channel FP8 failed the 3% materiality gate, while per-block FP8 selected Marlin and became useful when composed with the residual exact-packed BF16 lm_head. This is a quality-relaxed frontier, not a strict or global optimum."
   },
   "evidence": {
     "llamacpp_bf16": {
@@ -306,6 +326,14 @@
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\raw\\transformers_awq_int4_smoke.json",
       "sha256": "437a79a35593648b9f7f15e3f301928b845ef280097525516948bbf579487047"
     },
+    "sm89_fp8_block_exact_lm_head": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\fp8-block-exact-lmhead\\summary.json",
+      "sha256": "f02a1b3c555c0e46186749385a560a171fc824fc4efada8df85103854dbea5e2"
+    },
+    "sm89_vllm_online_quantization_screen": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\vllm-online-quantization-sm89\\summary.json",
+      "sha256": "4a173b6c622bb55cdbfedfb3d49ceff4a021820c2f3bf6e2d9ec13a25b73cacf"
+    },
     "sm89_exact_bf16_packed_lm_head": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\exact-bf16-packed-lmhead\\summary.json",
       "sha256": "cb5f3b523f404b0bda3d540adcb4ff51944d30e78424fe6e8db853d61e14f591"
@@ -326,7 +354,7 @@
     "power_probe_median_memory_clock_mhz": 8001.0,
     "power_probe_median_power_w": 26.64,
     "power_probe_sample_count": 21,
-    "required_next_gate": "For a production claim, repeat randomized stock/accepted/packed process order under a locked power mode, replace the additive 375.691 MiB cache and transient packing peak with chunked CPU/load-time ownership transfer, and add a larger task-quality suite. Do not reopen backbone exact packing unless a new data path first beats rotating-weight cuBLAS on every material shape."
+    "required_next_gate": "For a production claim, repeat randomized BF16/FP8 process order under a locked power mode, replace the additive 375.691 MiB lm_head cache and transient packing peak with chunked CPU/load-time ownership transfer, and add broader reasoning, code, instruction-following, and sampled-generation quality suites. Do not reopen exact backbone packing unless a new data path first beats rotating-weight cuBLAS on every material shape."
   },
   "measurements": {
     "llamacpp_bf16": {
