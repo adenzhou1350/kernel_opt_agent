@@ -654,6 +654,29 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 这轮也给 agent 增加了一种更有“大局观”的搜索方式：当算子已经碰到 dense-byte roofline，不再围绕 block size 无界扫参，而是先统计真实权重信息熵，推导可逆格式的理论字节数；只对预测能跨过 3% 整步门槛的格式写 kernel；并并行构造一个压缩率相近但解码机制不同的负对照。机器可读汇总、补丁与全部证据位于 `candidates/exact-bf16-packed-lmhead/summary.json`。
 
+### 第二十一轮：全骨干无损压缩的理论 1.205x，实测却只有 0.845x
+
+`lm_head` 的 exact-packed BF16 成功后，一个自然假设是把同样的无损表示扩展到所有 decode projection。先扫描真实 checkpoint：活跃骨干 projection 的 dense BF16 共 995,229,696 B，exact-packed 后为 771,221,760 B，只占 77.492%。若错误地假设延迟与字节完全线性且解包免费，每 token 可省 1.133 ms，当前 6.657 ms TPOT 可乐观提升到 **1.205x**。这个上界足以通过 1.03x 物质性门，所以才进入 GPU 实测，而不是凭感觉提前否决。
+
+但按真实 decode 顺序轮转所有层权重、确保每组工作集都超过 4060 的 32 MiB L2 后，结果反转：
+
+| 路线 | dense 冷流 | 候选冷流 | 局部加速 | 投影整步 |
+|---|---:|---:|---:|---:|
+| scalar exact unpack，五类主要 projection 最佳点求和 | 4936.909 us | 5845.370 us | **0.8446x** | **0.8799x** |
+| metadata hoist + padded-M=16 Tensor Core，代表性 attention QKV | 312.710 us | 690.790 us | **0.4527x** | **0.9463x**（仅该组） |
+
+两条路线都逐位验证了权重重建，失败原因不是精度或实现没跑到，而是硬件数据路径不匹配。`lm_head` 是单个 508.6 MB 的巨大 DRAM stream，规则位运算能被少读 22.5% 权重流量掩盖；骨干矩阵更小、形状更多且逐层重复，cuBLAS 的 shape-specific reduction 已很高效，整数解包、metadata、M=1 填充到 M=16 和同步成本反而成为新瓶颈。也就是说，“同一格式在一个大矩阵上赢”不能外推为“在全模型每个 GEMV 上都赢”。
+
+为了避免把微基准负结果误判成候选不可达，又对当前 exact-packed 前沿做了 Nsight Systems 2025.5.1 完整图采样：期望 192 次 packed lm-head，实际观察到 192 次，可达性通过。profile 下 `cublas_gemvx` 占 GPU kernel time 的 52.74%，packed lm-head 占 30.90%，说明骨干确实是下一大热点；但 profiler 把 packed kernel 扰动到约 2.812 ms，因此这些比例只用于机会排序，不能与非 profile 的 1.587 ms 稳态值混算。
+
+这一轮还直接检验了“把两个局部赢家叠加”：保持 exact-packed lm-head 开启，只切换此前通过有限 GSM8K 质量筛选的 segmented GDN。在同源、6 提示、每例 3 warmup × 10 次、固定 512 MiB KV cache 下，组合从 6.6548 ms 退化到 6.7903 ms TPOT，只有 **0.9801x**，并且只有 2/6 token exact；六个提示全部变慢。此前独立测得的约 4% GDN 收益不能与 packed lm-head 的约 5% 相乘，因为它们共享显存带宽、调度、功耗状态和浮点归约路径。
+
+因此严格 BF16 前沿仍是“只对 lm-head 做 exact packing”。按本机 248.8785 GB/s 校准带宽，当前活跃权重流量约 1,426,884,288 B，单纯服务这些字节的 floor 约 5.733 ms；即使不可能地删除所有非权重时间，相对 6.657 ms TPOT 的绝对上限也只有约 **1.161x**。这不是全局理论最优证明，但已给当前“保持 BF16 权重位、batch=1、同模型同解码语义”的局部搜索空间画出很窄的边界。下一次重开全骨干压缩，必须出现原生 compressed-BF16 dot、在冷轮转权重上逐 shape 超过 cuBLAS 的解包路径，或能同时删除额外 producer-consumer 流量且预测整步至少 3% 的新架构。
+
+工程上还暴露了一个需要在生产化前修复的问题：当前原型在构建 packed cache 时短暂同时保留 tied dense 权重与中间张量，vLLM 自动 KV cache profiling 会把这个峰值当作常驻占用，甚至算出负的可用缓存。实验通过固定 512 MiB KV cache 隔离了该问题；正式实现应在 CPU/load-time 分块打包并转移 ownership，不能依赖这个运行时绕过。
+
+机器可读退出证书分别为 `candidates/exact-bf16-packed-backbone/summary.json` 和 `candidates/exact-lmhead-segmented-gdn/summary.json`。它们把“理论上值得试—实测为什么失败—什么条件才允许重开”写死，正是 agent 避免卡在局部死路的机制。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -717,13 +740,20 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `candidates/exact-vocab-pruning/summary.json`
 - `candidates/exact-bf16-packed-lmhead/summary.json`
 - `candidates/exact-bf16-packed-lmhead/vllm_utils_exact_bf16_packed_lmhead.patch`
+- `candidates/exact-bf16-packed-backbone/summary.json`
+- `candidates/exact-lmhead-segmented-gdn/summary.json`
 - `microbench_candidates/fused_lmhead_argmax_sm89.json`
 - `microbench_candidates/exact_bf16_packed_lmhead_sm89_steady.json`
 - `microbench_candidates/exact_bf16_codebook_lmhead_sm89.json`
+- `microbench_candidates/exact_bf16_backbone_cold_stream_sm89.json`
+- `microbench_candidates/exact_bf16_backbone_tensorcore_attention_sm89.json`
 - `tools/benchmark_sm89_fused_lmhead_argmax.py`
 - `tools/analyze_exact_bf16_weight_compression.py`
 - `tools/benchmark_exact_bf16_packed_lmhead.py`
 - `tools/benchmark_exact_bf16_codebook_lmhead.py`
+- `tools/analyze_exact_bf16_backbone_compression.py`
+- `tools/benchmark_exact_bf16_backbone_stream.py`
+- `tools/benchmark_exact_bf16_backbone_tensorcore.py`
 - `models/sm89_exact_vocab_pruning_feasibility.json`
 - `tools/analyze_exact_vocab_pruning.py`
 - `traces/vllm_reachable_downw2_64.json`
@@ -736,6 +766,7 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `comparisons/vllm_lmhead_toggle_pair2.json`
 - `comparisons/vllm_exact_pack_qualification.json`
 - `comparisons/vllm_exact_pack_stock_qualification.json`
+- `comparisons/vllm_exact_gdn_qualification.json`
 - `comparisons/vllm_sm89_gdn_quality_gsm8k_n512.json`
 - `microbench_candidates/bf16_triton_mtp_m2_backbone_sm89.json`
 - `microbench_candidates/gdn_packed_decode_bf16_state_sm89.json`
@@ -748,5 +779,11 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `traces/vllm_natural_sm89_lmhead_gemv_qual_n_w3_n10.json`
 - `traces/vllm_natural_stock_qual_o_w3_n10.json`
 - `traces/vllm_lmhead_restored_smoke_w1_n1_t16.json`
+- `models/sm89_exact_bf16_backbone_compression_feasibility.json`
+- `models/nsys2025_exact_packed_frontier_map.json`
+- `profiles/nsys2025_exact_packed_frontier_nodes.sqlite`
+- `traces/vllm_nsys2025_exact_packed_frontier_w1_n1_t32.json`
+- `traces/vllm_exact_gdn_control_w3_n10.json`
+- `traces/vllm_exact_gdn_candidate_w3_n10.json`
 
 ModelScope 模型页：<https://modelscope.cn/models/Qwen/Qwen3.5-0.8B>

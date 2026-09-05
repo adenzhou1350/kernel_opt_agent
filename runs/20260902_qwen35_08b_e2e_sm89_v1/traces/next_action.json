@@ -103,7 +103,7 @@
           "persistent-scheduling"
         ],
         "source_model_term": "Non-GEMV short-kernel tail in expanded CUDA Graph",
-        "status": "UNIMPLEMENTED"
+        "status": "OBSERVED"
       },
       "opportunity_count": 0,
       "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
