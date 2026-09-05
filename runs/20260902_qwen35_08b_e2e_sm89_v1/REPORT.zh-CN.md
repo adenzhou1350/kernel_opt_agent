@@ -848,6 +848,25 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 因此 W4-only 在正式重复性能资格赛前被淘汰：它为了额外约 3.2% 吞吐大幅替换模型行为，不位于实用的风险收益前沿。保留实现开关和原始证据只用于复现边界，默认关闭。这个结果同时说明 agent 的目标函数不能只有 tok/s；必须把配对行为稳定性纳入晋级门，否则它会把“换了一个碰巧同分的模型”误判成算子优化成功。证据见 `comparisons/vllm_gptq_marlin_w4_scan_only_boundary.json`。
 
+### 第三十一轮：vLLM 量化已经更快，但最优路径随并发变化
+
+本轮不再用单请求结果回答“有没有超过 vLLM”，而是在同一个 vLLM 0.28.1、同一 Qwen3.5-0.8B、同一张 RTX 4060 Laptop 上测量 batch 1/2/4/8 的服务曲线。每档生成 64 个 greedy token，1 次 warmup、3 次测量，测量轮交替正序和逆序；运行 stock→candidate→stock 夹心对照并请求使用相同编译缓存根目录。候选进程报告直接载入 AOT，末次 stock 仍重新编译，因此启动时间不进入吞吐比较，并对 steady-state 性能采用两次 stock 中更快者作为保守基线。
+
+| batch | vLLM BF16 | vLLM GPTQ-Marlin 两次 | GPTQ + W4/BF16 rerank | rerank / 较快 GPTQ | rerank / BF16 |
+|---:|---:|---:|---:|---:|---:|
+| 1 | 97.9 tok/s | 119.8 / 124.7 tok/s | **176.9 tok/s** | **1.419x** | **1.807x** |
+| 2 | 185.0 tok/s | 274.3 / 281.8 tok/s | **316.5 tok/s** | **1.123x** | **1.711x** |
+| 4 | 356.0 tok/s | **484.8 / 546.7 tok/s** | 472.8 tok/s | 0.865x | 1.328x |
+| 8 | 670.0 tok/s | **883.2 / 917.4 tok/s** | 888.7 tok/s | 0.969x | 1.326x |
+
+这直接证明两件事。第一，用户的直觉正确：库存 vLLM 的 GPTQ-Marlin 在所有实测并发上都比库存 BF16 快；同参数量不等于同流量，W4 每个权重需要搬运的字节显著少于 BF16，代价是解包、反量化和不同数值语义。第二，“vLLM 已经量化”仍不代表每个 shape 都达到局部最优。batch 1 时，大词表输出头的单行权重流量无法摊薄，W4 全扫描加 BF16 top-128 回排相对两次 stock 中更快者仍快 1.419x；batch 2 只剩 1.123x，而 batch 4/8 的库存矩阵路径已经把权重读取摊到多行，特化收益消失。末次 stock 在 batch 4 比首次快约 12.8%，也证明单次非交错数字不适合用来宣称 SOTA；这里用保守包络决定策略。
+
+因此生产策略不应选择一个永久冠军：batch 1 可显式选择 approximate rerank，batch 2 仅在接受其质量契约且 15% 收益有价值时选择，batch 4 以上使用库存 GPTQ-Marlin。严格 BF16 是另一条数值契约，必须单列，不能因为参数数目相同就与 W4 混称公平速度冠军。
+
+同缓存对照中 batch 1/2 分别达到 192/192、384/384 token 一致；batch 4/8 即使候选 shape guard 已回退库存路径，跨进程仍只有 721/768、1433/1536 token 一致。这说明后两档差异来自批量 GPU 归约和调度的数值非确定性，不能归因给未被调用的候选。另一方面，上一轮 GSM8K-512 的 457/512 序列一致仍是更强质量证据，所以本轮小集合完全一致也不能把 approximate 模式升级为无损默认。
+
+对 agent 架构的含义是：搜索状态必须包含 workload shape 和精度契约，先测服务曲线，再生成分段策略；“某个算子在 M=1 最快”不再允许推出“模型推理全局最快”。机器可读证据见 `comparisons/vllm_bf16_gptq_rerank_service_frontier.json`，原始记录见对应的 `traces/vllm_*service_curve*.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -936,6 +955,12 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 - `microbench_candidates/marlin_int4_recall_lmhead_m2_sm89.json`
 - `comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json`
 - `comparisons/vllm_gptq_marlin_w4_stock_vs_specialized_head_low_power.json`
+- `tools/benchmark_vllm_batch_service.py`
+- `comparisons/vllm_bf16_gptq_rerank_service_frontier.json`
+- `traces/vllm_bf16_stock_service_curve_b1_b2_b4_b8.json`
+- `traces/vllm_gptq_stock_service_curve_b1_b2_b4_b8.json`
+- `traces/vllm_gptq_stock_service_curve_repeat_same_cache_b1_b2_b4_b8.json`
+- `traces/vllm_gptq_mv_rerank_service_curve_same_cache_b1_b2_b4_b8.json`
 - `traces/vllm_gptq_marlin_w4_stock_natural_128_low_power.json`
 - `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_natural_128_low_power.json`
 - `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_k512_screen.json`

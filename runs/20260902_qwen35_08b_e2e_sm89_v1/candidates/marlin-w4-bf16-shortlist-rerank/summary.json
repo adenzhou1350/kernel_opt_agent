@@ -71,6 +71,20 @@
     "paired_correctness_changes_vs_stock": "22 control-only, 22 candidate-only",
     "reason": "Only about 3.2% faster than BF16 shortlist reranking while substantially changing generated behavior; equal aggregate GSM8K accuracy is not sufficient evidence of preserved capability."
   },
+  "batch_service_frontier": {
+    "status": "PROMOTE_SHAPE_GUARDED_LOW_CONCURRENCY_MODE",
+    "protocol": "one warmup and three measured trials, 64 generated tokens, forward/reverse batch order, max_num_seqs=8; stock-candidate-stock processes with a shared requested cache root and initialization excluded from service throughput",
+    "batch_sizes": [1, 2, 4, 8],
+    "stock_bf16_output_tokens_per_second": [97.89177040632651, 184.96435802514216, 355.9958482546302, 669.9730429533589],
+    "stock_gptq_output_tokens_per_second": [119.8396615731398, 274.2594180980068, 484.7688808457231, 883.2036487418114],
+    "stock_gptq_repeat_output_tokens_per_second": [124.66996985778368, 281.75677657121946, 546.7468912392798, 917.3603424909752],
+    "candidate_output_tokens_per_second": [176.87013918222442, 316.4631258256613, 472.8344230506829, 888.7036358340454],
+    "candidate_speedup_over_stock_gptq": [1.4758898419808884, 1.1538824373665555, 0.9753811387929451, 1.0062273147309446],
+    "candidate_speedup_over_faster_stock_gptq": [1.4187068416234292, 1.1231784011614327, 0.8648141043453147, 0.9687617773195687],
+    "candidate_speedup_over_stock_bf16": [1.8067927308708038, 1.7109411197082873, 1.328202071369334, 1.3264767070574714],
+    "stock_vs_candidate_exact_tokens": ["192/192", "384/384", "721/768", "1433/1536"],
+    "policy": "Opt-in rerank at batch 1; consider at batch 2 only when its approximate contract is acceptable; use stock GPTQ-Marlin at batch 4 and above."
+  },
   "implementation_limitations": [
     "Prototype quantization happens during first use and temporarily raises peak activation memory; production must load prepacked tensors.",
     "The implementation imports a vLLM test packing helper and is therefore evidence code, not merge-ready production code.",
@@ -85,7 +99,8 @@
     "gptq_qualification": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_qualification.json",
     "gptq_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
     "w4_scan_only_screen": "comparisons/vllm_gptq_marlin_w4_scan_only_boundary.json",
+    "batch_service_frontier": "comparisons/vllm_bf16_gptq_rerank_service_frontier.json",
     "prototype_patch": "candidates/marlin-w4-bf16-shortlist-rerank/vllm_utils_marlin_w4_bf16_shortlist_rerank.patch"
   },
-  "decision": "Expose only as an opt-in approximate batch-1 greedy mode. It is a reproducible performance winner over stock GPTQ-Marlin on the frozen local workload, but it is not a lossless default because the larger quality screen is not token-identical. Reject MTP-1 at this deployment point."
+  "decision": "Expose only as an opt-in approximate low-concurrency greedy mode. Prefer it at batch 1, consider it at batch 2 when the approximate quality contract is accepted, and retain stock GPTQ-Marlin at batch 4 and above. It is not a lossless default because the larger quality screen is not token-identical. Reject MTP-1 at this deployment point."
 }

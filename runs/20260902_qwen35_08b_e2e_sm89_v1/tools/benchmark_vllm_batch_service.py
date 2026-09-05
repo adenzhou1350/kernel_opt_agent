@@ -47,7 +47,44 @@ def main() -> None:
     parser.add_argument("--quantization", default="fp8_per_block")
     parser.add_argument("--kv-cache-memory-bytes", type=int, default=536870912)
     parser.add_argument("--expect-source-sha256", action="append", default=[])
+    parser.add_argument(
+        "--expect-marlin-w4-rerank",
+        choices=("off", "on"),
+        help="Fail before engine startup unless the Marlin-W4 rerank switch matches.",
+    )
+    parser.add_argument(
+        "--expect-marlin-w4-scan-only",
+        choices=("off", "on"),
+        help="Fail before engine startup unless the Marlin-W4 scan-only switch matches.",
+    )
     args = parser.parse_args()
+
+    actual_marlin_w4_rerank = (
+        "on"
+        if os.environ.get("VLLM_SM89_MARLIN_W4_RERANK", "0") == "1"
+        else "off"
+    )
+    actual_marlin_w4_scan_only = (
+        "on"
+        if os.environ.get("VLLM_SM89_MARLIN_W4_SCAN_ONLY", "0") == "1"
+        else "off"
+    )
+    if (
+        args.expect_marlin_w4_rerank is not None
+        and actual_marlin_w4_rerank != args.expect_marlin_w4_rerank
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: expected Marlin-W4 rerank "
+            f"{args.expect_marlin_w4_rerank}, got {actual_marlin_w4_rerank}"
+        )
+    if (
+        args.expect_marlin_w4_scan_only is not None
+        and actual_marlin_w4_scan_only != args.expect_marlin_w4_scan_only
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: expected Marlin-W4 scan-only "
+            f"{args.expect_marlin_w4_scan_only}, got {actual_marlin_w4_scan_only}"
+        )
 
     guarded_sources = {}
     for spec in args.expect_source_sha256:
@@ -206,6 +243,12 @@ def main() -> None:
             "vllm_sm89_exact_packed_lm_head": os.environ.get(
                 "VLLM_SM89_EXACT_PACKED_LM_HEAD", "0(default)"
             ),
+            "vllm_sm89_marlin_w4_rerank": os.environ.get(
+                "VLLM_SM89_MARLIN_W4_RERANK", "0(default)"
+            ),
+            "vllm_sm89_marlin_w4_scan_only": os.environ.get(
+                "VLLM_SM89_MARLIN_W4_SCAN_ONLY", "0(default)"
+            ),
             "guarded_source_sha256": guarded_sources,
         },
         "controls": {
@@ -217,6 +260,10 @@ def main() -> None:
             "sampling": "greedy",
             "engine_initialization_seconds": init_seconds,
             "case_order": "batch sizes forward/reverse by trial",
+            "expected_marlin_w4_rerank": args.expect_marlin_w4_rerank,
+            "actual_marlin_w4_rerank": actual_marlin_w4_rerank,
+            "expected_marlin_w4_scan_only": args.expect_marlin_w4_scan_only,
+            "actual_marlin_w4_scan_only": actual_marlin_w4_scan_only,
         },
         "service_curve": service_curve,
         "raw_samples": samples,
