@@ -828,6 +828,16 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 因此更准确的结论是：**vLLM 是很强的通用执行框架，量化也是必要候选，但“vLLM + 量化”仍不是这张卡、这个模型、这个 batch 的自动最优解。** 我们已经实测到其上仍有约 1.52x 的局部空间，同时也实测到追求速度会碰到真实的质量边界。机器可读证据见 `comparisons/vllm_gptq_marlin_w4_stock_vs_specialized_head_low_power.json`。
 
+### 第二十九轮：在同量化 vLLM 上复现 1.55x，并把“速度冠军”和“无损冠军”分开
+
+上一轮的 Triton shortlist 归约在 CUDA Graph 下只保持 2/6 条自然提示逐 token 一致。本轮先正交关闭 CUDA Graph：torch.compile 保留时恢复 6/6、768/768 token，但 TPOT 退化到约 19.68 ms，说明关闭 Graph 不是可用修复。单独捕获候选算子又能与 eager 完全一致，进一步把问题收窄为真实 hidden state 上不同矩阵归约路径的数值次序，而不是 Graph 回放破坏了缓存。
+
+修复将 top-128 的 BF16 重排从自写 Triton reduction 改为 batch-1 `torch.mv`（M=2 安全回退 `torch.bmm`），以更接近库存输出头的 GEMV 归约语义。两个完全独立的新进程和新编译缓存都得到 6/6、768/768 token 一致，TPOT 分别为 5.027 ms 和 5.025 ms。随后 2 次 warmup + 5 次测量的资格轮得到 **4.959 ms/token（201.7 tok/s）**；对照 stock GPTQ-Marlin 的 **7.688 ms/token（130.1 tok/s）**，同量化、同引擎下提升 **1.550x**。候选测量中位核心频率还更低（825 对 915 MHz），因此不是升频造成的假收益。
+
+但 512 道 GSM8K、每题最多 64 token 的配对测试揭示了必须保留的边界：两边准确率都为 42/512，McNemar 双侧精确检验 p=1.0，然而答案只在 466/512 一致，完整 token 序列只在 457/512 一致。这说明 top-128 召回加 BF16 重排在冻结的吞吐提示上可复现逐 token 一致，在更广输入上则仍是近似语义。它可以晋级为**显式 opt-in 的 batch-1 greedy 极速模式**，不能替换库存 vLLM 默认路径，也不能宣称数学等价或理论最优。
+
+这轮也修正了比较口径：agent 不应试图从零重写 vLLM 后拿自己的量化版本去比较 BF16 vLLM；公平目标是先采用 vLLM 的 GPTQ-Marlin，再根据新瓶颈分布只替换残余热点。本例中主干 W4 后，未量化的 `248320 x 1024` tied `lm_head` 成为突出瓶颈，局部结构特化才产生额外 1.55x。机器可读证据见 `comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_qualification.json` 与 `comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。

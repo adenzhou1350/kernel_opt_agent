@@ -59,7 +59,15 @@ def main() -> None:
     parser.add_argument("--max-num-seqs", type=int, default=1)
     parser.add_argument(
         "--quantization",
-        choices=("none", "fp8", "fp8_per_tensor", "fp8_per_block", "fp8_per_channel"),
+        choices=(
+            "none",
+            "fp8",
+            "fp8_per_tensor",
+            "fp8_per_block",
+            "fp8_per_channel",
+            "auto_gptq",
+            "gptq_marlin",
+        ),
         default="none",
     )
     parser.add_argument("--expect-source-sha256", action="append", default=[])

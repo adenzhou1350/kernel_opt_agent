@@ -1,8 +1,8 @@
 {
   "schema_version": "sm89-marlin-w4-bf16-shortlist-rerank-screen-v1",
-  "status": "PROMISING_KERNEL_REJECT_RUNTIME_PROMOTION_PENDING_HIGH_CLOCK_REMATCH",
+  "status": "PROMOTE_OPT_IN_APPROXIMATE_MODE_NOT_EXACT_REPLACEMENT",
   "candidate": "vLLM Marlin GPTQ W4A16 full-vocabulary scan plus exact BF16 top-128 rerank",
-  "scope": "Qwen3.5-0.8B, RTX 4060 Laptop SM89, max_num_seqs=1, greedy decode, vLLM fp8_per_block backbone",
+  "scope": "Qwen3.5-0.8B, RTX 4060 Laptop SM89, max_num_seqs=1, greedy decode, vLLM fp8_per_block or GPTQ-Marlin W4A16 backbone",
   "microbenchmark": {
     "exact_packed_bf16_us": 2956.2368392944336,
     "marlin_w4a16_us": 893.9519882202148,
@@ -43,18 +43,33 @@
     "token_exact_cases_vs_nonspec": "3/6",
     "reason": "M=2 Marlin weight reuse is real, but it does not cover proposer, target verification, rejection, and runtime overhead; the M=2 backbone also changes numerical reductions before exact shortlist reranking."
   },
+  "gptq_backbone_qualification": {
+    "status": "PASS_PERFORMANCE_BOUNDED_QUALITY_NOT_TOKEN_EXACT",
+    "measured_utils_sha256": "2dcdd2c2e89888fa3c08a99bd1eded2be3ba6b611ec88724fc474bf95fe94766",
+    "protocol": "two independent fresh-cache screens followed by two warmups and five measured trials on six natural prompts, then paired GSM8K n=512",
+    "stock_weighted_tpot_ms": 7.687619650919247,
+    "candidate_weighted_tpot_ms": 4.9589494409322175,
+    "tpot_speedup": 1.5502516697314976,
+    "natural_token_exact": "768/768",
+    "gsm8k_control_correct": 42,
+    "gsm8k_candidate_correct": 42,
+    "gsm8k_answer_agreement": "466/512",
+    "gsm8k_token_exact": "457/512"
+  },
   "implementation_limitations": [
     "Prototype quantization happens during first use and temporarily raises peak activation memory; production must load prepacked tensors.",
     "The implementation imports a vLLM test packing helper and is therefore evidence code, not merge-ready production code.",
     "The top-128 contract is bounded empirical greedy-token identity, not full-logit or all-input mathematical equivalence.",
-    "High-clock C-S-S-C qualification and a 512-case quality rerun remain required before promotion."
+    "The 512-case quality result supports an explicit approximate-speed mode only; broader tasks, sampling modes, concurrency and high-clock interleaving remain required before wider promotion."
   ],
   "artifacts": {
     "microbenchmark": "microbench_candidates/marlin_int4_recall_lmhead_sm89.json",
     "m2_microbenchmark": "microbench_candidates/marlin_int4_recall_lmhead_m2_sm89.json",
     "runtime_comparison": "comparisons/vllm_fp8_native_vs_marlin_w4_rerank_low_power_screen.json",
     "mtp1_screen": "comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json",
+    "gptq_qualification": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_qualification.json",
+    "gptq_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
     "prototype_patch": "candidates/marlin-w4-bf16-shortlist-rerank/vllm_utils_marlin_w4_bf16_shortlist_rerank.patch"
   },
-  "decision": "Keep as the next ordinary batch-1 lm-head architecture candidate and reject MTP-1 at this deployment point. Do not replace the already qualified INT8+BF16 frontier until a power-controlled high-clock rematch passes."
+  "decision": "Expose only as an opt-in approximate batch-1 greedy mode. It is a reproducible performance winner over stock GPTQ-Marlin on the frozen local workload, but it is not a lossless default because the larger quality screen is not token-identical. Reject MTP-1 at this deployment point."
 }

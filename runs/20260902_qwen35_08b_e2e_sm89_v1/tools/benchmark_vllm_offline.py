@@ -203,6 +203,12 @@ def main() -> None:
     parser.add_argument("--kv-cache-memory-bytes", type=int, default=None)
     parser.add_argument("--enforce-eager", action="store_true")
     parser.add_argument(
+        "--cudagraph-mode",
+        choices=("default", "none"),
+        default="default",
+        help="Keep torch.compile enabled while independently disabling CUDA Graphs.",
+    )
+    parser.add_argument(
         "--expect-gdn-decode-kernel",
         choices=("cuda", "triton"),
         help="Fail before engine startup unless the requested candidate path is selected.",
@@ -452,6 +458,8 @@ def main() -> None:
     if args.chunked_prefill != "default":
         engine_overrides["enable_chunked_prefill"] = args.chunked_prefill == "on"
     compilation_config = {}
+    if args.cudagraph_mode != "default":
+        compilation_config["cudagraph_mode"] = args.cudagraph_mode.upper()
     if args.custom_ops != "default":
         compilation_config["custom_ops"] = [args.custom_ops]
     if args.fuse_norm_quant or args.fuse_act_quant or args.fuse_attn_quant:
@@ -673,6 +681,7 @@ def main() -> None:
             "max_model_len": 4096,
             "enable_prefix_caching": False,
             "enforce_eager": args.enforce_eager,
+            "cudagraph_mode": args.cudagraph_mode,
             "expected_gdn_decode_kernel": args.expect_gdn_decode_kernel,
             "actual_gdn_decode_kernel": actual_gdn_kernel,
             "expected_sm89_lm_head": args.expect_sm89_lm_head,
