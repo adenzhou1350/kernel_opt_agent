@@ -554,6 +554,35 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 
 因此这个候选记录为 **MEASURED_REJECT**：它确实比 vLLM 对应局部路径快，也让完整模型稳定快约 1.4%，但同时低于 1.03x 晋级门并违反严格 token-equivalence，继续围绕该实现调 block/warp 的期望价值很低。这个负结果反而把 agent 的搜索原则变得更清楚：先验证图中可达性，再做同源整模筛选；局部大胜若无法转化，立即生成退出证书并转向其他高占比边界。机器可读汇总为 `candidates/fused-swiglu-down/summary.json`。
 
+### 第十六轮：修复“候选根本没进入图”的假实验，并关闭独立 backbone GEMV 扫参
+
+回看早期 backbone GEMV 实验时发现一个关键可达性漏洞：代码在 `default_unquantized_gemm` 的 Python 层用 `x.numel() == x.shape[-1]` 判断是否为单 token decode；但 torch.compile 首先在 prefill 形状上捕获动态图，这个分支被提前专门化为 false。换源码、清空缓存甚至端到端跑通，都不能证明候选真的进入 decode CUDA Graph。旧的 shape-guard-only 结论因此继续保留原始数据，但标记为 `RETRACTED_UNREACHABLE`，不再用于性能归因。
+
+新的实现把 shape 选择放在编译期稳定的 weight 维度上，把 decode/prefill 判断移入一个 runtime custom-op：单 token 时调用 SM89 Triton GEMV，其余形状回退 `F.linear`。在两次独立冷缓存编译中，CUDA Graph capture 明确记录 `N=7168,K=1024` 和 `N=1024,K=3584` 候选被捕获，解决了“写了算子但完整模型没有执行”的验证盲点。
+
+严格的 control-candidate-candidate-control 结果表明，替换 MLP gate/up 与 down 两类 projection 后，局部收益这次确实转化到了完整模型：
+
+| 指标 | lm-head-only control | reachable MLP GEMV | 相对 control |
+|---|---:|---:|---:|
+| 平均 E2E | 552.719 ms | 526.848 ms | **1.049x** |
+| 平均 TPOT | 8.1543 ms | 7.7175 ms | **1.0566x** |
+| 候选重复一致 | 6/6 | 6/6 | 确定性通过 |
+| 跨实现逐 token 一致 | 6/6 | 2/6 | 严格门失败 |
+
+以原始 stock vLLM 的约 9.684 ms TPOT 为参照，这条 BF16 discovery 路径累计约 **1.25x**；但它不能替代严格前沿。512 题 GSM8K 配对筛选中，control 为 47/512、候选为 44/512，McNemar 双侧精确检验 `p=0.25`，尚未检测到统计显著退化，但 3 个不一致的正确样本全部只由 control 答对，方向性信号不适合生产晋级。
+
+分 shape 消融把问题进一步定位到 reduction order：gate/up 单独替换约 1.047x、只有 2/6 exact；down 单独替换约 1.036x、达到 5/6 exact。为了检验“只改变归约树能否保住收益并恢复输出”，又对 down projection 做了有界的 2/4/8-warps 实验：
+
+| down schedule | TPOT 加速 | 跨实现 token exact | 决策 |
+|---|---:|---:|---|
+| 2 warps | 1.0216x | 3/6 | 更慢且不更准，拒绝 |
+| 4 warps | **1.0361x** | **5/6** | 最好候选，但严格门失败 |
+| 8 warps | 1.0185x | 3/6 | 更慢且不更准，拒绝 |
+
+因此这次没有把 4-warp 的 5/6 当成“差不多正确”，也没有继续无界扫 launch 参数。独立 backbone GEMV substitution 已按 `MEASURED_REJECT_STRICT` 结案；只有出现能保留 stock reduction path，或能删除 producer-consumer materialization/权重读取且预测整步收益至少 3% 的新算法时才重开。安装环境已恢复到哈希 `a2b0d1ac...` 的 lm-head-only 严格前沿。完整补丁、trace、质量结果和退出规则见 `candidates/reachable-backbone-gemv/summary.json`。
+
+这轮对 agent 架构最重要的补充是：**源码变了不是可达性证据，局部快也不是生产证据，统计不显著更不是质量等价证据。** 候选必须依次通过运行时可达、同源整模转化、确定性、跨实现正确性和任务质量门；任何一层失败，都生成可重开条件明确的退出证书，而不是继续在同一参数族里消耗数十小时。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -610,6 +639,11 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 - `candidates/gdn-qkvz-ba-fusion/screening_summary.json`
 - `candidates/gdn-segmented-projection/summary.json`
 - `candidates/gdn-segmented-projection/vllm_qwen_gdn_segmented_projection.patch`
+- `candidates/reachable-backbone-gemv/summary.json`
+- `candidates/reachable-backbone-gemv/vllm_utils_reachable_backbone_gemv.patch`
+- `traces/vllm_reachable_downw2_64.json`
+- `traces/vllm_reachable_downw8_64.json`
+- `comparisons/vllm_sm89_mlp_quality_gsm8k_n512.json`
 - `profiles/nsys2025_lmhead_candidate_nodes.sqlite`
 - `profiles/nsys2025_reachable_gdnqkvz_b.sqlite`
 - `profiles/nsys2025_reachable_all_b.sqlite`

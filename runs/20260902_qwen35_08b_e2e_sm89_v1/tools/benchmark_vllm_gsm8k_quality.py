@@ -189,6 +189,9 @@ def main() -> None:
             "vllm_sm89_bf16_lm_head": os.environ.get(
                 "VLLM_SM89_BF16_LM_HEAD", "0"
             ),
+            "vllm_sm89_bf16_gemv": os.environ.get(
+                "VLLM_SM89_BF16_GEMV", "none(default)"
+            ),
             "vllm_sm89_segmented_gdn_projection": os.environ.get(
                 "VLLM_SM89_SEGMENTED_GDN_PROJECTION", "0"
             ),
