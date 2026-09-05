@@ -56,6 +56,21 @@
     "gsm8k_answer_agreement": "466/512",
     "gsm8k_token_exact": "457/512"
   },
+  "w4_scan_only_boundary": {
+    "status": "REJECT_BEFORE_LONG_QUALIFICATION",
+    "source_sha256": "1cbbc62c84dc13137bd4ce5806de4717ed0658fc8a8f19c7f0bb62c24e915655",
+    "weighted_tpot_ms": 4.806686001313038,
+    "output_tokens_per_second": 208.04354595387153,
+    "speedup_over_stock_gptq": 1.5993596521219042,
+    "speedup_over_mv_rerank": 1.031675336557364,
+    "natural_token_exact": "57/768",
+    "natural_exact_sequences": "0/6",
+    "gsm8k_correct": "42/512",
+    "gsm8k_answer_agreement_vs_stock": "200/512",
+    "gsm8k_token_exact_vs_stock": "167/512",
+    "paired_correctness_changes_vs_stock": "22 control-only, 22 candidate-only",
+    "reason": "Only about 3.2% faster than BF16 shortlist reranking while substantially changing generated behavior; equal aggregate GSM8K accuracy is not sufficient evidence of preserved capability."
+  },
   "implementation_limitations": [
     "Prototype quantization happens during first use and temporarily raises peak activation memory; production must load prepacked tensors.",
     "The implementation imports a vLLM test packing helper and is therefore evidence code, not merge-ready production code.",
@@ -69,6 +84,7 @@
     "mtp1_screen": "comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json",
     "gptq_qualification": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_qualification.json",
     "gptq_quality": "comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json",
+    "w4_scan_only_screen": "comparisons/vllm_gptq_marlin_w4_scan_only_boundary.json",
     "prototype_patch": "candidates/marlin-w4-bf16-shortlist-rerank/vllm_utils_marlin_w4_bf16_shortlist_rerank.patch"
   },
   "decision": "Expose only as an opt-in approximate batch-1 greedy mode. It is a reproducible performance winner over stock GPTQ-Marlin on the frozen local workload, but it is not a lossless default because the larger quality screen is not token-identical. Reject MTP-1 at this deployment point."

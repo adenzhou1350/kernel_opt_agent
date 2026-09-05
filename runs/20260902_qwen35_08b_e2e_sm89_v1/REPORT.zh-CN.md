@@ -838,6 +838,16 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 这轮也修正了比较口径：agent 不应试图从零重写 vLLM 后拿自己的量化版本去比较 BF16 vLLM；公平目标是先采用 vLLM 的 GPTQ-Marlin，再根据新瓶颈分布只替换残余热点。本例中主干 W4 后，未量化的 `248320 x 1024` tied `lm_head` 成为突出瓶颈，局部结构特化才产生额外 1.55x。机器可读证据见 `comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_qualification.json` 与 `comparisons/vllm_gptq_marlin_w4_stock_vs_mv_rerank_quality_gsm8k_n512.json`。
 
+### 第三十轮：W4-only 更快但不是更优，质量门阻止错误晋级
+
+在继续放宽数值契约前，先尝试了严格 BF16 输出头的双基准指数编码：用一位选择两个 block-local base、三位保存 delta，仍维持每值四位指数编码。对真实 2.54 亿个权重值扫描后，最佳 256-value block 的总字节占比为 77.512%，略差于现有单基准方案的 77.462%；尚未计算额外解码指令就已经输掉流量门，因此按照成本门直接停止，没有编写 GPU 内核。静态证据见 `candidates/exact-bf16-packed-lmhead/dual_base_static_screen.json`。
+
+为了测清“既然 vLLM 量化更快，为什么不把输出头也直接 W4”，本轮在相同 GPTQ-Marlin 主干上移除 BF16 top-128 重排，只保留 W4 全词表扫描。一次新缓存筛选得到 **4.807 ms/token（208.0 tok/s）**，相对 stock GPTQ vLLM 为 **1.599x**，但相对上一轮 BF16 重排候选只多 **3.17%**。六类自然提示全部分叉，只有 57/768 token 与 stock 相同。
+
+由于额外收益刚过 3% 材料性门槛，又运行了相同冻结索引的 512 道 GSM8K。stock、BF16 重排和 W4-only 都恰好答对 42/512，但 W4-only 相对 stock 只有 200/512 答案一致、167/512 序列一致；配对结果包含 22 道 stock-only 正确和 22 道 candidate-only 正确。总分相同只是相互抵消，不能解释为能力保持。相对 BF16 重排也只有 192/512 答案一致。
+
+因此 W4-only 在正式重复性能资格赛前被淘汰：它为了额外约 3.2% 吞吐大幅替换模型行为，不位于实用的风险收益前沿。保留实现开关和原始证据只用于复现边界，默认关闭。这个结果同时说明 agent 的目标函数不能只有 tok/s；必须把配对行为稳定性纳入晋级门，否则它会把“换了一个碰巧同分的模型”误判成算子优化成功。证据见 `comparisons/vllm_gptq_marlin_w4_scan_only_boundary.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。

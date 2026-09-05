@@ -229,6 +229,11 @@ def main() -> None:
         help="Fail unless the SM89 Marlin-W4 shortlist/rerank switch matches.",
     )
     parser.add_argument(
+        "--expect-marlin-w4-scan-only",
+        choices=("off", "on"),
+        help="Fail unless the SM89 Marlin-W4 output-head scan-only switch matches.",
+    )
+    parser.add_argument(
         "--gpu-telemetry",
         action="store_true",
         help="Record nvidia-smi point samples immediately before and after each request.",
@@ -380,6 +385,19 @@ def main() -> None:
         raise RuntimeError(
             "candidate path is unreachable: expected Marlin-W4 rerank "
             f"{args.expect_marlin_w4_rerank}, got {actual_marlin_w4_rerank}"
+        )
+    actual_marlin_w4_scan_only = (
+        "on"
+        if os.environ.get("VLLM_SM89_MARLIN_W4_SCAN_ONLY", "0") == "1"
+        else "off"
+    )
+    if (
+        args.expect_marlin_w4_scan_only is not None
+        and actual_marlin_w4_scan_only != args.expect_marlin_w4_scan_only
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: expected Marlin-W4 scan-only "
+            f"{args.expect_marlin_w4_scan_only}, got {actual_marlin_w4_scan_only}"
         )
     if args.ngram_prompt_lookup_min < 1:
         raise ValueError("ngram-prompt-lookup-min must be positive")
@@ -652,6 +670,9 @@ def main() -> None:
             "vllm_sm89_marlin_w4_rerank": os.environ.get(
                 "VLLM_SM89_MARLIN_W4_RERANK", "0(default)"
             ),
+            "vllm_sm89_marlin_w4_scan_only": os.environ.get(
+                "VLLM_SM89_MARLIN_W4_SCAN_ONLY", "0(default)"
+            ),
             "vllm_sm89_int8_groupwise_lm_head": os.environ.get(
                 "VLLM_SM89_INT8_GROUPWISE_LM_HEAD", "off(default)"
             ),
@@ -690,6 +711,8 @@ def main() -> None:
             "actual_exact_packed_lm_head": actual_exact_packed_lm_head,
             "expected_marlin_w4_rerank": args.expect_marlin_w4_rerank,
             "actual_marlin_w4_rerank": actual_marlin_w4_rerank,
+            "expected_marlin_w4_scan_only": args.expect_marlin_w4_scan_only,
+            "actual_marlin_w4_scan_only": actual_marlin_w4_scan_only,
             "gpu_telemetry": args.gpu_telemetry,
             "cuda_profiler_range": args.cuda_profiler_range,
             "require_empty_vllm_cache_root": args.require_empty_vllm_cache_root,

@@ -216,6 +216,12 @@ def main() -> None:
             "vllm_sm89_exact_packed_lm_head": os.environ.get(
                 "VLLM_SM89_EXACT_PACKED_LM_HEAD", "0"
             ),
+            "vllm_sm89_marlin_w4_rerank": os.environ.get(
+                "VLLM_SM89_MARLIN_W4_RERANK", "0"
+            ),
+            "vllm_sm89_marlin_w4_scan_only": os.environ.get(
+                "VLLM_SM89_MARLIN_W4_SCAN_ONLY", "0"
+            ),
             "vllm_sm89_int8_groupwise_lm_head": os.environ.get(
                 "VLLM_SM89_INT8_GROUPWISE_LM_HEAD", "off(default)"
             ),
