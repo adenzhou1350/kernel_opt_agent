@@ -583,6 +583,29 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 
 这轮对 agent 架构最重要的补充是：**源码变了不是可达性证据，局部快也不是生产证据，统计不显著更不是质量等价证据。** 候选必须依次通过运行时可达、同源整模转化、确定性、跨实现正确性和任务质量门；任何一层失败，都生成可重开条件明确的退出证书，而不是继续在同一参数族里消耗数十小时。
 
+### 第十七轮：融合 lm-head 与 greedy argmax 可行，但整步上限只有 1.004x
+
+严格前沿的 `lm_head` 已达到本机校准权重流屋顶的 99.31%，因此这次不再改 dot-product schedule，而是尝试改变算法边界：普通 vLLM greedy 路径会先物化 248,320 个 BF16 logits，再转成 FP32 后执行 argmax；候选保持已接受的逐行 FP32 累加和 BF16 rounding，在第一个 kernel 内只写每组局部最大值，随后用两级归约直接输出 token id。全零输入还专门验证了 tie 时必须选择最小 token id。
+
+对 `BLOCK_N={4,8,16} × warps={4,8}` 六个点做交替测量后，所有候选在随机输入和全零 tie case 上都与生产路径 argmax 相同。最佳 CUDA Graph 点为 `BLOCK_N=16, warps=8`：完整 logits+argmax 为 2085.120 us，融合候选为 2052.301 us，局部 1.016x、只省 **32.819 us/token**。以严格前沿 8.079 ms TPOT 计算，整步预测仅 **1.0041x**；达到 1.03x 至少需要 235.3 us，本候选只覆盖 13.95%。
+
+因此没有为了一个约 0.4% 的上限去侵入 model runner 和 sampler。该方向只有在能够省掉 lm-head 的大部分权重读取，而不仅是省掉约 1.5 MiB 的 logits cast/argmax 流量时才重开。机器可读退出证书为 `candidates/fused-lmhead-argmax/summary.json`，原始六点 CUDA Graph 测量为 `microbench_candidates/fused_lmhead_argmax_sm89.json`。
+
+### 第十八轮：组合局部赢家没有线性叠加，热漂移不能算成优化收益
+
+为了寻找更快的 BF16 质量前沿，把 segmented GDN projection 与较保守的 MLP-down 4-warp GEMV 同时启用，并用同一份已打补丁源码执行 control-candidate-candidate-control。两次候选分别为 7.8280 和 7.8798 ms TPOT，候选之间 6/6 token 一致；相对实现之间为 4/6 exact。
+
+直接把四个进程平均会得到 E2E 1.0389x、TPOT 1.0428x，但第二个 control 的中文与翻译两例都异常升到约 8.75 ms，而其他 control case 仍在 8.05--8.11 ms。用未出现该异常的第一个 control 对两次候选，范围只有：
+
+| 对照 | E2E 加速 | TPOT 加速 | 跨实现 exact |
+|---|---:|---:|---:|
+| C1 vs S1 | 1.0263x | 1.0321x | 4/6 |
+| C1 vs S2 | **1.0220x** | **1.0253x** | 4/6 |
+
+因此不能把末尾 control 的热/后台漂移计入收益，也不能把 segmented GDN 的约 4% 与 down GEMV 的约 3.6% 直接相加。保守同源证据未稳健跨过 1.03x 整模门槛，所以没有继续消耗约三分钟跑 GSM8K 512 题；候选记录为 `MEASURED_REJECT_UNSTABLE_MATERIALITY`，环境恢复到 lm-head-only 严格前沿。机器可读证据为 `candidates/combined-gdn-down/summary.json`。
+
+这两个实验继续收紧了“最优”的含义：完整 logits 的物化确实不是理论必需，但它只占几十微秒；多个 memory-bound 局部赢家共享同一显存服务后也不能线性叠加。下一条可能产生物质性收益的算法必须减少 **权重读取本身**，例如带可验证上界的 vocabulary pruning / exact maximum-inner-product search，而不是继续减少小张量写回或把独立 kernel 的节省相加。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -641,6 +664,10 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 - `candidates/gdn-segmented-projection/vllm_qwen_gdn_segmented_projection.patch`
 - `candidates/reachable-backbone-gemv/summary.json`
 - `candidates/reachable-backbone-gemv/vllm_utils_reachable_backbone_gemv.patch`
+- `candidates/fused-lmhead-argmax/summary.json`
+- `candidates/combined-gdn-down/summary.json`
+- `microbench_candidates/fused_lmhead_argmax_sm89.json`
+- `tools/benchmark_sm89_fused_lmhead_argmax.py`
 - `traces/vllm_reachable_downw2_64.json`
 - `traces/vllm_reachable_downw8_64.json`
 - `comparisons/vllm_sm89_mlp_quality_gsm8k_n512.json`
