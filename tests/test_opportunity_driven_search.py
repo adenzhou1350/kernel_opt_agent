@@ -115,6 +115,82 @@ def main() -> None:
         assert before_rank and before_rank["action"] == "RANK_OPPORTUNITIES", before_rank
         ranked = cli("opportunity", run, "rank")
         assert ranked["opportunities"][0]["opportunity_id"] == "large-cheap", ranked
+        closure_path = run / "models" / "large-cheap-closure.json"
+        closure_payload = {
+            "result": "candidate family is below the global materiality floor",
+            "measured_speedup": 0.999,
+        }
+        write(closure_path, closure_payload)
+        closed = cli(
+            "opportunity",
+            run,
+            "close",
+            "--opportunity-id",
+            "large-cheap",
+            "--disposition",
+            "BELOW_MATERIALITY_FLOOR",
+            "--reason",
+            "Measured whole-workload gain cannot clear the frozen promotion threshold.",
+            "--evidence",
+            str(closure_path),
+            "--evidence-claim",
+            "paired whole-workload screen and materiality decision",
+            "--reopen-condition",
+            "the workload or measured promotion threshold changes",
+        )
+        assert closed["status"] == "CLOSED" and closed["priority_score"] == 0
+        closed_routing = discovery_action(run, ROOT / "scripts")
+        assert closed_routing and closed_routing["action"] == "RETRIEVE_OPTIMIZATION_METHODS"
+        assert (
+            closed_routing["blocking_inputs"][0]["opportunity_id"]
+            == "small-expensive"
+        ), closed_routing
+        closed_methods = cli("method", run, "recommend")
+        assert [
+            item["opportunity_id"] for item in closed_methods["recommendations"]
+        ] == ["small-expensive"], closed_methods
+        cli(
+            "opportunity",
+            run,
+            "close",
+            "--opportunity-id",
+            "small-expensive",
+            "--disposition",
+            "MEASURED_REJECT",
+            "--reason",
+            "The paired measurement rejects the remaining active implementation family.",
+            "--evidence",
+            str(closure_path),
+            "--evidence-claim",
+            "paired rejection evidence",
+            "--reopen-condition",
+            "an independent architecture family changes the measured bound",
+        )
+        all_closed = discovery_action(run, ROOT / "scripts")
+        assert all_closed and all_closed["action"] == "OPPORTUNITY_PORTFOLIO_CLOSED"
+        cli(
+            "opportunity",
+            run,
+            "reopen",
+            "--opportunity-id",
+            "small-expensive",
+            "--reason",
+            "The test introduces an independent architecture family.",
+        )
+        write(closure_path, {**closure_payload, "measured_speedup": 1.5})
+        invalid_closure = discovery_action(run, ROOT / "scripts")
+        assert invalid_closure and invalid_closure["action"] == "BLOCK_INVALID_OPPORTUNITY_MAP"
+        write(closure_path, closure_payload)
+        reopened = cli(
+            "opportunity",
+            run,
+            "reopen",
+            "--opportunity-id",
+            "large-cheap",
+            "--reason",
+            "The test changes the workload contract and intentionally resumes search.",
+        )
+        assert reopened["status"] == "UNIMPLEMENTED" and "closure" not in reopened
         residual_bound_path = run / "models" / "residual-bound.json"
         write(residual_bound_path, {"maximum_speedup": 1.1, "target_speedup": 2.0})
         write(run / "models" / "feasibility_gate.json", {

@@ -43,10 +43,9 @@
           "method_id": "kernelbench-verified-evaluation",
           "missing_required_capabilities": [],
           "opportunity_signature_hits": [
-            "kernel",
-            "memory"
+            "kernel"
           ],
-          "score": 10.0,
+          "score": 7.0,
           "source": {
             "claim_scope": "Evaluation study of LLM-generated kernels; use as a harness-design warning rather than a transformation recipe.",
             "evidence_tier": "PRIMARY_PREPRINT",
@@ -66,40 +65,57 @@
       "family_count": 0,
       "next_ranked_uncovered_opportunity": {
         "affected_stages": [
-          "normalization",
-          "activation",
-          "residual-update"
+          "gdn-recurrence",
+          "causal-convolution",
+          "state-update"
         ],
         "candidate_ids": [],
         "confidence": "MEDIUM",
-        "created_at": "2026-09-04T21:03:50.388853+00:00",
-        "current_contribution_us": 302.152,
-        "derivation": "Nsight attributes 0.251 ms/step to normalization and 0.051 ms/step to one repeated fused pointwise family; only a subset can be removed because normalization reductions remain mandatory.",
+        "created_at": "2026-09-04T21:03:50.093821+00:00",
+        "current_contribution_us": 305.52,
+        "derivation": "The recurrent kernel alone consumes 0.306 ms/decode step in the expanded CUDA graph; the ceiling leaves mandatory recurrence work intact and treats only state traffic and neighboring launch overhead as removable.",
         "evidence": [
           {
-            "claim": "Expanded graph timing for normalization and pointwise families.",
+            "claim": "Per-family GPU-active time for recurrent decode and neighboring kernels.",
             "path": "models/nsys2025_lmhead_opportunity_map.json",
             "sha256": "2489e67cd0c268c13ddac379a801630b17908f7f3d7ebbe244e04e4bc5a33026"
+          },
+          {
+            "claim": "Production-BF16-state warm sweep and 64 MiB cold-cache paired replay of the existing packed recurrent schedule family.",
+            "path": "microbench_candidates/gdn_packed_decode_bf16_state_sm89.json",
+            "sha256": "04b125ab9e53e6f9438798e309a0cbbf8fab1528744e64d520b6b5a4accc848e"
+          },
+          {
+            "claim": "Bounded BF16-state multiwarp ownership screen across 18 BV/warp/stage configurations.",
+            "path": "microbench_candidates/gdn_packed_decode_bf16_state_multiwarp_sm89.json",
+            "sha256": "e15c6d0567f57863e1357a584b035be9fa5d716e3632eb6f9302063712a5ad38"
           }
         ],
-        "hypothesis": "Fold normalization, activation and residual transforms into their producer or consumer while preserving the BF16 numerical contract.",
-        "implementation_budget_minutes": 60,
+        "hypothesis": "Keep recurrent state in the consumer layout and fuse adjacent transforms to remove round trips and small launches.",
+        "implementation_budget_minutes": 90,
         "likely_gain_interval_us": {
-          "lower": 20.0,
-          "upper": 80.0
+          "lower": 30.0,
+          "upper": 100.0
         },
         "model_scope": "CURRENT_SCHEDULE",
-        "name": "Fuse normalization and elementwise epilogues",
-        "observations": [],
-        "opportunity_id": "sm89-normalization-epilogue-fusion",
-        "optimistic_gain_ceiling_us": 150.0,
+        "name": "Reduce recurrent-state materialization",
+        "observations": [
+          "The prior isolated launch sweep used FP32 state, while this BF16 model's auto SSM cache is BF16; the production-dtype screen corrects that mismatch.",
+          "BV64/one-warp/four-stage was only 1.062x in the warm BF16-state sweep, projecting 33.9 us per whole step, below the 50 us residual materiality floor.",
+          "With 64 MiB eviction and alternating order, the same schedule was 0.750x; the earlier reachable full-model candidate was also only 0.903x despite 6/6 token exactness.",
+          "All 18 BF16-state BV64/BV128 multiwarp points preserved the immediate output but changed recurrent state by up to 2.98e-8, so they fail the strict state-transition contract before timing promotion.",
+          "Close launch-geometry retuning. Keep this opportunity open only for a producer-consumer or state-layout rewrite that predicts at least 50 us per whole step."
+        ],
+        "opportunity_id": "sm89-recurrent-state-fusion",
+        "optimistic_gain_ceiling_us": 180.0,
         "priority_rank": 1,
-        "priority_score": 0.5416666666666666,
+        "priority_score": 0.46944444444444444,
         "rewrite_families": [
-          "epilogue-fusion",
+          "producer-consumer-fusion",
+          "state-layout",
           "materialization-elimination"
         ],
-        "source_model_term": "Normalization plus adjacent pointwise kernels",
+        "source_model_term": "Fused recurrent decode kernel and adjacent state operations",
         "status": "UNIMPLEMENTED"
       },
       "opportunity_count": 0,
@@ -157,9 +173,10 @@
           "missing_required_capabilities": [],
           "opportunity_signature_hits": [
             "fusion",
-            "materialization"
+            "materialization",
+            "stage"
           ],
-          "score": 11.0,
+          "score": 14.0,
           "source": {
             "claim_scope": "Tensor-program orchestration evaluated on V100 and A100; reported speedups do not transfer directly to other workloads or devices.",
             "evidence_tier": "PEER_REVIEWED_PRIMARY",
@@ -173,6 +190,130 @@
             "Preserve an unfused and a greedily fused control alongside the selected orchestration.",
             "Check every workload case because the best fusion boundary may be shape dependent.",
             "Attribute gains to removed launches/materializations and record any duplicated compute."
+          ]
+        },
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
+                "architecture family",
+                "opportunity coverage",
+                "wall-clock allocation"
+              ],
+              "family": "candidate-portfolio",
+              "name": "bounded architecture portfolio",
+              "template": "Give each distinct family one build/correctness/smoke attempt, halve the portfolio, and spend deeper analysis only on survivors."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "baseline",
+            "correctness",
+            "kernel"
+          ],
+          "expected_bottleneck_shifts": [
+            "Profiling should redirect search when an intended optimization moves the bottleneck elsewhere.",
+            "Portfolio-level progress can improve even when individual candidate lines terminate earlier."
+          ],
+          "failure_modes": [
+            "The agent repeatedly tunes launch parameters after the measured bottleneck has moved.",
+            "Feedback is too verbose or unstructured to change the next architecture decision.",
+            "The search overfits a public anchor input."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Generate several architecture-distinct candidates before giving any one candidate multiple tuning rounds.",
+            "Feed compile, correctness, timing, and a compact bottleneck summary back into the next proposal.",
+            "Stop a local line after bounded failures and return to a different opportunity or architecture family."
+          ],
+          "kind": "SEARCH_STRATEGY",
+          "method_id": "kernelbench-profile-feedback",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "candidate",
+            "kernel"
+          ],
+          "score": 10.0,
+          "source": {
+            "claim_scope": "Benchmark evidence that execution and profiling feedback can improve iterative refinement; it does not identify a universally best search policy.",
+            "evidence_tier": "PRIMARY_PREPRINT",
+            "title": "KernelBench: Can LLMs Write Efficient GPU Kernels?",
+            "url": "https://arxiv.org/abs/2502.10517",
+            "version": "arXiv:2502.10517v1"
+          },
+          "title": "Use execution and profiling feedback as a bounded candidate-generation loop",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Track time to first correct candidate, time to first improvement, and best result at fixed wall-clock budgets.",
+            "Report correctness-plus-speed thresholds across all tasks or workload cases, not only successful examples.",
+            "Separate technical repair failures from causal performance failures."
+          ]
+        },
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
+                "threads per block",
+                "resident blocks",
+                "tail waves"
+              ],
+              "family": "occupancy-128",
+              "name": "smaller-block latency-hiding point",
+              "template": "Implement a 128-thread point and compare it with the current schedule using compiled resource usage and edge-size timing."
+            },
+            {
+              "change_axes": [
+                "elements per thread",
+                "register use",
+                "grid size"
+              ],
+              "family": "thread-coarsening",
+              "name": "lower-occupancy ILP point",
+              "template": "Process multiple independent elements per thread while preserving coalescing, then test whether extra ILP offsets reduced residency."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "launch"
+          ],
+          "expected_bottleneck_shifts": [
+            "More resident warps can hide latency but reduce registers available for instruction-level parallelism.",
+            "Larger blocks can improve amortization while worsening tail waves or resource granularity."
+          ],
+          "failure_modes": [
+            "The search maximizes occupancy as if it were the objective.",
+            "Block size variants compile to materially different register spilling.",
+            "The anchor size hides a partial-wave regression."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Choose a few block sizes that occupy different resource regimes rather than sweeping every multiple of a warp.",
+            "Pair block-size candidates with compiled register/shared-memory usage and active-block estimates.",
+            "Include an ILP or coarsening point because lower occupancy can still win when it exposes useful independent work."
+          ],
+          "kind": "SEARCH_STRATEGY",
+          "method_id": "cuda-launch-occupancy-frontier",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "geometry",
+            "launch"
+          ],
+          "score": 9.5,
+          "source": {
+            "claim_scope": "General NVIDIA CUDA guidance; exact resource limits require official target-device evidence and compiled-kernel resource data.",
+            "evidence_tier": "VENDOR_OFFICIAL_GUIDANCE",
+            "title": "CUDA C++ Best Practices Guide, Execution Configuration Optimizations",
+            "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/",
+            "version": "CUDA 13.3 documentation"
+          },
+          "title": "Treat block size, occupancy, registers, and latency hiding as a joint frontier",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Measure the same candidate over anchor and edge sizes to expose wave and tail effects.",
+            "Record final register/shared-memory use and distinguish theoretical occupancy from achieved activity.",
+            "Stop when adjacent frontier points no longer change the weighted objective materially."
           ]
         }
       ]

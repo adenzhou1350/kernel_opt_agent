@@ -14,6 +14,20 @@ from pathlib import Path
 SCHEMA = "opportunity-map-v1"
 SCOPES = {"DECOMPOSITION_CONDITIONAL", "CURRENT_SCHEDULE", "EMPIRICAL_BOTTLENECK"}
 CONFIDENCE = {"HIGH", "MEDIUM", "LOW"}
+ACTIVE_LIFECYCLE_STATUSES = {
+    "UNIMPLEMENTED",
+    "IMPLEMENTING",
+    "OBSERVED",
+    "HAS_SURVIVOR",
+}
+TERMINAL_LIFECYCLE_STATUSES = {"CLOSED"}
+LIFECYCLE_STATUSES = ACTIVE_LIFECYCLE_STATUSES | TERMINAL_LIFECYCLE_STATUSES
+CLOSURE_DISPOSITIONS = {
+    "MEASURED_REJECT",
+    "AT_MEASURED_ROOF",
+    "BELOW_MATERIALITY_FLOOR",
+    "DEPENDENCY_BLOCKED",
+}
 
 
 def now() -> str:
@@ -107,7 +121,7 @@ def validate_map(data: dict, *, require_ready: bool = False, run: Path | None = 
     identifiers = []
     for item in opportunities:
         validate_spec(item, run)
-        if item.get("status") not in {"UNIMPLEMENTED", "IMPLEMENTING", "OBSERVED", "HAS_SURVIVOR"}:
+        if item.get("status") not in LIFECYCLE_STATUSES:
             raise ValueError("opportunity lifecycle status is invalid")
         candidate_ids = item.get("candidate_ids")
         observations = item.get("observations")
@@ -115,6 +129,11 @@ def validate_map(data: dict, *, require_ready: bool = False, run: Path | None = 
             raise ValueError("opportunity candidate_ids must be a unique array")
         if not isinstance(observations, list):
             raise ValueError("opportunity observations must be an array")
+        closure = item.get("closure")
+        if item.get("status") == "CLOSED":
+            validate_closure(closure, run)
+        elif closure is not None:
+            raise ValueError("only CLOSED opportunities may carry a closure certificate")
         identifiers.append(item["opportunity_id"])
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("opportunity ids must be unique")
@@ -200,7 +219,55 @@ def validate_spec(spec: dict, run: Path | None = None) -> None:
                 raise ValueError(f"evidence[{index}] hash mismatch: {identity['path']}")
 
 
+def validate_closure(closure: object, run: Path | None = None) -> None:
+    if not isinstance(closure, dict):
+        raise ValueError("CLOSED opportunity requires a closure certificate")
+    if set(closure) != {
+        "disposition",
+        "reason",
+        "evidence",
+        "reopen_conditions",
+        "closed_at",
+    }:
+        raise ValueError("closure certificate fields are invalid")
+    if closure["disposition"] not in CLOSURE_DISPOSITIONS:
+        raise ValueError("closure disposition is invalid")
+    if not isinstance(closure["reason"], str) or len(closure["reason"].strip()) < 12:
+        raise ValueError("closure reason must explain the global stop decision")
+    conditions = closure["reopen_conditions"]
+    if (
+        not isinstance(conditions, list)
+        or not conditions
+        or not all(isinstance(item, str) and item.strip() for item in conditions)
+    ):
+        raise ValueError("closure requires one or more explicit reopen conditions")
+    if not isinstance(closure["closed_at"], str) or not closure["closed_at"]:
+        raise ValueError("closure closed_at is required")
+    identity = closure["evidence"]
+    if not isinstance(identity, dict) or set(identity) != {"path", "sha256", "claim"}:
+        raise ValueError("closure evidence must contain exactly path, sha256, and claim")
+    if not all(
+        isinstance(identity.get(field), str) and identity[field]
+        for field in ("path", "sha256", "claim")
+    ):
+        raise ValueError("closure evidence fields must be non-empty strings")
+    if not re.fullmatch(r"[0-9a-f]{64}", identity["sha256"]):
+        raise ValueError("closure evidence sha256 must be lowercase SHA-256")
+    if run is not None:
+        path = (run / identity["path"]).resolve()
+        try:
+            path.relative_to(run.resolve())
+        except ValueError as error:
+            raise ValueError("closure evidence escapes the run") from error
+        if not path.is_file():
+            raise ValueError(f"closure evidence file is missing: {identity['path']}")
+        if hashlib.sha256(path.read_bytes()).hexdigest() != identity["sha256"]:
+            raise ValueError(f"closure evidence hash mismatch: {identity['path']}")
+
+
 def score(item: dict, policy: dict) -> float:
+    if item.get("status") == "CLOSED":
+        return 0.0
     interval = item["likely_gain_interval_us"]
     midpoint = (float(interval["lower"]) + float(interval["upper"])) / 2.0
     weight = float(policy["confidence_weights"][item["confidence"]])
@@ -271,11 +338,116 @@ def command_rank(args: argparse.Namespace) -> dict:
     return command_status(args)
 
 
+def command_close(args: argparse.Namespace) -> dict:
+    run = args.run.resolve()
+    data = load_map(run)
+    validate_map(data, require_ready=True, run=run)
+    opportunity = next(
+        (
+            item
+            for item in data["opportunities"]
+            if item["opportunity_id"] == args.opportunity_id
+        ),
+        None,
+    )
+    if opportunity is None:
+        raise ValueError(f"unknown opportunity_id: {args.opportunity_id}")
+    if opportunity.get("status") == "CLOSED":
+        raise ValueError("opportunity is already CLOSED")
+    evidence = args.evidence.resolve()
+    try:
+        relative_evidence = evidence.relative_to(run)
+    except ValueError as error:
+        raise ValueError("closure evidence must live inside the run") from error
+    if not evidence.is_file():
+        raise ValueError(f"closure evidence is missing: {evidence}")
+    opportunity["status"] = "CLOSED"
+    opportunity["closure"] = {
+        "disposition": args.disposition,
+        "reason": args.reason,
+        "evidence": {
+            "path": relative_evidence.as_posix(),
+            "sha256": hashlib.sha256(evidence.read_bytes()).hexdigest(),
+            "claim": args.evidence_claim,
+        },
+        "reopen_conditions": args.reopen_condition,
+        "closed_at": now(),
+    }
+    data["events"].append(
+        {
+            "at": now(),
+            "event": "CLOSED",
+            "opportunity_id": args.opportunity_id,
+            "disposition": args.disposition,
+        }
+    )
+    command_rank_in_place(data, run)
+    atomic_json(map_path(run), data)
+    return opportunity
+
+
+def command_reopen(args: argparse.Namespace) -> dict:
+    run = args.run.resolve()
+    data = load_map(run)
+    validate_map(data, require_ready=True, run=run)
+    opportunity = next(
+        (
+            item
+            for item in data["opportunities"]
+            if item["opportunity_id"] == args.opportunity_id
+        ),
+        None,
+    )
+    if opportunity is None:
+        raise ValueError(f"unknown opportunity_id: {args.opportunity_id}")
+    if opportunity.get("status") != "CLOSED":
+        raise ValueError("only a CLOSED opportunity can be reopened")
+    previous = opportunity.pop("closure")
+    opportunity["status"] = (
+        "OBSERVED"
+        if opportunity.get("candidate_ids") or opportunity.get("observations")
+        else "UNIMPLEMENTED"
+    )
+    opportunity.setdefault("observations", []).append(
+        f"Reopened because: {args.reason}"
+    )
+    data["events"].append(
+        {
+            "at": now(),
+            "event": "REOPENED",
+            "opportunity_id": args.opportunity_id,
+            "reason": args.reason,
+            "previous_disposition": previous["disposition"],
+        }
+    )
+    command_rank_in_place(data, run)
+    atomic_json(map_path(run), data)
+    return opportunity
+
+
+def command_rank_in_place(data: dict, run: Path) -> None:
+    policy = data["policy"]
+    for item in data["opportunities"]:
+        validate_spec(item, run)
+        item["priority_score"] = score(item, policy)
+    data["opportunities"].sort(
+        key=lambda item: (-float(item["priority_score"]), item["opportunity_id"])
+    )
+    for rank, item in enumerate(data["opportunities"], 1):
+        item["priority_rank"] = rank
+    data["status"] = "READY"
+    data["ranked_at"] = now()
+    validate_map(data, require_ready=True, run=run)
+
+
 def command_status(args: argparse.Namespace) -> dict:
     data = load_map(args.run.resolve())
     return {
         "status": data["status"],
         "opportunity_count": len(data["opportunities"]),
+        "active_opportunity_count": sum(
+            item.get("status") != "CLOSED" for item in data["opportunities"]
+        ),
         "rewrite_family_count": len({family for item in data["opportunities"] for family in item.get("rewrite_families", [])}),
         "opportunities": [{
             "opportunity_id": item["opportunity_id"],
@@ -284,6 +456,7 @@ def command_status(args: argparse.Namespace) -> dict:
             "optimistic_gain_ceiling_us": item["optimistic_gain_ceiling_us"],
             "candidate_count": len(item.get("candidate_ids", [])),
             "status": item.get("status"),
+            "closure": item.get("closure"),
         } for item in data["opportunities"]],
     }
 
@@ -303,6 +476,18 @@ def parse_args() -> argparse.Namespace:
     add.add_argument("--spec", type=Path, required=True)
     rank = subparsers.add_parser("rank", help="rank opportunities by expected global gain per implementation minute")
     rank.add_argument("--run", type=Path, required=True)
+    close = subparsers.add_parser("close", help="close a measured dead end with hash-bound evidence and explicit reopen conditions")
+    close.add_argument("--run", type=Path, required=True)
+    close.add_argument("--opportunity-id", required=True)
+    close.add_argument("--disposition", choices=sorted(CLOSURE_DISPOSITIONS), required=True)
+    close.add_argument("--reason", required=True)
+    close.add_argument("--evidence", type=Path, required=True)
+    close.add_argument("--evidence-claim", required=True)
+    close.add_argument("--reopen-condition", action="append", required=True)
+    reopen = subparsers.add_parser("reopen", help="reopen a closed opportunity after a recorded condition changes")
+    reopen.add_argument("--run", type=Path, required=True)
+    reopen.add_argument("--opportunity-id", required=True)
+    reopen.add_argument("--reason", required=True)
     status = subparsers.add_parser("status", help="show ranked opportunities and candidate coverage")
     status.add_argument("--run", type=Path, required=True)
     return parser.parse_args()
@@ -310,7 +495,14 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
-    handlers = {"init": command_init, "add": command_add, "rank": command_rank, "status": command_status}
+    handlers = {
+        "init": command_init,
+        "add": command_add,
+        "rank": command_rank,
+        "close": command_close,
+        "reopen": command_reopen,
+        "status": command_status,
+    }
     try:
         result = handlers[args.operation](args)
     except Exception as error:

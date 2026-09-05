@@ -68,6 +68,17 @@
       "mlp_down_exact_generated_token_cases": "5/6",
       "decision": "REJECT residual LM-head retuning and independent backbone GEMV substitution; retain LM-head-only winner"
     },
+    "strict_bf16_sm89_recurrent_state_residual": {
+      "production_state_dtype": "bfloat16",
+      "warm_best_schedule_speedup": 1.062091529676855,
+      "warm_projected_whole_step_saving_us": 33.85345458984377,
+      "cold_paired_best_schedule_speedup": 0.75,
+      "multiwarp_configurations_screened": 18,
+      "multiwarp_state_exact_configurations": 0,
+      "reachable_full_model_schedule_speedup": 0.902529,
+      "generic_fused_recurrence_norm_speedup": 0.9956214395628324,
+      "decision": "CLOSE launch-geometry and generic MTP-kernel reuse; retain only a genuinely new producer-consumer or state-layout architecture that predicts at least 50 us per step"
+    },
     "strict_bf16_sm89_reachable_backbone": {
       "candidate": "opaque custom-op substitutions for GDN and MLP decode projections",
       "reachability": "PASS: Nsight observed exactly 3,540 and 12,468 candidate kernel instances in the two profiled variants",
@@ -126,7 +137,7 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject current MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload. Even replacing every screened M=2 projection by its best cold-cache schedule projects to only 0.985x at measured acceptance and still needs 0.618 ms of independent cycle saving to clear the 1.03x promotion gate.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Its 2.058 ms invocation is already within 0.7% of the calibrated lm-head weight-stream floor, and a 72-schedule residual search found no further gain. It is the winner of the bounded tested portfolio, not proof of a global theoretical optimum.",
+    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Its 2.058 ms invocation is already within 0.7% of the calibrated lm-head weight-stream floor, and a 72-schedule residual search found no further gain. Production-BF16-state recurrent retuning also failed: its warm upper signal projects below 50 us/step, its cold pair is 0.75x, and all 18 multiwarp points change state. It is the winner of the bounded tested portfolio, not proof of a global theoretical optimum.",
     "relaxed_bf16": "Retain the combined lm_head plus segmented-GDN candidate as a separate limited-task-quality frontier: direct C-S-S-C reached 1.190x E2E/1.200x TPOT versus stock, with deterministic 6/6 repeats inside each mode but only 3/6 cross-mode token parity. On a deterministic 512-example GSM8K screen it scored 46 versus control 47, with McNemar p=1.0; this finds no detectable paired accuracy regression but does not prove broad quality equivalence.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
@@ -244,6 +255,10 @@
     "sm89_strict_bf16_residual_certificate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_strict_bf16_residual_certificate.json",
       "sha256": "724f1b975f9e7fdaae26fedc9657c9a776aadc9fd4e38ec3acf1cbb6bbcdf169"
+    },
+    "sm89_recurrent_state_search_bound": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\models\\sm89_recurrent_state_search_bound.json",
+      "sha256": "20826bc4722676a6eb353a7c2eb5a803daa6b35340bd33f0746475c19959747a"
     },
     "vllm_awq_quality_gate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_natural_awq_int4_marlin_qualitygate_w1_n1.json",

@@ -164,6 +164,8 @@ residual_us = observed_global_gain_us - predicted_midpoint_us
 - `EXPAND_DISCOVERY_PORTFOLIO`：直接返回最高排名且尚未覆盖的机会；
 - `IMPLEMENT_DISCOVERY_CANDIDATE`：候选已提出，下一步必须产出/运行代码；
 - `REPAIR_DISCOVERY_CANDIDATE`：技术错误在预算内修复；
+- `OPPORTUNITY_PORTFOLIO_CLOSED`：所有机会都有哈希绑定的关闭证书；在明确的
+  重开条件发生前，不允许重新扫同一条死路；
 - `BLOCK_MEASUREMENT_WITHOUT_WORKING_CANDIDATE`：没有通过 smoke 的机会绑定候选
   时，禁止掉入硬件测量和微基准路径。
 
@@ -179,8 +181,19 @@ residual_us = observed_global_gain_us - predicted_midpoint_us
 python3 scripts/kernel_opt.py opportunity init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py opportunity add --run runs/<run-id> --spec <spec.json>
 python3 scripts/kernel_opt.py opportunity rank --run runs/<run-id>
+python3 scripts/kernel_opt.py opportunity close --run runs/<run-id> \
+  --opportunity-id <id> --disposition <reason-class> \
+  --reason <global-stop-reason> --evidence <result.json> \
+  --evidence-claim <claim> --reopen-condition <condition>
+python3 scripts/kernel_opt.py opportunity reopen --run runs/<run-id> \
+  --opportunity-id <id> --reason <changed-condition>
 python3 scripts/kernel_opt.py opportunity status --run runs/<run-id>
 ```
+
+`CLOSED` 不是一句自由文本观察。关闭证书必须记录 disposition、全局止损理由、
+run 内证据的 SHA-256，以及至少一个可判定的重开条件。调度器和候选注册器都会
+排除已关闭机会；证据被改写时机会地图失效。只有显式 `reopen` 才能恢复预算，
+并把原因写入事件和观察历史。
 
 ### 4.6 Agent 行为规则和文档
 

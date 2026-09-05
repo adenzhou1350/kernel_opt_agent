@@ -205,6 +205,25 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             [],
             [{"error": str(error)}],
         )
+    closed_opportunities = [
+        item for item in opportunity_rows if item.get("status") == "CLOSED"
+    ]
+    opportunity_rows = [
+        item for item in opportunity_rows if item.get("status") != "CLOSED"
+    ]
+    if not opportunity_rows:
+        return action(
+            "OPPORTUNITY_PORTFOLIO_CLOSED",
+            "every quantified opportunity has a hash-bound closure certificate; do not restart a dead end unless a recorded reopen condition changes",
+            [],
+            [
+                {
+                    "opportunity_id": item.get("opportunity_id"),
+                    "closure": item.get("closure"),
+                }
+                for item in closed_opportunities
+            ],
+        )
     if residual_search_authorized and residual_search_min_gain_us is not None:
         eligible_rows = []
         for item in opportunity_rows:
@@ -258,7 +277,10 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
     policy = pool.get("policy", {})
     families = {item.get("family") for item in candidates if item.get("family")}
     covered_opportunities = {item.get("opportunity_id") for item in candidates if item.get("opportunity_id")}
-    minimum_opportunity_coverage = int(opportunity_policy.get("min_candidate_opportunities", 1))
+    minimum_opportunity_coverage = min(
+        int(opportunity_policy.get("min_candidate_opportunities", 1)),
+        len(opportunity_rows),
+    )
     if (
         len(candidates) < int(policy.get("min_candidates", 1))
         or len(families) < int(policy.get("min_families", 1))

@@ -495,6 +495,31 @@ VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
 
 这形成了 agent 应采用的决策方式：同时保留严格 token-exact 前沿和有限任务质量前沿；先用整步经济账判断架构方向，再实现 kernel；每个方向必须有收益上限、晋级阈值和退出证书。机器可读结论在 `models/sm89_strict_bf16_residual_certificate.json` 与 `models/sm89_mtp_m2_projection_bound.json`。当前可以证明的是“测试过的有界候选集中，lm-head-only 是严格最优”；不能证明它是所有未知架构中的理论最优。
 
+### 第十三轮：让止损真正进入调度器，并纠正 recurrent 的 dtype 假象
+
+继续运行 agent 后发现一个架构缺口：报告和 opportunity observation 虽然写了“已拒绝”“已到屋顶”，但机会状态机只认识 `UNIMPLEMENTED / IMPLEMENTING / OBSERVED / HAS_SURVIVOR`。自由文本不会阻止下一轮重新选择同一机会，因此 agent 仍可能回到已经扫过 72 个 schedule 的 `lm_head`，这正是长时间卡死的机制性原因。
+
+现在新增正式的 `CLOSED` 生命周期与 `opportunity close/reopen`：
+
+- 关闭必须记录 disposition、全局止损理由、run 内证据 SHA-256 和至少一个明确的重开条件；
+- `CLOSED` 的排序分数固定为 0，并从方法匹配、候选注册、候选续跑和 next-action 路由中排除；
+- 所有机会关闭时，调度器返回 `OPPORTUNITY_PORTFOLIO_CLOSED`，不会自行制造新测量；
+- 证据被改写会使机会图校验失败；只有显式 `reopen` 并记录发生变化的条件，预算才会恢复。
+
+当前 run 已把 `lm_head` residual 关闭：它绑定 `models/sm89_strict_bf16_residual_certificate.json`，重开条件仅包括 shape 改变、设备带宽服务曲线实质变化，或出现能消除完整 logits 物化的新算法。真实执行 `kernel_opt.py next` 已跳过它。
+
+recurrent 方向还修正了一个重要实验口径。旧孤立 sweep 使用 FP32 state，得到 `BV64/W1/S4` 约 1.37x；但本模型 `mamba_ssm_cache_dtype=auto` 在 BF16 模型上实际使用 BF16 state。生产 dtype 下的有限复测结果为：
+
+| recurrent screen | stock | 最好候选 | 结论 |
+|---|---:|---:|---:|
+| BF16 state 热循环 | 32.171 us | 30.290 us | 1.062x；投影到 18 层仅省 33.9 us/step |
+| 64 MiB 驱逐、交替单 launch | 15.360 us | 20.480 us | **0.750x** |
+| 真实可达整模型旧候选 | — | — | **0.903x**，6/6 token-exact |
+
+另外只补测了 18 个 `BV64/BV128 × 2/4/8 warps × 2/3/4 stages` ownership 点。它们的当前输出都相同，但 recurrent state 全部出现最多 `2.98e-8` 的差异，因此在严格状态转移合同下计时前就被淘汰。结论不是关闭整个 recurrent 架构方向，而是关闭 `BV/warp/stage` 扫参和复用通用 MTP fused kernel：下一候选必须改变 convolution→recurrence→gated norm 的 producer-consumer ownership 或 state layout，并先预测至少 50 us 的整步收益。
+
+重新标定后，normalization 的 likely interval 从 20--80 us 下调为 0--30 us；recurrent-state fusion 成为最高有效机会。机器可读证据在 `models/sm89_recurrent_state_search_bound.json`。这一轮没有产生新的端到端 winner，但消除了一个错误的 1.37x 先验，并保证 agent 不会因它再次浪费数十小时。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -538,6 +563,7 @@ VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
 - `models/sm89_combined_bf16_frontier.json`
 - `models/sm89_strict_bf16_residual_certificate.json`
 - `models/sm89_mtp_m2_projection_bound.json`
+- `models/sm89_recurrent_state_search_bound.json`
 - `models/nsys2025_gdn_segmented_candidate_map.json`
 - `models/nsys2025_lmhead_opportunity_map.json`
 - `models/nsys2025_reachable_gdnqkvz_map.json`
@@ -556,6 +582,8 @@ VLLM_CACHE_ROOT=/tmp/vllm-segmented-gdn-fresh \
 - `comparisons/vllm_lmhead_toggle_pair2.json`
 - `comparisons/vllm_sm89_gdn_quality_gsm8k_n512.json`
 - `microbench_candidates/bf16_triton_mtp_m2_backbone_sm89.json`
+- `microbench_candidates/gdn_packed_decode_bf16_state_sm89.json`
+- `microbench_candidates/gdn_packed_decode_bf16_state_multiwarp_sm89.json`
 - `tools/analyze_mtp_m2_projection_bound.py`
 - `tools/benchmark_vllm_gsm8k_quality.py`
 - `tools/compare_gsm8k_quality.py`

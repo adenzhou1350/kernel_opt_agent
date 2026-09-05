@@ -60,6 +60,8 @@ opportunities before managing the production-candidate portfolio:
 python3 scripts/kernel_opt.py opportunity init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py opportunity add --run runs/<run-id> --spec opportunity-spec.json
 python3 scripts/kernel_opt.py opportunity rank --run runs/<run-id>
+python3 scripts/kernel_opt.py opportunity close --run runs/<run-id> --opportunity-id <id> --disposition AT_MEASURED_ROOF --reason <reason> --evidence <result.json> --evidence-claim <claim> --reopen-condition <condition>
+python3 scripts/kernel_opt.py opportunity reopen --run runs/<run-id> --opportunity-id <id> --reason <changed-condition>
 python3 scripts/kernel_opt.py method recommend --run runs/<run-id>
 python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
@@ -74,6 +76,10 @@ confidence, implementation cost and hash-bound model evidence. Absolute-global-o
 rejected: a decomposition-specific minimum is not a semantic lower bound.
 Candidates must bind to a ranked opportunity, stay below its gain ceiling and
 cover at least three opportunities by default.
+Measured dead ends can be marked `CLOSED` only with hash-bound run-local evidence,
+a global stop reason and explicit reopen conditions. Closed opportunities score
+zero and are excluded from method matching, candidate registration and next-action
+routing; they return to the search budget only through an explicit audited reopen.
 
 If that portfolio is still narrow, `method recommend` matches reusable method
 cards against the frozen operator, workload, hardware and opportunity map. The

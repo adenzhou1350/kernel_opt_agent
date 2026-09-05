@@ -422,6 +422,11 @@ def command_add(args: argparse.Namespace) -> dict:
     )
     if opportunity is None:
         raise ValueError(f"unknown opportunity_id: {spec['opportunity_id']}")
+    if opportunity.get("status") == "CLOSED":
+        raise ValueError(
+            "candidate cannot target a CLOSED opportunity; satisfy a recorded "
+            "reopen condition and use `kernel_opt.py opportunity reopen` first"
+        )
     if spec["family"] not in opportunity.get("rewrite_families", []):
         raise ValueError("candidate family is not allowed by the linked opportunity")
     if float(spec["predicted_global_gain_us"]["upper"]) > float(opportunity["optimistic_gain_ceiling_us"]):
@@ -480,6 +485,11 @@ def command_run(args: argparse.Namespace) -> dict:
     )
     if opportunity is None:
         raise ValueError(f"candidate references an unknown opportunity_id: {item.get('opportunity_id')}")
+    if opportunity.get("status") == "CLOSED":
+        raise ValueError(
+            "candidate opportunity was CLOSED after registration; reopen it "
+            "explicitly before spending more development budget"
+        )
     candidate_execution_minutes = sum(
         float(stage.get("duration_seconds", 0.0))
         for attempt_record in item.get("attempts", [])

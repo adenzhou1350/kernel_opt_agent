@@ -92,6 +92,42 @@ def elapsed_us(fn, iterations: int, repeats: int) -> list[float]:
     return values
 
 
+def single_launch_us(fn, eviction: torch.Tensor | None = None) -> float:
+    if eviction is not None:
+        eviction.add_(1)
+    start = torch.cuda.Event(enable_timing=True)
+    end = torch.cuda.Event(enable_timing=True)
+    start.record()
+    fn()
+    end.record()
+    end.synchronize()
+    return start.elapsed_time(end) * 1000.0
+
+
+def paired_launch_us(
+    control,
+    candidate,
+    repeats: int,
+    eviction: torch.Tensor | None,
+) -> tuple[list[float], list[float]]:
+    for _ in range(25):
+        control()
+        candidate()
+    torch.cuda.synchronize()
+    control_values: list[float] = []
+    candidate_values: list[float] = []
+    for index in range(repeats):
+        ordered = (
+            (("control", control), ("candidate", candidate))
+            if index % 2 == 0
+            else (("candidate", candidate), ("control", control))
+        )
+        for name, fn in ordered:
+            value = single_launch_us(fn, eviction)
+            (control_values if name == "control" else candidate_values).append(value)
+    return control_values, candidate_values
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", type=Path)
@@ -99,8 +135,19 @@ def main() -> None:
     parser.add_argument("--heads", type=int, default=16)
     parser.add_argument("--key-head-dim", type=int, default=128)
     parser.add_argument("--value-head-dim", type=int, default=128)
+    parser.add_argument(
+        "--state-dtype",
+        choices=("bfloat16", "float32"),
+        default="bfloat16",
+        help="Match the production Mamba SSM cache dtype; Qwen BF16 auto uses bfloat16.",
+    )
+    parser.add_argument("--bv-values", type=int, nargs="+", default=(16, 32, 64, 128))
+    parser.add_argument("--warp-values", type=int, nargs="+", default=(1, 2, 4, 8))
+    parser.add_argument("--stage-values", type=int, nargs="+", default=(2, 3, 4))
     parser.add_argument("--iterations", type=int, default=500)
     parser.add_argument("--repeats", type=int, default=7)
+    parser.add_argument("--paired-repeats", type=int, default=31)
+    parser.add_argument("--cold-cache-bytes", type=int, default=64 * 1024 * 1024)
     args = parser.parse_args()
 
     torch.manual_seed(17)
@@ -116,8 +163,12 @@ def main() -> None:
     b = torch.randn(batch, heads, device=device, dtype=torch.bfloat16)
     A_log = torch.randn(heads, device=device, dtype=torch.float32)
     dt_bias = torch.randn(heads, device=device, dtype=torch.float32)
+    state_dtype = {
+        "bfloat16": torch.bfloat16,
+        "float32": torch.float32,
+    }[args.state_dtype]
     base_state = torch.randn(
-        2, heads, value_dim, key_dim, device=device, dtype=torch.float32
+        2, heads, value_dim, key_dim, device=device, dtype=state_dtype
     )
     state_indices = torch.ones(batch, device=device, dtype=torch.int32)
 
@@ -172,9 +223,9 @@ def main() -> None:
         }
     ]
 
-    for bv in (16, 32, 64, 128):
-        for warps in (1, 2, 4, 8):
-            for stages in (2, 3, 4):
+    for bv in args.bv_values:
+        for warps in args.warp_values:
+            for stages in args.stage_values:
                 name = f"bv{bv}_w{warps}_s{stages}"
                 if (bv, warps, stages) == (32, 1, 3):
                     continue
@@ -267,6 +318,52 @@ def main() -> None:
 
     valid = [row for row in rows if row.get("correct") and "median_us" in row]
     valid.sort(key=lambda row: row["median_us"])
+    best = valid[0]
+    paired_control_state = base_state.clone()
+    paired_candidate_state = base_state.clone()
+    paired_control_out = torch.empty_like(ref_out)
+    paired_candidate_out = torch.empty_like(ref_out)
+    eviction = (
+        torch.empty(
+            args.cold_cache_bytes // 4,
+            dtype=torch.float32,
+            device=device,
+        )
+        if args.cold_cache_bytes > 0
+        else None
+    )
+    paired_control, paired_candidate = paired_launch_us(
+        lambda: launch_candidate(
+            mixed_qkv=mixed_qkv,
+            a=a,
+            b=b,
+            A_log=A_log,
+            dt_bias=dt_bias,
+            initial_state=paired_control_state,
+            out=paired_control_out,
+            state_indices=state_indices,
+            bv=32,
+            num_warps=1,
+            num_stages=3,
+        ),
+        lambda: launch_candidate(
+            mixed_qkv=mixed_qkv,
+            a=a,
+            b=b,
+            A_log=A_log,
+            dt_bias=dt_bias,
+            initial_state=paired_candidate_state,
+            out=paired_candidate_out,
+            state_indices=state_indices,
+            bv=int(best["bv"]),
+            num_warps=int(best["num_warps"]),
+            num_stages=int(best["num_stages"]),
+        ),
+        args.paired_repeats,
+        eviction,
+    )
+    paired_control_median = statistics.median(paired_control)
+    paired_candidate_median = statistics.median(paired_candidate)
     result = {
         "device": torch.cuda.get_device_name(),
         "torch_version": torch.__version__,
@@ -281,7 +378,16 @@ def main() -> None:
         "iterations": args.iterations,
         "repeats": args.repeats,
         "stock_median_us": stock_median,
-        "best": valid[0],
+        "best": best,
+        "cold_paired_best_vs_stock": {
+            "cache_eviction_bytes": args.cold_cache_bytes,
+            "alternating_repeats": args.paired_repeats,
+            "control_median_us": paired_control_median,
+            "candidate_median_us": paired_candidate_median,
+            "speedup": paired_control_median / paired_candidate_median,
+            "control_samples_us": paired_control,
+            "candidate_samples_us": paired_candidate,
+        },
         "results": rows,
     }
     rendered = json.dumps(result, indent=2)

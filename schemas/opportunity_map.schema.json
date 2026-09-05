@@ -63,12 +63,43 @@
               }
             }
           },
-          "status": {"enum": ["UNIMPLEMENTED", "IMPLEMENTING", "OBSERVED", "HAS_SURVIVOR"]},
+          "status": {"enum": ["UNIMPLEMENTED", "IMPLEMENTING", "OBSERVED", "HAS_SURVIVOR", "CLOSED"]},
           "priority_rank": {"type": ["integer", "null"], "minimum": 1},
           "priority_score": {"type": ["number", "null"], "minimum": 0},
           "candidate_ids": {"type": "array", "uniqueItems": true},
           "observations": {"type": "array"},
-          "created_at": {"type": "string"}
+          "created_at": {"type": "string"},
+          "closure": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["disposition", "reason", "evidence", "reopen_conditions", "closed_at"],
+            "properties": {
+              "disposition": {"enum": ["MEASURED_REJECT", "AT_MEASURED_ROOF", "BELOW_MATERIALITY_FLOOR", "DEPENDENCY_BLOCKED"]},
+              "reason": {"type": "string", "minLength": 12},
+              "evidence": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["path", "sha256", "claim"],
+                "properties": {
+                  "path": {"type": "string", "minLength": 1},
+                  "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                  "claim": {"type": "string", "minLength": 1}
+                }
+              },
+              "reopen_conditions": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+              "closed_at": {"type": "string", "minLength": 1}
+            }
+          },
+          "allOf": [
+            {
+              "if": {"properties": {"status": {"const": "CLOSED"}}},
+              "then": {"required": ["closure"]}
+            },
+            {
+              "if": {"properties": {"status": {"not": {"const": "CLOSED"}}}},
+              "then": {"not": {"required": ["closure"]}}
+            }
+          ]
         }
       }
     },

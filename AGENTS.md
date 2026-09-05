@@ -143,6 +143,11 @@ Use `scripts/kernel_opt.py opportunity` for the quantified global opportunity
 map, then `scripts/kernel_opt.py candidate` for the fast discovery portfolio and
 repair loop. Discovery evidence can only route a candidate into qualification;
 it cannot accept production performance or support a limit claim.
+When an opportunity reaches a measured roof or a global materiality stop, close
+it with `opportunity close`; free-form notes do not stop scheduling. A closure
+must hash-bind run-local evidence and list explicit reopen conditions. Never
+register or resume a candidate against `CLOSED` until `opportunity reopen`
+records which condition changed.
 
 Use `scripts/kernel_opt.py experiment-rank` for a reproducible finalist-
 specific decision-value ranking receipt. Use `experiment-materialize`,

@@ -186,6 +186,8 @@ def build_receipt(run: Path, root: Path | None = None, limit: int = 3) -> dict:
     recommendations = []
     guards: dict[str, dict] = {}
     for opportunity in opportunity_map["opportunities"]:
+        if opportunity.get("status") == "CLOSED":
+            continue
         rows = []
         for _, card in cards:
             match = match_card(card, opportunity, context, hardware_text)

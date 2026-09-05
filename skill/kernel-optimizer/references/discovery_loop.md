@@ -75,6 +75,21 @@ correctness, timing and final-binary audits.
 The observed global gain and prediction residual are written back to the
 opportunity map so later estimates can be recalibrated.
 
+## Close measured dead ends explicitly
+
+An observation that says “reject” does not remove an opportunity from the
+scheduler. Use `kernel_opt.py opportunity close` only when run-local evidence
+supports a global stop disposition such as a measured rejection, a measured
+service roof, a materiality floor, or a hard dependency block. The closure
+certificate must include the evidence SHA-256 and concrete reopen conditions.
+
+Closed opportunities score zero and are omitted from method matching,
+candidate registration and next-action routing. If every opportunity is
+closed, the only valid discovery action is `OPPORTUNITY_PORTFOLIO_CLOSED`.
+Resume with `kernel_opt.py opportunity reopen` only after naming the changed
+condition; the event remains in the map so the agent cannot silently repeat a
+previous dead end.
+
 ## Successive halving
 
 Use discovery budget in this order:
