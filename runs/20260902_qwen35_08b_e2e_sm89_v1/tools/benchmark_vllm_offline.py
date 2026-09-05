@@ -188,6 +188,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True, type=Path)
     parser.add_argument(
+        "--operator-contract",
+        type=Path,
+        help="Hash-bind the frozen operator contract governing this run.",
+    )
+    parser.add_argument(
+        "--workload-contract",
+        type=Path,
+        help="Hash-bind the frozen workload contract governing this run.",
+    )
+    parser.add_argument(
         "--tokenizer",
         type=Path,
         help="Optional tokenizer/template path; useful for incomplete quantized checkpoints.",
@@ -319,9 +329,47 @@ def main() -> None:
         ),
         default="none",
     )
+    parser.add_argument(
+        "--linear-backend",
+        choices=(
+            "auto",
+            "marlin",
+            "triton",
+            "conch",
+            "exllama",
+            "humming",
+            "allspark",
+            "machete",
+            "cutlass",
+        ),
+        default="auto",
+        help="Route vLLM through one registered linear-kernel family.",
+    )
+    parser.add_argument(
+        "--lm-head-backend",
+        choices=("torch", "lossless_packed"),
+        default="torch",
+        help="Select the dedicated unquantized lm-head backend.",
+    )
+    parser.add_argument(
+        "--lm-head-max-packed-fraction",
+        type=float,
+        default=0.90,
+        help="Fallback unless the lossless auxiliary layout is at most this fraction of dense BF16 bytes.",
+    )
     args = parser.parse_args()
     if args.warmups < 1 or args.trials < 1:
         raise ValueError("warmups and trials must both be positive")
+    for label, contract_path in (
+        ("operator", args.operator_contract),
+        ("workload", args.workload_contract),
+    ):
+        if contract_path is not None and not contract_path.is_file():
+            raise FileNotFoundError(
+                f"{label} contract must be a readable file: {contract_path}"
+            )
+    if not 0.5 <= args.lm_head_max_packed_fraction <= 1.0:
+        raise ValueError("lm-head-max-packed-fraction must be in [0.5, 1.0]")
     if args.max_num_seqs is not None and args.max_num_seqs < 1:
         raise ValueError("max-num-seqs must be positive")
     if args.max_num_batched_tokens is not None and args.max_num_batched_tokens < 1:
@@ -469,6 +517,13 @@ def main() -> None:
 
     init_started = time.perf_counter()
     engine_overrides = {}
+    if args.linear_backend != "auto":
+        engine_overrides["linear_backend"] = args.linear_backend
+    if args.lm_head_backend != "torch":
+        engine_overrides["kernel_config"] = {
+            "lm_head_backend": args.lm_head_backend,
+            "lm_head_max_packed_fraction": args.lm_head_max_packed_fraction,
+        }
     if args.max_num_seqs is not None:
         engine_overrides["max_num_seqs"] = args.max_num_seqs
     if args.max_num_batched_tokens is not None:
@@ -638,10 +693,32 @@ def main() -> None:
         "schema_version": "qwen35-vllm-discovery-baseline-v1",
         "status": "PASS" if all(case["correctness"] == "PASS" for case in summaries) else "FAIL",
         "claim_scope": (
-            "DISCOVERY_BASELINE_ONLY_NOT_QUALIFICATION"
-            if args.quantization == "none"
-            else "EXPLORATORY_QUANTIZED_DISCOVERY_REQUIRES_NEW_NUMERICS_CONTRACT"
+            "CONTRACT_BOUND_DISCOVERY_BASELINE_ONLY_NOT_QUALIFICATION"
+            if args.operator_contract is not None and args.workload_contract is not None
+            else (
+                "DISCOVERY_BASELINE_ONLY_NOT_QUALIFICATION"
+                if args.quantization == "none"
+                else "EXPLORATORY_QUANTIZED_DISCOVERY_REQUIRES_NEW_NUMERICS_CONTRACT"
+            )
         ),
+        "contracts": {
+            "operator": (
+                {
+                    "path": str(args.operator_contract.resolve()),
+                    "sha256": sha256(args.operator_contract.resolve()),
+                }
+                if args.operator_contract is not None
+                else None
+            ),
+            "workload": (
+                {
+                    "path": str(args.workload_contract.resolve()),
+                    "sha256": sha256(args.workload_contract.resolve()),
+                }
+                if args.workload_contract is not None
+                else None
+            ),
+        },
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "model": {
             "path": str(model_path),
@@ -658,6 +735,9 @@ def main() -> None:
             "nvcc_release": selected_nvcc,
             "triton": triton.__version__,
             "transformers": transformers.__version__,
+            "linear_backend": args.linear_backend,
+            "lm_head_backend": args.lm_head_backend,
+            "lm_head_max_packed_fraction": args.lm_head_max_packed_fraction,
             "vllm_use_v2_model_runner": os.environ.get("VLLM_USE_V2_MODEL_RUNNER"),
             "vllm_use_flashinfer_sampler": os.environ.get("VLLM_USE_FLASHINFER_SAMPLER"),
             "vllm_gdn_decode_kernel": os.environ.get("VLLM_GDN_DECODE_KERNEL", "cuda(default)"),
@@ -698,6 +778,8 @@ def main() -> None:
             "language_model_only": True,
             "dtype": "bfloat16",
             "quantization": args.quantization,
+            "lm_head_backend": args.lm_head_backend,
+            "lm_head_max_packed_fraction": args.lm_head_max_packed_fraction,
             "prompt_suite": args.prompt_suite,
             "max_model_len": 4096,
             "enable_prefix_caching": False,

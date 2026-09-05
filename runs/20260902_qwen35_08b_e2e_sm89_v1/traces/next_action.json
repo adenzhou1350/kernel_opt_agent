@@ -2,7 +2,7 @@
   "action": "STOP_RESIDUAL_SEARCH_AT_TIME_BUDGET",
   "blocking_inputs": [
     {
-      "elapsed_minutes": 306.67366781666664,
+      "elapsed_minutes": 340.8401579,
       "maximum_minutes": 120.0
     }
   ],
