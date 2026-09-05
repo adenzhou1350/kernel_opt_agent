@@ -795,7 +795,7 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 把 W4A16 scan 与 BF16 top-128 精确复核接入完整 vLLM 后，六类自然提示均与原生路径保持 128/128 token 相同。在当前笔记本低功耗状态下，原生与候选分别为 8.626 和 5.994 ms/token，候选约 **1.439x**；原生和候选中位核心频率分别为 945 和 862.5 MHz，所以收益不是候选频率更高造成的。但这组结果不能与此前 2610--2625 MHz 下的 5.119 ms 原生前沿交叉比较：当前 GPU 被限制在约 26--31 W、780--975 MHz。候选因此只记为强内核和低功耗端到端通过，尚不替代已经完成高频 C-S-S-C 与 GSM8K-512 的 INT8+BF16 前沿。
 
-更重要的全局画像是：INT8+BF16 前沿 TPOT 为 4.260 ms，而 Nsight 中全部 CUDA kernel duration 总和除以生成步数只有 1.193 ms。即使把可能重叠考虑在内，至少约 **3.067 ms/token（72.0%）** 不在逐 kernel duration 累加中；同一请求内 `cudaGraphLaunch` 起点间隔中位数约 4.249 ms。这不是“72% 都是纯 CPU”证明，却足以否定继续只盯 lm-head 小数点后的策略。下一条高价值路线应是设备驻留多 token、减少逐 token host round-trip，或能稳定接受多个 draft token 的模型级解码架构；单算子搜索仍保留，但预算应受全局上限约束。
+当时的全局画像曾写成：INT8+BF16 前沿 TPOT 为 4.260 ms，而 Nsight `KERNEL` 表总时长除以生成步数只有 1.193 ms，因此约 **3.067 ms/token（72.0%）** 位于 kernel 外。第三十六轮复核发现这个推断错误：当前 Nsight trace mode 不把 CUDA Graph replay 的子 kernel 展开到 `KERNEL` 表，而是另以 186 条 `GRAPH_TRACE` 记录回放主体。旧的 72% 结论已撤回；修正后的运行时边界见第三十六轮。
 
 完整记录见 `candidates/marlin-w4-bf16-shortlist-rerank/summary.json`、`candidates/ordinary-triton-int4-recall/summary.json`、`models/vllm_fp8_rerank_decode_cadence_bound.json` 和 `comparisons/vllm_fp8_native_vs_marlin_w4_rerank_low_power_screen.json`。
 
@@ -936,6 +936,16 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 所以本轮候选定性为 `DISCOVERY_SMOKE_PASS_LIFECYCLE_HARDENING_ONLY`：它使已有 B1/B2 极速模式更适合频繁冷启动，但不改变自动服务路由、不创造新的稳态吞吐最优，也不声称显存下降。证据见 `candidates/marlin-w4-lmhead-sidecar/summary.json`、`build_manifest.json`、`equivalence_validation.json` 与 `traces/vllm_gptq_sidecar_candidate_smoke_b1.json`。
 
+### 第三十六轮：vLLM 的异步调度已经开启，不能把 kernel 外时间当成白捡收益
+
+旧 profile 分析显示 INT8+BF16 路径加权 TPOT 为 4.260 ms，而 `CUPTI_ACTIVITY_KIND_KERNEL` 总时长除以生成步数仅为 1.193 ms；两次 CUDA Graph launch 起点间隔中位数为 4.249 ms。复核原始 SQLite 后发现恰好另有 186 条 `CUPTI_ACTIVITY_KIND_GRAPH_TRACE`，与 186 次 decode graph launch 一一对应，回放主体合计 542.246 ms、中位 2.907 ms。旧脚本漏掉这部分 GPU 工作，因而把约 2.9 ms 错归进了所谓 kernel 外时间。
+
+修正后的分析把 graph replay 与 standalone kernel 一起计入：观测 GPU activity 的保守上界为 4.017 ms/token，占 TPOT 94.29%；剩余下界只有 0.243 ms/token（5.71%）。再对 180 个请求内相邻 GPU graph-start 窗口直接求 activity interval 并集，平均 4.309 ms 窗口中 GPU busy 为 3.967 ms、idle 为 0.342 ms（7.94%）。即使乐观删除观测到的全部平均 idle，推算也只有 1.086x。这里仍不能把 5.71% 或 7.94% 当成可实现收益，因为依赖、submission 与同步不是无条件可删；但足以证明此前错误分解暗示的数倍空间不存在。
+
+本轮用与 benchmark 相同的模型、BF16 dtype 和环境开关只构造 `EngineArgs` 配置，不加载权重。实际配置为：`use_v2_model_runner=False`、`async_scheduling=True`，scheduler 类是 `vllm.v1.core.sched.async_scheduler.AsyncScheduler`，单 GPU `uni` executor 的 `max_concurrent_batches=2`。源码也明确说明 async scheduling 使用两个并行 in-flight batch 来重叠 scheduling/execution。也就是说，已有 vLLM baseline 已经包含这个优化；再做 async-on 只能复现 stock vLLM 的能力，不能成为“快过 stock”的候选。
+
+因此关闭“打开 async scheduling”这个伪机会，也撤回“72% runtime 空隙”这个错误机会。真正有资格重开 runtime orchestration 的候选，必须改变逐 token 依赖链，例如可用的 device-resident 多 token runner，或在真实环境可运行的新 runner；实现前仍需预测至少 3% 的整步收益。当前 V2 runner 在 WSL 下因 UVA 前置条件失败，只能记为环境限制，不能臆测其加速幅度。修正后的机器可读边界与配置审计分别见 `models/vllm_fp8_rerank_decode_cadence_bound.json` 和 `models/vllm_async_scheduling_audit.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -1036,6 +1046,7 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 - `models/bf16_serving_policy_auto.json`
 - `models/gptq_serving_policy_spec.json`
 - `models/gptq_serving_policy_auto.json`
+- `models/vllm_async_scheduling_audit.json`
 - `traces/vllm_bf16_exact_strict_stock_a_service_curve.json`
 - `traces/vllm_bf16_exact_strict_stock_b_service_curve.json`
 - `traces/vllm_bf16_exact_strict_candidate_a_service_curve.json`
