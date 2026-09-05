@@ -814,6 +814,20 @@ MTP 总接受率为 161/219（73.52%），且只有 3/6 个样例与普通路径
 
 这轮体现的不是“保守地少做一种优化”，而是先用 M=2 微基准验证必要条件，再用一次短端到端实验否定充分性。由于性能门和 token-identity 门同时失败，不再浪费数小时做 3×10 或质量集复验；Marlin W4 继续作为普通 batch-1 greedy 候选，MTP-1 在当前 `(Qwen3.5-0.8B, RTX 4060 SM89, vLLM 0.28.1, concurrency=1)` 点关闭。证据见 `comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json`。
 
+### 第二十八轮：公平 GPTQ-Marlin 对照证明“vLLM 量化”仍不等于局部最优
+
+为了直接回答“如果 vLLM 也量化，它不是应该更快吗”，本轮下载并校验了同一 Qwen3.5-0.8B 的历史 GPTQ W4A16、group-size 128 checkpoint。971,213,992 字节的 `model.safetensors` 与远端 LFS SHA256 一致，共有 923 个张量，其中 150 个 `qweight`；加载后 vLLM 报告模型权重约 0.85 GiB，并明确选择 `MarlinLinearKernel`。这建立了真实 W4 对照，不再把 BF16/FP8 与 W4 淵称为同一路径。
+
+checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文件中 full-attention 的 q/k/v/o projection 已经量化，`quantization_config.modules_in_block_to_quantize` 却只列出 linear-attention 和 MLP。vLLM 因而按 BF16 创建融合 QKV 层，再收到 GPTQ `g_idx` 而失败。补上 `self_attn.q_proj/k_proj/v_proj/o_proj` 四个元数据条目后，无需改任何权重即可成功加载。修补记录在 `candidates/gptq-marlin-backbone-fair-baseline/quantization_config_self_attn_fix.patch`。
+
+在六类自然提示、每条 128 greedy token、2 次 warmup + 5 次测量的低功耗本地对照中，库存 GPTQ-Marlin vLLM 为 **7.688 ms/token（130.1 tok/s）**。相对此前同属低功耗筛选的 FP8 stock 8.626 ms/token，它方向性快约 **1.122x**，但两者没有做进程交错，不能冒充正式因果资格赛；更不能拿它与 2610 MHz 高频 FP8 的约 5.119 ms/token 直接判量化优劣。量化收益不大的一个明确原因是该 checkpoint 的 tied `lm_head` 未量化，24.8 万词表输出投影仍是 BF16，而 Marlin 的反量化与小矩阵调度也有固定成本。
+
+在相同 GPTQ-Marlin 骨干上启用 W4 全词表召回 + BF16 shortlist 精确复核，top-128 候选达到 **5.049 ms/token（198.0 tok/s）**，相对库存 GPTQ vLLM 快 **1.523x**；候选中位核心频率和功耗还更低（825 MHz、23.835 W，对照为 915 MHz、28.79 W），所以方向性的收益可信。但它只在 2/6 条完整序列上与库存 GPTQ 逐 token 相同，因此性能门通过、质量门失败，不能晋级生产冠军。
+
+将 shortlist 从 128 扩到 512 后，六条序列的分叉位置完全不变，单轮 TPOT 仍约 5.007 ms。随后在 eager 模式逐 token 计算完整 BF16 参考 logits，BF16 赢家的 W4 最差近似排名只有 zero-based 1，证明扩大 shortlist 不是正确修复方向。当前剩余问题被收窄到 torch.compile/CUDA Graph 下的执行或浮点数值语义；下一轮应做 compiled-no-graph 与 graph 的正交隔离，或在低 margin 时回退完整 BF16，而不是继续扫 top-k。
+
+因此更准确的结论是：**vLLM 是很强的通用执行框架，量化也是必要候选，但“vLLM + 量化”仍不是这张卡、这个模型、这个 batch 的自动最优解。** 我们已经实测到其上仍有约 1.52x 的局部空间，同时也实测到追求速度会碰到真实的质量边界。机器可读证据见 `comparisons/vllm_gptq_marlin_w4_stock_vs_specialized_head_low_power.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -901,6 +915,11 @@ MTP 总接受率为 161/219（73.52%），且只有 3/6 个样例与普通路径
 - `tools/benchmark_marlin_int4_recall_lmhead.py`
 - `microbench_candidates/marlin_int4_recall_lmhead_m2_sm89.json`
 - `comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json`
+- `comparisons/vllm_gptq_marlin_w4_stock_vs_specialized_head_low_power.json`
+- `traces/vllm_gptq_marlin_w4_stock_natural_128_low_power.json`
+- `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_natural_128_low_power.json`
+- `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_k512_screen.json`
+- `candidates/gptq-marlin-backbone-fair-baseline/quantization_config_self_attn_fix.patch`
 - `models/sm89_exact_vocab_pruning_feasibility.json`
 - `tools/analyze_exact_vocab_pruning.py`
 - `traces/vllm_reachable_downw2_64.json`

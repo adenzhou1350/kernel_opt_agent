@@ -303,6 +303,8 @@ def main() -> None:
             "fp8_per_channel",
             "int8_per_channel_weight_only",
             "compressed-tensors",
+            "auto_gptq",
+            "gptq_marlin",
         ),
         default="none",
     )
