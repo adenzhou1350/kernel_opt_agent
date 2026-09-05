@@ -19,9 +19,11 @@ from community_evaluation import (
     audit_codex_execution,
     assess_trial,
     compare_trials,
+    exact_two_sided_sign_p,
     materialize_suite,
     materialize_trial,
     prepare_trial_source,
+    summarize_pair_rows,
     validate_source_receipt,
     validate_schedule,
     validate_suite,
@@ -89,6 +91,46 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
 
 
 def main() -> None:
+    assert exact_two_sided_sign_p(3, 0) == 0.25
+    repeated = summarize_pair_rows(
+        [
+            {
+                "control_elapsed_seconds": 30,
+                "community_augmented_elapsed_seconds": 20,
+                "elapsed_seconds_saved": 10,
+                "control_first_correct_seconds": 20,
+                "community_augmented_first_correct_seconds": 10,
+                "first_correct_seconds_saved": 10,
+                "control_architecture_family_count": 2,
+                "community_augmented_architecture_family_count": 4,
+                "architecture_family_gain": 2,
+                "control_best_speedup": 1.01,
+                "community_augmented_best_speedup": 1.03,
+                "best_speedup_gain": 0.02,
+                "control_material_improvement": 0,
+                "community_augmented_material_improvement": 1,
+            },
+            {
+                "control_elapsed_seconds": 40,
+                "community_augmented_elapsed_seconds": 35,
+                "elapsed_seconds_saved": 5,
+                "control_first_correct_seconds": 30,
+                "community_augmented_first_correct_seconds": 25,
+                "first_correct_seconds_saved": 5,
+                "control_architecture_family_count": 3,
+                "community_augmented_architecture_family_count": 4,
+                "architecture_family_gain": 1,
+                "control_best_speedup": 1.02,
+                "community_augmented_best_speedup": 1.01,
+                "best_speedup_gain": -0.01,
+                "control_material_improvement": 1,
+                "community_augmented_material_improvement": 0,
+            },
+        ]
+    )
+    assert repeated["paired_medians"]["elapsed_seconds_saved"] == 7.5
+    assert repeated["paired_wins"]["faster_time_to_first_correct"]["community"] == 2
+
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         corpus = base / "corpus"

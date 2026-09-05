@@ -10,6 +10,7 @@
     "claim_boundary",
     "status",
     "sandbox_mode",
+    "auditor_identity",
     "trial_identity",
     "transcript_identity",
     "stderr_identity",
@@ -23,6 +24,15 @@
     "claim_boundary": {"const": "TRANSCRIPT_AND_RESULT_INTEGRITY_ONLY"},
     "status": {"enum": ["PASS", "FAIL"]},
     "sandbox_mode": {"enum": ["WORKSPACE_WRITE", "AUDITED_UNRESTRICTED"]},
+    "auditor_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation", "contract"],
+      "properties": {
+        "implementation": {"$ref": "#/$defs/identity"},
+        "contract": {"$ref": "#/$defs/identity"}
+      }
+    },
     "trial_identity": {"$ref": "#/$defs/identity"},
     "transcript_identity": {"$ref": "#/$defs/identity"},
     "stderr_identity": {"$ref": "#/$defs/identity"},

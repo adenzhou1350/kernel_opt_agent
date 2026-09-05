@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_ab_repeat_summary.schema.json",
+  "title": "Aggregate of repeated paired community-knowledge A/B reports",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "suite_id",
+    "task_id",
+    "repeat_count",
+    "pair_reports",
+    "paired_medians",
+    "arm_medians",
+    "paired_wins",
+    "material_improvement_repeats"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-ab-repeat-summary-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "REPEATED_PAIRS_SINGLE_TASK"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "repeat_count": {"type": "integer", "minimum": 2},
+    "pair_reports": {
+      "type": "array",
+      "minItems": 2,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "paired_medians": {"$ref": "#/$defs/nullable_number_map"},
+    "arm_medians": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control", "community_augmented"],
+      "properties": {
+        "control": {"$ref": "#/$defs/nullable_number_map"},
+        "community_augmented": {"$ref": "#/$defs/nullable_number_map"}
+      }
+    },
+    "paired_wins": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {"type": ["integer", "number", "null"]}
+      }
+    },
+    "material_improvement_repeats": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control", "community_augmented"],
+      "properties": {
+        "control": {"type": "integer", "minimum": 0},
+        "community_augmented": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nullable_number_map": {
+      "type": "object",
+      "additionalProperties": {"type": ["number", "null"]}
+    }
+  }
+}

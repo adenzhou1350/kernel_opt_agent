@@ -116,6 +116,10 @@ python scripts/kernel_opt.py community-eval assess-trial --trial /path/to/contro
 python scripts/kernel_opt.py community-eval compare \
   --control /path/to/control --community /path/to/community \
   --output /path/to/paired-report.json
+
+python scripts/kernel_opt.py community-eval aggregate-repeats \
+  --pairs /path/to/paired-r1.json /path/to/paired-r2.json \
+  --output /path/to/repeat-summary.json
 ```
 
 The assessor derives time-to-first-correct, time-to-first-improvement, best
@@ -124,6 +128,11 @@ speedup and upstream readiness from candidate-level evidence. It rejects stale
 hashes, incomplete upstream claims and any trial that exceeds its frozen
 budget. A paired report is scoped to one task and repeat; repeated-task
 statistics must not be inferred from a single pair.
+`aggregate-repeats` validates every pair and assessment hash, requires unique
+repeat indices from one suite/task, and reports arm medians, paired medians,
+win/tie counts and an exact two-sided sign-test value for time-to-first-correct.
+Its claim boundary remains one repeated held-out task, not cross-task
+generalization.
 
 `audit-execution` independently parses Codex JSONL rather than trusting the
 Agent's final summary. It rejects incomplete turns, missing/invalid results,

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import shutil
 import subprocess
@@ -13,6 +14,7 @@ import tempfile
 import zipfile
 from datetime import datetime
 from pathlib import Path, PurePosixPath
+from statistics import median
 
 from community_knowledge import (
     atomic_json,
@@ -30,6 +32,7 @@ TRIAL_SCHEMA = "community-evaluation-trial-v1"
 RESULT_SCHEMA = "community-trial-result-v1"
 ASSESSMENT_SCHEMA = "community-trial-assessment-v1"
 REPORT_SCHEMA = "community-ab-report-v1"
+REPEAT_SUMMARY_SCHEMA = "community-ab-repeat-summary-v1"
 SCHEDULE_SCHEMA = "community-evaluation-schedule-v1"
 SOURCE_RECEIPT_SCHEMA = "community-trial-source-receipt-v1"
 EXECUTION_AUDIT_SCHEMA = "community-trial-execution-audit-v1"
@@ -435,6 +438,15 @@ def audit_codex_execution(
         "claim_boundary": "TRANSCRIPT_AND_RESULT_INTEGRITY_ONLY",
         "status": "PASS" if not violations else "FAIL",
         "sandbox_mode": sandbox_mode,
+        "auditor_identity": {
+            "implementation": identity_for(
+                root / "scripts" / "community_evaluation.py", root
+            ),
+            "contract": identity_for(
+                root / "schemas" / "community_trial_execution_audit.schema.json",
+                root,
+            ),
+        },
         "trial_identity": identity_for(trial_dir / "trial.json", trial_dir),
         "transcript_identity": identity_for(transcript_path, trial_dir),
         "stderr_identity": identity_for(stderr_path, trial_dir),
@@ -772,6 +784,16 @@ def assess_trial(
         audit = read_object(audit_path)
         if audit["status"] != "PASS":
             raise ValueError("passing execution audit required")
+        validate_identity(
+            root,
+            audit["auditor_identity"]["implementation"],
+            "execution auditor implementation",
+        )
+        validate_identity(
+            root,
+            audit["auditor_identity"]["contract"],
+            "execution auditor contract",
+        )
         if audit["trial_identity"] != identity_for(trial_dir / "trial.json", trial_dir):
             raise ValueError("execution audit is stale for trial manifest")
         if audit["result_identity"] != identity_for(result_path, trial_dir):
@@ -985,6 +1007,211 @@ def compare_trials(
     return report
 
 
+def exact_two_sided_sign_p(wins: int, losses: int) -> float | None:
+    observations = wins + losses
+    if observations == 0:
+        return None
+    tail = min(wins, losses)
+    probability = sum(math.comb(observations, k) for k in range(tail + 1))
+    return min(1.0, 2.0 * probability / (2**observations))
+
+
+def summarize_pair_rows(rows: list[dict]) -> dict:
+    if len(rows) < 2:
+        raise ValueError("at least two paired repeats are required")
+
+    def values(field: str) -> list[float]:
+        return [float(row[field]) for row in rows if row[field] is not None]
+
+    def median_or_none(field: str) -> float | None:
+        observed = values(field)
+        return float(median(observed)) if observed else None
+
+    def wins(field: str) -> tuple[int, int, int]:
+        observed = values(field)
+        return (
+            sum(value > 0 for value in observed),
+            sum(value < 0 for value in observed),
+            sum(value == 0 for value in observed),
+        )
+
+    first_wins, first_losses, first_ties = wins("first_correct_seconds_saved")
+    family_wins, family_losses, family_ties = wins("architecture_family_gain")
+    speed_wins, speed_losses, speed_ties = wins("best_speedup_gain")
+    elapsed_wins, elapsed_losses, elapsed_ties = wins("elapsed_seconds_saved")
+    return {
+        "paired_medians": {
+            "elapsed_seconds_saved": median_or_none("elapsed_seconds_saved"),
+            "time_to_first_correct_seconds_saved": median_or_none(
+                "first_correct_seconds_saved"
+            ),
+            "architecture_family_count_gain": median_or_none(
+                "architecture_family_gain"
+            ),
+            "best_speedup_gain": median_or_none("best_speedup_gain"),
+        },
+        "arm_medians": {
+            arm: {
+                "elapsed_seconds": median_or_none(f"{arm}_elapsed_seconds"),
+                "time_to_first_correct_seconds": median_or_none(
+                    f"{arm}_first_correct_seconds"
+                ),
+                "architecture_family_count": median_or_none(
+                    f"{arm}_architecture_family_count"
+                ),
+                "best_speedup": median_or_none(f"{arm}_best_speedup"),
+            }
+            for arm in ("control", "community_augmented")
+        },
+        "paired_wins": {
+            "faster_time_to_first_correct": {
+                "community": first_wins,
+                "control": first_losses,
+                "ties": first_ties,
+                "two_sided_exact_sign_p": exact_two_sided_sign_p(
+                    first_wins, first_losses
+                ),
+            },
+            "greater_architecture_family_coverage": {
+                "community": family_wins,
+                "control": family_losses,
+                "ties": family_ties,
+            },
+            "higher_best_speedup": {
+                "community": speed_wins,
+                "control": speed_losses,
+                "ties": speed_ties,
+            },
+            "lower_elapsed_seconds": {
+                "community": elapsed_wins,
+                "control": elapsed_losses,
+                "ties": elapsed_ties,
+            },
+        },
+        "material_improvement_repeats": {
+            "control": sum(row["control_material_improvement"] for row in rows),
+            "community_augmented": sum(
+                row["community_augmented_material_improvement"] for row in rows
+            ),
+        },
+    }
+
+
+def aggregate_pair_reports(
+    pair_paths: list[Path], output: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    if len(pair_paths) < 2:
+        raise ValueError("at least two pair reports are required")
+    reports = []
+    rows = []
+    suite_id = None
+    task_id = None
+    repeats = set()
+    for raw_path in pair_paths:
+        pair_path = raw_path.resolve()
+        errors = validate_json_file(
+            pair_path, root / "schemas" / "community_ab_report.schema.json"
+        )
+        if errors:
+            raise ValueError("invalid paired report: " + "; ".join(errors))
+        report = read_object(pair_path)
+        suite_id = suite_id or report["suite_id"]
+        task_id = task_id or report["task_id"]
+        if report["suite_id"] != suite_id or report["task_id"] != task_id:
+            raise ValueError("pair reports must belong to one suite and task")
+        if report["repeat_index"] in repeats:
+            raise ValueError("duplicate repeat index in pair reports")
+        repeats.add(report["repeat_index"])
+        assessments = {}
+        for arm, key in (
+            ("CONTROL", "control_assessment"),
+            ("COMMUNITY_AUGMENTED", "community_assessment"),
+        ):
+            assessment_path = validate_identity(
+                pair_path.parent, report[key], f"{arm} assessment"
+            )
+            assessment_errors = validate_json_file(
+                assessment_path,
+                root / "schemas" / "community_trial_assessment.schema.json",
+            )
+            if assessment_errors:
+                raise ValueError(
+                    "invalid trial assessment: " + "; ".join(assessment_errors)
+                )
+            assessment = read_object(assessment_path)
+            if (
+                assessment["arm"] != arm
+                or assessment["suite_id"] != suite_id
+                or assessment["task_id"] != task_id
+                or assessment["repeat_index"] != report["repeat_index"]
+            ):
+                raise ValueError("paired assessment identity does not match report")
+            assessments[arm] = assessment
+        control = assessments["CONTROL"]
+        community = assessments["COMMUNITY_AUGMENTED"]
+        control_metrics = control["metrics"]
+        community_metrics = community["metrics"]
+        rows.append(
+            {
+                "control_elapsed_seconds": control["budget_usage"]["elapsed_seconds"],
+                "community_augmented_elapsed_seconds": community["budget_usage"][
+                    "elapsed_seconds"
+                ],
+                "elapsed_seconds_saved": control["budget_usage"]["elapsed_seconds"]
+                - community["budget_usage"]["elapsed_seconds"],
+                "control_first_correct_seconds": control_metrics[
+                    "time_to_first_correct_seconds"
+                ],
+                "community_augmented_first_correct_seconds": community_metrics[
+                    "time_to_first_correct_seconds"
+                ],
+                "first_correct_seconds_saved": report["deltas"][
+                    "time_to_first_correct_seconds_saved"
+                ],
+                "control_architecture_family_count": control_metrics[
+                    "architecture_family_count"
+                ],
+                "community_augmented_architecture_family_count": community_metrics[
+                    "architecture_family_count"
+                ],
+                "architecture_family_gain": report["deltas"][
+                    "architecture_family_count_gain"
+                ],
+                "control_best_speedup": control_metrics["best_speedup"],
+                "community_augmented_best_speedup": community_metrics["best_speedup"],
+                "best_speedup_gain": report["deltas"]["best_speedup_gain"],
+                "control_material_improvement": int(
+                    control_metrics["time_to_first_improvement_seconds"] is not None
+                ),
+                "community_augmented_material_improvement": int(
+                    community_metrics["time_to_first_improvement_seconds"] is not None
+                ),
+            }
+        )
+        reports.append(pair_path)
+
+    output = output.resolve()
+    summary = {
+        "schema_version": REPEAT_SUMMARY_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "REPEATED_PAIRS_SINGLE_TASK",
+        "suite_id": suite_id,
+        "task_id": task_id,
+        "repeat_count": len(rows),
+        "pair_reports": [identity_for(path, output.parent) for path in reports],
+        **summarize_pair_rows(rows),
+    }
+    errors = validate_instance(
+        summary,
+        read_object(root / "schemas" / "community_ab_repeat_summary.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid repeat summary: " + "; ".join(errors))
+    atomic_json(output, summary)
+    return summary
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="operation", required=True)
@@ -1025,6 +1252,9 @@ def parse_args() -> argparse.Namespace:
     compare.add_argument("--control", type=Path, required=True)
     compare.add_argument("--community", type=Path, required=True)
     compare.add_argument("--output", type=Path, required=True)
+    aggregate = subparsers.add_parser("aggregate-repeats")
+    aggregate.add_argument("--pairs", type=Path, nargs="+", required=True)
+    aggregate.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -1059,6 +1289,8 @@ def main() -> int:
                 args.trial,
                 require_execution_audit=args.require_execution_audit,
             )
+        elif args.operation == "aggregate-repeats":
+            result = aggregate_pair_reports(args.pairs, args.output)
         else:
             result = compare_trials(args.control, args.community, args.output)
     except Exception as error:
