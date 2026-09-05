@@ -137,3 +137,43 @@
      block_n, num_warps = 4, 8
      output = torch.empty((*x.shape[:-1], n), dtype=x.dtype, device=x.device)
      _sm89_bf16_gemv_kernel[(triton.cdiv(n, block_n),)](
+diff --git a/vllm/model_executor/layers/vocab_parallel_embedding.py b/vllm/model_executor/layers/vocab_parallel_embedding.py
+--- a/vllm/model_executor/layers/vocab_parallel_embedding.py
++++ b/vllm/model_executor/layers/vocab_parallel_embedding.py
+@@ -3,6 +3,7 @@
+ 
+ from collections.abc import Sequence
+ from dataclasses import dataclass
++import os
+ 
+ import torch
+ import torch.nn.functional as F
+@@ -60,7 +61,27 @@ class UnquantizedEmbeddingMethod(QuantizeMethodBase):
+         set_weight_attrs(weight, extra_weight_attrs)
+ 
+     def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
+-        if current_platform.is_cpu():
++        if (
++            current_platform.is_cuda()
++            and os.environ.get("VLLM_SM89_EXACT_PACKED_LM_HEAD", "0") == "1"
++            and layer.weight.is_cuda
++            and layer.weight.dtype == torch.bfloat16
++            and layer.weight.ndim == 2
++            and layer.weight.shape == (248320, 1024)
++            and current_platform.is_device_capability(89)
++        ):
++            from vllm.model_executor.layers.utils import (
++                sm89_bf16_gemv_impl,
++            )
++
++            warmup_input = torch.zeros(
++                (1, layer.weight.shape[1]),
++                dtype=layer.weight.dtype,
++                device=layer.weight.device,
++            )
++            sm89_bf16_gemv_impl(warmup_input, layer.weight.data)
++            torch.cuda.synchronize()
++        elif current_platform.is_cpu():
+             from vllm.model_executor.layers.utils import dispatch_cpu_unquantized_gemm
+ 
+             dispatch_cpu_unquantized_gemm(layer, remove_weight=False)

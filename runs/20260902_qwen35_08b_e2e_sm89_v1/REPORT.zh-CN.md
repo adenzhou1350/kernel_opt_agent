@@ -850,7 +850,7 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 
 ### 第三十一轮：vLLM 量化已经更快，但最优路径随并发变化
 
-本轮不再用单请求结果回答“有没有超过 vLLM”，而是在同一个 vLLM 0.28.1、同一 Qwen3.5-0.8B、同一张 RTX 4060 Laptop 上测量 batch 1/2/4/8 的服务曲线。每档生成 64 个 greedy token，1 次 warmup、3 次测量，测量轮交替正序和逆序；运行 stock→candidate→stock 夹心对照并请求使用相同编译缓存根目录。候选进程报告直接载入 AOT，末次 stock 仍重新编译，因此启动时间不进入吞吐比较，并对 steady-state 性能采用两次 stock 中更快者作为保守基线。
+本轮不再用单请求结果回答“有没有超过 vLLM”，而是在同一个 vLLM 0.28.1、同一 Qwen3.5-0.8B、同一张 RTX 4060 Laptop 上测量 batch 1/2/4/8 的服务曲线。每档生成 64 个 greedy token，1 次 warmup、3 次测量，测量轮交替正序和逆序；运行 stock→candidate→stock 夹心对照。事后审计发现当时只设置了 `TORCHINDUCTOR_CACHE_DIR`，而这版 vLLM 的 AOT 实际仍位于默认 `~/.cache/vllm`；候选日志确实报告直接载入该 AOT，末次 stock 则重新编译。因此启动时间不进入吞吐比较，并对 steady-state 性能采用两次 stock 中更快者作为保守基线，但这组记录不能再表述为 fresh-cache 隔离证明。基准工具随后新增 `VLLM_CACHE_ROOT` 记录和强制 guard，避免复发。
 
 | batch | vLLM BF16 | vLLM GPTQ-Marlin 两次 | GPTQ + W4/BF16 rerank | rerank / 较快 GPTQ | rerank / BF16 |
 |---:|---:|---:|---:|---:|---:|
@@ -866,6 +866,27 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 同缓存对照中 batch 1/2 分别达到 192/192、384/384 token 一致；batch 4/8 即使候选 shape guard 已回退库存路径，跨进程仍只有 721/768、1433/1536 token 一致。这说明后两档差异来自批量 GPU 归约和调度的数值非确定性，不能归因给未被调用的候选。另一方面，上一轮 GSM8K-512 的 457/512 序列一致仍是更强质量证据，所以本轮小集合完全一致也不能把 approximate 模式升级为无损默认。
 
 对 agent 架构的含义是：搜索状态必须包含 workload shape 和精度契约，先测服务曲线，再生成分段策略；“某个算子在 M=1 最快”不再允许推出“模型推理全局最快”。机器可读证据见 `comparisons/vllm_bf16_gptq_rerank_service_frontier.json`，原始记录见对应的 `traces/vllm_*service_curve*.json`。
+
+### 第三十二轮：严格 BF16 候选必须进入权重加载和预热生命周期
+
+量化前沿明确后，本轮回到严格 BF16：候选不改变任何 BF16 权重 bit，而是把输出头按 256 值分块，用 8-bit sign+mantissa、4-bit block-local exponent delta 和约 1.49% dense fallback 可逆存储。旧原型在 batch-1 专用验证中有约 4--5% 端到端收益，但它在第一次调用时才生成 375.691 MiB packed cache，不满足服务部署要求。
+
+把旧原型直接放入 `max_num_seqs=8` 的通用引擎后，active batch 1 只有 62.0 tok/s，远慢于同源 stock 的 101.5 tok/s；日志同时显示 packed cache 和 Triton JIT 都发生在 engine ready 之后。第一次修复误接到普通 Linear 的 `process_weights_after_loading`，但 Qwen3.5 的输出头与 embedding tied，不经过该路径，因此保持不可达并被撤销。真正的接入点是 `UnquantizedEmbeddingMethod.process_weights_after_loading`：它拥有 tied 权重，在这里完成 pack，并用一行零输入提前 JIT 内核。
+
+最终候选与末次 stock 使用彼此独立且强制校验的 `VLLM_CACHE_ROOT`；首次 stock 发生在 guard 加入前，因此只把它作为更快、更不利于候选的保守 stock 包络。batch 1/2/4/8、每档 1 warmup + 3 trials 的通用服务曲线得到：
+
+| active batch | 两次 stock BF16 | load-pack-warm 候选 | 相对较快 stock | 策略 |
+|---:|---:|---:|---:|---|
+| 1 | 101.5 / 97.1 tok/s | **110.9 tok/s** | **1.093x** | weight-exact 可选候选 |
+| 2 | **191.8 / 187.3 tok/s** | 186.2 tok/s | 0.971x | stock |
+| 4 | **413.1 / 342.0 tok/s** | 356.3 tok/s | 0.863x | stock |
+| 8 | **696.7 / 658.8 tok/s** | 671.2 tok/s | 0.963x | stock |
+
+生命周期消融同样关键：lazy first-use 为 62.0 tok/s，只在加载时 pack 后为 110.6 tok/s，再增加加载期 JIT 为 110.9 tok/s。也就是说，pack 前移修复了约 1.79x 的集成退化；JIT 前移主要消除首请求尖峰，steady-state 只变化约 0.3%。候选报告模型显存从约 1.53 GiB 增到 1.91 GiB，因为原型同时保留 tied dense 权重和 packed cache；生产版应把 packed 表示放入 checkpoint 或明确管理双表示。
+
+数值契约也被进一步拆清：`max_num_seqs=1` 诊断中候选与 stock 为 320/320 token 一致且快 1.123x；通用 `max_num_seqs=8` 的 active batch 1 则为 187/192 token 一致。权重重建逐 bit 精确，但 FP32 归约树不同，所以它是 **BF16 weight-exact**，不是 **stock-token-exact**。若用户要求后者，仍路由 stock BF16。
+
+至此，本地最优不再是一个名字，而是一张有契约的路由表：stock-token-exact 始终走 stock BF16；允许 weight-exact 数值归约差异时，仅 batch 1 走 packed BF16；接受 W4 近似时 batch 1/2 走 W4 scan + BF16 rerank，batch 4 以上走 stock GPTQ-Marlin。机器可读策略见 `models/qwen35_sm89_serving_policy.json`，集成证据见 `comparisons/vllm_bf16_exact_packed_service_integration.json`。这仍是有限候选集上的实测最优，不是全局数学最优。
 
 ## 技术失败与环境边界
 
@@ -961,6 +982,10 @@ checkpoint 最初不能由 vLLM 加载，但这是可修复的技术问题：文
 - `traces/vllm_gptq_stock_service_curve_b1_b2_b4_b8.json`
 - `traces/vllm_gptq_stock_service_curve_repeat_same_cache_b1_b2_b4_b8.json`
 - `traces/vllm_gptq_mv_rerank_service_curve_same_cache_b1_b2_b4_b8.json`
+- `comparisons/vllm_bf16_exact_packed_service_integration.json`
+- `models/qwen35_sm89_serving_policy.json`
+- `traces/vllm_bf16_exact_load_warm_service_curve_b1_b2_b4_b8.json`
+- `traces/vllm_bf16_exact_load_warm_stock_close_service_curve_b1_b2_b4_b8.json`
 - `traces/vllm_gptq_marlin_w4_stock_natural_128_low_power.json`
 - `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_natural_128_low_power.json`
 - `traces/vllm_gptq_marlin_w4_plus_w4_head_rerank_k512_screen.json`

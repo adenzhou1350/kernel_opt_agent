@@ -48,6 +48,11 @@ def main() -> None:
     parser.add_argument("--kv-cache-memory-bytes", type=int, default=536870912)
     parser.add_argument("--expect-source-sha256", action="append", default=[])
     parser.add_argument(
+        "--expect-vllm-cache-root",
+        type=Path,
+        help="Fail before engine startup unless VLLM_CACHE_ROOT resolves here.",
+    )
+    parser.add_argument(
         "--expect-marlin-w4-rerank",
         choices=("off", "on"),
         help="Fail before engine startup unless the Marlin-W4 rerank switch matches.",
@@ -57,7 +62,33 @@ def main() -> None:
         choices=("off", "on"),
         help="Fail before engine startup unless the Marlin-W4 scan-only switch matches.",
     )
+    parser.add_argument(
+        "--expect-bf16-lm-head",
+        choices=("off", "on"),
+        help="Fail before engine startup unless the SM89 BF16 lm-head switch matches.",
+    )
+    parser.add_argument(
+        "--expect-exact-packed-lm-head",
+        choices=("off", "on"),
+        help="Fail before engine startup unless exact BF16 packed lm-head matches.",
+    )
     args = parser.parse_args()
+
+    actual_vllm_cache_root_raw = os.environ.get("VLLM_CACHE_ROOT")
+    actual_vllm_cache_root = (
+        str(Path(actual_vllm_cache_root_raw).expanduser().resolve())
+        if actual_vllm_cache_root_raw
+        else None
+    )
+    if args.expect_vllm_cache_root is not None:
+        expected_vllm_cache_root = str(
+            args.expect_vllm_cache_root.expanduser().resolve()
+        )
+        if actual_vllm_cache_root != expected_vllm_cache_root:
+            raise RuntimeError(
+                "vLLM cache-root mismatch: expected "
+                f"{expected_vllm_cache_root}, got {actual_vllm_cache_root!r}"
+            )
 
     actual_marlin_w4_rerank = (
         "on"
@@ -67,6 +98,14 @@ def main() -> None:
     actual_marlin_w4_scan_only = (
         "on"
         if os.environ.get("VLLM_SM89_MARLIN_W4_SCAN_ONLY", "0") == "1"
+        else "off"
+    )
+    actual_bf16_lm_head = (
+        "on" if os.environ.get("VLLM_SM89_BF16_LM_HEAD", "0") == "1" else "off"
+    )
+    actual_exact_packed_lm_head = (
+        "on"
+        if os.environ.get("VLLM_SM89_EXACT_PACKED_LM_HEAD", "0") == "1"
         else "off"
     )
     if (
@@ -84,6 +123,22 @@ def main() -> None:
         raise RuntimeError(
             "candidate path is unreachable: expected Marlin-W4 scan-only "
             f"{args.expect_marlin_w4_scan_only}, got {actual_marlin_w4_scan_only}"
+        )
+    if (
+        args.expect_bf16_lm_head is not None
+        and actual_bf16_lm_head != args.expect_bf16_lm_head
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: expected SM89 BF16 lm-head "
+            f"{args.expect_bf16_lm_head}, got {actual_bf16_lm_head}"
+        )
+    if (
+        args.expect_exact_packed_lm_head is not None
+        and actual_exact_packed_lm_head != args.expect_exact_packed_lm_head
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: expected exact BF16 packed lm-head "
+            f"{args.expect_exact_packed_lm_head}, got {actual_exact_packed_lm_head}"
         )
 
     guarded_sources = {}
@@ -237,6 +292,8 @@ def main() -> None:
             "vllm": vllm.__version__,
             "torch": torch.__version__,
             "cuda": torch.version.cuda,
+            "vllm_cache_root": actual_vllm_cache_root,
+            "torchinductor_cache_dir": os.environ.get("TORCHINDUCTOR_CACHE_DIR"),
             "vllm_sm89_bf16_lm_head": os.environ.get(
                 "VLLM_SM89_BF16_LM_HEAD", "0(default)"
             ),
@@ -260,10 +317,19 @@ def main() -> None:
             "sampling": "greedy",
             "engine_initialization_seconds": init_seconds,
             "case_order": "batch sizes forward/reverse by trial",
+            "expected_vllm_cache_root": (
+                str(args.expect_vllm_cache_root.expanduser().resolve())
+                if args.expect_vllm_cache_root is not None
+                else None
+            ),
             "expected_marlin_w4_rerank": args.expect_marlin_w4_rerank,
             "actual_marlin_w4_rerank": actual_marlin_w4_rerank,
             "expected_marlin_w4_scan_only": args.expect_marlin_w4_scan_only,
             "actual_marlin_w4_scan_only": actual_marlin_w4_scan_only,
+            "expected_bf16_lm_head": args.expect_bf16_lm_head,
+            "actual_bf16_lm_head": actual_bf16_lm_head,
+            "expected_exact_packed_lm_head": args.expect_exact_packed_lm_head,
+            "actual_exact_packed_lm_head": actual_exact_packed_lm_head,
         },
         "service_curve": service_curve,
         "raw_samples": samples,

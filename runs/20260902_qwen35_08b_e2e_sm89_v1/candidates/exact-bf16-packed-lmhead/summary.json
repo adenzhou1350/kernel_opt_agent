@@ -59,6 +59,19 @@
     "fresh_stock_tpot_ms": 6.920527580051883,
     "tpot_speedup_vs_fresh_stock": 1.0396173701149283
   },
+  "service_integration": {
+    "status": "PROMOTE_LOAD_TIME_PACK_AND_WARM_FOR_WEIGHT_EXACT_BATCH1",
+    "max_num_seqs_8_candidate_output_tokens_per_second": 110.93547694733171,
+    "max_num_seqs_8_faster_stock_output_tokens_per_second": 101.51616276772596,
+    "conservative_batch1_speedup": 1.092786349708249,
+    "lazy_first_use_output_tokens_per_second": 61.970038524411606,
+    "lifecycle_fix_speedup_over_lazy": 1.7901469740676592,
+    "stock_vs_candidate_batch1_exact_tokens": "187/192",
+    "max_num_seqs_1_diagnostic_speedup": 1.1233983404347452,
+    "max_num_seqs_1_diagnostic_exact_tokens": "320/320",
+    "integration": "Prepack the tied embedding/lm-head weight and JIT-warm the exact kernel from UnquantizedEmbeddingMethod.process_weights_after_loading before CUDA Graph setup.",
+    "policy": "Enable only for active batch 1 when exact BF16 weights with non-stock reduction order are acceptable; stock BF16 otherwise."
+  },
   "rejected_sibling": {
     "candidate": "Exact 4096-entry BF16 codebook with 12-bit indices and dense fallback blocks",
     "packed_byte_fraction": 0.7760777424291238,
@@ -90,7 +103,7 @@
     },
     "vllm_patch": {
       "path": "candidates/exact-bf16-packed-lmhead/vllm_utils_exact_bf16_packed_lmhead.patch",
-      "sha256": "91e45be58444529a744e5e4c2ca9959aa8cb97cedcd380669d886da137f32e77"
+      "sha256": "a1d4f2ed86ba45b580c49b274a917d1b8402517177d0eb129a7099ee9420874e"
     },
     "microbenchmark_tool": {
       "path": "tools/benchmark_exact_bf16_packed_lmhead.py",
@@ -99,8 +112,9 @@
   },
   "reopen_or_production_rules": [
     "Measure randomized process order under a locked power mode before claiming production-wide speedup.",
-    "Replace the additive packed cache with load-time packing before enabling on memory-constrained deployments.",
+    "Replace the additive runtime packed cache with a checkpoint-native packed representation before enabling on memory-constrained deployments.",
     "Requalify every model shape, GPU architecture, batch size, sampling mode, and vLLM version separately.",
     "Do not report the historical 1.199x frontier gain multiplied by this 1.051x gain; no current experiment measured that product under one controlled state."
-  ]
+  ],
+  "service_evidence": "comparisons/vllm_bf16_exact_packed_service_integration.json"
 }

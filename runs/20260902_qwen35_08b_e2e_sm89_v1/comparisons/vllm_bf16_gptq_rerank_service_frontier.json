@@ -10,6 +10,7 @@
     "kv_cache_memory_bytes": 536870912,
     "requested_stock_and_candidate_inductor_cache_root": "/tmp/vllm-gptq-service-stock-20260905",
     "cache_note": "The candidate process reported a direct AOT cache load; the closing stock repeat recompiled, so engine initialization is excluded and the faster of the two steady-state stock measurements is used as the conservative baseline.",
+    "cache_control_limitation": "These traces predate the benchmark's explicit VLLM_CACHE_ROOT guard. TORCHINDUCTOR_CACHE_DIR was requested, while vLLM logs show its AOT artifacts under the default ~/.cache/vllm root. Treat the measurements as guarded steady-state source/switch evidence, not as proof of fresh-cache isolation.",
     "candidate_source_sha256": "1cbbc62c84dc13137bd4ce5806de4717ed0658fc8a8f19c7f0bb62c24e915655",
     "candidate_switch": "VLLM_SM89_MARLIN_W4_RERANK=1"
   },
