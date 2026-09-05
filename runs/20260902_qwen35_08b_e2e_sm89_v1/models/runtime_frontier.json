@@ -57,6 +57,24 @@
       "exact_generated_token_cases_each_pair": "6/6",
       "decision": "PASS: same source and compile cache remove source-induced graph variation"
     },
+    "strict_bf16_sm89_exact_packed_lm_head": {
+      "candidate": "bit-exact BF16 block base-plus-delta packed lm_head GEMV",
+      "weight_bit_exact": true,
+      "quantization": false,
+      "packed_lm_head_byte_fraction": 0.774621456185567,
+      "steady_microbenchmark_local_speedup": 1.2884912690250987,
+      "qualification_control_e2e_ms": 925.539282083264,
+      "qualification_candidate_e2e_ms": 883.275862083489,
+      "qualification_e2e_speedup": 1.0478484942406139,
+      "qualification_control_tpot_ms": 6.995126984252583,
+      "qualification_candidate_tpot_ms": 6.656802568897851,
+      "qualification_tpot_speedup": 1.050823862034825,
+      "exact_generated_token_cases_vs_accepted_frontier": "6/6",
+      "fresh_stock_tpot_speedup": 1.0396173701149283,
+      "fresh_stock_exact_generated_token_cases": "4/6",
+      "runtime_cache_mib": 375.691,
+      "decision": "PROMOTE as the new strict BF16 frontier for this SM89/model/batch-1 scope; retain the fresh-stock compiled-reduction caveat"
+    },
     "strict_bf16_sm89_residual_search": {
       "lm_head_schedules_screened": 72,
       "lm_head_best_paired_speedup_vs_incumbent": 0.9985247324592953,
@@ -137,7 +155,7 @@
     "latency_first_quantized": "Q4_0 llama.cpp is fastest in the high-power observation but raises corpus perplexity by 9.59%.",
     "quality_first_quantized": "Q8_0 llama.cpp is the leading discovery candidate; its 8-chunk corpus perplexity is within 0.16% of llama.cpp BF16.",
     "speculation": "Reject current MTP-1 and natural-prompt n-gram speculation for this 0.8B batch-1 workload. Even replacing every screened M=2 projection by its best cold-cache schedule projects to only 0.985x at measured acceptance and still needs 0.618 ms of independent cycle saving to clear the 1.03x promotion gate.",
-    "strict_bf16": "Promote the SM89 batch-1 lm_head GEMV: original qualification reached 1.180x E2E/1.184x TPOT, and same-source C-S-S-C replication reached 1.193x/1.199x with 6/6 token-exact natural cases per pair. Its 2.058 ms invocation is already within 0.7% of the calibrated lm-head weight-stream floor, and a 72-schedule residual search found no further gain. Production-BF16-state recurrent retuning also failed: its warm upper signal projects below 50 us/step, its cold pair is 0.75x, and all 18 multiwarp points change state. It is the winner of the bounded tested portfolio, not proof of a global theoretical optimum.",
+    "strict_bf16": "Promote exact BF16 block base-plus-delta packing as the new SM89 batch-1 frontier. It preserves every BF16 weight bit, stores the lm_head at 77.46% of dense bytes, and improves the accepted strict frontier by 1.048x E2E/1.051x TPOT with 6/6 token-exact natural cases under a 3-warmup x 10-trial gate. Against a fresh current-stock build it measures 1.036x/1.040x, but only 4/6 tokens match because stock selected a different compiled FP32 reduction path; this is numerical-path variability, not quantization. The prototype adds a 375.691 MiB packed cache because the embedding is tied. It is the winner of the bounded tested portfolio, not proof of a global theoretical optimum, and historical speedups must not be multiplied without a single controlled cumulative run.",
     "relaxed_bf16": "Retain the combined lm_head plus segmented-GDN candidate as a separate limited-task-quality frontier: direct C-S-S-C reached 1.190x E2E/1.200x TPOT versus stock, with deterministic 6/6 repeats inside each mode but only 3/6 cross-mode token parity. On a deterministic 512-example GSM8K screen it scored 46 versus control 47, with McNemar p=1.0; this finds no detectable paired accuracy regression but does not prove broad quality equivalence.",
     "vllm_quantized": "A third-party W4A16 compressed-tensors checkpoint selected Marlin and appeared 1.19x faster, but generated a degenerate special-token loop in both vLLM and Transformers. It is rejected, not promoted."
   },
@@ -267,6 +285,10 @@
     "transformers_awq_quality_gate": {
       "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\raw\\transformers_awq_int4_smoke.json",
       "sha256": "437a79a35593648b9f7f15e3f301928b845ef280097525516948bbf579487047"
+    },
+    "sm89_exact_bf16_packed_lm_head": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\candidates\\exact-bf16-packed-lmhead\\summary.json",
+      "sha256": "cb5f3b523f404b0bda3d540adcb4ff51944d30e78424fe6e8db853d61e14f591"
     }
   },
   "measurement_risk": {
@@ -276,7 +298,7 @@
     "power_probe_median_memory_clock_mhz": 8001.0,
     "power_probe_median_power_w": 26.64,
     "power_probe_sample_count": 21,
-    "required_next_gate": "For a production claim, repeat randomized stock/candidate process order under a locked power mode and add a larger task-quality suite; the 3x10 same-state discovery gate is complete."
+    "required_next_gate": "For a production claim, repeat randomized stock/accepted/packed process order under a locked power mode, replace the additive 375.691 MiB cache with load-time packing, and add a larger task-quality suite; the 3x10 same-state discovery gate is complete."
   },
   "measurements": {
     "llamacpp_bf16": {

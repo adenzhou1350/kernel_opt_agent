@@ -623,6 +623,37 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 
 这进一步界定了 BF16 与量化路线：严格 BF16 若要继续取得数量级更大的收益，不能依赖通用 Cauchy-Schwarz 剪枝；而量化确实能直接减少权重流量，但公平基线必须同时切到相同量化格式的 vLLM，不能拿自研量化路径与 BF16 vLLM 比出一个虚假的倍数。
 
+### 第二十轮：不量化权重，也能继续突破 BF16 访存下界
+
+前一轮关闭词表剪枝后，真正剩下的矛盾是：`lm_head` 已接近“读取 508.6 MB BF16 权重”的带宽下界，继续改 GEMV 调度几乎没有空间，但减少读取字节通常会被叫作量化。这里找到了一条不同路线：**压缩 BF16 的表示，而不是降低 BF16 的精度**。
+
+Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，但只有 5,874 种不同位模式；指数只有 33 种，指数熵约 2.574 bit/value。候选把每个值的 sign+mantissa 原样存为 8 bit，再按 256 值一块存 4 bit 的“指数减块内最小指数”；指数跨度超过 15 的 1.486% 块原样回退 BF16。解码时在寄存器里重建完整 16 bit BF16 位模式，再转 FP32 做乘加。因此它不是 INT8/FP8/W4A16，也没有 scale、截断或近似：**每一个权重位都可逆还原**。
+
+| 项目 | Dense BF16 | exact-packed BF16 |
+|---|---:|---:|
+| lm_head 存储 | 508,559,360 B | 393,940,992 B |
+| 相对字节 | 100% | **77.462%** |
+| 权重位精确 | 是 | **是** |
+| 稳态 lm_head 中位延迟 | 2044.466 us | **1586.713 us** |
+| 局部加速 | 1.000x | **1.2885x** |
+
+这个结果需要一个容易被忽略的测量说明：packed kernel 同时使用更多整数/位运算，RTX 4060 Laptop 的核心频率从冷态爬升时，前几百次可从约 2.95 ms 慢慢降到约 1.99 ms。最终微基准使用 1,000 对交替 warmup 和 20 次交替采样，才得到上表的稳态 1.2885x。冷启动性能与稳态性能都是真实状态，不能只挑较快的一段；vLLM 的 CUDA Graph 编译和首次 cache 构建也不计入 steady-state decode。
+
+完整模型通过环境开关接入同一份 vLLM 源码。先做 control-candidate-candidate-control，两个 control 平均 TPOT 7.1798 ms，两个 candidate 平均 6.8510 ms，提升 1.0480x；最保守的末尾 `C2 vs S2` 仍有 1.0390x。随后按正式门槛跑 6 个自然提示、每侧 3 次 warmup × 10 次测量、每例生成 128 token：
+
+| 正式口径 | Control TPOT | Candidate TPOT | TPOT 加速 | E2E 加速 | token exact |
+|---|---:|---:|---:|---:|---:|
+| 当前已接受严格 BF16 前沿 → packed | 6.9951 ms | **6.6568 ms** | **1.0508x** | **1.0478x** | **6/6** |
+| 当前 fresh stock → packed | 6.9205 ms | **6.6568 ms** | **1.0396x** | **1.0364x** | 4/6 |
+
+第二行的 4/6 必须正确解释：fresh stock 与当前已接受前沿在 Python 与翻译用例上本来就走出了不同 token，说明 fresh AOT/cuBLAS 构建选择了另一棵 FP32 reduction tree。packed 权重本身仍逐 bit 精确，且在同源、同编译缓存的 accepted/packed 对照中达到 6/6。换句话说，“权重无损”不等于“任意两个浮点归约实现的中间 logits 位相同”。候选的最大 logits 差为 `6.1035e-05`，来自乘加顺序，不来自权重精度损失。
+
+为了验证“只要压到 12 bit 就会快”这个假设，还实现了完全精确的 4,096 项 BF16 codebook + 12-bit index + fallback sibling。它同样约占 dense 的 77.61%，输出甚至可逐 bit 相同，但 table lookup 与 12-bit unpack 把 lm_head 拉慢到 4,388 us，只有 0.4665x。真正有效的不是压缩率单一指标，而是**压缩格式必须与 GPU 可并行解码的数据路径一致**；base+delta 能用规则位运算重建，codebook 的间接访问不能。
+
+因此本轮把 exact-packed 晋级为这个受限范围的新严格 BF16 前沿：相对当前 stock 的直接实测约快 4%，相对此前严格前沿再快约 5%，不是“比 vLLM 快好多倍”，也不是全局理论最优证明。历史低功耗条件下的约 1.199x 与本轮 1.051x 没有在同一次受控实验中测量，禁止相乘后宣称累计 1.26x。当前原型还因为 embedding/lm_head 权重绑定而额外缓存约 375.691 MiB；生产化应在加载时直接构建 packed 表示，或者显式管理 tied weight，而不是永久保留两份输出权重。
+
+这轮也给 agent 增加了一种更有“大局观”的搜索方式：当算子已经碰到 dense-byte roofline，不再围绕 block size 无界扫参，而是先统计真实权重信息熵，推导可逆格式的理论字节数；只对预测能跨过 3% 整步门槛的格式写 kernel；并并行构造一个压缩率相近但解码机制不同的负对照。机器可读汇总、补丁与全部证据位于 `candidates/exact-bf16-packed-lmhead/summary.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -684,8 +715,15 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 - `candidates/fused-lmhead-argmax/summary.json`
 - `candidates/combined-gdn-down/summary.json`
 - `candidates/exact-vocab-pruning/summary.json`
+- `candidates/exact-bf16-packed-lmhead/summary.json`
+- `candidates/exact-bf16-packed-lmhead/vllm_utils_exact_bf16_packed_lmhead.patch`
 - `microbench_candidates/fused_lmhead_argmax_sm89.json`
+- `microbench_candidates/exact_bf16_packed_lmhead_sm89_steady.json`
+- `microbench_candidates/exact_bf16_codebook_lmhead_sm89.json`
 - `tools/benchmark_sm89_fused_lmhead_argmax.py`
+- `tools/analyze_exact_bf16_weight_compression.py`
+- `tools/benchmark_exact_bf16_packed_lmhead.py`
+- `tools/benchmark_exact_bf16_codebook_lmhead.py`
 - `models/sm89_exact_vocab_pruning_feasibility.json`
 - `tools/analyze_exact_vocab_pruning.py`
 - `traces/vllm_reachable_downw2_64.json`
@@ -696,6 +734,8 @@ recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperativ
 - `profiles/nsys2025_reachable_all_b.sqlite`
 - `comparisons/vllm_lmhead_toggle_pair1.json`
 - `comparisons/vllm_lmhead_toggle_pair2.json`
+- `comparisons/vllm_exact_pack_qualification.json`
+- `comparisons/vllm_exact_pack_stock_qualification.json`
 - `comparisons/vllm_sm89_gdn_quality_gsm8k_n512.json`
 - `microbench_candidates/bf16_triton_mtp_m2_backbone_sm89.json`
 - `microbench_candidates/gdn_packed_decode_bf16_state_sm89.json`

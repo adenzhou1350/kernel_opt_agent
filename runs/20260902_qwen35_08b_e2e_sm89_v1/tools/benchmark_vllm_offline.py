@@ -213,6 +213,11 @@ def main() -> None:
         help="Fail before engine startup unless the requested lm_head path is selected.",
     )
     parser.add_argument(
+        "--expect-exact-packed-lm-head",
+        choices=("off", "on"),
+        help="Fail unless the exact packed-BF16 lm_head switch matches.",
+    )
+    parser.add_argument(
         "--gpu-telemetry",
         action="store_true",
         help="Record nvidia-smi point samples immediately before and after each request.",
@@ -318,6 +323,19 @@ def main() -> None:
             "candidate path is unreachable: "
             f"expected SM89 lm_head={args.expect_sm89_lm_head}, "
             f"got {actual_sm89_lm_head}"
+        )
+    actual_exact_packed_lm_head = (
+        "on"
+        if os.environ.get("VLLM_SM89_EXACT_PACKED_LM_HEAD", "0") == "1"
+        else "off"
+    )
+    if (
+        args.expect_exact_packed_lm_head is not None
+        and actual_exact_packed_lm_head != args.expect_exact_packed_lm_head
+    ):
+        raise RuntimeError(
+            "candidate path is unreachable: expected exact-packed lm_head "
+            f"{args.expect_exact_packed_lm_head}, got {actual_exact_packed_lm_head}"
         )
     if args.ngram_prompt_lookup_min < 1:
         raise ValueError("ngram-prompt-lookup-min must be positive")
@@ -573,6 +591,9 @@ def main() -> None:
             "vllm_sm89_bf16_lm_head": os.environ.get(
                 "VLLM_SM89_BF16_LM_HEAD", "0(default)"
             ),
+            "vllm_sm89_exact_packed_lm_head": os.environ.get(
+                "VLLM_SM89_EXACT_PACKED_LM_HEAD", "0(default)"
+            ),
             "vllm_sm89_fused_swiglu_down": os.environ.get(
                 "VLLM_SM89_FUSED_SWIGLU_DOWN", "0(default)"
             ),
@@ -600,6 +621,8 @@ def main() -> None:
             "actual_gdn_decode_kernel": actual_gdn_kernel,
             "expected_sm89_lm_head": args.expect_sm89_lm_head,
             "actual_sm89_lm_head": actual_sm89_lm_head,
+            "expected_exact_packed_lm_head": args.expect_exact_packed_lm_head,
+            "actual_exact_packed_lm_head": actual_exact_packed_lm_head,
             "gpu_telemetry": args.gpu_telemetry,
             "cuda_profiler_range": args.cuda_profiler_range,
             "require_empty_vllm_cache_root": args.require_empty_vllm_cache_root,
