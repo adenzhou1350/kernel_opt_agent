@@ -59,7 +59,7 @@
       ]
     }
   ],
-  "generated_at": "2026-09-05T03:35:47.801901+00:00",
+  "generated_at": "2026-09-05T06:01:03.888438+00:00",
   "input_identities": [
     {
       "path": "operator.json",
@@ -75,7 +75,7 @@
     },
     {
       "path": "models/opportunity_map.json",
-      "sha256": "5065b236d8e6ad2a16ed7fb347e25c6cc2d318b015f033de2a38cc73c0a76d98"
+      "sha256": "2da621ef7942e2c1aa9b9a8847889ce82c234ceaca414e7ff16db937e8ff3f75"
     }
   ],
   "library_identity": {
@@ -707,6 +707,202 @@
           "candidate_archetypes": [
             {
               "change_axes": [
+                "memory instruction width",
+                "alignment guard",
+                "tail path"
+              ],
+              "family": "boundary-vector4",
+              "name": "aligned vector4 interior with scalar tail",
+              "template": "Use 128-bit accesses only for the aligned interior, preserve a scalar fallback, and compare final instruction counts."
+            },
+            {
+              "change_axes": [
+                "memory instruction width",
+                "register pressure"
+              ],
+              "family": "boundary-vector2",
+              "name": "aligned vector2 conservative path",
+              "template": "Use 64-bit accesses as a lower-pressure point between scalar and vector4 candidates."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "memory"
+          ],
+          "expected_bottleneck_shifts": [
+            "Memory-instruction issue pressure may shift to bandwidth, register pressure, or tail handling.",
+            "Wider accesses can reduce instruction count without reducing mandatory bytes."
+          ],
+          "failure_modes": [
+            "Pointers or offsets do not satisfy vector alignment.",
+            "The compiler scalarizes the access.",
+            "Extra registers or insufficient parallelism offset the instruction reduction."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Create separate scalar, 64-bit, and 128-bit access candidates instead of assuming the widest access wins.",
+            "Guard alignment and handle the remainder with a correct scalar tail.",
+            "Keep arithmetic and launch geometry constant for the first attribution test."
+          ],
+          "kind": "TRANSFORMATION",
+          "method_id": "cuda-vectorized-memory-access",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "bandwidth",
+            "load",
+            "memory"
+          ],
+          "score": 12.5,
+          "source": {
+            "claim_scope": "General NVIDIA CUDA guidance; benefit depends on alignment, instruction pressure, register use, and workload.",
+            "evidence_tier": "VENDOR_OFFICIAL_GUIDANCE",
+            "title": "CUDA Pro Tip: Increase Performance with Vectorized Memory Access",
+            "url": "https://developer.nvidia.com/blog/cuda-pro-tip-increase-performance-with-vectorized-memory-access/",
+            "version": "updated 2025-08-04"
+          },
+          "title": "Use aligned vector loads and stores to reduce memory instruction pressure",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Test aligned anchor sizes and deliberately unaligned or non-divisible edge sizes.",
+            "Audit final instructions for the intended access width.",
+            "Record register use and achieved bandwidth because fewer instructions may still reduce parallelism."
+          ]
+        },
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
+                "architecture family",
+                "opportunity coverage",
+                "wall-clock allocation"
+              ],
+              "family": "candidate-portfolio",
+              "name": "bounded architecture portfolio",
+              "template": "Give each distinct family one build/correctness/smoke attempt, halve the portfolio, and spend deeper analysis only on survivors."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "baseline",
+            "correctness",
+            "kernel"
+          ],
+          "expected_bottleneck_shifts": [
+            "Profiling should redirect search when an intended optimization moves the bottleneck elsewhere.",
+            "Portfolio-level progress can improve even when individual candidate lines terminate earlier."
+          ],
+          "failure_modes": [
+            "The agent repeatedly tunes launch parameters after the measured bottleneck has moved.",
+            "Feedback is too verbose or unstructured to change the next architecture decision.",
+            "The search overfits a public anchor input."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Generate several architecture-distinct candidates before giving any one candidate multiple tuning rounds.",
+            "Feed compile, correctness, timing, and a compact bottleneck summary back into the next proposal.",
+            "Stop a local line after bounded failures and return to a different opportunity or architecture family."
+          ],
+          "kind": "SEARCH_STRATEGY",
+          "method_id": "kernelbench-profile-feedback",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "candidate",
+            "kernel"
+          ],
+          "score": 10.0,
+          "source": {
+            "claim_scope": "Benchmark evidence that execution and profiling feedback can improve iterative refinement; it does not identify a universally best search policy.",
+            "evidence_tier": "PRIMARY_PREPRINT",
+            "title": "KernelBench: Can LLMs Write Efficient GPU Kernels?",
+            "url": "https://arxiv.org/abs/2502.10517",
+            "version": "arXiv:2502.10517v1"
+          },
+          "title": "Use execution and profiling feedback as a bounded candidate-generation loop",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Track time to first correct candidate, time to first improvement, and best result at fixed wall-clock budgets.",
+            "Report correctness-plus-speed thresholds across all tasks or workload cases, not only successful examples.",
+            "Separate technical repair failures from causal performance failures."
+          ]
+        },
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
+                "mathematical decomposition",
+                "fusion boundary",
+                "intermediate ownership"
+              ],
+              "family": "operator-fission",
+              "name": "fission then selective refusion",
+              "template": "Split a compound stage into legal primitives, then fuse each primitive with the consumer that removes the most weighted materialization."
+            },
+            {
+              "change_axes": [
+                "launch count",
+                "materialized bytes",
+                "duplicated compute"
+              ],
+              "family": "cross-stage-fusion",
+              "name": "weighted orchestration frontier",
+              "template": "Implement a small Pareto set spanning minimal launches, minimal bytes, and minimal duplicated work."
+            }
+          ],
+          "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+          "context_signature_hits": [
+            "fusion",
+            "operator"
+          ],
+          "expected_bottleneck_shifts": [
+            "Removing launches and intermediates can shift the kernel toward register pressure or redundant computation.",
+            "Fission can expose better fusion boundaries while increasing the orchestration search space."
+          ],
+          "failure_modes": [
+            "Greedy fusion creates a large kernel whose occupancy or instruction cache behavior regresses.",
+            "Fission duplicates expensive work or violates numerical ordering constraints.",
+            "A locally faster stage produces an incompatible downstream layout."
+          ],
+          "family_hits": [],
+          "implementation_recipe": [
+            "Decompose compound operators into legal primitive regions before selecting fusion boundaries.",
+            "Enumerate orchestration alternatives that include fission-plus-refusion, not only greedy adjacent fusion.",
+            "Score each alternative on weighted end-to-end latency and materialized bytes under explicit compatibility constraints."
+          ],
+          "kind": "ORCHESTRATION",
+          "method_id": "korch-fission-orchestration",
+          "missing_required_capabilities": [],
+          "opportunity_signature_hits": [
+            "operator"
+          ],
+          "score": 8.0,
+          "source": {
+            "claim_scope": "Tensor-program orchestration evaluated on V100 and A100; reported speedups do not transfer directly to other workloads or devices.",
+            "evidence_tier": "PEER_REVIEWED_PRIMARY",
+            "title": "Optimal Kernel Orchestration for Tensor Programs with Korch",
+            "url": "https://arxiv.org/abs/2406.09465",
+            "version": "ASPLOS 2024 / arXiv:2406.09465v1"
+          },
+          "title": "Explore fission before choosing global kernel orchestration",
+          "transfer_status": "DIRECT",
+          "validation_recipe": [
+            "Preserve an unfused and a greedily fused control alongside the selected orchestration.",
+            "Check every workload case because the best fusion boundary may be shape dependent.",
+            "Attribute gains to removed launches/materializations and record any duplicated compute."
+          ]
+        }
+      ],
+      "opportunity_id": "sm89-lm-head-residual",
+      "opportunity_priority_rank": 4
+    },
+    {
+      "matches": [
+        {
+          "architecture_affinity_hits": [],
+          "candidate_archetypes": [
+            {
+              "change_axes": [
                 "mathematical decomposition",
                 "fusion boundary",
                 "intermediate ownership"
@@ -893,7 +1089,7 @@
         }
       ],
       "opportunity_id": "sm89-normalization-epilogue-fusion",
-      "opportunity_priority_rank": 4
+      "opportunity_priority_rank": 5
     }
   ],
   "schema_version": "method-match-receipt-v1"

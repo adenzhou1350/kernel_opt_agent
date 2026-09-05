@@ -1,0 +1,154 @@
+--- a/vllm/model_executor/layers/utils.py
++++ b/vllm/model_executor/layers/utils.py
+@@ -93,6 +93,117 @@ def sm89_bf16_gemv(
+     return torch.ops.vllm.sm89_bf16_gemv(x, weight)
+ 
+ 
++_SM89_MARLIN_W4_CACHE: dict[
++    tuple[int, int],
++    tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor],
++] = {}
++
++
++@triton.jit
++def _sm89_exact_bf16_shortlist_rerank_kernel(
++    x_ptr,
++    weight_ptr,
++    shortlist_indices_ptr,
++    output_ptr,
++    k: tl.constexpr,
++    BLOCK_K: tl.constexpr,
++):
++    pid = tl.program_id(0)
++    offsets_k = tl.arange(0, BLOCK_K)
++    row = tl.load(shortlist_indices_ptr + pid).to(tl.int64)
++    valid_k = offsets_k < k
++    x = tl.load(x_ptr + offsets_k, mask=valid_k, other=0.0).to(tl.float32)
++    weight = tl.load(
++        weight_ptr + row * k + offsets_k,
++        mask=valid_k,
++        other=0.0,
++    ).to(tl.float32)
++    tl.store(output_ptr + row, tl.sum(weight * x, axis=0))
++
++
++def _get_sm89_marlin_w4_weight(
++    weight: torch.Tensor,
++) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
++    key = (weight.data_ptr(), weight._version)
++    cached = _SM89_MARLIN_W4_CACHE.get(key)
++    if cached is not None:
++        return cached
++
++    # Prototype only. A production checkpoint should store these tensors.
++    from vllm.model_executor.layers.quantization.utils.marlin_utils import (
++        marlin_make_workspace_new,
++    )
++    from vllm.model_executor.layers.quantization.utils.marlin_utils_test import (
++        marlin_quantize,
++    )
++    from vllm.scalar_type import scalar_types
++
++    dense_kn = weight.t().contiguous()
++    _, packed, scales, g_idx, sort_indices, _ = marlin_quantize(
++        dense_kn, scalar_types.uint4b8, 128, False
++    )
++    workspace = marlin_make_workspace_new(weight.device)
++    cached = (packed, scales, g_idx, sort_indices, workspace)
++    _SM89_MARLIN_W4_CACHE[key] = cached
++    return cached
++
++
++def sm89_marlin_w4_rerank_impl(
++    x: torch.Tensor,
++    weight: torch.Tensor,
++) -> torch.Tensor:
++    from vllm.model_executor.layers.quantization.utils.marlin_utils import (
++        apply_gptq_marlin_linear,
++    )
++    from vllm.scalar_type import scalar_types
++
++    n, k = weight.shape
++    packed, scales, g_idx, sort_indices, workspace = (
++        _get_sm89_marlin_w4_weight(weight)
++    )
++    empty_zp = torch.empty(0, dtype=torch.int32, device=x.device)
++    output = apply_gptq_marlin_linear(
++        x,
++        packed,
++        scales,
++        empty_zp,
++        g_idx,
++        sort_indices,
++        workspace,
++        scalar_types.uint4b8,
++        output_size_per_partition=n,
++        input_size_per_partition=k,
++        is_k_full=True,
++    )
++    shortlist_indices = torch.topk(output, 128, dim=-1, sorted=False).indices
++    output.fill_(float("-inf"))
++    _sm89_exact_bf16_shortlist_rerank_kernel[(128,)](
++        x,
++        weight,
++        shortlist_indices,
++        output,
++        k=k,
++        BLOCK_K=triton.next_power_of_2(k),
++        num_warps=4,
++        num_stages=1,
++    )
++    return output
++
++
++def sm89_marlin_w4_rerank_fake(
++    x: torch.Tensor,
++    weight: torch.Tensor,
++) -> torch.Tensor:
++    return x.new_empty((*x.shape[:-1], weight.shape[0]))
++
++
++def sm89_marlin_w4_rerank(
++    x: torch.Tensor,
++    weight: torch.Tensor,
++) -> torch.Tensor:
++    return torch.ops.vllm.sm89_marlin_w4_rerank(x, weight)
++
++
+ direct_register_custom_op(
+     op_name="sm89_bf16_gemv",
+     op_func=sm89_bf16_gemv_impl,
+@@ -100,6 +211,13 @@ direct_register_custom_op(
+ )
+ 
+ 
++direct_register_custom_op(
++    op_name="sm89_marlin_w4_rerank",
++    op_func=sm89_marlin_w4_rerank_impl,
++    fake_impl=sm89_marlin_w4_rerank_fake,
++)
++
++
+ def get_token_bin_counts_and_mask(
+     tokens: torch.Tensor,
+     vocab_size: int,
+@@ -162,6 +280,19 @@ def default_unquantized_gemm(
+     weight: torch.Tensor,
+     bias: torch.Tensor | None = None,
+ ):
++    if (
++        os.environ.get("VLLM_SM89_MARLIN_W4_RERANK", "0") == "1"
++        and bias is None
++        and x.is_cuda
++        and x.dtype == torch.bfloat16
++        and weight.dtype == torch.bfloat16
++        and x.numel() == 1024
++        and x.shape[-1] == 1024
++        and weight.ndim == 2
++        and weight.shape == (248320, 1024)
++        and current_platform.is_device_capability(89)
++    ):
++        return sm89_marlin_w4_rerank(x, weight)
+     if (
+         os.environ.get("VLLM_SM89_BF16_LM_HEAD", "0") == "1"
+         and bias is None

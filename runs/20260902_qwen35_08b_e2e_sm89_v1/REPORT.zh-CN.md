@@ -787,6 +787,18 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 当前条件化前沿因此变成四档：严格全输入合同用 exact-packed BF16；有界实证同输出 greedy 用 per-row INT8 + BF16 top-128，约为原生 vLLM FP8 的 **1.199x**；允许目标任务校准有损时用 group-32 INT8，约 **1.219x**；多序列服务继续用原生 vLLM FP8。完整证据见 `candidates/int8-bf16-shortlist-rerank/summary.json`。
 
+### 第二十六轮：vLLM 量化并非自动更快，W4A16 找到更强内核但尚未晋级
+
+这一轮直接检验“既然 vLLM 也能量化，量化 vLLM 是否必然更快”。答案是否定的：在 RTX 4060 Laptop 上，vLLM 明确报告该设备没有它所需的原生 FP8 计算路径，`fp8_per_block` backbone 实际选择 Marlin weight-only；与此同时 tied `lm_head` 仍保留 BF16。这也是此前还能优化输出头的原因——对照并不是未量化 vLLM，而是 **Marlin FP8 weight-only backbone + BF16 head**。
+
+首先测普通 Triton packed INT4。最快点只需 dense BF16 约 25.78% 的存储字节，但扫描仍为 1.838 ms，慢于已有 INT8 的 0.993 ms；低 4 bit 带来的字节节省被 nibble 解包、符号扩展和反量化指令吃掉，因此停止继续调 block/warp。随后复用 vLLM Marlin 的原生 W4A16 路径，完整 248320×1024 扫描达到 **0.894 ms**，相对 exact-packed BF16 的 2.956 ms 为 **3.307x**；8/8 随机向量的 BF16 真正赢家都在近似 top-128 中，最坏近似排名仅为 3。W4A8-INT8 反而为 2.574 ms，说明“bit 更低”不能替代真实 shape 上的测量。
+
+把 W4A16 scan 与 BF16 top-128 精确复核接入完整 vLLM 后，六类自然提示均与原生路径保持 128/128 token 相同。在当前笔记本低功耗状态下，原生与候选分别为 8.626 和 5.994 ms/token，候选约 **1.439x**；原生和候选中位核心频率分别为 945 和 862.5 MHz，所以收益不是候选频率更高造成的。但这组结果不能与此前 2610--2625 MHz 下的 5.119 ms 原生前沿交叉比较：当前 GPU 被限制在约 26--31 W、780--975 MHz。候选因此只记为强内核和低功耗端到端通过，尚不替代已经完成高频 C-S-S-C 与 GSM8K-512 的 INT8+BF16 前沿。
+
+更重要的全局画像是：INT8+BF16 前沿 TPOT 为 4.260 ms，而 Nsight 中全部 CUDA kernel duration 总和除以生成步数只有 1.193 ms。即使把可能重叠考虑在内，至少约 **3.067 ms/token（72.0%）** 不在逐 kernel duration 累加中；同一请求内 `cudaGraphLaunch` 起点间隔中位数约 4.249 ms。这不是“72% 都是纯 CPU”证明，却足以否定继续只盯 lm-head 小数点后的策略。下一条高价值路线应是设备驻留多 token、减少逐 token host round-trip，或能稳定接受多个 draft token 的模型级解码架构；单算子搜索仍保留，但预算应受全局上限约束。
+
+完整记录见 `candidates/marlin-w4-bf16-shortlist-rerank/summary.json`、`candidates/ordinary-triton-int4-recall/summary.json`、`models/vllm_fp8_rerank_decode_cadence_bound.json` 和 `comparisons/vllm_fp8_native_vs_marlin_w4_rerank_low_power_screen.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。

@@ -1,0 +1,47 @@
+{
+  "schema_version": "vllm-decode-cadence-bound-v1",
+  "status": "PASS",
+  "scope": "Profiled batch-1 greedy run; CUDA kernel sum includes prefill and is therefore a conservative upper bound on decode kernel-active time.",
+  "source": {
+    "sqlite": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\profiles\\nsys2025_int8_bf16_rerank_g1024k128.sqlite",
+      "sha256": "cbbbe4b13e20521338316509e33e5d9f2b2761d71d71c2a9fdefc05234a50e88"
+    },
+    "trace": {
+      "path": "runs\\20260902_qwen35_08b_e2e_sm89_v1\\traces\\vllm_nsys2025_int8_bf16_rerank_g1024k128_w1_n1_t32.json",
+      "sha256": "e733fa813c3e54a646cff575c653833b00fdce5cf65863cc1b8bfa632cb8b547"
+    }
+  },
+  "generated_steps": 192,
+  "request_count": 6,
+  "weighted_tpot_ms": 4.2601278763213095,
+  "cuda": {
+    "kernel_instances": 9024,
+    "total_kernel_ms": 229.022417,
+    "kernel_ms_per_generated_step_upper_bound": 1.1928250885416667,
+    "kernel_fraction_of_tpot_upper_bound": 0.27999748438811906,
+    "outside_kernel_ms_per_token_lower_bound": 3.067302787779643,
+    "outside_kernel_fraction_of_tpot_lower_bound": 0.720002515611881,
+    "graph_launch_count": 186,
+    "expected_graph_launch_count": 186,
+    "graph_launch_api_duration_ms": {
+      "median": 0.149358,
+      "mean": 0.1623534247311828,
+      "p90": 0.201424,
+      "max": 0.499069
+    },
+    "within_request_graph_launch_start_cadence_ms": {
+      "count": 180,
+      "median": 4.249069,
+      "mean": 4.230639472222222,
+      "p90": 4.741949,
+      "max": 6.353208
+    }
+  },
+  "bounds": {
+    "ideal_delete_all_observed_gpu_kernels_speedup": 1.388884036259468,
+    "ideal_delete_all_outside_kernel_time_speedup": 3.5714606586030895,
+    "qualification": "These are decomposition bounds, not achievable performance predictions; CPU work, CUDA submission and GPU work may overlap."
+  },
+  "decision": "The post-lm-head frontier is no longer justified as a kernel-only search. Compare runtime orchestration or multi-token device-resident decoding before further local scan tuning."
+}
