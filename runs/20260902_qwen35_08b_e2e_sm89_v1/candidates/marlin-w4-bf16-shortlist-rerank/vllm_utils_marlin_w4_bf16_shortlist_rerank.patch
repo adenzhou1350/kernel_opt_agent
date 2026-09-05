@@ -1,6 +1,6 @@
 --- a/vllm/model_executor/layers/utils.py
 +++ b/vllm/model_executor/layers/utils.py
-@@ -93,6 +93,117 @@ def sm89_bf16_gemv(
+@@ -93,6 +93,122 @@ def sm89_bf16_gemv(
      return torch.ops.vllm.sm89_bf16_gemv(x, weight)
  
  
@@ -19,17 +19,22 @@
 +    k: tl.constexpr,
 +    BLOCK_K: tl.constexpr,
 +):
-+    pid = tl.program_id(0)
++    pid_m = tl.program_id(0)
++    pid_s = tl.program_id(1)
 +    offsets_k = tl.arange(0, BLOCK_K)
-+    row = tl.load(shortlist_indices_ptr + pid).to(tl.int64)
++    row = tl.load(shortlist_indices_ptr + pid_m * 128 + pid_s).to(tl.int64)
 +    valid_k = offsets_k < k
-+    x = tl.load(x_ptr + offsets_k, mask=valid_k, other=0.0).to(tl.float32)
++    x = tl.load(
++        x_ptr + pid_m * k + offsets_k,
++        mask=valid_k,
++        other=0.0,
++    ).to(tl.float32)
 +    weight = tl.load(
 +        weight_ptr + row * k + offsets_k,
 +        mask=valid_k,
 +        other=0.0,
 +    ).to(tl.float32)
-+    tl.store(output_ptr + row, tl.sum(weight * x, axis=0))
++    tl.store(output_ptr + pid_m * 248320 + row, tl.sum(weight * x, axis=0))
 +
 +
 +def _get_sm89_marlin_w4_weight(
@@ -88,7 +93,7 @@
 +    )
 +    shortlist_indices = torch.topk(output, 128, dim=-1, sorted=False).indices
 +    output.fill_(float("-inf"))
-+    _sm89_exact_bf16_shortlist_rerank_kernel[(128,)](
++    _sm89_exact_bf16_shortlist_rerank_kernel[(x.shape[0], 128)](
 +        x,
 +        weight,
 +        shortlist_indices,
@@ -118,7 +123,7 @@
  direct_register_custom_op(
      op_name="sm89_bf16_gemv",
      op_func=sm89_bf16_gemv_impl,
-@@ -100,6 +211,13 @@ direct_register_custom_op(
+@@ -100,6 +216,13 @@ direct_register_custom_op(
  )
  
  
@@ -132,7 +137,7 @@
  def get_token_bin_counts_and_mask(
      tokens: torch.Tensor,
      vocab_size: int,
-@@ -162,6 +280,19 @@ def default_unquantized_gemm(
+@@ -162,6 +285,20 @@ def default_unquantized_gemm(
      weight: torch.Tensor,
      bias: torch.Tensor | None = None,
  ):
@@ -142,7 +147,8 @@
 +        and x.is_cuda
 +        and x.dtype == torch.bfloat16
 +        and weight.dtype == torch.bfloat16
-+        and x.numel() == 1024
++        and x.ndim == 2
++        and x.shape[0] in (1, 2)
 +        and x.shape[-1] == 1024
 +        and weight.ndim == 2
 +        and weight.shape == (248320, 1024)

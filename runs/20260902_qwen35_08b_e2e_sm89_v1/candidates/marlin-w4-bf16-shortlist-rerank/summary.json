@@ -10,6 +10,13 @@
     "random_vector_exact_winner_recall_at_128": "8/8",
     "worst_approximate_rank": 3
   },
+  "m2_microbenchmark": {
+    "torch_bf16_linear_us": 2842.2756958007812,
+    "marlin_w4a16_us": 803.1008148193359,
+    "speedup_vs_torch_bf16_linear": 3.5391268983336475,
+    "random_vector_exact_winner_recall_at_128": "8/8",
+    "measured_batch_exact_winner_ranks": [1, 1]
+  },
   "low_power_end_to_end_screen": {
     "protocol": "same source, adjacent multiprocess runs, six natural prompts, one warmup and three trials, 128 generated tokens",
     "native_vllm_fp8_tpot_ms": 8.625853439627647,
@@ -26,6 +33,16 @@
     "graphics_clock_mhz": 2625,
     "reason": "The current laptop was power limited to 780--975 MHz, so the low-power screen cannot establish speedup against the earlier high-clock frontier."
   },
+  "mtp1_screen": {
+    "status": "REJECT",
+    "protocol": "same candidate source in separate fresh processes, six natural prompts, one warmup and one measured trial, 64 generated tokens",
+    "nonspec_tpot_ms": 6.2156236587325875,
+    "mtp1_tpot_ms": 6.9221133650740185,
+    "nonspec_speedup_over_mtp1": 1.1136635268045636,
+    "aggregate_draft_acceptance": 0.7351598173515982,
+    "token_exact_cases_vs_nonspec": "3/6",
+    "reason": "M=2 Marlin weight reuse is real, but it does not cover proposer, target verification, rejection, and runtime overhead; the M=2 backbone also changes numerical reductions before exact shortlist reranking."
+  },
   "implementation_limitations": [
     "Prototype quantization happens during first use and temporarily raises peak activation memory; production must load prepacked tensors.",
     "The implementation imports a vLLM test packing helper and is therefore evidence code, not merge-ready production code.",
@@ -34,8 +51,10 @@
   ],
   "artifacts": {
     "microbenchmark": "microbench_candidates/marlin_int4_recall_lmhead_sm89.json",
+    "m2_microbenchmark": "microbench_candidates/marlin_int4_recall_lmhead_m2_sm89.json",
     "runtime_comparison": "comparisons/vllm_fp8_native_vs_marlin_w4_rerank_low_power_screen.json",
+    "mtp1_screen": "comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json",
     "prototype_patch": "candidates/marlin-w4-bf16-shortlist-rerank/vllm_utils_marlin_w4_bf16_shortlist_rerank.patch"
   },
-  "decision": "Keep as the next lm-head architecture candidate. Do not replace the already qualified INT8+BF16 frontier until a power-controlled high-clock rematch passes."
+  "decision": "Keep as the next ordinary batch-1 lm-head architecture candidate and reject MTP-1 at this deployment point. Do not replace the already qualified INT8+BF16 frontier until a power-controlled high-clock rematch passes."
 }

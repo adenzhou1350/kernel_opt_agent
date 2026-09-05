@@ -799,6 +799,21 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 
 完整记录见 `candidates/marlin-w4-bf16-shortlist-rerank/summary.json`、`candidates/ordinary-triton-int4-recall/summary.json`、`models/vllm_fp8_rerank_decode_cadence_bound.json` 和 `comparisons/vllm_fp8_native_vs_marlin_w4_rerank_low_power_screen.json`。
 
+### 第二十七轮：W4 让双 token 输出头接近“免费”，但 MTP-1 仍应拒绝
+
+为了检验能否利用设备驻留的多 token 验证减少逐 token 调度，本轮先扩展 W4 shortlist/rerank 原型，使它同时支持 M=1 和 M=2。M=2 完整词表扫描的 Marlin W4A16 中位耗时为 **0.803 ms**，而同 shape 的 `torch` BF16 linear 为 2.842 ms，约快 **3.539x**；8/8 个随机向量的 BF16 真正赢家仍全部进入 top-128，实测两行赢家近似排名均为 1。相较 M=1 的 0.894 ms，M=2 没有翻倍，证明 Marlin 确实复用了输出权重流量。
+
+但是局部收益没有转化为完整推理收益。相同 `fp8_per_block` 主干和 W4+BF16 精确回排下，六类自然提示、64 输出 token 的低功耗筛选结果为：
+
+| 路径 | 加权 TPOT | 加权 E2E | 相对结果 |
+|---|---:|---:|---:|
+| 普通单 token decode | **6.216 ms** | **431.866 ms** | **1.114x faster** |
+| 原生 MTP-1 | 6.922 ms | 488.484 ms | reject |
+
+MTP 总接受率为 161/219（73.52%），且只有 3/6 个样例与普通路径保持整段 token 相同。虽然 exact BF16 rerank 消除了输出头候选内部的量化误差，但 M=2 target backbone 的矩阵 shape 和归约树也会改变上游 hidden state；因此不能由“输出头精确复算”推出 M=1/M=2 的全链路 token 等价。性能上，MTP proposer、双 token target 验证、拒绝处理及额外 runtime 工作仍超过少一次调度带来的收益。
+
+这轮体现的不是“保守地少做一种优化”，而是先用 M=2 微基准验证必要条件，再用一次短端到端实验否定充分性。由于性能门和 token-identity 门同时失败，不再浪费数小时做 3×10 或质量集复验；Marlin W4 继续作为普通 batch-1 greedy 候选，MTP-1 在当前 `(Qwen3.5-0.8B, RTX 4060 SM89, vLLM 0.28.1, concurrency=1)` 点关闭。证据见 `comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。
@@ -883,6 +898,9 @@ Qwen3.5-0.8B 的 `248320 × 1024` 输出权重共有 254,279,680 个 BF16 值，
 - `tools/analyze_exact_bf16_backbone_compression.py`
 - `tools/benchmark_exact_bf16_backbone_stream.py`
 - `tools/benchmark_exact_bf16_backbone_tensorcore.py`
+- `tools/benchmark_marlin_int4_recall_lmhead.py`
+- `microbench_candidates/marlin_int4_recall_lmhead_m2_sm89.json`
+- `comparisons/vllm_fp8_marlin_w4_rerank_mtp1_screen.json`
 - `models/sm89_exact_vocab_pruning_feasibility.json`
 - `tools/analyze_exact_vocab_pruning.py`
 - `traces/vllm_reachable_downw2_64.json`

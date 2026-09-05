@@ -22,8 +22,10 @@ from vllm.scalar_type import scalar_types
 from benchmark_exact_bf16_packed_lmhead import launch_packed, pack_exact_bf16
 
 
-def measure_us(fn, iterations: int, repeats: int) -> tuple[float, list[float]]:
-    for _ in range(5):
+def measure_us(
+    fn, iterations: int, repeats: int, warmup_iterations: int
+) -> tuple[float, list[float]]:
+    for _ in range(warmup_iterations):
         fn()
     torch.cuda.synchronize()
     samples = []
@@ -45,10 +47,19 @@ def main() -> None:
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--group-size", type=int, default=128)
     parser.add_argument("--vectors", type=int, default=8)
+    parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--shortlist", type=int, default=128)
     parser.add_argument("--iterations", type=int, default=20)
     parser.add_argument("--repeats", type=int, default=5)
+    parser.add_argument("--warmup-iterations", type=int, default=50)
+    parser.add_argument(
+        "--include-w4a8-int8",
+        action="store_true",
+        help="Also measure the known-bad experimental W4A8 path.",
+    )
     args = parser.parse_args()
+    if args.batch_size < 1 or args.batch_size > args.vectors:
+        raise ValueError("batch-size must be in [1, vectors]")
 
     torch.manual_seed(20260905)
     model_path = args.model.resolve()
@@ -73,15 +84,29 @@ def main() -> None:
         exact_outputs.append(output)
     torch.cuda.synchronize()
 
-    exact_scratch = torch.empty((1, n), device="cuda", dtype=torch.bfloat16)
+    exact_scratch = torch.empty(
+        (args.batch_size, n), device="cuda", dtype=torch.bfloat16
+    )
+    if args.batch_size == 1:
+        exact_fn = lambda: launch_packed(  # noqa: E731
+            vectors[0:1], packed_exact, exact_scratch, n, k, 16, 8
+        )
+        exact_label = "exact-packed BF16 lm-head"
+    else:
+        exact_fn = lambda: torch.nn.functional.linear(  # noqa: E731
+            vectors[: args.batch_size], dense_weight.t()
+        )
+        exact_label = "torch BF16 linear"
     exact_us, exact_samples = measure_us(
-        lambda: launch_packed(vectors[0:1], packed_exact, exact_scratch, n, k, 16, 8),
-        args.iterations,
-        args.repeats,
+        exact_fn, args.iterations, args.repeats, args.warmup_iterations
     )
 
+    candidates = [("w4a16", None)]
+    if args.include_w4a8_int8:
+        candidates.append(("w4a8_int8", torch.int8))
+
     results = []
-    for label, input_dtype in (("w4a16", None), ("w4a8_int8", torch.int8)):
+    for label, input_dtype in candidates:
         _, marlin_weight, marlin_scales, g_idx, sort_indices, _ = marlin_quantize(
             dense_weight,
             scalar_types.uint4b8,
@@ -97,7 +122,7 @@ def main() -> None:
             else None
         )
 
-        def run(vector: torch.Tensor = vectors[0:1]) -> torch.Tensor:
+        def run(vector: torch.Tensor = vectors[: args.batch_size]) -> torch.Tensor:
             return apply_gptq_marlin_linear(
                 vector,
                 marlin_weight,
@@ -115,8 +140,20 @@ def main() -> None:
             )
 
         candidate_us, candidate_samples = measure_us(
-            run, args.iterations, args.repeats
+            run, args.iterations, args.repeats, args.warmup_iterations
         )
+        batch_candidate = run(vectors[: args.batch_size])
+        batch_exact = torch.nn.functional.linear(
+            vectors[: args.batch_size], dense_weight.t()
+        )
+        torch.cuda.synchronize()
+        batch_ranks = []
+        for row in range(args.batch_size):
+            exact_top1 = batch_exact[row].argmax().item()
+            winner_score = batch_candidate[row, exact_top1]
+            batch_ranks.append(
+                int((batch_candidate[row] > winner_score).sum().item()) + 1
+            )
         ranks = []
         top1_equal = 0
         max_abs_errors = []
@@ -134,7 +171,12 @@ def main() -> None:
         results.append(
             {
                 "candidate": label,
+                "batch_size": args.batch_size,
                 "group_size": args.group_size,
+                "control": exact_label,
+                "median_control_us": exact_us,
+                "speedup_vs_control": exact_us / candidate_us,
+                # Retained for compatibility with the original M=1 receipt.
                 "median_exact_packed_us": exact_us,
                 "median_candidate_us": candidate_us,
                 "speedup_vs_exact_packed": exact_us / candidate_us,
@@ -149,6 +191,7 @@ def main() -> None:
                     "exact_winner_approximate_ranks": ranks,
                     "maximum_rank": max(ranks),
                     "maximum_abs_logit_errors": max_abs_errors,
+                    "measured_batch_exact_winner_approximate_ranks": batch_ranks,
                 },
             }
         )
@@ -162,7 +205,8 @@ def main() -> None:
             "model": str(model_path),
             "gpu": torch.cuda.get_device_name(0),
             "weight_shape_kn": [k, n],
-            "control": "exact-packed BF16 lm-head",
+            "batch_size": args.batch_size,
+            "control": exact_label,
             "candidate": "vLLM Marlin GPTQ uint4b8 scan for shortlist recall",
         },
         "control_weight_bit_exact": exact_pack_check,
