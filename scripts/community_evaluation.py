@@ -354,35 +354,51 @@ def audit_codex_execution(
     max_declared_repairs = 0
     turn_completed = False
     malformed_lines = 0
-    for line in transcript_path.read_text(encoding="utf-8").splitlines():
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            malformed_lines += 1
-            continue
-        if event.get("type") == "turn.completed":
-            turn_completed = True
-        item = event.get("item") or {}
-        if event.get("type") == "item.started" and item.get("type") == "command_execution":
-            commands.append(str(item.get("command", "")))
-        if event.get("type") == "item.completed" and item.get("type") == "command_execution":
-            status = item.get("status")
-            if status == "completed":
-                completed_commands += 1
-                if item.get("exit_code") not in (None, 0):
-                    failed_commands += 1
-            elif status == "failed":
-                failed_commands += 1
-            elif status == "declined":
-                declined_commands += 1
-        if event.get("type") == "item.completed" and item.get("type") == "agent_message":
-            try:
-                message = json.loads(item.get("text", ""))
-            except (json.JSONDecodeError, TypeError):
+    # JSONL records are delimited only by physical LF/CRLF bytes.  str.splitlines()
+    # also splits valid JSON string data on Unicode U+2028/U+2029, which can occur
+    # in minified JavaScript captured in command output and creates a false audit
+    # failure.  TextIO iteration preserves those code points inside the record.
+    with transcript_path.open(encoding="utf-8", newline="") as transcript:
+        for line in transcript:
+            if not line.strip():
                 continue
-            declared = message.get("technical_repair_attempts")
-            if isinstance(declared, int):
-                max_declared_repairs = max(max_declared_repairs, declared)
+            try:
+                event = json.loads(line)
+            except json.JSONDecodeError:
+                malformed_lines += 1
+                continue
+            if event.get("type") == "turn.completed":
+                turn_completed = True
+            item = event.get("item") or {}
+            if (
+                event.get("type") == "item.started"
+                and item.get("type") == "command_execution"
+            ):
+                commands.append(str(item.get("command", "")))
+            if (
+                event.get("type") == "item.completed"
+                and item.get("type") == "command_execution"
+            ):
+                status = item.get("status")
+                if status == "completed":
+                    completed_commands += 1
+                    if item.get("exit_code") not in (None, 0):
+                        failed_commands += 1
+                elif status == "failed":
+                    failed_commands += 1
+                elif status == "declined":
+                    declined_commands += 1
+            if (
+                event.get("type") == "item.completed"
+                and item.get("type") == "agent_message"
+            ):
+                try:
+                    message = json.loads(item.get("text", ""))
+                except (json.JSONDecodeError, TypeError):
+                    continue
+                declared = message.get("technical_repair_attempts")
+                if isinstance(declared, int):
+                    max_declared_repairs = max(max_declared_repairs, declared)
 
     normalized = "\n".join(commands)
     forbidden_patterns = {

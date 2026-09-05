@@ -429,6 +429,39 @@ def main() -> None:
         else:
             raise AssertionError("unaudited trial was accepted by strict assessment")
 
+        unicode_output_events = [
+            {"type": "thread.started", "thread_id": "isolated"},
+            {
+                "type": "item.started",
+                "item": {
+                    "type": "command_execution",
+                    "command": "python evidence/read_minified_js.py",
+                },
+            },
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "command_execution",
+                    "status": "completed",
+                    "exit_code": 0,
+                    "aggregated_output": "before\u2028after and before\u2029after",
+                },
+            },
+            {"type": "turn.completed"},
+        ]
+        (control_dir / "executor.jsonl").write_text(
+            "".join(
+                json.dumps(event, ensure_ascii=False) + "\n"
+                for event in unicode_output_events
+            ),
+            encoding="utf-8",
+        )
+        (control_dir / "executor.stderr.log").write_text("", encoding="utf-8")
+        unicode_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert unicode_audit["status"] == "PASS"
+        assert unicode_audit["observations"]["malformed_line_count"] == 0
+        assess_trial(control_dir, ROOT, require_execution_audit=True)
+
         control_assessment = assess_trial(control_dir, ROOT)
         community_assessment = assess_trial(community_dir, ROOT)
         assert control_assessment["metrics"]["best_speedup"] == 1.04
