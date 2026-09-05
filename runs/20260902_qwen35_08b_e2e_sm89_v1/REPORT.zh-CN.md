@@ -535,6 +535,25 @@ recurrent 方向还修正了一个重要实验口径。旧孤立 sweep 使用 FP
 
 这个实验也回答了为什么“自己写个 fused kernel”经常打不过 vLLM：错误计时口径能制造数倍假收益，而 vLLM 的 CUDA Graph 已把 host launch 开销压低；真正竞争的是 GPU 内部 occupancy、访存与依赖链，不是源码里 kernel 数量的多少。
 
+### 第十五轮：从 vLLM 热点继续融合，局部 1.70x 只转化为整模 1.014x
+
+recurrent 方向又实现了一个四 warp/head 的 CUDA 版本，用 cooperative groups 在 128 维归一化前同步，试图同时保留四个 BV32 tile 的并行度。它的即时 BF16 输出与 stock 相同，但 recurrent state 有 10 个元素不同、最大差异 0.00390625；更关键的是 CUDA Graph replay 从 16.009 us 退化到 34.718 us（0.461x），64 MiB 驱逐口径也只有 0.395x。因此 `sm89-recurrent-state-fusion` 已用闭环证书正式关闭，而不是继续围绕 warp、tile 和 stage 做无穷扫参。机器可读证据为 `models/sm89_recurrent_opportunity_closure.json` 和 `microbench_candidates/gdn_recurrent_norm_cuda_sm89.json`。
+
+调度器随后把完整 decode CUDA Graph 的短 kernel 尾部排到第一位。本轮选择 24 个 MLP 层都存在的 producer-consumer 边界，把 `SwiGLU = silu(gate) * up` 融入 BF16 down projection。孤立 CUDA Graph 微基准从 45.169 us 降到 26.522 us，达到 **1.703x**，按 24 层简单求和似乎每 token 可省 0.448 ms。候选随后通过 direct custom op 接入 vLLM，并在两次独立冷缓存编译的 CUDA Graph capture 中留下可达日志，排除了“写了代码但图里没有走到”的假阳性。
+
+严格的 control-candidate-candidate-control、6 个自然提示、每个进程每例 3 次、固定 64 token 结果如下：
+
+| 指标 | lm-head-only control | fused SwiGLU-down | 相对 control |
+|---|---:|---:|---:|
+| 平均 E2E | 549.157 ms | 540.467 ms | **1.016x** |
+| 平均 TPOT | 8.0652 ms | 7.9515 ms | **1.014x** |
+| 平均 TTFT | 40.066 ms | 40.365 ms | 0.993x |
+| 64-token 逐 token 一致 | 6/6 | 4/6 | 未通过严格门 |
+
+候选两次运行彼此逐 token 一致，对照两次也彼此一致；分叉只发生在两种实现之间，首个差异分别位于中文解释的第 22 个 token、翻译的第 34 个 token。这说明它不是测量噪声，而是 GEMV reduction order 改变造成的数值路径变化。实际每 token 只省 0.114 ms，局部求和预测向整模转化约 **25%**：CUDA Graph 内存在重叠、调度和非目标开销，不能把各层微基准收益直接相加。
+
+因此这个候选记录为 **MEASURED_REJECT**：它确实比 vLLM 对应局部路径快，也让完整模型稳定快约 1.4%，但同时低于 1.03x 晋级门并违反严格 token-equivalence，继续围绕该实现调 block/warp 的期望价值很低。这个负结果反而把 agent 的搜索原则变得更清楚：先验证图中可达性，再做同源整模筛选；局部大胜若无法转化，立即生成退出证书并转向其他高占比边界。机器可读汇总为 `candidates/fused-swiglu-down/summary.json`。
+
 ## 技术失败与环境边界
 
 - vLLM V2 runner 在当前 WSL 驱动上因 UVA 不可用而失败；固定 `VLLM_USE_V2_MODEL_RUNNER=0` 后兼容 runner 正常。

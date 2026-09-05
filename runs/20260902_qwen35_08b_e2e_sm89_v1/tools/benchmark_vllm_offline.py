@@ -573,6 +573,9 @@ def main() -> None:
             "vllm_sm89_bf16_lm_head": os.environ.get(
                 "VLLM_SM89_BF16_LM_HEAD", "0(default)"
             ),
+            "vllm_sm89_fused_swiglu_down": os.environ.get(
+                "VLLM_SM89_FUSED_SWIGLU_DOWN", "0(default)"
+            ),
             "vllm_sm89_bf16_gemv": os.environ.get(
                 "VLLM_SM89_BF16_GEMV", "none(default)"
             ),
