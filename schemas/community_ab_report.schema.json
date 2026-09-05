@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_ab_report.schema.json",
+  "title": "Paired fixed-budget community-knowledge A/B report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "suite_id",
+    "task_id",
+    "repeat_index",
+    "control_assessment",
+    "community_assessment",
+    "deltas"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-ab-report-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "PAIRED_TRIAL_ONLY"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "repeat_index": {"type": "integer", "minimum": 1},
+    "control_assessment": {"$ref": "#/$defs/identity"},
+    "community_assessment": {"$ref": "#/$defs/identity"},
+    "deltas": {
+      "type": "object",
+      "additionalProperties": {"type": ["number", "null"]}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

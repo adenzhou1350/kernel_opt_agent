@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_temporal_suite.schema.json",
+  "title": "Leakage-resistant fixed-budget community-knowledge evaluation suite",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "suite_id",
+    "cutoff_at",
+    "claim_boundary",
+    "training_graph",
+    "protocol",
+    "tasks"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-temporal-suite-v1"},
+    "suite_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "cutoff_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "EVALUATION_PROTOCOL_ONLY"},
+    "training_graph": {"$ref": "#/$defs/identity"},
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arms",
+        "repeats",
+        "randomized_order",
+        "network_policy",
+        "model_identity",
+        "prompt_identity",
+        "budgets",
+        "metrics"
+      ],
+      "properties": {
+        "arms": {"const": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+        "repeats": {"type": "integer", "minimum": 1},
+        "randomized_order": {"const": true},
+        "network_policy": {"const": "DISABLED_AFTER_MATERIALIZATION"},
+        "model_identity": {"type": "string", "minLength": 1},
+        "prompt_identity": {"$ref": "#/$defs/identity"},
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "wall_clock_seconds",
+            "max_candidates",
+            "max_compile_attempts",
+            "max_measurements",
+            "max_technical_repairs",
+            "max_causal_revisions"
+          ],
+          "properties": {
+            "wall_clock_seconds": {"type": "number", "exclusiveMinimum": 0},
+            "max_candidates": {"type": "integer", "minimum": 1},
+            "max_compile_attempts": {"type": "integer", "minimum": 0},
+            "max_measurements": {"type": "integer", "minimum": 0},
+            "max_technical_repairs": {"type": "integer", "minimum": 0},
+            "max_causal_revisions": {"type": "integer", "minimum": 0}
+          }
+        },
+        "metrics": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "TIME_TO_FIRST_CORRECT",
+              "TIME_TO_FIRST_IMPROVEMENT",
+              "BEST_SPEEDUP",
+              "ARCHITECTURE_FAMILY_COVERAGE",
+              "HELDOUT_CORRECTNESS",
+              "WHOLE_MODEL_SPEEDUP",
+              "UPSTREAM_READINESS"
+            ]
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "task_id",
+          "available_at",
+          "repository",
+          "pr_number",
+          "base_revision",
+          "target_hardware",
+          "packet",
+          "hidden_oracle"
+        ],
+        "properties": {
+          "task_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "available_at": {"type": "string", "format": "date-time"},
+          "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "base_revision": {"type": "string", "minLength": 7},
+          "target_hardware": {"type": "string", "minLength": 1},
+          "packet": {"$ref": "#/$defs/identity"},
+          "hidden_oracle": {"$ref": "#/$defs/identity"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

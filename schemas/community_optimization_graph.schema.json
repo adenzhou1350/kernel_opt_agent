@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_optimization_graph.schema.json",
+  "title": "Community optimization method and coverage graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "temporal_cutoff_at",
+    "claim_boundary",
+    "input_identity",
+    "repository_universe",
+    "nodes",
+    "edges",
+    "coverage_gaps",
+    "composition_hypotheses"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-optimization-graph-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "temporal_cutoff_at": {"type": ["string", "null"], "format": "date-time"},
+    "claim_boundary": {"const": "DISCOVERY_PRIOR_ONLY"},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corpus_index_sha256", "events"],
+      "properties": {
+        "corpus_index_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "events": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/identity"}}
+      }
+    },
+    "repository_universe": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"}
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "repository",
+          "pr_number",
+          "source_url",
+          "source_available_at",
+          "outcome",
+          "review_status",
+          "summary",
+          "rewrite_families",
+          "operators",
+          "subsystems",
+          "dtypes",
+          "hardware",
+          "required_capabilities",
+          "hard_requirements",
+          "implementation_recipe",
+          "correctness_recipe",
+          "expected_bottleneck_shifts",
+          "limitations"
+        ],
+        "properties": {
+          "event_id": {"type": "string", "minLength": 1},
+          "repository": {"type": "string", "minLength": 1},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "source_url": {"type": "string", "pattern": "^https://github\\.com/"},
+          "source_available_at": {"type": "string", "format": "date-time"},
+          "outcome": {"type": "string", "minLength": 1},
+          "review_status": {"enum": ["DRAFT", "REVIEWED", "PROMOTED"]},
+          "summary": {"type": "string", "minLength": 1},
+          "rewrite_families": {"$ref": "#/$defs/strings"},
+          "operators": {"$ref": "#/$defs/strings"},
+          "subsystems": {"$ref": "#/$defs/strings"},
+          "dtypes": {"type": "array", "items": {"type": "string"}},
+          "hardware": {"type": "array", "items": {"type": "string"}},
+          "required_capabilities": {"type": "array", "items": {"type": "string"}},
+          "hard_requirements": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["compute_capabilities", "minimum_parallel_width", "required_context_terms"],
+            "properties": {
+              "compute_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"}},
+              "minimum_parallel_width": {"type": "integer", "minimum": 1},
+              "required_context_terms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+            }
+          },
+          "implementation_recipe": {"$ref": "#/$defs/strings"},
+          "correctness_recipe": {"$ref": "#/$defs/strings"},
+          "expected_bottleneck_shifts": {"$ref": "#/$defs/strings"},
+          "limitations": {"$ref": "#/$defs/strings"}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "type", "target", "target_kind", "resolution", "rationale"],
+        "properties": {
+          "source": {"type": "string", "minLength": 1},
+          "type": {"type": "string", "minLength": 1},
+          "target": {"type": "string", "minLength": 1},
+          "target_kind": {"enum": ["EVENT", "METHOD"]},
+          "resolution": {"enum": ["PRESENT", "MISSING"]},
+          "rationale": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "coverage_gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["gap_id", "rewrite_family", "subsystem", "observed_repositories", "missing_repositories", "evidence_events", "claim_boundary"],
+        "properties": {
+          "gap_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+          "rewrite_family": {"type": "string", "minLength": 1},
+          "subsystem": {"type": "string", "minLength": 1},
+          "observed_repositories": {"$ref": "#/$defs/strings"},
+          "missing_repositories": {"$ref": "#/$defs/strings"},
+          "evidence_events": {"$ref": "#/$defs/strings"},
+          "claim_boundary": {"const": "CORPUS_COVERAGE_GAP_ONLY"}
+        }
+      }
+    },
+    "composition_hypotheses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["hypothesis_id", "events", "relation", "rationale", "claim_boundary"],
+        "properties": {
+          "hypothesis_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+          "events": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string"}},
+          "relation": {"const": "COMPLEMENTS"},
+          "rationale": {"type": "string", "minLength": 1},
+          "claim_boundary": {"const": "UNVALIDATED_COMPOSITION_HYPOTHESIS"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "strings": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  }
+}

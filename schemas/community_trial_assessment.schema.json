@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_trial_assessment.schema.json",
+  "title": "Derived metrics for one fixed-budget community-knowledge trial",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "trial_identity",
+    "result_identity",
+    "suite_id",
+    "task_id",
+    "repeat_index",
+    "arm",
+    "metrics",
+    "budget_usage"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-trial-assessment-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "SINGLE_TRIAL_OBSERVATION"},
+    "trial_identity": {"$ref": "#/$defs/identity"},
+    "result_identity": {"$ref": "#/$defs/identity"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "repeat_index": {"type": "integer", "minimum": 1},
+    "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "time_to_first_correct_seconds",
+        "time_to_first_improvement_seconds",
+        "best_speedup",
+        "architecture_family_count",
+        "heldout_pass_count",
+        "best_whole_model_speedup",
+        "upstream_ready_count"
+      ],
+      "properties": {
+        "time_to_first_correct_seconds": {"type": ["number", "null"], "minimum": 0},
+        "time_to_first_improvement_seconds": {"type": ["number", "null"], "minimum": 0},
+        "best_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "architecture_family_count": {"type": "integer", "minimum": 0},
+        "heldout_pass_count": {"type": "integer", "minimum": 0},
+        "best_whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "upstream_ready_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "budget_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "elapsed_seconds",
+        "candidate_count",
+        "compile_attempts",
+        "measurement_attempts",
+        "technical_repair_attempts",
+        "causal_revisions"
+      ],
+      "properties": {
+        "elapsed_seconds": {"type": "number", "minimum": 0},
+        "candidate_count": {"type": "integer", "minimum": 0},
+        "compile_attempts": {"type": "integer", "minimum": 0},
+        "measurement_attempts": {"type": "integer", "minimum": 0},
+        "technical_repair_attempts": {"type": "integer", "minimum": 0},
+        "causal_revisions": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

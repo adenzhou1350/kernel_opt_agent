@@ -10,6 +10,13 @@ The transfer-aware method-learning layer and its two-device validation are
 documented in
 [skill/kernel-optimizer/references/method_learning_design.md](skill/kernel-optimizer/references/method_learning_design.md).
 
+Community optimization evidence can be captured as immutable, hash-bound PR
+snapshots and reviewed optimization events. See
+[knowledge/community/README.md](knowledge/community/README.md) and use
+`scripts/kernel_opt.py community capture-pr|validate-corpus|validate-event`.
+Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
+versus community-augmented trials.
+
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
 

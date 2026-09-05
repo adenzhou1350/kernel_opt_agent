@@ -10,6 +10,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from community_knowledge import validate_match_receipt as validate_community_receipt
 from evidence_utils import read_object, validate_hardware_evidence, validate_identity
 from method_library import validate_receipt as validate_method_receipt
 from opportunity_map import validate_map as validate_opportunity_map
@@ -290,6 +291,57 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             (item for item in opportunity_rows if item.get("opportunity_id") not in covered_opportunities),
             opportunity_rows[0] if opportunity_rows else None,
         )
+        community_matches = []
+        community_compositions = []
+        community_graph_path = run / "knowledge" / "community_graph.json"
+        if community_graph_path.is_file():
+            community_path = run / "models" / "community_matches.json"
+            community_receipt = None
+            community_error = None
+            if community_path.is_file():
+                try:
+                    community_receipt = read_object(community_path)
+                    validate_community_receipt(community_receipt, run)
+                except (OSError, ValueError, json.JSONDecodeError) as error:
+                    community_error = str(error)
+                    community_receipt = None
+            if community_receipt is None:
+                return action(
+                    "RETRIEVE_COMMUNITY_OPTIMIZATIONS",
+                    "the candidate portfolio is narrow; route traceable community optimization events before expanding it",
+                    [[
+                        sys.executable,
+                        str(scripts / "kernel_opt.py"),
+                        "community",
+                        "recommend",
+                        "--run",
+                        str(run),
+                    ]],
+                    [{
+                        "opportunity_id": target.get("opportunity_id") if target else None,
+                        "stale_or_missing_receipt": community_error
+                        or "models/community_matches.json is missing",
+                        "claim_scope": "DISCOVERY_PRIOR_ONLY",
+                    }],
+                )
+            community_matches = next(
+                (
+                    item.get("matches", [])
+                    for item in community_receipt.get("recommendations", [])
+                    if target
+                    and item.get("opportunity_id") == target.get("opportunity_id")
+                ),
+                [],
+            )
+            community_compositions = next(
+                (
+                    item.get("composition_matches", [])
+                    for item in community_receipt.get("recommendations", [])
+                    if target
+                    and item.get("opportunity_id") == target.get("opportunity_id")
+                ),
+                [],
+            )
         method_path = run / "models" / "method_matches.json"
         method_receipt = None
         method_error = None
@@ -328,6 +380,8 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 "opportunity_count": len(covered_opportunities),
                 "required_opportunity_count": minimum_opportunity_coverage,
                 "next_ranked_uncovered_opportunity": target,
+                "community_optimization_matches": community_matches,
+                "community_composition_hypotheses": community_compositions,
                 "transfer_aware_method_matches": matched,
                 "evaluation_guards": method_receipt.get("evaluation_guards", []),
                 "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",

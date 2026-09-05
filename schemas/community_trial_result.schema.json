@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_trial_result.schema.json",
+  "title": "Raw fixed-budget community-knowledge trial result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "trial_id",
+    "task_id",
+    "arm",
+    "agent_identity",
+    "completion_status",
+    "elapsed_seconds",
+    "technical_repair_attempts",
+    "causal_revisions",
+    "candidates",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-trial-result-v1"},
+    "trial_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "agent_identity": {"type": "string", "minLength": 1},
+    "completion_status": {"enum": ["COMPLETE", "BUDGET_EXHAUSTED", "BLOCKED"]},
+    "elapsed_seconds": {"type": "number", "minimum": 0},
+    "technical_repair_attempts": {"type": "integer", "minimum": 0},
+    "causal_revisions": {"type": "integer", "minimum": 0},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "candidate_id",
+          "proposed_at_seconds",
+          "evaluated_at_seconds",
+          "architecture_family",
+          "compile_attempts",
+          "measurement_attempts",
+          "correctness",
+          "speedup",
+          "heldout_correctness",
+          "whole_model_speedup",
+          "upstream_ready",
+          "evidence"
+        ],
+        "properties": {
+          "candidate_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "proposed_at_seconds": {"type": "number", "minimum": 0},
+          "evaluated_at_seconds": {"type": "number", "minimum": 0},
+          "architecture_family": {"type": "string", "minLength": 1},
+          "compile_attempts": {"type": "integer", "minimum": 0},
+          "measurement_attempts": {"type": "integer", "minimum": 0},
+          "correctness": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+          "speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+          "heldout_correctness": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+          "whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+          "upstream_ready": {"type": "boolean"},
+          "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+        }
+      }
+    },
+    "notes": {"type": "array", "items": {"type": "string"}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

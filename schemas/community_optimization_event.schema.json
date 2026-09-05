@@ -1,0 +1,185 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_optimization_event.schema.json",
+  "title": "Traceable community optimization event",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event_id",
+    "review_status",
+    "claim_boundary",
+    "source_snapshot",
+    "lifecycle",
+    "summary",
+    "problem",
+    "mechanism",
+    "applicability",
+    "implementation",
+    "validation",
+    "relations",
+    "claims"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-optimization-event-v1"},
+    "event_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "review_status": {"enum": ["DRAFT", "REVIEWED", "PROMOTED"]},
+    "claim_boundary": {"const": "DISCOVERY_PRIOR_ONLY"},
+    "source_snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pr_number", "snapshot_id", "manifest_sha256"],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "pr_number": {"type": "integer", "minimum": 1},
+        "snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+        "manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "lifecycle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "merged_at", "followup_required"],
+      "properties": {
+        "outcome": {"enum": ["OPEN", "MERGED", "CLOSED_UNMERGED", "REVERTED", "REGRESSION_FOLLOWUP"]},
+        "merged_at": {"type": ["string", "null"]},
+        "followup_required": {"type": "boolean"}
+      }
+    },
+    "summary": {"type": "string", "minLength": 1},
+    "problem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symptoms", "baseline_path", "bottleneck_classes", "mandatory_work"],
+      "properties": {
+        "symptoms": {"$ref": "#/$defs/nonemptyStrings"},
+        "baseline_path": {"$ref": "#/$defs/nonemptyStrings"},
+        "bottleneck_classes": {"$ref": "#/$defs/nonemptyStrings"},
+        "mandatory_work": {"$ref": "#/$defs/nonemptyStrings"}
+      }
+    },
+    "mechanism": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rewrite_families", "transformations", "removed_work", "added_work", "expected_bottleneck_shifts"],
+      "properties": {
+        "rewrite_families": {"$ref": "#/$defs/nonemptyIdentifiers"},
+        "transformations": {"$ref": "#/$defs/nonemptyStrings"},
+        "removed_work": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "added_work": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "expected_bottleneck_shifts": {"$ref": "#/$defs/nonemptyStrings"}
+      }
+    },
+    "applicability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operators", "subsystems", "dtypes", "hardware", "workload_conditions", "required_capabilities", "hard_requirements"],
+      "properties": {
+        "operators": {"$ref": "#/$defs/nonemptyStrings"},
+        "subsystems": {"$ref": "#/$defs/nonemptyStrings"},
+        "dtypes": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "hardware": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "workload_conditions": {"$ref": "#/$defs/nonemptyStrings"},
+        "required_capabilities": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "hard_requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["compute_capabilities", "minimum_parallel_width", "required_context_terms"],
+          "properties": {
+            "compute_capabilities": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"}
+            },
+            "minimum_parallel_width": {"type": "integer", "minimum": 1},
+            "required_context_terms": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            }
+          }
+        }
+      }
+    },
+    "implementation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["files", "symbols", "recipe"],
+      "properties": {
+        "files": {"$ref": "#/$defs/nonemptyStrings"},
+        "symbols": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "recipe": {"$ref": "#/$defs/nonemptyStrings"}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "measurements", "limitations"],
+      "properties": {
+        "correctness": {"$ref": "#/$defs/nonemptyStrings"},
+        "measurements": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["metric", "baseline", "candidate", "unit", "direction", "reported_speedup", "workload", "hardware", "evidence_ref"],
+            "properties": {
+              "metric": {"type": "string", "minLength": 1},
+              "baseline": {"type": "number"},
+              "candidate": {"type": "number"},
+              "unit": {"type": "string", "minLength": 1},
+              "direction": {"enum": ["LOWER_IS_BETTER", "HIGHER_IS_BETTER"]},
+              "reported_speedup": {"type": "number", "exclusiveMinimum": 0},
+              "workload": {"type": "string", "minLength": 1},
+              "hardware": {"type": "string", "minLength": 1},
+              "evidence_ref": {"$ref": "#/$defs/evidenceRef"}
+            }
+          }
+        },
+        "limitations": {"$ref": "#/$defs/nonemptyStrings"}
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type", "target", "rationale"],
+        "properties": {
+          "type": {"enum": ["REQUIRES", "COMPLEMENTS", "CONFLICTS", "SUBSUMES", "PORTED_FROM", "SUPERSEDED_BY", "REVERTED_BY", "REGRESSION_OF"]},
+          "target": {"type": "string", "minLength": 1},
+          "rationale": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "claims": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["claim_id", "statement", "grade", "evidence_refs"],
+        "properties": {
+          "claim_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "statement": {"type": "string", "minLength": 1},
+          "grade": {"enum": ["SOURCE_REPORTED", "REVIEW_INFERRED", "REPRODUCED_TARGET", "REJECTED"]},
+          "evidence_refs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/evidenceRef"}}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonemptyStrings": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "nonemptyIdentifiers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}},
+    "evidenceRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifact_kind", "sha256", "locator"],
+      "properties": {
+        "artifact_kind": {"enum": ["PULL_REQUEST", "FILES", "COMMITS", "ISSUE_COMMENTS", "REVIEWS", "REVIEW_COMMENTS", "TIMELINE", "DIFF"]},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "locator": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

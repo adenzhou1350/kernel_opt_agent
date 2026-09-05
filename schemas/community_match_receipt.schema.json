@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_match_receipt.schema.json",
+  "title": "Hash-bound community optimization routing receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "input_identities", "graph_identity", "policy", "recommendations"],
+  "properties": {
+    "schema_version": {"const": "community-match-receipt-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DISCOVERY_PRIOR_ONLY"},
+    "input_identities": {"type": "array", "minItems": 4, "items": {"$ref": "#/$defs/identity"}},
+    "graph_identity": {"$ref": "#/$defs/identity"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_matches_per_opportunity", "community_claim_policy", "score_formula"],
+      "properties": {
+        "max_matches_per_opportunity": {"type": "integer", "minimum": 1},
+        "community_claim_policy": {"const": "SOURCE_PRIOR_NOT_TARGET_PROOF"},
+        "score_formula": {"type": "string", "minLength": 1}
+      }
+    },
+    "recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["opportunity_id", "opportunity_priority_rank", "matches", "composition_matches", "screened_out"],
+        "properties": {
+          "opportunity_id": {"type": "string", "minLength": 1},
+          "opportunity_priority_rank": {"type": "integer", "minimum": 1},
+          "matches": {"type": "array", "items": {"$ref": "#/$defs/match"}},
+          "composition_matches": {"type": "array", "items": {"$ref": "#/$defs/compositionMatch"}},
+          "screened_out": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["event_id", "blockers", "claim_boundary"],
+              "properties": {
+                "event_id": {"type": "string", "minLength": 1},
+                "blockers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+                "claim_boundary": {"const": "APPLICABILITY_GATE"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "compositionMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "hypothesis_id",
+        "events",
+        "score",
+        "rationale",
+        "candidate_archetype",
+        "correctness_recipe",
+        "expected_bottleneck_shifts",
+        "interaction_risks",
+        "claim_boundary"
+      ],
+      "properties": {
+        "hypothesis_id": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "events": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "score": {"type": "number"},
+        "rationale": {"type": "string", "minLength": 1},
+        "candidate_archetype": {"$ref": "#/$defs/archetype"},
+        "correctness_recipe": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "expected_bottleneck_shifts": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "interaction_risks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+        "claim_boundary": {"const": "UNVALIDATED_COMPOSITION_HYPOTHESIS"}
+      }
+    },
+    "archetype": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family", "name", "change_axes", "template"],
+      "properties": {
+        "family": {"type": "string", "minLength": 1},
+        "name": {"type": "string", "minLength": 1},
+        "change_axes": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "template": {"type": "string", "minLength": 1}
+      }
+    },
+    "match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "event_id",
+        "summary",
+        "source_url",
+        "outcome",
+        "review_status",
+        "transfer_status",
+        "score",
+        "family_hits",
+        "opportunity_hits",
+        "context_hits",
+        "applicability_requirements",
+        "candidate_archetype",
+        "correctness_recipe",
+        "expected_bottleneck_shifts",
+        "limitations",
+        "claim_boundary"
+      ],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "source_url": {"type": "string", "pattern": "^https://github\\.com/"},
+        "outcome": {"type": "string", "minLength": 1},
+        "review_status": {"enum": ["DRAFT", "REVIEWED", "PROMOTED"]},
+        "transfer_status": {"const": "ADAPTATION_REQUIRED"},
+        "score": {"type": "number"},
+        "family_hits": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "opportunity_hits": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "context_hits": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "applicability_requirements": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["compute_capabilities", "minimum_parallel_width", "required_context_terms"],
+          "properties": {
+            "compute_capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"}},
+            "minimum_parallel_width": {"type": "integer", "minimum": 1},
+            "required_context_terms": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "candidate_archetype": {"$ref": "#/$defs/archetype"},
+        "correctness_recipe": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "expected_bottleneck_shifts": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "claim_boundary": {"const": "DISCOVERY_PRIOR_ONLY"}
+      }
+    }
+  }
+}
