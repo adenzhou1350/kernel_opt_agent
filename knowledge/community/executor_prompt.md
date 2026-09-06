@@ -78,9 +78,17 @@ Act as the isolated executor for this materialized optimization trial.
      runner's explicit phase deadline and reserve at least the final 30% of wall
      time for one held-out pass, evidence hashes, and a valid conservative
      result. Optional prose is the first thing to drop near the deadline.
-   - Stop early when the measured result reaches the task's defensible bound,
-     or when all remaining candidates have an estimated ceiling below the
-     frozen material-speedup threshold. Record why stopping is rational.
+   - `minimum_material_speedup` defines time-to-first-improvement only. It is
+     never, by itself, a search-stop threshold. Before stopping, write a
+     frontier-closure record that names every untested architecture in the
+     frozen ranking, its current upper bound, and the evidence that updated
+     that bound. Stop early only when the selected result reaches a quantified
+     defensible bound, every remaining upper bound is below the selected result
+     by less than one material-gain margin, or the explicit phase deadline has
+     arrived. A qualitative or unknown upper bound remains open: screen the
+     highest-ranked structurally different candidate when candidate/revision
+     budget and the phase deadline permit. Do not silently omit a ranked
+     alternative from the closure record.
 7. Your final response must be only one JSON object conforming exactly to
    `input/result.schema.json`. Copy the exact `trial_id`, `task_id`, and `arm`
    from `trial.json`. Evidence paths must be relative to the trial directory and
