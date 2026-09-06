@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_candidate_package.schema.json",
+  "title": "Generated upstream candidate evidence package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "generated_at",
+    "status",
+    "pending_gates",
+    "repository",
+    "source",
+    "evidence",
+    "tests",
+    "benchmark_claims",
+    "boundaries",
+    "gates",
+    "claims_allowed",
+    "claims_forbidden"
+  ],
+  "properties": {
+    "schema_version": {"const": "upstream-candidate-package-v1"},
+    "package_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["DRAFT_PENDING_QUALIFICATION", "UPSTREAM_READY"]},
+    "pending_gates": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "repository": {"type": "object"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_head", "repository_clean", "patch"],
+      "properties": {
+        "repository_head": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "repository_clean": {"const": true},
+        "patch": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "evidence": {"type": "array", "minItems": 3, "items": {"type": "object"}},
+    "tests": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "benchmark_claims": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "boundaries": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "gates": {"type": "array", "minItems": 5, "items": {"type": "object"}},
+    "claims_allowed": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+    "claims_forbidden": {"type": "array", "items": {"type": "string", "minLength": 1}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

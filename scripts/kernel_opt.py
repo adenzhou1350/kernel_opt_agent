@@ -78,6 +78,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "certify": Command("emit_certificate.py", "recompute and emit the limit certificate"),
         "report-validate": Command("validate_human_review_report.py", "validate review-report semantics"),
         "report-render": Command("render_human_review_report.py", "render the validated Chinese HTML report"),
+        "upstream-package": Command("upstream_package.py", "build a hash-bound fail-closed pull-request package"),
     },
 }
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}

@@ -259,6 +259,29 @@ artifacts occur in a trusted reproduction receipt.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
+## Upstream delivery package
+
+An accepted optimization is not automatically an upstream-ready change. Build
+the review package from a clean candidate commit and hash-bound evidence:
+
+```bash
+python3 scripts/kernel_opt.py upstream-package build \
+  --spec upstream-candidate-spec.json \
+  --evidence-root evidence \
+  --repository /path/to/candidate-worktree \
+  --output upstream-package
+```
+
+The command independently materializes `base_commit..candidate_commit` as
+`changes.patch`, verifies that `HEAD` is the declared candidate and the worktree
+is clean, recomputes every benchmark speedup, and rejects stale evidence,
+failed tests, failed gates or missing whole-model evidence. A package with any
+pending gate is labeled `DRAFT_PENDING_QUALIFICATION` and explicitly forbids an
+upstream-ready or portable-performance claim. Only five PASS gates—correctness,
+source review, whole-model performance, upstream checks and cross-hardware
+replication—produce `UPSTREAM_READY`. Existing output directories are never
+overwritten.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
