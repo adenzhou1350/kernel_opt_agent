@@ -87,7 +87,14 @@ python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-
 The default opportunity map requires 4--12 quantified opportunities across at
 least four rewrite families. Each opportunity states the current global
 contribution, a conditional optimistic gain ceiling, a likely gain interval,
-confidence, implementation cost and hash-bound model evidence. Absolute-global-optimum labels are
+confidence, implementation cost and hash-bound model evidence. New maps also
+require a representative end-to-end `production_impact_gate` against the map's
+frozen 1.01x materiality floor. It binds the
+component self-time to total latency, checks the declared removable-work and
+Amdahl speedup ceilings, and rejects the opportunity before implementation when
+even its optimistic ceiling is below the frozen materiality floor. A fast
+microbenchmark alone therefore cannot consume candidate-development budget.
+Absolute-global-optimum labels are
 rejected: a decomposition-specific minimum is not a semantic lower bound.
 Candidates must bind to a ranked opportunity, stay below its gain ceiling and
 cover at least three opportunities by default.

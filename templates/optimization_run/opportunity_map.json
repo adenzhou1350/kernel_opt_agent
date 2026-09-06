@@ -14,7 +14,9 @@
       "LOW": 0.35
     },
     "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes",
-    "forbidden_claim_scope": "ABSOLUTE_GLOBAL_OPTIMUM"
+    "forbidden_claim_scope": "ABSOLUTE_GLOBAL_OPTIMUM",
+    "require_production_impact_gate": true,
+    "material_speedup_floor": 1.01
   },
   "opportunities": [],
   "events": []

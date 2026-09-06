@@ -93,6 +93,8 @@ flowchart LR
 - `implementation_budget_minutes`：实现预算；
 - `derivation`：数值推导说明；
 - `evidence`：run 内模型文件路径、SHA-256 和该文件支撑的 claim。
+- `production_impact_gate`：代表性端到端总耗时、目标组件自耗时、组件乐观
+  加速上限、Amdahl 全局上限、物质性阈值和哈希绑定证据。
 
 工具强制以下数值不变量：
 
@@ -113,6 +115,19 @@ priority_score = midpoint(likely_gain_interval_us)
 
 它不是唯一正确的决策函数，但比“哪里不确定就测哪里”更符合优化目标：优先
 购买单位实现时间下更可能带来全局收益的尝试。
+
+新建机会地图默认强制生产影响门禁。系统用
+`share = target_component_us / baseline_end_to_end_us` 复算：
+
+```text
+amdahl_ceiling = 1 / ((1 - share) + share / component_speedup_ceiling)
+removable_us = target_component_us * (1 - 1 / component_speedup_ceiling)
+```
+
+声明的全局上限、可消除耗时和 `CLEARS_MATERIALITY_FLOOR` 决策必须与公式
+一致，且每个机会不能修改 map policy 中冻结的阈值。若乐观上限仍低于该
+物质性阈值，机会会在写候选前被拒绝。旧运行
+未声明此策略时仍可读取，以保留历史可复现性。
 
 `READY` 不是一个可手填的标签。调度器会重新校验：
 

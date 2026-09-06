@@ -15,6 +15,16 @@ implementation budget. Source model artifacts are run-relative and SHA-256-
 bound; a changed ledger invalidates the ranking. The numeric invariant is `0 <= likely lower <= likely
 upper <= optimistic ceiling <= current contribution`.
 
+For maps created by the current tool, every opportunity must also pass a
+`production_impact_gate` before candidate registration. Measure the target
+component inside a representative end-to-end trace or frozen production
+decomposition, bind that evidence by SHA-256, and derive
+`1 / ((1 - share) + share / component_speedup_ceiling)`. Reject the opportunity
+when this best-case Amdahl speedup does not clear the map policy's frozen
+materiality floor; an opportunity may not lower that policy locally.
+Do not substitute an isolated microbenchmark speedup for the component's
+production share: a 2x rewrite of 0.04% of latency is globally immaterial.
+
 An opportunity map is a search prior, not a proof of a global optimum. In
 particular, work required by the current four-stage decomposition may disappear
 under legal fusion. The `ABSOLUTE_GLOBAL_OPTIMUM` scope is therefore forbidden

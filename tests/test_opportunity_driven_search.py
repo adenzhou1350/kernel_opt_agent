@@ -32,13 +32,21 @@ def cli(command: str, run: Path, *args: str, expected: int = 0) -> dict:
 
 
 def opportunity_spec(identifier: str, family: str, gain: tuple[float, float], ceiling: float, cost: float, evidence_sha256: str) -> dict:
+    contribution = ceiling + 1
+    baseline = contribution * 2
+    component_speedup = 1000.0
+    amdahl = 1.0 / (
+        (1.0 - contribution / baseline)
+        + contribution / baseline / component_speedup
+    )
+    evidence = [{"path": "models/baseline.json", "sha256": evidence_sha256, "claim": "current objective contribution"}]
     return {
         "opportunity_id": identifier,
         "name": identifier,
         "model_scope": "CURRENT_SCHEDULE",
         "source_model_term": f"term-{identifier}",
         "affected_stages": [identifier],
-        "current_contribution_us": ceiling + 1,
+        "current_contribution_us": contribution,
         "optimistic_gain_ceiling_us": ceiling,
         "likely_gain_interval_us": {"lower": gain[0], "upper": gain[1]},
         "confidence": "HIGH",
@@ -46,7 +54,18 @@ def opportunity_spec(identifier: str, family: str, gain: tuple[float, float], ce
         "implementation_budget_minutes": cost,
         "hypothesis": "remove globally visible scheduled work",
         "derivation": "measured stage contribution times removable work fraction",
-        "evidence": [{"path": "models/baseline.json", "sha256": evidence_sha256, "claim": "current objective contribution"}],
+        "evidence": evidence,
+        "production_impact_gate": {
+            "measurement_scope": "FROZEN_WORKLOAD_DECOMPOSITION",
+            "baseline_end_to_end_us": baseline,
+            "target_component_us": contribution,
+            "candidate_component_speedup_ceiling": component_speedup,
+            "derived_amdahl_speedup_ceiling": amdahl,
+            "material_speedup_floor": 1.01,
+            "decision": "CLEARS_MATERIALITY_FLOOR",
+            "derivation": "The frozen decomposition assigns half of end-to-end time to this component.",
+            "evidence": evidence,
+        },
     }
 
 
@@ -103,6 +122,46 @@ def main() -> None:
             "opportunity", run, "init", "--min-opportunities", "2", "--max-opportunities", "4",
             "--min-rewrite-families", "2", "--min-candidate-opportunities", "2",
         )
+        immaterial = opportunity_spec(
+            "fast-but-tiny", "host-loop-elimination", (0.001, 0.01), 0.02,
+            5.0, evidence_sha256,
+        )
+        immaterial["current_contribution_us"] = 0.0923565
+        immaterial["optimistic_gain_ceiling_us"] = 0.0385
+        immaterial["likely_gain_interval_us"] = {"lower": 0.001, "upper": 0.01}
+        immaterial["production_impact_gate"] = {
+            "measurement_scope": "REPRESENTATIVE_END_TO_END_TRACE",
+            "baseline_end_to_end_us": 250.760,
+            "target_component_us": 0.0923565,
+            "candidate_component_speedup_ceiling": 1.715,
+            "derived_amdahl_speedup_ceiling": 1.0 / (
+                (1.0 - 0.0923565 / 250.760)
+                + (0.0923565 / 250.760) / 1.715
+            ),
+            "material_speedup_floor": 1.01,
+            "decision": "BELOW_MATERIALITY_FLOOR",
+            "derivation": "Representative decode attributes only the measured mapping self-time.",
+            "evidence": immaterial["evidence"],
+        }
+        immaterial_path = run / "models" / "fast-but-tiny.json"
+        write(immaterial_path, immaterial)
+        cli("opportunity", run, "add", "--spec", str(immaterial_path), expected=1)
+        missing_gate = opportunity_spec(
+            "missing-impact-proof", "host-loop-elimination", (1.0, 2.0),
+            3.0, 5.0, evidence_sha256,
+        )
+        missing_gate.pop("production_impact_gate")
+        missing_gate_path = run / "models" / "missing-impact-proof.json"
+        write(missing_gate_path, missing_gate)
+        cli("opportunity", run, "add", "--spec", str(missing_gate_path), expected=1)
+        moving_floor = opportunity_spec(
+            "moving-materiality-floor", "host-loop-elimination", (1.0, 2.0),
+            3.0, 5.0, evidence_sha256,
+        )
+        moving_floor["production_impact_gate"]["material_speedup_floor"] = 1.0001
+        moving_floor_path = run / "models" / "moving-materiality-floor.json"
+        write(moving_floor_path, moving_floor)
+        cli("opportunity", run, "add", "--spec", str(moving_floor_path), expected=1)
         specs = [
             opportunity_spec("large-cheap", "cross-stage-fusion", (3.0, 5.0), 6.0, 10.0, evidence_sha256),
             opportunity_spec("small-expensive", "tile-retune", (1.0, 2.0), 3.0, 30.0, evidence_sha256),

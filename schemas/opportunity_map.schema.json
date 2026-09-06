@@ -21,7 +21,9 @@
         "min_candidate_opportunities": {"type": "integer", "minimum": 1},
         "confidence_weights": {"type": "object"},
         "score_formula": {"type": "string"},
-        "forbidden_claim_scope": {"const": "ABSOLUTE_GLOBAL_OPTIMUM"}
+        "forbidden_claim_scope": {"const": "ABSOLUTE_GLOBAL_OPTIMUM"},
+        "require_production_impact_gate": {"type": "boolean"},
+        "material_speedup_floor": {"type": "number", "exclusiveMinimum": 1}
       }
     },
     "opportunities": {
@@ -69,6 +71,35 @@
           "candidate_ids": {"type": "array", "uniqueItems": true},
           "observations": {"type": "array"},
           "created_at": {"type": "string"},
+          "production_impact_gate": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["measurement_scope", "baseline_end_to_end_us", "target_component_us", "candidate_component_speedup_ceiling", "derived_amdahl_speedup_ceiling", "material_speedup_floor", "decision", "derivation", "evidence"],
+            "properties": {
+              "measurement_scope": {"enum": ["REPRESENTATIVE_END_TO_END_TRACE", "PRODUCTION_TRACE", "FROZEN_WORKLOAD_DECOMPOSITION"]},
+              "baseline_end_to_end_us": {"type": "number", "exclusiveMinimum": 0},
+              "target_component_us": {"type": "number", "exclusiveMinimum": 0},
+              "candidate_component_speedup_ceiling": {"type": "number", "minimum": 1},
+              "derived_amdahl_speedup_ceiling": {"type": "number", "minimum": 1},
+              "material_speedup_floor": {"type": "number", "exclusiveMinimum": 1},
+              "decision": {"enum": ["CLEARS_MATERIALITY_FLOOR", "BELOW_MATERIALITY_FLOOR"]},
+              "derivation": {"type": "string", "minLength": 12},
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "sha256", "claim"],
+                  "properties": {
+                    "path": {"type": "string", "minLength": 1},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                    "claim": {"type": "string", "minLength": 1}
+                  }
+                }
+              }
+            }
+          },
           "closure": {
             "type": "object",
             "additionalProperties": false,

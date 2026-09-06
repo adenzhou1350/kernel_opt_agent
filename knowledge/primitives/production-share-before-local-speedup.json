@@ -1,0 +1,118 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-production-share-before-local-speedup",
+  "title": "Prove production share before optimizing a fast local helper",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "Representative structured-output ABBA on RTX 4060",
+    "url": "https://github.com/adenzhou1350/kernel_opt_agent/tree/feature/community-optimization-lake",
+    "version": "sm89-e2e-b64-r4",
+    "available_at": "2026-09-06T11:39:01Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "One representative decode showed a 1.25x local mapping speedup but only 0.0385% baseline latency share and no measurable end-to-end gain."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-55469.vectorized-causal-conv-metadata"
+    ],
+    "experiment_refs": [
+      {
+        "suite_id": "community-sm89-prospective-structured-mask-v1",
+        "task_id": "vllm-structured-mask-reorder-representative-e2e-v1",
+        "repeat_index": 3,
+        "arm": "COMMUNITY_AUGMENTED",
+        "available_at": "2026-09-06T11:39:01Z",
+        "artifact_sha256": "8f8a6224d8d2c8c41f91b15bea1376f420cbdb8f2e2aebc3f465755b68434381",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      }
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "production-impact-gating",
+    "amdahl-screening",
+    "end-to-end-attribution"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "microbenchmark speedup",
+      "host helper",
+      "small latency share",
+      "end-to-end regression",
+      "Amdahl ceiling",
+      "candidate prioritization"
+    ]
+  },
+  "implementation_recipe": [
+    "Measure the target component self-time inside the frozen representative workload before implementing the optimization.",
+    "Compute its baseline latency share and an optimistic component speedup ceiling using an explicit removable-work argument.",
+    "Convert those values to an Amdahl end-to-end speedup ceiling and compare it with the frozen materiality floor.",
+    "Close or defer the opportunity when the optimistic ceiling is immaterial, even if an isolated microbenchmark is fast."
+  ],
+  "validation_recipe": [
+    "Run baseline and candidate in an interleaved order and verify identical output hashes.",
+    "Record component call count, component self-time, total wall time and workload throughput in the same run.",
+    "Report the deletion upper bound as well as the observed component speedup.",
+    "Treat end-to-end changes smaller than run-order and thermal variance as no measurable gain."
+  ],
+  "expected_bottleneck_shifts": [
+    "Rejecting an immaterial helper redirects budget toward kernels or orchestration stages with larger production shares.",
+    "A locally removed cost may expose no visible bottleneck shift because launch, model compute or scheduling noise dominates it."
+  ],
+  "failure_modes": [
+    "A microbenchmark denominator omits the model, scheduler, launch and synchronization costs that dominate production latency.",
+    "Inclusive profiler time double-counts child work and exaggerates the component contribution.",
+    "A synthetic batch shape is treated as representative without a frozen workload distribution.",
+    "An observed end-to-end fluctuation is attributed to a microsecond-scale change despite a much smaller Amdahl upper bound."
+  ],
+  "scope_limits": [
+    "The RTX 4060 result rejects this specific structured-mapping opportunity for the measured decode workload, not all host-side optimizations.",
+    "A different workload may raise the component share and must be measured under its own frozen contract."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "End-to-end latency contains the target component plus unaffected work under the frozen workload.",
+    "partition_axis": "target component self-time versus all unaffected end-to-end latency",
+    "local_state": [
+      "baseline end-to-end time",
+      "target component self-time",
+      "component speedup ceiling",
+      "materiality floor"
+    ],
+    "combine_rule": "Use Amdahl's law to combine the improved component with unchanged residual latency.",
+    "finalization": "Admit only opportunities whose recomputed optimistic end-to-end ceiling clears the frozen materiality floor.",
+    "work_complexity": "One representative attribution run plus constant-time bound calculation per opportunity.",
+    "span_complexity": "The gate completes before candidate implementation and prevents downstream search fan-out.",
+    "communication_cost": "No extra production communication is introduced; the gate consumes existing trace and timing evidence.",
+    "invariants": [
+      "component time does not exceed end-to-end time",
+      "declared global ceiling matches Amdahl's law",
+      "gain ceiling does not exceed removable component work",
+      "evidence is hash-bound to the frozen run"
+    ],
+    "anti_patterns": [
+      "rank by local speedup alone",
+      "infer production share from code complexity",
+      "keep optimizing below the materiality floor",
+      "claim a global gain from an isolated helper benchmark"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "production-impact-gate",
+      "name": "representative attribution before implementation",
+      "change_axes": [
+        "search ordering",
+        "budget admission",
+        "global gain ceiling"
+      ],
+      "template": "Measure component share in the target workload, derive the optimistic Amdahl ceiling, and admit implementation only when it clears the frozen materiality threshold."
+    }
+  ]
+}

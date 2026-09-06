@@ -33,6 +33,7 @@ def cli(command: str, *args: str, expected: int = 0) -> dict:
 
 
 def opportunity(identifier: str, families: list[str], evidence_sha256: str) -> dict:
+    evidence = [{"path": "models/baseline.json", "sha256": evidence_sha256, "claim": "current objective contribution"}]
     return {
         "opportunity_id": identifier,
         "name": identifier,
@@ -47,7 +48,18 @@ def opportunity(identifier: str, families: list[str], evidence_sha256: str) -> d
         "implementation_budget_minutes": 10.0,
         "hypothesis": "remove globally visible work with a different architecture",
         "derivation": "baseline contribution multiplied by a bounded removable fraction",
-        "evidence": [{"path": "models/baseline.json", "sha256": evidence_sha256, "claim": "current objective contribution"}],
+        "evidence": evidence,
+        "production_impact_gate": {
+            "measurement_scope": "FROZEN_WORKLOAD_DECOMPOSITION",
+            "baseline_end_to_end_us": 20.0,
+            "target_component_us": 10.0,
+            "candidate_component_speedup_ceiling": 2.0,
+            "derived_amdahl_speedup_ceiling": 4.0 / 3.0,
+            "material_speedup_floor": 1.01,
+            "decision": "CLEARS_MATERIALITY_FLOOR",
+            "derivation": "The frozen decomposition assigns half of end-to-end time to this component.",
+            "evidence": evidence,
+        },
     }
 
 

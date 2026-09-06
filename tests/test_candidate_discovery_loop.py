@@ -159,6 +159,17 @@ Path('../smoke.json').write_text(json.dumps(result))
             "hypothesis": "fusion removes a materialized global-memory boundary",
             "derivation": "stage timing minus the mandatory semantic output store",
             "evidence": [{"path": "models/baseline.json", "sha256": baseline_hash, "claim": "current objective contribution"}],
+            "production_impact_gate": {
+                "measurement_scope": "FROZEN_WORKLOAD_DECOMPOSITION",
+                "baseline_end_to_end_us": 8.0,
+                "target_component_us": 4.0,
+                "candidate_component_speedup_ceiling": 4.0,
+                "derived_amdahl_speedup_ceiling": 1.6,
+                "material_speedup_floor": 1.01,
+                "decision": "CLEARS_MATERIALITY_FLOOR",
+                "derivation": "The frozen baseline assigns half of end-to-end time to this transfer.",
+                "evidence": [{"path": "models/baseline.json", "sha256": baseline_hash, "claim": "representative end-to-end decomposition"}],
+            },
         })
         opportunity_cli(run, "add", "--spec", str(opportunity_spec))
         opportunity_cli(run, "rank")

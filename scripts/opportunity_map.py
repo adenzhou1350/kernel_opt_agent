@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +28,15 @@ CLOSURE_DISPOSITIONS = {
     "AT_MEASURED_ROOF",
     "BELOW_MATERIALITY_FLOOR",
     "DEPENDENCY_BLOCKED",
+}
+PRODUCTION_IMPACT_SCOPES = {
+    "REPRESENTATIVE_END_TO_END_TRACE",
+    "PRODUCTION_TRACE",
+    "FROZEN_WORKLOAD_DECOMPOSITION",
+}
+PRODUCTION_IMPACT_DECISIONS = {
+    "CLEARS_MATERIALITY_FLOOR",
+    "BELOW_MATERIALITY_FLOOR",
 }
 
 
@@ -72,6 +82,8 @@ def default_map(args: argparse.Namespace) -> dict:
             "confidence_weights": {"HIGH": 1.0, "MEDIUM": 0.65, "LOW": 0.35},
             "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes",
             "forbidden_claim_scope": "ABSOLUTE_GLOBAL_OPTIMUM",
+            "require_production_impact_gate": True,
+            "material_speedup_floor": 1.01,
         },
         "opportunities": [],
         "events": [],
@@ -119,8 +131,28 @@ def validate_map(data: dict, *, require_ready: bool = False, run: Path | None = 
     if not 1 <= minimum <= maximum or not 1 <= minimum_candidate_opportunities <= minimum or minimum_families < 1:
         raise ValueError("opportunity map policy bounds are inconsistent")
     identifiers = []
+    require_production_impact_gate = policy.get(
+        "require_production_impact_gate", False
+    )
+    if not isinstance(require_production_impact_gate, bool):
+        raise ValueError("require_production_impact_gate must be boolean")
+    material_speedup_floor = policy.get("material_speedup_floor")
+    if require_production_impact_gate:
+        try:
+            material_speedup_floor = float(material_speedup_floor)
+        except (TypeError, ValueError) as error:
+            raise ValueError(
+                "material_speedup_floor is required when the production impact gate is enabled"
+            ) from error
+        if not math.isfinite(material_speedup_floor) or material_speedup_floor <= 1:
+            raise ValueError("material_speedup_floor must be finite and greater than one")
     for item in opportunities:
-        validate_spec(item, run)
+        validate_spec(
+            item,
+            run,
+            require_production_impact_gate=require_production_impact_gate,
+            material_speedup_floor=material_speedup_floor,
+        )
         if item.get("status") not in LIFECYCLE_STATUSES:
             raise ValueError("opportunity lifecycle status is invalid")
         candidate_ids = item.get("candidate_ids")
@@ -157,7 +189,13 @@ def validate_map(data: dict, *, require_ready: bool = False, run: Path | None = 
                 raise ValueError("READY opportunity score is inconsistent")
 
 
-def validate_spec(spec: dict, run: Path | None = None) -> None:
+def validate_spec(
+    spec: dict,
+    run: Path | None = None,
+    *,
+    require_production_impact_gate: bool = False,
+    material_speedup_floor: float | None = None,
+) -> None:
     required = (
         "opportunity_id", "name", "model_scope", "source_model_term", "affected_stages",
         "current_contribution_us", "optimistic_gain_ceiling_us", "likely_gain_interval_us",
@@ -217,6 +255,142 @@ def validate_spec(spec: dict, run: Path | None = None) -> None:
                 raise ValueError(f"evidence[{index}] file is missing: {identity['path']}")
             if hashlib.sha256(path.read_bytes()).hexdigest() != identity["sha256"]:
                 raise ValueError(f"evidence[{index}] hash mismatch: {identity['path']}")
+    gate = spec.get("production_impact_gate")
+    if require_production_impact_gate and gate is None:
+        raise ValueError(
+            "production_impact_gate is required before candidate implementation"
+        )
+    if gate is not None:
+        validate_production_impact_gate(
+            spec,
+            gate,
+            run,
+            material_speedup_floor=material_speedup_floor,
+        )
+
+
+def validate_production_impact_gate(
+    spec: dict,
+    gate: object,
+    run: Path | None = None,
+    *,
+    material_speedup_floor: float | None = None,
+) -> None:
+    if not isinstance(gate, dict):
+        raise ValueError("production_impact_gate must be an object")
+    required = {
+        "measurement_scope",
+        "baseline_end_to_end_us",
+        "target_component_us",
+        "candidate_component_speedup_ceiling",
+        "derived_amdahl_speedup_ceiling",
+        "material_speedup_floor",
+        "decision",
+        "derivation",
+        "evidence",
+    }
+    if set(gate) != required:
+        raise ValueError(
+            "production_impact_gate fields are incomplete or contain unknown values"
+        )
+    if gate["measurement_scope"] not in PRODUCTION_IMPACT_SCOPES:
+        raise ValueError("production_impact_gate measurement_scope is invalid")
+    if gate["decision"] not in PRODUCTION_IMPACT_DECISIONS:
+        raise ValueError("production_impact_gate decision is invalid")
+    try:
+        baseline = float(gate["baseline_end_to_end_us"])
+        component = float(gate["target_component_us"])
+        component_speedup = float(gate["candidate_component_speedup_ceiling"])
+        declared_amdahl = float(gate["derived_amdahl_speedup_ceiling"])
+        material_floor = float(gate["material_speedup_floor"])
+    except (TypeError, ValueError) as error:
+        raise ValueError("production_impact_gate numeric fields are invalid") from error
+    numbers = (baseline, component, component_speedup, declared_amdahl, material_floor)
+    if not all(math.isfinite(value) for value in numbers):
+        raise ValueError("production_impact_gate values must be finite")
+    if baseline <= 0 or not 0 < component <= baseline:
+        raise ValueError(
+            "production_impact_gate requires 0 < target_component_us <= baseline_end_to_end_us"
+        )
+    if component_speedup < 1 or declared_amdahl < 1 or material_floor <= 1:
+        raise ValueError(
+            "production_impact_gate speedup ceilings must be >= 1 and the material floor must be > 1"
+        )
+    if material_speedup_floor is not None and not math.isclose(
+        material_floor,
+        float(material_speedup_floor),
+        rel_tol=1e-12,
+        abs_tol=1e-12,
+    ):
+        raise ValueError(
+            "production_impact_gate material_speedup_floor must match the frozen map policy"
+        )
+    contribution = float(spec["current_contribution_us"])
+    if not math.isclose(component, contribution, rel_tol=1e-9, abs_tol=1e-9):
+        raise ValueError(
+            "production_impact_gate target_component_us must equal current_contribution_us"
+        )
+    share = component / baseline
+    expected_amdahl = 1.0 / ((1.0 - share) + share / component_speedup)
+    if not math.isclose(declared_amdahl, expected_amdahl, rel_tol=1e-9, abs_tol=1e-12):
+        raise ValueError(
+            "derived_amdahl_speedup_ceiling does not match the measured production share"
+        )
+    removable_us = component * (1.0 - 1.0 / component_speedup)
+    if float(spec["optimistic_gain_ceiling_us"]) > removable_us + 1e-9:
+        raise ValueError(
+            "optimistic_gain_ceiling_us exceeds the production-impact removable-work ceiling"
+        )
+    expected_decision = (
+        "CLEARS_MATERIALITY_FLOOR"
+        if expected_amdahl >= material_floor
+        else "BELOW_MATERIALITY_FLOOR"
+    )
+    if gate["decision"] != expected_decision:
+        raise ValueError(
+            "production_impact_gate decision disagrees with its Amdahl ceiling and materiality floor"
+        )
+    if gate["decision"] != "CLEARS_MATERIALITY_FLOOR":
+        raise ValueError(
+            "opportunity is below the production materiality floor; do not implement a candidate"
+        )
+    if not isinstance(gate["derivation"], str) or len(gate["derivation"].strip()) < 12:
+        raise ValueError("production_impact_gate derivation must explain the measured share")
+    evidence = gate["evidence"]
+    if not isinstance(evidence, list) or not evidence:
+        raise ValueError("production_impact_gate evidence must be a non-empty array")
+    for index, identity in enumerate(evidence):
+        if not isinstance(identity, dict) or set(identity) != {"path", "sha256", "claim"}:
+            raise ValueError(
+                f"production_impact_gate evidence[{index}] must contain exactly path, sha256, and claim"
+            )
+        if not all(
+            isinstance(identity.get(field), str) and identity[field]
+            for field in ("path", "sha256", "claim")
+        ):
+            raise ValueError(
+                f"production_impact_gate evidence[{index}] fields must be non-empty strings"
+            )
+        if not re.fullmatch(r"[0-9a-f]{64}", identity["sha256"]):
+            raise ValueError(
+                f"production_impact_gate evidence[{index}].sha256 must be lowercase SHA-256"
+            )
+        if run is not None:
+            path = (run / identity["path"]).resolve()
+            try:
+                path.relative_to(run.resolve())
+            except ValueError as error:
+                raise ValueError(
+                    f"production_impact_gate evidence[{index}] escapes the run"
+                ) from error
+            if not path.is_file():
+                raise ValueError(
+                    f"production_impact_gate evidence[{index}] file is missing: {identity['path']}"
+                )
+            if hashlib.sha256(path.read_bytes()).hexdigest() != identity["sha256"]:
+                raise ValueError(
+                    f"production_impact_gate evidence[{index}] hash mismatch: {identity['path']}"
+                )
 
 
 def validate_closure(closure: object, run: Path | None = None) -> None:
@@ -290,7 +464,14 @@ def command_add(args: argparse.Namespace) -> dict:
     run = args.run.resolve()
     data = load_map(run)
     spec = read_object(args.spec.resolve())
-    validate_spec(spec, run)
+    validate_spec(
+        spec,
+        run,
+        require_production_impact_gate=data["policy"].get(
+            "require_production_impact_gate", False
+        ),
+        material_speedup_floor=data["policy"].get("material_speedup_floor"),
+    )
     if data.get("status") == "PAUSED":
         raise ValueError("opportunity map is paused")
     if any(item.get("opportunity_id") == spec["opportunity_id"] for item in data["opportunities"]):
@@ -325,7 +506,14 @@ def command_rank(args: argparse.Namespace) -> dict:
     if len(families) < int(policy["min_rewrite_families"]):
         raise ValueError("opportunity map lacks the required rewrite-family diversity")
     for item in opportunities:
-        validate_spec(item, run)
+        validate_spec(
+            item,
+            run,
+            require_production_impact_gate=policy.get(
+                "require_production_impact_gate", False
+            ),
+            material_speedup_floor=policy.get("material_speedup_floor"),
+        )
         item["priority_score"] = score(item, policy)
     opportunities.sort(key=lambda item: (-float(item["priority_score"]), item["opportunity_id"]))
     for rank, item in enumerate(opportunities, 1):
@@ -428,7 +616,14 @@ def command_reopen(args: argparse.Namespace) -> dict:
 def command_rank_in_place(data: dict, run: Path) -> None:
     policy = data["policy"]
     for item in data["opportunities"]:
-        validate_spec(item, run)
+        validate_spec(
+            item,
+            run,
+            require_production_impact_gate=policy.get(
+                "require_production_impact_gate", False
+            ),
+            material_speedup_floor=policy.get("material_speedup_floor"),
+        )
         item["priority_score"] = score(item, policy)
     data["opportunities"].sort(
         key=lambda item: (-float(item["priority_score"]), item["opportunity_id"])
