@@ -1,7 +1,8 @@
 Act as the isolated executor for this materialized optimization trial.
 
 1. Read and follow `input/prompt.md`, `input/task.json`, `input/environment.json`,
-   `trial.json`, `source_receipt.json`, and `input/result.schema.json`.
+   `trial.json`, `source_receipt.json`, `input/result.schema.json`, and any
+   hash-bound task support under `harness/`.
 2. Treat the current trial directory as the complete information boundary. Do
    not inspect its parent, sibling trials, any other checkout, Codex history, or
    network resource. The only editable production source is `source/`; place
@@ -9,7 +10,7 @@ Act as the isolated executor for this materialized optimization trial.
 3. The source tree deliberately has no `.git` metadata. Do not initialize a
    remote or fetch anything. The source receipt binds the historical commit and
    every starting file; do not modify the receipt or any file under `input/` or
-   `knowledge/`.
+   `knowledge/` or `harness/`.
 4. Treat `input/environment.json` as the pre-trial runtime probe. Do not spend
    technical-repair budget rediscovering a listed missing tool or incompatible
    compiler path. Use its frozen `runtime_paths` mapping when present; do not

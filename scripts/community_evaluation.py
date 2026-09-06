@@ -133,6 +133,20 @@ def validate_suite(
             )
         validate_identity(base, task["packet"], f"task packet {task['task_id']}")
         validate_identity(base, task["hidden_oracle"], f"hidden oracle {task['task_id']}")
+        support_targets: set[str] = set()
+        for item in task.get("support", []):
+            validate_identity(
+                base, item["source"], f"task support {task['task_id']}"
+            )
+            target = PurePosixPath(item["target"])
+            if target.is_absolute() or ".." in target.parts:
+                raise ValueError(
+                    f"task support target escapes harness: {item['target']}"
+                )
+            normalized = target.as_posix()
+            if normalized in support_targets:
+                raise ValueError(f"duplicate task support target: {normalized}")
+            support_targets.add(normalized)
     return {
         "status": "PASS",
         "suite_id": suite["suite_id"],
@@ -546,6 +560,16 @@ def materialize_trial(
         executor_prompt_target,
     )
 
+    support_identities = []
+    if task.get("support"):
+        (output / "harness").mkdir(parents=True, exist_ok=True)
+        for item in task["support"]:
+            source = validate_identity(suite_base, item["source"], "task support")
+            target = resolve_inside(output / "harness", item["target"])
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+            support_identities.append(identity_for(target, output))
+
     graph_identity = None
     knowledge_policy = "WITHHELD"
     if arm == "COMMUNITY_AUGMENTED":
@@ -591,6 +615,7 @@ def materialize_trial(
         "environment_input": identity_for(environment_target, output),
         "result_contract": identity_for(result_schema_target, output),
         "executor_prompt": identity_for(executor_prompt_target, output),
+        "task_support": support_identities,
         "community_graph": graph_identity,
     }
     errors = validate_instance(
@@ -749,6 +774,12 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
     )
     validate_identity(trial_dir, trial["result_contract"], "trial result contract")
     validate_identity(trial_dir, trial["executor_prompt"], "trial executor prompt")
+    for identity in trial.get("task_support", []):
+        support_path = validate_identity(trial_dir, identity, "trial task support")
+        try:
+            support_path.relative_to((trial_dir / "harness").resolve())
+        except ValueError as error:
+            raise ValueError("trial task support is outside harness") from error
     source_checkout = trial["source_checkout"]
     if len(source_checkout["revision"]) != 40 or any(
         character not in "0123456789abcdef"

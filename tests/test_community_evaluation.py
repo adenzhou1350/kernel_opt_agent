@@ -155,6 +155,7 @@ def main() -> None:
         oracle_path = assets / "oracle.json"
         prompt_path = assets / "prompt.md"
         environment_path = assets / "environment.json"
+        support_path = assets / "baseline_harness.py"
         atomic_json(graph_path, graph)
         atomic_json(
             task_path,
@@ -168,6 +169,9 @@ def main() -> None:
             {"hidden_until_after_trial": True, "known_family": "operator-fusion"},
         )
         prompt_path.write_text("Optimize the frozen task under its budget.\n")
+        support_path.write_text(
+            "def baseline(value):\n    return value\n", encoding="utf-8"
+        )
         atomic_json(
             environment_path,
             {
@@ -259,6 +263,12 @@ def main() -> None:
                     "target_hardware": "test GPU",
                     "packet": identity(task_path, suite_dir),
                     "hidden_oracle": identity(oracle_path, suite_dir),
+                    "support": [
+                        {
+                            "source": identity(support_path, suite_dir),
+                            "target": "baseline.py",
+                        }
+                    ],
                 }
             ],
         }
@@ -324,6 +334,11 @@ def main() -> None:
         assert (control_dir / "input" / "result.schema.json").is_file()
         assert (control_dir / "input" / "executor.md").is_file()
         assert (control_dir / "input" / "environment.json").is_file()
+        assert (control_dir / "harness" / "baseline.py").is_file()
+        assert (community_dir / "harness" / "baseline.py").is_file()
+        assert control_dir.joinpath("harness", "baseline.py").read_bytes() == (
+            community_dir / "harness" / "baseline.py"
+        ).read_bytes()
         assert (control_dir / "evidence").is_dir()
         assert (community_dir / "evidence").is_dir()
         assert base_revision in control_dir.joinpath("trial.json").read_text(

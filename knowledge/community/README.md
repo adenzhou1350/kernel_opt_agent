@@ -88,6 +88,12 @@ symlinks are materialized as inert target-text blobs rather than live links so t
 cannot escape the trial root; the original Git tree identity remains bound. Write each raw
 `community-trial-result-v1`, then assess and compare:
 
+A task may also declare hash-bound `support` files. They are copied identically
+to `harness/` in both arms and are immutable executor inputs. Use them for a
+baseline adapter, correctness oracle interface and timing driver that contain no
+held-out solution. This keeps application-shaped tooling in the suite rather
+than polluting the reusable hardware `microbench/` catalog.
+
 ```bash
 python scripts/kernel_opt.py community-eval validate-suite \
   --suite /path/to/suite/suite.json --corpus /path/to/corpus

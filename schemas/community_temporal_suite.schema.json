@@ -109,7 +109,20 @@
           "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
           "target_hardware": {"type": "string", "minLength": 1},
           "packet": {"$ref": "#/$defs/identity"},
-          "hidden_oracle": {"$ref": "#/$defs/identity"}
+          "hidden_oracle": {"$ref": "#/$defs/identity"},
+          "support": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["source", "target"],
+              "properties": {
+                "source": {"$ref": "#/$defs/identity"},
+                "target": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)*$"}
+              }
+            }
+          }
         }
       }
     }
