@@ -8,6 +8,7 @@ import json
 import shutil
 import subprocess
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 
@@ -65,12 +66,23 @@ def main() -> int:
     if codex is None:
         raise FileNotFoundError(f"Codex executable not found: {args.codex}")
     command = command_for(codex, trial, args.model, args.reasoning_effort)
+    started_at = datetime.now(timezone.utc)
+    search_stop_at = started_at + timedelta(seconds=wall_budget * 0.70)
+    result_due_at = started_at + timedelta(seconds=wall_budget)
     prompt = executor_path.read_text(encoding="utf-8")
     prompt += (
         "\n\nFinal identity reminder (copy these exact strings without editing):\n"
         f"trial_id={manifest['trial_id']}\n"
         f"task_id={manifest['task_id']}\n"
         f"arm={manifest['arm']}\n"
+        "Concrete runtime deadlines (UTC; runner-enforced):\n"
+        f"started_at={started_at.isoformat()}\n"
+        f"stop_candidate_search_at={search_stop_at.isoformat()}\n"
+        f"result_json_due_at={result_due_at.isoformat()}\n"
+        "At stop_candidate_search_at, do not start another candidate or broad "
+        "inspection. Run only the minimum held-out check for the selected "
+        "candidate and write the final JSON. If result_json_due_at is near, "
+        "skip optional summaries and emit a valid conservative result immediately.\n"
     )
     transcript_path = trial / "executor.jsonl"
     stderr_path = trial / "executor.stderr.log"
