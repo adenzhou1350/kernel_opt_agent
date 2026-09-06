@@ -6,10 +6,10 @@
   "source": {
     "title": "vLLM issue #42518 plus RTX 4060 Qwen3.5 MTP numerical-invariance reproduction",
     "url": "https://github.com/vllm-project/vllm/issues/42518",
-    "version": "issue-42518-plus-sm89-local-reproduction-2026-09-06",
-    "available_at": "2026-09-06T15:41:31Z",
+    "version": "issue-42518-plus-sm89-frozen-suite-r1-2026-09-07",
+    "available_at": "2026-09-07T00:02:00+08:00",
     "evidence_tier": "INTERNAL_REPRODUCTION",
-    "claim_scope": "A local Qwen3.5-0.8B MTP reproduction isolated an early greedy-token flip to a BF16 near-tie under one-token versus two-token target shapes; an always-on FP32 lm_head restored 16-token agreement against an FP32 baseline for one prompt but was slower than the stock BF16 baseline. Selective fallback is therefore an unproven candidate family, not an accepted correctness or performance result."
+    "claim_scope": "A frozen 12-prompt, two-repeat RTX 4060 Qwen3.5-0.8B suite found deterministic BF16 baseline-versus-MTP mismatches on 3 prompts; all first mismatches had baseline top-two margin at most 0.125. Always-on FP32 lm_head still mismatched on 4 prompts, rejecting head-only precision escalation as a general repair. Selective backbone repair remains an unproven candidate family, not an accepted correctness or performance result."
   },
   "opportunity_families": [
     "numerical-invariance",
@@ -61,7 +61,9 @@
     "An early near-tie is mistaken for proof that later recurrent-state advancement and rollback are correct."
   ],
   "scope_limits": [
-    "The RTX 4060 experiment establishes a reusable diagnostic and candidate-generation prior; it does not prove that selective recomputation is correct or profitable.",
+    "The frozen RTX 4060 diversity suite establishes a reusable diagnostic and candidate-generation prior; 12 prompts are not a quality benchmark and do not prove that selective recomputation is correct or profitable.",
+    "Only 8.59% of 384 baseline BF16 token decisions had margin at most 0.125, below a 31.95% optimistic linear-cost break-even bound, but the calculation excludes detector, dispatch and synchronization costs and does not supply a correct fallback mechanism.",
+    "Always-on FP32 lm_head produced 4/12 cross-arm prompt mismatches and therefore rejects an lm-head-only selective FP32 repair for the frozen suite.",
     "The observed MTP hidden-state divergence begins before rollback, but the exact backbone component responsible remains unidentified.",
     "Exact stock-low-precision identity may be impossible to guarantee with a different execution shape without sequential replay; use the public contract rather than convenience to decide admissibility.",
     "Always-on high precision is a control and upper-quality reference, not automatically a production solution."
