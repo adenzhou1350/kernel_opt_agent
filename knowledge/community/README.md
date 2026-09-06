@@ -200,6 +200,11 @@ speedup and upstream readiness from candidate-level evidence. It rejects stale
 hashes, incomplete upstream claims and any trial that exceeds its frozen
 budget. A paired report is scoped to one task and repeat; repeated-task
 statistics must not be inferred from a single pair.
+For a frontier-bound trial, `best_speedup` and time-to-first-improvement include
+only the selected candidate. A correctness-passing candidate that violates a
+protected per-shape performance guard can remain useful diagnostic evidence,
+but a null frontier selection prevents it from being reported as an accepted
+optimization.
 `aggregate-repeats` validates every pair and assessment hash, requires unique
 repeat indices from one suite/task, and reports arm medians, paired medians,
 win/tie counts and an exact two-sided sign-test value for time-to-first-correct.
@@ -217,10 +222,25 @@ lower bound above the frozen technical-repair budget. An audited unrestricted
 run is therefore evidence only when its complete transcript passes this gate.
 Strict assessment additionally binds the passing audit to the current trial and
 result hashes, so editing a result after audit cannot silently enter a comparison.
-`community_trial_runner.py` captures stdout and stderr directly, hard-stops a
-trial after its frozen wall budget plus startup grace, and deliberately performs
-local result validation instead of weakening the repository schema to fit a
-provider's smaller structured-output JSON Schema dialect. It re-states the
-manifest's exact trial identity at execution time and rejects mismatched output.
-The auditor additionally requires `result.json` to equal the final transcript
-JSON, so an out-of-band edit cannot be laundered by re-running the audit.
+`community_trial_runner.py` captures stdout and stderr directly and splits the
+wall budget into search and finalization. Candidate search stops at the
+fraction sealed in `frontier_contract.json` (55% for new trials); a primary
+executor that has not returned a result by 70% is terminated and a fresh
+low-reasoning finalizer gets only the remaining budget. The runner embeds a
+compact inventory of existing candidate, held-out, ranking, closure, method and
+hash evidence, so the finalizer may not call tools, edit production source,
+repeat screening or create another candidate. It returns a semantic
+`{frontier_closure, result}` draft; deterministic runner code writes the
+closure, injects its actual hash into the result and appends a commit receipt.
+A runner-inserted phase marker hashes the complete search transcript; the
+auditor rejects a changed prefix, any `source/` edit after that marker, or a
+draft/closure/result commit hash mismatch. This turns the finalization reserve
+into an execution boundary and transactional commit rather than another prompt
+suggestion.
+
+The runner deliberately performs local result validation instead of weakening
+the repository schema to fit a provider's smaller structured-output JSON
+Schema dialect. It re-states the manifest's exact trial identity at execution
+time and rejects mismatched output. The auditor additionally requires
+`result.json` to equal the final transcript JSON, so an out-of-band edit cannot
+be laundered by re-running the audit.

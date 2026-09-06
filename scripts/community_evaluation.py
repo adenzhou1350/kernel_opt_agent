@@ -177,7 +177,7 @@ def build_frontier_contract(task_path: Path, output: Path, material_gain_margin:
         "policy": {
             "minimum_ranked_architectures": 3,
             "unknown_bound_policy": "SCREEN_OR_EXHAUST_SEARCH_PHASE",
-            "deadline_fraction": 0.7,
+            "deadline_fraction": 0.55,
             "material_gain_margin": material_gain_margin,
         },
         "required_dimensions": [
@@ -599,6 +599,13 @@ def audit_codex_execution(
     final_agent_result = None
     ranking_change_indexes = []
     production_source_change_indexes = []
+    finalization_started_index = None
+    multiple_finalization_markers = False
+    runner_prefix_hash_match = None
+    result_commit_index = None
+    result_commit_event = None
+    multiple_result_commit_markers = False
+    transcript_prefix_hasher = hashlib.sha256()
     trial_path_prefix = trial_dir.as_posix().lower().rstrip("/") + "/"
 
     def trial_relative_change_path(value: object) -> str | None:
@@ -620,12 +627,29 @@ def audit_codex_execution(
     with transcript_path.open(encoding="utf-8", newline="") as transcript:
         for event_index, line in enumerate(transcript):
             if not line.strip():
+                transcript_prefix_hasher.update(line.encode("utf-8"))
                 continue
             try:
                 event = json.loads(line)
             except json.JSONDecodeError:
                 malformed_lines += 1
+                transcript_prefix_hasher.update(line.encode("utf-8"))
                 continue
+            if event.get("type") == "runner.finalization_started":
+                if finalization_started_index is not None:
+                    multiple_finalization_markers = True
+                finalization_started_index = event_index
+                expected_prefix_hash = event.get("search_transcript_sha256")
+                runner_prefix_hash_match = (
+                    isinstance(expected_prefix_hash, str)
+                    and transcript_prefix_hasher.hexdigest() == expected_prefix_hash
+                )
+            if event.get("type") == "runner.result_committed":
+                if result_commit_index is not None:
+                    multiple_result_commit_markers = True
+                result_commit_index = event_index
+                result_commit_event = event
+            transcript_prefix_hasher.update(line.encode("utf-8"))
             if event.get("type") == "turn.completed":
                 turn_completed = True
             item = event.get("item") or {}
@@ -680,6 +704,12 @@ def audit_codex_execution(
     violations = [
         name for name, pattern in forbidden_patterns.items() if re.search(pattern, normalized)
     ]
+    if multiple_finalization_markers:
+        violations.append("MULTIPLE_FINALIZATION_MARKERS")
+    if multiple_result_commit_markers:
+        violations.append("MULTIPLE_RESULT_COMMIT_MARKERS")
+    if finalization_started_index is not None and not runner_prefix_hash_match:
+        violations.append("RUNNER_PHASE_PREFIX_MISMATCH")
     trial_windows = str(trial_dir).lower()
     trial_wsl = "/mnt/" + trial_windows[0] + trial_windows[2:].replace("\\", "/")
     external_paths = []
@@ -720,12 +750,38 @@ def audit_codex_execution(
             violations.append(
                 "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT"
             )
+    source_change_after_finalization = None
+    if finalization_started_index is not None:
+        source_change_after_finalization = any(
+            index > finalization_started_index
+            for index in production_source_change_indexes
+        )
+        if source_change_after_finalization:
+            violations.append("PRODUCTION_SOURCE_EDIT_DURING_FINALIZATION")
 
     repair_lower_bound = max(failed_commands, declined_commands, max_declared_repairs)
     if repair_lower_bound > trial["budget"]["max_technical_repairs"]:
         violations.append("TECHNICAL_REPAIR_BUDGET_EXCEEDED")
     result_path = trial_dir / "result.json"
     result_identity = identity_for(result_path, trial_dir) if result_path.is_file() else None
+    result_commit_hash_match = None
+    if result_commit_event is not None:
+        draft_path = trial_dir / "finalizer_draft.json"
+        closure_path = trial_dir / "evidence" / "frontier-closure.json"
+        result_commit_hash_match = (
+            finalization_started_index is not None
+            and result_commit_index is not None
+            and result_commit_index > finalization_started_index
+            and draft_path.is_file()
+            and closure_path.is_file()
+            and result_path.is_file()
+            and result_commit_event.get("draft_sha256") == sha256_file(draft_path)
+            and result_commit_event.get("frontier_closure_sha256")
+            == sha256_file(closure_path)
+            and result_commit_event.get("result_sha256") == sha256_file(result_path)
+        )
+        if not result_commit_hash_match:
+            violations.append("RUNNER_RESULT_COMMIT_MISMATCH")
     if not turn_completed:
         violations.append("TURN_NOT_COMPLETED")
     if result_identity is None:
@@ -771,6 +827,11 @@ def audit_codex_execution(
             "opportunity_ranking_change_index": ranking_change_index,
             "first_production_source_change_index": first_source_change_index,
             "ranking_preceded_production_edit": ranking_preceded_source_edit,
+            "finalization_started_index": finalization_started_index,
+            "source_change_after_finalization": source_change_after_finalization,
+            "runner_prefix_hash_match": runner_prefix_hash_match,
+            "result_commit_index": result_commit_index,
+            "result_commit_hash_match": result_commit_hash_match,
             "external_path_hashes": sorted(set(external_paths)),
         },
         "violations": violations,
@@ -1615,12 +1676,22 @@ def assess_trial(
     correct = [
         item for item in result["candidates"] if item["correctness"] == "PASS"
     ]
+    accepted = correct
+    if trial.get("frontier_contract") is not None:
+        closure_path = validate_identity(
+            trial_dir, result["frontier_closure"], "trial frontier closure"
+        )
+        selected_candidate_id = read_object(closure_path)["selected_candidate_id"]
+        accepted = [
+            item for item in correct
+            if item["candidate_id"] == selected_candidate_id
+        ]
     minimum_material_speedup = trial["success_thresholds"][
         "minimum_material_speedup"
     ]
     improved = [
         item
-        for item in correct
+        for item in accepted
         if item["speedup"] is not None
         and item["speedup"] >= minimum_material_speedup
     ]
@@ -1662,7 +1733,11 @@ def assess_trial(
                 [item["evaluated_at_seconds"] for item in improved]
             ),
             "best_speedup": nullable_max(
-                [float(item["speedup"]) for item in correct if item["speedup"] is not None]
+                [
+                    float(item["speedup"])
+                    for item in accepted
+                    if item["speedup"] is not None
+                ]
             ),
             "architecture_family_count": len(
                 {item["architecture_family"] for item in result["candidates"]}

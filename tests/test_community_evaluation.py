@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -33,6 +34,7 @@ from community_evaluation import (
     validate_schedule,
     validate_suite,
 )
+from community_trial_runner import commit_finalizer_draft
 from community_knowledge import (
     atomic_json,
     build_graph,
@@ -743,6 +745,35 @@ def main() -> None:
                 elapsed = 500
             write_result(trial_dir, rows, elapsed)
 
+        draft_result = json.loads(
+            (control_dir / "result.json").read_text(encoding="utf-8")
+        )
+        del draft_result["frontier_closure"]
+        draft_path = control_dir / "finalizer_draft.json"
+        atomic_json(
+            draft_path,
+            {
+                "frontier_closure": json.loads(
+                    (control_dir / "evidence" / "frontier-closure.json").read_text(
+                        encoding="utf-8"
+                    )
+                ),
+                "result": draft_result,
+            },
+        )
+        commit_events = commit_finalizer_draft(control_dir, draft_path, 650.0, 1)
+        committed_result = json.loads(
+            (control_dir / "result.json").read_text(encoding="utf-8")
+        )
+        assert committed_result["completion_status"] == "BUDGET_EXHAUSTED"
+        assert committed_result["technical_repair_attempts"] == 1
+        assert committed_result["elapsed_seconds"] == 700
+        assert committed_result["frontier_closure"] == identity(
+            control_dir / "evidence" / "frontier-closure.json", control_dir
+        )
+        assert commit_events[0]["type"] == "runner.result_committed"
+        assert commit_events[1]["item"]["type"] == "agent_message"
+
         try:
             assess_trial(control_dir, ROOT, require_execution_audit=True)
         except ValueError as error:
@@ -863,6 +894,83 @@ def main() -> None:
             source_first_audit["violations"]
         )
 
+        search_text = "".join(
+            json.dumps(event) + "\n" for event in ranking_first_events[:2]
+        )
+        phase_marker = {
+            "type": "runner.finalization_started",
+            "search_transcript_sha256": hashlib.sha256(
+                search_text.encode("utf-8")
+            ).hexdigest(),
+        }
+        finalizer_tail = ranking_first_events[2:]
+        finalized_events = (
+            search_text
+            + json.dumps(phase_marker, sort_keys=True)
+            + "\n"
+            + "".join(json.dumps(event) + "\n" for event in finalizer_tail)
+        )
+        (control_dir / "executor.jsonl").write_text(
+            finalized_events, encoding="utf-8", newline="\n"
+        )
+        finalized_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert finalized_audit["status"] == "PASS"
+        assert finalized_audit["observations"]["runner_prefix_hash_match"] is True
+        assert finalized_audit["observations"][
+            "source_change_after_finalization"
+        ] is False
+
+        committed_transcript = (
+            search_text
+            + json.dumps(phase_marker, sort_keys=True)
+            + "\n"
+            + json.dumps({"type": "turn.completed"})
+            + "\n"
+            + "".join(
+                json.dumps(event, sort_keys=True) + "\n"
+                for event in commit_events
+            )
+        )
+        (control_dir / "executor.jsonl").write_text(
+            committed_transcript, encoding="utf-8", newline="\n"
+        )
+        committed_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert committed_audit["status"] == "PASS"
+        assert committed_audit["observations"]["result_commit_hash_match"] is True
+
+        late_source_change = {
+            "type": "item.completed",
+            "item": {
+                "type": "file_change",
+                "status": "completed",
+                "changes": [
+                    {
+                        "path": str(control_dir / "source" / "candidate.py"),
+                        "kind": "update",
+                    }
+                ],
+            },
+        }
+        finalized_with_late_edit = (
+            search_text
+            + json.dumps(phase_marker, sort_keys=True)
+            + "\n"
+            + json.dumps(late_source_change)
+            + "\n"
+            + "".join(json.dumps(event) + "\n" for event in finalizer_tail)
+        )
+        (control_dir / "executor.jsonl").write_text(
+            finalized_with_late_edit, encoding="utf-8", newline="\n"
+        )
+        late_edit_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert late_edit_audit["status"] == "FAIL"
+        assert late_edit_audit["observations"][
+            "source_change_after_finalization"
+        ] is True
+        assert "PRODUCTION_SOURCE_EDIT_DURING_FINALIZATION" in (
+            late_edit_audit["violations"]
+        )
+
         control_assessment = assess_trial(control_dir, ROOT)
         community_assessment = assess_trial(community_dir, ROOT)
         assert control_assessment["metrics"]["best_speedup"] == 1.04
@@ -977,8 +1085,10 @@ def main() -> None:
             "maximum_speedup": open_selected["selected_speedup"] * 2,
             "rationale": "A material same-family gap remains open.",
         }
+        open_selected["generated_at_seconds"] = 480
         atomic_json(closure_path, open_selected)
         invalid_frontier_result = json.loads(result_path.read_text(encoding="utf-8"))
+        invalid_frontier_result["elapsed_seconds"] = 480
         invalid_frontier_result["frontier_closure"] = identity(
             closure_path, community_dir
         )
@@ -989,6 +1099,26 @@ def main() -> None:
             assert "selected architecture retains a material open bound" in str(error)
         else:
             raise AssertionError("early stop with an open selected family was accepted")
+        write_result(community_dir, rows, elapsed)
+
+        no_selection = json.loads(closure_path.read_text(encoding="utf-8"))
+        no_selection["selected_candidate_id"] = None
+        no_selection["selected_speedup"] = None
+        no_selection["architectures"][0]["status"] = "EVALUATED"
+        atomic_json(closure_path, no_selection)
+        no_selection_result = json.loads(result_path.read_text(encoding="utf-8"))
+        no_selection_result["frontier_closure"] = identity(
+            closure_path, community_dir
+        )
+        atomic_json(result_path, no_selection_result)
+        no_selection_assessment = assess_trial(community_dir, ROOT)
+        assert no_selection_assessment["metrics"]["best_speedup"] is None
+        assert no_selection_assessment["metrics"][
+            "time_to_first_improvement_seconds"
+        ] is None
+        assert no_selection_assessment["metrics"][
+            "time_to_first_correct_seconds"
+        ] is not None
         write_result(community_dir, rows, elapsed)
 
         invalid_method = json.loads(

@@ -17,7 +17,11 @@
       "properties": {
         "minimum_ranked_architectures": {"const": 3},
         "unknown_bound_policy": {"const": "SCREEN_OR_EXHAUST_SEARCH_PHASE"},
-        "deadline_fraction": {"const": 0.7},
+        "deadline_fraction": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1
+        },
         "material_gain_margin": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
       }
     },

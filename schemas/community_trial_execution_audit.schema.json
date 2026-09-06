@@ -52,6 +52,11 @@
         "opportunity_ranking_change_index",
         "first_production_source_change_index",
         "ranking_preceded_production_edit",
+        "finalization_started_index",
+        "source_change_after_finalization",
+        "runner_prefix_hash_match",
+        "result_commit_index",
+        "result_commit_hash_match",
         "external_path_hashes"
       ],
       "properties": {
@@ -72,6 +77,23 @@
           "minimum": 0
         },
         "ranking_preceded_production_edit": {
+          "type": ["boolean", "null"]
+        },
+        "finalization_started_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "source_change_after_finalization": {
+          "type": ["boolean", "null"]
+        },
+        "runner_prefix_hash_match": {
+          "type": ["boolean", "null"]
+        },
+        "result_commit_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "result_commit_hash_match": {
           "type": ["boolean", "null"]
         },
         "external_path_hashes": {
@@ -96,7 +118,12 @@
           "RESULT_MISSING",
           "RESULT_SCHEMA_INVALID",
           "RESULT_TRANSCRIPT_MISMATCH",
-          "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT"
+          "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT",
+          "MULTIPLE_FINALIZATION_MARKERS",
+          "RUNNER_PHASE_PREFIX_MISMATCH",
+          "PRODUCTION_SOURCE_EDIT_DURING_FINALIZATION",
+          "MULTIPLE_RESULT_COMMIT_MARKERS",
+          "RUNNER_RESULT_COMMIT_MISMATCH"
         ]
       }
     }
