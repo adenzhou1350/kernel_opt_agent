@@ -221,6 +221,20 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
     }
     if method_realization is not None:
         result["method_realization"] = method_realization
+    if trial.get("knowledge_realization_required"):
+        graph = json.loads(
+            (trial_dir / "knowledge" / "community_graph.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        result["knowledge_realization"] = {
+            "inspected_event_ids": [graph["nodes"][0]["event_id"]],
+            "selected_event_ids": [graph["nodes"][0]["event_id"]],
+            "disposition": "REALIZED_IN_CANDIDATE",
+            "candidate_ids": [row["candidate_id"] for row in rows],
+            "rationale": "The synthetic event changed the tested candidate plan.",
+            "evidence": [rows[0]["evidence"][0]],
+        }
     atomic_json(
         trial_dir / "result.json",
         result,
@@ -554,6 +568,7 @@ def main() -> None:
         assert community_manifest["prior_shortlist"] == identity(
             shortlist_path, community_dir
         )
+        assert community_manifest["knowledge_realization_required"] is True
         assert not (control_dir / "input" / "oracle.json").exists()
         assert not (community_dir / "input" / "oracle.json").exists()
         assert (control_dir / "input" / "result.schema.json").is_file()
@@ -743,11 +758,54 @@ def main() -> None:
         assert community_assessment["metrics"]["method_realized_candidate_count"] == 2
         assert community_assessment["metrics"]["frontier_contract_passed"] is True
         assert community_assessment["metrics"]["ranked_architecture_count"] == 3
+        assert community_assessment["metrics"][
+            "community_realization_disposition"
+        ] == "REALIZED_IN_CANDIDATE"
         report = compare_trials(
             control_dir, community_dir, base / "comparison.json", ROOT
         )
         assert report["deltas"]["time_to_first_correct_seconds_saved"] == 280
         assert report["deltas"]["best_speedup_gain"] > 0
+        assert report["treatment_fidelity"]["any_prior_realized"] is True
+        assert report["treatment_fidelity"]["causal_interpretation"] == (
+            "TREATMENT_REALIZED"
+        )
+
+        no_treatment = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        no_treatment["knowledge_realization"] = {
+            "inspected_event_ids": [],
+            "selected_event_ids": [],
+            "disposition": "NO_RELEVANT_COMMUNITY_PRIOR",
+            "candidate_ids": [],
+            "rationale": "No event changed the local candidate plan.",
+            "evidence": [],
+        }
+        atomic_json(community_dir / "result.json", no_treatment)
+        no_treatment_report = compare_trials(
+            control_dir, community_dir, base / "comparison-no-treatment.json", ROOT
+        )
+        assert no_treatment_report["treatment_fidelity"]["any_prior_realized"] is True
+        assert no_treatment_report["treatment_fidelity"]["method_prior_realized"] is True
+        no_treatment["method_realization"] = {
+            "inspected_method_ids": [],
+            "selected_method_id": None,
+            "disposition": "NO_RELEVANT_METHOD_PRIOR",
+            "instantiation": None,
+            "candidate_ids": [],
+            "rationale": "No method changed the local candidate plan.",
+            "evidence": [],
+        }
+        atomic_json(community_dir / "result.json", no_treatment)
+        no_treatment_report = compare_trials(
+            control_dir, community_dir, base / "comparison-no-realized-prior.json", ROOT
+        )
+        assert no_treatment_report["treatment_fidelity"]["any_prior_realized"] is False
+        assert no_treatment_report["treatment_fidelity"]["causal_interpretation"] == (
+            "ASSIGNMENT_WITHOUT_REALIZED_PRIOR"
+        )
+        write_result(community_dir, rows, elapsed)
 
         ranking_path = community_dir / "evidence" / "opportunity-ranking.json"
         closure_path = community_dir / "evidence" / "frontier-closure.json"

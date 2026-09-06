@@ -63,6 +63,30 @@
       }
     },
     "frontier_closure": {"$ref": "#/$defs/identity"},
+    "knowledge_realization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["inspected_event_ids", "selected_event_ids", "disposition", "candidate_ids", "rationale", "evidence"],
+      "properties": {
+        "inspected_event_ids": {
+          "type": "array", "maxItems": 2, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "selected_event_ids": {
+          "type": "array", "maxItems": 2, "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "disposition": {
+          "enum": ["PRIOR_GATE_CLOSED", "NO_RELEVANT_COMMUNITY_PRIOR", "REALIZED_IN_CANDIDATE"]
+        },
+        "candidate_ids": {
+          "type": "array", "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"}
+        },
+        "rationale": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+      }
+    },
     "method_realization": {
       "type": "object",
       "additionalProperties": false,

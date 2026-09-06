@@ -67,7 +67,12 @@
         },
         "method_realized_candidate_count": {"type": "integer", "minimum": 0},
         "frontier_contract_passed": {"type": "boolean"},
-        "ranked_architecture_count": {"type": ["integer", "null"], "minimum": 0}
+        "ranked_architecture_count": {"type": ["integer", "null"], "minimum": 0},
+        "community_realization_disposition": {
+          "type": ["string", "null"],
+          "enum": [null, "PRIOR_GATE_CLOSED", "NO_RELEVANT_COMMUNITY_PRIOR", "REALIZED_IN_CANDIDATE"]
+        },
+        "community_realized_candidate_count": {"type": "integer", "minimum": 0}
       }
     },
     "budget_usage": {

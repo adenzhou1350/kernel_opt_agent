@@ -77,6 +77,11 @@ Act as the isolated executor for this materialized optimization trial.
      that knowledge was used. A prior-selected candidate must displace or
      materially modify the frozen local plan; merely attaching a method label
      to the same candidate does not count as realization.
+     In a COMMUNITY_AUGMENTED trial, preserve the event-side decision in the
+     final `knowledge_realization` receipt. `REALIZED_IN_CANDIDATE` requires a
+     selected inspected event, the candidate IDs whose architecture it changed,
+     and hash-bound evidence. Assignment to the augmented arm is not evidence
+     that a prior was realized.
    - Do not spend more than two evaluated candidates in one architecture
      family without a measured material improvement. After that, change the
      work decomposition or stop that branch. Stop candidate search by the
@@ -112,6 +117,8 @@ Act as the isolated executor for this materialized optimization trial.
    `REALIZED_IN_CANDIDATE`, or `STRUCTURALLY_INFEASIBLE`. A realized method must
    reference its actual candidate IDs and evidence; an infeasibility claim must
    reference evidence. Omit this field when no method snapshot is exposed.
+   When `trial.json` sets `knowledge_realization_required`, also populate
+   `knowledge_realization` exactly as required by the result schema.
 
 The final JSON response will be saved directly as `result.json`; do not wrap it
 in Markdown.

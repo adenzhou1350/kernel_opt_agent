@@ -74,7 +74,8 @@
     "task_support": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identity"}},
     "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
     "method_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
-    "prior_shortlist": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
+    "prior_shortlist": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+    "knowledge_realization_required": {"type": "boolean"}
   },
   "$defs": {
     "identity": {

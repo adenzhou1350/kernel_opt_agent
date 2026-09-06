@@ -13,7 +13,8 @@
     "repeat_index",
     "control_assessment",
     "community_assessment",
-    "deltas"
+    "deltas",
+    "treatment_fidelity"
   ],
   "properties": {
     "schema_version": {"const": "community-ab-report-v1"},
@@ -27,6 +28,17 @@
     "deltas": {
       "type": "object",
       "additionalProperties": {"type": ["number", "null"]}
+    },
+    "treatment_fidelity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["community_event_prior_realized", "method_prior_realized", "any_prior_realized", "causal_interpretation"],
+      "properties": {
+        "community_event_prior_realized": {"type": "boolean"},
+        "method_prior_realized": {"type": "boolean"},
+        "any_prior_realized": {"type": "boolean"},
+        "causal_interpretation": {"enum": ["TREATMENT_REALIZED", "ASSIGNMENT_WITHOUT_REALIZED_PRIOR"]}
+      }
     }
   },
   "$defs": {

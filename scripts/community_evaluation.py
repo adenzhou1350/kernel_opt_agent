@@ -893,6 +893,7 @@ def materialize_trial(
         "community_graph": graph_identity,
         "method_snapshot": method_identity,
         "prior_shortlist": prior_shortlist_identity,
+        "knowledge_realization_required": arm == "COMMUNITY_AUGMENTED",
     }
     errors = validate_instance(
         manifest,
@@ -1403,6 +1404,62 @@ def assess_trial(
             )
 
     method_realization = result.get("method_realization")
+    community_realization = result.get("knowledge_realization")
+    community_disposition = None
+    community_realized_candidate_count = 0
+    if trial["arm"] == "CONTROL":
+        if community_realization is not None:
+            raise ValueError("community realization is forbidden in the control arm")
+    elif trial.get("knowledge_realization_required") or community_realization is not None:
+        if community_realization is None:
+            raise ValueError("community realization is required in the augmented arm")
+        graph_path = validate_identity(
+            trial_dir, trial["community_graph"], "trial community graph"
+        )
+        available_event_ids = {
+            item["event_id"] for item in read_object(graph_path)["nodes"]
+        }
+        inspected_event_ids = community_realization["inspected_event_ids"]
+        selected_event_ids = community_realization["selected_event_ids"]
+        unknown_inspected = sorted(set(inspected_event_ids) - available_event_ids)
+        if unknown_inspected:
+            raise ValueError(
+                "community realization inspected unknown events: "
+                + ", ".join(unknown_inspected)
+            )
+        if not set(selected_event_ids).issubset(inspected_event_ids):
+            raise ValueError("selected community events must be inspected events")
+        realization_candidate_ids = community_realization["candidate_ids"]
+        unknown_candidates = sorted(set(realization_candidate_ids) - candidate_ids)
+        if unknown_candidates:
+            raise ValueError(
+                "community realization references unknown candidates: "
+                + ", ".join(unknown_candidates)
+            )
+        for evidence in community_realization["evidence"]:
+            validate_identity(trial_dir, evidence, "community realization evidence")
+        community_disposition = community_realization["disposition"]
+        if community_disposition == "PRIOR_GATE_CLOSED":
+            if inspected_event_ids or selected_event_ids or realization_candidate_ids:
+                raise ValueError(
+                    "PRIOR_GATE_CLOSED cannot inspect, select, or realize an event"
+                )
+        elif community_disposition == "NO_RELEVANT_COMMUNITY_PRIOR":
+            if selected_event_ids or realization_candidate_ids:
+                raise ValueError(
+                    "NO_RELEVANT_COMMUNITY_PRIOR cannot select or realize an event"
+                )
+        else:
+            if not selected_event_ids or not realization_candidate_ids:
+                raise ValueError(
+                    "REALIZED_IN_CANDIDATE requires selected events and candidates"
+                )
+            if not community_realization["evidence"]:
+                raise ValueError(
+                    "realized community event requires hash-bound evidence"
+                )
+            community_realized_candidate_count = len(realization_candidate_ids)
+
     method_disposition = None
     method_realized_candidate_count = 0
     if trial.get("method_snapshot") is None:
@@ -1557,6 +1614,8 @@ def assess_trial(
             "method_realized_candidate_count": method_realized_candidate_count,
             "frontier_contract_passed": ranked_architecture_count is not None,
             "ranked_architecture_count": ranked_architecture_count,
+            "community_realization_disposition": community_disposition,
+            "community_realized_candidate_count": community_realized_candidate_count,
         },
         "budget_usage": usage,
     }
@@ -1600,6 +1659,15 @@ def compare_trials(
         raise ValueError("paired trials differ in success thresholds")
     control_metrics = control["metrics"]
     community_metrics = community["metrics"]
+    community_event_prior_realized = (
+        community_metrics.get("community_realization_disposition")
+        == "REALIZED_IN_CANDIDATE"
+    )
+    method_prior_realized = (
+        community_metrics.get("method_realization_disposition")
+        == "REALIZED_IN_CANDIDATE"
+    )
+    any_prior_realized = community_event_prior_realized or method_prior_realized
     control_path = control_dir.resolve() / "assessment.json"
     community_path = community_dir.resolve() / "assessment.json"
     report = {
@@ -1644,6 +1712,16 @@ def compare_trials(
             "upstream_ready_count_gain": difference(
                 control_metrics["upstream_ready_count"],
                 community_metrics["upstream_ready_count"],
+            ),
+        },
+        "treatment_fidelity": {
+            "community_event_prior_realized": community_event_prior_realized,
+            "method_prior_realized": method_prior_realized,
+            "any_prior_realized": any_prior_realized,
+            "causal_interpretation": (
+                "TREATMENT_REALIZED"
+                if any_prior_realized
+                else "ASSIGNMENT_WITHOUT_REALIZED_PRIOR"
             ),
         },
     }
