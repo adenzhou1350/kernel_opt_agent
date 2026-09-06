@@ -96,7 +96,10 @@ Act as the isolated executor for this materialized optimization trial.
      architecture, and account for every ranked architecture with its current
      typed upper bound and hash-bound evidence. `DOMINATED` requires a numeric
      maximum speedup; qualitative reasoning alone can only support a genuinely
-     `INFEASIBLE` branch. Stop early only when the selected result reaches a quantified
+     `INFEASIBLE` branch. The selected architecture's own current bound must
+     also be within the material margin; finding one good implementation does
+     not close further variants of that family while search capacity remains.
+     Stop early only when the selected result reaches a quantified
      defensible bound, every remaining upper bound is below the selected result
      by less than one material-gain margin, or the explicit phase deadline has
      arrived. A qualitative or unknown upper bound remains open: screen the

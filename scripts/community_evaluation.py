@@ -1306,6 +1306,28 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
         if not correct_speeds or selected_speedup != max(correct_speeds):
             raise ValueError("frontier selection is not the best correct measured candidate")
         margin = float(contract["policy"]["material_gain_margin"])
+        selected_bound = selected_rows[0]["current_upper_bound"]
+        compile_attempts = sum(
+            item["compile_attempts"] for item in result["candidates"]
+        )
+        measurement_attempts = sum(
+            item["measurement_attempts"] for item in result["candidates"]
+        )
+        search_capacity_remains = (
+            result["elapsed_seconds"] < search_deadline
+            and len(result["candidates"]) < trial["budget"]["max_candidates"]
+            and compile_attempts < trial["budget"]["max_compile_attempts"]
+            and measurement_attempts < trial["budget"]["max_measurements"]
+        )
+        selected_bound_open = (
+            selected_bound["kind"] != "QUANTIFIED"
+            or float(selected_bound["maximum_speedup"])
+            > selected_speedup * (1.0 + margin)
+        )
+        if selected_bound_open and search_capacity_remains:
+            raise ValueError(
+                "selected architecture retains a material open bound while search capacity remains"
+            )
         for row in closure_rows:
             if row["status"] != "DOMINATED":
                 continue

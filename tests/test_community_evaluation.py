@@ -154,9 +154,9 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
                     "status": "SELECTED",
                     "candidate_ids": [row["candidate_id"] for row in rows],
                     "current_upper_bound": {
-                        "kind": "STRUCTURAL",
-                        "maximum_speedup": None,
-                        "rationale": "The selected candidate reaches the synthetic floor.",
+                        "kind": "QUANTIFIED",
+                        "maximum_speedup": selected["speedup"] * 1.01,
+                        "rationale": "The synthetic bound is within one material margin.",
                     },
                     "evidence": shared_evidence,
                 },
@@ -851,6 +851,26 @@ def main() -> None:
             assert "needs a quantified domination bound" in str(error)
         else:
             raise AssertionError("complete trial with an open unknown bound was accepted")
+        write_result(community_dir, rows, elapsed)
+
+        open_selected = json.loads(closure_path.read_text(encoding="utf-8"))
+        open_selected["architectures"][0]["current_upper_bound"] = {
+            "kind": "QUANTIFIED",
+            "maximum_speedup": open_selected["selected_speedup"] * 2,
+            "rationale": "A material same-family gap remains open.",
+        }
+        atomic_json(closure_path, open_selected)
+        invalid_frontier_result = json.loads(result_path.read_text(encoding="utf-8"))
+        invalid_frontier_result["frontier_closure"] = identity(
+            closure_path, community_dir
+        )
+        atomic_json(result_path, invalid_frontier_result)
+        try:
+            assess_trial(community_dir, ROOT)
+        except ValueError as error:
+            assert "selected architecture retains a material open bound" in str(error)
+        else:
+            raise AssertionError("early stop with an open selected family was accepted")
         write_result(community_dir, rows, elapsed)
 
         invalid_method = json.loads(
