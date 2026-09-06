@@ -61,6 +61,27 @@ def main() -> None:
         card["source"]["available_at"] <= "2026-08-31T23:59:59Z"
         for card in cutoff_snapshot["cards"]
     )
+    current_snapshot = build_snapshot("2026-09-06T08:40:00Z", ROOT)
+    primitive_ids = {
+        card["method_id"]
+        for card in current_snapshot["cards"]
+        if card.get("community_provenance") is not None
+    }
+    assert primitive_ids == {
+        "community-architecture-conditioned-fusion",
+        "community-cross-layer-state-contract",
+        "community-fast-path-reachability",
+        "community-finite-range-before-reassociation",
+        "community-host-loop-to-segmented-array",
+        "community-validation-hoist-with-coherence",
+    }
+    assert not primitive_ids.intersection(cutoff_snapshot["included_method_ids"])
+    assert all(
+        card["community_provenance"]["entity_boundary"]
+        == "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+        for card in current_snapshot["cards"]
+        if card["method_id"] in primitive_ids
+    )
 
     with tempfile.TemporaryDirectory() as temporary:
         run = Path(temporary) / "run"
@@ -77,6 +98,11 @@ def main() -> None:
         for spec in (
             opportunity("attention-overlap", ["async-pipeline"], evidence_sha256),
             opportunity("remove-intermediate", ["cross-stage-fusion"], evidence_sha256),
+            opportunity(
+                "awq-fp16-dequantization-hoist-overflow",
+                ["loop-invariant-hoisting", "numerical-range-proof"],
+                evidence_sha256,
+            ),
         ):
             path = run / "models" / f"{spec['opportunity_id']}.json"
             write(path, spec)
@@ -91,7 +117,11 @@ def main() -> None:
         assert attention["flashattention3-async-pipeline"]["transfer_status"] == "BLOCKED_UNVERIFIED_CAPABILITY", attention
         fusion = {row["method_id"]: row for row in by_opportunity["remove-intermediate"]}
         assert fusion["korch-fission-orchestration"]["transfer_status"] == "DIRECT", fusion
-        assert receipt["evaluation_guards"][0]["claim_boundary"] == "DISCOVERY_PRIOR_ONLY"
+        guards = {row["method_id"]: row for row in receipt["evaluation_guards"]}
+        assert guards["community-finite-range-before-reassociation"][
+            "claim_boundary"
+        ] == "DISCOVERY_PRIOR_ONLY"
+        assert "community-fast-path-reachability" not in guards
 
         expand = discovery_action(run, ROOT / "scripts")
         assert expand and expand["action"] == "EXPAND_DISCOVERY_PORTFOLIO", expand

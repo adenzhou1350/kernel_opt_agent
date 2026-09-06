@@ -121,7 +121,10 @@ materialization, augmented trials also receive a task-specific
 `knowledge/prior_shortlist.json`. It fail-closes on compute capability, vendor,
 required capability and context gates, uses phrase-boundary problem matching,
 excludes generic evaluation/search cards from candidate-generation slots, and
-contains at most two events and two transformation/orchestration methods. Its
+contains at most two events, two transformation/orchestration methods and one
+separately budgeted evaluation guard. Community-derived transfer primitives are
+accepted only when every provenance event is present in the frozen graph and no
+source event postdates the primitive. Its
 task, environment, graph and method inputs are hash-bound. This avoids charging
 the Agent for repeatedly parsing the full knowledge corpus and prevents fields
 such as `windows_prefix` from spuriously matching a `prefix` algorithm. Neither arm

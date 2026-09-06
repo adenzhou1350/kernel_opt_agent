@@ -1,0 +1,46 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-finite-range-before-reassociation",
+  "title": "Prove intermediate ranges before algebraic reassociation or hoisting",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "vLLM PR #55532 AWQ hoist overflow review",
+    "url": "https://github.com/vllm-project/vllm/pull/55532",
+    "version": "snapshot-91aefb1f2443425907f6",
+    "available_at": "2026-09-06T08:40:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "A legal FP16 counterexample rejected the source transformation; it is a correctness guard, not target performance evidence."
+  },
+  "community_provenance": {
+    "source_event_ids": ["vllm.pr-55532.awq-hoist-overflow"],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["algebraic-reassociation", "loop-invariant-hoisting", "numerical-range-proof"],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["fp16", "bf16", "fp8", "integer-quantized"],
+    "problem_signatures": ["hoist", "dequantization", "fma", "overflow", "finite precision", "reassociation", "scale"]
+  },
+  "implementation_recipe": [
+    "Derive bounds for every original and newly materialized intermediate.",
+    "Account for rounding, saturation, fused operations and signed infinities in the actual execution dtype.",
+    "Reject the rewrite when any legal input leaves the original finite domain but overflows the new intermediate."
+  ],
+  "validation_recipe": [
+    "Generate boundary values from dtype maxima and quantizer extrema rather than random inputs alone.",
+    "Emulate or execute exact fused-FMA semantics for the target dtype.",
+    "Run adversarial held-out values before timing."
+  ],
+  "expected_bottleneck_shifts": ["A rejected unsafe candidate should consume only correctness-screen budget, never performance-measurement budget."],
+  "failure_modes": ["Source-level algebraic equivalence is assumed to imply floating-point equivalence.", "The hoisted product has a wider dynamic range than the bounded original difference.", "Tests cover typical scales but omit legal extrema."],
+  "scope_limits": ["This guard does not prohibit reassociation when the new range is proven safe or a wider accumulator is used."],
+  "candidate_archetypes": [{
+    "family": "range-proved-hoisting",
+    "name": "range-gated invariant hoist",
+    "change_axes": ["intermediate dtype", "operation order", "legal-domain bound"],
+    "template": "Hoist only after proving the materialized invariant is representable for the entire public input domain."
+  }]
+}

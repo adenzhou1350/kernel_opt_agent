@@ -1,0 +1,38 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-fast-path-reachability",
+  "title": "Prove production control-flow reachability before optimizing a fast path",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "Mooncake PR #3731 RDMA direct-path review",
+    "url": "https://github.com/kvcache-ai/Mooncake/pull/3731",
+    "version": "snapshot-9ae4aff0ce9a7afb2733",
+    "available_at": "2026-09-06T08:40:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "Review traced an eligible request to the old worker path; the primitive is a reachability gate."
+  },
+  "community_provenance": {
+    "source_event_ids": ["mooncake.pr-3731.unwired-rdma-direct-path"],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["latency-fast-path", "dispatch-bypass", "control-flow-integration"],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": ["fast path", "dispatch", "bypass", "queue", "shortcut", "fallback", "latency"]
+  },
+  "implementation_recipe": ["Trace a representative eligible request from public entry to the intended fast primitive.", "Add a branch/counter assertion that distinguishes fast and fallback paths.", "Benchmark only after production reachability and completion semantics are proven."],
+  "validation_recipe": ["Test one eligible request, one ineligible request and one negotiation/capability failure.", "Verify completion, cancellation and error propagation on both paths."],
+  "expected_bottleneck_shifts": ["An unreachable path has exactly zero production speedup regardless of microbenchmark quality."],
+  "failure_modes": ["The shortcut returns success but calls the old scheduler.", "A fallback masks that the fast branch was never entered.", "The data path is wired but completion polling remains on the old queue."],
+  "scope_limits": ["A reachability proof is necessary but not sufficient for correctness or performance."],
+  "candidate_archetypes": [{
+    "family": "reachable-fast-path",
+    "name": "instrumented end-to-end fast dispatch",
+    "change_axes": ["production branch", "fallback", "completion path"],
+    "template": "Wire and instrument the complete request lifecycle before any low-level tuning."
+  }]
+}

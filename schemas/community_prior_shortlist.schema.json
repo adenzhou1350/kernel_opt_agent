@@ -24,13 +24,13 @@
       "required": ["max_events", "max_methods", "minimum_token_hits", "hard_gate_policy"],
       "properties": {
         "max_events": {"type": "integer", "minimum": 0, "maximum": 2},
-        "max_methods": {"type": "integer", "minimum": 0, "maximum": 2},
+        "max_methods": {"type": "integer", "minimum": 0, "maximum": 3},
         "minimum_token_hits": {"type": "integer", "minimum": 1},
         "hard_gate_policy": {"const": "FAIL_CLOSED"}
       }
     },
     "events": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/match"}},
-    "methods": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/match"}},
+    "methods": {"type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/match"}},
     "rejections": {
       "type": "object", "additionalProperties": false,
       "required": ["event_hard_gate", "event_low_relevance", "method_hard_gate", "method_low_relevance"],
@@ -38,7 +38,8 @@
         "event_hard_gate": {"type": "integer", "minimum": 0},
         "event_low_relevance": {"type": "integer", "minimum": 0},
         "method_hard_gate": {"type": "integer", "minimum": 0},
-        "method_low_relevance": {"type": "integer", "minimum": 0}
+        "method_low_relevance": {"type": "integer", "minimum": 0},
+        "method_provenance_gate": {"type": "integer", "minimum": 0}
       }
     }
   },

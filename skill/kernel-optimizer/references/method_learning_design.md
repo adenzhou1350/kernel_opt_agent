@@ -109,6 +109,26 @@ partition/local/combine/finalize 映射到当前算子，并绑定真正兑现�
 否则只能提交带哈希证据的 `STRUCTURALLY_INFEASIBLE`。只在文字里复述方法、
 最后回退到熟悉实现，不再计作方法学习成功。
 
+### 3.5 社区实体层与可迁移原语层分离
+
+社区 PR 不能直接当作通用方法卡：一个 PR 同时混合了目标代码、特定硬件、
+生命周期、评审争议和局部 benchmark。现在知识库显式分成两层：
+
+- 外部 corpus 的 `community-optimization-event-v1` 保存 PR 实体、不可变快照、
+  review/revert/regression 和原始性能边界；
+- `knowledge/primitives/*.json` 保存跨项目可复用的变换或评测原语，并通过
+  `community_provenance.source_event_ids` 反向绑定来源事件。
+
+原语只能提供 discovery prior，不能继承来源 PR 的性能数字。temporal shortlist
+只有在全部来源事件都存在于冻结图中、且来源事件不晚于原语可用时间时才接受
+该原语。路由预算也分开：最多两个 transformation/orchestration 和一个
+evaluation guard，避免安全检查挤掉真正可写代码的候选路线。
+
+首批原语覆盖 host loop 到 segmented array、有限值域重排、按架构条件融合、
+fast-path 可达性、带一致性证明的校验外提，以及跨层状态契约。对已经揭晓答案的
+causal-conv 题做回放时，路由器能同时找回来源事件和 segmented-array 原语；
+这只是 routing retrospective，不能作为方法层带来因果收益的 A/B 证据。
+
 ## 4. 两机验证
 
 验证对象沿用已授权的 synthetic fused-affine-ReLU workload；它用于验证搜索

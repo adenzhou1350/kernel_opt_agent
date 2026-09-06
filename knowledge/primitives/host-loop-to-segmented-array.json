@@ -1,0 +1,70 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-host-loop-to-segmented-array",
+  "title": "Replace repeated host object expansion with segmented array construction",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "vLLM PR #55469 and RTX 4060 reproduction",
+    "url": "https://github.com/vllm-project/vllm/pull/55469",
+    "version": "snapshot-b26cac3b996e54aff803",
+    "available_at": "2026-09-06T08:40:00Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "Transfer primitive derived from vLLM metadata construction; source speedups are not target evidence."
+  },
+  "community_provenance": {
+    "source_event_ids": ["vllm.pr-55469.vectorized-causal-conv-metadata"],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["host-loop-elimination", "metadata-vectorization", "launch-preparation"],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["integer-metadata"],
+    "problem_signatures": ["python loop", "metadata", "offset", "chunk", "prefix", "host overhead", "repeated range"]
+  },
+  "implementation_recipe": [
+    "Express total output length as a reduction over per-segment counts.",
+    "Construct segment ids by repeating row ids according to counts.",
+    "Construct local offsets as global indices minus repeated exclusive prefix starts.",
+    "Convert to the required pinned dtype once, then retain the existing H2D boundary."
+  ],
+  "validation_recipe": [
+    "Compare every output exactly for empty, zero-length, irregular and very large segments.",
+    "Test every accepted input integer width and verify output dtype does not drift.",
+    "Benchmark small and large segment counts separately with interleaved samples."
+  ],
+  "expected_bottleneck_shifts": [
+    "Python object creation and per-segment dispatch should collapse.",
+    "Bulk allocation, memory bandwidth, pinned conversion and H2D copy should become dominant."
+  ],
+  "failure_modes": [
+    "Vectorized setup is slower for tiny inputs.",
+    "Prefix arithmetic overflows before the final cast.",
+    "A NumPy conversion silently changes dtype or pinning behavior.",
+    "Uniform-shape specialization is incorrectly applied to irregular rows."
+  ],
+  "scope_limits": [
+    "Useful only when the host loop or object expansion is material in the target profile.",
+    "Does not justify removing mandatory host-visible metadata or synchronization."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "Each segment independently appends the local integer range 0..count-1.",
+    "partition_axis": "segments and their flattened output intervals",
+    "local_state": ["per-segment count", "exclusive prefix start", "global flattened index"],
+    "combine_rule": "Repeat each exclusive prefix start by its segment count and subtract it from the global flattened index.",
+    "finalization": "Cast once to the public metadata dtype and stage through the existing ownership boundary.",
+    "work_complexity": "O(number_of_segments + total_output_items)",
+    "span_complexity": "Bulk array primitives replace Python span proportional to the number of segments.",
+    "communication_cost": "Unchanged mandatory host-to-device payload.",
+    "invariants": ["stable segment order", "zero-based local offsets", "exact total length", "public dtype and pinning"],
+    "anti_patterns": ["one Python range object per segment", "one device launch per metadata group", "dtype conversion inside the segment loop"]
+  },
+  "candidate_archetypes": [{
+    "family": "segmented-array-construction",
+    "name": "exclusive-prefix segmented index construction",
+    "change_axes": ["host work decomposition", "object allocation count", "bulk prefix and repeat operations"],
+    "template": "Compute counts and exclusive starts in bulk; derive flattened local indices from global indices minus repeated starts."
+  }]
+}

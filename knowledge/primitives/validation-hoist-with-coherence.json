@@ -1,0 +1,50 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-validation-hoist-with-coherence",
+  "title": "Hoist repeated validation only with a cross-boundary coherence proof",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "vLLM PR #55499 TRTLLM ragged-prefill regression fix",
+    "url": "https://github.com/vllm-project/vllm/pull/55499",
+    "version": "snapshot-523a81e91095aa509175",
+    "available_at": "2026-09-06T08:40:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The source reports throughput recovery and an unresolved CPU/device boundary risk; target performance remains unproven."
+  },
+  "community_provenance": {
+    "source_event_ids": ["vllm.pr-55499.hoist-ragged-prefill-validation"],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["validation-hoisting", "synchronization-elimination", "metadata-prevalidation"],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["integer-metadata"],
+    "problem_signatures": ["validation", "synchronization", "metadata", "per call", "invariant", "host device", "prefill"]
+  },
+  "implementation_recipe": ["Identify the scope over which the predicate is invariant.", "Validate once at metadata construction and propagate an explicit proof/flag.", "Revalidate or use a guarded path whenever another subsystem can mutate the boundary."],
+  "validation_recipe": ["Exercise all-valid, all-invalid and mixed rows.", "Force host/device or producer/consumer metadata divergence.", "Measure the repeated-call path and verify the fallback activates on mismatch."],
+  "expected_bottleneck_shifts": ["Repeated synchronization should disappear; metadata construction and proof maintenance become the critical boundary."],
+  "failure_modes": ["The producer validates stale host metadata while the consumer uses updated device metadata.", "A skip-check flag outlives the scope in which the predicate was proven.", "Rare invalid rows reach a kernel that assumes all rows active."],
+  "scope_limits": ["Validation may be hoisted only across operations that cannot invalidate its predicate."],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "Every repeated consumer call recomputes or synchronizes to validate the same predicate.",
+    "partition_axis": "one metadata epoch containing multiple consumer calls",
+    "local_state": ["validated predicate", "metadata epoch identity", "consumer-visible proof flag"],
+    "combine_rule": "Conjoin producer-side validity with equality of every boundary representation used by the consumer.",
+    "finalization": "Enable skip-check only for the matching epoch; otherwise enter the guarded validation path.",
+    "work_complexity": "One validation per metadata epoch instead of per consumer call.",
+    "span_complexity": "Repeated host-device synchronization is removed from the inner call sequence.",
+    "communication_cost": "May add a small epoch/proof token while removing repeated synchronization.",
+    "invariants": ["predicate stability", "host/device boundary equality", "proof lifetime", "guarded fallback"],
+    "anti_patterns": ["unscoped boolean skip flag", "validation against a different metadata representation", "benchmarking only all-valid rows"]
+  },
+  "candidate_archetypes": [{
+    "family": "epoch-scoped-validation-hoist",
+    "name": "metadata-epoch validation proof",
+    "change_axes": ["validation frequency", "synchronization", "proof lifetime"],
+    "template": "Validate once per immutable metadata epoch and skip only when producer and consumer boundary identities match."
+  }]
+}

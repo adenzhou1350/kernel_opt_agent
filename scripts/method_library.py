@@ -55,8 +55,14 @@ def repository_root() -> Path:
 
 
 def card_paths(root: Path | None = None) -> list[Path]:
-    base = (root or repository_root()) / "knowledge" / "methods"
-    return sorted(base.glob("*.json"))
+    knowledge = (root or repository_root()) / "knowledge"
+    return sorted(
+        [
+            *knowledge.joinpath("methods").glob("*.json"),
+            *knowledge.joinpath("primitives").glob("*.json"),
+        ],
+        key=lambda path: path.as_posix(),
+    )
 
 
 def load_cards(root: Path | None = None) -> list[tuple[Path, dict]]:
@@ -122,7 +128,10 @@ def match_card(card: dict, opportunity: dict, context: str, hardware_text: str) 
     opportunity_text = scalar_text(opportunity)
     opportunity_signature_hits = sorted(term for term in applicability["problem_signatures"] if contains_term(opportunity_text, term))
     context_signature_hits = sorted(term for term in applicability["problem_signatures"] if contains_term(context, term))
-    if card["kind"] != "EVALUATION_GUARD" and not family_hits and not opportunity_signature_hits:
+    if card["kind"] == "EVALUATION_GUARD":
+        if not family_hits and not context_signature_hits:
+            return None
+    elif not family_hits and not opportunity_signature_hits:
         return None
 
     missing = sorted(term for term in applicability["required_capabilities"] if term.lower() not in hardware_text)

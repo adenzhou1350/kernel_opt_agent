@@ -472,6 +472,8 @@ def main() -> None:
         shortlisted_methods = [row["id"] for row in shortlist["methods"]]
         assert shortlisted_methods[0] == "triton-row-reduction-fusion"
         assert "cuda-hierarchical-scan-decomposition" not in shortlisted_methods
+        assert shortlist["policy"]["max_methods"] == 3
+        assert shortlist["rejections"]["method_provenance_gate"] > 0
         suite = {
             "schema_version": "community-temporal-suite-v1",
             "suite_id": "example.temporal-v1",

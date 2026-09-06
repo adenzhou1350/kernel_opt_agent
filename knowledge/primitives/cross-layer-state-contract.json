@@ -1,0 +1,38 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-cross-layer-state-contract",
+  "title": "Treat cross-layer cache accounting changes as one atomic state contract",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "SGLang PR #38163 unified-KV/SWA accounting revert",
+    "url": "https://github.com/sgl-project/sglang/pull/38163",
+    "version": "snapshot-1a1cbae909f591ad266b",
+    "available_at": "2026-09-06T08:40:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The source proves a broad merged revert, not the root cause; use as a state-contract warning."
+  },
+  "community_provenance": {
+    "source_event_ids": ["sglang.pr-38163.revert-unified-kv-swa-accounting"],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["state-accounting", "cache-layout", "scheduler-allocation-contract"],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": ["kv cache", "allocator", "scheduler", "sliding window", "ring", "capacity", "lifecycle"]
+  },
+  "implementation_recipe": ["Write one invariant table spanning scheduler estimates, allocator ownership, ring position and model pool layout.", "Change and test every producer/consumer of each accounting field atomically.", "Keep rollback and migration behavior explicit."],
+  "validation_recipe": ["Compare estimated and actual allocation over extend, decode, reuse and wraparound.", "Exercise state restoration and disaggregated lifecycle transitions.", "Run invariant checks under capacity pressure."],
+  "expected_bottleneck_shifts": ["A local capacity or memory saving can create remote scheduler or lifecycle corruption if the shared state contract diverges."],
+  "failure_modes": ["Only the allocator or only the scheduler adopts the new accounting.", "SWA wraparound and reuse are omitted from tests.", "A broad change merges without a reversible staged rollout."],
+  "scope_limits": ["The captured revert does not identify which invariant failed, so the card cannot prescribe a specific implementation."],
+  "candidate_archetypes": [{
+    "family": "atomic-state-accounting-migration",
+    "name": "cross-layer accounting contract migration",
+    "change_axes": ["state ownership", "capacity equation", "lifecycle invariants"],
+    "template": "Define the shared accounting equation first, update every layer atomically, and gate rollout on lifecycle invariants."
+  }]
+}

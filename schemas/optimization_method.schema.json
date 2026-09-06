@@ -21,6 +21,21 @@
         "claim_scope": {"type": "string", "minLength": 1}
       }
     },
+    "community_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_event_ids", "derivation", "entity_boundary"],
+      "properties": {
+        "source_event_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "derivation": {"const": "CURATED_TRANSFER_PRIMITIVE"},
+        "entity_boundary": {"const": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"}
+      }
+    },
     "opportunity_families": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"}},
     "applicability": {
       "type": "object", "additionalProperties": false,

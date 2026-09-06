@@ -1,0 +1,54 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-architecture-conditioned-fusion",
+  "title": "Promote fusion only through architecture and shape conditioned dispatch",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "SGLang PR #26089 cross-architecture FP8 fusion",
+    "url": "https://github.com/sgl-project/sglang/pull/26089",
+    "version": "snapshot-a8180102c06c6bc2c65c",
+    "available_at": "2026-09-06T08:40:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The source reports opposite end-to-end signs on H100 and B200; target dispatch requires independent reproduction."
+  },
+  "community_provenance": {
+    "source_event_ids": ["sglang.pr-26089.cross-architecture-fp8-fusion"],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["producer-consumer-fusion", "intermediate-elimination", "conditional-dispatch"],
+  "applicability": {
+    "vendors": ["nvidia"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["fp8", "bf16"],
+    "problem_signatures": ["fusion", "intermediate", "quantization", "launch overhead", "register pressure", "architecture", "shape"]
+  },
+  "implementation_recipe": [
+    "Fuse one adjacent producer-consumer pair while preserving an unfused fallback.",
+    "Gate selection by backend, quantization mode, architecture and measured shape frontier.",
+    "Keep return types and output dtypes identical for every fallback consumer."
+  ],
+  "validation_recipe": ["Run non-quantized and non-target-backend paths.", "Measure per-shape on every supported architecture rather than extrapolating.", "Check end-to-end accuracy and operator outputs."],
+  "expected_bottleneck_shifts": ["Removed launches and intermediates can expose register pressure, occupancy and compiler scheduling differences that reverse the gain."],
+  "failure_modes": ["Unconditional fused dispatch changes ABI for unrelated models.", "A kernel profitable on one GPU generation regresses another.", "Hard-coded output dtype changes downstream numerics."],
+  "scope_limits": ["No universal fusion claim is allowed from one architecture or aggregate workload."],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A producer materializes an intermediate that a quantizing or transforming consumer reads.",
+    "partition_axis": "the consumer's existing output tiles",
+    "local_state": ["producer values", "consumer reduction state", "architecture/shape dispatch key"],
+    "combine_rule": "Compute producer values inside the consumer tile and retain only consumer output.",
+    "finalization": "Dispatch to fused or unfused implementation using a measured hardware-shape frontier.",
+    "work_complexity": "Arithmetic work is similar; global intermediate traffic and one launch are removed.",
+    "span_complexity": "One launch replaces two sequential launches.",
+    "communication_cost": "Intermediate global-memory round trip is removed.",
+    "invariants": ["public ABI", "output dtype", "fallback availability", "architecture-specific performance guard"],
+    "anti_patterns": ["unconditional global replacement", "single-GPU promotion", "fusing unrelated optional paths in one patch"]
+  },
+  "candidate_archetypes": [{
+    "family": "gated-producer-consumer-fusion",
+    "name": "hardware-shape gated adjacent fusion",
+    "change_axes": ["launch count", "intermediate traffic", "dispatch frontier"],
+    "template": "Fuse the adjacent pair, retain the original path, and select only target hardware-shape cells that pass correctness and regression guards."
+  }]
+}

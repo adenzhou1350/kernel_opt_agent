@@ -107,7 +107,9 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
     capability = target_compute_capability(environment)
     event_rows, method_rows = [], []
     rejected = {"event_hard_gate": 0, "event_low_relevance": 0,
-                "method_hard_gate": 0, "method_low_relevance": 0}
+                "method_hard_gate": 0, "method_low_relevance": 0,
+                "method_provenance_gate": 0}
+    graph_events = {node["event_id"]: node for node in graph["nodes"]}
     for node in graph["nodes"]:
         hard = node["hard_requirements"]
         required_cc = hard["compute_capabilities"]
@@ -125,7 +127,11 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
         event_rows.append({"id": node["event_id"], "score": float(len(hits)),
                            "matched_terms": hits, "record": node})
     for card in (methods or {}).get("cards", []):
-        if card["kind"] not in {"TRANSFORMATION", "ORCHESTRATION"}:
+        if card["kind"] not in {
+            "TRANSFORMATION",
+            "ORCHESTRATION",
+            "EVALUATION_GUARD",
+        }:
             rejected["method_low_relevance"] += 1
             continue
         applicability = card["applicability"]
@@ -137,17 +143,39 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
         if not vendor_ok or not capabilities_ok or not affinity_ok:
             rejected["method_hard_gate"] += 1
             continue
+        provenance = card.get("community_provenance")
+        if provenance is not None:
+            sources = [graph_events.get(event_id)
+                       for event_id in provenance["source_event_ids"]]
+            card_available = datetime.fromisoformat(
+                card["source"]["available_at"].replace("Z", "+00:00"))
+            if (any(source is None for source in sources)
+                    or any(datetime.fromisoformat(
+                        source["source_available_at"].replace("Z", "+00:00"))
+                        > card_available for source in sources if source is not None)):
+                rejected["method_provenance_gate"] += 1
+                continue
         hits = sorted({term.lower() for term in applicability["problem_signatures"]
                        if prior_term_in_text(term, task_text)})
         if len(hits) < 2:
             rejected["method_low_relevance"] += 1
             continue
-        kind_bonus = 2.0 if card["kind"] == "TRANSFORMATION" else 1.0
+        kind_bonus = {
+            "EVALUATION_GUARD": 3.0,
+            "TRANSFORMATION": 2.0,
+            "ORCHESTRATION": 1.0,
+        }[card["kind"]]
         method_rows.append({"id": card["method_id"],
                             "score": float(len(hits)) + kind_bonus,
                             "matched_terms": hits, "record": card})
     event_rows.sort(key=lambda row: (-row["score"], row["id"]))
     method_rows.sort(key=lambda row: (-row["score"], row["id"]))
+    candidate_methods = [row for row in method_rows
+                         if row["record"]["kind"] != "EVALUATION_GUARD"][:2]
+    evaluation_guards = [row for row in method_rows
+                         if row["record"]["kind"] == "EVALUATION_GUARD"][:1]
+    selected_methods = sorted(candidate_methods + evaluation_guards,
+                              key=lambda row: (-row["score"], row["id"]))
     receipt = {
         "schema_version": PRIOR_SHORTLIST_SCHEMA, "generated_at": now(),
         "claim_boundary": "DISCOVERY_PRIOR_ONLY",
@@ -155,9 +183,9 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
                    "environment": identity_for(environment_path, environment_path.parent.parent),
                    "graph": identity_for(graph_path, graph_path.parent.parent),
                    "methods": identity_for(methods_path, methods_path.parent.parent) if methods_path else None},
-        "policy": {"max_events": 2, "max_methods": 2, "minimum_token_hits": 2,
+        "policy": {"max_events": 2, "max_methods": 3, "minimum_token_hits": 2,
                    "hard_gate_policy": "FAIL_CLOSED"},
-        "events": event_rows[:2], "methods": method_rows[:2], "rejections": rejected,
+        "events": event_rows[:2], "methods": selected_methods, "rejections": rejected,
     }
     errors = validate_instance(receipt, read_object(root / "schemas" / "community_prior_shortlist.schema.json"))
     if errors:
