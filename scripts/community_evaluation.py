@@ -1286,8 +1286,11 @@ def audit_task_packets(
         family_hits = []
         for family in oracle.get("solution_families", []):
             family_tokens = packet_audit_tokens(str(family).replace("-", " "))
-            required = max(1, math.ceil(len(family_tokens) * 2 / 3))
-            if family_tokens and len(family_tokens & packet_tokens) >= required:
+            # Family names are short and often contain domain nouns that a fair
+            # task must mention (for example "top-p" or "metadata"). Require
+            # the complete family phrase; the mechanism-recall score catches
+            # broader paraphrases separately.
+            if family_tokens and family_tokens <= packet_tokens:
                 family_hits.append(str(family))
         if recall >= 0.60 or len(family_hits) >= 2:
             risk = "HIGH"
