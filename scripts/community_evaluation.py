@@ -1518,6 +1518,10 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
             and len(result["candidates"]) < trial["budget"]["max_candidates"]
             and compile_attempts < trial["budget"]["max_compile_attempts"]
             and measurement_attempts < trial["budget"]["max_measurements"]
+            and result["technical_repair_attempts"]
+            < trial["budget"]["max_technical_repairs"]
+            and result["causal_revisions"]
+            < trial["budget"]["max_causal_revisions"]
         )
         selected_bound_open = (
             selected_bound["kind"] != "QUANTIFIED"

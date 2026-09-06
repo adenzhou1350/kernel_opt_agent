@@ -1,0 +1,156 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "distribution-equivalent-device-reformulation",
+  "title": "Replace a general host-coupled operator with a device-native distribution-equivalent primitive",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "SGLang PR #38117 and sealed local temporal reproduction",
+    "url": "https://github.com/sgl-project/sglang/pull/38117",
+    "version": "9b9a8aa87cc92e82c8314040432c606b6251d5e2",
+    "available_at": "2026-09-05T09:37:53Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "A merged categorical-sampling rewrite plus local operator-level evidence; transfer requires a fresh workload contract and target-hardware qualification."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "sglang.pr-38117.gumbel-sampler-dispatch"
+    ],
+    "experiment_refs": [
+      {
+        "suite_id": "community-local-unseen-sglang-sampler-sm89-v1",
+        "task_id": "sglang-38117-simple-sampler-dispatch-blind-v1",
+        "repeat_index": 1,
+        "arm": "COMMUNITY_AUGMENTED",
+        "available_at": "2026-09-06T21:38:43Z",
+        "artifact_sha256": "3abcc3f8151b8a5b358540288a5645cba67c0168905f27488f34dfd8279758bd",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      },
+      {
+        "suite_id": "community-local-unseen-sglang-sampler-sm89-v1",
+        "task_id": "sglang-38117-simple-sampler-dispatch-blind-v1",
+        "repeat_index": 1,
+        "arm": "CONTROL",
+        "available_at": "2026-09-06T21:43:03Z",
+        "artifact_sha256": "1a1deca7371271d2ef495a6e6606f7d643b81b43ce0ed4e2931409421c0596dd",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      }
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "host-device-overhead",
+    "general-operator-overhead",
+    "distribution-equivalent-rewrite",
+    "small-kernel-overhead"
+  ],
+  "applicability": {
+    "vendors": [
+      "ANY"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [
+      "A device-native construction that preserves the required output distribution or mathematical contract.",
+      "A guarded fallback for deterministic, unsupported, or regression-prone modes."
+    ],
+    "dtypes": [
+      "any, subject to numerical and statistical qualification"
+    ],
+    "problem_signatures": [
+      "host-coupled operator in an accelerator critical path",
+      "general operator performs stronger validation or bookkeeping than the local contract requires",
+      "small repeated GPU operation dominated by dispatch or framework overhead",
+      "output contract permits distributional rather than sample-by-sample equivalence"
+    ]
+  },
+  "implementation_recipe": [
+    "Write the narrow local semantic contract first, including whether equivalence is exact, numerical, set-valued, or distributional.",
+    "Decompose the general operator into mandatory work, validation, host bookkeeping, temporary materialization, and reduction steps.",
+    "Search for a device-native mathematical reformulation that removes non-mandatory host or framework work while preserving the declared equivalence class.",
+    "Retain deterministic and unsupported branches unchanged, and add an explicit rollout or fallback guard.",
+    "After the first correct material candidate, inspect remaining temporaries and algebraically equivalent score directions for in-place reuse, but keep dtype and rounding semantics explicit.",
+    "Route the candidate only to workloads where the removed work is a material part of the end-to-end critical path."
+  ],
+  "validation_recipe": [
+    "Match the correctness test to the equivalence class: exact comparisons for deterministic paths and seeded statistical goodness-of-fit for stochastic paths.",
+    "Exercise zero, extreme, tied, non-contiguous, dtype, shape, and output-ABI cases, plus every retained fallback branch.",
+    "Test eager execution and CUDA Graph capture separately because launch removal changes the bottleneck and can reverse small-shape rankings.",
+    "Measure randomized interleaved shape points and reject universal routing when any important workload region regresses.",
+    "Measure whole-model latency or throughput before claiming transfer from the isolated operator."
+  ],
+  "expected_bottleneck_shifts": [
+    "Host dispatch and general validation cease to dominate, exposing random generation, elementwise scoring, reduction, and memory allocation.",
+    "CUDA Graph capture can erase much of the launch-side opportunity, making kernel count and device work decisive.",
+    "Low-precision key generation may trade speed for changed tie frequency or distribution bias."
+  ],
+  "failure_modes": [
+    "Testing stochastic outputs for token identity instead of distributional equivalence.",
+    "Changing the seeded deterministic branch or random-number consumption contract unintentionally.",
+    "Using FP16 or BF16 random keys without testing quantization, ties, zeros, and high-cardinality bias.",
+    "Assuming eager rankings transfer to captured execution.",
+    "Optimizing an operator that is no longer material in the full model.",
+    "Treating one architecture's crossover point as a hardware-independent rule."
+  ],
+  "scope_limits": [
+    "This method supplies a search transformation, not proof of a global optimum.",
+    "Distributional equivalence is admissible only when the operator contract explicitly permits it.",
+    "Source-reported model throughput and local operator measurements are priors, not target-run evidence.",
+    "Exact RNG sequence compatibility may be stricter than output-distribution compatibility and must be specified separately."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A general operator combines mandatory mathematical work with host bookkeeping, validation, or temporary materialization that is unnecessary under the frozen local contract.",
+    "partition_axis": "Independent output rows or requests, with a device-native local construction per row.",
+    "local_state": [
+      "Input row and its validity invariants.",
+      "Random or deterministic key state required by the equivalent construction.",
+      "A row-local reduction accumulator or candidate index."
+    ],
+    "combine_rule": "Reduce each row's equivalent scores using the operator-specific associative or selection rule.",
+    "finalization": "Emit the same ABI and the declared exact, numerical, or distributional result class; route unsupported modes to the baseline.",
+    "work_complexity": "Usually preserves mandatory asymptotic data work while removing constant host, validation, allocation, or materialization costs.",
+    "span_complexity": "One device construction followed by the reformulated row reduction, without host synchronization in the critical path.",
+    "communication_cost": "At minimum read the input and emit one result per row; reformulations may add a temporary key tensor unless fused or reused in place.",
+    "invariants": [
+      "The selected equivalence class is frozen before optimization.",
+      "Each row is independent unless the original contract states otherwise.",
+      "Fallback paths preserve unsupported and deterministic semantics."
+    ],
+    "anti_patterns": [
+      "Replacing a precise contract with a weaker stochastic claim after observing performance.",
+      "Copying the source implementation without decomposing the next exposed bottleneck.",
+      "Promoting a fast low-precision variant before high-cardinality bias and tie behavior are measured."
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "distribution-equivalent-rewrite",
+      "name": "device-native random-key reduction",
+      "change_axes": [
+        "equivalent random-key construction",
+        "reduction direction",
+        "workspace dtype"
+      ],
+      "template": "Replace a host-coupled categorical or ranking primitive with independent device-side random keys and a row reduction after proving the required distributional identity."
+    },
+    {
+      "family": "temporary-reuse",
+      "name": "in-place reciprocal score",
+      "change_axes": [
+        "temporary ownership",
+        "argmax versus argmin",
+        "extra elementwise kernels"
+      ],
+      "template": "Rewrite score = probability / key, argmax as score = key / probability, argmin so the random workspace can hold scores in place, subject to zero, dtype, tie, and RNG-contract checks."
+    },
+    {
+      "family": "guarded-dispatch",
+      "name": "execution-mode and shape router",
+      "change_axes": [
+        "eager versus graph mode",
+        "batch or row width",
+        "deterministic fallback"
+      ],
+      "template": "Dispatch the reformulation only in measured workload regions and retain the baseline for deterministic, unsupported, or regressing regions."
+    }
+  ]
+}

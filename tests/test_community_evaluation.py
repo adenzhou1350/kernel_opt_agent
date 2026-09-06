@@ -1071,6 +1071,25 @@ def main() -> None:
         assert community_assessment["metrics"]["method_realized_candidate_count"] == 2
         assert community_assessment["metrics"]["frontier_contract_passed"] is True
 
+        # Exhausting either repair or causal-revision capacity is a real search
+        # stop even when candidate/compile/measurement slots remain.  The
+        # frontier may preserve unknown bounds without pretending they closed.
+        original_result = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        trial_budget = json.loads(
+            (community_dir / "trial.json").read_text(encoding="utf-8")
+        )["budget"]
+        for result_field, budget_field in (
+            ("technical_repair_attempts", "max_technical_repairs"),
+            ("causal_revisions", "max_causal_revisions"),
+        ):
+            exhausted = dict(original_result)
+            exhausted[result_field] = trial_budget[budget_field]
+            atomic_json(community_dir / "result.json", exhausted)
+            assess_trial(community_dir, ROOT)
+        write_result(community_dir, rows, elapsed)
+
         # A higher raw screen result is not necessarily selectable.  Only the
         # pre-selected candidate receives held-out validation, and a screen
         # point may also violate a public per-shape performance guard.

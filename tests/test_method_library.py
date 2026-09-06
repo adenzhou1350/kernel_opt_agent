@@ -88,7 +88,8 @@ def main() -> None:
         "community-validation-hoist-with-coherence",
     }
     assert primitive_ids == legacy_primitive_ids | {
-        "community-incremental-prefix-state-machine"
+        "community-incremental-prefix-state-machine",
+        "distribution-equivalent-device-reformulation",
     }
     assert "community-incremental-prefix-state-machine" in cutoff_snapshot[
         "included_method_ids"
@@ -103,6 +104,9 @@ def main() -> None:
         if card["method_id"] in primitive_ids
     )
     learned_snapshot = build_snapshot("2026-09-06T09:40:00Z", ROOT)
+    assert "distribution-equivalent-device-reformulation" in {
+        card["method_id"] for card in learned_snapshot["cards"]
+    }
     learned = next(
         card
         for card in learned_snapshot["cards"]
