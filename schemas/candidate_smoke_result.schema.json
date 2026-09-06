@@ -4,14 +4,17 @@
   "title": "Discovery-only candidate smoke result with execution-path proof",
   "type": "object",
   "additionalProperties": true,
-  "required": ["schema_version", "status", "candidate_id", "objective", "cases", "correctness", "reachability"],
+  "required": ["schema_version", "status", "candidate_id", "objective", "cases", "correctness", "reachability", "runtime_contract", "timing_accounting"],
   "properties": {
-    "schema_version": {"const": "candidate-smoke-result-v4"},
+    "schema_version": {"const": "candidate-smoke-result-v5"},
     "status": {"const": "PASS"},
     "candidate_id": {"type": "string", "minLength": 1},
     "objective": {
       "type": "object",
-      "required": ["direction", "baseline", "candidate", "unit"]
+      "required": ["direction", "baseline", "candidate", "unit", "measurement_window"],
+      "properties": {
+        "measurement_window": {"enum": ["STEADY_STATE_ONLY", "END_TO_END_WITH_SETUP"]}
+      }
     },
     "cases": {"type": "array", "minItems": 2},
     "correctness": {
@@ -86,6 +89,36 @@
             }
           }
         }
+      }
+    },
+    "runtime_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["production_execution_mode", "observed_execution_mode", "treatment_materialization", "compile_cache_key_includes_treatment", "requires_logical_extent", "logical_extent_source", "treatment_identity_evidence_index"],
+      "properties": {
+        "production_execution_mode": {"enum": ["EAGER", "COMPILED", "CUDA_GRAPH"]},
+        "observed_execution_mode": {"enum": ["EAGER", "COMPILED", "CUDA_GRAPH"]},
+        "treatment_materialization": {"enum": ["SOURCE_FILE", "GENERATED_ARTIFACT", "RUNTIME_MONKEYPATCH", "DIRECT_CALL"]},
+        "compile_cache_key_includes_treatment": {"type": "boolean"},
+        "requires_logical_extent": {"type": "boolean"},
+        "logical_extent_source": {"enum": ["EXPLICIT_RUNTIME_METADATA", "STATIC_SPECIALIZATION", "PHYSICAL_TENSOR_SHAPE", "NOT_APPLICABLE"]},
+        "treatment_identity_evidence_index": {"type": "integer", "minimum": 0}
+      }
+    },
+    "timing_accounting": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["setup_seconds", "compile_seconds", "warmup_seconds", "steady_state_seconds", "steady_state_samples", "objective_window", "process_model", "persistent_session_eligible", "switching_preserves_treatment_identity"],
+      "properties": {
+        "setup_seconds": {"type": "number", "minimum": 0},
+        "compile_seconds": {"type": "number", "minimum": 0},
+        "warmup_seconds": {"type": "number", "minimum": 0},
+        "steady_state_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "steady_state_samples": {"type": "integer", "minimum": 1},
+        "objective_window": {"enum": ["STEADY_STATE_ONLY", "END_TO_END_WITH_SETUP"]},
+        "process_model": {"enum": ["COLD_PER_ARM", "PERSISTENT_SHARED_ENGINE", "PERSISTENT_PER_ARM"]},
+        "persistent_session_eligible": {"type": "boolean"},
+        "switching_preserves_treatment_identity": {"type": "boolean"}
       }
     }
   }

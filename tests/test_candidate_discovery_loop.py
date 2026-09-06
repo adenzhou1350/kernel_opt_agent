@@ -70,10 +70,10 @@ import json
 import hashlib
 from pathlib import Path
 result = {
-    "schema_version": "candidate-smoke-result-v4",
+    "schema_version": "candidate-smoke-result-v5",
     "status": "PASS",
     "candidate_id": "c1",
-    "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us_weighted"},
+    "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us_weighted", "measurement_window": "STEADY_STATE_ONLY"},
     "cases": [{"case_id": "anchor", "role": "ANCHOR"}, {"case_id": "edge", "role": "EDGE"}],
     "correctness": {
         "status": "PASS",
@@ -104,6 +104,26 @@ result = {
             "path": "candidates/c1/workspace/kernel.py",
             "sha256": hashlib.sha256(Path("kernel.py").read_bytes()).hexdigest(),
         }],
+    },
+    "runtime_contract": {
+        "production_execution_mode": "EAGER",
+        "observed_execution_mode": "EAGER",
+        "treatment_materialization": "DIRECT_CALL",
+        "compile_cache_key_includes_treatment": False,
+        "requires_logical_extent": False,
+        "logical_extent_source": "NOT_APPLICABLE",
+        "treatment_identity_evidence_index": 0,
+    },
+    "timing_accounting": {
+        "setup_seconds": 0.1,
+        "compile_seconds": 0.0,
+        "warmup_seconds": 0.1,
+        "steady_state_seconds": 0.1,
+        "steady_state_samples": 2,
+        "objective_window": "STEADY_STATE_ONLY",
+        "process_model": "COLD_PER_ARM",
+        "persistent_session_eligible": False,
+        "switching_preserves_treatment_identity": False,
     },
 }
 Path('../smoke.json').write_text(json.dumps(result))

@@ -68,13 +68,15 @@ def main() -> None:
         candidate_digest = hashlib.sha256(candidate_source.read_bytes()).hexdigest()
         smoke_path = run / "smoke.json"
         smoke = {
-            "schema_version": "candidate-smoke-result-v4",
+            "schema_version": "candidate-smoke-result-v5",
             "status": "PASS",
             "candidate_id": "c1",
             "objective": {
                 "direction": "minimize",
                 "baseline": 10.0,
                 "candidate": 8.0,
+                "unit": "us",
+                "measurement_window": "STEADY_STATE_ONLY",
             },
             "cases": [
                 {"case_id": "anchor", "role": "ANCHOR"},
@@ -120,6 +122,26 @@ def main() -> None:
                     }
                 ],
             },
+            "runtime_contract": {
+                "production_execution_mode": "COMPILED",
+                "observed_execution_mode": "COMPILED",
+                "treatment_materialization": "SOURCE_FILE",
+                "compile_cache_key_includes_treatment": True,
+                "requires_logical_extent": True,
+                "logical_extent_source": "EXPLICIT_RUNTIME_METADATA",
+                "treatment_identity_evidence_index": 0,
+            },
+            "timing_accounting": {
+                "setup_seconds": 30.0,
+                "compile_seconds": 20.0,
+                "warmup_seconds": 2.0,
+                "steady_state_seconds": 0.5,
+                "steady_state_samples": 3,
+                "objective_window": "STEADY_STATE_ONLY",
+                "process_model": "PERSISTENT_PER_ARM",
+                "persistent_session_eligible": False,
+                "switching_preserves_treatment_identity": False,
+            },
         }
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
@@ -149,6 +171,78 @@ def main() -> None:
             assert "compiled candidates" in str(exc)
         else:
             raise AssertionError("compiled candidate accepted a host-only sentinel")
+
+        smoke["reachability"]["execution_proof"]["kind"] = (
+            "INSTRUMENTED_CALL_COUNT"
+        )
+        smoke["runtime_contract"]["treatment_materialization"] = (
+            "RUNTIME_MONKEYPATCH"
+        )
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "runtime monkeypatch" in str(exc)
+        else:
+            raise AssertionError("compiled candidate accepted a runtime monkeypatch")
+
+        smoke["runtime_contract"]["treatment_materialization"] = "SOURCE_FILE"
+        smoke["runtime_contract"]["observed_execution_mode"] = "EAGER"
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "does not match production" in str(exc)
+        else:
+            raise AssertionError("mismatched runtime mode passed reachability")
+
+        smoke["runtime_contract"]["observed_execution_mode"] = "COMPILED"
+        smoke["runtime_contract"]["compile_cache_key_includes_treatment"] = False
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "cache key" in str(exc)
+        else:
+            raise AssertionError("unbound compiled treatment cache passed")
+
+        smoke["runtime_contract"]["compile_cache_key_includes_treatment"] = True
+        smoke["runtime_contract"]["logical_extent_source"] = (
+            "PHYSICAL_TENSOR_SHAPE"
+        )
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "logical extents" in str(exc)
+        else:
+            raise AssertionError("compiled logical extent accepted physical shape")
+
+        smoke["runtime_contract"]["logical_extent_source"] = (
+            "EXPLICIT_RUNTIME_METADATA"
+        )
+        smoke["timing_accounting"]["process_model"] = (
+            "PERSISTENT_SHARED_ENGINE"
+        )
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "treatment-identity switching" in str(exc)
+        else:
+            raise AssertionError("unsafe shared persistent engine passed")
+
+        smoke["timing_accounting"]["process_model"] = "PERSISTENT_PER_ARM"
+        smoke["objective"]["measurement_window"] = "END_TO_END_WITH_SETUP"
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "measurement windows differ" in str(exc)
+        else:
+            raise AssertionError("cold-start objective attribution passed")
+
+        smoke["objective"]["measurement_window"] = "STEADY_STATE_ONLY"
 
         smoke["reachability"]["compile_cache_policy"] = "NOT_COMPILED"
         smoke["correctness"]["case_results"][0]["candidate_digest"] = "0" * 64

@@ -18,7 +18,7 @@ from opportunity_map import load_map as load_opportunity_map, map_path as opport
 
 
 POOL_SCHEMA = "candidate-pool-v1"
-SMOKE_SCHEMA = "candidate-smoke-result-v4"
+SMOKE_SCHEMA = "candidate-smoke-result-v5"
 ACTIVE_STATUSES = {"PROPOSED", "DEVELOPING"}
 
 
@@ -280,7 +280,7 @@ def record_failure(pool: dict, item: dict, attempt_record: dict, reason: str) ->
 def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, float]:
     result = read_object(path)
     if result.get("schema_version") != SMOKE_SCHEMA or result.get("status") != "PASS":
-        raise ValueError("smoke result must record candidate-smoke-result-v4 PASS")
+        raise ValueError("smoke result must record candidate-smoke-result-v5 PASS")
     if result.get("candidate_id") != item["candidate_id"]:
         raise ValueError("smoke result candidate_id mismatch")
     cases = result.get("cases")
@@ -415,10 +415,116 @@ def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, floa
         )
         if identity.get("sha256") != digest(evidence_path):
             raise ValueError(f"reachability evidence {index} SHA256 mismatch")
+    runtime_contract = result.get("runtime_contract")
+    if not isinstance(runtime_contract, dict):
+        raise ValueError("smoke result requires runtime_contract")
+    production_mode = runtime_contract.get("production_execution_mode")
+    observed_mode = runtime_contract.get("observed_execution_mode")
+    allowed_modes = {"EAGER", "COMPILED", "CUDA_GRAPH"}
+    if production_mode not in allowed_modes or observed_mode not in allowed_modes:
+        raise ValueError("runtime execution mode is missing or unsupported")
+    if observed_mode != production_mode:
+        raise ValueError("smoke execution mode does not match production")
+    materialization = runtime_contract.get("treatment_materialization")
+    if materialization not in {
+        "SOURCE_FILE",
+        "GENERATED_ARTIFACT",
+        "RUNTIME_MONKEYPATCH",
+        "DIRECT_CALL",
+    }:
+        raise ValueError("treatment materialization is missing or unsupported")
+    cache_binds_treatment = runtime_contract.get(
+        "compile_cache_key_includes_treatment"
+    )
+    if not isinstance(cache_binds_treatment, bool):
+        raise ValueError("runtime contract must declare compile-cache treatment binding")
+    is_compiled = observed_mode in {"COMPILED", "CUDA_GRAPH"}
+    if is_compiled:
+        if reachability.get("compile_cache_policy") == "NOT_COMPILED":
+            raise ValueError("compiled runtime cannot declare NOT_COMPILED cache policy")
+        if materialization == "RUNTIME_MONKEYPATCH":
+            raise ValueError("compiled runtime cannot rely on a runtime monkeypatch")
+        if not cache_binds_treatment:
+            raise ValueError("compiled cache key must include the treatment identity")
+    extent_source = runtime_contract.get("logical_extent_source")
+    if extent_source not in {
+        "EXPLICIT_RUNTIME_METADATA",
+        "STATIC_SPECIALIZATION",
+        "PHYSICAL_TENSOR_SHAPE",
+        "NOT_APPLICABLE",
+    }:
+        raise ValueError("logical extent source is missing or unsupported")
+    requires_logical_extent = runtime_contract.get("requires_logical_extent")
+    if not isinstance(requires_logical_extent, bool):
+        raise ValueError("runtime contract must declare logical-extent dependence")
+    if (
+        is_compiled
+        and requires_logical_extent
+        and extent_source not in {
+            "EXPLICIT_RUNTIME_METADATA",
+            "STATIC_SPECIALIZATION",
+        }
+    ):
+        raise ValueError(
+            "compiled logical extents require explicit metadata or static specialization"
+        )
+    treatment_evidence_index = runtime_contract.get(
+        "treatment_identity_evidence_index"
+    )
+    if (
+        isinstance(treatment_evidence_index, bool)
+        or not isinstance(treatment_evidence_index, int)
+        or treatment_evidence_index < 0
+        or treatment_evidence_index >= len(reachability_evidence)
+    ):
+        raise ValueError("runtime treatment identity is not bound to reachability evidence")
+    timing = result.get("timing_accounting")
+    if not isinstance(timing, dict):
+        raise ValueError("smoke result requires timing_accounting")
+    for field in (
+        "setup_seconds",
+        "compile_seconds",
+        "warmup_seconds",
+        "steady_state_seconds",
+    ):
+        value = timing.get(field)
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0:
+            raise ValueError(f"timing_accounting.{field} must be non-negative")
+    if timing["steady_state_seconds"] <= 0:
+        raise ValueError("timing_accounting.steady_state_seconds must be positive")
+    samples = timing.get("steady_state_samples")
+    if isinstance(samples, bool) or not isinstance(samples, int) or samples < 1:
+        raise ValueError("timing_accounting.steady_state_samples must be positive")
+    objective_window = timing.get("objective_window")
+    if objective_window not in {"STEADY_STATE_ONLY", "END_TO_END_WITH_SETUP"}:
+        raise ValueError("timing objective window is missing or unsupported")
+    process_model = timing.get("process_model")
+    if process_model not in {
+        "COLD_PER_ARM",
+        "PERSISTENT_SHARED_ENGINE",
+        "PERSISTENT_PER_ARM",
+    }:
+        raise ValueError("timing process model is missing or unsupported")
+    persistent_eligible = timing.get("persistent_session_eligible")
+    switching_preserves_identity = timing.get(
+        "switching_preserves_treatment_identity"
+    )
+    if not isinstance(persistent_eligible, bool) or not isinstance(
+        switching_preserves_identity, bool
+    ):
+        raise ValueError("timing accounting must declare persistent-session safety")
+    if process_model == "PERSISTENT_SHARED_ENGINE" and (
+        not persistent_eligible or not switching_preserves_identity
+    ):
+        raise ValueError(
+            "shared persistent engine requires safe treatment-identity switching"
+        )
     objective = result.get("objective", {})
     direction = objective.get("direction")
     if direction not in {"minimize", "maximize"}:
         raise ValueError("smoke objective direction must be minimize or maximize")
+    if objective.get("measurement_window") != objective_window:
+        raise ValueError("smoke objective and timing measurement windows differ")
     try:
         baseline = float(objective["baseline"])
         observed = float(objective["candidate"])

@@ -72,7 +72,7 @@ Candidate source lives under `runs/<run>/candidates/<id>/`. Register an argv-for
 build, correctness and smoke command with `kernel_opt.py candidate add`, then use
 `kernel_opt.py candidate run`.
 
-The smoke result is `candidate-smoke-result-v4` and must bind correctness to the
+The smoke result is `candidate-smoke-result-v5` and must bind correctness to the
 same anchor and edge cases used for screening. Select `EXACT_IDENTITY` when the
 public contract promises bitwise, token-ID or byte identity; the baseline and
 candidate SHA-256 digests must then be equal. Use `TOLERANCE_BOUNDED` or
@@ -80,6 +80,16 @@ candidate SHA-256 digests must then be equal. Use `TOLERANCE_BOUNDED` or
 and bind each passing case to run-local evidence. A faster architecture that
 changes a greedy token stream, even reproducibly, is a correctness failure and
 must not enter performance promotion.
+
+The v5 runtime contract also binds the production and observed execution modes,
+treatment materialization, compile-cache identity, and the source of every
+logical extent used to select a path. Compiled or CUDA Graph candidates cannot
+rely on runtime monkeypatches, and a candidate whose behavior depends on valid
+rows cannot infer them from a symbolic or padded physical tensor shape. Timing
+accounting separates setup, compile, warmup, and steady-state windows. A shared
+persistent engine is admissible only when in-process switching is eligible and
+preserves treatment identity; otherwise use isolated persistent-per-arm or
+cold-per-arm processes.
 
 A compiler error, import error, layout/type mismatch, missing build artifact or
 invalid smoke harness is a `TECHNICAL_FAILURE`. It may be repaired repeatedly
