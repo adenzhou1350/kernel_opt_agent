@@ -42,7 +42,14 @@
         "kind": {"enum": ["QUANTIFIED", "STRUCTURAL", "UNKNOWN"]},
         "maximum_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
         "rationale": {"type": "string", "minLength": 1}
-      }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "QUANTIFIED"}}},
+          "then": {"properties": {"maximum_speedup": {"type": "number", "exclusiveMinimum": 0}}},
+          "else": {"properties": {"maximum_speedup": {"type": "null"}}}
+        }
+      ]
     }
   }
 }

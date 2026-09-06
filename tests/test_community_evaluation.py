@@ -42,6 +42,7 @@ from community_knowledge import (
 from community_trial_runner import command_for
 from test_community_knowledge import FakeGitHubClient, event_for
 from method_library import build_snapshot
+from schema_utils import validate_instance
 
 
 def identity(path: Path, base: Path) -> dict:
@@ -243,6 +244,20 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
 
 
 def main() -> None:
+    ranking_schema = json.loads(
+        (ROOT / "schemas" / "community_opportunity_ranking.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    bad_bound = {
+        "kind": "STRUCTURAL",
+        "maximum_speedup": 5.0,
+        "rationale": "A qualitative bound cannot carry a numeric maximum.",
+    }
+    bound_errors = validate_instance(
+        bad_bound, ranking_schema["$defs"]["bound"]
+    )
+    assert bound_errors, "schema accepted a numeric STRUCTURAL bound"
     assert prior_term_in_text("row", "row-wise reduction")
     assert "prefix" not in prior_scalar_text({"windows_prefix": "/mnt/d"})
     assert not prior_term_in_text("io", "materialization")
