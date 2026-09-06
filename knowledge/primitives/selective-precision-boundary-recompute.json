@@ -6,10 +6,10 @@
   "source": {
     "title": "vLLM issue #42518 plus RTX 4060 Qwen3.5 MTP numerical-invariance reproduction",
     "url": "https://github.com/vllm-project/vllm/issues/42518",
-    "version": "issue-42518-plus-sm89-frozen-suite-r1-2026-09-07",
+    "version": "issue-42518-plus-sm89-frozen-suite-r2-2026-09-07",
     "available_at": "2026-09-07T00:02:00+08:00",
     "evidence_tier": "INTERNAL_REPRODUCTION",
-    "claim_scope": "A frozen 12-prompt, two-repeat RTX 4060 Qwen3.5-0.8B suite found deterministic BF16 baseline-versus-MTP mismatches on 3 prompts; all first mismatches had baseline and candidate top-two margin at most 0.125. Always-on FP32 lm_head still mismatched on 4 prompts, rejecting head-only precision escalation. An eager layer trace observed differences from layer 0 through all 24 target layers. Synthetic cost screens leave a narrow path for tie-stable detection plus rollback-safe replay, but do not establish correctness or an integrated speedup."
+    "claim_scope": "A frozen 12-prompt, two-repeat RTX 4060 Qwen3.5-0.8B suite found deterministic BF16 baseline-versus-MTP mismatches on 3 prompts; all first mismatches had baseline and candidate top-two margin at most 0.125. Always-on FP32 lm_head still mismatched on 4 prompts, rejecting head-only precision escalation. A verification-only row-wise projection experiment made early projected and recurrent-core values exact, while an all-row-wise-linear eager oracle reproduced a 64-token baseline hash and was 1.372x faster than the eager baseline. It remained 2.433x slower than the compiled serving baseline, and a generic shape predicate did not survive symbolic compiled execution. The evidence establishes a causal mechanism and correctness oracle, not a deployable speedup."
   },
   "opportunity_families": [
     "numerical-invariance",
@@ -41,6 +41,9 @@
     "Preserve the existing winner and tie-breaking rule when computing a second-best margin; a generic top-k primitive may select a different winner on exact low-precision ties.",
     "For stateful models, retain or rotate a pre-verification checkpoint for every recurrent, convolution and KV state that the speculative pass overwrites before the ambiguity flag is known.",
     "Apply the same declared reference policy to control and candidate arms when claiming exact identity; candidate-only higher precision does not reproduce a stock low-precision oracle by definition."
+    ,"Construct an intentionally broad sequential-shape oracle before optimizing selectivity; use it to prove correctness is reachable, then restore batching one operator family at a time."
+    ,"Bind the intervention to the logical execution phase and logical valid-row count rather than a physical eager tensor shape, because compiled and graph-captured runners may expose symbolic or padded extents."
+    ,"Separate startup, compilation and graph-capture time from steady-state candidate latency, and amortize engine initialization across multiple paired arms when the runtime permits safe in-process switching."
   ],
   "validation_recipe": [
     "Freeze whether the contract is stock-bitwise identity, identity to a higher-precision reference, a numerical tolerance, or a quality property before candidate generation.",
@@ -65,15 +68,20 @@
     "The speculative target pass overwrites the only pre-step recurrent state before the fallback decision is available.",
     "One prompt that becomes equal is generalized into universal numerical invariance.",
     "An early near-tie is mistaken for proof that later recurrent-state advancement and rollback are correct."
+    ,"A diagnostic row-wise override accidentally changes prefill as well as verification and the resulting cache-state difference is misclassified as a state-management bug."
+    ,"A runtime monkeypatch appears active in eager mode but a compiled cache or ahead-of-time graph bypasses it, so unchanged fast output is falsely attributed to the candidate."
+    ,"A physical tensor-shape predicate is used as a proxy for logical valid rows under symbolic compilation or graph padding."
   ],
   "scope_limits": [
     "The frozen RTX 4060 diversity suite establishes a reusable diagnostic and candidate-generation prior; 12 prompts are not a quality benchmark and do not prove that selective recomputation is correct or profitable.",
     "Only 8.59% of 384 baseline BF16 token decisions had margin at most 0.125, below a 31.95% optimistic linear-cost break-even bound, but the calculation excludes detector, dispatch and synchronization costs and does not supply a correct fallback mechanism.",
     "Always-on FP32 lm_head produced 4/12 cross-arm prompt mismatches and therefore rejects an lm-head-only selective FP32 repair for the frozen suite.",
-    "An eager single-prompt trace observed nonzero differences at the output of layer 0 and all 24 target layers; layer inputs and layer-0 sub-operations were not captured, so the exact first differing sub-operation remains unidentified.",
+    "A layer-0 sub-operation trace localized the first difference to shape-sensitive low-precision projection results. Restricting the row-wise intervention to target verification made the input projection, actual pre-state and recurrent-core output exact; a later projection then became the first differing operation.",
     "A standalone two-row top-two scan averaged about 0.150 ms per speculative step, while a 9.84 MiB 18-layer recurrent-state snapshot averaged about 0.033 ms with a multi-tensor copy and 0.378 ms with 36 individual copies on the RTX 4060. These synthetic screens exclude scheduler, index restoration, KV repair and replay integration.",
     "Exact stock-low-precision identity may be impossible to guarantee with a different execution shape without sequential replay; use the public contract rather than convenience to decide admissibility.",
     "Always-on high precision is a control and upper-quality reference, not automatically a production solution."
+    ,"An all-row-wise-linear eager oracle matched one 64-token baseline hash and beat the eager baseline by 1.372x, but was 2.433x slower than the compiled serving baseline. It proves reachability only; it is not production evidence."
+    ,"Compiled execution exposed a symbolic leading extent rather than an eager two-row shape. A deployable implementation needs explicit logical phase/valid-row semantics or a dedicated compiled variant; a generic small-shape dispatcher is not sufficient."
   ],
   "algorithmic_decomposition": {
     "baseline_dependency": "A low-precision decision is cheap but may change when execution shape or reduction order changes near a discrete decision boundary.",
@@ -117,6 +125,18 @@
         "tie-breaking semantics"
       ],
       "template": "Detect rows near a frozen decision boundary on the fast path, recompute only those rows with the declared precision-stable policy, and admit the candidate only when held-out correctness and the break-even fallback-rate bound both pass."
+    },
+    {
+      "family": "phase-aware-shape-invariant-verification",
+      "name": "logical-phase keyed sequential-shape oracle",
+      "change_axes": [
+        "execution phase identity",
+        "logical valid-row count",
+        "compiled variant selection",
+        "operator-family restoration order",
+        "graph-capture compatibility"
+      ],
+      "template": "First establish exactness with a broad sequential-shape oracle, then expose the verification phase and logical row count to compiled execution and restore batched operators incrementally while preserving frozen output identity and production latency gates."
     }
   ]
 }
