@@ -149,10 +149,15 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
                        for event_id in provenance["source_event_ids"]]
             card_available = datetime.fromisoformat(
                 card["source"]["available_at"].replace("Z", "+00:00"))
+            experiment_times = [datetime.fromisoformat(
+                ref["available_at"].replace("Z", "+00:00"))
+                for ref in provenance.get("experiment_refs", [])]
             if (any(source is None for source in sources)
                     or any(datetime.fromisoformat(
                         source["source_available_at"].replace("Z", "+00:00"))
-                        > card_available for source in sources if source is not None)):
+                        > card_available for source in sources if source is not None)
+                    or any(available > card_available
+                           for available in experiment_times)):
                 rejected["method_provenance_gate"] += 1
                 continue
         hits = sorted({term.lower() for term in applicability["problem_signatures"]

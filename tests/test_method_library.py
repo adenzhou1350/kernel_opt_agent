@@ -82,6 +82,15 @@ def main() -> None:
         for card in current_snapshot["cards"]
         if card["method_id"] in primitive_ids
     )
+    learned_snapshot = build_snapshot("2026-09-06T09:40:00Z", ROOT)
+    learned = next(
+        card
+        for card in learned_snapshot["cards"]
+        if card["method_id"] == "community-segmented-transfer-granularity"
+    )
+    assert learned["community_provenance"]["experiment_refs"][0][
+        "claim_boundary"
+    ] == "SEALED_SINGLE_TASK_EXPERIMENT"
 
     with tempfile.TemporaryDirectory() as temporary:
         run = Path(temporary) / "run"

@@ -129,6 +129,13 @@ fast-path 可达性、带一致性证明的校验外提，以及跨层状态契�
 causal-conv 题做回放时，路由器能同时找回来源事件和 segmented-array 原语；
 这只是 routing retrospective，不能作为方法层带来因果收益的 A/B 证据。
 
+原语本身也必须可被实验推翻和细化。sealed prospective structured-mask A/B 中，
+逐元素 segmented-array 候选在唯一 realized repeat 上为 1.225x，control 的连续
+span + full-coverage fast path 为 1.261x；原语虽被正确实现，却在首次正确时间和
+架构覆盖上同样落后。由此新增 `segmented-transfer-granularity`：先区分元素生成、
+连续 span、一般 permutation 与全覆盖 identity，再比较 auxiliary index bytes 与
+payload bytes。该卡携带实验结果 hash，available-at 晚于实验结束，不能回灌原题。
+
 ## 4. 两机验证
 
 验证对象沿用已授权的 synthetic fused-affine-ReLU workload；它用于验证搜索

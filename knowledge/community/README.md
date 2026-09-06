@@ -262,3 +262,9 @@ Schema dialect. It re-states the manifest's exact trial identity at execution
 time and rejects mismatched output. The auditor additionally requires
 `result.json` to equal the final transcript JSON, so an out-of-band edit cannot
 be laundered by re-running the audit.
+
+Community primitives may also carry hash-bound `experiment_refs` from sealed
+single-task trials. These references refine routing and failure modes after a
+negative or positive realization, but never upgrade one trial into a general
+performance claim. The refined card's `source.available_at` must be later than
+the experiment and can participate only in future cutoffs.

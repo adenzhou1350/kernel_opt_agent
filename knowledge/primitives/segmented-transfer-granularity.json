@@ -1,0 +1,94 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-segmented-transfer-granularity",
+  "title": "Choose segmented transfer granularity before flattening per-element indices",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "Sealed structured-mask A/B refinement of vLLM PR #55469 transfer",
+    "url": "https://github.com/adenzhou1350/kernel_opt_agent/tree/feature/community-optimization-lake",
+    "version": "community-sm89-prospective-structured-mask-v1-r2",
+    "available_at": "2026-09-06T09:40:00Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "One sealed SM89 task showed that elementwise segmented indices can lose to contiguous spans; it is a routing refinement, not a target speedup guarantee."
+  },
+  "community_provenance": {
+    "source_event_ids": ["vllm.pr-55469.vectorized-causal-conv-metadata"],
+    "experiment_refs": [{
+      "suite_id": "community-sm89-prospective-structured-mask-v1",
+      "task_id": "vllm-structured-mask-reorder-prospective-v1",
+      "repeat_index": 2,
+      "arm": "COMMUNITY_AUGMENTED",
+      "available_at": "2026-09-06T09:38:39Z",
+      "artifact_sha256": "389855595a6c7db3a321b8ac4e4702c84b0d7ffbb83b685e0979e17db0a1abb2",
+      "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+    }],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": ["host-loop-elimination", "segmented-copy", "metadata-vectorization", "identity-fast-path"],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["integer-metadata", "row-payload"],
+    "problem_signatures": ["python loop", "segmented", "row copy", "contiguous", "scatter", "metadata", "pinned", "host overhead", "full coverage"]
+  },
+  "implementation_recipe": [
+    "Classify each segment as element synthesis, contiguous source-to-destination span, general permutation or full-coverage identity before choosing vectorization.",
+    "Estimate auxiliary index bytes and construction passes per payload byte; do not build repeated int64 per-element indices when one slice or run descriptor moves a wide contiguous payload.",
+    "Implement the cheapest semantic tier first: full-coverage identity/no-fill, whole-array permutation, coalesced span copies, then general flattened scatter.",
+    "Retain a measured sparse/small fallback and dispatch only across a frozen per-shape frontier."
+  ],
+  "validation_recipe": [
+    "Test empty, sparse, permuted, absent-segment and full-coverage cases with irregular segment lengths.",
+    "Report auxiliary index allocation and bytes in addition to payload bytes.",
+    "Benchmark sparse and full-coverage cells independently; reject a weighted winner that breaches the protected per-shape guard."
+  ],
+  "expected_bottleneck_shifts": [
+    "Full coverage can remove initialization and index staging, exposing only payload copy and H2D cost.",
+    "Span coalescing reduces Python row dispatch without introducing O(total elements) int64 index construction.",
+    "General scatter remains appropriate only when irregularity prevents cheaper identity, permutation or span forms."
+  ],
+  "failure_modes": [
+    "A per-element repeat/cumsum construction allocates more auxiliary bytes than the payload and loses on sparse or wide rows.",
+    "A full-coverage fast path assumes compact request order already equals destination order.",
+    "Coalescing spans across an absent request consumes the wrong compact source rows.",
+    "One aggregate speedup hides a severe small-batch or sparse-selection regression."
+  ],
+  "scope_limits": [
+    "The sealed experiment is one SM89 task and does not establish a universal crossover.",
+    "Element-synthesis workloads such as local offset generation may still favor full flattened segmented-array construction."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "Each logical segment maps either generated elements or one contiguous source row range to a destination range.",
+    "partition_axis": "maximal runs sharing source and destination contiguity plus a separate full-coverage identity cell",
+    "local_state": ["segment count", "source start", "destination start", "contiguity class", "payload width", "auxiliary index bytes"],
+    "combine_rule": "Coalesce adjacent affine spans; use a whole-array permutation when one destination vector suffices, and expand per-element indices only for genuinely irregular scatter or synthesis.",
+    "finalization": "Stage the chosen pinned payload and optional compact int32 indices through the unchanged H2D boundary.",
+    "work_complexity": "O(number_of_segments + payload_items), while avoiding extra O(payload_items) int64 arrays on contiguous-span cells.",
+    "span_complexity": "Identity is one bulk copy, a coalesced plan is one operation per maximal run, and only the irregular fallback spans the flattened index space.",
+    "communication_cost": "Mandatory payload H2D is unchanged; optional output-index traffic is removed for full coverage.",
+    "invariants": ["stable compact-source consumption", "exact destination order", "absent segments consume source but do not write", "public dtype and pinning", "full-coverage proof"],
+    "anti_patterns": ["always flatten every segment", "one int64 index vector per payload dimension", "apply identity fast path from set equality without order proof", "select only by weighted aggregate"]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "full-coverage-identity",
+      "name": "proved full-coverage no-fill path",
+      "change_axes": ["initialization", "index staging", "whole-array copy"],
+      "template": "When compact rows already cover destination rows in exact order, skip -1 fill and optional indices and copy the payload as one array."
+    },
+    {
+      "family": "coalesced-segment-spans",
+      "name": "maximal contiguous run copies",
+      "change_axes": ["host dispatch count", "span coalescing", "auxiliary index bytes"],
+      "template": "Copy one slice per maximal affine source/destination run instead of expanding per-element scatter indices."
+    },
+    {
+      "family": "bounded-flat-scatter",
+      "name": "irregular flattened scatter fallback",
+      "change_axes": ["index construction", "scatter", "shape dispatch"],
+      "template": "Build one bounded destination/source mapping only for irregular cells where its measured gain exceeds auxiliary construction cost."
+    }
+  ]
+}
