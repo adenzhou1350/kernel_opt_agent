@@ -65,7 +65,9 @@
             "STRUCTURALLY_INFEASIBLE"
           ]
         },
-        "method_realized_candidate_count": {"type": "integer", "minimum": 0}
+        "method_realized_candidate_count": {"type": "integer", "minimum": 0},
+        "frontier_contract_passed": {"type": "boolean"},
+        "ranked_architecture_count": {"type": ["integer", "null"], "minimum": 0}
       }
     },
     "budget_usage": {

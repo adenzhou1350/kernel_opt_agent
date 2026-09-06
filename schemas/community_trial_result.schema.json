@@ -62,6 +62,7 @@
         }
       }
     },
+    "frontier_closure": {"$ref": "#/$defs/identity"},
     "method_realization": {
       "type": "object",
       "additionalProperties": false,

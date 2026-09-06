@@ -88,6 +88,18 @@ The suite also freezes a `minimum_material_speedup` greater than 1.0. The
 assessor uses this threshold for time-to-first-improvement so a nominal 1.001x
 result inside timing noise cannot count as successful discovery.
 
+Every newly materialized trial also receives the same task-bound
+`input/frontier_contract.json`. Before editing production source, the executor
+must freeze a schema-validated opportunity ranking that covers launch and
+materialization removal, a different work decomposition, and dominant-shape or
+optional-path specialization. Assessment requires a hash-bound closure for
+every ranked architecture and every evaluated candidate. An untested unknown
+bound cannot be called dominated, and qualitative prose cannot replace a
+numeric domination bound. This prevents an executor from declaring success by
+quietly omitting an initially ranked or required branch. Older sealed trials
+remain readable because the contract is enforced only when its identity is in
+the trial manifest.
+
 New benchmark suites should set `protocol.task_packet_contract` to `STRICT_V2`.
 This validates a complete symptom-only operator, workload, hardware, baseline
 and acceptance contract, requires workload weights to sum to one, checks that

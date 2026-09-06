@@ -78,6 +78,114 @@ def candidate(
 
 def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
     trial = json.loads((trial_dir / "trial.json").read_text(encoding="utf-8"))
+    ranking_path = trial_dir / "evidence" / "opportunity-ranking.json"
+    closure_path = trial_dir / "evidence" / "frontier-closure.json"
+    architectures = [
+        {
+            "architecture_id": "launch-fusion",
+            "rank": 1,
+            "name": "remove launch and materialization overhead",
+            "dimension_ids": ["launch-materialization"],
+            "partition_axis": "output rows",
+            "upper_bound": {
+                "kind": "UNKNOWN",
+                "maximum_speedup": None,
+                "rationale": "Must be measured before implementation evidence exists.",
+            },
+        },
+        {
+            "architecture_id": "work-partition",
+            "rank": 2,
+            "name": "change the work partition",
+            "dimension_ids": ["work-decomposition"],
+            "partition_axis": "hidden tiles",
+            "upper_bound": {
+                "kind": "STRUCTURAL",
+                "maximum_speedup": None,
+                "rationale": "Adds a required intermediate for this synthetic case.",
+            },
+        },
+        {
+            "architecture_id": "shape-specialized",
+            "rank": 3,
+            "name": "specialize the dominant shape",
+            "dimension_ids": ["shape-path-specialization"],
+            "partition_axis": "dominant batch shape",
+            "upper_bound": {
+                "kind": "STRUCTURAL",
+                "maximum_speedup": None,
+                "rationale": "The workload contains only one frozen shape.",
+            },
+        },
+    ]
+    atomic_json(
+        ranking_path,
+        {
+            "schema_version": "community-opportunity-ranking-v1",
+            "created_at_seconds": 0,
+            "claim_boundary": "PRE_IMPLEMENTATION_HYPOTHESES_ONLY",
+            "contract_identity": trial["frontier_contract"],
+            "diagnosis": "Synthetic test ranking.",
+            "architectures": architectures,
+            "prior_gate": {
+                "diagnosis_confidence": "high",
+                "leading_local_candidate": "launch-fusion",
+                "expected_ceiling": "unknown before measurement",
+                "largest_unresolved_risk": "correctness",
+                "knowledge_positive_expected_value": False,
+            },
+        },
+    )
+    selected = max(rows, key=lambda row: row["speedup"] or 0)
+    shared_evidence = [rows[0]["evidence"][0]]
+    atomic_json(
+        closure_path,
+        {
+            "schema_version": "community-frontier-closure-v1",
+            "generated_at_seconds": elapsed,
+            "claim_boundary": "SEARCH_FRONTIER_ACCOUNTING_ONLY",
+            "contract_identity": trial["frontier_contract"],
+            "opportunity_ranking_identity": identity(ranking_path, trial_dir),
+            "selected_candidate_id": selected["candidate_id"],
+            "selected_speedup": selected["speedup"],
+            "architectures": [
+                {
+                    "architecture_id": "launch-fusion",
+                    "status": "SELECTED",
+                    "candidate_ids": [row["candidate_id"] for row in rows],
+                    "current_upper_bound": {
+                        "kind": "STRUCTURAL",
+                        "maximum_speedup": None,
+                        "rationale": "The selected candidate reaches the synthetic floor.",
+                    },
+                    "evidence": shared_evidence,
+                },
+                {
+                    "architecture_id": "work-partition",
+                    "status": "DOMINATED",
+                    "candidate_ids": [],
+                    "current_upper_bound": {
+                        "kind": "QUANTIFIED",
+                        "maximum_speedup": selected["speedup"] * 1.01,
+                        "rationale": "The synthetic model bounds this within one margin.",
+                    },
+                    "evidence": shared_evidence,
+                },
+                {
+                    "architecture_id": "shape-specialized",
+                    "status": "INFEASIBLE",
+                    "candidate_ids": [],
+                    "current_upper_bound": {
+                        "kind": "STRUCTURAL",
+                        "maximum_speedup": None,
+                        "rationale": "There is no second shape or optional path.",
+                    },
+                    "evidence": shared_evidence,
+                },
+            ],
+            "stop_reason": "Synthetic closure for validation tests.",
+        },
+    )
     method_realization = None
     if trial.get("method_snapshot") is not None:
         methods = json.loads(
@@ -108,6 +216,7 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
         "technical_repair_attempts": 1,
         "causal_revisions": 1,
         "candidates": rows,
+        "frontier_closure": identity(closure_path, trial_dir),
         "notes": [],
     }
     if method_realization is not None:
@@ -449,6 +558,7 @@ def main() -> None:
         assert not (community_dir / "input" / "oracle.json").exists()
         assert (control_dir / "input" / "result.schema.json").is_file()
         assert (control_dir / "input" / "executor.md").is_file()
+        assert (control_dir / "input" / "frontier_contract.json").is_file()
         executor_text = (control_dir / "input" / "executor.md").read_text(
             encoding="utf-8"
         )
@@ -629,11 +739,59 @@ def main() -> None:
             "REALIZED_IN_CANDIDATE"
         )
         assert community_assessment["metrics"]["method_realized_candidate_count"] == 2
+        assert community_assessment["metrics"]["frontier_contract_passed"] is True
+        assert community_assessment["metrics"]["ranked_architecture_count"] == 3
         report = compare_trials(
             control_dir, community_dir, base / "comparison.json", ROOT
         )
         assert report["deltas"]["time_to_first_correct_seconds_saved"] == 280
         assert report["deltas"]["best_speedup_gain"] > 0
+
+        ranking_path = community_dir / "evidence" / "opportunity-ranking.json"
+        closure_path = community_dir / "evidence" / "frontier-closure.json"
+        result_path = community_dir / "result.json"
+        incomplete_ranking = json.loads(ranking_path.read_text(encoding="utf-8"))
+        incomplete_ranking["architectures"][2]["dimension_ids"] = [
+            "launch-materialization"
+        ]
+        atomic_json(ranking_path, incomplete_ranking)
+        closure = json.loads(closure_path.read_text(encoding="utf-8"))
+        closure["opportunity_ranking_identity"] = identity(
+            ranking_path, community_dir
+        )
+        atomic_json(closure_path, closure)
+        invalid_frontier_result = json.loads(result_path.read_text(encoding="utf-8"))
+        invalid_frontier_result["frontier_closure"] = identity(
+            closure_path, community_dir
+        )
+        atomic_json(result_path, invalid_frontier_result)
+        try:
+            assess_trial(community_dir, ROOT)
+        except ValueError as error:
+            assert "omits required dimensions" in str(error)
+        else:
+            raise AssertionError("self-narrowed frontier was accepted")
+        write_result(community_dir, rows, elapsed)
+
+        open_frontier = json.loads(closure_path.read_text(encoding="utf-8"))
+        open_frontier["architectures"][1]["current_upper_bound"] = {
+            "kind": "UNKNOWN",
+            "maximum_speedup": None,
+            "rationale": "The untested bound is still unknown.",
+        }
+        atomic_json(closure_path, open_frontier)
+        invalid_frontier_result = json.loads(result_path.read_text(encoding="utf-8"))
+        invalid_frontier_result["frontier_closure"] = identity(
+            closure_path, community_dir
+        )
+        atomic_json(result_path, invalid_frontier_result)
+        try:
+            assess_trial(community_dir, ROOT)
+        except ValueError as error:
+            assert "needs a quantified domination bound" in str(error)
+        else:
+            raise AssertionError("complete trial with an open unknown bound was accepted")
+        write_result(community_dir, rows, elapsed)
 
         invalid_method = json.loads(
             (community_dir / "result.json").read_text(encoding="utf-8")

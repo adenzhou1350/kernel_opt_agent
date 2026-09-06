@@ -39,6 +39,7 @@ EXECUTION_AUDIT_SCHEMA = "community-trial-execution-audit-v1"
 SUITE_RUN_SUMMARY_SCHEMA = "community-suite-run-summary-v1"
 TASK_PACKET_AUDIT_SCHEMA = "community-task-packet-audit-v1"
 PRIOR_SHORTLIST_SCHEMA = "community-prior-shortlist-v1"
+FRONTIER_CONTRACT_SCHEMA = "community-frontier-contract-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -163,6 +164,45 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
         raise ValueError("invalid prior shortlist: " + "; ".join(errors))
     atomic_json(output, receipt)
     return receipt
+
+
+def build_frontier_contract(task_path: Path, output: Path, material_gain_margin: float,
+                            root: Path) -> dict:
+    """Bind every new trial to a small, task-independent search-space audit."""
+    contract = {
+        "schema_version": FRONTIER_CONTRACT_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "MINIMUM_SEARCH_COVERAGE_ONLY",
+        "task_identity": identity_for(task_path, task_path.parent.parent),
+        "policy": {
+            "minimum_ranked_architectures": 3,
+            "unknown_bound_policy": "SCREEN_OR_EXHAUST_SEARCH_PHASE",
+            "deadline_fraction": 0.7,
+            "material_gain_margin": material_gain_margin,
+        },
+        "required_dimensions": [
+            {
+                "dimension_id": "launch-materialization",
+                "question": "Can launches, graph breaks, or mandatory intermediate traffic be removed?",
+            },
+            {
+                "dimension_id": "work-decomposition",
+                "question": "Would a structurally different partition/reduction/pipeline expose more useful parallelism?",
+            },
+            {
+                "dimension_id": "shape-path-specialization",
+                "question": "Can dominant shapes or optional runtime paths use a materially cheaper implementation?",
+            },
+        ],
+    }
+    errors = validate_instance(
+        contract,
+        read_object(root / "schemas" / "community_frontier_contract.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid frontier contract: " + "; ".join(errors))
+    atomic_json(output, contract)
+    return contract
 
 
 def repository_root() -> Path:
@@ -738,6 +778,7 @@ def materialize_trial(
     environment_target = output / "input" / "environment.json"
     result_schema_target = output / "input" / "result.schema.json"
     executor_prompt_target = output / "input" / "executor.md"
+    frontier_contract_target = output / "input" / "frontier_contract.json"
     shutil.copyfile(task_source, task_target)
     shutil.copyfile(prompt_source, prompt_target)
     shutil.copyfile(environment_source, environment_target)
@@ -748,6 +789,12 @@ def materialize_trial(
     shutil.copyfile(
         root / "knowledge" / "community" / "executor_prompt.md",
         executor_prompt_target,
+    )
+    build_frontier_contract(
+        task_target,
+        frontier_contract_target,
+        suite["protocol"]["minimum_material_speedup"] - 1.0,
+        root,
     )
 
     support_identities = []
@@ -827,6 +874,7 @@ def materialize_trial(
         "environment_input": identity_for(environment_target, output),
         "result_contract": identity_for(result_schema_target, output),
         "executor_prompt": identity_for(executor_prompt_target, output),
+        "frontier_contract": identity_for(frontier_contract_target, output),
         "task_support": support_identities,
         "community_graph": graph_identity,
         "method_snapshot": method_identity,
@@ -988,6 +1036,19 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
     )
     validate_identity(trial_dir, trial["result_contract"], "trial result contract")
     validate_identity(trial_dir, trial["executor_prompt"], "trial executor prompt")
+    frontier_contract = trial.get("frontier_contract")
+    if frontier_contract is not None:
+        frontier_contract_path = validate_identity(
+            trial_dir, frontier_contract, "trial frontier contract"
+        )
+        frontier_errors = validate_json_file(
+            frontier_contract_path,
+            root / "schemas" / "community_frontier_contract.schema.json",
+        )
+        if frontier_errors:
+            raise ValueError(
+                "invalid trial frontier contract: " + "; ".join(frontier_errors)
+            )
     for identity in trial.get("task_support", []):
         support_path = validate_identity(trial_dir, identity, "trial task support")
         try:
@@ -1047,6 +1108,186 @@ def nullable_max(values: list[float]) -> float | None:
     return max(values) if values else None
 
 
+def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
+                              root: Path) -> int | None:
+    """Validate pre-registered search breadth and fail-closed stop accounting."""
+    contract_identity = trial.get("frontier_contract")
+    closure_identity = result.get("frontier_closure")
+    if contract_identity is None:
+        if closure_identity is not None:
+            raise ValueError("frontier closure is forbidden without a frontier contract")
+        return None
+    if closure_identity is None:
+        raise ValueError("frontier closure is required by the trial frontier contract")
+
+    contract_path = validate_identity(
+        trial_dir, contract_identity, "trial frontier contract"
+    )
+    closure_path = validate_identity(
+        trial_dir, closure_identity, "trial frontier closure"
+    )
+    closure_errors = validate_json_file(
+        closure_path, root / "schemas" / "community_frontier_closure.schema.json"
+    )
+    if closure_errors:
+        raise ValueError("invalid frontier closure: " + "; ".join(closure_errors))
+    contract = read_object(contract_path)
+    closure = read_object(closure_path)
+    if closure["contract_identity"] != contract_identity:
+        raise ValueError("frontier closure is bound to a different contract")
+
+    ranking_path = validate_identity(
+        trial_dir,
+        closure["opportunity_ranking_identity"],
+        "trial opportunity ranking",
+    )
+    ranking_errors = validate_json_file(
+        ranking_path, root / "schemas" / "community_opportunity_ranking.schema.json"
+    )
+    if ranking_errors:
+        raise ValueError("invalid opportunity ranking: " + "; ".join(ranking_errors))
+    ranking = read_object(ranking_path)
+    if ranking["contract_identity"] != contract_identity:
+        raise ValueError("opportunity ranking is bound to a different contract")
+    if ranking["created_at_seconds"] > result["elapsed_seconds"]:
+        raise ValueError("opportunity ranking was created after the trial elapsed time")
+    proposed_times = [item["proposed_at_seconds"] for item in result["candidates"]]
+    if proposed_times and ranking["created_at_seconds"] > min(proposed_times):
+        raise ValueError("opportunity ranking was not frozen before candidate proposal")
+    if closure["generated_at_seconds"] > result["elapsed_seconds"]:
+        raise ValueError("frontier closure was generated after the trial elapsed time")
+
+    ranked = ranking["architectures"]
+    minimum = contract["policy"]["minimum_ranked_architectures"]
+    if len(ranked) < minimum:
+        raise ValueError("opportunity ranking is smaller than the frontier contract")
+    ranked_ids = [item["architecture_id"] for item in ranked]
+    if len(ranked_ids) != len(set(ranked_ids)):
+        raise ValueError("opportunity ranking architecture ids must be unique")
+    if [item["rank"] for item in ranked] != list(range(1, len(ranked) + 1)):
+        raise ValueError("opportunity ranking ranks must be contiguous and ordered")
+    required_dimensions = {
+        item["dimension_id"] for item in contract["required_dimensions"]
+    }
+    covered_dimensions = {
+        dimension
+        for item in ranked
+        for dimension in item["dimension_ids"]
+    }
+    missing_dimensions = sorted(required_dimensions - covered_dimensions)
+    if missing_dimensions:
+        raise ValueError(
+            "opportunity ranking omits required dimensions: "
+            + ", ".join(missing_dimensions)
+        )
+    for item in ranked:
+        bound = item["upper_bound"]
+        if (bound["kind"] == "QUANTIFIED") != (
+            bound["maximum_speedup"] is not None
+        ):
+            raise ValueError(
+                f"ranked architecture {item['architecture_id']} has inconsistent bound"
+            )
+
+    closure_rows = closure["architectures"]
+    closure_by_id = {item["architecture_id"]: item for item in closure_rows}
+    if len(closure_by_id) != len(closure_rows):
+        raise ValueError("frontier closure architecture ids must be unique")
+    if set(closure_by_id) != set(ranked_ids):
+        raise ValueError("frontier closure must account for every frozen architecture")
+    candidate_by_id = {
+        item["candidate_id"]: item for item in result["candidates"]
+    }
+    referenced_candidates: set[str] = set()
+    selected_rows = []
+    search_deadline = (
+        float(trial["budget"]["wall_clock_seconds"])
+        * float(contract["policy"]["deadline_fraction"])
+    )
+    for architecture_id in ranked_ids:
+        row = closure_by_id[architecture_id]
+        unknown = sorted(set(row["candidate_ids"]) - set(candidate_by_id))
+        if unknown:
+            raise ValueError(
+                f"frontier architecture {architecture_id} references unknown candidates: "
+                + ", ".join(unknown)
+            )
+        referenced_candidates.update(row["candidate_ids"])
+        status = row["status"]
+        bound = row["current_upper_bound"]
+        if (bound["kind"] == "QUANTIFIED") != (
+            bound["maximum_speedup"] is not None
+        ):
+            raise ValueError(
+                f"frontier architecture {architecture_id} has inconsistent bound"
+            )
+        if status in {"SELECTED", "EVALUATED"} and not row["candidate_ids"]:
+            raise ValueError(
+                f"frontier architecture {architecture_id} requires an evaluated candidate"
+            )
+        if status in {"DOMINATED", "INFEASIBLE"} and not row["evidence"]:
+            raise ValueError(
+                f"frontier architecture {architecture_id} requires closure evidence"
+            )
+        if status == "DOMINATED" and bound["kind"] != "QUANTIFIED":
+            raise ValueError(
+                f"frontier architecture {architecture_id} needs a quantified domination bound"
+            )
+        if status == "INFEASIBLE" and bound["kind"] == "UNKNOWN":
+            raise ValueError(
+                f"frontier architecture {architecture_id} needs structural infeasibility evidence"
+            )
+        for evidence in row["evidence"]:
+            validate_identity(
+                trial_dir, evidence, f"frontier evidence {architecture_id}"
+            )
+        if status == "SELECTED":
+            selected_rows.append(row)
+        if status == "DEADLINE_UNTESTED" and not (
+            result["completion_status"] == "BUDGET_EXHAUSTED"
+            or result["elapsed_seconds"] >= search_deadline
+        ):
+            raise ValueError(
+                f"frontier architecture {architecture_id} used deadline before search cutoff"
+            )
+    if referenced_candidates != set(candidate_by_id):
+        raise ValueError("frontier closure does not map every evaluated candidate")
+
+    selected_id = closure["selected_candidate_id"]
+    selected_speedup = closure["selected_speedup"]
+    if selected_id is None:
+        if selected_rows or selected_speedup is not None:
+            raise ValueError("frontier closure has inconsistent null selection")
+    else:
+        if selected_id not in candidate_by_id or len(selected_rows) != 1:
+            raise ValueError("frontier closure must identify one evaluated selection")
+        if selected_id not in selected_rows[0]["candidate_ids"]:
+            raise ValueError("selected candidate is not mapped to selected architecture")
+        candidate_speedup = candidate_by_id[selected_id]["speedup"]
+        if candidate_speedup is None or selected_speedup != candidate_speedup:
+            raise ValueError("frontier selected speedup does not match candidate evidence")
+        correct_speeds = [
+            item["speedup"]
+            for item in result["candidates"]
+            if item["correctness"] == "PASS" and item["speedup"] is not None
+        ]
+        if not correct_speeds or selected_speedup != max(correct_speeds):
+            raise ValueError("frontier selection is not the best correct measured candidate")
+        margin = float(contract["policy"]["material_gain_margin"])
+        for row in closure_rows:
+            if row["status"] != "DOMINATED":
+                continue
+            bound = row["current_upper_bound"]
+            if (
+                bound["kind"] == "QUANTIFIED"
+                and float(bound["maximum_speedup"]) > selected_speedup * (1.0 + margin)
+            ):
+                raise ValueError(
+                    f"frontier architecture {row['architecture_id']} remains materially open"
+                )
+    return len(ranked)
+
+
 def assess_trial(
     trial_dir: Path,
     root: Path | None = None,
@@ -1065,6 +1306,10 @@ def assess_trial(
     for field in ("trial_id", "task_id", "arm"):
         if result[field] != trial[field]:
             raise ValueError(f"trial result {field} does not match manifest")
+
+    ranked_architecture_count = validate_frontier_closure(
+        trial_dir, trial, result, root
+    )
 
     if require_execution_audit:
         audit_path = trial_dir / "execution_audit.json"
@@ -1279,6 +1524,8 @@ def assess_trial(
             ),
             "method_realization_disposition": method_disposition,
             "method_realized_candidate_count": method_realized_candidate_count,
+            "frontier_contract_passed": ranked_architecture_count is not None,
+            "ranked_architecture_count": ranked_architecture_count,
         },
         "budget_usage": usage,
     }

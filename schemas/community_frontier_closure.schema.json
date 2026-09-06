@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_frontier_closure.schema.json",
+  "title": "Machine-auditable architecture frontier closure",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at_seconds", "claim_boundary", "contract_identity", "opportunity_ranking_identity", "selected_candidate_id", "selected_speedup", "architectures", "stop_reason"],
+  "properties": {
+    "schema_version": {"const": "community-frontier-closure-v1"},
+    "generated_at_seconds": {"type": "number", "minimum": 0},
+    "claim_boundary": {"const": "SEARCH_FRONTIER_ACCOUNTING_ONLY"},
+    "contract_identity": {"$ref": "#/$defs/identity"},
+    "opportunity_ranking_identity": {"$ref": "#/$defs/identity"},
+    "selected_candidate_id": {"type": ["string", "null"], "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "selected_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "architectures": {
+      "type": "array",
+      "minItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["architecture_id", "status", "candidate_ids", "current_upper_bound", "evidence"],
+        "properties": {
+          "architecture_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "status": {"enum": ["SELECTED", "EVALUATED", "DOMINATED", "INFEASIBLE", "DEADLINE_UNTESTED"]},
+          "candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"}},
+          "current_upper_bound": {"$ref": "#/$defs/bound"},
+          "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+        }
+      }
+    },
+    "stop_reason": {"type": "string", "minLength": 1}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "bound": {
+      "type": "object", "additionalProperties": false, "required": ["kind", "maximum_speedup", "rationale"],
+      "properties": {
+        "kind": {"enum": ["QUANTIFIED", "STRUCTURAL", "UNKNOWN"]},
+        "maximum_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

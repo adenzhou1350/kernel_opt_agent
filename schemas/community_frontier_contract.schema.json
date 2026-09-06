@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_frontier_contract.schema.json",
+  "title": "Task-bound minimum architecture search contract",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "task_identity", "policy", "required_dimensions"],
+  "properties": {
+    "schema_version": {"const": "community-frontier-contract-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "MINIMUM_SEARCH_COVERAGE_ONLY"},
+    "task_identity": {"$ref": "#/$defs/identity"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_ranked_architectures", "unknown_bound_policy", "deadline_fraction", "material_gain_margin"],
+      "properties": {
+        "minimum_ranked_architectures": {"const": 3},
+        "unknown_bound_policy": {"const": "SCREEN_OR_EXHAUST_SEARCH_PHASE"},
+        "deadline_fraction": {"const": 0.7},
+        "material_gain_margin": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+      }
+    },
+    "required_dimensions": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["dimension_id", "question"],
+        "properties": {
+          "dimension_id": {"enum": ["launch-materialization", "work-decomposition", "shape-path-specialization"]},
+          "question": {"type": "string", "minLength": 1}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

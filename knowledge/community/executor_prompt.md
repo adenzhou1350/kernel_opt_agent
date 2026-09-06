@@ -36,10 +36,14 @@ Act as the isolated executor for this materialized optimization trial.
    an uncaught assertion to report an ordinary candidate rejection.
 6. Use a staged search policy rather than reading every available idea up
    front:
-   - First inspect the task and hot-path source, then freeze a short opportunity
-     ranking under `evidence/` with the suspected global bottleneck, an upper
-     bound, and at least one structural alternative. Do this before consulting
-     community knowledge so the prior cannot replace target reasoning.
+   - First inspect the task, `input/frontier_contract.json`, and hot-path source,
+     then write `evidence/opportunity-ranking.json` conforming to
+     `community-opportunity-ranking-v1`. It must cover every required contract
+     dimension with at least the declared minimum number of distinct
+     architectures, contiguous ranks, explicit partition axes, and typed upper
+     bounds. Freeze it before proposing or editing a candidate and never rewrite
+     it afterward. Do this before consulting community knowledge so the prior
+     cannot replace target reasoning.
    - Before consulting any prior, record a `prior_gate` beside the opportunity
      ranking: diagnosis confidence, the leading local candidate, its expected
      ceiling, the largest unresolved risk, and whether knowledge has positive
@@ -80,9 +84,13 @@ Act as the isolated executor for this materialized optimization trial.
      result. Optional prose is the first thing to drop near the deadline.
    - `minimum_material_speedup` defines time-to-first-improvement only. It is
      never, by itself, a search-stop threshold. Before stopping, write a
-     frontier-closure record that names every untested architecture in the
-     frozen ranking, its current upper bound, and the evidence that updated
-     that bound. Stop early only when the selected result reaches a quantified
+     `community-frontier-closure-v1` record at
+     `evidence/frontier-closure.json`. It must hash-bind the frontier contract
+     and frozen opportunity ranking, map every evaluated candidate to a ranked
+     architecture, and account for every ranked architecture with its current
+     typed upper bound and hash-bound evidence. `DOMINATED` requires a numeric
+     maximum speedup; qualitative reasoning alone can only support a genuinely
+     `INFEASIBLE` branch. Stop early only when the selected result reaches a quantified
      defensible bound, every remaining upper bound is below the selected result
      by less than one material-gain margin, or the explicit phase deadline has
      arrived. A qualitative or unknown upper bound remains open: screen the
@@ -91,7 +99,11 @@ Act as the isolated executor for this materialized optimization trial.
      alternative from the closure record.
 7. Your final response must be only one JSON object conforming exactly to
    `input/result.schema.json`. Copy the exact `trial_id`, `task_id`, and `arm`
-   from `trial.json`. Evidence paths must be relative to the trial directory and
+   from `trial.json`. When `trial.json` has `frontier_contract`, include the
+   identity of `evidence/frontier-closure.json` as `frontier_closure`; assessment
+   fails closed if the contract, pre-implementation ranking, closure, candidate
+   mapping, or unknown-bound policy is incomplete. Evidence paths must be
+   relative to the trial directory and
    their SHA-256 values must match the final files. Never invent a speedup,
    correctness result, elapsed time, or upstream-readiness claim. When the
    trial exposes `method_snapshot`, populate `method_realization`: list at most

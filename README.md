@@ -17,7 +17,9 @@ snapshots and reviewed optimization events. See
 Use `community sync-repository` with explicit time windows for bounded,
 incremental performance-PR discovery.
 Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
-versus community-augmented trials.
+versus community-augmented trials. New trials bind a machine-audited architecture
+frontier: the executor must pre-register minimum search dimensions, map every
+candidate to them, and cannot close an untested unknown bound with prose alone.
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
