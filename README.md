@@ -79,6 +79,7 @@ python3 scripts/kernel_opt.py opportunity reopen --run runs/<run-id> --opportuni
 python3 scripts/kernel_opt.py method recommend --run runs/<run-id>
 python3 scripts/kernel_opt.py method export-snapshot --cutoff-at 2026-08-31T23:59:59Z --output /path/to/methods.json
 python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
+python3 scripts/kernel_opt.py candidate plan-execution --run runs/<run-id> --candidate-id <id> --phase-timing models/phase-timing.json --output models/candidate-execution/<id>.json --arm-count 2 --requests-per-arm 3
 python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
 python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
 python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-id <id>
@@ -134,6 +135,18 @@ amortize setup without weakening isolation. Shared-treatment sessions fail
 closed unless the worker explicitly supports identity-preserving switching.
 Startup, per-request and shutdown timeouts remain separate, and receipts/logs
 are immutable: reruns use a new output path.
+
+Every newly registered candidate must first bind a machine-generated
+`candidate-execution-plan-v1`. `candidate plan-execution` reads hash-bound phase
+timing, compares fixed setup/compile/warmup cost with steady-state work, and
+selects `COLD_PER_ARM`, `PERSISTENT_PER_ARM`, or
+`PERSISTENT_SHARED_ENGINE`. Shared-engine routing is available only when a
+successful persistent-session receipt exercised at least two treatment
+identities and its logs still match their hashes. Smoke result v6 must echo the
+selected process model and bind the plan in its reachability evidence. Use
+`--attach` to migrate an active candidate created before this requirement;
+repeat `--persistent-session-spec` once per planned session when persistence
+was selected.
 
 Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture

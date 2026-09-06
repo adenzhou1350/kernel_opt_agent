@@ -66,9 +66,127 @@ def main() -> None:
         candidate_source.parent.mkdir(parents=True)
         candidate_source.write_text("candidate = True\n", encoding="utf-8")
         candidate_digest = hashlib.sha256(candidate_source.read_bytes()).hexdigest()
+        timing_path = run / "models" / "phase-timing.json"
+        timing_path.parent.mkdir(parents=True)
+        timing_path.write_text(
+            json.dumps({
+                "setup_seconds": 30.0,
+                "compile_seconds": 20.0,
+                "warmup_seconds": 2.0,
+                "steady_state_seconds": 0.5,
+                "steady_state_samples": 3,
+            }),
+            encoding="utf-8",
+        )
+        timing_digest = hashlib.sha256(timing_path.read_bytes()).hexdigest()
+        fixed_seconds = 52.0
+        fixed_share = fixed_seconds / 52.5
+        steady_per_request = 0.5 / 3
+        legacy_seconds = 6 * (fixed_seconds + steady_per_request)
+        selected_seconds = 2 * (fixed_seconds + 3 * steady_per_request)
+        plan_path = run / "models" / "candidate-execution" / "c1.json"
+        plan_path.parent.mkdir(parents=True)
+        plan_path.write_text(
+            json.dumps({
+                "schema_version": "candidate-execution-plan-v1",
+                "candidate_id": "c1",
+                "created_at": "2026-09-07T00:00:00+00:00",
+                "inputs": {
+                    "phase_timing": {
+                        "path": "models/phase-timing.json",
+                        "sha256": timing_digest,
+                    },
+                    "shared_switching_receipt": None,
+                },
+                "workload": {
+                    "arm_count": 2,
+                    "requests_per_arm": 3,
+                    "total_requests": 6,
+                },
+                "phase_timing": {
+                    "setup_seconds": 30.0,
+                    "compile_seconds": 20.0,
+                    "warmup_seconds": 2.0,
+                    "steady_state_seconds": 0.5,
+                    "steady_state_samples": 3,
+                    "fixed_seconds": fixed_seconds,
+                    "fixed_share": fixed_share,
+                },
+                "policy": {"fixed_share_threshold": 0.5},
+                "selection": {
+                    "process_model": "PERSISTENT_PER_ARM",
+                    "session_scope": "SINGLE_TREATMENT",
+                    "persistent_session_eligible": True,
+                    "switching_preserves_treatment_identity": False,
+                    "requires_persistent_session_protocol": True,
+                    "reason": "fixed cost dominates but shared switching is unproven",
+                },
+                "estimates": {
+                    "legacy_cold_per_request_seconds": legacy_seconds,
+                    "selected_seconds": selected_seconds,
+                    "selected_session_count": 2,
+                    "estimated_experiment_speedup": legacy_seconds / selected_seconds,
+                },
+                "claim_scope": "EXECUTION_ROUTING_ONLY_NOT_CANDIDATE_PERFORMANCE",
+            }),
+            encoding="utf-8",
+        )
+        plan_digest = hashlib.sha256(plan_path.read_bytes()).hexdigest()
+        item = {
+            "candidate_id": "c1",
+            "execution_plan": {
+                "path": "models/candidate-execution/c1.json",
+                "sha256": plan_digest,
+            },
+        }
+        def write_session_receipt(label: str) -> dict:
+            stdout = run / f"{label}.stdout.ndjson"
+            stderr = run / f"{label}.stderr.txt"
+            stdout.write_text("ready\nresult\n", encoding="utf-8")
+            stderr.write_text("", encoding="utf-8")
+            treatment = hashlib.sha256(label.encode()).hexdigest()
+            receipt = {
+                "schema_version": "persistent-session-receipt-v1",
+                "status": "PASS",
+                "failure": None,
+                "session_scope": "SINGLE_TREATMENT",
+                "switching_supported": False,
+                "process_launches": 1,
+                "engine_init_count": 1,
+                "session_identity": hashlib.sha256(b"fixture-worker").hexdigest(),
+                "request_count": 3,
+                "requests": [
+                    {
+                        "treatment_identity": treatment,
+                        "output_digest": hashlib.sha256(
+                            f"{label}-{index}".encode()
+                        ).hexdigest(),
+                    }
+                    for index in range(3)
+                ],
+                "stdout": {
+                    "path": stdout.relative_to(run).as_posix(),
+                    "sha256": hashlib.sha256(stdout.read_bytes()).hexdigest(),
+                },
+                "stderr": {
+                    "path": stderr.relative_to(run).as_posix(),
+                    "sha256": hashlib.sha256(stderr.read_bytes()).hexdigest(),
+                },
+            }
+            path = run / f"{label}.receipt.json"
+            path.write_text(json.dumps(receipt), encoding="utf-8")
+            return {
+                "path": path.relative_to(run).as_posix(),
+                "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
+            }
+
+        session_receipts = [
+            write_session_receipt("baseline"),
+            write_session_receipt("candidate"),
+        ]
         smoke_path = run / "smoke.json"
         smoke = {
-            "schema_version": "candidate-smoke-result-v5",
+            "schema_version": "candidate-smoke-result-v6",
             "status": "PASS",
             "candidate_id": "c1",
             "objective": {
@@ -119,7 +237,12 @@ def main() -> None:
                         "sha256": hashlib.sha256(
                             candidate_source.read_bytes()
                         ).hexdigest(),
-                    }
+                    },
+                    {
+                        "path": "models/candidate-execution/c1.json",
+                        "sha256": plan_digest,
+                    },
+                    *session_receipts,
                 ],
             },
             "runtime_contract": {
@@ -139,13 +262,15 @@ def main() -> None:
                 "steady_state_samples": 3,
                 "objective_window": "STEADY_STATE_ONLY",
                 "process_model": "PERSISTENT_PER_ARM",
-                "persistent_session_eligible": False,
+                "persistent_session_eligible": True,
                 "switching_preserves_treatment_identity": False,
+                "execution_plan_evidence_index": 1,
+                "persistent_session_receipt_evidence_indices": [2, 3],
             },
         }
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "execution path was not reached" in str(exc)
         else:
@@ -155,7 +280,7 @@ def main() -> None:
         smoke["reachability"]["execution_proof"]["observed_count"] = 0
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "execution count" in str(exc)
         else:
@@ -166,7 +291,7 @@ def main() -> None:
         )
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "compiled candidates" in str(exc)
         else:
@@ -180,7 +305,7 @@ def main() -> None:
         )
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "runtime monkeypatch" in str(exc)
         else:
@@ -190,7 +315,7 @@ def main() -> None:
         smoke["runtime_contract"]["observed_execution_mode"] = "EAGER"
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "does not match production" in str(exc)
         else:
@@ -200,7 +325,7 @@ def main() -> None:
         smoke["runtime_contract"]["compile_cache_key_includes_treatment"] = False
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "cache key" in str(exc)
         else:
@@ -212,7 +337,7 @@ def main() -> None:
         )
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "logical extents" in str(exc)
         else:
@@ -226,9 +351,9 @@ def main() -> None:
         )
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
-            assert "treatment-identity switching" in str(exc)
+            assert "differs from the sealed execution plan" in str(exc)
         else:
             raise AssertionError("unsafe shared persistent engine passed")
 
@@ -236,7 +361,7 @@ def main() -> None:
         smoke["objective"]["measurement_window"] = "END_TO_END_WITH_SETUP"
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "measurement windows differ" in str(exc)
         else:
@@ -248,7 +373,7 @@ def main() -> None:
         smoke["correctness"]["case_results"][0]["candidate_digest"] = "0" * 64
         smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
         try:
-            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+            validate_smoke_result(run, smoke_path, item)
         except ValueError as exc:
             assert "EXACT_IDENTITY" in str(exc)
         else:

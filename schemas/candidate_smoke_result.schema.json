@@ -6,7 +6,7 @@
   "additionalProperties": true,
   "required": ["schema_version", "status", "candidate_id", "objective", "cases", "correctness", "reachability", "runtime_contract", "timing_accounting"],
   "properties": {
-    "schema_version": {"const": "candidate-smoke-result-v5"},
+    "schema_version": {"const": "candidate-smoke-result-v6"},
     "status": {"const": "PASS"},
     "candidate_id": {"type": "string", "minLength": 1},
     "objective": {
@@ -108,7 +108,7 @@
     "timing_accounting": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["setup_seconds", "compile_seconds", "warmup_seconds", "steady_state_seconds", "steady_state_samples", "objective_window", "process_model", "persistent_session_eligible", "switching_preserves_treatment_identity"],
+      "required": ["setup_seconds", "compile_seconds", "warmup_seconds", "steady_state_seconds", "steady_state_samples", "objective_window", "process_model", "persistent_session_eligible", "switching_preserves_treatment_identity", "execution_plan_evidence_index", "persistent_session_receipt_evidence_indices"],
       "properties": {
         "setup_seconds": {"type": "number", "minimum": 0},
         "compile_seconds": {"type": "number", "minimum": 0},
@@ -118,7 +118,13 @@
         "objective_window": {"enum": ["STEADY_STATE_ONLY", "END_TO_END_WITH_SETUP"]},
         "process_model": {"enum": ["COLD_PER_ARM", "PERSISTENT_SHARED_ENGINE", "PERSISTENT_PER_ARM"]},
         "persistent_session_eligible": {"type": "boolean"},
-        "switching_preserves_treatment_identity": {"type": "boolean"}
+        "switching_preserves_treatment_identity": {"type": "boolean"},
+        "execution_plan_evidence_index": {"type": "integer", "minimum": 0},
+        "persistent_session_receipt_evidence_indices": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "integer", "minimum": 0}
+        }
       }
     }
   }

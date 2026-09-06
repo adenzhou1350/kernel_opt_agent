@@ -72,7 +72,7 @@ Candidate source lives under `runs/<run>/candidates/<id>/`. Register an argv-for
 build, correctness and smoke command with `kernel_opt.py candidate add`, then use
 `kernel_opt.py candidate run`.
 
-The smoke result is `candidate-smoke-result-v5` and must bind correctness to the
+The smoke result is `candidate-smoke-result-v6` and must bind correctness to the
 same anchor and edge cases used for screening. Select `EXACT_IDENTITY` when the
 public contract promises bitwise, token-ID or byte identity; the baseline and
 candidate SHA-256 digests must then be equal. Use `TOLERANCE_BOUNDED` or
@@ -101,6 +101,20 @@ it must not compare arms. A `SHARED_TREATMENTS` worker is legal only when it
 declares safe switching and actually returns the active treatment identity.
 Give every attempt a fresh output path: receipts and protocol logs are
 append-only evidence, including failures and timeouts.
+
+Do not choose that process model by intuition or after seeing candidate
+performance. Before `candidate add`, run `candidate plan-execution` against a
+hash-bound phase-timing artifact and include the resulting `{path, sha256}` as
+the candidate's `execution_plan`. The planner uses the frozen arm/request count
+and fixed-cost share. It selects per-arm persistence when reuse is material but
+cross-treatment switching is unproven, and shared persistence only from a PASS
+receipt that exercised two treatment identities in one engine. Smoke v6 must
+bind this plan in reachability evidence and exactly match its process model and
+safety flags; post-hoc relabeling fails closed. Persistent plans must also
+register one hash-bound session spec per selected session. The candidate runner
+executes those specs itself after correctness and injects the resulting fresh
+receipt paths into smoke through `KERNEL_OPT_PERSISTENT_RECEIPTS`; a candidate
+script cannot replace execution with a self-declared receipt.
 
 A compiler error, import error, layout/type mismatch, missing build artifact or
 invalid smoke harness is a `TECHNICAL_FAILURE`. It may be repaired repeatedly

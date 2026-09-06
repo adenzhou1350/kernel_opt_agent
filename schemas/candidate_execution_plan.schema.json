@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "candidate_execution_plan.schema.json",
+  "title": "Phase-aware candidate execution routing plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "candidate_id", "created_at", "inputs", "workload", "phase_timing", "policy", "selection", "estimates", "claim_scope"],
+  "properties": {
+    "schema_version": {"const": "candidate-execution-plan-v1"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "created_at": {"type": "string", "format": "date-time"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phase_timing", "shared_switching_receipt"],
+      "properties": {
+        "phase_timing": {"$ref": "#/$defs/identity"},
+        "shared_switching_receipt": {"anyOf": [{"$ref": "#/$defs/identity"}, {"type": "null"}]}
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arm_count", "requests_per_arm", "total_requests"],
+      "properties": {
+        "arm_count": {"type": "integer", "minimum": 1},
+        "requests_per_arm": {"type": "integer", "minimum": 1},
+        "total_requests": {"type": "integer", "minimum": 1}
+      }
+    },
+    "phase_timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["setup_seconds", "compile_seconds", "warmup_seconds", "steady_state_seconds", "steady_state_samples", "fixed_seconds", "fixed_share"],
+      "properties": {
+        "setup_seconds": {"type": "number", "minimum": 0},
+        "compile_seconds": {"type": "number", "minimum": 0},
+        "warmup_seconds": {"type": "number", "minimum": 0},
+        "steady_state_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "steady_state_samples": {"type": "integer", "minimum": 1},
+        "fixed_seconds": {"type": "number", "minimum": 0},
+        "fixed_share": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fixed_share_threshold"],
+      "properties": {"fixed_share_threshold": {"type": "number", "minimum": 0, "maximum": 1}}
+    },
+    "selection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["process_model", "session_scope", "persistent_session_eligible", "switching_preserves_treatment_identity", "requires_persistent_session_protocol", "reason"],
+      "properties": {
+        "process_model": {"enum": ["COLD_PER_ARM", "PERSISTENT_SHARED_ENGINE", "PERSISTENT_PER_ARM"]},
+        "session_scope": {"enum": ["NONE", "SINGLE_TREATMENT", "SHARED_TREATMENTS"]},
+        "persistent_session_eligible": {"type": "boolean"},
+        "switching_preserves_treatment_identity": {"type": "boolean"},
+        "requires_persistent_session_protocol": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "estimates": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["legacy_cold_per_request_seconds", "selected_seconds", "selected_session_count", "estimated_experiment_speedup"],
+      "properties": {
+        "legacy_cold_per_request_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "selected_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "selected_session_count": {"type": "integer", "minimum": 1},
+        "estimated_experiment_speedup": {"type": "number", "minimum": 1}
+      }
+    },
+    "claim_scope": {"const": "EXECUTION_ROUTING_ONLY_NOT_CANDIDATE_PERFORMANCE"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

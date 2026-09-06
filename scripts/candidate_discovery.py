@@ -14,11 +14,17 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from candidate_execution_plan import (
+    create_execution_plan,
+    validate_execution_plan,
+    validate_persistent_session_receipt,
+    validate_shared_switching_receipt,
+)
 from opportunity_map import load_map as load_opportunity_map, map_path as opportunity_map_path, validate_map as validate_opportunity_map
 
 
 POOL_SCHEMA = "candidate-pool-v1"
-SMOKE_SCHEMA = "candidate-smoke-result-v5"
+SMOKE_SCHEMA = "candidate-smoke-result-v6"
 ACTIVE_STATUSES = {"PROPOSED", "DEVELOPING"}
 
 
@@ -110,9 +116,15 @@ def validate_spec(run: Path, spec: dict) -> None:
     required = (
         "candidate_id", "opportunity_id", "name", "family", "change_axes", "hypothesis",
         "expected_global_effect", "source_paths", "commands", "smoke_result_path",
-        "predicted_global_gain_us", "dependency_contract",
+        "predicted_global_gain_us", "dependency_contract", "execution_plan",
+        "persistent_session_specs",
     )
-    missing = [field for field in required if not spec.get(field)]
+    missing = [
+        field
+        for field in required
+        if field not in spec
+        or (field != "persistent_session_specs" and not spec.get(field))
+    ]
     if missing:
         raise ValueError(f"candidate spec is missing fields: {missing}")
     if not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", str(spec["candidate_id"])):
@@ -186,6 +198,10 @@ def validate_spec(run: Path, spec: dict) -> None:
         if not cwd.is_dir():
             raise ValueError(f"commands.{stage}.cwd must name a directory")
     run_path(run, spec["smoke_result_path"], "smoke_result_path")
+    _, plan = validate_execution_plan(
+        run, spec["execution_plan"], str(spec["candidate_id"])
+    )
+    persistent_specs(run, spec, plan)
 
 
 def source_identities(run: Path, item: dict) -> list[dict]:
@@ -193,6 +209,35 @@ def source_identities(run: Path, item: dict) -> list[dict]:
         {"path": value, "sha256": digest(run_path(run, value, "source", must_exist=True))}
         for value in item["source_paths"]
     ]
+
+
+def persistent_specs(run: Path, item: dict, plan: dict) -> list[Path]:
+    identities = item.get("persistent_session_specs")
+    if not isinstance(identities, list):
+        raise ValueError("persistent_session_specs must be an array")
+    expected = (
+        plan["estimates"]["selected_session_count"]
+        if plan["selection"]["requires_persistent_session_protocol"]
+        else 0
+    )
+    if len(identities) != expected:
+        raise ValueError("persistent_session_specs count differs from the execution plan")
+    paths = []
+    for index, identity in enumerate(identities):
+        if not isinstance(identity, dict) or set(identity) != {"path", "sha256"}:
+            raise ValueError(
+                f"persistent_session_specs[{index}] must contain path and sha256"
+            )
+        path = run_path(
+            run,
+            identity.get("path"),
+            f"persistent_session_specs[{index}]",
+            must_exist=True,
+        )
+        if not path.is_file() or identity.get("sha256") != digest(path):
+            raise ValueError(f"persistent_session_specs[{index}] SHA256 mismatch")
+        paths.append(path)
+    return paths
 
 
 def substitute(value: str, run: Path, item: dict, attempt: Path) -> str:
@@ -207,18 +252,26 @@ def substitute(value: str, run: Path, item: dict, attempt: Path) -> str:
     return value
 
 
-def execute_stage(run: Path, item: dict, attempt: Path, stage: str) -> dict:
+def execute_stage(
+    run: Path,
+    item: dict,
+    attempt: Path,
+    stage: str,
+    extra_environment: dict[str, str] | None = None,
+) -> dict:
     contract = item["commands"][stage]
     argv = [substitute(value, run, item, attempt) for value in contract["argv"]]
     cwd = run_path(run, contract["cwd"], f"commands.{stage}.cwd", must_exist=True)
     stdout_path = attempt / f"{stage}.stdout.txt"
     stderr_path = attempt / f"{stage}.stderr.txt"
     environment = os.environ.copy()
+    environment["PYTHONDONTWRITEBYTECODE"] = "1"
     environment.update({
         "KERNEL_OPT_RUN": str(run),
         "KERNEL_OPT_CANDIDATE_ID": item["candidate_id"],
         "KERNEL_OPT_ATTEMPT_DIR": str(attempt),
     })
+    environment.update(extra_environment or {})
     started = time.monotonic()
     timed_out = False
     try:
@@ -253,6 +306,78 @@ def execute_stage(run: Path, item: dict, attempt: Path, stage: str) -> dict:
     }
 
 
+def execute_persistent_session_stage(
+    run: Path,
+    attempt: Path,
+    spec_path: Path,
+    index: int,
+) -> tuple[dict, Path]:
+    spec = read_object(spec_path)
+    requests = spec.get("requests")
+    if not isinstance(requests, list) or not requests:
+        raise ValueError("persistent session spec requires requests")
+    timeout = (
+        float(spec.get("startup_timeout_seconds", 0))
+        + len(requests) * float(spec.get("request_timeout_seconds", 0))
+        + float(spec.get("shutdown_timeout_seconds", 0))
+        + 10.0
+    )
+    if timeout <= 10.0:
+        raise ValueError("persistent session spec timeouts are invalid")
+    receipt = attempt / f"persistent-session-{index:02d}.json"
+    argv = [
+        sys.executable,
+        str(Path(__file__).resolve().with_name("persistent_session_runner.py")),
+        "--root",
+        str(run),
+        "--spec",
+        str(spec_path),
+        "--output",
+        str(receipt),
+    ]
+    stage = f"persistent-session-{index:02d}"
+    stdout_path = attempt / f"{stage}.stdout.txt"
+    stderr_path = attempt / f"{stage}.stderr.txt"
+    started = time.monotonic()
+    timed_out = False
+    try:
+        completed = subprocess.run(
+            argv,
+            cwd=run,
+            env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+        exit_code = completed.returncode
+        stdout = completed.stdout
+        stderr = completed.stderr
+    except subprocess.TimeoutExpired as error:
+        timed_out = True
+        exit_code = -1
+        stdout = error.stdout or ""
+        stderr = (error.stderr or "") + f"\nTIMEOUT after {timeout} seconds\n"
+    stdout_path.write_text(stdout, encoding="utf-8")
+    stderr_path.write_text(stderr, encoding="utf-8")
+    return ({
+        "stage": stage,
+        "argv": argv,
+        "cwd": ".",
+        "exit_code": exit_code,
+        "timed_out": timed_out,
+        "duration_seconds": round(time.monotonic() - started, 6),
+        "stdout": {
+            "path": stdout_path.relative_to(run).as_posix(),
+            "sha256": digest(stdout_path),
+        },
+        "stderr": {
+            "path": stderr_path.relative_to(run).as_posix(),
+            "sha256": digest(stderr_path),
+        },
+    }, receipt)
+
+
 def record_failure(pool: dict, item: dict, attempt_record: dict, reason: str) -> None:
     attempt_record["status"] = "TECHNICAL_FAILURE"
     attempt_record["reason"] = reason
@@ -280,7 +405,7 @@ def record_failure(pool: dict, item: dict, attempt_record: dict, reason: str) ->
 def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, float]:
     result = read_object(path)
     if result.get("schema_version") != SMOKE_SCHEMA or result.get("status") != "PASS":
-        raise ValueError("smoke result must record candidate-smoke-result-v5 PASS")
+        raise ValueError("smoke result must record candidate-smoke-result-v6 PASS")
     if result.get("candidate_id") != item["candidate_id"]:
         raise ValueError("smoke result candidate_id mismatch")
     cases = result.get("cases")
@@ -505,6 +630,26 @@ def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, floa
         "PERSISTENT_PER_ARM",
     }:
         raise ValueError("timing process model is missing or unsupported")
+    plan_path, plan = validate_execution_plan(
+        run, item.get("execution_plan"), item["candidate_id"]
+    )
+    selected_model = plan["selection"]["process_model"]
+    if process_model != selected_model:
+        raise ValueError("smoke process model differs from the sealed execution plan")
+    plan_evidence_index = timing.get("execution_plan_evidence_index")
+    if (
+        isinstance(plan_evidence_index, bool)
+        or not isinstance(plan_evidence_index, int)
+        or plan_evidence_index < 0
+        or plan_evidence_index >= len(reachability_evidence)
+    ):
+        raise ValueError("timing execution plan is not bound to reachability evidence")
+    plan_evidence = reachability_evidence[plan_evidence_index]
+    if (
+        plan_evidence.get("path") != plan_path.relative_to(run).as_posix()
+        or plan_evidence.get("sha256") != item["execution_plan"]["sha256"]
+    ):
+        raise ValueError("smoke evidence does not bind the sealed execution plan")
     persistent_eligible = timing.get("persistent_session_eligible")
     switching_preserves_identity = timing.get(
         "switching_preserves_treatment_identity"
@@ -513,6 +658,74 @@ def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, floa
         switching_preserves_identity, bool
     ):
         raise ValueError("timing accounting must declare persistent-session safety")
+    if persistent_eligible != plan["selection"]["persistent_session_eligible"]:
+        raise ValueError("persistent eligibility differs from the sealed execution plan")
+    if (
+        switching_preserves_identity
+        != plan["selection"]["switching_preserves_treatment_identity"]
+    ):
+        raise ValueError("switching safety differs from the sealed execution plan")
+    receipt_indices = timing.get("persistent_session_receipt_evidence_indices")
+    if (
+        not isinstance(receipt_indices, list)
+        or any(
+            isinstance(index, bool) or not isinstance(index, int)
+            for index in receipt_indices
+        )
+        or len(receipt_indices) != len(set(receipt_indices))
+    ):
+        raise ValueError("timing persistent-session receipt indices are invalid")
+    if process_model == "COLD_PER_ARM":
+        if receipt_indices:
+            raise ValueError("cold process model cannot claim persistent-session receipts")
+    else:
+        expected_receipts = (
+            1
+            if process_model == "PERSISTENT_SHARED_ENGINE"
+            else plan["workload"]["arm_count"]
+        )
+        if len(receipt_indices) != expected_receipts:
+            raise ValueError("persistent process model has the wrong receipt count")
+        receipts = []
+        for index in receipt_indices:
+            if index < 0 or index >= len(reachability_evidence):
+                raise ValueError("persistent-session receipt is not bound to evidence")
+            identity = reachability_evidence[index]
+            receipt_path = run_path(
+                run,
+                identity.get("path"),
+                "persistent-session receipt evidence",
+                must_exist=True,
+            )
+            if not receipt_path.is_file() or digest(receipt_path) != identity.get("sha256"):
+                raise ValueError("persistent-session receipt evidence SHA256 mismatch")
+            receipts.append(validate_persistent_session_receipt(run, receipt_path))
+        if process_model == "PERSISTENT_SHARED_ENGINE":
+            validate_shared_switching_receipt(
+                run,
+                run_path(
+                    run,
+                    reachability_evidence[receipt_indices[0]]["path"],
+                    "shared persistent-session receipt",
+                    must_exist=True,
+                ),
+            )
+            if receipts[0]["request_count"] < plan["workload"]["total_requests"]:
+                raise ValueError("shared persistent receipt covers too few requests")
+        else:
+            for receipt in receipts:
+                treatment_ids = {
+                    row["treatment_identity"] for row in receipt["requests"]
+                }
+                if (
+                    receipt.get("session_scope") != "SINGLE_TREATMENT"
+                    or len(treatment_ids) != 1
+                    or receipt["request_count"]
+                    < plan["workload"]["requests_per_arm"]
+                ):
+                    raise ValueError(
+                        "persistent-per-arm receipt must prove one treatment and enough requests"
+                    )
     if process_model == "PERSISTENT_SHARED_ENGINE" and (
         not persistent_eligible or not switching_preserves_identity
     ):
@@ -534,6 +747,62 @@ def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, floa
         raise ValueError("smoke objective baseline must be non-zero")
     improvement = ((baseline - observed) / abs(baseline) if direction == "minimize" else (observed - baseline) / abs(baseline)) * 100.0
     return result, improvement
+
+
+def command_plan_execution(args: argparse.Namespace) -> dict:
+    run = args.run.resolve()
+    if args.persistent_session_spec and not args.attach:
+        raise ValueError("--persistent-session-spec is only valid with --attach")
+    attach_pool = None
+    attach_item = None
+    if args.attach:
+        attach_pool = load_pool(run)
+        attach_item = candidate(attach_pool, args.candidate_id)
+        if attach_item.get("status") not in ACTIVE_STATUSES:
+            raise ValueError("only an active legacy candidate can attach an execution plan")
+    plan, output = create_execution_plan(
+        run=run,
+        candidate_id=args.candidate_id,
+        phase_timing=args.phase_timing,
+        output=args.output,
+        arm_count=args.arm_count,
+        requests_per_arm=args.requests_per_arm,
+        fixed_share_threshold=args.fixed_share_threshold,
+        shared_switching_receipt=args.shared_switching_receipt,
+    )
+    if attach_item is not None and attach_pool is not None:
+        attached_specs = []
+        for index, value in enumerate(args.persistent_session_spec):
+            path = run_path(
+                run,
+                value,
+                f"persistent-session-spec[{index}]",
+                must_exist=True,
+            )
+            if not path.is_file():
+                raise ValueError("attached persistent-session spec must name a file")
+            attached_specs.append({
+                "path": path.relative_to(run).as_posix(),
+                "sha256": digest(path),
+            })
+        persistent_specs(
+            run,
+            {"persistent_session_specs": attached_specs},
+            plan,
+        )
+        attach_item["execution_plan"] = {
+            "path": output.relative_to(run).as_posix(),
+            "sha256": digest(output),
+        }
+        attach_item["persistent_session_specs"] = attached_specs
+        attach_pool.setdefault("events", []).append({
+            "at": now(),
+            "candidate_id": args.candidate_id,
+            "event": "EXECUTION_PLAN_ATTACHED",
+            "process_model": plan["selection"]["process_model"],
+        })
+        atomic_json(pool_path(run), attach_pool)
+    return plan
 
 
 def command_init(args: argparse.Namespace) -> dict:
@@ -603,7 +872,8 @@ def command_add(args: argparse.Namespace) -> dict:
     item = {key: spec[key] for key in (
         "candidate_id", "opportunity_id", "name", "family", "change_axes", "hypothesis",
         "expected_global_effect", "source_paths", "commands", "smoke_result_path",
-        "predicted_global_gain_us", "dependency_contract",
+        "predicted_global_gain_us", "dependency_contract", "execution_plan",
+        "persistent_session_specs",
     )}
     item.update({
         "status": "PROPOSED",
@@ -622,6 +892,14 @@ def command_add(args: argparse.Namespace) -> dict:
         raise ValueError("max_technical_attempts must be positive")
     if item["development_budget"]["max_wall_clock_minutes"] <= 0:
         raise ValueError("max_wall_clock_minutes must be positive")
+    _, plan = validate_execution_plan(
+        run, item["execution_plan"], item["candidate_id"]
+    )
+    if (
+        float(plan["estimates"]["selected_seconds"]) / 60.0
+        > item["development_budget"]["max_wall_clock_minutes"]
+    ):
+        raise ValueError("execution plan exceeds the candidate wall-clock budget")
     pool["candidates"].append(item)
     opportunity.setdefault("candidate_ids", []).append(item["candidate_id"])
     opportunity["status"] = "IMPLEMENTING"
@@ -639,6 +917,10 @@ def command_run(args: argparse.Namespace) -> dict:
     item = candidate(pool, args.candidate_id)
     if item.get("status") not in ACTIVE_STATUSES:
         raise ValueError(f"candidate {args.candidate_id} is not development-runnable: {item.get('status')}")
+    _, plan = validate_execution_plan(
+        run, item.get("execution_plan"), item["candidate_id"]
+    )
+    session_specs = persistent_specs(run, item, plan)
     opportunities = load_opportunity_map(run)
     validate_opportunity_map(opportunities, require_ready=True, run=run)
     opportunity = next(
@@ -688,7 +970,7 @@ def command_run(args: argparse.Namespace) -> dict:
     smoke_path = run_path(run, item["smoke_result_path"], "smoke_result_path")
     smoke_before = digest(smoke_path) if smoke_path.is_file() else None
     record = {"attempt": attempt_number, "started_at": now(), "source_before": before, "stages": []}
-    for stage in ("build", "correctness", "smoke"):
+    for stage in ("build", "correctness"):
         stage_result = execute_stage(run, item, attempt, stage)
         record["stages"].append(stage_result)
         if stage_result["exit_code"] != 0:
@@ -696,6 +978,56 @@ def command_run(args: argparse.Namespace) -> dict:
             atomic_json(attempt / "attempt.json", record)
             atomic_json(pool_path(run), pool)
             return {"candidate_id": item["candidate_id"], "status": item["status"], "reason": record["reason"]}
+    receipt_paths = []
+    for index, spec_path in enumerate(session_specs, start=1):
+        try:
+            stage_result, receipt_path = execute_persistent_session_stage(
+                run, attempt, spec_path, index
+            )
+        except ValueError as error:
+            record_failure(
+                pool, item, record, f"PERSISTENT_SESSION_INVALID: {error}"
+            )
+            atomic_json(attempt / "attempt.json", record)
+            atomic_json(pool_path(run), pool)
+            return {
+                "candidate_id": item["candidate_id"],
+                "status": item["status"],
+                "reason": record["reason"],
+            }
+        record["stages"].append(stage_result)
+        if stage_result["exit_code"] != 0:
+            record_failure(pool, item, record, "PERSISTENT_SESSION_FAILED")
+            atomic_json(attempt / "attempt.json", record)
+            atomic_json(pool_path(run), pool)
+            return {
+                "candidate_id": item["candidate_id"],
+                "status": item["status"],
+                "reason": record["reason"],
+            }
+        receipt_paths.append(receipt_path)
+    stage_result = execute_stage(
+        run,
+        item,
+        attempt,
+        "smoke",
+        {
+            "KERNEL_OPT_PERSISTENT_RECEIPTS": json.dumps(
+                [str(path) for path in receipt_paths]
+            )
+        },
+    )
+    record["stages"].append(stage_result)
+    if stage_result["exit_code"] != 0:
+        record_failure(pool, item, record, "SMOKE_FAILED")
+        atomic_json(attempt / "attempt.json", record)
+        atomic_json(pool_path(run), pool)
+        return {
+            "candidate_id": item["candidate_id"],
+            "status": item["status"],
+            "reason": record["reason"],
+        }
+    persistent_specs(run, item, plan)
     after = source_identities(run, item)
     record["source_after"] = after
     if before != after:
@@ -801,6 +1133,7 @@ def command_promote(args: argparse.Namespace) -> dict:
         "hypothesis": item["hypothesis"],
         "expected_global_effect": item["expected_global_effect"],
         "source_identities": source_identities(run, item),
+        "execution_plan": item["execution_plan"],
         "screening": item["screening"],
         "reachability": read_object(
             run_path(run, item["screening"]["result"]["path"], "screening result", must_exist=True)
@@ -833,6 +1166,13 @@ def command_status(args: argparse.Namespace) -> dict:
                 "status": item.get("status"),
                 "attempts": len(item.get("attempts", [])),
                 "improvement_percent": item.get("screening", {}).get("improvement_percent"),
+                "process_model": (
+                    validate_execution_plan(
+                        args.run.resolve(), item["execution_plan"], item["candidate_id"]
+                    )[1]["selection"]["process_model"]
+                    if item.get("execution_plan")
+                    else "LEGACY_UNPLANNED"
+                ),
             }
             for item in candidates
         ],
@@ -853,6 +1193,28 @@ def parse_args() -> argparse.Namespace:
     init.add_argument("--max-total-wall-clock-minutes", type=float, default=120.0)
     init.add_argument("--promotion-threshold-percent", type=float, default=1.0)
     init.add_argument("--if-missing", action="store_true")
+    plan = subparsers.add_parser(
+        "plan-execution", help="select a phase-aware candidate process model"
+    )
+    plan.add_argument("--run", type=Path, required=True)
+    plan.add_argument("--candidate-id", required=True)
+    plan.add_argument("--phase-timing", required=True)
+    plan.add_argument("--output", required=True)
+    plan.add_argument("--arm-count", type=int, default=2)
+    plan.add_argument("--requests-per-arm", type=int, default=3)
+    plan.add_argument("--fixed-share-threshold", type=float, default=0.5)
+    plan.add_argument("--shared-switching-receipt")
+    plan.add_argument(
+        "--attach",
+        action="store_true",
+        help="attach the immutable plan to an existing active legacy candidate",
+    )
+    plan.add_argument(
+        "--persistent-session-spec",
+        action="append",
+        default=[],
+        help="run-relative session spec to attach; repeat once per planned session",
+    )
     add = subparsers.add_parser("add", help="register one run-local production candidate")
     add.add_argument("--run", type=Path, required=True)
     add.add_argument("--spec", type=Path, required=True)
@@ -871,6 +1233,7 @@ def main() -> int:
     args = parse_args()
     handlers = {
         "init": command_init,
+        "plan-execution": command_plan_execution,
         "add": command_add,
         "run": command_run,
         "promote": command_promote,

@@ -384,7 +384,7 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 "community_composition_hypotheses": community_compositions,
                 "transfer_aware_method_matches": matched,
                 "evaluation_guards": method_receipt.get("evaluation_guards", []),
-                "required_action": "write run-local candidate source and register it with kernel_opt.py candidate add",
+                "required_action": "bind measured phase timing with kernel_opt.py candidate plan-execution, then write run-local source and register it with candidate add",
             }],
         )
     opportunity_ranks = {
@@ -415,6 +415,8 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
                 "opportunity_id": developing.get("opportunity_id"),
                 "family": developing.get("family"),
                 "hypothesis": developing.get("hypothesis"),
+                "execution_plan": developing.get("execution_plan"),
+                "persistent_session_specs": developing.get("persistent_session_specs"),
                 "latest_failure": developing.get("latest_failure"),
             }],
         )
