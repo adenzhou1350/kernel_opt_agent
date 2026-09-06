@@ -441,6 +441,7 @@ def audit_codex_execution(
     max_declared_repairs = 0
     turn_completed = False
     malformed_lines = 0
+    final_agent_result = None
     # JSONL records are delimited only by physical LF/CRLF bytes.  str.splitlines()
     # also splits valid JSON string data on Unicode U+2028/U+2029, which can occur
     # in minified JavaScript captured in command output and creates a false audit
@@ -483,6 +484,7 @@ def audit_codex_execution(
                     message = json.loads(item.get("text", ""))
                 except (json.JSONDecodeError, TypeError):
                     continue
+                final_agent_result = message
                 declared = message.get("technical_repair_attempts")
                 if isinstance(declared, int):
                     max_declared_repairs = max(max_declared_repairs, declared)
@@ -533,6 +535,8 @@ def audit_codex_execution(
         )
         if result_errors:
             violations.append("RESULT_SCHEMA_INVALID")
+        elif final_agent_result != read_object(result_path):
+            violations.append("RESULT_TRANSCRIPT_MISMATCH")
 
     violations = sorted(set(violations))
     receipt = {

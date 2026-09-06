@@ -578,6 +578,13 @@ def main() -> None:
                     "aggregated_output": "before\u2028after and before\u2029after",
                 },
             },
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "agent_message",
+                    "text": (control_dir / "result.json").read_text(encoding="utf-8"),
+                },
+            },
             {"type": "turn.completed"},
         ]
         (control_dir / "executor.jsonl").write_text(

@@ -193,4 +193,7 @@ result hashes, so editing a result after audit cannot silently enter a compariso
 `community_trial_runner.py` captures stdout and stderr directly, hard-stops a
 trial after its frozen wall budget plus startup grace, and deliberately performs
 local result validation instead of weakening the repository schema to fit a
-provider's smaller structured-output JSON Schema dialect.
+provider's smaller structured-output JSON Schema dialect. It re-states the
+manifest's exact trial identity at execution time and rejects mismatched output.
+The auditor additionally requires `result.json` to equal the final transcript
+JSON, so an out-of-band edit cannot be laundered by re-running the audit.

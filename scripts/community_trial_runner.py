@@ -66,6 +66,12 @@ def main() -> int:
         raise FileNotFoundError(f"Codex executable not found: {args.codex}")
     command = command_for(codex, trial, args.model, args.reasoning_effort)
     prompt = executor_path.read_text(encoding="utf-8")
+    prompt += (
+        "\n\nFinal identity reminder (copy these exact strings without editing):\n"
+        f"trial_id={manifest['trial_id']}\n"
+        f"task_id={manifest['task_id']}\n"
+        f"arm={manifest['arm']}\n"
+    )
     transcript_path = trial / "executor.jsonl"
     stderr_path = trial / "executor.stderr.log"
     with transcript_path.open("w", encoding="utf-8", newline="\n") as stdout_file:
@@ -95,6 +101,26 @@ def main() -> int:
                     )
                 )
                 return 124
+    if process.returncode == 0:
+        result_path = trial / "result.json"
+        try:
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+        except (FileNotFoundError, json.JSONDecodeError) as exc:
+            print(json.dumps({"status": "INVALID_RESULT", "error": str(exc)}))
+            return 3
+        mismatches = [
+            field
+            for field in ("trial_id", "task_id", "arm")
+            if result.get(field) != manifest[field]
+        ]
+        if mismatches:
+            print(
+                json.dumps(
+                    {"status": "IDENTITY_MISMATCH", "fields": mismatches},
+                    sort_keys=True,
+                )
+            )
+            return 3
     print(
         json.dumps(
             {
