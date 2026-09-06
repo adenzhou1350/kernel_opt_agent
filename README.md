@@ -72,6 +72,7 @@ python3 scripts/kernel_opt.py opportunity rank --run runs/<run-id>
 python3 scripts/kernel_opt.py opportunity close --run runs/<run-id> --opportunity-id <id> --disposition AT_MEASURED_ROOF --reason <reason> --evidence <result.json> --evidence-claim <claim> --reopen-condition <condition>
 python3 scripts/kernel_opt.py opportunity reopen --run runs/<run-id> --opportunity-id <id> --reason <changed-condition>
 python3 scripts/kernel_opt.py method recommend --run runs/<run-id>
+python3 scripts/kernel_opt.py method export-snapshot --cutoff-at 2026-08-31T23:59:59Z --output /path/to/methods.json
 python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
 python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
@@ -96,6 +97,12 @@ receipt is hash-bound to all four inputs and the card library. Literature and
 vendor guidance remain discovery priors only: they cannot increase a gain
 estimate, prove a hardware capability, accept a candidate or support a limit
 claim. Unverified hard capabilities fail closed.
+Every method source has a machine-readable availability timestamp. Temporal
+evaluations use `method export-snapshot` so cards published or accessed after
+the frozen cutoff never enter the augmented arm. Cards may additionally encode
+an algorithmic decomposition (dependency, partition, local state, combine,
+finalization, work/span/communication and invariants) so literature retrieval
+can produce structural candidates rather than only launch-parameter hints.
 
 Discovery then requires 6--12 candidates across at least four architecture families
 by default. The default discovery budget is two hours overall, twenty minutes

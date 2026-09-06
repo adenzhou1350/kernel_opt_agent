@@ -50,7 +50,8 @@
       "required": ["network", "community_knowledge"],
       "properties": {
         "network": {"const": "DISABLED"},
-        "community_knowledge": {"enum": ["WITHHELD", "FROZEN_GRAPH_ONLY"]}
+        "community_knowledge": {"enum": ["WITHHELD", "FROZEN_GRAPH_ONLY"]},
+        "method_knowledge": {"enum": ["WITHHELD", "FROZEN_SNAPSHOT_ONLY"]}
       }
     },
     "source_checkout": {
@@ -68,7 +69,8 @@
     "result_contract": {"$ref": "#/$defs/identity"},
     "executor_prompt": {"$ref": "#/$defs/identity"},
     "task_support": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identity"}},
-    "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
+    "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+    "method_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
   },
   "$defs": {
     "identity": {

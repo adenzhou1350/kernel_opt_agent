@@ -1,0 +1,75 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "cuda-hierarchical-scan-decomposition",
+  "title": "Replace a long serial prefix dependency with hierarchical local summaries",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "GPU Gems 3, Chapter 39: Parallel Prefix Sum (Scan) with CUDA",
+    "url": "https://developer.nvidia.com/gpugems/gpugems3/part-vi-gpu-computing/chapter-39-parallel-prefix-sum-scan-cuda",
+    "version": "GPU Gems 3 (2007), sections 39.2.2-39.2.5",
+    "available_at": "2007-08-12T00:00:00Z",
+    "evidence_tier": "VENDOR_OFFICIAL_GUIDANCE",
+    "claim_scope": "General associative scan decomposition demonstrated on historical NVIDIA hardware; current-device speedups, thresholds, and implementation details require target measurement."
+  },
+  "opportunity_families": ["hierarchical-scan", "parallel-prefix", "segmented-reduction", "serial-dependency-removal", "work-partitioning"],
+  "applicability": {
+    "vendors": ["ANY"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["any"],
+    "problem_signatures": ["prefix", "cumulative", "scan", "threshold", "ordered", "row", "serial", "dependency", "reduction"]
+  },
+  "implementation_recipe": [
+    "Write the apparent serial recurrence as an explicit state transition and determine whether chunk summaries have an associative or otherwise composable combine rule.",
+    "Partition the long axis, compute independent local summaries and local prefixes, combine the chunk summaries, then finalize only the chunks or elements whose result depends on the global prefix.",
+    "Keep a direct serial path for small extents and compare one-stage, hierarchical, and library-primitive controls before tuning block geometry.",
+    "When only the first threshold crossing is needed, let partitions report bounded summary state and refine the winning partition instead of materializing every global prefix value."
+  ],
+  "validation_recipe": [
+    "Test empty, singleton, non-power-of-two, duplicate-value, all-pass, none-pass, and boundary-crossing cases.",
+    "For floating-point scans, test values near the decision threshold and state whether reassociation is allowed by the numerical contract.",
+    "Measure each workload region separately because launch and summary overhead can dominate small batches or short rows.",
+    "Retain the serial implementation as a correctness oracle and as a guarded small-extent fallback."
+  ],
+  "expected_bottleneck_shifts": [
+    "A serial dependency can shift to synchronization, summary communication, extra launches, or redundant local work.",
+    "At small extents, parallel decomposition can become launch-bound even when it reduces critical-path span."
+  ],
+  "failure_modes": [
+    "The recurrence is not safely composable under the required ordering or floating-point semantics.",
+    "The implementation computes a full scan even though the output only needs a threshold location or compact summary.",
+    "Too many partitions make summary traffic and synchronization larger than the removed serial span.",
+    "Power-of-two assumptions or unstable tie handling break edge cases."
+  ],
+  "scope_limits": [
+    "Associativity at the mathematical level does not automatically authorize floating-point reassociation.",
+    "The chapter's reported historical speedups are not evidence for a modern target GPU or a different operator.",
+    "A hierarchical scan is a candidate family, not a proof that scan is the dominant end-to-end bottleneck."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A single lane or workgroup advances an ordered prefix state across the full logical extent.",
+    "partition_axis": "Split the longest ordered axis into contiguous chunks while preserving within-chunk order.",
+    "local_state": ["per-element local prefix or only the locally needed decision state", "one bounded summary per chunk", "optional identity and validity flag for partial chunks"],
+    "combine_rule": "Compose chunk summaries in order with an associative scan when legal, or use a bounded ordered summary pass when the number of chunks is small.",
+    "finalization": "Apply each chunk's incoming prefix to local results, or refine only the first chunk whose summary crosses the target condition.",
+    "work_complexity": "Prefer O(n) total work; reject naive O(n log n) global update schemes unless the frozen workload proves them faster.",
+    "span_complexity": "Reduce the long serial span from O(n) toward local-span plus summary-span, commonly O(n/p + log p) for p partitions.",
+    "communication_cost": "One summary write/read per partition plus any finalization traffic; include launch and synchronization costs in the bound.",
+    "invariants": ["global element order is preserved", "chunk summaries compose to the same required result", "tail elements and invalid lanes do not alter the summary", "threshold ties follow the frozen contract"],
+    "anti_patterns": ["tune warps around an unchanged single-lane recurrence", "materialize a full prefix when only a boundary index is consumed", "assume reassociation tolerance without tests", "apply one configuration to both tiny and long extents"]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "hierarchical-scan",
+      "name": "local prefix plus chunk-summary scan",
+      "change_axes": ["dependency span", "partition count", "summary representation", "finalization traffic"],
+      "template": "Partition the ordered axis, compute local prefixes and one summary per partition, scan the summaries, then apply incoming state to each partition."
+    },
+    {
+      "family": "threshold-refinement",
+      "name": "summary then selective boundary refinement",
+      "change_axes": ["materialized output", "partition summary", "boundary search", "small-extent fallback"],
+      "template": "Have partitions report enough state to identify the first threshold-crossing partition, then refine only that partition while retaining a serial path for small extents."
+    }
+  ]
+}

@@ -107,6 +107,37 @@ def validate_suite(
                 f"temporal leakage: {node['event_id']} source evidence "
                 "was available after cutoff"
             )
+    method_count = 0
+    if suite.get("training_methods"):
+        method_path = validate_identity(
+            base, suite["training_methods"], "training method snapshot"
+        )
+        method_errors = validate_json_file(
+            method_path,
+            root / "schemas" / "optimization_method_snapshot.schema.json",
+        )
+        if method_errors:
+            raise ValueError("invalid training method snapshot: " + "; ".join(method_errors))
+        method_snapshot = read_object(method_path)
+        if parse_time(method_snapshot["cutoff_at"]) != cutoff:
+            raise ValueError("training method snapshot cutoff does not match suite cutoff")
+        card_ids = []
+        for card in method_snapshot["cards"]:
+            card_errors = validate_instance(
+                card, read_object(root / "schemas" / "optimization_method.schema.json")
+            )
+            if card_errors:
+                raise ValueError("invalid method card in training snapshot: " + "; ".join(card_errors))
+            if parse_time(card["source"]["available_at"]) > cutoff:
+                raise ValueError(
+                    f"temporal leakage: method {card['method_id']} was available after cutoff"
+                )
+            card_ids.append(card["method_id"])
+        if sorted(card_ids) != method_snapshot["included_method_ids"]:
+            raise ValueError("training method snapshot card ids do not match included_method_ids")
+        if len(card_ids) != len(set(card_ids)):
+            raise ValueError("training method snapshot contains duplicate method ids")
+        method_count = len(card_ids)
     training_sources: set[tuple[str, int]] = set()
     for event_identity in graph["input_identity"]["events"]:
         event_path = validate_identity(corpus, event_identity, "training event")
@@ -151,6 +182,7 @@ def validate_suite(
         "status": "PASS",
         "suite_id": suite["suite_id"],
         "training_event_count": len(graph["nodes"]),
+        "training_method_count": method_count,
         "task_count": len(suite["tasks"]),
         "cutoff_at": suite["cutoff_at"],
     }
@@ -571,7 +603,9 @@ def materialize_trial(
             support_identities.append(identity_for(target, output))
 
     graph_identity = None
+    method_identity = None
     knowledge_policy = "WITHHELD"
+    method_policy = "WITHHELD"
     if arm == "COMMUNITY_AUGMENTED":
         (output / "knowledge").mkdir(parents=True, exist_ok=True)
         graph_source = validate_identity(
@@ -581,6 +615,14 @@ def materialize_trial(
         shutil.copyfile(graph_source, graph_target)
         graph_identity = identity_for(graph_target, output)
         knowledge_policy = "FROZEN_GRAPH_ONLY"
+        if suite.get("training_methods"):
+            method_source = validate_identity(
+                suite_base, suite["training_methods"], "training method snapshot"
+            )
+            method_target = output / "knowledge" / "methods.json"
+            shutil.copyfile(method_source, method_target)
+            method_identity = identity_for(method_target, output)
+            method_policy = "FROZEN_SNAPSHOT_ONLY"
 
     trial_id = f"{suite['suite_id']}.{task_id}.r{repeat_index}.{arm.lower()}"
     manifest = {
@@ -605,6 +647,7 @@ def materialize_trial(
         "access_policy": {
             "network": "DISABLED",
             "community_knowledge": knowledge_policy,
+            "method_knowledge": method_policy,
         },
         "source_checkout": {
             "repository": task["repository"],
@@ -617,6 +660,7 @@ def materialize_trial(
         "executor_prompt": identity_for(executor_prompt_target, output),
         "task_support": support_identities,
         "community_graph": graph_identity,
+        "method_snapshot": method_identity,
     }
     errors = validate_instance(
         manifest,
@@ -787,13 +831,22 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
     ):
         raise ValueError("trial source revision must be a full lowercase commit hash")
     graph = trial["community_graph"]
+    methods = trial.get("method_snapshot")
     if trial["arm"] == "CONTROL":
-        if graph is not None or (trial_dir / "knowledge").exists():
+        if graph is not None or methods is not None or (trial_dir / "knowledge").exists():
             raise ValueError("control trial must not contain community knowledge")
     else:
         if graph is None:
             raise ValueError("community trial is missing its frozen graph")
         validate_identity(trial_dir, graph, "trial community graph")
+        if methods is not None:
+            method_path = validate_identity(trial_dir, methods, "trial method snapshot")
+            method_errors = validate_json_file(
+                method_path,
+                root / "schemas" / "optimization_method_snapshot.schema.json",
+            )
+            if method_errors:
+                raise ValueError("invalid trial method snapshot: " + "; ".join(method_errors))
     return trial
 
 
@@ -883,6 +936,62 @@ def assess_trial(
             validate_identity(
                 trial_dir, identity, f"candidate evidence {candidate_id}"
             )
+
+    method_realization = result.get("method_realization")
+    method_disposition = None
+    method_realized_candidate_count = 0
+    if trial.get("method_snapshot") is None:
+        if method_realization is not None:
+            raise ValueError("method realization is forbidden without a method snapshot")
+    else:
+        if method_realization is None:
+            raise ValueError("method realization is required when a method snapshot is exposed")
+        method_snapshot_path = validate_identity(
+            trial_dir, trial["method_snapshot"], "trial method snapshot"
+        )
+        method_snapshot = read_object(method_snapshot_path)
+        available_method_ids = set(method_snapshot["included_method_ids"])
+        inspected_method_ids = method_realization["inspected_method_ids"]
+        unknown_inspected = sorted(set(inspected_method_ids) - available_method_ids)
+        if unknown_inspected:
+            raise ValueError(
+                "method realization inspected unknown methods: "
+                + ", ".join(unknown_inspected)
+            )
+        selected_method_id = method_realization["selected_method_id"]
+        disposition = method_realization["disposition"]
+        realization_candidate_ids = method_realization["candidate_ids"]
+        unknown_candidates = sorted(set(realization_candidate_ids) - candidate_ids)
+        if unknown_candidates:
+            raise ValueError(
+                "method realization references unknown candidates: "
+                + ", ".join(unknown_candidates)
+            )
+        for identity in method_realization["evidence"]:
+            validate_identity(trial_dir, identity, "method realization evidence")
+        if disposition == "NO_RELEVANT_METHOD_PRIOR":
+            if (
+                selected_method_id is not None
+                or method_realization["instantiation"] is not None
+                or realization_candidate_ids
+            ):
+                raise ValueError(
+                    "NO_RELEVANT_METHOD_PRIOR cannot select, instantiate, or realize a method"
+                )
+        else:
+            if selected_method_id is None or selected_method_id not in inspected_method_ids:
+                raise ValueError(
+                    "selected method must be one of the inspected snapshot methods"
+                )
+            if method_realization["instantiation"] is None:
+                raise ValueError("selected method requires an operator instantiation")
+            if not method_realization["evidence"]:
+                raise ValueError("selected method requires hash-bound realization evidence")
+            if disposition == "REALIZED_IN_CANDIDATE" and not realization_candidate_ids:
+                raise ValueError("realized method must reference at least one candidate")
+        method_disposition = disposition
+        if disposition == "REALIZED_IN_CANDIDATE":
+            method_realized_candidate_count = len(realization_candidate_ids)
 
     budget = trial["budget"]
     usage = {
@@ -979,6 +1088,8 @@ def assess_trial(
                 if integration_environment_missing
                 else sum(1 for item in heldout if item["upstream_ready"])
             ),
+            "method_realization_disposition": method_disposition,
+            "method_realized_candidate_count": method_realized_candidate_count,
         },
         "budget_usage": usage,
     }

@@ -19,6 +19,7 @@
     "cutoff_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "EVALUATION_PROTOCOL_ONLY"},
     "training_graph": {"$ref": "#/$defs/identity"},
+    "training_methods": {"$ref": "#/$defs/identity"},
     "protocol": {
       "type": "object",
       "additionalProperties": false,

@@ -7,6 +7,7 @@
     "title": "Optimal Kernel Orchestration for Tensor Programs with Korch",
     "url": "https://arxiv.org/abs/2406.09465",
     "version": "ASPLOS 2024 / arXiv:2406.09465v1",
+    "available_at": "2024-06-13T04:44:38Z",
     "evidence_tier": "PEER_REVIEWED_PRIMARY",
     "claim_scope": "Tensor-program orchestration evaluated on V100 and A100; reported speedups do not transfer directly to other workloads or devices."
   },

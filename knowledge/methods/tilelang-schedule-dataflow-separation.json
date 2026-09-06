@@ -7,6 +7,7 @@
     "title": "TileLang: A Composable Tiled Programming Model for AI Systems",
     "url": "https://arxiv.org/abs/2504.17577",
     "version": "arXiv:2504.17577v2",
+    "available_at": "2025-04-27T11:11:02Z",
     "evidence_tier": "PRIMARY_PREPRINT",
     "claim_scope": "A tiled programming abstraction evaluated across AI kernels; individual schedules still require target-specific validation."
   },

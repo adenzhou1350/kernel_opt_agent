@@ -62,6 +62,62 @@
         }
       }
     },
+    "method_realization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inspected_method_ids",
+        "selected_method_id",
+        "disposition",
+        "instantiation",
+        "candidate_ids",
+        "rationale",
+        "evidence"
+      ],
+      "properties": {
+        "inspected_method_ids": {
+          "type": "array",
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "selected_method_id": {
+          "type": ["string", "null"],
+          "minLength": 1
+        },
+        "disposition": {
+          "type": "string",
+          "enum": [
+            "NO_RELEVANT_METHOD_PRIOR",
+            "REALIZED_IN_CANDIDATE",
+            "STRUCTURALLY_INFEASIBLE"
+          ]
+        },
+        "instantiation": {
+          "oneOf": [
+            {"type": "null"},
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["partition_axis", "local_state", "combine_rule", "finalization"],
+              "properties": {
+                "partition_axis": {"type": "string", "minLength": 1},
+                "local_state": {"type": "string", "minLength": 1},
+                "combine_rule": {"type": "string", "minLength": 1},
+                "finalization": {"type": "string", "minLength": 1}
+              }
+            }
+          ]
+        },
+        "candidate_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"}
+        },
+        "rationale": {"type": "string", "minLength": 1},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+      }
+    },
     "notes": {"type": "array", "items": {"type": "string"}}
   },
   "$defs": {

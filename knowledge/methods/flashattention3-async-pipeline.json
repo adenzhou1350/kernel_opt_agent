@@ -7,6 +7,7 @@
     "title": "FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision",
     "url": "https://arxiv.org/abs/2407.08608",
     "version": "arXiv:2407.08608v2",
+    "available_at": "2024-07-12T22:15:02Z",
     "evidence_tier": "PRIMARY_PREPRINT",
     "claim_scope": "Attention on NVIDIA Hopper H100; reported techniques and results do not establish transfer to other operators or architectures."
   },

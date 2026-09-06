@@ -7,6 +7,7 @@
     "title": "KernelBench-Verified: Do LLM-Generated Kernels Actually Beat PyTorch?",
     "url": "https://arxiv.org/abs/2607.16241",
     "version": "arXiv:2607.16241v1",
+    "available_at": "2026-06-26T03:22:50Z",
     "evidence_tier": "PRIMARY_PREPRINT",
     "claim_scope": "Evaluation study of LLM-generated kernels; use as a harness-design warning rather than a transformation recipe."
   },

@@ -14,6 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
+from method_library import build_snapshot
 from optimizer_step import discovery_action
 
 
@@ -52,7 +53,14 @@ def opportunity(identifier: str, families: list[str], evidence_sha256: str) -> d
 
 def main() -> None:
     validated = cli("method", "validate")
-    assert validated["status"] == "PASS" and validated["card_count"] >= 5, validated
+    assert validated["status"] == "PASS" and validated["card_count"] >= 10, validated
+    cutoff_snapshot = build_snapshot("2026-08-31T23:59:59Z", ROOT)
+    assert "cuda-hierarchical-scan-decomposition" in cutoff_snapshot["included_method_ids"]
+    assert "triton-dynamic-extent-specialization-control" in cutoff_snapshot["excluded_method_ids"]
+    assert all(
+        card["source"]["available_at"] <= "2026-08-31T23:59:59Z"
+        for card in cutoff_snapshot["cards"]
+    )
 
     with tempfile.TemporaryDirectory() as temporary:
         run = Path(temporary) / "run"

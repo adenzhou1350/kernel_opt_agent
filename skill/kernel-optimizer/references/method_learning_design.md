@@ -90,6 +90,25 @@ operator/workload 上下文只能辅助加分，不能让一篇全局相关论�
 `EXPAND_DISCOVERY_PORTFOLIO` 会带上方法模板、失败模式和验证规则，但仍要求
 Agent 写 run-local 生产代码并经过原 discovery 生命周期。
 
+### 3.4 DAS 式证据编译与时间快照
+
+DAS 流程证明了“检索、筛选、证据卡、分类综合、全局综合、复审”可以把大量
+论文压缩成可查询证据库。本层复用的是这条生产线，不复用综述正文。对 kernel
+任务，方法卡可进一步携带 `algorithmic_decomposition`：baseline dependency、
+partition axis、local state、combine rule、finalization、work/span complexity、
+communication cost、invariants 和 anti-patterns。这样检索输出能被实例化成一个
+新的工作分解，而不只是“增加 warps/换 tile”。
+
+每个来源现在必须声明带时区的 `source.available_at`。`method export-snapshot`
+按 cutoff 生成不可变方法快照；temporal suite 可把它作为 `training_methods`
+绑定，且只物化到增强组。suite 验证会拒绝 cutoff 不一致、卡片无效或来源时间
+晚于 cutoff 的快照。
+
+评测结果还必须提交 `method_realization` receipt。若选择方法卡，receipt 要把
+partition/local/combine/finalize 映射到当前算子，并绑定真正兑现该分解的候选；
+否则只能提交带哈希证据的 `STRUCTURALLY_INFEASIBLE`。只在文字里复述方法、
+最后回退到熟悉实现，不再计作方法学习成功。
+
 ## 4. 两机验证
 
 验证对象沿用已授权的 synthetic fused-affine-ReLU workload；它用于验证搜索
@@ -118,6 +137,28 @@ Agent 写 run-local 生产代码并经过原 discovery 生命周期。
 新算子的命中率，还需要在冻结的真实 operator/workload/environment 上做
 有无方法层的固定预算 A/B。
 
+### 4.3 4060 top-p 方法快照诊断复测
+
+共享 harness 建好后，先有一轮不带论文方法快照的 blind-v3：control 找到
+1.419x 的 B=1 framework-sort 分流，community arm 没有得到可测候选。随后加入
+一张来源于 NVIDIA GPU Gems 3（2007）的通用层次 scan 卡，并以
+2026-08-31 cutoff 导出 8 张可用卡；两张 cutoff 后卡被自动排除。
+
+v4 使用同一历史源码、题面、4060、harness、模型、600 秒和候选预算。单次配对
+结果为：
+
+- 方法增强组首个正确候选 226.3 秒，最佳 1.4567x，held-out PASS；
+- control 首个正确候选 390.0 秒，最佳 0.9907x，无候选进入 held-out；
+- 增强组快 163.7 秒得到首个正确候选，但架构族 1 对 control 的 2；
+- 最终 1.4567x 仍是 B=1 framework sort 分流，不是层次 scan 实现，也没有整模
+  或 upstream-ready 证据。
+
+这轮是观察过旧任务后的**诊断性复测**，不能当作首次确认或统计结论。它支持
+“方法卡可能改善搜索优先级”，不支持“Agent 已学会生成新并行 scan”。方法卡
+确实让 Agent 写出了 vocabulary-partitioned summary/refinement 设计，但由于全局
+排序与精确重复值语义，它退回了安全的库排序控制。下一项能力缺口因此从
+“检索不到大方向”收窄为“不能把抽象分解稳定编译成正确的生产候选”。
+
 ## 5. 解决了什么，没有解决什么
 
 已经解决：
@@ -140,12 +181,13 @@ Agent 写 run-local 生产代码并经过原 discovery 生命周期。
 
 ## 6. 下一项最有价值的实验
 
-不是继续扩充几百篇论文，而是在同一个真实算子上做固定预算消融：
+不是在这个已经观察过答案的 top-p 任务上继续追分，而是预注册新的真实算子族：
 
 1. 冻结 operator、workload、hardware 和 baseline；
 2. A 组只用机会图，B 组额外使用方法卡；
 3. 两组各给相同候选数、编译次数和墙钟预算；
 4. 比较 time-to-first-correct、time-to-first-improvement、架构族覆盖、best-at-10m、
    best-at-30m、正确率和 held-out regression；
-5. 只有 B 组稳定改善这些指标，才能说“论文理解库增强了 Agent”，而不是只让
-   输出更像专家。
+5. 增强组必须至少实现一个匹配卡中的工作分解，或提交结构化不可行证据；
+6. 只有跨任务、重复运行稳定改善这些指标，才能说“论文理解库增强了 Agent”，
+   而不是只让输出更像专家。

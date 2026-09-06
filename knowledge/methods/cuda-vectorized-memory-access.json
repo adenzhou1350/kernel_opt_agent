@@ -7,6 +7,7 @@
     "title": "CUDA Pro Tip: Increase Performance with Vectorized Memory Access",
     "url": "https://developer.nvidia.com/blog/cuda-pro-tip-increase-performance-with-vectorized-memory-access/",
     "version": "updated 2025-08-04",
+    "available_at": "2025-08-04T00:00:00Z",
     "evidence_tier": "VENDOR_OFFICIAL_GUIDANCE",
     "claim_scope": "General NVIDIA CUDA guidance; benefit depends on alignment, instruction pressure, register use, and workload."
   },

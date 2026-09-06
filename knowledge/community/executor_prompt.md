@@ -41,10 +41,21 @@ Act as the isolated executor for this materialized optimization trial.
      bound, and at least one structural alternative. Do this before consulting
      community knowledge so the prior cannot replace target reasoning.
    - In a COMMUNITY_AUGMENTED trial, query the graph narrowly after that
-     ranking. Inspect at most two applicable event cards first. If no event
-     shares the target mechanism and satisfies its hard requirements, record
-     `NO_RELEVANT_PRIOR` and continue from target evidence; do not force an
-     unrelated analogy merely to use the graph.
+     ranking. Inspect at most two applicable event cards first. If
+     `knowledge/methods.json` exists, inspect at most two method cards whose
+     problem signatures match the frozen opportunity. Prefer cards with an
+     explicit `algorithmic_decomposition`: instantiate its partition axis,
+     local state, combine rule, and finalization for this operator before
+     tuning launch parameters. If a method is selected, either evaluate at
+     least one production candidate that materially realizes that instantiated
+     decomposition or write hash-bound evidence showing why the decomposition
+     is structurally infeasible under the frozen correctness/ABI contract.
+     Falling back to a familiar implementation does not count as method
+     realization. Method cards are discovery priors, never target performance
+     evidence.
+   - Record `NO_RELEVANT_COMMUNITY_PRIOR` and/or `NO_RELEVANT_METHOD_PRIOR`
+     independently when the corresponding source has no applicable entry. Do
+     not force an unrelated analogy merely to claim that knowledge was used.
    - Do not spend more than two evaluated candidates in one architecture
      family without a measured material improvement. After that, change the
      work decomposition or stop that branch. Reserve the final 20% of wall
@@ -56,7 +67,12 @@ Act as the isolated executor for this materialized optimization trial.
    `input/result.schema.json`. Copy the exact `trial_id`, `task_id`, and `arm`
    from `trial.json`. Evidence paths must be relative to the trial directory and
    their SHA-256 values must match the final files. Never invent a speedup,
-   correctness result, elapsed time, or upstream-readiness claim.
+   correctness result, elapsed time, or upstream-readiness claim. When the
+   trial exposes `method_snapshot`, populate `method_realization`: list at most
+   two inspected IDs and report exactly one of `NO_RELEVANT_METHOD_PRIOR`,
+   `REALIZED_IN_CANDIDATE`, or `STRUCTURALLY_INFEASIBLE`. A realized method must
+   reference its actual candidate IDs and evidence; an infeasibility claim must
+   reference evidence. Omit this field when no method snapshot is exposed.
 
 The final JSON response will be saved directly as `result.json`; do not wrap it
 in Markdown.

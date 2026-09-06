@@ -7,6 +7,7 @@
     "title": "CUDA Pro Tip: Write Flexible Kernels with Grid-Stride Loops",
     "url": "https://developer.nvidia.com/blog/cuda-pro-tip-write-flexible-kernels-grid-stride-loops/",
     "version": "2013-04-22",
+    "available_at": "2013-04-22T00:00:00Z",
     "evidence_tier": "VENDOR_OFFICIAL_GUIDANCE",
     "claim_scope": "General CUDA design pattern; thread reuse and launch amortization do not guarantee lower latency for a memory-streaming kernel."
   },

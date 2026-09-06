@@ -55,7 +55,17 @@
         "architecture_family_count": {"type": "integer", "minimum": 0},
         "heldout_pass_count": {"type": "integer", "minimum": 0},
         "best_whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
-        "upstream_ready_count": {"type": "integer", "minimum": 0}
+        "upstream_ready_count": {"type": "integer", "minimum": 0},
+        "method_realization_disposition": {
+          "type": ["string", "null"],
+          "enum": [
+            null,
+            "NO_RELEVANT_METHOD_PRIOR",
+            "REALIZED_IN_CANDIDATE",
+            "STRUCTURALLY_INFEASIBLE"
+          ]
+        },
+        "method_realized_candidate_count": {"type": "integer", "minimum": 0}
       }
     },
     "budget_usage": {

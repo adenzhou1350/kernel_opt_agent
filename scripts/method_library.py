@@ -17,6 +17,7 @@ from schema_utils import validate_instance, validate_json_file
 
 SCHEMA = "optimization-method-v1"
 RECEIPT_SCHEMA = "method-match-receipt-v1"
+SNAPSHOT_SCHEMA = "optimization-method-snapshot-v1"
 INPUT_PATHS = ("operator.json", "workload.json", "hardware.json", "models/opportunity_map.json")
 EVIDENCE_WEIGHTS = {"PEER_REVIEWED_PRIMARY": 3.0, "VENDOR_OFFICIAL_GUIDANCE": 2.5, "PRIMARY_PREPRINT": 2.0, "INTERNAL_REPRODUCTION": 2.0}
 
@@ -162,9 +163,50 @@ def match_card(card: dict, opportunity: dict, context: str, hardware_text: str) 
         "validation_recipe": card["validation_recipe"],
         "expected_bottleneck_shifts": card["expected_bottleneck_shifts"],
         "failure_modes": card["failure_modes"],
+        "algorithmic_decomposition": card.get("algorithmic_decomposition"),
         "claim_boundary": "DISCOVERY_PRIOR_ONLY",
         "source": card["source"],
     }
+
+
+def parse_timestamp(value: str, label: str) -> datetime:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError(f"{label} must be an ISO-8601 timestamp") from error
+    if parsed.tzinfo is None:
+        raise ValueError(f"{label} must include a timezone")
+    return parsed
+
+
+def build_snapshot(cutoff_at: str, root: Path | None = None) -> dict:
+    root = root or repository_root()
+    cutoff = parse_timestamp(cutoff_at, "cutoff_at")
+    cards = load_cards(root)
+    included = []
+    excluded = []
+    for _, card in cards:
+        available = parse_timestamp(card["source"]["available_at"], f"{card['method_id']}.source.available_at")
+        (included if available <= cutoff else excluded).append(card)
+    if not included:
+        raise ValueError("method snapshot contains no cards available by the cutoff")
+    snapshot = {
+        "schema_version": SNAPSHOT_SCHEMA,
+        "generated_at": now(),
+        "cutoff_at": cutoff_at,
+        "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+        "library_identity": library_identity(cards, root),
+        "included_method_ids": sorted(card["method_id"] for card in included),
+        "excluded_method_ids": sorted(card["method_id"] for card in excluded),
+        "cards": sorted(included, key=lambda card: card["method_id"]),
+    }
+    errors = validate_instance(
+        snapshot,
+        read_object(root / "schemas" / "optimization_method_snapshot.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid method snapshot: " + "; ".join(errors))
+    return snapshot
 
 
 def read_vendor(hardware_text: str) -> str:
@@ -258,6 +300,12 @@ def command_recommend(args: argparse.Namespace) -> dict:
     return receipt
 
 
+def command_snapshot(args: argparse.Namespace) -> dict:
+    snapshot = build_snapshot(args.cutoff_at)
+    atomic_json(args.output.resolve(), snapshot)
+    return snapshot
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="operation", required=True)
@@ -265,13 +313,21 @@ def parse_args() -> argparse.Namespace:
     recommend = subparsers.add_parser("recommend", help="match method cards to a READY run opportunity map")
     recommend.add_argument("--run", type=Path, required=True)
     recommend.add_argument("--limit", type=int, default=3, choices=range(1, 9))
+    snapshot = subparsers.add_parser("export-snapshot", help="export only method cards available by a temporal cutoff")
+    snapshot.add_argument("--cutoff-at", required=True)
+    snapshot.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
     try:
-        result = command_validate(args) if args.operation == "validate" else command_recommend(args)
+        if args.operation == "validate":
+            result = command_validate(args)
+        elif args.operation == "recommend":
+            result = command_recommend(args)
+        else:
+            result = command_snapshot(args)
     except Exception as error:
         print(f"ERROR: {error}", file=__import__("sys").stderr)
         return 1

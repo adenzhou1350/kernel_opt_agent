@@ -37,6 +37,7 @@ from community_knowledge import (
     sha256_file,
 )
 from test_community_knowledge import FakeGitHubClient, event_for
+from method_library import build_snapshot
 
 
 def identity(path: Path, base: Path) -> dict:
@@ -74,21 +75,43 @@ def candidate(
 
 def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
     trial = json.loads((trial_dir / "trial.json").read_text(encoding="utf-8"))
+    method_realization = None
+    if trial.get("method_snapshot") is not None:
+        methods = json.loads(
+            (trial_dir / "knowledge" / "methods.json").read_text(encoding="utf-8")
+        )
+        method_realization = {
+            "inspected_method_ids": [methods["included_method_ids"][0]],
+            "selected_method_id": methods["included_method_ids"][0],
+            "disposition": "REALIZED_IN_CANDIDATE",
+            "instantiation": {
+                "partition_axis": "output rows",
+                "local_state": "one row tile",
+                "combine_rule": "independent tiles",
+                "finalization": "write one output tile",
+            },
+            "candidate_ids": [row["candidate_id"] for row in rows],
+            "rationale": "The listed candidates instantiate the selected decomposition.",
+            "evidence": [rows[0]["evidence"][0]],
+        }
+    result = {
+        "schema_version": "community-trial-result-v1",
+        "trial_id": trial["trial_id"],
+        "task_id": trial["task_id"],
+        "arm": trial["arm"],
+        "agent_identity": "fixed-agent-and-prompt",
+        "completion_status": "COMPLETE",
+        "elapsed_seconds": elapsed,
+        "technical_repair_attempts": 1,
+        "causal_revisions": 1,
+        "candidates": rows,
+        "notes": [],
+    }
+    if method_realization is not None:
+        result["method_realization"] = method_realization
     atomic_json(
         trial_dir / "result.json",
-        {
-            "schema_version": "community-trial-result-v1",
-            "trial_id": trial["trial_id"],
-            "task_id": trial["task_id"],
-            "arm": trial["arm"],
-            "agent_identity": "fixed-agent-and-prompt",
-            "completion_status": "COMPLETE",
-            "elapsed_seconds": elapsed,
-            "technical_repair_attempts": 1,
-            "causal_revisions": 1,
-            "candidates": rows,
-            "notes": [],
-        },
+        result,
     )
 
 
@@ -151,6 +174,7 @@ def main() -> None:
         assets = suite_dir / "assets"
         assets.mkdir(parents=True)
         graph_path = assets / "community_graph.json"
+        methods_path = assets / "methods.json"
         task_path = assets / "task.json"
         oracle_path = assets / "oracle.json"
         prompt_path = assets / "prompt.md"
@@ -218,12 +242,14 @@ def main() -> None:
             json.loads(Path(captured["manifest"]).read_text())["captured_at"]
         )
         cutoff = captured_at + timedelta(hours=1)
+        atomic_json(methods_path, build_snapshot(cutoff.isoformat(), ROOT))
         suite = {
             "schema_version": "community-temporal-suite-v1",
             "suite_id": "example.temporal-v1",
             "cutoff_at": cutoff.isoformat(),
             "claim_boundary": "EVALUATION_PROTOCOL_ONLY",
             "training_graph": identity(graph_path, suite_dir),
+            "training_methods": identity(methods_path, suite_dir),
             "protocol": {
                 "arms": ["CONTROL", "COMMUNITY_AUGMENTED"],
                 "repeats": 2,
@@ -329,6 +355,7 @@ def main() -> None:
         )
         assert not (control_dir / "knowledge").exists()
         assert (community_dir / "knowledge" / "community_graph.json").is_file()
+        assert (community_dir / "knowledge" / "methods.json").is_file()
         assert not (control_dir / "input" / "oracle.json").exists()
         assert not (community_dir / "input" / "oracle.json").exists()
         assert (control_dir / "input" / "result.schema.json").is_file()
@@ -502,11 +529,28 @@ def main() -> None:
             "minimum_material_speedup"
         ] == 1.02
         assert community_assessment["metrics"]["upstream_ready_count"] == 1
+        assert community_assessment["metrics"]["method_realization_disposition"] == (
+            "REALIZED_IN_CANDIDATE"
+        )
+        assert community_assessment["metrics"]["method_realized_candidate_count"] == 2
         report = compare_trials(
             control_dir, community_dir, base / "comparison.json", ROOT
         )
         assert report["deltas"]["time_to_first_correct_seconds_saved"] == 280
         assert report["deltas"]["best_speedup_gain"] > 0
+
+        invalid_method = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        invalid_method["method_realization"]["selected_method_id"] = "unknown-method"
+        atomic_json(community_dir / "result.json", invalid_method)
+        try:
+            assess_trial(community_dir, ROOT)
+        except ValueError as error:
+            assert "selected method" in str(error)
+        else:
+            raise AssertionError("unknown selected method was accepted")
+        write_result(community_dir, rows, elapsed)
 
         over_budget = json.loads(
             (community_dir / "result.json").read_text(encoding="utf-8")

@@ -7,6 +7,7 @@
     "title": "CUDA C++ Best Practices Guide, Execution Configuration Optimizations",
     "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/",
     "version": "CUDA 13.3 documentation",
+    "available_at": "2026-09-02T00:00:00Z",
     "evidence_tier": "VENDOR_OFFICIAL_GUIDANCE",
     "claim_scope": "General NVIDIA CUDA guidance; exact resource limits require official target-device evidence and compiled-kernel resource data."
   },
