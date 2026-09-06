@@ -65,6 +65,12 @@ Use `community-eval` to test whether the knowledge layer actually improves the
 agent instead of merely producing plausible recommendations. A suite freezes a
 cutoff, graph, task packet, hidden oracle, full source revision, model/prompt identity,
 arm order and candidate/compile/measurement/per-command/wall-clock budgets.
+
+Tasks may be either a future reference-PR holdout or `PROSPECTIVE_SEALED` work
+whose winning solution is genuinely unknown when the packet is frozen. A
+prospective oracle binds the seal time, baseline revision and task-packet hash
+with `UNKNOWN_AT_SEAL`; it must never invent a PR or silently fill in a solution
+after either arm begins.
 Validation rejects training
 snapshots captured after the cutoff and target PRs already present in the
 training graph.

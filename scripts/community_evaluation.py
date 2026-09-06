@@ -344,7 +344,7 @@ def validate_suite(
             raise ValueError(
                 f"temporal leakage: task {task['task_id']} is not after cutoff"
             )
-        if (task["repository"], task["pr_number"]) in training_sources:
+        if (task["repository"], task.get("pr_number")) in training_sources:
             raise ValueError(
                 f"temporal leakage: held-out task {task['task_id']} is in training graph"
             )
@@ -377,6 +377,24 @@ def validate_suite(
                 raise ValueError(
                     f"strict task/oracle identity does not match {task['task_id']}"
                 )
+            if task.get("prospective_id") is not None:
+                seal = oracle.get("prospective_seal")
+                if seal is None:
+                    raise ValueError(
+                        f"prospective task {task['task_id']} lacks a prospective seal"
+                    )
+                if seal["baseline_revision"] != task["base_revision"]:
+                    raise ValueError(
+                        f"prospective task {task['task_id']} baseline revision mismatch"
+                    )
+                if seal["task_packet_sha256"] != task["packet"]["sha256"]:
+                    raise ValueError(
+                        f"prospective task {task['task_id']} packet seal mismatch"
+                    )
+                if parse_time(seal["sealed_at"]) != parse_time(task["available_at"]):
+                    raise ValueError(
+                        f"prospective task {task['task_id']} seal time mismatch"
+                    )
             weight_sum = sum(float(value) for value in packet["workload"]["shape_weights"].values())
             if not math.isclose(weight_sum, 1.0, rel_tol=0.0, abs_tol=1e-9):
                 raise ValueError(
@@ -2162,8 +2180,12 @@ def audit_task_packets(
         )
         packet = read_object(packet_path)
         oracle = read_object(oracle_path)
+        prospective_unknown = (
+            oracle.get("prospective_seal", {}).get("solution_status")
+            == "UNKNOWN_AT_SEAL"
+        )
         mechanism = str(oracle.get("key_mechanism", ""))
-        mechanism_tokens = packet_audit_tokens(mechanism)
+        mechanism_tokens = set() if prospective_unknown else packet_audit_tokens(mechanism)
         packet_tokens = packet_audit_tokens(packet)
         recall = (
             len(mechanism_tokens & packet_tokens) / len(mechanism_tokens)
@@ -2171,7 +2193,7 @@ def audit_task_packets(
             else 0.0
         )
         family_hits = []
-        for family in oracle.get("solution_families", []):
+        for family in ([] if prospective_unknown else oracle.get("solution_families", [])):
             family_tokens = packet_audit_tokens(str(family).replace("-", " "))
             # Family names are short and often contain domain nouns that a fair
             # task must mention (for example "top-p" or "metadata"). Require
@@ -2192,7 +2214,11 @@ def audit_task_packets(
             )
         if family_hits:
             reasons.append("solution-family language appears in the task packet")
-        if not reasons:
+        if prospective_unknown:
+            reasons.append(
+                "prospective task had no winning mechanism available at seal time"
+            )
+        elif not reasons:
             reasons.append("no material lexical solution leakage detected")
         rows.append(
             {

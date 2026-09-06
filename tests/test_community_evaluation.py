@@ -534,6 +534,43 @@ def main() -> None:
         atomic_json(suite_path, suite)
         assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
 
+        prospective_oracle_path = assets / "prospective-oracle.json"
+        prospective_task = suite["tasks"][0]
+        atomic_json(
+            prospective_oracle_path,
+            {
+                "schema_version": "community-hidden-oracle-v1",
+                "task_id": "heldout.logits",
+                "visibility": "HIDDEN_UNTIL_BOTH_ARMS_COMPLETE",
+                "prospective_seal": {
+                    "sealed_at": prospective_task["available_at"],
+                    "baseline_revision": base_revision,
+                    "task_packet_sha256": prospective_task["packet"]["sha256"],
+                    "solution_status": "UNKNOWN_AT_SEAL",
+                },
+                "solution_families": ["UNKNOWN_AT_SEAL"],
+                "key_mechanism": "UNKNOWN_AT_SEAL",
+                "known_risks": ["The winning architecture is unknown."],
+                "observed_reference": {
+                    "claim_boundary": "NO_RESULT_AVAILABLE_AT_SEAL"
+                },
+            },
+        )
+        prospective_suite = json.loads(json.dumps(suite))
+        prospective_suite["tasks"][0].pop("pr_number")
+        prospective_suite["tasks"][0]["prospective_id"] = "local-seal-v1"
+        prospective_suite["tasks"][0]["hidden_oracle"] = identity(
+            prospective_oracle_path, suite_dir
+        )
+        atomic_json(suite_path, prospective_suite)
+        assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+        prospective_audit = audit_task_packets(
+            suite_path, base / "prospective-task-audit.json", ROOT
+        )
+        assert prospective_audit["tasks"][0]["risk"] == "LOW"
+        assert prospective_audit["tasks"][0]["key_mechanism_token_recall"] == 0.0
+        atomic_json(suite_path, suite)
+
         valid_task_packet = json.loads(task_path.read_text(encoding="utf-8"))
         invalid_task_packet = json.loads(task_path.read_text(encoding="utf-8"))
         invalid_task_packet["workload"]["shape_weights"]["B=1"] = 0.9

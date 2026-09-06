@@ -96,11 +96,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
+        "oneOf": [
+          {"required": ["pr_number"], "not": {"required": ["prospective_id"]}},
+          {"required": ["prospective_id"], "not": {"required": ["pr_number"]}}
+        ],
         "required": [
           "task_id",
           "available_at",
           "repository",
-          "pr_number",
           "base_revision",
           "target_hardware",
           "packet",
@@ -111,6 +114,7 @@
           "available_at": {"type": "string", "format": "date-time"},
           "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
           "pr_number": {"type": "integer", "minimum": 1},
+          "prospective_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
           "base_revision": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
           "target_hardware": {"type": "string", "minLength": 1},
           "packet": {"$ref": "#/$defs/identity"},
