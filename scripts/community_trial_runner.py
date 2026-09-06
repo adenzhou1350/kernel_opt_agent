@@ -89,12 +89,93 @@ def valid_result(result_path: Path, manifest: dict) -> tuple[bool, list[str]]:
         result = json.loads(result_path.read_text(encoding="utf-8"))
     except (FileNotFoundError, json.JSONDecodeError) as exc:
         return False, [str(exc)]
-    mismatches = [
+    errors = [
         field
         for field in ("trial_id", "task_id", "arm")
         if result.get(field) != manifest[field]
     ]
-    return not mismatches, mismatches
+    elapsed = result.get("elapsed_seconds")
+    if not isinstance(elapsed, (int, float)) or elapsed < 0:
+        errors.append("elapsed_seconds")
+        elapsed = 0
+    for candidate in result.get("candidates", []):
+        if candidate.get("proposed_at_seconds", 0) > elapsed:
+            errors.append(
+                f"candidate_proposed_after_elapsed:{candidate.get('candidate_id')}"
+            )
+        if candidate.get("evaluated_at_seconds", 0) > elapsed:
+            errors.append(
+                f"candidate_evaluated_after_elapsed:{candidate.get('candidate_id')}"
+            )
+
+    trial = result_path.parent.resolve()
+
+    def checked_identity(identity: object, label: str) -> Path | None:
+        if not isinstance(identity, dict) or not isinstance(identity.get("path"), str):
+            errors.append(f"missing_identity:{label}")
+            return None
+        path = (trial / identity["path"]).resolve()
+        try:
+            path.relative_to(trial)
+        except ValueError:
+            errors.append(f"identity_escape:{label}")
+            return None
+        if not path.is_file() or identity.get("sha256") != sha256(path):
+            errors.append(f"identity_mismatch:{label}")
+            return None
+        return path
+
+    if manifest.get("frontier_contract") is not None:
+        closure_path = checked_identity(result.get("frontier_closure"), "frontier")
+        if closure_path is not None:
+            try:
+                closure = json.loads(closure_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                errors.append("invalid_frontier_json")
+            else:
+                if closure.get("generated_at_seconds", 0) > elapsed:
+                    errors.append("frontier_generated_after_elapsed")
+                ranking_path = checked_identity(
+                    closure.get("opportunity_ranking_identity"), "ranking"
+                )
+                if ranking_path is not None:
+                    try:
+                        ranking = json.loads(ranking_path.read_text(encoding="utf-8"))
+                    except json.JSONDecodeError:
+                        errors.append("invalid_ranking_json")
+                    else:
+                        if ranking.get("created_at_seconds", 0) > elapsed:
+                            errors.append("ranking_created_after_elapsed")
+                for row in closure.get("architectures", []):
+                    bound = row.get("current_upper_bound", {})
+                    if (row.get("status") == "DOMINATED"
+                            and bound.get("kind") != "QUANTIFIED"):
+                        errors.append(
+                            f"unquantified_domination:{row.get('architecture_id')}"
+                        )
+                selected_id = closure.get("selected_candidate_id")
+                if selected_id is not None:
+                    selected = next(
+                        (item for item in result.get("candidates", [])
+                         if item.get("candidate_id") == selected_id),
+                        None,
+                    )
+                    if (
+                        selected is None
+                        or selected.get("heldout_correctness") != "PASS"
+                    ):
+                        errors.append("selected_candidate_not_heldout_accepted")
+
+    if manifest.get("arm") == "COMMUNITY_AUGMENTED":
+        if manifest.get("knowledge_realization_required") and not isinstance(
+            result.get("knowledge_realization"), dict
+        ):
+            errors.append("missing_knowledge_realization")
+        if manifest.get("method_snapshot") is not None and not isinstance(
+            result.get("method_realization"), dict
+        ):
+            errors.append("missing_method_realization")
+    return not errors, errors
 
 
 def sha256(path: Path) -> str:
@@ -245,6 +326,7 @@ def commit_finalizer_draft(
     finalization_started_at_seconds: float,
     technical_repair_lower_bound: int,
 ) -> list[dict]:
+    manifest = json.loads((trial / "trial.json").read_text(encoding="utf-8"))
     draft = json.loads(draft_path.read_text(encoding="utf-8"))
     if set(draft) != {"frontier_closure", "result"}:
         raise ValueError(
@@ -254,6 +336,46 @@ def commit_finalizer_draft(
     result = draft["result"]
     if not isinstance(closure, dict) or not isinstance(result, dict):
         raise ValueError("finalizer draft closure and result must be objects")
+    # A finalizer may colloquially call a measured loser "dominated" even
+    # though it has no numeric family-wide upper bound.  Preserve the measured
+    # evidence but normalize the logically valid conservative state.
+    for row in closure.get("architectures", []):
+        bound = row.get("current_upper_bound", {})
+        if row.get("status") == "DOMINATED" and bound.get("kind") != "QUANTIFIED":
+            row["status"] = (
+                "EVALUATED" if row.get("candidate_ids") else "DEADLINE_UNTESTED"
+            )
+
+    if manifest.get("arm") == "COMMUNITY_AUGMENTED":
+        if manifest.get("knowledge_realization_required") and not result.get(
+            "knowledge_realization"
+        ):
+            result["knowledge_realization"] = {
+                "inspected_event_ids": [],
+                "selected_event_ids": [],
+                "disposition": "NO_RELEVANT_COMMUNITY_PRIOR",
+                "candidate_ids": [],
+                "rationale": (
+                    "No community-event inspection or realization was recorded "
+                    "in the bounded search artifacts before finalization."
+                ),
+                "evidence": [],
+            }
+        if manifest.get("method_snapshot") is not None and not result.get(
+            "method_realization"
+        ):
+            result["method_realization"] = {
+                "inspected_method_ids": [],
+                "selected_method_id": None,
+                "disposition": "NO_RELEVANT_METHOD_PRIOR",
+                "instantiation": None,
+                "candidate_ids": [],
+                "rationale": (
+                    "No method-card inspection or realization was recorded in "
+                    "the bounded search artifacts before finalization."
+                ),
+                "evidence": [],
+            }
     closure_path = trial / "evidence" / "frontier-closure.json"
     closure_path.write_text(
         json.dumps(closure, indent=2, sort_keys=True) + "\n", encoding="utf-8"
@@ -271,6 +393,7 @@ def commit_finalizer_draft(
     result["elapsed_seconds"] = max(
         float(result.get("elapsed_seconds", 0)),
         finalization_started_at_seconds,
+        float(closure.get("generated_at_seconds", 0)),
     )
     result_path = trial / "result.json"
     result_text = json.dumps(result, separators=(",", ":"), sort_keys=True)

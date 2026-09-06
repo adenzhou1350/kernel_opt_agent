@@ -34,7 +34,7 @@ from community_evaluation import (
     validate_schedule,
     validate_suite,
 )
-from community_trial_runner import commit_finalizer_draft
+from community_trial_runner import commit_finalizer_draft, valid_result
 from community_knowledge import (
     atomic_json,
     build_graph,
@@ -983,6 +983,84 @@ def main() -> None:
         )
         assert community_assessment["metrics"]["method_realized_candidate_count"] == 2
         assert community_assessment["metrics"]["frontier_contract_passed"] is True
+
+        # A higher raw screen result is not necessarily selectable.  Only the
+        # pre-selected candidate receives held-out validation, and a screen
+        # point may also violate a public per-shape performance guard.
+        raw_faster = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        raw_faster["candidates"][1]["speedup"] = 1.20
+        raw_faster["candidates"][1]["heldout_correctness"] = "NOT_RUN"
+        raw_faster["candidates"][1]["whole_model_speedup"] = None
+        atomic_json(community_dir / "result.json", raw_faster)
+        raw_faster_assessment = assess_trial(community_dir, ROOT)
+        assert raw_faster_assessment["metrics"]["best_speedup"] == 1.18
+        write_result(community_dir, rows, elapsed)
+
+        # Transactional commit repairs only conservative, mechanically
+        # decidable omissions: unknown bounds cannot prove domination, and an
+        # absent treatment receipt means no recorded realization.
+        repair_closure = json.loads(
+            (community_dir / "evidence" / "frontier-closure.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        repair_closure["architectures"][1]["status"] = "DOMINATED"
+        repair_closure["architectures"][1]["current_upper_bound"] = {
+            "kind": "UNKNOWN",
+            "maximum_speedup": None,
+            "rationale": "No numeric family-wide bound was established.",
+        }
+        repair_result = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        repair_result.pop("frontier_closure")
+        repair_result.pop("knowledge_realization")
+        repair_result.pop("method_realization")
+        repair_draft = community_dir / "repair-finalizer-draft.json"
+        atomic_json(
+            repair_draft,
+            {"frontier_closure": repair_closure, "result": repair_result},
+        )
+        commit_finalizer_draft(community_dir, repair_draft, elapsed, 0)
+        committed_closure = json.loads(
+            (community_dir / "evidence" / "frontier-closure.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        committed_result = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        assert committed_closure["architectures"][1]["status"] == (
+            "DEADLINE_UNTESTED"
+        )
+        assert committed_result["knowledge_realization"]["disposition"] == (
+            "NO_RELEVANT_COMMUNITY_PRIOR"
+        )
+        assert committed_result["method_realization"]["disposition"] == (
+            "NO_RELEVANT_METHOD_PRIOR"
+        )
+        assess_trial(community_dir, ROOT)
+        valid, preflight_errors = valid_result(
+            community_dir / "result.json",
+            json.loads((community_dir / "trial.json").read_text(encoding="utf-8")),
+        )
+        assert valid, preflight_errors
+        write_result(community_dir, rows, elapsed)
+
+        timestamp_mismatch = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        timestamp_mismatch["elapsed_seconds"] = 1
+        atomic_json(community_dir / "result.json", timestamp_mismatch)
+        valid, preflight_errors = valid_result(
+            community_dir / "result.json",
+            json.loads((community_dir / "trial.json").read_text(encoding="utf-8")),
+        )
+        assert not valid
+        assert "frontier_generated_after_elapsed" in preflight_errors
+        write_result(community_dir, rows, elapsed)
         assert community_assessment["metrics"]["ranked_architecture_count"] == 3
         assert community_assessment["metrics"][
             "community_realization_disposition"

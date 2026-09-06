@@ -204,7 +204,9 @@ For a frontier-bound trial, `best_speedup` and time-to-first-improvement include
 only the selected candidate. A correctness-passing candidate that violates a
 protected per-shape performance guard can remain useful diagnostic evidence,
 but a null frontier selection prevents it from being reported as an accepted
-optimization.
+optimization. Frontier selection is compared only with other held-out-accepted
+candidates: a faster raw screen point is not eligible merely because basic
+correctness passed.
 `aggregate-repeats` validates every pair and assessment hash, requires unique
 repeat indices from one suite/task, and reports arm medians, paired medians,
 win/tie counts and an exact two-sided sign-test value for time-to-first-correct.
@@ -232,6 +234,13 @@ hash evidence, so the finalizer may not call tools, edit production source,
 repeat screening or create another candidate. It returns a semantic
 `{frontier_closure, result}` draft; deterministic runner code writes the
 closure, injects its actual hash into the result and appends a commit receipt.
+A primary result also receives a fail-closed semantic preflight before it can
+bypass that finalizer. The preflight checks evidence identities, candidate and
+frontier timestamps, quantified domination, selected held-out acceptance and
+arm-conditional realization receipts. During transactional commit, an
+unquantified `DOMINATED` row is conservatively normalized to `EVALUATED` (or
+`DEADLINE_UNTESTED` when no candidate exists); absent realization records can
+only become explicit no-recorded-realization receipts, never positive claims.
 A runner-inserted phase marker hashes the complete search transcript; the
 auditor rejects a changed prefix, any `source/` edit after that marker, or a
 draft/closure/result commit hash mismatch. This turns the finalization reserve

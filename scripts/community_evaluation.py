@@ -1407,13 +1407,22 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
         candidate_speedup = candidate_by_id[selected_id]["speedup"]
         if candidate_speedup is None or selected_speedup != candidate_speedup:
             raise ValueError("frontier selected speedup does not match candidate evidence")
-        correct_speeds = [
+        # Screening can expose a faster raw point that is not selectable: it
+        # may violate a public per-shape guard, and only the pre-selected final
+        # candidate receives the held-out pass.  Compare the selection against
+        # other correctness- and held-out-accepted candidates, not every raw
+        # correctness-passing measurement.
+        accepted_speeds = [
             item["speedup"]
             for item in result["candidates"]
-            if item["correctness"] == "PASS" and item["speedup"] is not None
+            if item["correctness"] == "PASS"
+            and item["heldout_correctness"] == "PASS"
+            and item["speedup"] is not None
         ]
-        if not correct_speeds or selected_speedup != max(correct_speeds):
-            raise ValueError("frontier selection is not the best correct measured candidate")
+        if not accepted_speeds or selected_speedup != max(accepted_speeds):
+            raise ValueError(
+                "frontier selection is not the best held-out-accepted candidate"
+            )
         margin = float(contract["policy"]["material_gain_margin"])
         selected_bound = selected_rows[0]["current_upper_bound"]
         compile_attempts = sum(
