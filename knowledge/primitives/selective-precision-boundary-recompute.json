@@ -9,7 +9,7 @@
     "version": "issue-42518-plus-sm89-frozen-suite-r1-2026-09-07",
     "available_at": "2026-09-07T00:02:00+08:00",
     "evidence_tier": "INTERNAL_REPRODUCTION",
-    "claim_scope": "A frozen 12-prompt, two-repeat RTX 4060 Qwen3.5-0.8B suite found deterministic BF16 baseline-versus-MTP mismatches on 3 prompts; all first mismatches had baseline top-two margin at most 0.125. Always-on FP32 lm_head still mismatched on 4 prompts, rejecting head-only precision escalation as a general repair. Selective backbone repair remains an unproven candidate family, not an accepted correctness or performance result."
+    "claim_scope": "A frozen 12-prompt, two-repeat RTX 4060 Qwen3.5-0.8B suite found deterministic BF16 baseline-versus-MTP mismatches on 3 prompts; all first mismatches had baseline and candidate top-two margin at most 0.125. Always-on FP32 lm_head still mismatched on 4 prompts, rejecting head-only precision escalation. An eager layer trace observed differences from layer 0 through all 24 target layers. Synthetic cost screens leave a narrow path for tie-stable detection plus rollback-safe replay, but do not establish correctness or an integrated speedup."
   },
   "opportunity_families": [
     "numerical-invariance",
@@ -38,12 +38,16 @@
     "Estimate the ambiguous-row rate under a frozen workload using a preregistered margin rule; do not choose the threshold after observing the desired speed result.",
     "Generate a fast path that retains the original low-precision execution and a fallback that recomputes only ambiguous rows with a declared precision-stable or shape-invariant reference policy.",
     "Keep fallback detection and recomputation on device when possible, scatter only corrected decisions, and include detection, synchronization and recomputation costs in the production-impact bound.",
+    "Preserve the existing winner and tie-breaking rule when computing a second-best margin; a generic top-k primitive may select a different winner on exact low-precision ties.",
+    "For stateful models, retain or rotate a pre-verification checkpoint for every recurrent, convolution and KV state that the speculative pass overwrites before the ambiguity flag is known.",
     "Apply the same declared reference policy to control and candidate arms when claiming exact identity; candidate-only higher precision does not reproduce a stock low-precision oracle by definition."
   ],
   "validation_recipe": [
     "Freeze whether the contract is stock-bitwise identity, identity to a higher-precision reference, a numerical tolerance, or a quality property before candidate generation.",
     "Exercise adversarial low-margin prompts and shapes as well as ordinary anchor cases, and retain first-divergence logits, margins and output hashes.",
     "Measure fallback frequency, false-negative rate, detector cost, recomputation cost and end-to-end latency against both the all-fast and always-high-precision controls.",
+    "Trace the earliest observable layer divergence so a local head fix is rejected when the backbone is already different.",
+    "Test state restoration separately for recurrent state, convolution windows and full-attention KV entries before wiring replay into the scheduler.",
     "Derive an Amdahl-style break-even fallback rate before implementation and reject the family when the optimistic ceiling cannot clear the materiality floor.",
     "Require held-out correctness and fixed-budget interleaved timing before promoting the candidate beyond diagnostic status."
   ],
@@ -57,6 +61,8 @@
     "The low-precision top-two margin fails to predict which decisions change under the declared reference precision.",
     "A full-vocabulary top-two scan, host synchronization or dense recomputation erases the multi-token speedup.",
     "A threshold tuned on the measured prompts overfits and misses held-out boundary cases.",
+    "A top-k detector changes the baseline argmax winner on exact ties and thereby creates the semantic divergence it was intended to detect.",
+    "The speculative target pass overwrites the only pre-step recurrent state before the fallback decision is available.",
     "One prompt that becomes equal is generalized into universal numerical invariance.",
     "An early near-tie is mistaken for proof that later recurrent-state advancement and rollback are correct."
   ],
@@ -64,7 +70,8 @@
     "The frozen RTX 4060 diversity suite establishes a reusable diagnostic and candidate-generation prior; 12 prompts are not a quality benchmark and do not prove that selective recomputation is correct or profitable.",
     "Only 8.59% of 384 baseline BF16 token decisions had margin at most 0.125, below a 31.95% optimistic linear-cost break-even bound, but the calculation excludes detector, dispatch and synchronization costs and does not supply a correct fallback mechanism.",
     "Always-on FP32 lm_head produced 4/12 cross-arm prompt mismatches and therefore rejects an lm-head-only selective FP32 repair for the frozen suite.",
-    "The observed MTP hidden-state divergence begins before rollback, but the exact backbone component responsible remains unidentified.",
+    "An eager single-prompt trace observed nonzero differences at the output of layer 0 and all 24 target layers; layer inputs and layer-0 sub-operations were not captured, so the exact first differing sub-operation remains unidentified.",
+    "A standalone two-row top-two scan averaged about 0.150 ms per speculative step, while a 9.84 MiB 18-layer recurrent-state snapshot averaged about 0.033 ms with a multi-tensor copy and 0.378 ms with 36 individual copies on the RTX 4060. These synthetic screens exclude scheduler, index restoration, KV repair and replay integration.",
     "Exact stock-low-precision identity may be impossible to guarantee with a different execution shape without sequential replay; use the public contract rather than convenience to decide admissibility.",
     "Always-on high precision is a control and upper-quality reference, not automatically a production solution."
   ],
@@ -103,9 +110,11 @@
       "name": "device-side low-margin selective recomputation",
       "change_axes": [
         "ambiguity statistic",
-        "reference precision",
-        "fallback granularity",
-        "device-side dispatch"
+      "reference precision",
+      "fallback granularity",
+        "device-side dispatch",
+        "state checkpoint strategy",
+        "tie-breaking semantics"
       ],
       "template": "Detect rows near a frozen decision boundary on the fast path, recompute only those rows with the declared precision-stable policy, and admit the candidate only when held-out correctness and the break-even fallback-rate bound both pass."
     }

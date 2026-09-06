@@ -124,6 +124,11 @@ def main() -> None:
                 ["loop-invariant-hoisting", "numerical-range-proof"],
                 evidence_sha256,
             ),
+            opportunity(
+                "mtp-numerical-boundary",
+                ["numerical-invariance", "decision-boundary-recompute"],
+                evidence_sha256,
+            ),
         ):
             path = run / "models" / f"{spec['opportunity_id']}.json"
             write(path, spec)
@@ -143,6 +148,18 @@ def main() -> None:
             "claim_boundary"
         ] == "DISCOVERY_PRIOR_ONLY"
         assert "community-fast-path-reachability" not in guards
+        numerical = {
+            row["method_id"]: row
+            for row in by_opportunity["mtp-numerical-boundary"]
+        }
+        selective = numerical[
+            "community-selective-precision-boundary-recompute"
+        ]
+        assert selective["transfer_status"] == "DIRECT", selective
+        assert selective["candidate_archetypes"][0]["family"] == (
+            "decision-boundary-recompute"
+        )
+        assert selective["claim_boundary"] == "DISCOVERY_PRIOR_ONLY"
 
         expand = discovery_action(run, ROOT / "scripts")
         assert expand and expand["action"] == "EXPAND_DISCOVERY_PORTFOLIO", expand
