@@ -31,6 +31,18 @@
     },
     "events": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/match"}},
     "methods": {"type": "array", "maxItems": 3, "items": {"$ref": "#/$defs/match"}},
+    "routing": {
+      "type": "object", "additionalProperties": false,
+      "required": ["recommendation", "top_event_id", "top_event_score", "top_method_id", "top_method_score", "rationale"],
+      "properties": {
+        "recommendation": {"enum": ["CONSULT_BEFORE_FIRST_CANDIDATE", "DEFER_UNTIL_LOCAL_GAP", "NO_RELEVANT_PRIOR"]},
+        "top_event_id": {"type": ["string", "null"]},
+        "top_event_score": {"type": ["number", "null"], "minimum": 0},
+        "top_method_id": {"type": ["string", "null"]},
+        "top_method_score": {"type": ["number", "null"], "minimum": 0},
+        "rationale": {"type": "string", "minLength": 1}
+      }
+    },
     "rejections": {
       "type": "object", "additionalProperties": false,
       "required": ["event_hard_gate", "event_low_relevance", "method_hard_gate", "method_low_relevance"],

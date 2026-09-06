@@ -13,7 +13,7 @@
     "policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["minimum_ranked_architectures", "unknown_bound_policy", "deadline_fraction", "material_gain_margin"],
+      "required": ["minimum_ranked_architectures", "unknown_bound_policy", "deadline_fraction", "material_gain_margin", "qualification_checkpoint"],
       "properties": {
         "minimum_ranked_architectures": {"const": 3},
         "unknown_bound_policy": {"const": "SCREEN_OR_EXHAUST_SEARCH_PHASE"},
@@ -22,7 +22,8 @@
           "exclusiveMinimum": 0,
           "exclusiveMaximum": 1
         },
-        "material_gain_margin": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1}
+        "material_gain_margin": {"type": "number", "exclusiveMinimum": 0, "exclusiveMaximum": 1},
+        "qualification_checkpoint": {"const": "FIRST_MATERIAL_CORRECT_BEFORE_NEXT_CANDIDATE"}
       }
     },
     "required_dimensions": {

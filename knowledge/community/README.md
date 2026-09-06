@@ -136,6 +136,13 @@ the Agent for repeatedly parsing the full knowledge corpus and prevents fields
 such as `windows_prefix` from spuriously matching a `prefix` algorithm. Neither arm
 receives the hidden oracle. Each trial also carries a hash-bound JSON result
 contract so an isolated executor does not have to guess the reporting format.
+The shortlist additionally emits a deterministic routing recommendation. A
+hard-gated event or transformation with at least five relevance points must be
+consulted before the augmented arm's first source edit; weaker matches remain
+deferred until a named local gap. A selected decomposition is first projected to
+the smallest state and transitions actually consumed by the target contract.
+This prevents both treatment non-realization and over-porting a source PR's
+unrelated machinery into a simpler target.
 The materialized executor prompt also freezes the filesystem boundary, runtime
 adapter and evidence-writing rules shared by both arms.
 Execute `schedule.json` in order with networking
@@ -255,6 +262,14 @@ auditor rejects a changed prefix, any `source/` edit after that marker, or a
 draft/closure/result commit hash mismatch. This turns the finalization reserve
 into an execution boundary and transactional commit rather than another prompt
 suggestion.
+
+New frontier contracts also seal a qualification checkpoint. The first
+screen-correct candidate that reaches the material-speedup threshold must run
+held-out validation before the executor spends another candidate slot. A pass
+becomes a durable delivery baseline while later architectures remain free to
+improve on it. This separates "we already have something shippable" from "the
+frontier is fully closed" and prevents optional search from consuming the only
+time left for validation.
 
 The runner deliberately performs local result validation instead of weakening
 the repository schema to fit a provider's smaller structured-output JSON

@@ -1,0 +1,122 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-incremental-prefix-state-machine",
+  "title": "Replace repeated whole-prefix work with a monotonic incremental state machine",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "vLLM PR #40298 incremental MiniMax M2 streaming parser and review",
+    "url": "https://github.com/vllm-project/vllm/pull/40298",
+    "version": "snapshot-9fbf43c488c3858be5b6",
+    "available_at": "2026-06-16T17:42:04Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The closed-unmerged source demonstrates an incremental parser decomposition and review-discovered invariants, not a target performance result or merge endorsement."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-40298.incremental-streaming-state-machine"
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "incrementalization",
+    "repeated-prefix-elimination",
+    "streaming-state-machine"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "streaming",
+      "accumulated",
+      "history",
+      "prefix",
+      "rescan",
+      "quadratic",
+      "parser",
+      "per delta"
+    ]
+  },
+  "implementation_recipe": [
+    "Write a transition table for request start, partial token or delimiter, complete field, item completion and request completion.",
+    "Carry a monotonic consumed cursor plus only the unresolved suffix required by the grammar.",
+    "Process each new delta once and advance externally visible indices exactly once at the owning transition.",
+    "Reuse the batch path's schema lookup and serialization rules so the incremental path cannot invent a second semantic contract."
+  ],
+  "validation_recipe": [
+    "Compare the combined incremental output with the frozen batch or replay oracle at every single split point.",
+    "Add randomized chunk partitions, empty chunks, multiple items, delimiter fragments, trailing text and parser reuse.",
+    "Measure total work for increasing history length and fit linear versus quadratic growth rather than quoting one short-input latency.",
+    "Verify that retained state is bounded by unresolved grammar context rather than total history."
+  ],
+  "expected_bottleneck_shifts": [
+    "Repeated whole-history scanning should become near-linear total work in emitted input length.",
+    "Delimiter recognition, allocation and output serialization can become dominant after old-prefix work is removed."
+  ],
+  "failure_modes": [
+    "A transition clears unconsumed suffix data that belongs to the next field or normal-text state.",
+    "State is reset too early or survives across requests, changing names, indices or emitted arguments.",
+    "A delimiter split across chunks is emitted, skipped or recognized twice.",
+    "The incremental path concatenates values differently from the trusted complete-input parser.",
+    "The implementation keeps the complete history as its buffer, preserving quadratic slicing or search costs under a new class name."
+  ],
+  "scope_limits": [
+    "Use only when successive calls reconsider a shared growing prefix and state can be owned for the same semantic stream.",
+    "Do not transfer concrete delimiters, field names or reset rules across parser protocols.",
+    "The source PR is closed-unmerged and therefore supplies discovery and review evidence only."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "Call k reprocesses all history 0..k even though call k-1 already established a valid parsed prefix.",
+    "partition_axis": "successive input deltas within one request-local stream",
+    "local_state": [
+      "monotonic consumed cursor",
+      "bounded unresolved suffix",
+      "current grammar state",
+      "externally visible item index and emitted-prefix length"
+    ],
+    "combine_rule": "Apply the transition function to prior state and only the new delta, retaining the shortest suffix that could still complete a split delimiter.",
+    "finalization": "Emit newly completed semantic fields, preserve trailing unconsumed input, and reset only at the explicit request boundary.",
+    "work_complexity": "Target O(total input plus emitted output) over the stream instead of O(number of deltas times accumulated history).",
+    "span_complexity": "Each call depends only on bounded parser state and its new delta, not a full replay of prior calls.",
+    "communication_cost": "Adds request-local state reads and writes while removing repeated reads of historical text or tokens.",
+    "invariants": [
+      "concatenated incremental output equals the trusted complete-input semantic result",
+      "every input unit is consumed at most once except a bounded delimiter suffix",
+      "indices advance exactly once per item",
+      "state lifetime is exactly one request"
+    ],
+    "anti_patterns": [
+      "append to a full-history buffer and search it again",
+      "test only delimiter-aligned chunks",
+      "duplicate the batch parser's type and serialization rules",
+      "reset all state inside a per-item completion transition"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "monotonic-cursor-state-machine",
+      "name": "bounded-suffix incremental parser",
+      "change_axes": [
+        "history scan length",
+        "state ownership",
+        "chunk-boundary transition",
+        "semantic output reuse"
+      ],
+      "template": "Track consumed position and grammar state, process only each new delta, and retain only the bounded suffix needed to resolve a split delimiter."
+    },
+    {
+      "family": "incremental-derived-summary",
+      "name": "cached prefix summary",
+      "change_axes": [
+        "recomputed prefix property",
+        "summary update",
+        "coherence epoch"
+      ],
+      "template": "When a full parser state is unnecessary, cache the smallest sufficient summary of the accepted prefix and update it with each delta under an explicit stream epoch."
+    }
+  ]
+}

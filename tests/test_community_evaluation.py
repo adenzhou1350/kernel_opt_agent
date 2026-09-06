@@ -32,6 +32,7 @@ from community_evaluation import (
     summarize_schedule_run,
     validate_source_receipt,
     validate_schedule,
+    validate_qualification_checkpoint,
     validate_suite,
 )
 from community_trial_runner import commit_finalizer_draft, valid_result
@@ -52,6 +53,41 @@ def identity(path: Path, base: Path) -> dict:
         "path": path.relative_to(base).as_posix(),
         "sha256": sha256_file(path),
     }
+
+
+def test_qualification_checkpoint() -> None:
+    trial = {"success_thresholds": {"minimum_material_speedup": 1.1}}
+    contract = {
+        "policy": {
+            "qualification_checkpoint": (
+                "FIRST_MATERIAL_CORRECT_BEFORE_NEXT_CANDIDATE"
+            )
+        }
+    }
+    candidates = [
+        {
+            "candidate_id": "first",
+            "proposed_at_seconds": 10.0,
+            "correctness": "PASS",
+            "speedup": 1.2,
+            "heldout_correctness": "NOT_RUN",
+        },
+        {
+            "candidate_id": "later",
+            "proposed_at_seconds": 20.0,
+            "correctness": "PASS",
+            "speedup": 1.3,
+            "heldout_correctness": "PASS",
+        },
+    ]
+    try:
+        validate_qualification_checkpoint(trial, {"candidates": candidates}, contract)
+    except ValueError as error:
+        assert "qualification checkpoint bypassed" in str(error)
+    else:
+        raise AssertionError("a skipped qualification checkpoint was accepted")
+    candidates[0]["heldout_correctness"] = "PASS"
+    validate_qualification_checkpoint(trial, {"candidates": candidates}, contract)
 
 
 def candidate(
@@ -246,6 +282,7 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
 
 
 def main() -> None:
+    test_qualification_checkpoint()
     ranking_schema = json.loads(
         (ROOT / "schemas" / "community_opportunity_ranking.schema.json").read_text(
             encoding="utf-8"
@@ -473,6 +510,8 @@ def main() -> None:
         assert shortlisted_methods[0] == "triton-row-reduction-fusion"
         assert "cuda-hierarchical-scan-decomposition" not in shortlisted_methods
         assert shortlist["policy"]["max_methods"] == 3
+        assert shortlist["routing"]["recommendation"] == "CONSULT_BEFORE_FIRST_CANDIDATE"
+        assert shortlist["routing"]["top_method_id"] == "triton-row-reduction-fusion"
         assert shortlist["rejections"]["method_provenance_gate"] > 0
         suite = {
             "schema_version": "community-temporal-suite-v1",
@@ -660,6 +699,14 @@ def main() -> None:
         assert (control_dir / "input" / "result.schema.json").is_file()
         assert (control_dir / "input" / "executor.md").is_file()
         assert (control_dir / "input" / "frontier_contract.json").is_file()
+        frontier_contract = json.loads(
+            (control_dir / "input" / "frontier_contract.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        assert frontier_contract["policy"]["qualification_checkpoint"] == (
+            "FIRST_MATERIAL_CORRECT_BEFORE_NEXT_CANDIDATE"
+        )
         assert (control_dir / "input" / "opportunity-ranking.schema.json").is_file()
         assert (control_dir / "input" / "frontier-closure.schema.json").is_file()
         executor_text = (control_dir / "input" / "executor.md").read_text(
@@ -667,6 +714,7 @@ def main() -> None:
         )
         assert "causal screening result" in executor_text
         assert "exit zero" in executor_text
+        assert "FIRST_MATERIAL_CORRECT_BEFORE_NEXT_CANDIDATE" in executor_text
         assert (control_dir / "input" / "environment.json").is_file()
         assert (control_dir / "harness" / "baseline.py").is_file()
         assert (community_dir / "harness" / "baseline.py").is_file()

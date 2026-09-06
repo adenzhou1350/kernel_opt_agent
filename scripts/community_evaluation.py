@@ -181,6 +181,24 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
                          if row["record"]["kind"] == "EVALUATION_GUARD"][:1]
     selected_methods = sorted(candidate_methods + evaluation_guards,
                               key=lambda row: (-row["score"], row["id"]))
+    top_event = event_rows[0] if event_rows else None
+    top_method = candidate_methods[0] if candidate_methods else None
+    if ((top_event is not None and top_event["score"] >= 5.0)
+            or (top_method is not None and top_method["score"] >= 5.0)):
+        routing_recommendation = "CONSULT_BEFORE_FIRST_CANDIDATE"
+        routing_rationale = (
+            "A hard-gated prior has at least five relevance points; inspect its "
+            "smallest transferable mechanism before the first source edit."
+        )
+    elif top_event is not None or top_method is not None:
+        routing_recommendation = "DEFER_UNTIL_LOCAL_GAP"
+        routing_rationale = (
+            "Relevant priors exist, but their lexical evidence is weak enough to "
+            "defer retrieval until local diagnosis leaves a named gap."
+        )
+    else:
+        routing_recommendation = "NO_RELEVANT_PRIOR"
+        routing_rationale = "No event or candidate-generation method passed routing."
     receipt = {
         "schema_version": PRIOR_SHORTLIST_SCHEMA, "generated_at": now(),
         "claim_boundary": "DISCOVERY_PRIOR_ONLY",
@@ -190,7 +208,16 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
                    "methods": identity_for(methods_path, methods_path.parent.parent) if methods_path else None},
         "policy": {"max_events": 2, "max_methods": 3, "minimum_token_hits": 2,
                    "hard_gate_policy": "FAIL_CLOSED"},
-        "events": event_rows[:2], "methods": selected_methods, "rejections": rejected,
+        "events": event_rows[:2], "methods": selected_methods,
+        "routing": {
+            "recommendation": routing_recommendation,
+            "top_event_id": top_event["id"] if top_event is not None else None,
+            "top_event_score": top_event["score"] if top_event is not None else None,
+            "top_method_id": top_method["id"] if top_method is not None else None,
+            "top_method_score": top_method["score"] if top_method is not None else None,
+            "rationale": routing_rationale,
+        },
+        "rejections": rejected,
     }
     errors = validate_instance(receipt, read_object(root / "schemas" / "community_prior_shortlist.schema.json"))
     if errors:
@@ -212,6 +239,9 @@ def build_frontier_contract(task_path: Path, output: Path, material_gain_margin:
             "unknown_bound_policy": "SCREEN_OR_EXHAUST_SEARCH_PHASE",
             "deadline_fraction": 0.55,
             "material_gain_margin": material_gain_margin,
+            "qualification_checkpoint": (
+                "FIRST_MATERIAL_CORRECT_BEFORE_NEXT_CANDIDATE"
+            ),
         },
         "required_dimensions": [
             {
@@ -1324,6 +1354,7 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
     if closure_errors:
         raise ValueError("invalid frontier closure: " + "; ".join(closure_errors))
     contract = read_object(contract_path)
+    validate_qualification_checkpoint(trial, result, contract)
     closure = read_object(closure_path)
     if closure["contract_identity"] != contract_identity:
         raise ValueError("frontier closure is bound to a different contract")
@@ -1509,6 +1540,33 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
                     f"frontier architecture {row['architecture_id']} remains materially open"
                 )
     return len(ranked)
+
+
+def validate_qualification_checkpoint(trial: dict, result: dict,
+                                      contract: dict) -> None:
+    """Reject optional exploration that bypassed the first shippable result."""
+    if contract["policy"].get("qualification_checkpoint") != (
+        "FIRST_MATERIAL_CORRECT_BEFORE_NEXT_CANDIDATE"
+    ):
+        return
+    material_speedup = float(
+        trial["success_thresholds"]["minimum_material_speedup"]
+    )
+    chronological = sorted(
+        result["candidates"],
+        key=lambda item: (item["proposed_at_seconds"], item["candidate_id"]),
+    )
+    for candidate, later in zip(chronological, chronological[1:]):
+        if (
+            candidate["correctness"] == "PASS"
+            and candidate["speedup"] is not None
+            and float(candidate["speedup"]) >= material_speedup
+            and candidate["heldout_correctness"] != "PASS"
+        ):
+            raise ValueError(
+                "qualification checkpoint bypassed before later candidate: "
+                f"{candidate['candidate_id']} -> {later['candidate_id']}"
+            )
 
 
 def assess_trial(

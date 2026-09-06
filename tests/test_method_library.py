@@ -79,7 +79,7 @@ def main() -> None:
         for card in current_snapshot["cards"]
         if card.get("community_provenance") is not None
     }
-    assert primitive_ids == {
+    legacy_primitive_ids = {
         "community-architecture-conditioned-fusion",
         "community-cross-layer-state-contract",
         "community-fast-path-reachability",
@@ -87,7 +87,15 @@ def main() -> None:
         "community-host-loop-to-segmented-array",
         "community-validation-hoist-with-coherence",
     }
-    assert not primitive_ids.intersection(cutoff_snapshot["included_method_ids"])
+    assert primitive_ids == legacy_primitive_ids | {
+        "community-incremental-prefix-state-machine"
+    }
+    assert "community-incremental-prefix-state-machine" in cutoff_snapshot[
+        "included_method_ids"
+    ]
+    assert not legacy_primitive_ids.intersection(
+        cutoff_snapshot["included_method_ids"]
+    )
     assert all(
         card["community_provenance"]["entity_boundary"]
         == "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
