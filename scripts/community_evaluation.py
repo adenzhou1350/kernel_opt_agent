@@ -597,12 +597,28 @@ def audit_codex_execution(
     turn_completed = False
     malformed_lines = 0
     final_agent_result = None
+    ranking_change_indexes = []
+    production_source_change_indexes = []
+    trial_path_prefix = trial_dir.as_posix().lower().rstrip("/") + "/"
+
+    def trial_relative_change_path(value: object) -> str | None:
+        if not isinstance(value, str) or not value.strip():
+            return None
+        normalized = value.strip().replace("\\", "/").lower()
+        if normalized.startswith(trial_path_prefix):
+            return normalized[len(trial_path_prefix):]
+        if re.match(r"^[a-z]:/", normalized) or normalized.startswith("/mnt/"):
+            return None
+        while normalized.startswith("./"):
+            normalized = normalized[2:]
+        return normalized
+
     # JSONL records are delimited only by physical LF/CRLF bytes.  str.splitlines()
     # also splits valid JSON string data on Unicode U+2028/U+2029, which can occur
     # in minified JavaScript captured in command output and creates a false audit
     # failure.  TextIO iteration preserves those code points inside the record.
     with transcript_path.open(encoding="utf-8", newline="") as transcript:
-        for line in transcript:
+        for event_index, line in enumerate(transcript):
             if not line.strip():
                 continue
             try:
@@ -613,6 +629,17 @@ def audit_codex_execution(
             if event.get("type") == "turn.completed":
                 turn_completed = True
             item = event.get("item") or {}
+            if (
+                event.get("type") == "item.completed"
+                and item.get("type") == "file_change"
+                and item.get("status") == "completed"
+            ):
+                for change in item.get("changes") or []:
+                    relative_path = trial_relative_change_path(change.get("path"))
+                    if relative_path == "evidence/opportunity-ranking.json":
+                        ranking_change_indexes.append(event_index)
+                    elif relative_path and relative_path.startswith("source/"):
+                        production_source_change_indexes.append(event_index)
             if (
                 event.get("type") == "item.started"
                 and item.get("type") == "command_execution"
@@ -675,6 +702,25 @@ def audit_codex_execution(
     if malformed_lines:
         violations.append("MALFORMED_TRANSCRIPT")
 
+    ranking_change_index = (
+        max(ranking_change_indexes) if ranking_change_indexes else None
+    )
+    first_source_change_index = (
+        min(production_source_change_indexes)
+        if production_source_change_indexes
+        else None
+    )
+    ranking_preceded_source_edit = None
+    if first_source_change_index is not None:
+        ranking_preceded_source_edit = (
+            ranking_change_index is not None
+            and ranking_change_index < first_source_change_index
+        )
+        if trial.get("frontier_contract") is not None and not ranking_preceded_source_edit:
+            violations.append(
+                "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT"
+            )
+
     repair_lower_bound = max(failed_commands, declined_commands, max_declared_repairs)
     if repair_lower_bound > trial["budget"]["max_technical_repairs"]:
         violations.append("TECHNICAL_REPAIR_BUDGET_EXCEEDED")
@@ -722,6 +768,9 @@ def audit_codex_execution(
             "technical_repair_lower_bound": repair_lower_bound,
             "turn_completed": turn_completed,
             "malformed_line_count": malformed_lines,
+            "opportunity_ranking_change_index": ranking_change_index,
+            "first_production_source_change_index": first_source_change_index,
+            "ranking_preceded_production_edit": ranking_preceded_source_edit,
             "external_path_hashes": sorted(set(external_paths)),
         },
         "violations": violations,
@@ -1185,9 +1234,6 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
         raise ValueError("opportunity ranking is bound to a different contract")
     if ranking["created_at_seconds"] > result["elapsed_seconds"]:
         raise ValueError("opportunity ranking was created after the trial elapsed time")
-    proposed_times = [item["proposed_at_seconds"] for item in result["candidates"]]
-    if proposed_times and ranking["created_at_seconds"] > min(proposed_times):
-        raise ValueError("opportunity ranking was not frozen before candidate proposal")
     if closure["generated_at_seconds"] > result["elapsed_seconds"]:
         raise ValueError("frontier closure was generated after the trial elapsed time")
 

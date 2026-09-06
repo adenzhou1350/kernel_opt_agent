@@ -49,6 +49,9 @@
         "technical_repair_lower_bound",
         "turn_completed",
         "malformed_line_count",
+        "opportunity_ranking_change_index",
+        "first_production_source_change_index",
+        "ranking_preceded_production_edit",
         "external_path_hashes"
       ],
       "properties": {
@@ -60,6 +63,17 @@
         "technical_repair_lower_bound": {"type": "integer", "minimum": 0},
         "turn_completed": {"type": "boolean"},
         "malformed_line_count": {"type": "integer", "minimum": 0},
+        "opportunity_ranking_change_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "first_production_source_change_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "ranking_preceded_production_edit": {
+          "type": ["boolean", "null"]
+        },
         "external_path_hashes": {
           "type": "array",
           "uniqueItems": true,
@@ -80,7 +94,9 @@
           "TECHNICAL_REPAIR_BUDGET_EXCEEDED",
           "TURN_NOT_COMPLETED",
           "RESULT_MISSING",
-          "RESULT_SCHEMA_INVALID"
+          "RESULT_SCHEMA_INVALID",
+          "RESULT_TRANSCRIPT_MISMATCH",
+          "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT"
         ]
       }
     }

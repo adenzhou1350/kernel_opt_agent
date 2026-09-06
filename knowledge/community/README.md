@@ -100,6 +100,13 @@ quietly omitting an initially ranked or required branch. Older sealed trials
 remain readable because the contract is enforced only when its identity is in
 the trial manifest.
 
+In an audited execution, completed `file_change` events provide the ordering
+proof: the last change to `evidence/opportunity-ranking.json` must precede the
+first change under `source/`. The result's self-reported `proposed_at_seconds`
+is retained as descriptive telemetry, but it is not trusted to establish that
+ordering. This also rejects a ranking that was initially written on time and
+then revised after candidate implementation began.
+
 New benchmark suites should set `protocol.task_packet_contract` to `STRICT_V2`.
 This validates a complete symptom-only operator, workload, hardware, baseline
 and acceptance contract, requires workload weights to sum to one, checks that

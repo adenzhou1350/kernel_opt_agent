@@ -20,6 +20,9 @@ Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
 versus community-augmented trials. New trials bind a machine-audited architecture
 frontier: the executor must pre-register minimum search dimensions, map every
 candidate to them, and cannot close an untested unknown bound with prose alone.
+For audited trials, the JSONL execution transcript—not agent-reported timing—is
+the authority that proves the final ranking was frozen before the first
+production-source edit.
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.

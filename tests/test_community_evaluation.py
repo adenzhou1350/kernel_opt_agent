@@ -788,7 +788,80 @@ def main() -> None:
         unicode_audit = audit_codex_execution(control_dir, root=ROOT)
         assert unicode_audit["status"] == "PASS"
         assert unicode_audit["observations"]["malformed_line_count"] == 0
+        assert unicode_audit["observations"][
+            "ranking_preceded_production_edit"
+        ] is None
         assess_trial(control_dir, ROOT, require_execution_audit=True)
+
+        ranking_first_events = [
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "file_change",
+                    "status": "completed",
+                    "changes": [
+                        {
+                            "path": str(
+                                control_dir
+                                / "evidence"
+                                / "opportunity-ranking.json"
+                            ),
+                            "kind": "add",
+                        }
+                    ],
+                },
+            },
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "file_change",
+                    "status": "completed",
+                    "changes": [
+                        {
+                            "path": str(control_dir / "source" / "candidate.py"),
+                            "kind": "add",
+                        }
+                    ],
+                },
+            },
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "agent_message",
+                    "text": (control_dir / "result.json").read_text(
+                        encoding="utf-8"
+                    ),
+                },
+            },
+            {"type": "turn.completed"},
+        ]
+        (control_dir / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in ranking_first_events),
+            encoding="utf-8",
+        )
+        ranking_first_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert ranking_first_audit["status"] == "PASS"
+        assert ranking_first_audit["observations"][
+            "ranking_preceded_production_edit"
+        ] is True
+
+        source_first_events = [
+            ranking_first_events[1],
+            ranking_first_events[0],
+            *ranking_first_events[2:],
+        ]
+        (control_dir / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in source_first_events),
+            encoding="utf-8",
+        )
+        source_first_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert source_first_audit["status"] == "FAIL"
+        assert source_first_audit["observations"][
+            "ranking_preceded_production_edit"
+        ] is False
+        assert "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT" in (
+            source_first_audit["violations"]
+        )
 
         control_assessment = assess_trial(control_dir, ROOT)
         community_assessment = assess_trial(community_dir, ROOT)
