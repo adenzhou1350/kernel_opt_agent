@@ -88,6 +88,13 @@ The suite also freezes a `minimum_material_speedup` greater than 1.0. The
 assessor uses this threshold for time-to-first-improvement so a nominal 1.001x
 result inside timing noise cannot count as successful discovery.
 
+New benchmark suites should set `protocol.task_packet_contract` to `STRICT_V2`.
+This validates a complete symptom-only operator, workload, hardware, baseline
+and acceptance contract, requires workload weights to sum to one, checks that
+the hidden oracle identifies the same task, and rejects a suite/packet hardware
+mismatch. The optional legacy mode exists only so previously sealed evaluation
+artifacts remain readable.
+
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
 community graph; an augmented trial contains only the frozen graph. Neither arm

@@ -45,6 +45,10 @@
         "model_identity": {"type": "string", "minLength": 1},
         "prompt_identity": {"$ref": "#/$defs/identity"},
         "environment_identity": {"$ref": "#/$defs/identity"},
+        "task_packet_contract": {
+          "type": "string",
+          "enum": ["LEGACY_UNSCHEMATIZED", "STRICT_V2"]
+        },
         "budgets": {
           "type": "object",
           "additionalProperties": false,

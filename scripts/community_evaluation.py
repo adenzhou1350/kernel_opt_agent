@@ -150,6 +150,9 @@ def validate_suite(
         base, suite["protocol"]["environment_identity"], "runtime environment"
     )
     task_ids: set[str] = set()
+    task_packet_contract = suite["protocol"].get(
+        "task_packet_contract", "LEGACY_UNSCHEMATIZED"
+    )
     for task in suite["tasks"]:
         if task["task_id"] in task_ids:
             raise ValueError(f"duplicate task_id: {task['task_id']}")
@@ -162,8 +165,44 @@ def validate_suite(
             raise ValueError(
                 f"temporal leakage: held-out task {task['task_id']} is in training graph"
             )
-        validate_identity(base, task["packet"], f"task packet {task['task_id']}")
-        validate_identity(base, task["hidden_oracle"], f"hidden oracle {task['task_id']}")
+        packet_path = validate_identity(
+            base, task["packet"], f"task packet {task['task_id']}"
+        )
+        oracle_path = validate_identity(
+            base, task["hidden_oracle"], f"hidden oracle {task['task_id']}"
+        )
+        if task_packet_contract == "STRICT_V2":
+            packet_errors = validate_json_file(
+                packet_path, root / "schemas" / "community_heldout_task.schema.json"
+            )
+            if packet_errors:
+                raise ValueError(
+                    f"invalid strict task packet {task['task_id']}: "
+                    + "; ".join(packet_errors)
+                )
+            oracle_errors = validate_json_file(
+                oracle_path, root / "schemas" / "community_hidden_oracle.schema.json"
+            )
+            if oracle_errors:
+                raise ValueError(
+                    f"invalid strict hidden oracle {task['task_id']}: "
+                    + "; ".join(oracle_errors)
+                )
+            packet = read_object(packet_path)
+            oracle = read_object(oracle_path)
+            if packet["task_id"] != task["task_id"] or oracle["task_id"] != task["task_id"]:
+                raise ValueError(
+                    f"strict task/oracle identity does not match {task['task_id']}"
+                )
+            weight_sum = sum(float(value) for value in packet["workload"]["shape_weights"].values())
+            if not math.isclose(weight_sum, 1.0, rel_tol=0.0, abs_tol=1e-9):
+                raise ValueError(
+                    f"strict task packet {task['task_id']} shape weights sum to {weight_sum}, not 1"
+                )
+            if packet["hardware"]["device"].lower() not in task["target_hardware"].lower():
+                raise ValueError(
+                    f"strict task packet {task['task_id']} hardware does not match suite target"
+                )
         support_targets: set[str] = set()
         for item in task.get("support", []):
             validate_identity(

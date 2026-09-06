@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_heldout_task.schema.json",
+  "title": "Strict symptom-only held-out optimization task packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "information_policy",
+    "objective",
+    "operator",
+    "workload",
+    "hardware",
+    "baseline",
+    "acceptance"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-heldout-task-v2"},
+    "task_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "information_policy": {"const": "SYMPTOM_CONTRACT_AND_BASELINE_ONLY"},
+    "objective": {"type": "string", "minLength": 1},
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["equation", "input_shapes", "input_dtype", "output_dtype", "layout", "numerical_contract", "aliasing"],
+      "properties": {
+        "equation": {"type": "string", "minLength": 1},
+        "input_shapes": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},
+        "input_dtype": {"type": "string", "minLength": 1},
+        "output_dtype": {"type": "string", "minLength": 1},
+        "layout": {"type": "string", "minLength": 1},
+        "numerical_contract": {"type": "string", "minLength": 1},
+        "aliasing": {"type": "string", "minLength": 1}
+      }
+    },
+    "workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_mode", "shape_weights", "integration", "latency_objective", "required_controls"],
+      "properties": {
+        "primary_mode": {"type": "string", "minLength": 1},
+        "shape_weights": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+        },
+        "integration": {"type": "string", "minLength": 1},
+        "latency_objective": {"type": "string", "minLength": 1},
+        "required_controls": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["device", "compute_capability", "memory_gib", "software", "allowed_programming_models"],
+      "properties": {
+        "device": {"type": "string", "minLength": 1},
+        "compute_capability": {"type": "string", "minLength": 1},
+        "memory_gib": {"type": "number", "exclusiveMinimum": 0},
+        "software": {"type": "string", "minLength": 1},
+        "allowed_programming_models": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "baseline": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["implementation", "observed_symptom", "bottleneck_status", "claim_boundary"],
+      "properties": {
+        "implementation": {"type": "string", "minLength": 1},
+        "observed_symptom": {"type": "string", "minLength": 1},
+        "candidate_bottlenecks": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "bottleneck_status": {"type": "string", "minLength": 1},
+        "claim_boundary": {"const": "TASK_INPUT_NOT_RESULT"}
+      }
+    },
+    "acceptance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "performance", "upstream"],
+      "properties": {
+        "correctness": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "performance": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "upstream": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

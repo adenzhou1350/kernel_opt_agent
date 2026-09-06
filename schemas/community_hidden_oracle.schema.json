@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_hidden_oracle.schema.json",
+  "title": "Hidden reference for one held-out optimization task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "visibility",
+    "reference_pr",
+    "reference_commit",
+    "snapshot_id",
+    "snapshot_manifest_sha256",
+    "solution_families",
+    "key_mechanism",
+    "known_risks",
+    "observed_reference"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-hidden-oracle-v1"},
+    "task_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "visibility": {"const": "HIDDEN_UNTIL_BOTH_ARMS_COMPLETE"},
+    "reference_pr": {"type": "string", "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$"},
+    "reference_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+    "snapshot_manifest_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "solution_families": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "key_mechanism": {"type": "string", "minLength": 1},
+    "known_risks": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "observed_reference": {"type": "object", "minProperties": 1}
+  }
+}

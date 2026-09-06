@@ -184,13 +184,61 @@ def main() -> None:
         atomic_json(
             task_path,
             {
-                "operator": "held-out logits projection",
-                "constraint": "preserve exact outputs",
+                "schema_version": "community-heldout-task-v2",
+                "task_id": "heldout.logits",
+                "information_policy": "SYMPTOM_CONTRACT_AND_BASELINE_ONLY",
+                "objective": "Reduce held-out logits projection latency.",
+                "operator": {
+                    "equation": "output = hidden @ weight.T",
+                    "input_shapes": ["hidden[B,K]", "weight[V,K]"],
+                    "input_dtype": "bfloat16",
+                    "output_dtype": "bfloat16",
+                    "layout": "contiguous row major",
+                    "numerical_contract": "Match the reference tolerance.",
+                    "aliasing": "Inputs are read-only and output does not alias.",
+                },
+                "workload": {
+                    "primary_mode": "single-GPU decode",
+                    "shape_weights": {"B=1": 1.0},
+                    "integration": "held-out projection path",
+                    "latency_objective": "Minimize CUDA-event latency.",
+                    "required_controls": ["reference output"],
+                },
+                "hardware": {
+                    "device": "test GPU",
+                    "compute_capability": "test capability",
+                    "memory_gib": 1,
+                    "software": "test stack",
+                    "allowed_programming_models": ["PyTorch"],
+                },
+                "baseline": {
+                    "implementation": "historical matrix multiply",
+                    "observed_symptom": "small-batch latency is material",
+                    "bottleneck_status": "UNKNOWN_MUST_BE_MEASURED",
+                    "claim_boundary": "TASK_INPUT_NOT_RESULT",
+                },
+                "acceptance": {
+                    "correctness": ["reference agreement"],
+                    "performance": ["interleaved CUDA-event median"],
+                    "upstream": "A generic guarded implementation.",
+                },
             },
         )
         atomic_json(
             oracle_path,
-            {"hidden_until_after_trial": True, "known_family": "operator-fusion"},
+            {
+                "schema_version": "community-hidden-oracle-v1",
+                "task_id": "heldout.logits",
+                "visibility": "HIDDEN_UNTIL_BOTH_ARMS_COMPLETE",
+                "reference_pr": "https://github.com/other/project/pull/8",
+                "reference_commit": "a" * 40,
+                "snapshot_id": "b" * 20,
+                "snapshot_manifest_sha256": "c" * 64,
+                "solution_families": ["operator-fusion"],
+                "key_mechanism": "Fuse the projection with its consumer.",
+                "known_risks": ["numerical tolerance"],
+                "observed_reference": {"claim_boundary": "TEST_FIXTURE_ONLY"},
+            },
         )
         prompt_path.write_text("Optimize the frozen task under its budget.\n")
         support_path.write_text(
@@ -259,6 +307,7 @@ def main() -> None:
                 "model_identity": "same-model-same-settings",
                 "prompt_identity": identity(prompt_path, suite_dir),
                 "environment_identity": identity(environment_path, suite_dir),
+                "task_packet_contract": "STRICT_V2",
                 "budgets": {
                     "wall_clock_seconds": 900,
                     "max_command_seconds": 120,
@@ -301,6 +350,22 @@ def main() -> None:
         suite_path = suite_dir / "suite.json"
         atomic_json(suite_path, suite)
         assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+
+        valid_task_packet = json.loads(task_path.read_text(encoding="utf-8"))
+        invalid_task_packet = json.loads(task_path.read_text(encoding="utf-8"))
+        invalid_task_packet["workload"]["shape_weights"]["B=1"] = 0.9
+        atomic_json(task_path, invalid_task_packet)
+        suite["tasks"][0]["packet"] = identity(task_path, suite_dir)
+        atomic_json(suite_path, suite)
+        try:
+            validate_suite(suite_path, corpus, ROOT)
+        except ValueError as error:
+            assert "shape weights sum" in str(error)
+        else:
+            raise AssertionError("strict task weights not summing to one were accepted")
+        atomic_json(task_path, valid_task_packet)
+        suite["tasks"][0]["packet"] = identity(task_path, suite_dir)
+        atomic_json(suite_path, suite)
 
         schedule_dir = base / "scheduled"
         schedule_result = materialize_suite(
