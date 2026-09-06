@@ -40,10 +40,19 @@ Act as the isolated executor for this materialized optimization trial.
      ranking under `evidence/` with the suspected global bottleneck, an upper
      bound, and at least one structural alternative. Do this before consulting
      community knowledge so the prior cannot replace target reasoning.
-   - In a COMMUNITY_AUGMENTED trial, query the graph narrowly after that
-     ranking. Inspect at most two applicable event cards first. If
-     `knowledge/methods.json` exists, inspect at most two method cards whose
-     problem signatures match the frozen opportunity. Prefer cards with an
+   - Before consulting any prior, record a `prior_gate` beside the opportunity
+     ranking: diagnosis confidence, the leading local candidate, its expected
+     ceiling, the largest unresolved risk, and whether knowledge has positive
+     expected value. A high-confidence structural candidate may be screened
+     first. Consult knowledge only when the diagnosis is uncertain, the local
+     candidate fails, or its measured result leaves a material gap to the
+     defensible bound. Knowledge availability alone is not a reason to read it.
+   - In a COMMUNITY_AUGMENTED trial whose gate opens, spend at most 10% of the
+     wall budget on retrieval and query the graph narrowly. Inspect one
+     applicable event card first and a second only if it resolves a named
+     uncertainty. If `knowledge/methods.json` exists, apply the same rule to at
+     most two method cards whose problem signatures and hard requirements match
+     the frozen opportunity. Prefer cards with an
      explicit `algorithmic_decomposition`: instantiate its partition axis,
      local state, combine rule, and finalization for this operator before
      tuning launch parameters. If a method is selected, either evaluate at
@@ -53,13 +62,19 @@ Act as the isolated executor for this materialized optimization trial.
      Falling back to a familiar implementation does not count as method
      realization. Method cards are discovery priors, never target performance
      evidence.
-   - Record `NO_RELEVANT_COMMUNITY_PRIOR` and/or `NO_RELEVANT_METHOD_PRIOR`
-     independently when the corresponding source has no applicable entry. Do
-     not force an unrelated analogy merely to claim that knowledge was used.
+   - Record `PRIOR_GATE_CLOSED` when local evidence makes retrieval negative
+     expected value. Otherwise record `NO_RELEVANT_COMMUNITY_PRIOR` and/or
+     `NO_RELEVANT_METHOD_PRIOR` independently when the corresponding source has
+     no applicable entry. Do not force an unrelated analogy merely to claim
+     that knowledge was used. A prior-selected candidate must displace or
+     materially modify the frozen local plan; merely attaching a method label
+     to the same candidate does not count as realization.
    - Do not spend more than two evaluated candidates in one architecture
      family without a measured material improvement. After that, change the
-     work decomposition or stop that branch. Reserve the final 20% of wall
-     time for held-out correctness and integration evidence.
+     work decomposition or stop that branch. Stop candidate search by the
+     runner's explicit phase deadline and reserve at least the final 30% of wall
+     time for one held-out pass, evidence hashes, and a valid conservative
+     result. Optional prose is the first thing to drop near the deadline.
    - Stop early when the measured result reaches the task's defensible bound,
      or when all remaining candidates have an estimated ceiling below the
      frozen material-speedup threshold. Record why stopping is rational.
