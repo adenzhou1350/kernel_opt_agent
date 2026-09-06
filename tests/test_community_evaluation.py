@@ -36,6 +36,7 @@ from community_knowledge import (
     capture_pr,
     sha256_file,
 )
+from community_trial_runner import command_for
 from test_community_knowledge import FakeGitHubClient, event_for
 from method_library import build_snapshot
 
@@ -116,6 +117,11 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
 
 
 def main() -> None:
+    runner_command = command_for("codex", Path("trial"), "test-model", "high")
+    assert "--json" in runner_command
+    assert "--output-schema" not in runner_command
+    assert "--dangerously-bypass-approvals-and-sandbox" in runner_command
+
     assert exact_two_sided_sign_p(3, 0) == 0.25
     repeated = summarize_pair_rows(
         [

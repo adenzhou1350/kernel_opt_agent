@@ -143,6 +143,10 @@ python scripts/kernel_opt.py community-eval prepare-source \
 python scripts/kernel_opt.py community-eval validate-source \
   --trial /path/to/materialized-schedule/trials/001-control
 
+python scripts/community_trial_runner.py \
+  --trial /path/to/materialized-schedule/trials/001-control \
+  --model gpt-5.6-sol --reasoning-effort high
+
 python scripts/kernel_opt.py community-eval audit-execution \
   --trial /path/to/materialized-schedule/trials/001-control \
   --sandbox-mode AUDITED_UNRESTRICTED
@@ -186,3 +190,7 @@ lower bound above the frozen technical-repair budget. An audited unrestricted
 run is therefore evidence only when its complete transcript passes this gate.
 Strict assessment additionally binds the passing audit to the current trial and
 result hashes, so editing a result after audit cannot silently enter a comparison.
+`community_trial_runner.py` captures stdout and stderr directly, hard-stops a
+trial after its frozen wall budget plus startup grace, and deliberately performs
+local result validation instead of weakening the repository schema to fit a
+provider's smaller structured-output JSON Schema dialect.

@@ -1,0 +1,118 @@
+#!/usr/bin/env python3
+"""Run one materialized community A/B trial with auditable Codex JSONL logs."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import shutil
+import subprocess
+import sys
+from pathlib import Path
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--trial", type=Path, required=True)
+    parser.add_argument("--model", default="gpt-5.6-sol")
+    parser.add_argument("--reasoning-effort", default="high")
+    parser.add_argument("--startup-grace-seconds", type=int, default=30)
+    parser.add_argument("--codex", default="codex")
+    return parser.parse_args()
+
+
+def command_for(
+    codex: str, trial: Path, model: str, reasoning_effort: str
+) -> list[str]:
+    # Do not pass input/result.schema.json as --output-schema.  The repository
+    # schema is intentionally stronger than the structured-output provider
+    # subset (for example, it uses uniqueItems).  The completed result is
+    # validated locally by audit-execution and assess-trial instead.
+    return [
+        codex,
+        "exec",
+        "--dangerously-bypass-approvals-and-sandbox",
+        "--skip-git-repo-check",
+        "--ephemeral",
+        "--ignore-user-config",
+        "--ignore-rules",
+        "--json",
+        "-C",
+        str(trial),
+        "-m",
+        model,
+        "-c",
+        f'model_reasoning_effort="{reasoning_effort}"',
+        "-o",
+        str(trial / "result.json"),
+        "-",
+    ]
+
+
+def main() -> int:
+    args = parse_args()
+    trial = args.trial.resolve()
+    manifest_path = trial / "trial.json"
+    executor_path = trial / "input" / "executor.md"
+    if not manifest_path.is_file() or not executor_path.is_file():
+        raise FileNotFoundError("materialized trial or executor prompt is missing")
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    wall_budget = int(manifest["budget"]["wall_clock_seconds"])
+    if args.startup_grace_seconds < 0:
+        raise ValueError("startup grace must be non-negative")
+    timeout = wall_budget + args.startup_grace_seconds
+    codex = shutil.which(args.codex)
+    if codex is None:
+        raise FileNotFoundError(f"Codex executable not found: {args.codex}")
+    command = command_for(codex, trial, args.model, args.reasoning_effort)
+    prompt = executor_path.read_text(encoding="utf-8")
+    transcript_path = trial / "executor.jsonl"
+    stderr_path = trial / "executor.stderr.log"
+    with transcript_path.open("w", encoding="utf-8", newline="\n") as stdout_file:
+        with stderr_path.open("w", encoding="utf-8", newline="\n") as stderr_file:
+            process = subprocess.Popen(
+                command,
+                cwd=trial,
+                stdin=subprocess.PIPE,
+                stdout=stdout_file,
+                stderr=stderr_file,
+                text=True,
+                encoding="utf-8",
+            )
+            try:
+                process.communicate(prompt, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                print(
+                    json.dumps(
+                        {
+                            "status": "TIMEOUT",
+                            "trial_id": manifest["trial_id"],
+                            "timeout_seconds": timeout,
+                        },
+                        sort_keys=True,
+                    )
+                )
+                return 124
+    print(
+        json.dumps(
+            {
+                "status": "COMPLETE" if process.returncode == 0 else "FAILED",
+                "trial_id": manifest["trial_id"],
+                "returncode": process.returncode,
+                "transcript": transcript_path.name,
+                "stderr": stderr_path.name,
+            },
+            sort_keys=True,
+        )
+    )
+    return process.returncode
+
+
+if __name__ == "__main__":
+    try:
+        raise SystemExit(main())
+    except (FileNotFoundError, ValueError, json.JSONDecodeError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        raise SystemExit(2)
