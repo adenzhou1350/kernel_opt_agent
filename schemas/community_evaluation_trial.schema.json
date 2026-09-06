@@ -69,6 +69,8 @@
     "result_contract": {"$ref": "#/$defs/identity"},
     "executor_prompt": {"$ref": "#/$defs/identity"},
     "frontier_contract": {"$ref": "#/$defs/identity"},
+    "opportunity_ranking_contract": {"$ref": "#/$defs/identity"},
+    "frontier_closure_contract": {"$ref": "#/$defs/identity"},
     "task_support": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identity"}},
     "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
     "method_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},

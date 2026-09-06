@@ -559,6 +559,8 @@ def main() -> None:
         assert (control_dir / "input" / "result.schema.json").is_file()
         assert (control_dir / "input" / "executor.md").is_file()
         assert (control_dir / "input" / "frontier_contract.json").is_file()
+        assert (control_dir / "input" / "opportunity-ranking.schema.json").is_file()
+        assert (control_dir / "input" / "frontier-closure.schema.json").is_file()
         executor_text = (control_dir / "input" / "executor.md").read_text(
             encoding="utf-8"
         )

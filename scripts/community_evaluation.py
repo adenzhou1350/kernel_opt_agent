@@ -779,6 +779,8 @@ def materialize_trial(
     result_schema_target = output / "input" / "result.schema.json"
     executor_prompt_target = output / "input" / "executor.md"
     frontier_contract_target = output / "input" / "frontier_contract.json"
+    ranking_schema_target = output / "input" / "opportunity-ranking.schema.json"
+    closure_schema_target = output / "input" / "frontier-closure.schema.json"
     shutil.copyfile(task_source, task_target)
     shutil.copyfile(prompt_source, prompt_target)
     shutil.copyfile(environment_source, environment_target)
@@ -789,6 +791,14 @@ def materialize_trial(
     shutil.copyfile(
         root / "knowledge" / "community" / "executor_prompt.md",
         executor_prompt_target,
+    )
+    shutil.copyfile(
+        root / "schemas" / "community_opportunity_ranking.schema.json",
+        ranking_schema_target,
+    )
+    shutil.copyfile(
+        root / "schemas" / "community_frontier_closure.schema.json",
+        closure_schema_target,
     )
     build_frontier_contract(
         task_target,
@@ -875,6 +885,10 @@ def materialize_trial(
         "result_contract": identity_for(result_schema_target, output),
         "executor_prompt": identity_for(executor_prompt_target, output),
         "frontier_contract": identity_for(frontier_contract_target, output),
+        "opportunity_ranking_contract": identity_for(
+            ranking_schema_target, output
+        ),
+        "frontier_closure_contract": identity_for(closure_schema_target, output),
         "task_support": support_identities,
         "community_graph": graph_identity,
         "method_snapshot": method_identity,
@@ -1049,6 +1063,23 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
             raise ValueError(
                 "invalid trial frontier contract: " + "; ".join(frontier_errors)
             )
+        for field, label, schema_name in (
+            (
+                "opportunity_ranking_contract",
+                "opportunity ranking contract",
+                "community_opportunity_ranking.schema.json",
+            ),
+            (
+                "frontier_closure_contract",
+                "frontier closure contract",
+                "community_frontier_closure.schema.json",
+            ),
+        ):
+            if trial.get(field) is None:
+                raise ValueError(f"trial frontier contract requires {label}")
+            validate_identity(trial_dir, trial[field], f"trial {label}")
+            if trial[field]["sha256"] != sha256_file(root / "schemas" / schema_name):
+                raise ValueError(f"trial {label} does not match repository schema")
     for identity in trial.get("task_support", []):
         support_path = validate_identity(trial_dir, identity, "trial task support")
         try:

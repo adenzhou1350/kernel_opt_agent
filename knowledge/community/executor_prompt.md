@@ -1,7 +1,8 @@
 Act as the isolated executor for this materialized optimization trial.
 
 1. Read and follow `input/prompt.md`, `input/task.json`, `input/environment.json`,
-   `trial.json`, `source_receipt.json`, `input/result.schema.json`, and any
+   `trial.json`, `source_receipt.json`, `input/result.schema.json`,
+   `input/opportunity-ranking.schema.json`, `input/frontier-closure.schema.json`, and any
    hash-bound task support under `harness/`.
 2. Treat the current trial directory as the complete information boundary. Do
    not inspect its parent, sibling trials, any other checkout, Codex history, or
