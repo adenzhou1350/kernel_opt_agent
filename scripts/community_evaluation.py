@@ -1064,23 +1064,19 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
             raise ValueError(
                 "invalid trial frontier contract: " + "; ".join(frontier_errors)
             )
-        for field, label, schema_name in (
+        for field, label in (
             (
                 "opportunity_ranking_contract",
                 "opportunity ranking contract",
-                "community_opportunity_ranking.schema.json",
             ),
             (
                 "frontier_closure_contract",
                 "frontier closure contract",
-                "community_frontier_closure.schema.json",
             ),
         ):
             if trial.get(field) is None:
                 raise ValueError(f"trial frontier contract requires {label}")
             validate_identity(trial_dir, trial[field], f"trial {label}")
-            if trial[field]["sha256"] != sha256_file(root / "schemas" / schema_name):
-                raise ValueError(f"trial {label} does not match repository schema")
     for identity in trial.get("task_support", []):
         support_path = validate_identity(trial_dir, identity, "trial task support")
         try:
@@ -1158,9 +1154,12 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
     closure_path = validate_identity(
         trial_dir, closure_identity, "trial frontier closure"
     )
-    closure_errors = validate_json_file(
-        closure_path, root / "schemas" / "community_frontier_closure.schema.json"
+    closure_schema_path = validate_identity(
+        trial_dir,
+        trial["frontier_closure_contract"],
+        "trial frontier closure contract",
     )
+    closure_errors = validate_json_file(closure_path, closure_schema_path)
     if closure_errors:
         raise ValueError("invalid frontier closure: " + "; ".join(closure_errors))
     contract = read_object(contract_path)
@@ -1173,9 +1172,12 @@ def validate_frontier_closure(trial_dir: Path, trial: dict, result: dict,
         closure["opportunity_ranking_identity"],
         "trial opportunity ranking",
     )
-    ranking_errors = validate_json_file(
-        ranking_path, root / "schemas" / "community_opportunity_ranking.schema.json"
+    ranking_schema_path = validate_identity(
+        trial_dir,
+        trial["opportunity_ranking_contract"],
+        "trial opportunity ranking contract",
     )
+    ranking_errors = validate_json_file(ranking_path, ranking_schema_path)
     if ranking_errors:
         raise ValueError("invalid opportunity ranking: " + "; ".join(ranking_errors))
     ranking = read_object(ranking_path)
