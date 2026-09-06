@@ -40,6 +40,7 @@
   "validation_recipe": [
     "Repeat each arm to distinguish nondeterminism from stable cross-arm divergence.",
     "For exact contracts compare token IDs or output bytes, not decoded display text alone.",
+    "Verify that both arms use the same declared precision, reduction policy and semantic oracle; label a higher-precision control separately instead of treating it as stock-baseline identity.",
     "Locate the first mismatching element and preserve both full-output hashes for diagnosis.",
     "Rerun the fixed-budget performance experiment only after correctness passes on current source."
   ],
@@ -50,6 +51,7 @@
   "failure_modes": [
     "Each arm is internally repeatable, so their different outputs are mistakenly called equivalent.",
     "A semantic change is hidden behind aggregate quality metrics even though the public contract requires exact identity.",
+    "Only the candidate is recomputed in higher precision and equality to a separately recomputed reference is misreported as identity to the stock low-precision baseline.",
     "Only the first output token is checked while divergence occurs later.",
     "Candidate throughput is published while correctness is marked pending."
   ],

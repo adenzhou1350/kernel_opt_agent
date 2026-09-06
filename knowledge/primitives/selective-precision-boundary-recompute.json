@@ -1,0 +1,111 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-selective-precision-boundary-recompute",
+  "title": "Escalate only decision-boundary cases to a precision-stable recomputation",
+  "kind": "SEARCH_STRATEGY",
+  "source": {
+    "title": "vLLM issue #42518 plus RTX 4060 Qwen3.5 MTP numerical-invariance reproduction",
+    "url": "https://github.com/vllm-project/vllm/issues/42518",
+    "version": "issue-42518-plus-sm89-local-reproduction-2026-09-06",
+    "available_at": "2026-09-06T15:41:31Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "A local Qwen3.5-0.8B MTP reproduction isolated an early greedy-token flip to a BF16 near-tie under one-token versus two-token target shapes; an always-on FP32 lm_head restored 16-token agreement against an FP32 baseline for one prompt but was slower than the stock BF16 baseline. Selective fallback is therefore an unproven candidate family, not an accepted correctness or performance result."
+  },
+  "opportunity_families": [
+    "numerical-invariance",
+    "selective-precision",
+    "decision-boundary-recompute",
+    "speculative-decoding"
+  ],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["float16", "bfloat16", "fp8", "int8", "int4"],
+    "problem_signatures": [
+      "near tie",
+      "top1 top2 margin",
+      "argmax flip",
+      "batch shape",
+      "multi-token",
+      "numerical invariance",
+      "greedy mismatch",
+      "selective precision"
+    ]
+  },
+  "implementation_recipe": [
+    "Localize the first semantic divergence and compare the baseline and candidate decision margins before changing state-management code.",
+    "Estimate the ambiguous-row rate under a frozen workload using a preregistered margin rule; do not choose the threshold after observing the desired speed result.",
+    "Generate a fast path that retains the original low-precision execution and a fallback that recomputes only ambiguous rows with a declared precision-stable or shape-invariant reference policy.",
+    "Keep fallback detection and recomputation on device when possible, scatter only corrected decisions, and include detection, synchronization and recomputation costs in the production-impact bound.",
+    "Apply the same declared reference policy to control and candidate arms when claiming exact identity; candidate-only higher precision does not reproduce a stock low-precision oracle by definition."
+  ],
+  "validation_recipe": [
+    "Freeze whether the contract is stock-bitwise identity, identity to a higher-precision reference, a numerical tolerance, or a quality property before candidate generation.",
+    "Exercise adversarial low-margin prompts and shapes as well as ordinary anchor cases, and retain first-divergence logits, margins and output hashes.",
+    "Measure fallback frequency, false-negative rate, detector cost, recomputation cost and end-to-end latency against both the all-fast and always-high-precision controls.",
+    "Derive an Amdahl-style break-even fallback rate before implementation and reject the family when the optimistic ceiling cannot clear the materiality floor.",
+    "Require held-out correctness and fixed-budget interleaved timing before promoting the candidate beyond diagnostic status."
+  ],
+  "expected_bottleneck_shifts": [
+    "When ambiguous decisions are rare, selective recomputation can preserve most fast-path throughput while moving residual cost to margin detection and sparse fallback dispatch.",
+    "When ambiguity is common or fallback granularity is coarse, high-precision matrix work and synchronization replace the original numerical mismatch as the dominant cost.",
+    "A precision-stable reference may intentionally define a different semantic contract from a stock low-precision baseline."
+  ],
+  "failure_modes": [
+    "A candidate-only FP32 recomputation is claimed to match a BF16 baseline even though the two arms implement different reference policies.",
+    "The low-precision top-two margin fails to predict which decisions change under the declared reference precision.",
+    "A full-vocabulary top-two scan, host synchronization or dense recomputation erases the multi-token speedup.",
+    "A threshold tuned on the measured prompts overfits and misses held-out boundary cases.",
+    "One prompt that becomes equal is generalized into universal numerical invariance.",
+    "An early near-tie is mistaken for proof that later recurrent-state advancement and rollback are correct."
+  ],
+  "scope_limits": [
+    "The RTX 4060 experiment establishes a reusable diagnostic and candidate-generation prior; it does not prove that selective recomputation is correct or profitable.",
+    "The observed MTP hidden-state divergence begins before rollback, but the exact backbone component responsible remains unidentified.",
+    "Exact stock-low-precision identity may be impossible to guarantee with a different execution shape without sequential replay; use the public contract rather than convenience to decide admissibility.",
+    "Always-on high precision is a control and upper-quality reference, not automatically a production solution."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A low-precision decision is cheap but may change when execution shape or reduction order changes near a discrete decision boundary.",
+    "partition_axis": "rows confidently separated from the decision boundary versus ambiguous rows requiring recomputation",
+    "local_state": [
+      "fast-path logits or decision statistics",
+      "frozen ambiguity threshold",
+      "ambiguous-row mask",
+      "reference-precision result"
+    ],
+    "combine_rule": "Retain fast-path decisions for certified non-ambiguous rows and replace only ambiguous rows with results from the declared reference policy.",
+    "finalization": "Emit decisions only after the contract-specific fallback is complete and bind the selected path and output to evidence.",
+    "work_complexity": "Fast-path work for every row plus detector cost and reference recomputation proportional to the ambiguous-row rate and fallback granularity.",
+    "span_complexity": "The fallback lies on the critical path for ambiguous rows unless it can be overlapped or fused without violating the contract.",
+    "communication_cost": "Adds an ambiguity mask and optional sparse dispatch; host-visible branching adds synchronization and should be treated as a high-risk implementation.",
+    "invariants": [
+      "the correctness contract is frozen before threshold selection",
+      "both comparison arms use the same declared reference policy",
+      "no ambiguous row bypasses required recomputation",
+      "the measured denominator includes detector and fallback overhead",
+      "diagnostic evidence is not promoted as accepted speedup"
+    ],
+    "anti_patterns": [
+      "patch recurrent state before localizing the first divergence",
+      "candidate-only precision escalation under a stock-identity claim",
+      "threshold tuning on the test set",
+      "ignore fallback-rate economics",
+      "infer general correctness from one resolved tie"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "decision-boundary-recompute",
+      "name": "device-side low-margin selective recomputation",
+      "change_axes": [
+        "ambiguity statistic",
+        "reference precision",
+        "fallback granularity",
+        "device-side dispatch"
+      ],
+      "template": "Detect rows near a frozen decision boundary on the fast path, recompute only those rows with the declared precision-stable policy, and admit the candidate only when held-out correctness and the break-even fallback-rate bound both pass."
+    }
+  ]
+}

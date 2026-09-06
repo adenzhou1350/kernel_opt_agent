@@ -40,6 +40,7 @@
   "validation_recipe": [
     "Freeze prompt tokens, sampling parameters, seed, dtype, CUDA-graph mode and output-length policy across baseline and candidate.",
     "For temperature-zero inference, require exact output-token identity against the non-speculative greedy baseline before interpreting throughput.",
+    "At the first mismatch, compare target logits, decision margins and hidden states from the earliest multi-token verification before assuming recurrent-state rollback is responsible.",
     "Measure acceptance length, rejected-token fraction, target passes, time to first token, inter-token latency and end-to-end throughput together.",
     "Use a persistent engine and interleaved repetitions; report cold initialization, compilation and steady state separately."
   ],
@@ -57,7 +58,8 @@
   ],
   "scope_limits": [
     "This is a candidate-generation prior, not a guarantee that speculative decoding is lossless or faster.",
-    "An RTX 4060 Qwen3.5-0.8B reproduction observed about 1.24-1.26x raw potential for native MTP-1, but failed exact greedy identity at output token four; that measurement is negative correctness evidence, not an accepted speedup.",
+    "An RTX 4060 Qwen3.5-0.8B reproduction observed about 1.20-1.24x raw potential for native MTP-1, but failed exact greedy identity at output token four; the mismatch was localized to a BF16 near-tie with hidden-state differences already present in the first multi-token verification, before rollback could corrupt prior state.",
+    "An always-on FP32 lm_head restored 16-token agreement against an FP32 baseline for the reproduced prompt but made MTP slower than the stock BF16 baseline; that control is diagnostic evidence, not an accepted fix.",
     "The technique changes model-level orchestration and may be outside a kernel-only task's public contract."
   ],
   "algorithmic_decomposition": {
