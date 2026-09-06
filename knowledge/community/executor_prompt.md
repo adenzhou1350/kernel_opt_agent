@@ -25,6 +25,11 @@ Act as the isolated executor for this materialized optimization trial.
    number. The execution auditor treats every failed or declined shell command
    as at least one technical repair. Stop before starting a command that could
    make that lower bound exceed `max_technical_repairs`.
+   A candidate that compiles and runs but fails correctness or performance is
+   a causal screening result, not a broken harness. Screening drivers must
+   catch that outcome, write a structured `FAIL` record, and exit zero. Reserve
+   nonzero process exits for compiler/import/timeout/harness failures. Never use
+   an uncaught assertion to report an ordinary candidate rejection.
 6. Use a staged search policy rather than reading every available idea up
    front:
    - First inspect the task and hot-path source, then freeze a short opportunity

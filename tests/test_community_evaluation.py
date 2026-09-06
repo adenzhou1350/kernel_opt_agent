@@ -333,6 +333,11 @@ def main() -> None:
         assert not (community_dir / "input" / "oracle.json").exists()
         assert (control_dir / "input" / "result.schema.json").is_file()
         assert (control_dir / "input" / "executor.md").is_file()
+        executor_text = (control_dir / "input" / "executor.md").read_text(
+            encoding="utf-8"
+        )
+        assert "causal screening result" in executor_text
+        assert "exit zero" in executor_text
         assert (control_dir / "input" / "environment.json").is_file()
         assert (control_dir / "harness" / "baseline.py").is_file()
         assert (community_dir / "harness" / "baseline.py").is_file()

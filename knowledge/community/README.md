@@ -94,6 +94,11 @@ baseline adapter, correctness oracle interface and timing driver that contain no
 held-out solution. This keeps application-shaped tooling in the suite rather
 than polluting the reusable hardware `microbench/` catalog.
 
+Support drivers use a three-way outcome contract: `PASS` and causal candidate
+`FAIL` both produce a valid structured artifact and exit zero; only
+`TECHNICAL_FAILURE` exits nonzero. This separation prevents an expected
+correctness rejection from exhausting the bounded harness-repair budget.
+
 ```bash
 python scripts/kernel_opt.py community-eval validate-suite \
   --suite /path/to/suite/suite.json --corpus /path/to/corpus

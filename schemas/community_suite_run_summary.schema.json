@@ -16,13 +16,15 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["order_index", "task_id", "repeat_index", "arm", "status", "violations", "audit_identity", "assessment_identity", "metrics"],
+        "required": ["order_index", "task_id", "repeat_index", "arm", "status", "completion_status", "material_improvement", "violations", "audit_identity", "assessment_identity", "metrics"],
         "properties": {
           "order_index": {"type": "integer", "minimum": 1},
           "task_id": {"type": "string", "minLength": 1},
           "repeat_index": {"type": "integer", "minimum": 1},
           "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
           "status": {"enum": ["PASS", "INVALID", "INCOMPLETE"]},
+          "completion_status": {"type": ["string", "null"]},
+          "material_improvement": {"type": ["boolean", "null"]},
           "violations": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
           "audit_identity": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
           "assessment_identity": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},

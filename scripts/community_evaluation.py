@@ -926,6 +926,22 @@ def assess_trial(
     heldout = [
         item for item in correct if item["heldout_correctness"] == "PASS"
     ]
+    environment = read_object(
+        validate_identity(
+            trial_dir, trial["environment_input"], "trial runtime environment"
+        )
+    )
+    constraints = " ".join(
+        str(item).lower() for item in environment.get("known_constraints", [])
+    )
+    integration_environment_missing = (
+        trial["source_checkout"]["repository"].lower().endswith("/vllm")
+        and "no installed" in constraints
+        and (
+            "development environment" in constraints
+            or "integration environment" in constraints
+        )
+    )
     assessment = {
         "schema_version": ASSESSMENT_SCHEMA,
         "generated_at": now(),
@@ -958,8 +974,10 @@ def assess_trial(
                     if item["whole_model_speedup"] is not None
                 ]
             ),
-            "upstream_ready_count": sum(
-                1 for item in heldout if item["upstream_ready"]
+            "upstream_ready_count": (
+                0
+                if integration_environment_missing
+                else sum(1 for item in heldout if item["upstream_ready"])
             ),
         },
         "budget_usage": usage,
@@ -1386,6 +1404,8 @@ def summarize_schedule_run(
         audit_identity = None
         assessment_identity = None
         metrics = None
+        completion_status = None
+        material_improvement = None
         if audit_path.is_file():
             audit_errors = validate_json_file(
                 audit_path,
@@ -1410,11 +1430,40 @@ def summarize_schedule_run(
                         violations = ["INVALID_ASSESSMENT"]
                     else:
                         assessment = read_object(assessment_path)
+                        result_path = trial_dir / "result.json"
+                        result_errors = validate_json_file(
+                            result_path,
+                            root / "schemas" / "community_trial_result.schema.json",
+                        )
+                        if result_errors:
+                            status = "INVALID"
+                            violations = ["INVALID_RESULT"]
+                            rows.append(
+                                {
+                                    "order_index": entry["order_index"],
+                                    "task_id": entry["task_id"],
+                                    "repeat_index": entry["repeat_index"],
+                                    "arm": entry["arm"],
+                                    "status": status,
+                                    "completion_status": None,
+                                    "material_improvement": None,
+                                    "violations": violations,
+                                    "audit_identity": audit_identity,
+                                    "assessment_identity": None,
+                                    "metrics": None,
+                                }
+                            )
+                            continue
+                        result = read_object(result_path)
                         status = "PASS"
                         assessment_identity = identity_for(
                             assessment_path, schedule_path.parent
                         )
                         metrics = assessment["metrics"]
+                        completion_status = result["completion_status"]
+                        material_improvement = (
+                            metrics["time_to_first_improvement_seconds"] is not None
+                        )
                 else:
                     violations = ["ASSESSMENT_MISSING"]
         else:
@@ -1426,6 +1475,8 @@ def summarize_schedule_run(
                 "repeat_index": entry["repeat_index"],
                 "arm": entry["arm"],
                 "status": status,
+                "completion_status": completion_status,
+                "material_improvement": material_improvement,
                 "violations": violations,
                 "audit_identity": audit_identity,
                 "assessment_identity": assessment_identity,
