@@ -1,0 +1,120 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "triton-row-reduction-fusion",
+  "title": "Fuse a bounded row reduction with its affine producer and consumers",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "Triton Layer Normalization tutorial",
+    "url": "https://github.com/triton-lang/triton/blob/e721911705a44f634bedc8089b4fe57015e1ffc7/python/tutorials/05-layer-norm.py",
+    "version": "commit e721911705a44f634bedc8089b4fe57015e1ffc7, referenced by upstream issue 2243",
+    "available_at": "2023-09-05T00:00:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The upstream tutorial demonstrates one-program-per-row LayerNorm reduction and fused affine work. Transfer to RMSNorm, strided views, extra producers/consumers, exact cast boundaries, and current hardware requires operator-specific correctness and timing evidence."
+  },
+  "opportunity_families": [
+    "row-reduction",
+    "normalization-fusion",
+    "operator-fusion",
+    "materialization-removal",
+    "strided-input-fusion",
+    "shape-specialization"
+  ],
+  "applicability": {
+    "vendors": ["ANY"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": ["float16", "bfloat16", "float32"],
+    "problem_signatures": [
+      "rmsnorm",
+      "rms norm",
+      "layernorm",
+      "layer norm",
+      "normalization",
+      "row reduction",
+      "sum of squares",
+      "affine",
+      "modulation",
+      "strided",
+      "residual",
+      "materialization",
+      "launch"
+    ]
+  },
+  "implementation_recipe": [
+    "Map one independent logical row to one program when the full reduction state fits the implementation limit; mask the power-of-two tail and keep accumulator math in the contract-required precision.",
+    "Load each producer input with its actual strides, compute the row summary locally, finalize the reciprocal scale, and apply affine or modulation consumers before storing outputs.",
+    "Audit every dtype boundary before fusion. When an intermediate must be bit-exact, explicitly round or materialize at that boundary instead of reassociating producer arithmetic.",
+    "Pre-register a multi-stage partial-reduction alternative and shape-specialized dispatch when the row is too wide or the number of rows is too small for useful occupancy.",
+    "Measure the fused row, split exact-producer plus row-reduction, and framework-compiled controls before tuning warps or launch parameters."
+  ],
+  "validation_recipe": [
+    "Test singleton and non-power-of-two row counts, the maximum supported feature width, and every declared contiguous or strided layout.",
+    "Check required intermediate outputs separately from final normalized outputs; use bit equality where the frozen contract requires a cast or rounding boundary.",
+    "Measure dominant shapes and optional paths independently, including a small-row launch-latency case and a large-row bandwidth or occupancy case.",
+    "Reject a fused variant that improves the weighted mean by regressing a protected case beyond its frozen guard."
+  ],
+  "expected_bottleneck_shifts": [
+    "Removed launches and intermediate rereads can shift the kernel to row-reduction latency, register pressure, or memory bandwidth.",
+    "At very small row counts, one-program-per-row can expose insufficient parallelism; at very wide rows, local state can exceed practical compiler or register limits.",
+    "Explicit strided loads can replace framework materialization but may reduce coalescing and make address generation visible."
+  ],
+  "failure_modes": [
+    "Producer fusion changes a required low-precision rounding boundary or floating-point association.",
+    "A superficially similar ordered prefix/scan is used even though only a commutative row summary is required.",
+    "The complete row is forced into one program after register pressure or row width makes a tiled partial reduction faster.",
+    "The implementation assumes contiguous modulation parameters and silently mishandles a legal strided view.",
+    "Launch-count reasoning is treated as a numeric performance ceiling without target measurements."
+  ],
+  "scope_limits": [
+    "The tutorial's LayerNorm benchmark is not target performance evidence for RMSNorm or a composed model operator.",
+    "One-program-per-row is a candidate decomposition, not a universal optimum; multi-stage or persistent decompositions remain open when rows are wide or sparse.",
+    "Fusion is legal only across numerical, aliasing, output-materialization, and ABI boundaries allowed by the frozen operator contract."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A framework expression materializes producer values, launches a row summary reduction, then rereads values and parameters for normalization and affine consumers.",
+    "partition_axis": "Assign independent logical rows to programs; lanes cover the feature axis and reduce a masked FP32 local sum or sum of squares.",
+    "local_state": [
+      "masked row values or recomputable producer values",
+      "one FP32 row summary accumulator",
+      "the finalized reciprocal normalization scale",
+      "optional exact-rounded intermediate required by the contract"
+    ],
+    "combine_rule": "Use the commutative row reduction specified by the operator, such as a sum or sum of squares; do not substitute an ordered prefix decomposition.",
+    "finalization": "Compute the row scale, apply affine/modulation consumers with explicit strides, and store every contract-required output exactly once.",
+    "work_complexity": "O(rows * features) useful arithmetic with no full-size intermediate reread when the contract permits register reuse.",
+    "span_complexity": "One bounded intra-program row reduction plus final elementwise work; use a hierarchical partial reduction when the row cannot fit safely.",
+    "communication_cost": "In the single-row form, no global partial buffer; otherwise one compact summary per tile plus a finalization launch.",
+    "invariants": [
+      "each logical row reduces only its own valid feature elements",
+      "masked lanes contribute the reduction identity",
+      "all legal input strides and independent output layouts are honored",
+      "required low-precision rounding boundaries and protected optional paths are preserved"
+    ],
+    "anti_patterns": [
+      "apply a prefix-scan card to a commutative row summary",
+      "flatten independent rows into a cross-row reduction",
+      "erase a mandatory observable intermediate during fusion",
+      "tune warps repeatedly without screening split and shape-specialized decompositions"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "single-program-row-fusion",
+      "name": "one program per logical row",
+      "change_axes": ["launch count", "materialized traffic", "row reduction", "strided affine loads"],
+      "template": "Compute the legal producer, local row summary, normalization, and consumers in one row program while explicitly preserving required dtype boundaries."
+    },
+    {
+      "family": "split-exact-row-fusion",
+      "name": "exact producer boundary plus fused row consumer",
+      "change_axes": ["numerical boundary", "producer materialization", "consumer fusion", "optional path"],
+      "template": "Keep only the producer operations needed for exact intermediate semantics, then fuse the row reduction and remaining consumers."
+    },
+    {
+      "family": "hierarchical-row-reduction",
+      "name": "partial summaries plus finalization",
+      "change_axes": ["row tiles", "parallel width", "partial traffic", "shape dispatch"],
+      "template": "For wide or under-parallel rows, compute per-tile summaries and combine them before a final normalization/consumer pass."
+    }
+  ]
+}

@@ -17,7 +17,7 @@
         "title": {"type": "string", "minLength": 1}, "url": {"type": "string", "pattern": "^https://"},
         "version": {"type": "string", "minLength": 1},
         "available_at": {"type": "string", "format": "date-time"},
-        "evidence_tier": {"enum": ["PEER_REVIEWED_PRIMARY", "VENDOR_OFFICIAL_GUIDANCE", "PRIMARY_PREPRINT", "INTERNAL_REPRODUCTION"]},
+        "evidence_tier": {"enum": ["PEER_REVIEWED_PRIMARY", "VENDOR_OFFICIAL_GUIDANCE", "PROJECT_OFFICIAL_GUIDANCE", "PRIMARY_PREPRINT", "INTERNAL_REPRODUCTION"]},
         "claim_scope": {"type": "string", "minLength": 1}
       }
     },

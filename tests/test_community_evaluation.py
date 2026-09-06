@@ -19,6 +19,7 @@ from community_evaluation import (
     audit_task_packets,
     audit_codex_execution,
     assess_trial,
+    build_prior_shortlist,
     compare_trials,
     exact_two_sided_sign_p,
     materialize_suite,
@@ -425,6 +426,35 @@ def main() -> None:
         )
         cutoff = captured_at + timedelta(hours=1)
         atomic_json(methods_path, build_snapshot(cutoff.isoformat(), ROOT))
+        modulation_task_path = assets / "modulation-task.json"
+        atomic_json(
+            modulation_task_path,
+            {
+                "objective": "Fuse a strided modulation and residual path.",
+                "operator": {
+                    "equation": "rms = rsqrt(sum of squares); output = residual + normalized * affine",
+                    "input_shapes": ["x[S,2048]", "scale[S,1]", "shift[S,1]"],
+                    "input_dtype": "bfloat16",
+                    "output_dtype": "bfloat16",
+                    "layout": "row activation with strided modulation views",
+                    "numerical_contract": "Preserve the residual rounding boundary.",
+                },
+                "workload": {"primary_mode": "row reduction normalization"},
+                "baseline": {"implementation": "materialized eager launches"},
+            },
+        )
+        shortlist_path = assets / "modulation-shortlist.json"
+        shortlist = build_prior_shortlist(
+            modulation_task_path,
+            environment_path,
+            graph_path,
+            methods_path,
+            shortlist_path,
+            ROOT,
+        )
+        shortlisted_methods = [row["id"] for row in shortlist["methods"]]
+        assert shortlisted_methods[0] == "triton-row-reduction-fusion"
+        assert "cuda-hierarchical-scan-decomposition" not in shortlisted_methods
         suite = {
             "schema_version": "community-temporal-suite-v1",
             "suite_id": "example.temporal-v1",

@@ -17,7 +17,7 @@
     "architecture_affinity": [],
     "required_capabilities": [],
     "dtypes": ["any"],
-    "problem_signatures": ["prefix", "cumulative", "scan", "threshold", "ordered", "row", "serial", "dependency", "reduction"]
+    "problem_signatures": ["prefix", "cumulative", "scan", "threshold", "ordered", "serial", "dependency"]
   },
   "implementation_recipe": [
     "Write the apparent serial recurrence as an explicit state transition and determine whether chunk summaries have an associative or otherwise composable combine rule.",

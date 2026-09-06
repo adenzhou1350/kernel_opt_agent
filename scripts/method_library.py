@@ -19,7 +19,7 @@ SCHEMA = "optimization-method-v1"
 RECEIPT_SCHEMA = "method-match-receipt-v1"
 SNAPSHOT_SCHEMA = "optimization-method-snapshot-v1"
 INPUT_PATHS = ("operator.json", "workload.json", "hardware.json", "models/opportunity_map.json")
-EVIDENCE_WEIGHTS = {"PEER_REVIEWED_PRIMARY": 3.0, "VENDOR_OFFICIAL_GUIDANCE": 2.5, "PRIMARY_PREPRINT": 2.0, "INTERNAL_REPRODUCTION": 2.0}
+EVIDENCE_WEIGHTS = {"PEER_REVIEWED_PRIMARY": 3.0, "VENDOR_OFFICIAL_GUIDANCE": 2.5, "PROJECT_OFFICIAL_GUIDANCE": 2.5, "PRIMARY_PREPRINT": 2.0, "INTERNAL_REPRODUCTION": 2.0}
 
 
 def now() -> str:
