@@ -24,6 +24,8 @@ from community_evaluation import (
     materialize_suite,
     materialize_trial,
     prepare_trial_source,
+    prior_scalar_text,
+    prior_term_in_text,
     summarize_pair_rows,
     summarize_schedule_run,
     validate_source_receipt,
@@ -117,6 +119,9 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
 
 
 def main() -> None:
+    assert prior_term_in_text("row", "row-wise reduction")
+    assert "prefix" not in prior_scalar_text({"windows_prefix": "/mnt/d"})
+    assert not prior_term_in_text("io", "materialization")
     runner_command = command_for("codex", Path("trial"), "test-model", "high")
     assert "--json" in runner_command
     assert "--output-schema" not in runner_command
@@ -427,6 +432,19 @@ def main() -> None:
         assert not (control_dir / "knowledge").exists()
         assert (community_dir / "knowledge" / "community_graph.json").is_file()
         assert (community_dir / "knowledge" / "methods.json").is_file()
+        shortlist_path = community_dir / "knowledge" / "prior_shortlist.json"
+        assert shortlist_path.is_file()
+        shortlist = json.loads(shortlist_path.read_text(encoding="utf-8"))
+        assert shortlist["schema_version"] == "community-prior-shortlist-v1"
+        assert shortlist["policy"]["hard_gate_policy"] == "FAIL_CLOSED"
+        assert len(shortlist["events"]) <= 2
+        assert len(shortlist["methods"]) <= 2
+        community_manifest = json.loads(
+            (community_dir / "trial.json").read_text(encoding="utf-8")
+        )
+        assert community_manifest["prior_shortlist"] == identity(
+            shortlist_path, community_dir
+        )
         assert not (control_dir / "input" / "oracle.json").exists()
         assert not (community_dir / "input" / "oracle.json").exists()
         assert (control_dir / "input" / "result.schema.json").is_file()

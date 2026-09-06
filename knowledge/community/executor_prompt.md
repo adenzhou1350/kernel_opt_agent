@@ -48,7 +48,10 @@ Act as the isolated executor for this materialized optimization trial.
      candidate fails, or its measured result leaves a material gap to the
      defensible bound. Knowledge availability alone is not a reason to read it.
    - In a COMMUNITY_AUGMENTED trial whose gate opens, spend at most 10% of the
-     wall budget on retrieval and query the graph narrowly. Inspect one
+     wall budget on retrieval. When `knowledge/prior_shortlist.json` exists,
+     inspect it first and do not scan the full graph or method snapshot unless
+     the shortlist records a named unresolved uncertainty requiring one
+     additional lookup. Inspect one
      applicable event card first and a second only if it resolves a named
      uncertainty. If `knowledge/methods.json` exists, apply the same rule to at
      most two method cards whose problem signatures and hard requirements match

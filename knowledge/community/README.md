@@ -97,7 +97,15 @@ artifacts remain readable.
 
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
-community graph; an augmented trial contains only the frozen graph. Neither arm
+community graph; an augmented trial contains only the frozen graph. During
+materialization, augmented trials also receive a task-specific
+`knowledge/prior_shortlist.json`. It fail-closes on compute capability, vendor,
+required capability and context gates, uses phrase-boundary problem matching,
+excludes generic evaluation/search cards from candidate-generation slots, and
+contains at most two events and two transformation/orchestration methods. Its
+task, environment, graph and method inputs are hash-bound. This avoids charging
+the Agent for repeatedly parsing the full knowledge corpus and prevents fields
+such as `windows_prefix` from spuriously matching a `prefix` algorithm. Neither arm
 receives the hidden oracle. Each trial also carries a hash-bound JSON result
 contract so an isolated executor does not have to guess the reporting format.
 The materialized executor prompt also freezes the filesystem boundary, runtime

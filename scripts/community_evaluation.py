@@ -38,6 +38,7 @@ SOURCE_RECEIPT_SCHEMA = "community-trial-source-receipt-v1"
 EXECUTION_AUDIT_SCHEMA = "community-trial-execution-audit-v1"
 SUITE_RUN_SUMMARY_SCHEMA = "community-suite-run-summary-v1"
 TASK_PACKET_AUDIT_SCHEMA = "community-task-packet-audit-v1"
+PRIOR_SHORTLIST_SCHEMA = "community-prior-shortlist-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -48,6 +49,120 @@ METRICS = {
     "WHOLE_MODEL_SPEEDUP",
     "UPSTREAM_READINESS",
 }
+
+PRIOR_STOPWORDS = {
+    "and", "the", "with", "from", "into", "while", "where", "that", "this",
+    "same", "must", "under", "without", "input", "output", "historical", "path",
+    "tensor", "tensors", "runtime", "single", "device", "candidate", "baseline",
+}
+
+
+def prior_tokens(value: object) -> set[str]:
+    text = prior_scalar_text(value)
+    return {
+        token for token in re.findall(r"[a-z][a-z0-9_+-]{2,}", text)
+        if token not in PRIOR_STOPWORDS
+    }
+
+
+def prior_scalar_text(value: object) -> str:
+    if isinstance(value, dict):
+        return " ".join(prior_scalar_text(item) for item in value.values())
+    if isinstance(value, list):
+        return " ".join(prior_scalar_text(item) for item in value)
+    return str(value).lower()
+
+
+def target_compute_capability(environment: dict) -> str | None:
+    target = environment.get("target", environment)
+    value = target.get("compute_capability") if isinstance(target, dict) else None
+    if isinstance(value, list) and len(value) == 2:
+        return f"{value[0]}.{value[1]}"
+    match = re.search(r"sm\s*([0-9])([0-9])", json.dumps(environment).lower())
+    return f"{match.group(1)}.{match.group(2)}" if match else None
+
+
+def prior_term_in_text(term: str, text: str) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", " ", term.lower()).strip()
+    if not normalized:
+        return False
+    pattern = r"(?<![a-z0-9])" + r"\s+".join(
+        re.escape(part) for part in normalized.split()
+    ) + r"(?![a-z0-9])"
+    normalized_text = re.sub(r"[^a-z0-9]+", " ", text.lower())
+    return re.search(pattern, normalized_text) is not None
+
+
+def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: Path,
+                          methods_path: Path | None, output: Path, root: Path) -> dict:
+    task = read_object(task_path)
+    environment = read_object(environment_path)
+    graph = read_object(graph_path)
+    methods = read_object(methods_path) if methods_path is not None else None
+    query = prior_tokens({"objective": task.get("objective"), "operator": task.get("operator"),
+                          "workload": task.get("workload"), "baseline": task.get("baseline")})
+    task_text = prior_scalar_text(task)
+    context_text = prior_scalar_text({"task": task, "environment": environment})
+    capability = target_compute_capability(environment)
+    event_rows, method_rows = [], []
+    rejected = {"event_hard_gate": 0, "event_low_relevance": 0,
+                "method_hard_gate": 0, "method_low_relevance": 0}
+    for node in graph["nodes"]:
+        hard = node["hard_requirements"]
+        required_cc = hard["compute_capabilities"]
+        required_terms = hard["required_context_terms"]
+        if ((required_cc and capability not in required_cc)
+                or any(not prior_term_in_text(term, context_text) for term in required_terms)):
+            rejected["event_hard_gate"] += 1
+            continue
+        hits = sorted(query & prior_tokens({
+            "summary": node["summary"], "rewrite_families": node["rewrite_families"],
+            "operators": node["operators"], "subsystems": node["subsystems"]}))
+        if len(hits) < 2:
+            rejected["event_low_relevance"] += 1
+            continue
+        event_rows.append({"id": node["event_id"], "score": float(len(hits)),
+                           "matched_terms": hits, "record": node})
+    for card in (methods or {}).get("cards", []):
+        if card["kind"] not in {"TRANSFORMATION", "ORCHESTRATION"}:
+            rejected["method_low_relevance"] += 1
+            continue
+        applicability = card["applicability"]
+        vendors = {item.lower() for item in applicability["vendors"]}
+        vendor_ok = "any" in vendors or ("nvidia" in context_text and "nvidia" in vendors)
+        capabilities_ok = all(item.lower() in context_text for item in applicability["required_capabilities"])
+        affinities = applicability["architecture_affinity"]
+        affinity_ok = not affinities or any(item.lower() in context_text for item in affinities)
+        if not vendor_ok or not capabilities_ok or not affinity_ok:
+            rejected["method_hard_gate"] += 1
+            continue
+        hits = sorted({term.lower() for term in applicability["problem_signatures"]
+                       if prior_term_in_text(term, task_text)})
+        if len(hits) < 2:
+            rejected["method_low_relevance"] += 1
+            continue
+        kind_bonus = 2.0 if card["kind"] == "TRANSFORMATION" else 1.0
+        method_rows.append({"id": card["method_id"],
+                            "score": float(len(hits)) + kind_bonus,
+                            "matched_terms": hits, "record": card})
+    event_rows.sort(key=lambda row: (-row["score"], row["id"]))
+    method_rows.sort(key=lambda row: (-row["score"], row["id"]))
+    receipt = {
+        "schema_version": PRIOR_SHORTLIST_SCHEMA, "generated_at": now(),
+        "claim_boundary": "DISCOVERY_PRIOR_ONLY",
+        "inputs": {"task": identity_for(task_path, task_path.parent.parent),
+                   "environment": identity_for(environment_path, environment_path.parent.parent),
+                   "graph": identity_for(graph_path, graph_path.parent.parent),
+                   "methods": identity_for(methods_path, methods_path.parent.parent) if methods_path else None},
+        "policy": {"max_events": 2, "max_methods": 2, "minimum_token_hits": 2,
+                   "hard_gate_policy": "FAIL_CLOSED"},
+        "events": event_rows[:2], "methods": method_rows[:2], "rejections": rejected,
+    }
+    errors = validate_instance(receipt, read_object(root / "schemas" / "community_prior_shortlist.schema.json"))
+    if errors:
+        raise ValueError("invalid prior shortlist: " + "; ".join(errors))
+    atomic_json(output, receipt)
+    return receipt
 
 
 def repository_root() -> Path:
@@ -647,6 +762,7 @@ def materialize_trial(
 
     graph_identity = None
     method_identity = None
+    prior_shortlist_identity = None
     knowledge_policy = "WITHHELD"
     method_policy = "WITHHELD"
     if arm == "COMMUNITY_AUGMENTED":
@@ -666,6 +782,16 @@ def materialize_trial(
             shutil.copyfile(method_source, method_target)
             method_identity = identity_for(method_target, output)
             method_policy = "FROZEN_SNAPSHOT_ONLY"
+        shortlist_target = output / "knowledge" / "prior_shortlist.json"
+        build_prior_shortlist(
+            task_target,
+            environment_target,
+            graph_target,
+            method_target if method_identity is not None else None,
+            shortlist_target,
+            root,
+        )
+        prior_shortlist_identity = identity_for(shortlist_target, output)
 
     trial_id = f"{suite['suite_id']}.{task_id}.r{repeat_index}.{arm.lower()}"
     manifest = {
@@ -704,6 +830,7 @@ def materialize_trial(
         "task_support": support_identities,
         "community_graph": graph_identity,
         "method_snapshot": method_identity,
+        "prior_shortlist": prior_shortlist_identity,
     }
     errors = validate_instance(
         manifest,
@@ -876,7 +1003,12 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
     graph = trial["community_graph"]
     methods = trial.get("method_snapshot")
     if trial["arm"] == "CONTROL":
-        if graph is not None or methods is not None or (trial_dir / "knowledge").exists():
+        if (
+            graph is not None
+            or methods is not None
+            or trial.get("prior_shortlist") is not None
+            or (trial_dir / "knowledge").exists()
+        ):
             raise ValueError("control trial must not contain community knowledge")
     else:
         if graph is None:
@@ -890,6 +1022,20 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
             )
             if method_errors:
                 raise ValueError("invalid trial method snapshot: " + "; ".join(method_errors))
+        shortlist = trial.get("prior_shortlist")
+        if shortlist is not None:
+            shortlist_path = validate_identity(
+                trial_dir, shortlist, "trial prior shortlist"
+            )
+            shortlist_errors = validate_json_file(
+                shortlist_path,
+                root / "schemas" / "community_prior_shortlist.schema.json",
+            )
+            if shortlist_errors:
+                raise ValueError(
+                    "invalid trial prior shortlist: "
+                    + "; ".join(shortlist_errors)
+                )
     return trial
 
 

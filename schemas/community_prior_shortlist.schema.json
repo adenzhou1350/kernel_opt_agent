@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_prior_shortlist.schema.json",
+  "title": "Task-specific cutoff-safe community prior shortlist",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "inputs", "policy", "events", "methods", "rejections"],
+  "properties": {
+    "schema_version": {"const": "community-prior-shortlist-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DISCOVERY_PRIOR_ONLY"},
+    "inputs": {
+      "type": "object", "additionalProperties": false,
+      "required": ["task", "environment", "graph", "methods"],
+      "properties": {
+        "task": {"$ref": "#/$defs/identity"},
+        "environment": {"$ref": "#/$defs/identity"},
+        "graph": {"$ref": "#/$defs/identity"},
+        "methods": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
+      }
+    },
+    "policy": {
+      "type": "object", "additionalProperties": false,
+      "required": ["max_events", "max_methods", "minimum_token_hits", "hard_gate_policy"],
+      "properties": {
+        "max_events": {"type": "integer", "minimum": 0, "maximum": 2},
+        "max_methods": {"type": "integer", "minimum": 0, "maximum": 2},
+        "minimum_token_hits": {"type": "integer", "minimum": 1},
+        "hard_gate_policy": {"const": "FAIL_CLOSED"}
+      }
+    },
+    "events": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/match"}},
+    "methods": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/match"}},
+    "rejections": {
+      "type": "object", "additionalProperties": false,
+      "required": ["event_hard_gate", "event_low_relevance", "method_hard_gate", "method_low_relevance"],
+      "properties": {
+        "event_hard_gate": {"type": "integer", "minimum": 0},
+        "event_low_relevance": {"type": "integer", "minimum": 0},
+        "method_hard_gate": {"type": "integer", "minimum": 0},
+        "method_low_relevance": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false, "required": ["path", "sha256"],
+      "properties": {"path": {"type": "string", "minLength": 1}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}
+    },
+    "match": {
+      "type": "object", "additionalProperties": false,
+      "required": ["id", "score", "matched_terms", "record"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "score": {"type": "number", "minimum": 0},
+        "matched_terms": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "record": {"type": "object"}
+      }
+    }
+  }
+}

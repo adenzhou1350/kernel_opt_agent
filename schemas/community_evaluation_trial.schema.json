@@ -70,7 +70,8 @@
     "executor_prompt": {"$ref": "#/$defs/identity"},
     "task_support": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identity"}},
     "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
-    "method_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
+    "method_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+    "prior_shortlist": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
   },
   "$defs": {
     "identity": {
