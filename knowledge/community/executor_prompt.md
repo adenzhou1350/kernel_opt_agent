@@ -7,6 +7,10 @@ Act as the isolated executor for this materialized optimization trial.
    not inspect its parent, sibling trials, any other checkout, Codex history, or
    network resource. The only editable production source is `source/`; place
    supporting measurements and logs under `evidence/`.
+   When `harness/` provides a baseline snapshot/bootstrap operation, run it
+   before the first production-source edit. Use the supplied correctness and
+   timing driver instead of rebuilding equivalent scaffolding. A task-specific
+   harness is a shared measurement instrument, not a candidate suggestion.
 3. The source tree deliberately has no `.git` metadata. Do not initialize a
    remote or fetch anything. The source receipt binds the historical commit and
    every starting file; do not modify the receipt or any file under `input/` or
