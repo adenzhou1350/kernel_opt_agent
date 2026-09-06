@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "persistent_session_receipt.schema.json",
+  "title": "Hash-bound persistent worker session receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "started_at", "finished_at", "spec_identity", "session_scope", "session_identity", "switching_supported", "process_launches", "engine_init_count", "setup_seconds", "steady_state_seconds", "request_count", "requests", "worker_exit_code", "stdout", "stderr", "failure"],
+  "properties": {
+    "schema_version": {"const": "persistent-session-receipt-v1"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "finished_at": {"type": "string", "format": "date-time"},
+    "spec_identity": {"$ref": "#/$defs/identity"},
+    "session_scope": {"enum": ["SINGLE_TREATMENT", "SHARED_TREATMENTS"]},
+    "session_identity": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+    "switching_supported": {"type": ["boolean", "null"]},
+    "process_launches": {"const": 1},
+    "engine_init_count": {"type": ["integer", "null"], "minimum": 1},
+    "setup_seconds": {"type": "number", "minimum": 0},
+    "steady_state_seconds": {"type": "number", "minimum": 0},
+    "request_count": {"type": "integer", "minimum": 0},
+    "requests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["request_id", "treatment_identity", "duration_seconds", "output_digest", "measurement"],
+        "properties": {
+          "request_id": {"type": "string", "minLength": 1},
+          "treatment_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "duration_seconds": {"type": "number", "minimum": 0},
+          "output_digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "measurement": {}
+        }
+      }
+    },
+    "worker_exit_code": {"type": "integer"},
+    "stdout": {"$ref": "#/$defs/identity"},
+    "stderr": {"$ref": "#/$defs/identity"},
+    "failure": {"type": ["string", "null"]}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

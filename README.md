@@ -82,6 +82,7 @@ python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
 python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
 python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
 python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-id <id>
+python3 scripts/kernel_opt.py persistent-run --root runs/<run-id> --spec runs/<run-id>/persistent-session.json --output runs/<run-id>/persistent-session-receipt.json
 ```
 
 The default opportunity map requires 4--12 quantified opportunities across at
@@ -123,6 +124,16 @@ measurement for plan review. Candidates are ranked by weighted screening gain
 and at most two are promoted by default. Screening records prediction-versus-
 observation residuals. Its timing is a routing signal, not
 production acceptance evidence.
+
+For models whose load, compilation or CUDA Graph capture dominates the actual
+candidate measurement, `persistent-run` sends a bounded request list through
+exactly one worker process. The worker must identify one engine initialization,
+declare whether safe in-process treatment switching is supported, echo each
+treatment identity, and return an output SHA-256. Single-treatment sessions
+amortize setup without weakening isolation. Shared-treatment sessions fail
+closed unless the worker explicitly supports identity-preserving switching.
+Startup, per-request and shutdown timeouts remain separate, and receipts/logs
+are immutable: reruns use a new output path.
 
 Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture

@@ -91,6 +91,17 @@ persistent engine is admissible only when in-process switching is eligible and
 preserves treatment identity; otherwise use isolated persistent-per-arm or
 cold-per-arm processes.
 
+Use `kernel_opt.py persistent-run` when setup, compilation, model loading or
+graph capture would otherwise be repeated for every smoke request. Its NDJSON
+`persistent-session-v1` handshake requires the worker to report exactly one
+engine initialization and a sealed session identity. Every result must echo
+the requested treatment identity and provide an output SHA-256. A
+`SINGLE_TREATMENT` worker may amortize setup across repeated prompts or shapes;
+it must not compare arms. A `SHARED_TREATMENTS` worker is legal only when it
+declares safe switching and actually returns the active treatment identity.
+Give every attempt a fresh output path: receipts and protocol logs are
+append-only evidence, including failures and timeouts.
+
 A compiler error, import error, layout/type mismatch, missing build artifact or
 invalid smoke harness is a `TECHNICAL_FAILURE`. It may be repaired repeatedly
 within the candidate's technical-attempt budget. It does not consume the
