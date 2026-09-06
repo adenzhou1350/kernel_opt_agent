@@ -1,0 +1,87 @@
+{
+  "candidate_id": "lossless-packed-lmhead-overlay-v2",
+  "opportunity_id": "sm89-lossless-lmhead-replay",
+  "name": "Losslessly packed BF16 lm_head with recursive source/binary overlay",
+  "family": "lossless-weight-layout",
+  "change_axes": [
+    "framework-dispatch",
+    "lossless-weight-layout",
+    "decode-shape-specialization",
+    "recursive-source-binary-overlay"
+  ],
+  "hypothesis": "A source-hash-bound PR checkout plus ABI-compatible wheel extensions can reproduce the exact packed lm_head path without reinstalling vLLM, while persistent sessions amortize engine startup.",
+  "expected_global_effect": "Reduce batch-one decode latency without changing the GPTQ backbone, attention, scheduler, sampling, vocabulary, checkpoint values, or binary extension build.",
+  "source_paths": [
+    "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+    "candidates/lossless-packed-lmhead/build_check.py",
+    "candidates/lossless-packed-lmhead/correctness_check.py",
+    "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+    "candidates/lossless-packed-lmhead/session-manifest.json",
+    "candidates/lossless-packed-lmhead/treatment-torch.json",
+    "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+    "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+    "candidates/lossless-packed-lmhead/session-baseline.json",
+    "candidates/lossless-packed-lmhead/session-candidate.json"
+  ],
+  "commands": {
+    "build": {
+      "argv": ["{python}", "build_check.py"],
+      "cwd": "candidates/lossless-packed-lmhead",
+      "timeout_seconds": 30
+    },
+    "correctness": {
+      "argv": ["{python}", "correctness_check.py"],
+      "cwd": "candidates/lossless-packed-lmhead",
+      "timeout_seconds": 30
+    },
+    "smoke": {
+      "argv": ["{python}", "smoke_from_receipts.py"],
+      "cwd": "candidates/lossless-packed-lmhead",
+      "timeout_seconds": 30
+    }
+  },
+  "smoke_result_path": "candidates/lossless-packed-lmhead/smoke-result-v2.json",
+  "predicted_global_gain_us": {"lower": 20000.0, "upper": 60000.0},
+  "dependency_contract": {
+    "status": "PROVEN_LEGAL",
+    "preserved_dependencies": [
+      "the original BF16 weight remains loaded and is the fallback source",
+      "the auxiliary representation reconstructs every original BF16 weight bit",
+      "the GPTQ backbone, attention, scheduler, vocabulary and greedy sampling stay unchanged",
+      "the installed binary wheel supplies extensions only; Python behavior comes from the sealed PR source"
+    ],
+    "changed_boundaries": [
+      "eligible BF16 lm_head weights receive a non-persistent auxiliary layout after loading",
+      "nested vLLM packages search the sealed source tree before the ABI-compatible binary wheel"
+    ],
+    "prohibited_rewrites": [
+      "no quantization, approximation, vocabulary shortlist, speculative decoding, skipped work or changed sampling"
+    ],
+    "numerical_ordering": "The weight representation is bit-exact, while the legal FP32 accumulation tree can differ; exact greedy token identity is required on every sealed case.",
+    "evidence": [
+      {
+        "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+        "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f",
+        "claim": "The worker rejects any drift in the exact PR implementation files before engine initialization."
+      }
+    ]
+  },
+  "execution_plan": {
+    "path": "models/candidate-execution/lossless-packed-lmhead-overlay-v2.json",
+    "sha256": "0d04b2f4bbb2173d067c892f5a22094c07059fd7fd28ca6c5fe17bfd53082725"
+  },
+  "persistent_session_specs": [
+    {
+      "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+      "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+      "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+    }
+  ],
+  "development_budget": {
+    "max_technical_attempts": 2,
+    "max_wall_clock_minutes": 20.0
+  }
+}

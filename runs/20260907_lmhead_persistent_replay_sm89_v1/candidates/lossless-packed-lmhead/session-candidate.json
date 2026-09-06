@@ -1,0 +1,49 @@
+{
+  "schema_version": "persistent-session-spec-v1",
+  "argv": [
+    "wsl",
+    "-d",
+    "Ubuntu",
+    "--",
+    "/home/aden/.venvs/qwen35-vllm-4060/bin/python",
+    "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+    "--session-manifest",
+    "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/session-manifest.json",
+    "--treatment-manifest",
+    "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+    "--source-identity",
+    "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/vllm-source-identity.json"
+  ],
+  "cwd": ".",
+  "session_scope": "SINGLE_TREATMENT",
+  "expected_session_identity": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60",
+  "startup_timeout_seconds": 420.0,
+  "request_timeout_seconds": 120.0,
+  "shutdown_timeout_seconds": 30.0,
+  "requests": [
+    {
+      "request_id": "candidate-explain",
+      "treatment_identity": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1",
+      "payload": {
+        "prompt": "Explain in Chinese why a GPU kernel can be memory-bandwidth bound.",
+        "tokens": 64
+      }
+    },
+    {
+      "request_id": "candidate-code",
+      "treatment_identity": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1",
+      "payload": {
+        "prompt": "Write a Python function that returns the prefix sums of a list.",
+        "tokens": 64
+      }
+    },
+    {
+      "request_id": "candidate-edge",
+      "treatment_identity": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1",
+      "payload": {
+        "prompt": "Return exactly three short reasons to benchmark end-to-end latency.",
+        "tokens": 64
+      }
+    }
+  ]
+}

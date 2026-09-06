@@ -1,0 +1,9 @@
+{
+  "schema_version": "production-baseline-v1",
+  "status": "VALID",
+  "correctness": {
+    "status": "PASS",
+    "evidence": []
+  },
+  "claim_scope": "REPLAY_TASK_BOOTSTRAP_ONLY"
+}

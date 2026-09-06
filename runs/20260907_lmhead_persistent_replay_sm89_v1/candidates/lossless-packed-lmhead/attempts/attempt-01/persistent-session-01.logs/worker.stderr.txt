@@ -1,0 +1,61 @@
+INFO 09-07 03:46:29 [api_utils.py:286] non-default args: {'tokenizer': '/home/aden/models/Qwen3.5-0.8B', 'dtype': 'bfloat16', 'seed': 20260907, 'max_model_len': 256, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.7, 'kv_cache_memory_bytes': 536870912, 'max_num_seqs': 1, 'disable_log_stats': True, 'language_model_only': True, 'model': '/home/aden/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-g128'}
+WARNING 09-07 03:46:29 [arg_utils.py:1764] The global random seed is set to 20260907. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+INFO 09-07 03:46:29 [model.py:691] Resolved architecture: Qwen3_5ForConditionalGeneration
+WARNING 09-07 03:46:29 [model.py:2365] Casting torch.float16 to torch.bfloat16.
+INFO 09-07 03:46:29 [model.py:2031] Using max model len 256
+WARNING 09-07 03:46:29 [model.py:991] Model does not support mm_device_do_normalize, forcing mm_device_do_normalize = False.
+Traceback (most recent call last):
+  File "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/lmhead_persistent_worker.py", line 184, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/lmhead_persistent_worker.py", line 79, in main
+    llm = LLM(
+          ^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/entrypoints/llm.py", line 343, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/v1/engine/llm_engine.py", line 176, in from_engine_args
+    vllm_config = engine_args.create_engine_config(usage_context)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/engine/arg_utils.py", line 2017, in create_engine_config
+    model_config = self.create_model_config()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/engine/arg_utils.py", line 1772, in create_model_config
+    return ModelConfig(
+           ^^^^^^^^^^^^
+  File "/home/aden/.venvs/qwen35-vllm-4060/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+    s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/config/model.py", line 855, in __post_init__
+    self.model_arch_config = self.get_model_arch_config()
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/config/model.py", line 914, in get_model_arch_config
+    supports_multimodal=self._supports_multimodal_for_mm_prefix()
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/config/model.py", line 894, in _supports_multimodal_for_mm_prefix
+    supports_mm = MULTIMODAL_REGISTRY.supports_multimodal_inputs(self)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/multimodal/registry.py", line 120, in supports_multimodal_inputs
+    info = self._create_processing_info(model_config, tokenizer=None)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/multimodal/registry.py", line 215, in _create_processing_info
+    model_cls = self._get_model_cls(model_config)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/multimodal/registry.py", line 190, in _get_model_cls
+    from vllm.model_executor.model_loader import get_model_architecture
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/model_loader/__init__.py", line 11, in <module>
+    from vllm.model_executor.model_loader.base_loader import BaseModelLoader
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/model_loader/base_loader.py", line 12, in <module>
+    from vllm.model_executor.model_loader.reload import finalize_layerwise_processing
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/model_loader/reload/__init__.py", line 29, in <module>
+    from .layerwise import (
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/model_loader/reload/layerwise.py", line 12, in <module>
+    from vllm.model_executor.layers.attention import is_deferred_attention_layer
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/layers/attention/__init__.py", line 15, in <module>
+    from vllm.model_executor.layers.attention.mm_encoder_attention import MMEncoderAttention
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/layers/attention/mm_encoder_attention.py", line 33, in <module>
+    from vllm.v1.attention.backends.fa_utils import get_flash_attn_version
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/v1/attention/backends/fa_utils.py", line 24, in <module>
+    from vllm.vllm_flash_attn import (  # type: ignore[attr-defined]
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/vllm_flash_attn/__init__.py", line 34, in <module>
+    raise ImportError(
+ImportError: vllm.vllm_flash_attn requires the CUDA flash attention extensions (_vllm_fa2_C or _vllm_fa3_C). On ROCm, use upstream flash_attn.

@@ -1,0 +1,25 @@
+{
+  "schema_version": "lmhead-prior-evidence-v1",
+  "claim_scope": "PRIOR_DISCOVERY_EVIDENCE_FOR_REPLAY_SELECTION_ONLY",
+  "hardware": "NVIDIA GeForce RTX 4060 Laptop GPU, SM89",
+  "model": "Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-g128",
+  "baseline_weighted_end_to_end_us": 344440.4206666623,
+  "candidate_weighted_end_to_end_us": 304207.2740000018,
+  "observed_speedup": 1.1322557022967843,
+  "exact_greedy_token_matches": 6,
+  "lm_head_time_us_per_decode_token": 2105.0,
+  "source_receipts": [
+    {
+      "path": "runs/20260905_qwen35_08b_gptq_backbone_sm89_v1/raw/stock_marlin_power_matched_r43.json",
+      "sha256": "3cb213f7c05e1b67bb6d8aaab13ac51fb71dec29fb46d1c0d1d13170a017bdd6"
+    },
+    {
+      "path": "runs/20260905_qwen35_08b_gptq_backbone_sm89_v1/candidates/adaptive-lossless-lmhead/raw_r44.json",
+      "sha256": "f657f7bbf34af004d5bc8d09d2cca804c800dc3800736ecadb7a2feb8d20db71"
+    },
+    {
+      "path": "runs/20260905_qwen35_08b_gptq_backbone_sm89_v1/models/round37_imported_evidence.json",
+      "sha256": "708cc8587a5e928ffa0d7355480d271768e57b9aedf95f0c8adf2ca52d51e8fc"
+    }
+  ]
+}

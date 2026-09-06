@@ -1,0 +1,12 @@
+{
+  "schema_version": "candidate-phase-timing-replay-v1",
+  "claim_scope": "ROUTING_ONLY_FROM_PRIOR_SAME_GPU_MEASUREMENT",
+  "source": "runs/20260905_qwen35_08b_gptq_backbone_sm89_v1/candidates/adaptive-lossless-lmhead/raw_r44.json",
+  "timing_accounting": {
+    "setup_seconds": 126.570620977,
+    "compile_seconds": 0.0,
+    "warmup_seconds": 1.0,
+    "steady_state_seconds": 0.912621822,
+    "steady_state_samples": 3
+  }
+}

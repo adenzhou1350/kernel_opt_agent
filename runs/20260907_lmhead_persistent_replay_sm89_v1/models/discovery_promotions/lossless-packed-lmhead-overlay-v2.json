@@ -1,0 +1,128 @@
+{
+  "candidate_id": "lossless-packed-lmhead-overlay-v2",
+  "change_axes": [
+    "framework-dispatch",
+    "lossless-weight-layout",
+    "decode-shape-specialization",
+    "recursive-source-binary-overlay"
+  ],
+  "claims_allowed": [
+    "candidate survived discovery screening and may enter supervised qualification"
+  ],
+  "claims_forbidden": [
+    "production acceptance",
+    "SOTA",
+    "theoretical limit",
+    "portable hardware fact"
+  ],
+  "execution_plan": {
+    "path": "models/candidate-execution/lossless-packed-lmhead-overlay-v2.json",
+    "sha256": "0d04b2f4bbb2173d067c892f5a22094c07059fd7fd28ca6c5fe17bfd53082725"
+  },
+  "expected_global_effect": "Reduce batch-one decode latency without changing the GPTQ backbone, attention, scheduler, sampling, vocabulary, checkpoint values, or binary extension build.",
+  "family": "lossless-weight-layout",
+  "hypothesis": "A source-hash-bound PR checkout plus ABI-compatible wheel extensions can reproduce the exact packed lm_head path without reinstalling vLLM, while persistent sessions amortize engine startup.",
+  "opportunity_id": "sm89-lossless-lmhead-replay",
+  "prediction_check": {
+    "claim_scope": "DISCOVERY_ONLY",
+    "observed_global_gain_us": 29662.066837772727,
+    "predicted_midpoint_us": 40000.0,
+    "residual_us": -10337.933162227273
+  },
+  "promoted_at": "2026-09-06T19:55:59.522099+00:00",
+  "reachability": {
+    "compile_cache_policy": "SOURCE_HASHED",
+    "evidence": [
+      {
+        "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+        "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+      },
+      {
+        "path": "models/candidate-execution/lossless-packed-lmhead-overlay-v2.json",
+        "sha256": "0d04b2f4bbb2173d067c892f5a22094c07059fd7fd28ca6c5fe17bfd53082725"
+      },
+      {
+        "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-01.json",
+        "sha256": "192ab88737f236f4089627a6908b58a6931dac79bea573791ba3ad391086a3ab"
+      },
+      {
+        "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-02.json",
+        "sha256": "6691641f5ee9c1e39531720e24af5367377f04a1edb4600a053c4dba95508b09"
+      },
+      {
+        "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-02.logs/worker.stdout.ndjson",
+        "sha256": "2f43e4f61e989912c19c25c8bd6477b28e8f1778b4d38d8b8c70379ae75ddcb1"
+      }
+    ],
+    "execution_proof": {
+      "evidence_index": 4,
+      "kind": "KERNEL_INSTANCE_COUNT",
+      "minimum_count": 1,
+      "observed_count": 8,
+      "scope": "profiled candidate warmup generation"
+    },
+    "expected_path": "vllm.lossless_packed_bf16_lm_head",
+    "observed_path": "vllm.lossless_packed_bf16_lm_head",
+    "status": "PASS"
+  },
+  "schema_version": "discovery-promotion-v1",
+  "screening": {
+    "improvement_percent": 9.381587950835026,
+    "objective": {
+      "baseline": 316173.2000298798,
+      "candidate": 286511.1331921071,
+      "direction": "minimize",
+      "measurement_window": "STEADY_STATE_ONLY",
+      "unit": "us_weighted"
+    },
+    "result": {
+      "path": "candidates/lossless-packed-lmhead/smoke-result-v2.json",
+      "sha256": "57fe40f491905d928085ed626d46a0ebd9f6b5f149ede9fbf080dcb1ee96415c"
+    },
+    "status": "PASS",
+    "threshold_percent": 1.0
+  },
+  "source_identities": [
+    {
+      "path": "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+      "sha256": "41e7db5b244d8e372d182442eeeeb2a0222ab0dc74974e5e65a0531e0c72acb8"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/build_check.py",
+      "sha256": "05d90b0e23f909cfe7a6c01e5469b4f67444ce8bc4d54b2fcbc4f9de646bd0fa"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/correctness_check.py",
+      "sha256": "3c179b9a8c33d4438428ab807cfc36f8a785b818f58054ce643b11887c66fd62"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+      "sha256": "73f1776f379ea1d559b05c972d2bfbf444da235176c6cdf9a0795181af245900"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-manifest.json",
+      "sha256": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/treatment-torch.json",
+      "sha256": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+      "sha256": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+      "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+      "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+      "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+    }
+  ],
+  "status": "QUALIFICATION_CONTRACT_REQUIRED"
+}

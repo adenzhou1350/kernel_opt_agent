@@ -1,0 +1,1 @@
+{"failure": null, "receipt": "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead-overlay-v2\\attempts\\attempt-01\\persistent-session-01.json", "status": "PASS"}

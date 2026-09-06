@@ -1,0 +1,725 @@
+{
+  "candidates": [
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "reason": "PERSISTENT_SESSION_FAILED",
+          "source_before": [
+            {
+              "path": "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+              "sha256": "a0afa4375119e49fa8abc01438e59b5d5ca19ca1ebfd3306c24eb60c58334eec"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/build_check.py",
+              "sha256": "05d90b0e23f909cfe7a6c01e5469b4f67444ce8bc4d54b2fcbc4f9de646bd0fa"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/correctness_check.py",
+              "sha256": "3c179b9a8c33d4438428ab807cfc36f8a785b818f58054ce643b11887c66fd62"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+              "sha256": "1e47ca6f1a579b1660fdb426c11194ddfdb7999586b14e9f9408bae489d54a5f"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-manifest.json",
+              "sha256": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-torch.json",
+              "sha256": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+              "sha256": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+              "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+              "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+              "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+            }
+          ],
+          "stages": [
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "build_check.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.12952,
+              "exit_code": 0,
+              "stage": "build",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-01/build.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-01/build.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "correctness_check.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.117405,
+              "exit_code": 0,
+              "stage": "correctness",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-01/correctness.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-01/correctness.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "D:\\codes\\kernel_opt_agent\\scripts\\persistent_session_runner.py",
+                "--root",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1",
+                "--spec",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\session-baseline.json",
+                "--output",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\attempts\\attempt-01\\persistent-session-01.json"
+              ],
+              "cwd": ".",
+              "duration_seconds": 29.37589,
+              "exit_code": 1,
+              "stage": "persistent-session-01",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-01/persistent-session-01.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-01/persistent-session-01.stdout.txt",
+                "sha256": "56c09537b6c35c6ea396ac539af35c71ed90a945d03dd5d6c2228353bb5eb5c4"
+              },
+              "timed_out": false
+            }
+          ],
+          "started_at": "2026-09-06T19:46:03.507193+00:00",
+          "status": "TECHNICAL_FAILURE"
+        },
+        {
+          "attempt": 2,
+          "reason": "PERSISTENT_SESSION_FAILED",
+          "source_before": [
+            {
+              "path": "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+              "sha256": "c28bb6fb81dd450783e21b359c8f44296c015d75dbf216dd17c1e7c25227cb12"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/build_check.py",
+              "sha256": "05d90b0e23f909cfe7a6c01e5469b4f67444ce8bc4d54b2fcbc4f9de646bd0fa"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/correctness_check.py",
+              "sha256": "3c179b9a8c33d4438428ab807cfc36f8a785b818f58054ce643b11887c66fd62"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+              "sha256": "1e47ca6f1a579b1660fdb426c11194ddfdb7999586b14e9f9408bae489d54a5f"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-manifest.json",
+              "sha256": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-torch.json",
+              "sha256": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+              "sha256": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+              "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+              "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+              "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+            }
+          ],
+          "stages": [
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "build_check.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.139443,
+              "exit_code": 0,
+              "stage": "build",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/build.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/build.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "correctness_check.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.123097,
+              "exit_code": 0,
+              "stage": "correctness",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/correctness.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/correctness.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "D:\\codes\\kernel_opt_agent\\scripts\\persistent_session_runner.py",
+                "--root",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1",
+                "--spec",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\session-baseline.json",
+                "--output",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\attempts\\attempt-02\\persistent-session-01.json"
+              ],
+              "cwd": ".",
+              "duration_seconds": 59.281965,
+              "exit_code": 1,
+              "stage": "persistent-session-01",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/persistent-session-01.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/persistent-session-01.stdout.txt",
+                "sha256": "bc4a21cefcdedf49791409a0696d4df70da8f684208297cdd9c98ed13b9bf02c"
+              },
+              "timed_out": false
+            }
+          ],
+          "started_at": "2026-09-06T19:47:20.053694+00:00",
+          "status": "TECHNICAL_FAILURE"
+        }
+      ],
+      "candidate_id": "lossless-packed-lmhead",
+      "change_axes": [
+        "framework-dispatch",
+        "lossless-weight-layout",
+        "decode-shape-specialization",
+        "bounded-load-time-preprocessing"
+      ],
+      "commands": {
+        "build": {
+          "argv": [
+            "{python}",
+            "build_check.py"
+          ],
+          "cwd": "candidates/lossless-packed-lmhead",
+          "timeout_seconds": 30
+        },
+        "correctness": {
+          "argv": [
+            "{python}",
+            "correctness_check.py"
+          ],
+          "cwd": "candidates/lossless-packed-lmhead",
+          "timeout_seconds": 30
+        },
+        "smoke": {
+          "argv": [
+            "{python}",
+            "smoke_from_receipts.py"
+          ],
+          "cwd": "candidates/lossless-packed-lmhead",
+          "timeout_seconds": 30
+        }
+      },
+      "created_at": "2026-09-06T19:45:53.224116+00:00",
+      "dependency_contract": {
+        "changed_boundaries": [
+          "eligible BF16 lm_head weights receive a non-persistent auxiliary layout after loading",
+          "eligible M=1 projections execute a source-hash-bound Triton kernel"
+        ],
+        "evidence": [
+          {
+            "claim": "The replay worker validates and loads the exact vLLM PR source files before engine initialization.",
+            "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+            "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+          }
+        ],
+        "numerical_ordering": "The weight representation is bit-exact, while the legal FP32 accumulation tree can differ; promotion therefore requires exact greedy token identity on all frozen anchor and edge cases.",
+        "preserved_dependencies": [
+          "the original BF16 weight remains loaded and is the fallback source",
+          "the auxiliary representation reconstructs every original BF16 weight bit",
+          "the GPTQ backbone, attention, scheduler, vocabulary and greedy sampling stay unchanged",
+          "ineligible dtypes, layouts and request shapes use the stock method"
+        ],
+        "prohibited_rewrites": [
+          "no quantization or approximation of the output head",
+          "no vocabulary shortlist, speculative decoding, skipped work or changed sampling"
+        ],
+        "status": "PROVEN_LEGAL"
+      },
+      "development_budget": {
+        "max_technical_attempts": 2,
+        "max_wall_clock_minutes": 20.0
+      },
+      "execution_plan": {
+        "path": "models/candidate-execution/lossless-packed-lmhead.json",
+        "sha256": "d48ca49e76087356bda330ded619c4b08accdbd594f2ec78f9d0fee8f63005a2"
+      },
+      "expected_global_effect": "Reduce batch-one decode latency without changing the GPTQ backbone, attention, scheduler, sampling policy, vocabulary, or checkpoint values.",
+      "family": "lossless-weight-layout",
+      "hypothesis": "An exact auxiliary encoding of the BF16 output weight reduces M=1 memory traffic enough to improve complete requests while preserving greedy output tokens.",
+      "latest_failure": {
+        "at": "2026-09-06T19:48:19.599907+00:00",
+        "reason": "PERSISTENT_SESSION_FAILED",
+        "technical_attempts_limit": 2,
+        "technical_attempts_used": 2,
+        "wall_clock_minutes_limit": 20.0,
+        "wall_clock_minutes_used": 1.4861220000000002
+      },
+      "name": "Losslessly packed BF16 single-token lm_head",
+      "opportunity_id": "sm89-lossless-lmhead-replay",
+      "persistent_session_specs": [
+        {
+          "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+          "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+        },
+        {
+          "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+          "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+        }
+      ],
+      "predicted_global_gain_us": {
+        "lower": 20000.0,
+        "upper": 60000.0
+      },
+      "smoke_result_path": "candidates/lossless-packed-lmhead/smoke-result.json",
+      "source_paths": [
+        "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+        "candidates/lossless-packed-lmhead/build_check.py",
+        "candidates/lossless-packed-lmhead/correctness_check.py",
+        "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+        "candidates/lossless-packed-lmhead/session-manifest.json",
+        "candidates/lossless-packed-lmhead/treatment-torch.json",
+        "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+        "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+        "candidates/lossless-packed-lmhead/session-baseline.json",
+        "candidates/lossless-packed-lmhead/session-candidate.json"
+      ],
+      "status": "TECHNICALLY_BLOCKED"
+    },
+    {
+      "attempts": [
+        {
+          "attempt": 1,
+          "completed_at": "2026-09-06T19:55:37.379636+00:00",
+          "improvement_percent": 9.381587950835026,
+          "smoke_result": {
+            "path": "candidates/lossless-packed-lmhead/smoke-result-v2.json",
+            "sha256": "57fe40f491905d928085ed626d46a0ebd9f6b5f149ede9fbf080dcb1ee96415c"
+          },
+          "source_after": [
+            {
+              "path": "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+              "sha256": "41e7db5b244d8e372d182442eeeeb2a0222ab0dc74974e5e65a0531e0c72acb8"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/build_check.py",
+              "sha256": "05d90b0e23f909cfe7a6c01e5469b4f67444ce8bc4d54b2fcbc4f9de646bd0fa"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/correctness_check.py",
+              "sha256": "3c179b9a8c33d4438428ab807cfc36f8a785b818f58054ce643b11887c66fd62"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+              "sha256": "73f1776f379ea1d559b05c972d2bfbf444da235176c6cdf9a0795181af245900"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-manifest.json",
+              "sha256": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-torch.json",
+              "sha256": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+              "sha256": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+              "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+              "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+              "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+            }
+          ],
+          "source_before": [
+            {
+              "path": "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+              "sha256": "41e7db5b244d8e372d182442eeeeb2a0222ab0dc74974e5e65a0531e0c72acb8"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/build_check.py",
+              "sha256": "05d90b0e23f909cfe7a6c01e5469b4f67444ce8bc4d54b2fcbc4f9de646bd0fa"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/correctness_check.py",
+              "sha256": "3c179b9a8c33d4438428ab807cfc36f8a785b818f58054ce643b11887c66fd62"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+              "sha256": "73f1776f379ea1d559b05c972d2bfbf444da235176c6cdf9a0795181af245900"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-manifest.json",
+              "sha256": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-torch.json",
+              "sha256": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+              "sha256": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+              "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+              "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+            },
+            {
+              "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+              "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+            }
+          ],
+          "stages": [
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "build_check.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.134662,
+              "exit_code": 0,
+              "stage": "build",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/build.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/build.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "correctness_check.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.113785,
+              "exit_code": 0,
+              "stage": "correctness",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/correctness.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/correctness.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "D:\\codes\\kernel_opt_agent\\scripts\\persistent_session_runner.py",
+                "--root",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1",
+                "--spec",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\session-baseline.json",
+                "--output",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead-overlay-v2\\attempts\\attempt-01\\persistent-session-01.json"
+              ],
+              "cwd": ".",
+              "duration_seconds": 167.652864,
+              "exit_code": 0,
+              "stage": "persistent-session-01",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-01.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-01.stdout.txt",
+                "sha256": "1e52a8f76af79101dcd2b5fba88a1c508fdf7826342578a13e1431becd9cf83e"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "D:\\codes\\kernel_opt_agent\\scripts\\persistent_session_runner.py",
+                "--root",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1",
+                "--spec",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\session-candidate.json",
+                "--output",
+                "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead-overlay-v2\\attempts\\attempt-01\\persistent-session-02.json"
+              ],
+              "cwd": ".",
+              "duration_seconds": 154.556275,
+              "exit_code": 0,
+              "stage": "persistent-session-02",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-02.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-02.stdout.txt",
+                "sha256": "3c0d1037bed66895204a5546f70c551461e4ee5de604e2c8150e214ace6a6ed6"
+              },
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+                "smoke_from_receipts.py"
+              ],
+              "cwd": "candidates/lossless-packed-lmhead",
+              "duration_seconds": 0.144441,
+              "exit_code": 0,
+              "stage": "smoke",
+              "stderr": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/smoke.stderr.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "stdout": {
+                "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/smoke.stdout.txt",
+                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+              },
+              "timed_out": false
+            }
+          ],
+          "started_at": "2026-09-06T19:50:14.758985+00:00",
+          "status": "VALID_SCREEN"
+        }
+      ],
+      "candidate_id": "lossless-packed-lmhead-overlay-v2",
+      "change_axes": [
+        "framework-dispatch",
+        "lossless-weight-layout",
+        "decode-shape-specialization",
+        "recursive-source-binary-overlay"
+      ],
+      "commands": {
+        "build": {
+          "argv": [
+            "{python}",
+            "build_check.py"
+          ],
+          "cwd": "candidates/lossless-packed-lmhead",
+          "timeout_seconds": 30
+        },
+        "correctness": {
+          "argv": [
+            "{python}",
+            "correctness_check.py"
+          ],
+          "cwd": "candidates/lossless-packed-lmhead",
+          "timeout_seconds": 30
+        },
+        "smoke": {
+          "argv": [
+            "{python}",
+            "smoke_from_receipts.py"
+          ],
+          "cwd": "candidates/lossless-packed-lmhead",
+          "timeout_seconds": 30
+        }
+      },
+      "created_at": "2026-09-06T19:50:05.065851+00:00",
+      "dependency_contract": {
+        "changed_boundaries": [
+          "eligible BF16 lm_head weights receive a non-persistent auxiliary layout after loading",
+          "nested vLLM packages search the sealed source tree before the ABI-compatible binary wheel"
+        ],
+        "evidence": [
+          {
+            "claim": "The worker rejects any drift in the exact PR implementation files before engine initialization.",
+            "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+            "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+          }
+        ],
+        "numerical_ordering": "The weight representation is bit-exact, while the legal FP32 accumulation tree can differ; exact greedy token identity is required on every sealed case.",
+        "preserved_dependencies": [
+          "the original BF16 weight remains loaded and is the fallback source",
+          "the auxiliary representation reconstructs every original BF16 weight bit",
+          "the GPTQ backbone, attention, scheduler, vocabulary and greedy sampling stay unchanged",
+          "the installed binary wheel supplies extensions only; Python behavior comes from the sealed PR source"
+        ],
+        "prohibited_rewrites": [
+          "no quantization, approximation, vocabulary shortlist, speculative decoding, skipped work or changed sampling"
+        ],
+        "status": "PROVEN_LEGAL"
+      },
+      "development_budget": {
+        "max_technical_attempts": 2,
+        "max_wall_clock_minutes": 20.0
+      },
+      "execution_plan": {
+        "path": "models/candidate-execution/lossless-packed-lmhead-overlay-v2.json",
+        "sha256": "0d04b2f4bbb2173d067c892f5a22094c07059fd7fd28ca6c5fe17bfd53082725"
+      },
+      "expected_global_effect": "Reduce batch-one decode latency without changing the GPTQ backbone, attention, scheduler, sampling, vocabulary, checkpoint values, or binary extension build.",
+      "family": "lossless-weight-layout",
+      "hypothesis": "A source-hash-bound PR checkout plus ABI-compatible wheel extensions can reproduce the exact packed lm_head path without reinstalling vLLM, while persistent sessions amortize engine startup.",
+      "name": "Losslessly packed BF16 lm_head with recursive source/binary overlay",
+      "opportunity_id": "sm89-lossless-lmhead-replay",
+      "persistent_session_specs": [
+        {
+          "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+          "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+        },
+        {
+          "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+          "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+        }
+      ],
+      "predicted_global_gain_us": {
+        "lower": 20000.0,
+        "upper": 60000.0
+      },
+      "prediction_check": {
+        "claim_scope": "DISCOVERY_ONLY",
+        "observed_global_gain_us": 29662.066837772727,
+        "predicted_midpoint_us": 40000.0,
+        "residual_us": -10337.933162227273
+      },
+      "promotion": {
+        "path": "models/discovery_promotions/lossless-packed-lmhead-overlay-v2.json",
+        "sha256": "29d6b52f360eda44435c05a2e4b8224edfcb380429d4a213158e96833a15482a"
+      },
+      "screening": {
+        "improvement_percent": 9.381587950835026,
+        "objective": {
+          "baseline": 316173.2000298798,
+          "candidate": 286511.1331921071,
+          "direction": "minimize",
+          "measurement_window": "STEADY_STATE_ONLY",
+          "unit": "us_weighted"
+        },
+        "result": {
+          "path": "candidates/lossless-packed-lmhead/smoke-result-v2.json",
+          "sha256": "57fe40f491905d928085ed626d46a0ebd9f6b5f149ede9fbf080dcb1ee96415c"
+        },
+        "status": "PASS",
+        "threshold_percent": 1.0
+      },
+      "smoke_result_path": "candidates/lossless-packed-lmhead/smoke-result-v2.json",
+      "source_paths": [
+        "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+        "candidates/lossless-packed-lmhead/build_check.py",
+        "candidates/lossless-packed-lmhead/correctness_check.py",
+        "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+        "candidates/lossless-packed-lmhead/session-manifest.json",
+        "candidates/lossless-packed-lmhead/treatment-torch.json",
+        "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+        "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+        "candidates/lossless-packed-lmhead/session-baseline.json",
+        "candidates/lossless-packed-lmhead/session-candidate.json"
+      ],
+      "status": "PROMOTED_TO_QUALIFICATION"
+    }
+  ],
+  "created_at": "2026-09-06T19:43:01.437610+00:00",
+  "discovery_started_at": "2026-09-06T19:45:53.224933+00:00",
+  "events": [
+    {
+      "at": "2026-09-06T19:45:53.224938+00:00",
+      "candidate_id": "lossless-packed-lmhead",
+      "event": "ADDED"
+    },
+    {
+      "at": "2026-09-06T19:46:33.131601+00:00",
+      "candidate_id": "lossless-packed-lmhead",
+      "event": "DEVELOPING",
+      "reason": "PERSISTENT_SESSION_FAILED"
+    },
+    {
+      "at": "2026-09-06T19:48:19.599918+00:00",
+      "candidate_id": "lossless-packed-lmhead",
+      "event": "TECHNICALLY_BLOCKED",
+      "reason": "PERSISTENT_SESSION_FAILED"
+    },
+    {
+      "at": "2026-09-06T19:50:05.066482+00:00",
+      "candidate_id": "lossless-packed-lmhead-overlay-v2",
+      "event": "ADDED"
+    },
+    {
+      "at": "2026-09-06T19:55:37.379770+00:00",
+      "candidate_id": "lossless-packed-lmhead-overlay-v2",
+      "event": "QUALIFICATION_READY",
+      "improvement_percent": 9.381587950835026
+    },
+    {
+      "at": "2026-09-06T19:55:59.527292+00:00",
+      "candidate_id": "lossless-packed-lmhead-overlay-v2",
+      "event": "PROMOTED_TO_QUALIFICATION"
+    }
+  ],
+  "policy": {
+    "max_candidate_wall_clock_minutes": 20.0,
+    "max_candidates": 2,
+    "max_promotions": 1,
+    "max_technical_attempts_per_candidate": 2,
+    "max_total_wall_clock_minutes": 40.0,
+    "min_candidates": 1,
+    "min_families": 1,
+    "promotion_threshold_percent": 1.0,
+    "screening_claim_scope": "DISCOVERY_ONLY_NOT_PRODUCTION_ACCEPTANCE"
+  },
+  "schema_version": "candidate-pool-v1",
+  "status": "ACTIVE"
+}

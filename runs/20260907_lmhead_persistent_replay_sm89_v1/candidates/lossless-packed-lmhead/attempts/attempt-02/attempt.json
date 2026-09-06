@@ -1,0 +1,113 @@
+{
+  "attempt": 2,
+  "reason": "PERSISTENT_SESSION_FAILED",
+  "source_before": [
+    {
+      "path": "candidates/lossless-packed-lmhead/lmhead_persistent_worker.py",
+      "sha256": "c28bb6fb81dd450783e21b359c8f44296c015d75dbf216dd17c1e7c25227cb12"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/build_check.py",
+      "sha256": "05d90b0e23f909cfe7a6c01e5469b4f67444ce8bc4d54b2fcbc4f9de646bd0fa"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/correctness_check.py",
+      "sha256": "3c179b9a8c33d4438428ab807cfc36f8a785b818f58054ce643b11887c66fd62"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/smoke_from_receipts.py",
+      "sha256": "1e47ca6f1a579b1660fdb426c11194ddfdb7999586b14e9f9408bae489d54a5f"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-manifest.json",
+      "sha256": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/treatment-torch.json",
+      "sha256": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/treatment-lossless-packed.json",
+      "sha256": "6fd1dad5309f06e1ab21edbdc391945ab2ca70ba9ff4039c159b74046028a0c1"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/vllm-source-identity.json",
+      "sha256": "8b31e0d110fa38020a11ac2359f0e0ee5e2030ac9f338a27cffc563ace495f8f"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+      "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+    },
+    {
+      "path": "candidates/lossless-packed-lmhead/session-candidate.json",
+      "sha256": "84ab0c6b355c4238b6a899703b067bb96707d2dc10b74e27695f92fd70786a42"
+    }
+  ],
+  "stages": [
+    {
+      "argv": [
+        "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "build_check.py"
+      ],
+      "cwd": "candidates/lossless-packed-lmhead",
+      "duration_seconds": 0.139443,
+      "exit_code": 0,
+      "stage": "build",
+      "stderr": {
+        "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/build.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/build.stdout.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "correctness_check.py"
+      ],
+      "cwd": "candidates/lossless-packed-lmhead",
+      "duration_seconds": 0.123097,
+      "exit_code": 0,
+      "stage": "correctness",
+      "stderr": {
+        "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/correctness.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/correctness.stdout.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "timed_out": false
+    },
+    {
+      "argv": [
+        "C:\\Users\\aden\\AppData\\Local\\Programs\\Python\\Python314\\python.exe",
+        "D:\\codes\\kernel_opt_agent\\scripts\\persistent_session_runner.py",
+        "--root",
+        "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1",
+        "--spec",
+        "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\session-baseline.json",
+        "--output",
+        "D:\\codes\\kernel_opt_agent\\runs\\20260907_lmhead_persistent_replay_sm89_v1\\candidates\\lossless-packed-lmhead\\attempts\\attempt-02\\persistent-session-01.json"
+      ],
+      "cwd": ".",
+      "duration_seconds": 59.281965,
+      "exit_code": 1,
+      "stage": "persistent-session-01",
+      "stderr": {
+        "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/persistent-session-01.stderr.txt",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stdout": {
+        "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/persistent-session-01.stdout.txt",
+        "sha256": "bc4a21cefcdedf49791409a0696d4df70da8f684208297cdd9c98ed13b9bf02c"
+      },
+      "timed_out": false
+    }
+  ],
+  "started_at": "2026-09-06T19:47:20.053694+00:00",
+  "status": "TECHNICAL_FAILURE"
+}

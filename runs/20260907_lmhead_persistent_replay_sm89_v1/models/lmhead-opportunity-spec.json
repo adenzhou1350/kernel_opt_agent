@@ -1,0 +1,47 @@
+{
+  "opportunity_id": "sm89-lossless-lmhead-replay",
+  "name": "Reduce the bandwidth-bound single-token BF16 output projection",
+  "model_scope": "DECOMPOSITION_CONDITIONAL",
+  "source_model_term": "single-token lm_head BF16 weight traffic",
+  "affected_stages": [
+    "decode-lm-head",
+    "logits-production"
+  ],
+  "current_contribution_us": 134720.0,
+  "optimistic_gain_ceiling_us": 99980.0,
+  "likely_gain_interval_us": {
+    "lower": 20000.0,
+    "upper": 60000.0
+  },
+  "confidence": "HIGH",
+  "rewrite_families": [
+    "lossless-weight-layout"
+  ],
+  "implementation_budget_minutes": 20,
+  "hypothesis": "A lossless auxiliary BF16 encoding reduces M=1 output-head weight traffic enough to produce material end-to-end decode savings.",
+  "derivation": "The prior profile measured about 2.105 ms of lm_head work per decode token; across 64 generated tokens this is about 134.72 ms of the 344.44 ms request latency.",
+  "evidence": [
+    {
+      "path": "models/prior-lmhead-evidence.json",
+      "sha256": "04241c7be95e5e70769fe3454754169787dbae3ebb7b66dcfc12cdc6579a39ea",
+      "claim": "Prior same-GPU profiling and paired model evidence establish a material lm_head opportunity."
+    }
+  ],
+  "production_impact_gate": {
+    "measurement_scope": "FROZEN_WORKLOAD_DECOMPOSITION",
+    "baseline_end_to_end_us": 344440.4206666623,
+    "target_component_us": 134720.0,
+    "candidate_component_speedup_ceiling": 3.878,
+    "derived_amdahl_speedup_ceiling": 1.4089849172763105,
+    "material_speedup_floor": 1.01,
+    "decision": "CLEARS_MATERIALITY_FLOOR",
+    "derivation": "With 39.11% of the frozen request assigned to the output head, even a finite 3.878x component ceiling permits about 1.409x end-to-end speedup.",
+    "evidence": [
+      {
+        "path": "models/prior-lmhead-evidence.json",
+        "sha256": "04241c7be95e5e70769fe3454754169787dbae3ebb7b66dcfc12cdc6579a39ea",
+        "claim": "Frozen request latency and component attribution used by the Amdahl gate."
+      }
+    ]
+  }
+}

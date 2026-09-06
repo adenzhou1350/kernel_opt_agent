@@ -1,0 +1,9 @@
+{
+  "schema_version": "lmhead-replay-session-v1",
+  "model": "/home/aden/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-g128",
+  "tokenizer": "/home/aden/models/Qwen3.5-0.8B",
+  "source_package": "/mnt/d/codes/vllm-lmhead-pr/vllm",
+  "binary_package": "/home/aden/.venvs/qwen35-vllm-4060/lib/python3.12/site-packages/vllm",
+  "sampling": "greedy-temperature-0-ignore-eos-64-tokens",
+  "seed": 20260907
+}

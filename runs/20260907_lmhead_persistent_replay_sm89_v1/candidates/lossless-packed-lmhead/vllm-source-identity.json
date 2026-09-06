@@ -1,0 +1,23 @@
+{
+  "schema_version": "vllm-source-identity-v1",
+  "git_commit": "4048b5edbad29bed0d052c6e258fd1c53072218f",
+  "git_branch": "perf/lossless-packed-bf16-lm-head",
+  "pull_request": "https://github.com/vllm-project/vllm/pull/55494",
+  "files": [
+    {
+      "path": "/mnt/d/codes/vllm-lmhead-pr/vllm/config/kernel.py",
+      "windows_path": "D:/codes/vllm-lmhead-pr/vllm/config/kernel.py",
+      "sha256": "78a21c1d696920b4738fb58c62b727fbf8891358e45f3a3400083ec2d34001a5"
+    },
+    {
+      "path": "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/layers/vocab_parallel_embedding.py",
+      "windows_path": "D:/codes/vllm-lmhead-pr/vllm/model_executor/layers/vocab_parallel_embedding.py",
+      "sha256": "952b5eb9d1f740ac8ee6a06d5e579ae2e4106592392ad8f11c628b4433f9099c"
+    },
+    {
+      "path": "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/kernels/linear/unquantized/packed_bf16_lm_head.py",
+      "windows_path": "D:/codes/vllm-lmhead-pr/vllm/model_executor/kernels/linear/unquantized/packed_bf16_lm_head.py",
+      "sha256": "19d01b0273c5bbd7c408e25c3c3b96b120abf9f81451c2f53a4bb5d49a9ecb83"
+    }
+  ]
+}

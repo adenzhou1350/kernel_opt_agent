@@ -1,0 +1,6 @@
+{
+  "schema_version": "lmhead-replay-treatment-v1",
+  "label": "candidate",
+  "lm_head_backend": "lossless_packed",
+  "lm_head_max_packed_fraction": 0.9
+}

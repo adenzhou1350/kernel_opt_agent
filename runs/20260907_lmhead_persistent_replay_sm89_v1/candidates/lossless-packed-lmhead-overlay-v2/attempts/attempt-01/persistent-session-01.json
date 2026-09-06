@@ -1,0 +1,63 @@
+{
+  "engine_init_count": 1,
+  "failure": null,
+  "finished_at": "2026-09-06T19:53:02.639829+00:00",
+  "process_launches": 1,
+  "request_count": 3,
+  "requests": [
+    {
+      "duration_seconds": 0.33690170012414455,
+      "measurement": {
+        "ms_per_token": 5.388484796875037,
+        "tokens": 64,
+        "wall_seconds": 0.3448630270000024
+      },
+      "output_digest": "656bf9f38f728f1dbb43c43d629deb3b0df31cfd8e8078168a21de694c6eb3fd",
+      "request_id": "baseline-explain",
+      "treatment_identity": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+    },
+    {
+      "duration_seconds": 0.31280239997431636,
+      "measurement": {
+        "ms_per_token": 5.0020529062497765,
+        "tokens": 64,
+        "wall_seconds": 0.3201313859999857
+      },
+      "output_digest": "5e5ccfb5e251341c70e5dda914be8ab09f8202b14eff0d43cdd464f2074cfa82",
+      "request_id": "baseline-code",
+      "treatment_identity": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+    },
+    {
+      "duration_seconds": 0.2988154999911785,
+      "measurement": {
+        "ms_per_token": 4.771105328124747,
+        "tokens": 64,
+        "wall_seconds": 0.3053507409999838
+      },
+      "output_digest": "5ff38cf504cf8b986703852005319e80a31ae6b12da2a5032cb667a4dfdbbf90",
+      "request_id": "baseline-edge",
+      "treatment_identity": "8261c8694112c5ea1e425ff9877b2224e06de629b4409c9a51e9ed1a5b515099"
+    }
+  ],
+  "schema_version": "persistent-session-receipt-v1",
+  "session_identity": "0c725b0d22e52b2522cea0b2c8fc21083cbfad3acda6fc0ad510043d28fa3a60",
+  "session_scope": "SINGLE_TREATMENT",
+  "setup_seconds": 165.95347029995173,
+  "spec_identity": {
+    "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+    "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+  },
+  "started_at": "2026-09-06T19:50:15.170739+00:00",
+  "status": "PASS",
+  "stderr": {
+    "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-01.logs/worker.stderr.txt",
+    "sha256": "8a91ce981257885db3556901eafd6c0a7eb4ceaa0626cdc69552fb9bdc3ee82f"
+  },
+  "stdout": {
+    "path": "candidates/lossless-packed-lmhead-overlay-v2/attempts/attempt-01/persistent-session-01.logs/worker.stdout.ndjson",
+    "sha256": "44e616720b29f7751387764c85d0d02c3b8d8be51e9f0692a4188e460003cc83"
+  },
+  "steady_state_seconds": 0.9485196000896394,
+  "switching_supported": false,
+  "worker_exit_code": 0
+}

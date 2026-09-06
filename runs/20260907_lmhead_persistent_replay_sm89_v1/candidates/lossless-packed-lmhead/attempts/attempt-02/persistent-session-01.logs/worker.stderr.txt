@@ -1,0 +1,49 @@
+INFO 09-07 03:47:51 [api_utils.py:286] non-default args: {'tokenizer': '/home/aden/models/Qwen3.5-0.8B', 'dtype': 'bfloat16', 'seed': 20260907, 'max_model_len': 256, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.7, 'kv_cache_memory_bytes': 536870912, 'max_num_seqs': 1, 'disable_log_stats': True, 'language_model_only': True, 'model': '/home/aden/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-g128'}
+WARNING 09-07 03:47:51 [arg_utils.py:1764] The global random seed is set to 20260907. Since VLLM_ENABLE_V1_MULTIPROCESSING is set to False, this may affect the random state of the Python process that launched vLLM.
+INFO 09-07 03:47:51 [model.py:691] Resolved architecture: Qwen3_5ForConditionalGeneration
+WARNING 09-07 03:47:51 [model.py:2365] Casting torch.float16 to torch.bfloat16.
+INFO 09-07 03:47:51 [model.py:2031] Using max model len 256
+WARNING 09-07 03:47:51 [model.py:991] Model does not support mm_device_do_normalize, forcing mm_device_do_normalize = False.
+INFO 09-07 03:48:15 [registry.py:146] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 09-07 03:48:15 [model.py:897] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+Traceback (most recent call last):
+  File "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/lmhead_persistent_worker.py", line 202, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/mnt/d/codes/kernel_opt_agent/runs/20260907_lmhead_persistent_replay_sm89_v1/candidates/lossless-packed-lmhead/lmhead_persistent_worker.py", line 97, in main
+    llm = LLM(
+          ^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/entrypoints/llm.py", line 343, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/v1/engine/llm_engine.py", line 176, in from_engine_args
+    vllm_config = engine_args.create_engine_config(usage_context)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/engine/arg_utils.py", line 2017, in create_engine_config
+    model_config = self.create_model_config()
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/engine/arg_utils.py", line 1772, in create_model_config
+    return ModelConfig(
+           ^^^^^^^^^^^^
+  File "/home/aden/.venvs/qwen35-vllm-4060/lib/python3.12/site-packages/pydantic/_internal/_dataclasses.py", line 121, in __init__
+    s.__pydantic_validator__.validate_python(ArgsKwargs(args, kwargs), self_instance=s)
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/config/model.py", line 865, in __post_init__
+    self._verify_quantization()
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/config/model.py", line 1302, in _verify_quantization
+    method = me_quant.get_quantization_config(name)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/model_executor/layers/quantization/__init__.py", line 118, in get_quantization_config
+    from vllm.models.deepseek_v4 import DeepseekV4FP8Config
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/models/deepseek_v4/__init__.py", line 34, in <module>
+    from .nvidia.dspark import (  # type: ignore[assignment]
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/models/deepseek_v4/nvidia/dspark.py", line 52, in <module>
+    from .model import (
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/models/deepseek_v4/nvidia/model.py", line 79, in <module>
+    from vllm.models.deepseek_v4.attention import DeepseekV4Attention
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/models/deepseek_v4/attention.py", line 61, in <module>
+    from vllm.v1.attention.backends.mla.sparse_swa import DeepseekV4SWACache
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/v1/attention/backends/mla/sparse_swa.py", line 34, in <module>
+    from vllm.v1.attention.ops.flashmla import FlashMLASchedMeta, get_mla_metadata
+  File "/mnt/d/codes/vllm-lmhead-pr/vllm/v1/attention/ops/flashmla.py", line 87, in <module>
+    from vllm.third_party.flashmla.flash_mla_interface import (  # noqa: F401
+ModuleNotFoundError: No module named 'vllm.third_party.flashmla.flash_mla_interface'

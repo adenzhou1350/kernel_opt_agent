@@ -1,0 +1,29 @@
+{
+  "engine_init_count": null,
+  "failure": "RuntimeError: worker stdout closed before the expected response",
+  "finished_at": "2026-09-06T19:48:19.582100+00:00",
+  "process_launches": 1,
+  "request_count": 0,
+  "requests": [],
+  "schema_version": "persistent-session-receipt-v1",
+  "session_identity": null,
+  "session_scope": "SINGLE_TREATMENT",
+  "setup_seconds": 59.086805999977514,
+  "spec_identity": {
+    "path": "candidates/lossless-packed-lmhead/session-baseline.json",
+    "sha256": "fea549b1d04a66aa3f4bfdafb22042684af195310323104f35cf222c22a00150"
+  },
+  "started_at": "2026-09-06T19:47:20.493559+00:00",
+  "status": "FAIL",
+  "stderr": {
+    "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/persistent-session-01.logs/worker.stderr.txt",
+    "sha256": "a766cab044351b03b7edb7f4f91f08766167d616c3c7d6ec185c1d5409d8b11a"
+  },
+  "stdout": {
+    "path": "candidates/lossless-packed-lmhead/attempts/attempt-02/persistent-session-01.logs/worker.stdout.ndjson",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "steady_state_seconds": 0,
+  "switching_supported": null,
+  "worker_exit_code": 1
+}

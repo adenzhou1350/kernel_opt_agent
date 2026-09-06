@@ -1,0 +1,44 @@
+{
+  "candidate_id": "lossless-packed-lmhead",
+  "claim_scope": "EXECUTION_ROUTING_ONLY_NOT_CANDIDATE_PERFORMANCE",
+  "created_at": "2026-09-06T19:44:06.772290+00:00",
+  "estimates": {
+    "estimated_experiment_speedup": 2.9857939167455836,
+    "legacy_cold_per_request_seconds": 767.2489695060001,
+    "selected_seconds": 256.966485598,
+    "selected_session_count": 2
+  },
+  "inputs": {
+    "phase_timing": {
+      "path": "models/lmhead-phase-timing.json",
+      "sha256": "e0792bb55283a25ed384ab60617e5ce5b21e4a529a7e4944a7f7a3a7849dc77e"
+    },
+    "shared_switching_receipt": null
+  },
+  "phase_timing": {
+    "compile_seconds": 0.0,
+    "fixed_seconds": 127.570620977,
+    "fixed_share": 0.9928969583727917,
+    "setup_seconds": 126.570620977,
+    "steady_state_samples": 3,
+    "steady_state_seconds": 0.912621822,
+    "warmup_seconds": 1.0
+  },
+  "policy": {
+    "fixed_share_threshold": 0.5
+  },
+  "schema_version": "candidate-execution-plan-v1",
+  "selection": {
+    "persistent_session_eligible": true,
+    "process_model": "PERSISTENT_PER_ARM",
+    "reason": "fixed cost dominates but shared switching is unproven",
+    "requires_persistent_session_protocol": true,
+    "session_scope": "SINGLE_TREATMENT",
+    "switching_preserves_treatment_identity": false
+  },
+  "workload": {
+    "arm_count": 2,
+    "requests_per_arm": 3,
+    "total_requests": 6
+  }
+}

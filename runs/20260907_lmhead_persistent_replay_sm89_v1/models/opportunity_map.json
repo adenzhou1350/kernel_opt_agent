@@ -1,0 +1,102 @@
+{
+  "created_at": "2026-09-06T19:43:01.750437+00:00",
+  "events": [
+    {
+      "at": "2026-09-06T19:44:27.312623+00:00",
+      "event": "ADDED",
+      "opportunity_id": "sm89-lossless-lmhead-replay"
+    },
+    {
+      "at": "2026-09-06T19:44:27.642820+00:00",
+      "event": "RANKED",
+      "order": [
+        "sm89-lossless-lmhead-replay"
+      ]
+    }
+  ],
+  "opportunities": [
+    {
+      "affected_stages": [
+        "decode-lm-head",
+        "logits-production"
+      ],
+      "candidate_ids": [
+        "lossless-packed-lmhead",
+        "lossless-packed-lmhead-overlay-v2"
+      ],
+      "confidence": "HIGH",
+      "created_at": "2026-09-06T19:44:27.312611+00:00",
+      "current_contribution_us": 134720.0,
+      "derivation": "The prior profile measured about 2.105 ms of lm_head work per decode token; across 64 generated tokens this is about 134.72 ms of the 344.44 ms request latency.",
+      "evidence": [
+        {
+          "claim": "Prior same-GPU profiling and paired model evidence establish a material lm_head opportunity.",
+          "path": "models/prior-lmhead-evidence.json",
+          "sha256": "04241c7be95e5e70769fe3454754169787dbae3ebb7b66dcfc12cdc6579a39ea"
+        }
+      ],
+      "hypothesis": "A lossless auxiliary BF16 encoding reduces M=1 output-head weight traffic enough to produce material end-to-end decode savings.",
+      "implementation_budget_minutes": 20,
+      "likely_gain_interval_us": {
+        "lower": 20000.0,
+        "upper": 60000.0
+      },
+      "model_scope": "DECOMPOSITION_CONDITIONAL",
+      "name": "Reduce the bandwidth-bound single-token BF16 output projection",
+      "observations": [
+        {
+          "at": "2026-09-06T19:55:37.382023+00:00",
+          "candidate_id": "lossless-packed-lmhead-overlay-v2",
+          "claim_scope": "DISCOVERY_ONLY",
+          "observed_global_gain_us": 29662.066837772727,
+          "predicted_midpoint_us": 40000.0,
+          "residual_us": -10337.933162227273
+        }
+      ],
+      "opportunity_id": "sm89-lossless-lmhead-replay",
+      "optimistic_gain_ceiling_us": 99980.0,
+      "priority_rank": 1,
+      "priority_score": 2000.0,
+      "production_impact_gate": {
+        "baseline_end_to_end_us": 344440.4206666623,
+        "candidate_component_speedup_ceiling": 3.878,
+        "decision": "CLEARS_MATERIALITY_FLOOR",
+        "derivation": "With 39.11% of the frozen request assigned to the output head, even a finite 3.878x component ceiling permits about 1.409x end-to-end speedup.",
+        "derived_amdahl_speedup_ceiling": 1.4089849172763105,
+        "evidence": [
+          {
+            "claim": "Frozen request latency and component attribution used by the Amdahl gate.",
+            "path": "models/prior-lmhead-evidence.json",
+            "sha256": "04241c7be95e5e70769fe3454754169787dbae3ebb7b66dcfc12cdc6579a39ea"
+          }
+        ],
+        "material_speedup_floor": 1.01,
+        "measurement_scope": "FROZEN_WORKLOAD_DECOMPOSITION",
+        "target_component_us": 134720.0
+      },
+      "rewrite_families": [
+        "lossless-weight-layout"
+      ],
+      "source_model_term": "single-token lm_head BF16 weight traffic",
+      "status": "HAS_SURVIVOR"
+    }
+  ],
+  "policy": {
+    "confidence_weights": {
+      "HIGH": 1.0,
+      "LOW": 0.35,
+      "MEDIUM": 0.65
+    },
+    "forbidden_claim_scope": "ABSOLUTE_GLOBAL_OPTIMUM",
+    "material_speedup_floor": 1.01,
+    "max_opportunities": 2,
+    "min_candidate_opportunities": 1,
+    "min_opportunities": 1,
+    "min_rewrite_families": 1,
+    "require_production_impact_gate": true,
+    "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes"
+  },
+  "ranked_at": "2026-09-06T19:44:27.642798+00:00",
+  "schema_version": "opportunity-map-v1",
+  "status": "READY"
+}
