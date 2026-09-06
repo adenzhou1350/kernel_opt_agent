@@ -36,6 +36,8 @@ REPEAT_SUMMARY_SCHEMA = "community-ab-repeat-summary-v1"
 SCHEDULE_SCHEMA = "community-evaluation-schedule-v1"
 SOURCE_RECEIPT_SCHEMA = "community-trial-source-receipt-v1"
 EXECUTION_AUDIT_SCHEMA = "community-trial-execution-audit-v1"
+SUITE_RUN_SUMMARY_SCHEMA = "community-suite-run-summary-v1"
+TASK_PACKET_AUDIT_SCHEMA = "community-task-packet-audit-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -514,6 +516,10 @@ def materialize_trial(
     if output.exists() and any(output.iterdir()):
         raise ValueError(f"trial directory is not empty: {output}")
     (output / "input").mkdir(parents=True, exist_ok=True)
+    # Executors are required to retain measurements here. Materializing the
+    # directory avoids charging one arm a repair merely because its first
+    # read-only inspection happens before it writes evidence.
+    (output / "evidence").mkdir(parents=True, exist_ok=True)
 
     suite_base = suite_path.parent
     task_source = validate_identity(suite_base, task["packet"], "task packet")
@@ -1228,6 +1234,223 @@ def aggregate_pair_reports(
     return summary
 
 
+PACKET_AUDIT_STOPWORDS = {
+    "and", "are", "for", "from", "into", "only", "the", "this", "that",
+    "then", "while", "with", "without", "existing", "already", "available",
+}
+
+
+def packet_audit_tokens(value: object) -> set[str]:
+    text = value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", text.lower())
+        if len(token) >= 3 and token not in PACKET_AUDIT_STOPWORDS
+    }
+
+
+def audit_task_packets(
+    suite_path: Path, output: Path, root: Path | None = None
+) -> dict:
+    """Detect task packets that reveal too much of their held-out oracle.
+
+    This is a suite-authoring diagnostic, never an executor input: it reads the
+    hidden oracle and therefore must remain outside every materialized trial.
+    """
+    root = root or repository_root()
+    suite_path = suite_path.resolve()
+    suite_errors = validate_json_file(
+        suite_path, root / "schemas" / "community_temporal_suite.schema.json"
+    )
+    if suite_errors:
+        raise ValueError("invalid temporal suite: " + "; ".join(suite_errors))
+    suite = read_object(suite_path)
+    rows = []
+    for task in suite["tasks"]:
+        packet_path = validate_identity(
+            suite_path.parent, task["packet"], "task packet"
+        )
+        oracle_path = validate_identity(
+            suite_path.parent, task["hidden_oracle"], "hidden oracle"
+        )
+        packet = read_object(packet_path)
+        oracle = read_object(oracle_path)
+        mechanism = str(oracle.get("key_mechanism", ""))
+        mechanism_tokens = packet_audit_tokens(mechanism)
+        packet_tokens = packet_audit_tokens(packet)
+        recall = (
+            len(mechanism_tokens & packet_tokens) / len(mechanism_tokens)
+            if mechanism_tokens
+            else 0.0
+        )
+        family_hits = []
+        for family in oracle.get("solution_families", []):
+            family_tokens = packet_audit_tokens(str(family).replace("-", " "))
+            required = max(1, math.ceil(len(family_tokens) * 2 / 3))
+            if family_tokens and len(family_tokens & packet_tokens) >= required:
+                family_hits.append(str(family))
+        if recall >= 0.60 or len(family_hits) >= 2:
+            risk = "HIGH"
+        elif recall >= 0.40 or family_hits:
+            risk = "MEDIUM"
+        else:
+            risk = "LOW"
+        reasons = []
+        if recall >= 0.40:
+            reasons.append(
+                f"task packet contains {recall:.0%} of distinctive oracle mechanism tokens"
+            )
+        if family_hits:
+            reasons.append("solution-family language appears in the task packet")
+        if not reasons:
+            reasons.append("no material lexical solution leakage detected")
+        rows.append(
+            {
+                "task_id": task["task_id"],
+                "risk": risk,
+                "key_mechanism_token_recall": recall,
+                "solution_family_hits": sorted(family_hits),
+                "reasons": reasons,
+            }
+        )
+    report = {
+        "schema_version": TASK_PACKET_AUDIT_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "LEXICAL_SOLUTION_LEAKAGE_DIAGNOSTIC_ONLY",
+        "suite_identity": identity_for(suite_path, suite_path.parent),
+        "tasks": rows,
+        "counts": {
+            risk: sum(row["risk"] == risk for row in rows)
+            for risk in ("LOW", "MEDIUM", "HIGH")
+        },
+    }
+    errors = validate_instance(
+        report,
+        read_object(root / "schemas" / "community_task_packet_audit.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid task-packet audit: " + "; ".join(errors))
+    atomic_json(output.resolve(), report)
+    return report
+
+
+def summarize_schedule_run(
+    schedule_path: Path, output: Path, root: Path | None = None
+) -> dict:
+    """Summarize compliant, invalid and unfinished trials without hiding failures."""
+    root = root or repository_root()
+    schedule_path = schedule_path.resolve()
+    validate_schedule(schedule_path, root)
+    schedule = read_object(schedule_path)
+    rows = []
+    for entry in schedule["entries"]:
+        trial_dir = resolve_inside(schedule_path.parent, entry["trial_directory"])
+        audit_path = trial_dir / "execution_audit.json"
+        assessment_path = trial_dir / "assessment.json"
+        status = "INCOMPLETE"
+        violations = []
+        audit_identity = None
+        assessment_identity = None
+        metrics = None
+        if audit_path.is_file():
+            audit_errors = validate_json_file(
+                audit_path,
+                root / "schemas" / "community_trial_execution_audit.schema.json",
+            )
+            if audit_errors:
+                status = "INVALID"
+                violations = ["INVALID_EXECUTION_AUDIT"]
+            else:
+                audit = read_object(audit_path)
+                audit_identity = identity_for(audit_path, schedule_path.parent)
+                if audit["status"] != "PASS":
+                    status = "INVALID"
+                    violations = list(audit["violations"])
+                elif assessment_path.is_file():
+                    assessment_errors = validate_json_file(
+                        assessment_path,
+                        root / "schemas" / "community_trial_assessment.schema.json",
+                    )
+                    if assessment_errors:
+                        status = "INVALID"
+                        violations = ["INVALID_ASSESSMENT"]
+                    else:
+                        assessment = read_object(assessment_path)
+                        status = "PASS"
+                        assessment_identity = identity_for(
+                            assessment_path, schedule_path.parent
+                        )
+                        metrics = assessment["metrics"]
+                else:
+                    violations = ["ASSESSMENT_MISSING"]
+        else:
+            violations = ["EXECUTION_AUDIT_MISSING"]
+        rows.append(
+            {
+                "order_index": entry["order_index"],
+                "task_id": entry["task_id"],
+                "repeat_index": entry["repeat_index"],
+                "arm": entry["arm"],
+                "status": status,
+                "violations": violations,
+                "audit_identity": audit_identity,
+                "assessment_identity": assessment_identity,
+                "metrics": metrics,
+            }
+        )
+    pairs = []
+    pair_keys = sorted({(row["task_id"], row["repeat_index"]) for row in rows})
+    for task_id, repeat_index in pair_keys:
+        members = [
+            row
+            for row in rows
+            if row["task_id"] == task_id and row["repeat_index"] == repeat_index
+        ]
+        by_arm = {row["arm"]: row for row in members}
+        pair_status = (
+            "COMPARABLE"
+            if set(by_arm) == set(ARMS)
+            and all(by_arm[arm]["status"] == "PASS" for arm in ARMS)
+            else "NOT_COMPARABLE"
+        )
+        pairs.append(
+            {
+                "task_id": task_id,
+                "repeat_index": repeat_index,
+                "status": pair_status,
+                "arm_status": {
+                    arm: by_arm.get(arm, {}).get("status", "INCOMPLETE")
+                    for arm in ARMS
+                },
+            }
+        )
+    report = {
+        "schema_version": SUITE_RUN_SUMMARY_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "PROTOCOL_COMPLIANCE_AND_OBSERVED_METRICS_ONLY",
+        "schedule_identity": identity_for(schedule_path, schedule_path.parent),
+        "trials": rows,
+        "pairs": pairs,
+        "counts": {
+            arm: {
+                status: sum(
+                    row["arm"] == arm and row["status"] == status for row in rows
+                )
+                for status in ("PASS", "INVALID", "INCOMPLETE")
+            }
+            for arm in ARMS
+        },
+    }
+    errors = validate_instance(
+        report,
+        read_object(root / "schemas" / "community_suite_run_summary.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid suite run summary: " + "; ".join(errors))
+    atomic_json(output.resolve(), report)
+    return report
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="operation", required=True)
@@ -1271,6 +1494,12 @@ def parse_args() -> argparse.Namespace:
     aggregate = subparsers.add_parser("aggregate-repeats")
     aggregate.add_argument("--pairs", type=Path, nargs="+", required=True)
     aggregate.add_argument("--output", type=Path, required=True)
+    task_packet_audit = subparsers.add_parser("audit-task-packets")
+    task_packet_audit.add_argument("--suite", type=Path, required=True)
+    task_packet_audit.add_argument("--output", type=Path, required=True)
+    summarize_schedule = subparsers.add_parser("summarize-schedule")
+    summarize_schedule.add_argument("--schedule", type=Path, required=True)
+    summarize_schedule.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -1307,6 +1536,10 @@ def main() -> int:
             )
         elif args.operation == "aggregate-repeats":
             result = aggregate_pair_reports(args.pairs, args.output)
+        elif args.operation == "audit-task-packets":
+            result = audit_task_packets(args.suite, args.output)
+        elif args.operation == "summarize-schedule":
+            result = summarize_schedule_run(args.schedule, args.output)
         else:
             result = compare_trials(args.control, args.community, args.output)
     except Exception as error:

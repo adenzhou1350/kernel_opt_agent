@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "tests"))
 
 from community_evaluation import (
+    audit_task_packets,
     audit_codex_execution,
     assess_trial,
     compare_trials,
@@ -24,6 +25,7 @@ from community_evaluation import (
     materialize_trial,
     prepare_trial_source,
     summarize_pair_rows,
+    summarize_schedule_run,
     validate_source_receipt,
     validate_schedule,
     validate_suite,
@@ -271,6 +273,15 @@ def main() -> None:
         assert schedule_result["entry_count"] == 4
         schedule_path = schedule_dir / "schedule.json"
         assert validate_schedule(schedule_path, ROOT)["status"] == "PASS"
+        schedule_summary = summarize_schedule_run(
+            schedule_path, base / "schedule-summary.json", ROOT
+        )
+        assert schedule_summary["counts"]["CONTROL"]["INCOMPLETE"] == 2
+        assert schedule_summary["counts"]["COMMUNITY_AUGMENTED"]["INCOMPLETE"] == 2
+        packet_audit = audit_task_packets(
+            suite_path, base / "task-packet-audit.json", ROOT
+        )
+        assert packet_audit["counts"]["LOW"] == 1
         scheduled = json.loads(schedule_path.read_text(encoding="utf-8"))
         assert {
             (entry["repeat_index"], entry["arm"])
@@ -313,6 +324,8 @@ def main() -> None:
         assert (control_dir / "input" / "result.schema.json").is_file()
         assert (control_dir / "input" / "executor.md").is_file()
         assert (control_dir / "input" / "environment.json").is_file()
+        assert (control_dir / "evidence").is_dir()
+        assert (community_dir / "evidence").is_dir()
         assert base_revision in control_dir.joinpath("trial.json").read_text(
             encoding="utf-8"
         )

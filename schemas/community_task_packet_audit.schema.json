@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_task_packet_audit.schema.json",
+  "title": "Lexical leakage audit for held-out optimization task packets",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "suite_identity", "tasks", "counts"],
+  "properties": {
+    "schema_version": {"const": "community-task-packet-audit-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "LEXICAL_SOLUTION_LEAKAGE_DIAGNOSTIC_ONLY"},
+    "suite_identity": {"$ref": "#/$defs/identity"},
+    "tasks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["task_id", "risk", "key_mechanism_token_recall", "solution_family_hits", "reasons"],
+        "properties": {
+          "task_id": {"type": "string", "minLength": 1},
+          "risk": {"enum": ["LOW", "MEDIUM", "HIGH"]},
+          "key_mechanism_token_recall": {"type": "number", "minimum": 0, "maximum": 1},
+          "solution_family_hits": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "reasons": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["LOW", "MEDIUM", "HIGH"],
+      "properties": {
+        "LOW": {"type": "integer", "minimum": 0},
+        "MEDIUM": {"type": "integer", "minimum": 0},
+        "HIGH": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

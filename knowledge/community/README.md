@@ -99,6 +99,10 @@ python scripts/kernel_opt.py community-eval materialize-suite \
 python scripts/kernel_opt.py community-eval validate-schedule \
   --schedule /path/to/materialized-schedule/schedule.json
 
+python scripts/kernel_opt.py community-eval audit-task-packets \
+  --suite /path/to/suite/suite.json \
+  --output /path/to/task-packet-audit.json
+
 python scripts/kernel_opt.py community-eval prepare-source \
   --trial /path/to/materialized-schedule/trials/001-control \
   --repository /path/to/local/source-repository
@@ -120,6 +124,10 @@ python scripts/kernel_opt.py community-eval compare \
 python scripts/kernel_opt.py community-eval aggregate-repeats \
   --pairs /path/to/paired-r1.json /path/to/paired-r2.json \
   --output /path/to/repeat-summary.json
+
+python scripts/kernel_opt.py community-eval summarize-schedule \
+  --schedule /path/to/materialized-schedule/schedule.json \
+  --output /path/to/suite-run-summary.json
 ```
 
 The assessor derives time-to-first-correct, time-to-first-improvement, best
@@ -133,6 +141,10 @@ repeat indices from one suite/task, and reports arm medians, paired medians,
 win/tie counts and an exact two-sided sign-test value for time-to-first-correct.
 Its claim boundary remains one repeated held-out task, not cross-task
 generalization.
+`audit-task-packets` is a suite-authoring check that compares task language with
+the hidden oracle and must never be copied into a trial. `summarize-schedule`
+keeps invalid and unfinished arms visible instead of silently dropping them
+from an A/B report.
 
 `audit-execution` independently parses Codex JSONL rather than trusting the
 Agent's final summary. It rejects incomplete turns, missing/invalid results,

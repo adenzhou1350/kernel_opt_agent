@@ -24,7 +24,25 @@ Act as the isolated executor for this materialized optimization trial.
    number. The execution auditor treats every failed or declined shell command
    as at least one technical repair. Stop before starting a command that could
    make that lower bound exceed `max_technical_repairs`.
-6. Your final response must be only one JSON object conforming exactly to
+6. Use a staged search policy rather than reading every available idea up
+   front:
+   - First inspect the task and hot-path source, then freeze a short opportunity
+     ranking under `evidence/` with the suspected global bottleneck, an upper
+     bound, and at least one structural alternative. Do this before consulting
+     community knowledge so the prior cannot replace target reasoning.
+   - In a COMMUNITY_AUGMENTED trial, query the graph narrowly after that
+     ranking. Inspect at most two applicable event cards first. If no event
+     shares the target mechanism and satisfies its hard requirements, record
+     `NO_RELEVANT_PRIOR` and continue from target evidence; do not force an
+     unrelated analogy merely to use the graph.
+   - Do not spend more than two evaluated candidates in one architecture
+     family without a measured material improvement. After that, change the
+     work decomposition or stop that branch. Reserve the final 20% of wall
+     time for held-out correctness and integration evidence.
+   - Stop early when the measured result reaches the task's defensible bound,
+     or when all remaining candidates have an estimated ceiling below the
+     frozen material-speedup threshold. Record why stopping is rational.
+7. Your final response must be only one JSON object conforming exactly to
    `input/result.schema.json`. Copy the exact `trial_id`, `task_id`, and `arm`
    from `trial.json`. Evidence paths must be relative to the trial directory and
    their SHA-256 values must match the final files. Never invent a speedup,
