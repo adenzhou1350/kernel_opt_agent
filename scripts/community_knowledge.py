@@ -107,7 +107,9 @@ def read_object(path: Path) -> dict:
 
 def atomic_json(path: Path, value: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    handle, temporary = tempfile.mkstemp(prefix=path.name, suffix=".tmp", dir=path.parent)
+    handle, temporary = tempfile.mkstemp(
+        prefix=path.name, suffix=".tmp", dir=path.parent
+    )
     try:
         with os.fdopen(handle, "wb") as stream:
             stream.write(canonical_json(value))
@@ -245,7 +247,9 @@ def pull_summary(value: dict) -> dict:
     )
     missing = [field for field in required if field not in value]
     if missing:
-        raise ValueError(f"GitHub pull response is missing fields: {', '.join(missing)}")
+        raise ValueError(
+            f"GitHub pull response is missing fields: {', '.join(missing)}"
+        )
     return {
         "title": value["title"],
         "author": value["user"]["login"],
@@ -262,6 +266,18 @@ def pull_summary(value: dict) -> dict:
     }
 
 
+def pull_artifact_identity(value: dict) -> str:
+    """Hash PR-owned semantics, excluding volatile nested repository counters."""
+    return sha256_bytes(
+        canonical_json(
+            {
+                **pull_summary(value),
+                "body": value.get("body"),
+            }
+        )
+    )
+
+
 def snapshot_identity(manifest: dict) -> str:
     stable = {
         "source": {
@@ -274,7 +290,10 @@ def snapshot_identity(manifest: dict) -> str:
             "head_sha": manifest["pull_request"]["head_sha"],
         },
         "artifacts": [
-            {"kind": item["kind"], "sha256": item["sha256"]}
+            {
+                "kind": item["kind"],
+                "sha256": item.get("identity_sha256", item["sha256"]),
+            }
             for item in manifest["artifacts"]
         ],
     }
@@ -390,6 +409,21 @@ def validate_manifest(manifest_path: Path, root: Path | None = None) -> list[str
             errors.append(f"artifact length changed: {artifact['path']}")
         if sha256_file(path) != artifact["sha256"]:
             errors.append(f"artifact hash changed: {artifact['path']}")
+        identity_sha256 = artifact.get("identity_sha256")
+        if identity_sha256 is not None:
+            expected_identity = artifact["sha256"]
+            if artifact["kind"] == "PULL_REQUEST":
+                try:
+                    expected_identity = pull_artifact_identity(
+                        json.loads(path.read_text(encoding="utf-8"))
+                    )
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+                    errors.append(
+                        f"cannot recompute artifact identity for {artifact['path']}: {error}"
+                    )
+                    continue
+            if identity_sha256 != expected_identity:
+                errors.append(f"artifact identity changed: {artifact['path']}")
     if snapshot_identity(manifest) != manifest["snapshot_id"]:
         errors.append("snapshot identity does not match the bound evidence")
     return errors
@@ -463,20 +497,29 @@ def capture_pr(
             endpoint = endpoint_for(repository, number, kind)
             if kind == "DIFF":
                 payload, urls = client.bytes(endpoint, media_type)
+                identity_sha256 = sha256_bytes(payload)
             else:
                 pages, urls = client.json_pages(endpoint, media_type)
                 value: Any = pages[0] if kind == "PULL_REQUEST" else pages
                 if kind == "PULL_REQUEST":
                     if len(pages) != 1 or not isinstance(value, dict):
-                        raise ValueError("GitHub pull endpoint returned an unexpected shape")
+                        raise ValueError(
+                            "GitHub pull endpoint returned an unexpected shape"
+                        )
                     pull_value = value
                 payload = canonical_json(value)
+                identity_sha256 = (
+                    pull_artifact_identity(value)
+                    if kind == "PULL_REQUEST"
+                    else sha256_bytes(payload)
+                )
             (staging / filename).write_bytes(payload)
             artifacts.append(
                 {
                     "kind": kind,
                     "path": filename,
                     "sha256": sha256_bytes(payload),
+                    "identity_sha256": identity_sha256,
                     "byte_length": len(payload),
                     "media_type": media_type,
                     "source_urls": urls,
@@ -503,7 +546,9 @@ def capture_pr(
         atomic_json(manifest_path, manifest)
         errors = validate_manifest(manifest_path, root)
         if errors:
-            raise ValueError("captured snapshot failed validation: " + "; ".join(errors))
+            raise ValueError(
+                "captured snapshot failed validation: " + "; ".join(errors)
+            )
 
         owner, name = repository.split("/", 1)
         target = (
@@ -558,9 +603,7 @@ def contains_discovery_pattern(text: str, pattern: str) -> bool:
 def discovery_classifications(item: dict) -> list[str]:
     labels = item.get("labels", [])
     label_names = [
-        str(label.get("name", ""))
-        for label in labels
-        if isinstance(label, dict)
+        str(label.get("name", "")) for label in labels if isinstance(label, dict)
     ]
     title = str(item.get("title", "")).lower()
     labels_text = " ".join(label_names).lower()
@@ -769,9 +812,13 @@ def validate_corpus(corpus: Path, root: Path | None = None) -> dict:
         expected_paths.add(manifest_path.parent.resolve().as_posix())
         errors = validate_manifest(manifest_path, root)
         if errors:
-            raise ValueError(f"invalid snapshot {entry['snapshot_id']}: " + "; ".join(errors))
+            raise ValueError(
+                f"invalid snapshot {entry['snapshot_id']}: " + "; ".join(errors)
+            )
         if index_entry(manifest_path, corpus) != entry:
-            raise ValueError(f"stale or edited index entry for snapshot {entry['snapshot_id']}")
+            raise ValueError(
+                f"stale or edited index entry for snapshot {entry['snapshot_id']}"
+            )
     discovered_paths = {
         path.parent.resolve().as_posix()
         for path in (corpus / "snapshots").glob("github/*/*/*/*/manifest.json")
@@ -820,7 +867,9 @@ def validate_event(event_path: Path, corpus: Path, root: Path | None = None) -> 
     manifest_path = event_manifest_path(corpus, event)
     manifest_errors = validate_manifest(manifest_path, root)
     if manifest_errors:
-        raise ValueError("event source snapshot is invalid: " + "; ".join(manifest_errors))
+        raise ValueError(
+            "event source snapshot is invalid: " + "; ".join(manifest_errors)
+        )
     manifest = read_object(manifest_path)
     if sha256_file(manifest_path) != source["manifest_sha256"]:
         raise ValueError("event source manifest hash is stale")
@@ -873,11 +922,71 @@ def graph_input_identity(
     }
 
 
+def lifecycle_observation(
+    corpus: Path, event: dict, cutoff: datetime | None = None
+) -> dict:
+    """Resolve the newest PR snapshot visible at one temporal graph boundary.
+
+    Events remain immutable interpretations of one exact snapshot.  A newer
+    snapshot never silently rewrites that interpretation: it makes the event
+    review-required until a human emits a newly evidence-bound event.
+    """
+    source = event["source_snapshot"]
+    index = read_object(corpus / "index.json")
+    candidates = []
+    for entry in index["snapshots"]:
+        if (
+            entry["repository"] != source["repository"]
+            or entry["pr_number"] != source["pr_number"]
+        ):
+            continue
+        manifest_path = corpus / entry["path"] / "manifest.json"
+        observed_at = parse_source_timestamp(
+            snapshot_source_available_at(manifest_path)
+        )
+        if observed_at is None:
+            raise ValueError("corpus index contains an invalid source_updated_at")
+        if cutoff is not None and observed_at > cutoff:
+            continue
+        candidates.append((observed_at, entry["snapshot_id"], entry))
+    if not candidates:
+        raise ValueError(
+            f"event {event['event_id']} has no lifecycle snapshot at graph cutoff"
+        )
+    latest_time = max(item[0] for item in candidates)
+    source_at_latest_time = next(
+        (
+            item
+            for item in candidates
+            if item[0] == latest_time and item[1] == source["snapshot_id"]
+        ),
+        None,
+    )
+    # Multiple evidence captures may legitimately share the same latest source
+    # timestamp, so do not call the event stale merely because volatile raw API
+    # metadata produced another snapshot at that same evidence boundary.
+    _, _, latest = source_at_latest_time or max(
+        (item for item in candidates if item[0] == latest_time),
+        key=lambda item: item[1],
+    )
+    current = latest["snapshot_id"] == source["snapshot_id"]
+    return {
+        "status": "CURRENT" if current else "REVIEW_REQUIRED",
+        "event_snapshot_id": source["snapshot_id"],
+        "event_outcome": event["lifecycle"]["outcome"],
+        "latest_snapshot_id": latest["snapshot_id"],
+        "latest_outcome": latest["lifecycle"],
+        "latest_source_available_at": snapshot_source_available_at(
+            corpus / latest["path"] / "manifest.json"
+        ),
+    }
+
+
 def stable_identifier(value: object, length: int = 16) -> str:
     return sha256_bytes(canonical_json(value))[:length]
 
 
-def graph_node(event: dict, source_available_at: str) -> dict:
+def graph_node(event: dict, source_available_at: str, observation: dict) -> dict:
     source = event["source_snapshot"]
     return {
         "event_id": event["event_id"],
@@ -888,6 +997,7 @@ def graph_node(event: dict, source_available_at: str) -> dict:
         ),
         "source_available_at": source_available_at,
         "outcome": event["lifecycle"]["outcome"],
+        "lifecycle_observation": observation,
         "review_status": event["review_status"],
         "summary": event["summary"],
         "rewrite_families": sorted(event["mechanism"]["rewrite_families"]),
@@ -901,9 +1011,7 @@ def graph_node(event: dict, source_available_at: str) -> dict:
         "hard_requirements": event["applicability"]["hard_requirements"],
         "implementation_recipe": event["implementation"]["recipe"],
         "correctness_recipe": event["validation"]["correctness"],
-        "expected_bottleneck_shifts": event["mechanism"][
-            "expected_bottleneck_shifts"
-        ],
+        "expected_bottleneck_shifts": event["mechanism"]["expected_bottleneck_shifts"],
         "limitations": event["validation"]["limitations"],
     }
 
@@ -923,16 +1031,12 @@ def build_graph(
     ):
         raise ValueError("repository universe must contain owner/name values")
     cutoff = (
-        datetime.fromisoformat(cutoff_at.replace("Z", "+00:00"))
-        if cutoff_at
-        else None
+        datetime.fromisoformat(cutoff_at.replace("Z", "+00:00")) if cutoff_at else None
     )
     if cutoff is not None and cutoff.tzinfo is None:
         raise ValueError("graph cutoff must include a timezone")
-    all_event_ids = {
-        read_object(path)["event_id"] for path in event_paths(corpus)
-    }
-    events: list[tuple[dict, str]] = []
+    all_event_ids = {read_object(path)["event_id"] for path in event_paths(corpus)}
+    events: list[tuple[dict, str, dict]] = []
     for path in event_paths(corpus):
         validate_event(path, corpus, root)
         event = read_object(path)
@@ -941,29 +1045,45 @@ def build_graph(
             available = datetime.fromisoformat(available_at.replace("Z", "+00:00"))
             if available > cutoff:
                 continue
-        events.append((event, available_at))
+        events.append(
+            (event, available_at, lifecycle_observation(corpus, event, cutoff))
+        )
     if not events:
         raise ValueError("community corpus has no events available by the cutoff")
-    identifiers = [event["event_id"] for event, _ in events]
+    identifiers = [event["event_id"] for event, _, _ in events]
     if len(identifiers) != len(set(identifiers)):
         raise ValueError("community corpus contains duplicate event_id values")
     nodes = sorted(
-        (graph_node(event, available_at) for event, available_at in events),
+        (
+            graph_node(event, available_at, observation)
+            for event, available_at, observation in events
+        ),
         key=lambda item: item["event_id"],
     )
     known_events = set(identifiers)
-    method_ids = {
-        path.stem for path in (root / "knowledge" / "methods").glob("*.json")
-    }
+    method_ids = {path.stem for path in (root / "knowledge" / "methods").glob("*.json")}
     edges = []
     compositions: dict[str, dict] = {}
-    for event, _ in events:
+    current_event_ids = {
+        event["event_id"]
+        for event, _, observation in events
+        if observation["status"] == "CURRENT"
+    }
+    for event, _, _ in events:
         for relation in event["relations"]:
             target = relation["target"]
-            if cutoff is not None and target in all_event_ids and target not in known_events:
+            if (
+                cutoff is not None
+                and target in all_event_ids
+                and target not in known_events
+            ):
                 continue
             target_kind = "METHOD" if target in method_ids else "EVENT"
-            present = target in method_ids if target_kind == "METHOD" else target in known_events
+            present = (
+                target in method_ids
+                if target_kind == "METHOD"
+                else target in known_events
+            )
             edge = {
                 "source": event["event_id"],
                 "type": relation["type"],
@@ -973,9 +1093,17 @@ def build_graph(
                 "rationale": relation["rationale"],
             }
             edges.append(edge)
-            if relation["type"] == "COMPLEMENTS" and present and target_kind == "EVENT":
+            if (
+                relation["type"] == "COMPLEMENTS"
+                and present
+                and target_kind == "EVENT"
+                and event["event_id"] in current_event_ids
+                and target in current_event_ids
+            ):
                 pair = sorted((event["event_id"], target))
-                hypothesis_id = stable_identifier({"relation": "COMPLEMENTS", "events": pair})
+                hypothesis_id = stable_identifier(
+                    {"relation": "COMPLEMENTS", "events": pair}
+                )
                 compositions[hypothesis_id] = {
                     "hypothesis_id": hypothesis_id,
                     "events": pair,
@@ -985,7 +1113,10 @@ def build_graph(
                 }
     coverage: dict[tuple[str, str], dict[str, set[str]]] = {}
     for node in nodes:
-        if node["review_status"] == "DRAFT":
+        if (
+            node["review_status"] == "DRAFT"
+            or node["lifecycle_observation"]["status"] != "CURRENT"
+        ):
             continue
         for family in node["rewrite_families"]:
             for subsystem in node["subsystems"]:
@@ -1024,10 +1155,20 @@ def build_graph(
         "claim_boundary": "DISCOVERY_PRIOR_ONLY",
         "input_identity": graph_input_identity(
             corpus,
-            {event["event_id"] for event, _ in events},
+            {event["event_id"] for event, _, _ in events},
         ),
         "repository_universe": repository_universe,
         "nodes": nodes,
+        "lifecycle_review_queue": [
+            {
+                "event_id": node["event_id"],
+                "repository": node["repository"],
+                "pr_number": node["pr_number"],
+                **node["lifecycle_observation"],
+            }
+            for node in nodes
+            if node["lifecycle_observation"]["status"] == "REVIEW_REQUIRED"
+        ],
         "edges": sorted(
             edges, key=lambda item: (item["source"], item["type"], item["target"])
         ),
@@ -1060,8 +1201,12 @@ def validate_graph(graph_path: Path, corpus: Path, root: Path | None = None) -> 
         root,
         graph["temporal_cutoff_at"],
     )
-    observed_stable = {key: value for key, value in graph.items() if key != "generated_at"}
-    expected_stable = {key: value for key, value in expected.items() if key != "generated_at"}
+    observed_stable = {
+        key: value for key, value in graph.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
     if observed_stable != expected_stable:
         raise ValueError("community graph is stale or was edited without recomputation")
     return {
@@ -1070,6 +1215,7 @@ def validate_graph(graph_path: Path, corpus: Path, root: Path | None = None) -> 
         "edge_count": len(graph["edges"]),
         "coverage_gap_count": len(graph["coverage_gaps"]),
         "composition_count": len(graph["composition_hypotheses"]),
+        "lifecycle_review_count": len(graph.get("lifecycle_review_queue", [])),
     }
 
 
@@ -1083,7 +1229,9 @@ def run_input_identities(run: Path) -> list[dict]:
     return identities
 
 
-def attach_graph(run: Path, graph_path: Path, corpus: Path, root: Path | None = None) -> dict:
+def attach_graph(
+    run: Path, graph_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
     validation = validate_graph(graph_path, corpus, root)
     target = run.resolve() / "knowledge" / "community_graph.json"
     atomic_json(target, read_object(graph_path))
@@ -1219,7 +1367,9 @@ def unique_strings(values: list[str]) -> list[str]:
     return list(dict.fromkeys(values))
 
 
-def build_composition_matches(graph: dict, matches: list[dict], limit: int) -> list[dict]:
+def build_composition_matches(
+    graph: dict, matches: list[dict], limit: int
+) -> list[dict]:
     """Materialize only explicit, jointly applicable complement hypotheses."""
     matches_by_event = {item["event_id"]: item for item in matches}
     nodes_by_event = {item["event_id"]: item for item in graph["nodes"]}
@@ -1245,7 +1395,11 @@ def build_composition_matches(graph: dict, matches: list[dict], limit: int) -> l
         families = unique_strings(
             [family for match in event_matches for family in match["family_hits"]]
         )
-        family = families[0] if families else event_matches[0]["candidate_archetype"]["family"]
+        family = (
+            families[0]
+            if families
+            else event_matches[0]["candidate_archetype"]["family"]
+        )
         diversity_bonus = 2.0 if len(shifts) > 1 else 0.0
         rows.append(
             {
@@ -1290,7 +1444,9 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
         read_object(root / "schemas" / "community_optimization_graph.schema.json"),
     )
     if graph_errors:
-        raise ValueError("attached community graph is invalid: " + "; ".join(graph_errors))
+        raise ValueError(
+            "attached community graph is invalid: " + "; ".join(graph_errors)
+        )
     opportunity_map = read_object(run / "models" / "opportunity_map.json")
     if (
         opportunity_map.get("schema_version") != "opportunity-map-v1"
@@ -1325,6 +1481,22 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
             ]
             if not family_hits and not opportunity_hits:
                 continue
+            lifecycle_state = node.get("lifecycle_observation")
+            if lifecycle_state and lifecycle_state["status"] != "CURRENT":
+                screened_out.append(
+                    {
+                        "event_id": node["event_id"],
+                        "blockers": [
+                            "community source has a newer snapshot; re-review is required "
+                            f"before transfer ({lifecycle_state['event_snapshot_id']} -> "
+                            f"{lifecycle_state['latest_snapshot_id']}, "
+                            f"{lifecycle_state['event_outcome']} -> "
+                            f"{lifecycle_state['latest_outcome']})"
+                        ],
+                        "claim_boundary": "APPLICABILITY_GATE",
+                    }
+                )
+                continue
             blockers = applicability_blockers(node, operator, workload, hardware)
             if blockers:
                 screened_out.append(
@@ -1336,7 +1508,9 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
                 )
                 continue
             lifecycle_bonus = 2.0 if node["outcome"] == "MERGED" else 0.0
-            review_bonus = 1.0 if node["review_status"] in {"REVIEWED", "PROMOTED"} else 0.0
+            review_bonus = (
+                1.0 if node["review_status"] in {"REVIEWED", "PROMOTED"} else 0.0
+            )
             draft_penalty = 2.0 if node["outcome"] == "OPEN" else 0.0
             score = (
                 12.0 * len(family_hits)
@@ -1386,9 +1560,7 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
                 "composition_matches": build_composition_matches(
                     graph, selected, limit
                 ),
-                "screened_out": sorted(
-                    screened_out, key=lambda item: item["event_id"]
-                ),
+                "screened_out": sorted(screened_out, key=lambda item: item["event_id"]),
             }
         )
     recommendations.sort(
@@ -1422,9 +1594,7 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
     return receipt
 
 
-def validate_match_receipt(
-    receipt: dict, run: Path, root: Path | None = None
-) -> None:
+def validate_match_receipt(receipt: dict, run: Path, root: Path | None = None) -> None:
     root = root or repository_root()
     errors = validate_instance(
         receipt,
@@ -1434,16 +1604,24 @@ def validate_match_receipt(
         raise ValueError("invalid community-match receipt: " + "; ".join(errors))
     limit = int(receipt["policy"]["max_matches_per_opportunity"])
     expected = build_match_receipt(run, limit, root)
-    observed_stable = {key: value for key, value in receipt.items() if key != "generated_at"}
-    expected_stable = {key: value for key, value in expected.items() if key != "generated_at"}
+    observed_stable = {
+        key: value for key, value in receipt.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
     if observed_stable != expected_stable:
-        raise ValueError("community-match receipt is stale or was edited without recomputation")
+        raise ValueError(
+            "community-match receipt is stale or was edited without recomputation"
+        )
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     subparsers = parser.add_subparsers(dest="operation", required=True)
-    capture = subparsers.add_parser("capture-pr", help="capture one immutable GitHub PR snapshot")
+    capture = subparsers.add_parser(
+        "capture-pr", help="capture one immutable GitHub PR snapshot"
+    )
     capture.add_argument("--repository", required=True)
     capture.add_argument("--number", type=int, required=True)
     capture.add_argument("--corpus", type=Path, required=True)

@@ -40,19 +40,24 @@ class FakeGitHubClient:
 
     def __init__(self) -> None:
         self.review_body = "The benchmark needs an end-to-end control."
+        self.pull_state = "closed"
+        self.pull_merged = True
+        self.pull_updated_at = "2026-01-03T00:00:00Z"
+        self.repo_stars = 10
+        self.review_submitted_at = "2026-01-02T00:00:00Z"
 
     def pull(self) -> dict:
         return {
             "title": "Fuse dequantization with logits GEMM",
             "body": "Removes a materialized dense weight and reports 2x.",
-            "state": "closed",
+            "state": self.pull_state,
             "draft": False,
-            "merged": True,
+            "merged": self.pull_merged,
             "created_at": "2026-01-01T00:00:00Z",
-            "updated_at": "2026-01-03T00:00:00Z",
+            "updated_at": self.pull_updated_at,
             "closed_at": "2026-01-03T00:00:00Z",
             "merged_at": "2026-01-03T00:00:00Z",
-            "base": {"sha": SHA_A},
+            "base": {"sha": SHA_A, "repo": {"stargazers_count": self.repo_stars}},
             "head": {"sha": SHA_B},
             "user": {"login": "contributor"},
             "labels": [{"name": "performance"}],
@@ -70,7 +75,13 @@ class FakeGitHubClient:
         if "/issues/7/comments" in path:
             return [{"body": "Reproduced on the stated GPU."}], [url]
         if path.endswith("/pulls/7/reviews?per_page=100"):
-            return [{"state": "APPROVED", "body": self.review_body}], [url]
+            return [
+                {
+                    "state": "APPROVED",
+                    "body": self.review_body,
+                    "submitted_at": self.review_submitted_at,
+                }
+            ], [url]
         if path.endswith("/pulls/7/comments?per_page=100"):
             return [{"path": "kernel.py", "body": "Preserve the fallback."}], [url]
         if "/timeline?" in path:
@@ -205,6 +216,7 @@ def main() -> None:
         corpus = Path(temporary) / "corpus"
         client = FakeGitHubClient()
         first = capture_pr("example/project", 7, corpus, client, ROOT)
+        client.repo_stars += 1
         second = capture_pr("example/project", 7, corpus, client, ROOT)
         assert first["snapshot_id"] == second["snapshot_id"]
         assert second["corpus_snapshot_count"] == 1
@@ -248,7 +260,9 @@ def main() -> None:
         )
         second_event = event_for(manifest_path)
         second_event["event_id"] = "example.layout-aware-logits"
-        second_event["summary"] = "Schedule the fused projection around its packed layout."
+        second_event["summary"] = (
+            "Schedule the fused projection around its packed layout."
+        )
         second_event["mechanism"]["rewrite_families"].append("data-layout")
         second_event["mechanism"]["expected_bottleneck_shifts"] = [
             "The packed layout trades address work for fewer memory transactions."
@@ -270,6 +284,12 @@ def main() -> None:
         graph_result = validate_graph(graph_path, corpus, ROOT)
         assert graph_result["node_count"] == 2
         assert graph_result["composition_count"] == 1
+        assert graph_result["lifecycle_review_count"] == 0
+        assert graph["lifecycle_review_queue"] == []
+        assert all(
+            node["lifecycle_observation"]["status"] == "CURRENT"
+            for node in graph["nodes"]
+        )
         assert graph_result["coverage_gap_count"] >= 1
         assert all(
             gap["claim_boundary"] == "CORPUS_COVERAGE_GAP_ONLY"
@@ -308,9 +328,59 @@ def main() -> None:
             "example.fused-dequant-logits",
             "example.layout-aware-logits",
         ]
-        assert (
-            compositions[0]["claim_boundary"]
-            == "UNVALIDATED_COMPOSITION_HYPOTHESIS"
+        assert compositions[0]["claim_boundary"] == "UNVALIDATED_COMPOSITION_HYPOTHESIS"
+
+        # A later review alone must make the older event review-required even
+        # before the PR lifecycle changes.
+        client.review_body = "The merged change was reverted after a regression."
+        client.review_submitted_at = "2026-01-04T00:00:00Z"
+        review_update = capture_pr("example/project", 7, corpus, client, ROOT)
+        assert review_update["snapshot_id"] != third["snapshot_id"]
+        review_graph = build_graph(corpus, ["example/project", "other/engine"], ROOT)
+        assert len(review_graph["lifecycle_review_queue"]) == 2
+        assert all(
+            row["event_outcome"] == "MERGED"
+            and row["latest_outcome"] == "MERGED"
+            for row in review_graph["lifecycle_review_queue"]
+        )
+
+        # A later source transition must not silently rewrite or remain usable
+        # through an event extracted from the earlier immutable snapshot.
+        client.pull_state = "closed"
+        client.pull_merged = False
+        client.pull_updated_at = "2026-01-05T00:00:00Z"
+        later = capture_pr("example/project", 7, corpus, client, ROOT)
+        assert later["snapshot_id"] != third["snapshot_id"]
+        stale_graph = build_graph(corpus, ["example/project", "other/engine"], ROOT)
+        assert len(stale_graph["lifecycle_review_queue"]) == 2
+        assert all(
+            row["event_outcome"] == "MERGED"
+            and row["latest_outcome"] == "CLOSED_UNMERGED"
+            for row in stale_graph["lifecycle_review_queue"]
+        )
+        atomic_json(graph_path, stale_graph)
+        attach_graph(run, graph_path, corpus, ROOT)
+        stale_receipt = build_match_receipt(run, root=ROOT)
+        stale_recommendation = stale_receipt["recommendations"][0]
+        assert stale_recommendation["matches"] == []
+        assert len(stale_recommendation["screened_out"]) == 2
+        assert all(
+            "re-review is required" in row["blockers"][0]
+            for row in stale_recommendation["screened_out"]
+        )
+
+        # Historical graphs remain cutoff-safe: the later review and lifecycle
+        # transition are invisible before 2026-01-04.
+        historical_graph = build_graph(
+            corpus,
+            ["example/project", "other/engine"],
+            ROOT,
+            cutoff_at="2026-01-03T23:59:59Z",
+        )
+        assert historical_graph["lifecycle_review_queue"] == []
+        assert all(
+            node["lifecycle_observation"]["status"] == "CURRENT"
+            for node in historical_graph["nodes"]
         )
 
         blocked_event = json.loads(second_event_path.read_text(encoding="utf-8"))
@@ -322,7 +392,12 @@ def main() -> None:
         )
         atomic_json(
             graph_path,
-            build_graph(corpus, ["example/project", "other/engine"], ROOT),
+            build_graph(
+                corpus,
+                ["example/project", "other/engine"],
+                ROOT,
+                cutoff_at="2026-01-03T23:59:59Z",
+            ),
         )
         attach_graph(run, graph_path, corpus, ROOT)
         gated_receipt = build_match_receipt(run, root=ROOT)

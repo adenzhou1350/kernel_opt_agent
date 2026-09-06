@@ -36,6 +36,10 @@
       "uniqueItems": true,
       "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"}
     },
+    "lifecycle_review_queue": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/lifecycleReview"}
+    },
     "nodes": {
       "type": "array",
       "minItems": 1,
@@ -70,6 +74,7 @@
           "source_url": {"type": "string", "pattern": "^https://github\\.com/"},
           "source_available_at": {"type": "string", "format": "date-time"},
           "outcome": {"type": "string", "minLength": 1},
+          "lifecycle_observation": {"$ref": "#/$defs/lifecycleObservation"},
           "review_status": {"enum": ["DRAFT", "REVIEWED", "PROMOTED"]},
           "summary": {"type": "string", "minLength": 1},
           "rewrite_families": {"$ref": "#/$defs/strings"},
@@ -159,6 +164,35 @@
       "minItems": 1,
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
+    },
+    "lifecycleObservation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "event_snapshot_id", "event_outcome", "latest_snapshot_id", "latest_outcome", "latest_source_available_at"],
+      "properties": {
+        "status": {"enum": ["CURRENT", "REVIEW_REQUIRED"]},
+        "event_snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+        "event_outcome": {"type": "string", "minLength": 1},
+        "latest_snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+        "latest_outcome": {"enum": ["OPEN", "MERGED", "CLOSED_UNMERGED"]},
+        "latest_source_available_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "lifecycleReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_id", "repository", "pr_number", "status", "event_snapshot_id", "event_outcome", "latest_snapshot_id", "latest_outcome", "latest_source_available_at"],
+      "properties": {
+        "event_id": {"type": "string", "minLength": 1},
+        "repository": {"type": "string", "minLength": 1},
+        "pr_number": {"type": "integer", "minimum": 1},
+        "status": {"const": "REVIEW_REQUIRED"},
+        "event_snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+        "event_outcome": {"type": "string", "minLength": 1},
+        "latest_snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+        "latest_outcome": {"enum": ["OPEN", "MERGED", "CLOSED_UNMERGED"]},
+        "latest_source_available_at": {"type": "string", "format": "date-time"}
+      }
     }
   }
 }

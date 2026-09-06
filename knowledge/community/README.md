@@ -47,10 +47,24 @@ matched candidate, budget skip, query URL and whether GitHub truncated search
 coverage. Feed its `next_since` into the next scheduled window; never silently
 advance a cursor after a failed run.
 
+Snapshots preserve the SHA-256 of every exact GitHub response, but deduplicate
+the pull-request artifact by PR-owned semantics rather than volatile fields in
+the nested repository object. Repository stars, fork counts and open-issue
+counts therefore cannot manufacture a new optimization revision; title, body,
+state, timestamps, labels, base/head commits or any other evidence artifact can.
+
 Never treat merge status, a PR author's benchmark, review approval or a method
 match as proof that a technique improves the current target. Reverts, closed
 changes, regression reports and contradictory reviews remain first-class
 evidence and must not be filtered out of the source lake.
+
+The graph also resolves each immutable event against the newest PR snapshot
+visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.
+Instead, the node enters `lifecycle_review_queue` and is screened out of direct
+candidate transfer until a reviewer emits an event bound to the new snapshot.
+This prevents an open proposal that was later closed, changed or contradicted
+from surviving indefinitely as a positive optimization prior, while historical
+graphs still see only transitions available before their frozen cutoff.
 
 Event cards also declare machine-readable hard requirements for compute
 capability, explicit parallel width and workload context. Routing fails closed
