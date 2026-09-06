@@ -65,9 +65,10 @@ def main() -> None:
         candidate_source = run / "candidates" / "c1" / "kernel.py"
         candidate_source.parent.mkdir(parents=True)
         candidate_source.write_text("candidate = True\n", encoding="utf-8")
+        candidate_digest = hashlib.sha256(candidate_source.read_bytes()).hexdigest()
         smoke_path = run / "smoke.json"
         smoke = {
-            "schema_version": "candidate-smoke-result-v3",
+            "schema_version": "candidate-smoke-result-v4",
             "status": "PASS",
             "candidate_id": "c1",
             "objective": {
@@ -79,6 +80,25 @@ def main() -> None:
                 {"case_id": "anchor", "role": "ANCHOR"},
                 {"case_id": "edge", "role": "EDGE"},
             ],
+            "correctness": {
+                "status": "PASS",
+                "contract": "EXACT_IDENTITY",
+                "oracle": "frozen test output",
+                "case_results": [
+                    {
+                        "case_id": case_id,
+                        "role": role,
+                        "status": "PASS",
+                        "baseline_digest": candidate_digest,
+                        "candidate_digest": candidate_digest,
+                        "evidence": [{
+                            "path": "candidates/c1/kernel.py",
+                            "sha256": candidate_digest,
+                        }],
+                    }
+                    for case_id, role in (("anchor", "ANCHOR"), ("edge", "EDGE"))
+                ],
+            },
             "reachability": {
                 "status": "PASS",
                 "expected_path": "candidate-kernel",
@@ -129,6 +149,16 @@ def main() -> None:
             assert "compiled candidates" in str(exc)
         else:
             raise AssertionError("compiled candidate accepted a host-only sentinel")
+
+        smoke["reachability"]["compile_cache_policy"] = "NOT_COMPILED"
+        smoke["correctness"]["case_results"][0]["candidate_digest"] = "0" * 64
+        smoke_path.write_text(json.dumps(smoke), encoding="utf-8")
+        try:
+            validate_smoke_result(run, smoke_path, {"candidate_id": "c1"})
+        except ValueError as exc:
+            assert "EXACT_IDENTITY" in str(exc)
+        else:
+            raise AssertionError("mismatching exact output passed the correctness gate")
 
     print("candidate reachability test: PASS")
 

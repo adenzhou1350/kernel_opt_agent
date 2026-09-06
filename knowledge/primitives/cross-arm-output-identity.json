@@ -1,0 +1,90 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-cross-arm-output-identity",
+  "title": "Prove cross-arm output identity before accepting an architecture speedup",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "vLLM issue #5313: Speculative decoding with temperature=0 should match non-speculative output",
+    "url": "https://github.com/vllm-project/vllm/issues/5313",
+    "version": "issue-5313-accessed-2026-09-06",
+    "available_at": "2026-09-06T14:00:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The project treats exact greedy agreement as expected behavior; this guard generalizes that requirement without claiming any candidate is correct or fast."
+  },
+  "opportunity_families": [
+    "semantic-equivalence",
+    "speculative-decoding",
+    "architecture-correctness"
+  ],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "architecture change",
+      "greedy",
+      "output identity",
+      "speculative",
+      "mtp",
+      "sampling",
+      "speedup"
+    ]
+  },
+  "implementation_recipe": [
+    "Freeze the public semantic contract before timing, including whether identity is exact, tolerance-bounded or property-based.",
+    "Run baseline and candidate from identical prompt tokens, parameters, seed, dtype, execution mode and termination policy.",
+    "Bind every anchor and edge case to baseline and candidate output digests or to explicit tolerance/property evidence.",
+    "Reject performance promotion at the first semantic mismatch and record the earliest divergence plus reopen conditions."
+  ],
+  "validation_recipe": [
+    "Repeat each arm to distinguish nondeterminism from stable cross-arm divergence.",
+    "For exact contracts compare token IDs or output bytes, not decoded display text alone.",
+    "Locate the first mismatching element and preserve both full-output hashes for diagnosis.",
+    "Rerun the fixed-budget performance experiment only after correctness passes on current source."
+  ],
+  "expected_bottleneck_shifts": [
+    "A failed candidate leaves performance potential unclaimed and redirects work to the earliest semantic divergence.",
+    "After correctness repair, the original performance bottleneck must be remeasured because verification or rollback work may have changed."
+  ],
+  "failure_modes": [
+    "Each arm is internally repeatable, so their different outputs are mistakenly called equivalent.",
+    "A semantic change is hidden behind aggregate quality metrics even though the public contract requires exact identity.",
+    "Only the first output token is checked while divergence occurs later.",
+    "Candidate throughput is published while correctness is marked pending."
+  ],
+  "scope_limits": [
+    "Exact identity is mandatory only when the frozen public contract requires it; approximate kernels must instead use explicit numerical tolerances and adversarial cases.",
+    "Passing a small prompt suite is discovery evidence, not universal correctness proof."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A performance claim depends on both semantic admissibility and a measured objective improvement.",
+    "partition_axis": "cross-arm semantic comparison before performance promotion",
+    "local_state": ["frozen contract", "case role", "baseline digest", "candidate digest", "first mismatch"],
+    "combine_rule": "Combine case outcomes with logical AND; any required mismatch makes the candidate inadmissible regardless of speed.",
+    "finalization": "Promote only when all required correctness cases pass and their evidence identities remain valid.",
+    "work_complexity": "Linear in compared output elements until the first mismatch, plus hashing for retained evidence.",
+    "span_complexity": "Correctness screening precedes deeper performance measurement and can fail fast.",
+    "communication_cost": "Stores compact digests and mismatch metadata rather than full traces in the decision record.",
+    "invariants": [
+      "correctness is not inferred from repeatability",
+      "a failed exactness gate cannot be overridden by speed",
+      "case evidence is hash-bound",
+      "the comparison contract is frozen before measurement"
+    ],
+    "anti_patterns": [
+      "performance-first acceptance",
+      "decoded-text-only comparison",
+      "self-consistency mistaken for cross-arm equivalence",
+      "correctness pending marketed as lossless"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "semantic-equivalence",
+      "name": "hash-bound cross-arm exactness gate",
+      "change_axes": ["correctness contract", "case coverage", "evidence binding"],
+      "template": "Compare baseline and candidate on frozen anchor and edge cases, bind their outputs to evidence, and reject the candidate before promotion when an exact contract differs."
+    }
+  ]
+}

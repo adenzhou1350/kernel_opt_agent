@@ -18,7 +18,7 @@ from opportunity_map import load_map as load_opportunity_map, map_path as opport
 
 
 POOL_SCHEMA = "candidate-pool-v1"
-SMOKE_SCHEMA = "candidate-smoke-result-v3"
+SMOKE_SCHEMA = "candidate-smoke-result-v4"
 ACTIVE_STATUSES = {"PROPOSED", "DEVELOPING"}
 
 
@@ -280,7 +280,7 @@ def record_failure(pool: dict, item: dict, attempt_record: dict, reason: str) ->
 def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, float]:
     result = read_object(path)
     if result.get("schema_version") != SMOKE_SCHEMA or result.get("status") != "PASS":
-        raise ValueError("smoke result must record candidate-smoke-result-v3 PASS")
+        raise ValueError("smoke result must record candidate-smoke-result-v4 PASS")
     if result.get("candidate_id") != item["candidate_id"]:
         raise ValueError("smoke result candidate_id mismatch")
     cases = result.get("cases")
@@ -289,6 +289,65 @@ def validate_smoke_result(run: Path, path: Path, item: dict) -> tuple[dict, floa
     roles = {case.get("role") for case in cases if isinstance(case, dict)}
     if not {"ANCHOR", "EDGE"} <= roles:
         raise ValueError("smoke result must cover ANCHOR and EDGE roles")
+    correctness = result.get("correctness")
+    if not isinstance(correctness, dict) or correctness.get("status") != "PASS":
+        raise ValueError("smoke result requires correctness.status PASS")
+    contract = correctness.get("contract")
+    if contract not in {"EXACT_IDENTITY", "TOLERANCE_BOUNDED", "PROPERTY_BASED"}:
+        raise ValueError("smoke correctness contract is missing or unsupported")
+    if not isinstance(correctness.get("oracle"), str) or not correctness["oracle"].strip():
+        raise ValueError("smoke correctness oracle must be non-empty")
+    case_results = correctness.get("case_results")
+    if not isinstance(case_results, list) or len(case_results) < 2:
+        raise ValueError("smoke correctness requires at least two case results")
+    declared_cases = {
+        (case.get("case_id"), case.get("role"))
+        for case in cases
+        if isinstance(case, dict)
+    }
+    observed_cases = set()
+    for index, case_result in enumerate(case_results):
+        if not isinstance(case_result, dict):
+            raise ValueError(f"correctness case result {index} must be an object")
+        binding = (case_result.get("case_id"), case_result.get("role"))
+        if binding not in declared_cases:
+            raise ValueError(f"correctness case result {index} is not bound to a declared smoke case")
+        if binding in observed_cases:
+            raise ValueError(f"duplicate correctness case result: {binding[0]}")
+        observed_cases.add(binding)
+        if case_result.get("status") != "PASS":
+            raise ValueError(f"correctness case result {index} did not PASS")
+        baseline_digest = case_result.get("baseline_digest")
+        candidate_digest = case_result.get("candidate_digest")
+        if contract == "EXACT_IDENTITY":
+            if (
+                not isinstance(baseline_digest, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", baseline_digest)
+                or candidate_digest != baseline_digest
+            ):
+                raise ValueError(
+                    "EXACT_IDENTITY requires equal lowercase SHA-256 baseline and candidate digests"
+                )
+        evidence = case_result.get("evidence")
+        if not isinstance(evidence, list) or not evidence:
+            raise ValueError(f"correctness case result {index} requires hash-bound evidence")
+        for evidence_index, identity in enumerate(evidence):
+            if not isinstance(identity, dict):
+                raise ValueError(
+                    f"correctness case result {index} evidence {evidence_index} must be an object"
+                )
+            evidence_path = run_path(
+                run,
+                identity.get("path"),
+                f"correctness case result {index} evidence {evidence_index}",
+                must_exist=True,
+            )
+            if identity.get("sha256") != digest(evidence_path):
+                raise ValueError(
+                    f"correctness case result {index} evidence {evidence_index} SHA256 mismatch"
+                )
+    if not {"ANCHOR", "EDGE"} <= {role for _, role in observed_cases}:
+        raise ValueError("smoke correctness must cover ANCHOR and EDGE roles")
     reachability = result.get("reachability")
     if not isinstance(reachability, dict) or reachability.get("status") != "PASS":
         raise ValueError("smoke result requires reachability.status PASS")

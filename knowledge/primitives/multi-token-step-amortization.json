@@ -1,0 +1,93 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-multi-token-step-amortization",
+  "title": "Amortize a host-bound decode step by validating multiple tokens per target pass",
+  "kind": "ORCHESTRATION",
+  "source": {
+    "title": "vLLM speculative decoding documentation",
+    "url": "https://docs.vllm.ai/en/latest/features/spec_decode/",
+    "version": "accessed-2026-09-06",
+    "available_at": "2026-09-06T14:00:00Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "Speculative decoding is an architecture family for reducing inter-token latency; its benefit, acceptance rate and correctness remain model-, workload- and implementation-specific."
+  },
+  "opportunity_families": [
+    "multi-token-step",
+    "speculative-decoding",
+    "host-critical-path-amortization"
+  ],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "decode",
+      "gpu idle gap",
+      "host critical path",
+      "sampling",
+      "speculative",
+      "mtp",
+      "inter-token latency"
+    ]
+  },
+  "implementation_recipe": [
+    "Profile a production-exact decode and separate target-model GPU work from the stable inter-token host or synchronization gap.",
+    "When per-step overhead is material, generate an architecture candidate that proposes multiple draft tokens and verifies them in one target step.",
+    "Prefer model-native draft heads when checkpoint support exists; otherwise compare external draft, n-gram and pipeline-overlap families under the same budget.",
+    "Prewarm the exact rejection-sampling and verification shapes before steady-state timing so runtime compilation is not counted as inference throughput."
+  ],
+  "validation_recipe": [
+    "Freeze prompt tokens, sampling parameters, seed, dtype, CUDA-graph mode and output-length policy across baseline and candidate.",
+    "For temperature-zero inference, require exact output-token identity against the non-speculative greedy baseline before interpreting throughput.",
+    "Measure acceptance length, rejected-token fraction, target passes, time to first token, inter-token latency and end-to-end throughput together.",
+    "Use a persistent engine and interleaved repetitions; report cold initialization, compilation and steady state separately."
+  ],
+  "expected_bottleneck_shifts": [
+    "Successful multi-token validation amortizes scheduler, input preparation, sampling and synchronization over accepted tokens.",
+    "Draft execution, rejection sampling and state rollback can replace the removed host gap as the next bottleneck.",
+    "Low acceptance can make the candidate slower even when its draft head is inexpensive."
+  ],
+  "failure_modes": [
+    "Throughput is reported before verifying semantic equivalence to the frozen sampling contract.",
+    "Runtime JIT for rejection kernels contaminates the first measured samples.",
+    "A model-native draft head is assumed correct merely because the checkpoint contains weights.",
+    "The benchmark counts proposed tokens rather than accepted output tokens.",
+    "A batch-one latency win is generalized to throughput-oriented or multi-request workloads."
+  ],
+  "scope_limits": [
+    "This is a candidate-generation prior, not a guarantee that speculative decoding is lossless or faster.",
+    "An RTX 4060 Qwen3.5-0.8B reproduction observed about 1.24-1.26x raw potential for native MTP-1, but failed exact greedy identity at output token four; that measurement is negative correctness evidence, not an accepted speedup.",
+    "The technique changes model-level orchestration and may be outside a kernel-only task's public contract."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "One target-model pass and its host critical path produce one accepted output token.",
+    "partition_axis": "target verification step versus the variable number of accepted draft tokens",
+    "local_state": ["draft tokens", "target logits", "acceptance mask", "rollback-safe recurrent or KV state"],
+    "combine_rule": "Accept the verified prefix, resample the first rejected position, and advance every model state only by the accepted-token count.",
+    "finalization": "Emit only accepted tokens and preserve the baseline sampling distribution or exact greedy sequence required by the frozen contract.",
+    "work_complexity": "Adds draft work and verification while reducing the number of target steps per emitted token when acceptance exceeds one.",
+    "span_complexity": "The serial decode span falls approximately with accepted tokens per target step, bounded by draft and verification dependencies.",
+    "communication_cost": "May add draft logits, token buffers and state-selection traffic, but amortizes host-device step coordination.",
+    "invariants": [
+      "only verified tokens are emitted",
+      "state advances by accepted tokens rather than proposed tokens",
+      "temperature-zero output matches the non-speculative greedy oracle under an exact contract",
+      "performance denominators count accepted output tokens"
+    ],
+    "anti_patterns": [
+      "optimize rejection kernels before measuring acceptance",
+      "count proposed-token throughput",
+      "ignore recurrent-state rollback",
+      "treat repeatable divergence as correct"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "multi-token-step",
+      "name": "native draft-head target-step amortization",
+      "change_axes": ["tokens per target step", "draft mechanism", "state verification boundary"],
+      "template": "Use the model's native draft head to propose a small token block, verify it in one target pass, and promote only widths that pass exactness and improve accepted-token latency."
+    }
+  ]
+}

@@ -72,6 +72,15 @@ Candidate source lives under `runs/<run>/candidates/<id>/`. Register an argv-for
 build, correctness and smoke command with `kernel_opt.py candidate add`, then use
 `kernel_opt.py candidate run`.
 
+The smoke result is `candidate-smoke-result-v4` and must bind correctness to the
+same anchor and edge cases used for screening. Select `EXACT_IDENTITY` when the
+public contract promises bitwise, token-ID or byte identity; the baseline and
+candidate SHA-256 digests must then be equal. Use `TOLERANCE_BOUNDED` or
+`PROPERTY_BASED` only when the frozen operator contract explicitly permits it,
+and bind each passing case to run-local evidence. A faster architecture that
+changes a greedy token stream, even reproducibly, is a correctness failure and
+must not enter performance promotion.
+
 A compiler error, import error, layout/type mismatch, missing build artifact or
 invalid smoke harness is a `TECHNICAL_FAILURE`. It may be repaired repeatedly
 within the candidate's technical-attempt budget. It does not consume the

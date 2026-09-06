@@ -4,9 +4,9 @@
   "title": "Discovery-only candidate smoke result with execution-path proof",
   "type": "object",
   "additionalProperties": true,
-  "required": ["schema_version", "status", "candidate_id", "objective", "cases", "reachability"],
+  "required": ["schema_version", "status", "candidate_id", "objective", "cases", "correctness", "reachability"],
   "properties": {
-    "schema_version": {"const": "candidate-smoke-result-v3"},
+    "schema_version": {"const": "candidate-smoke-result-v4"},
     "status": {"const": "PASS"},
     "candidate_id": {"type": "string", "minLength": 1},
     "objective": {
@@ -14,6 +14,45 @@
       "required": ["direction", "baseline", "candidate", "unit"]
     },
     "cases": {"type": "array", "minItems": 2},
+    "correctness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "contract", "oracle", "case_results"],
+      "properties": {
+        "status": {"const": "PASS"},
+        "contract": {"enum": ["EXACT_IDENTITY", "TOLERANCE_BOUNDED", "PROPERTY_BASED"]},
+        "oracle": {"type": "string", "minLength": 1},
+        "case_results": {
+          "type": "array",
+          "minItems": 2,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["case_id", "role", "status", "baseline_digest", "candidate_digest", "evidence"],
+            "properties": {
+              "case_id": {"type": "string", "minLength": 1},
+              "role": {"enum": ["ANCHOR", "EDGE"]},
+              "status": {"const": "PASS"},
+              "baseline_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+              "candidate_digest": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
+              "evidence": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": ["path", "sha256"],
+                  "properties": {
+                    "path": {"type": "string", "minLength": 1},
+                    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "reachability": {
       "type": "object",
       "additionalProperties": true,

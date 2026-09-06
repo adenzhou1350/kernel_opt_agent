@@ -70,11 +70,24 @@ import json
 import hashlib
 from pathlib import Path
 result = {
-    "schema_version": "candidate-smoke-result-v3",
+    "schema_version": "candidate-smoke-result-v4",
     "status": "PASS",
     "candidate_id": "c1",
     "objective": {"direction": "minimize", "baseline": 10.0, "candidate": 8.0, "unit": "us_weighted"},
     "cases": [{"case_id": "anchor", "role": "ANCHOR"}, {"case_id": "edge", "role": "EDGE"}],
+    "correctness": {
+        "status": "PASS",
+        "contract": "EXACT_IDENTITY",
+        "oracle": "fixture output bytes",
+        "case_results": [
+            {"case_id": case_id, "role": role, "status": "PASS",
+             "baseline_digest": hashlib.sha256(case_id.encode()).hexdigest(),
+             "candidate_digest": hashlib.sha256(case_id.encode()).hexdigest(),
+             "evidence": [{"path": "candidates/c1/workspace/kernel.py",
+                           "sha256": hashlib.sha256(Path("kernel.py").read_bytes()).hexdigest()}]}
+            for case_id, role in (("anchor", "ANCHOR"), ("edge", "EDGE"))
+        ],
+    },
     "reachability": {
         "status": "PASS",
         "expected_path": "test-candidate-kernel",
