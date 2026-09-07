@@ -287,6 +287,29 @@ def build_anchor(
     return anchor
 
 
+def resolve_anchored_checkpoint(observed: dict, root: Path) -> Path:
+    """Resolve an anchored checkpoint without trusting a machine-local path.
+
+    The anchor records the original absolute path for provenance, while the Git
+    path plus content hash is the portable identity.  Prefer the current
+    checkout so an old worktree can disappear without invalidating the proof.
+    """
+    relative = Path(observed["git_anchor"]["checkpoint_path"])
+    if relative.is_absolute():
+        raise ValueError("anchored checkpoint Git path must be relative")
+    local = (root / relative).resolve()
+    try:
+        local.relative_to(root)
+    except ValueError as error:
+        raise ValueError("anchored checkpoint Git path escapes repository") from error
+    original = Path(observed["checkpoint_identity"]["path"]).resolve()
+    expected_hash = observed["checkpoint_identity"]["sha256"]
+    for candidate in (local, original):
+        if candidate.is_file() and sha256_file(candidate) == expected_hash:
+            return candidate
+    raise ValueError("knowledge checkpoint anchor input changed or is unavailable")
+
+
 def validate_anchor(anchor_path: Path, corpus: Path, root: Path | None = None) -> dict:
     root = (root or repository_root()).resolve()
     anchor_path = anchor_path.resolve()
@@ -297,33 +320,27 @@ def validate_anchor(anchor_path: Path, corpus: Path, root: Path | None = None) -
     if errors:
         raise ValueError("invalid knowledge checkpoint anchor: " + "; ".join(errors))
     observed = read_object(anchor_path)
-    checkpoint = Path(observed["checkpoint_identity"]["path"])
-    if (
-        not checkpoint.is_file()
-        or sha256_file(checkpoint) != observed["checkpoint_identity"]["sha256"]
-    ):
-        raise ValueError("knowledge checkpoint anchor input changed")
-    expected = build_anchor(
-        checkpoint,
-        corpus,
-        observed["git_anchor"]["commit"],
-        observed["not_after"],
-        root,
-    )
-    observed_stable = {
-        key: value for key, value in observed.items() if key != "generated_at"
-    }
-    expected_stable = {
-        key: value for key, value in expected.items() if key != "generated_at"
-    }
-    if observed_stable != expected_stable:
-        raise ValueError("knowledge checkpoint anchor is stale or edited")
+    checkpoint = resolve_anchored_checkpoint(observed, root)
+    validate_checkpoint(checkpoint, corpus, root)
+    commit = observed["git_anchor"]["commit"]
+    resolved = git_bytes(root, "rev-parse", f"{commit}^{{commit}}").decode().strip()
+    if resolved != commit:
+        raise ValueError("knowledge checkpoint anchor commit did not resolve exactly")
+    relative = observed["git_anchor"]["checkpoint_path"]
+    if git_bytes(root, "show", f"{commit}:{relative}") != checkpoint.read_bytes():
+        raise ValueError("anchored Git checkpoint differs from resolved checkpoint")
+    committed_at = git_bytes(root, "show", "-s", "--format=%cI", commit).decode().strip()
+    if committed_at != observed["git_anchor"]["committed_at"]:
+        raise ValueError("knowledge checkpoint anchor commit time changed")
+    if parse_time(committed_at) > parse_time(observed["not_after"]):
+        raise ValueError("knowledge checkpoint commit is later than not_after")
     return {
         "status": "PASS",
         "checkpoint_id": read_object(checkpoint)["checkpoint_id"],
-        "commit": observed["git_anchor"]["commit"],
-        "committed_at": observed["git_anchor"]["committed_at"],
+        "commit": commit,
+        "committed_at": committed_at,
         "not_after": observed["not_after"],
+        "checkpoint_path": checkpoint.as_posix(),
     }
 
 

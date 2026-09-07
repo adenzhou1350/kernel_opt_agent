@@ -13,7 +13,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from community_checkpoint import build_anchor  # noqa: E402
+from community_checkpoint import build_anchor, validate_anchor  # noqa: E402
 from community_graph_v2 import (  # noqa: E402
     build_graph,
     parse_time,
@@ -114,6 +114,49 @@ def test_graph_rejects_cutoff_before_checkpoint_anchor() -> None:
             assert "knowledge anchor not_after" in str(error)
         else:
             raise AssertionError("graph accepted knowledge before its anchor boundary")
+
+
+def test_anchor_resolves_checkpoint_from_current_checkout() -> None:
+    if not CORPUS.is_dir() or not CHECKPOINT.is_file():
+        return
+    with tempfile.TemporaryDirectory() as temporary:
+        anchor_path = materialize_anchor(CORPUS, Path(temporary))
+        anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+        anchor["checkpoint_identity"]["path"] = str(
+            Path(temporary) / "removed-worktree" / CHECKPOINT.name
+        )
+        anchor["git_anchor"]["repository"] = str(
+            Path(temporary) / "removed-worktree"
+        )
+        atomic_json(anchor_path, anchor)
+        result = validate_anchor(anchor_path, CORPUS, ROOT)
+        assert result["status"] == "PASS"
+        assert Path(result["checkpoint_path"]) == CHECKPOINT.resolve()
+
+
+def test_graph_validation_ignores_relocated_identity_paths() -> None:
+    if not CORPUS.is_dir() or not CHECKPOINT.is_file():
+        return
+    with tempfile.TemporaryDirectory() as temporary:
+        temporary_path = Path(temporary)
+        anchor = materialize_anchor(CORPUS, temporary_path)
+        graph = build_graph(
+            CORPUS,
+            anchor,
+            REPOSITORIES,
+            "2026-09-07T05:00:00Z",
+            "2026-09-07T05:00:00Z",
+            ROOT,
+        )
+        graph["input_identity"]["checkpoint"]["path"] = str(
+            temporary_path / "removed-worktree" / CHECKPOINT.name
+        )
+        graph["input_identity"]["checkpoint_anchor"]["path"] = str(
+            temporary_path / "removed-worktree" / anchor.name
+        )
+        graph_path = temporary_path / "graph.json"
+        atomic_json(graph_path, graph)
+        assert validate_graph(graph_path, CORPUS, ROOT)["status"] == "PASS"
 
 
 def test_temporal_suite_v2_requires_the_complete_knowledge_chain() -> None:

@@ -66,6 +66,27 @@ def evaluate(graph: dict, policy: dict) -> tuple[dict, list[dict]]:
     negative_count = sum(item["outcome"] in NEGATIVE_OUTCOMES for item in nodes)
     unresolved_count = sum(item["resolution"] == "MISSING" for item in edges)
     event_repositories = {item["event_id"]: item["repository"] for item in nodes}
+    present_edges = [item for item in edges if item["resolution"] == "PRESENT"]
+    present_method_edges = [
+        item for item in present_edges if item.get("target_kind") == "METHOD"
+    ]
+    method_linked_events = {item["source"] for item in present_method_edges}
+    negative_event_ids = {
+        item["event_id"] for item in nodes if item["outcome"] in NEGATIVE_OUTCOMES
+    }
+    connected_negative_event_ids = set()
+    cross_repository_event_relations = 0
+    for item in present_edges:
+        if item["source"] in negative_event_ids:
+            connected_negative_event_ids.add(item["source"])
+        if item.get("target_kind") != "EVENT":
+            continue
+        if item["target"] in negative_event_ids:
+            connected_negative_event_ids.add(item["target"])
+        if event_repositories.get(item["source"]) != event_repositories.get(
+            item["target"]
+        ):
+            cross_repository_event_relations += 1
     cross_repository_compositions = sum(
         len(
             {
@@ -96,6 +117,14 @@ def evaluate(graph: dict, policy: dict) -> tuple[dict, list[dict]]:
         "coverage_gap_count": len(graph["coverage_gaps"]),
         "composition_count": len(graph["composition_hypotheses"]),
         "cross_repository_composition_count": cross_repository_compositions,
+        "present_method_relation_count": len(present_method_edges),
+        "method_linked_event_count": len(method_linked_events),
+        "method_linked_event_fraction": fraction(len(method_linked_events), node_count),
+        "connected_negative_event_count": len(connected_negative_event_ids),
+        "connected_negative_event_fraction": fraction(
+            len(connected_negative_event_ids), negative_count
+        ),
+        "cross_repository_event_relation_count": cross_repository_event_relations,
         "lifecycle_review_queue_count": len(graph["lifecycle_review_queue"]),
         "reviewed_fraction": reviewed_fraction,
         "unresolved_relation_fraction": unresolved_fraction,
@@ -194,6 +223,7 @@ def build_audit(
             "Breadth and lifecycle diversity do not prove that community knowledge improves optimization outcomes.",
             "Composition hypotheses remain discovery priors until a held-out task validates them.",
             "Coverage gaps identify missing repository-method intersections; they are not evidence that a transferable implementation exists.",
+            "Connectivity counts require a resolved graph edge; labels or unresolved conceptual targets do not count as reusable knowledge.",
         ],
     }
     errors = validate_instance(

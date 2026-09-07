@@ -46,7 +46,16 @@ def graph() -> dict:
     return {
         "nodes": nodes,
         "edges": [
-            {"type": relation, "resolution": "PRESENT"} for relation in relation_types
+            {
+                "source": f"event-{index % len(nodes)}",
+                "target": (
+                    "method-a" if index == 0 else f"event-{(index + 1) % len(nodes)}"
+                ),
+                "target_kind": "METHOD" if index == 0 else "EVENT",
+                "type": relation,
+                "resolution": "PRESENT",
+            }
+            for index, relation in enumerate(relation_types)
         ],
         "coverage_gaps": [],
         "composition_hypotheses": [
@@ -106,6 +115,10 @@ def test_coverage_audit_requires_lifecycle_and_cross_repository_breadth() -> Non
         assert report["status"] == "PASS"
         assert report["inventory"]["negative_event_count"] == 3
         assert report["inventory"]["cross_repository_composition_count"] == 2
+        assert report["inventory"]["present_method_relation_count"] == 1
+        assert report["inventory"]["method_linked_event_count"] == 1
+        assert report["inventory"]["connected_negative_event_count"] == 3
+        assert report["inventory"]["cross_repository_event_relation_count"] == 6
         atomic_json(audit_path, report)
         with patch("community_coverage_audit.validate_source_graph"):
             assert validate_audit(audit_path, base, ROOT)["status"] == "PASS"

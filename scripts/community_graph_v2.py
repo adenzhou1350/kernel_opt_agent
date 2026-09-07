@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -302,7 +303,7 @@ def build_graph(
     checkpoint_anchor = checkpoint_anchor.resolve()
     anchor_validation = validate_anchor(checkpoint_anchor, corpus, root)
     anchor = read_object(checkpoint_anchor)
-    checkpoint_path = Path(anchor["checkpoint_identity"]["path"]).resolve()
+    checkpoint_path = Path(anchor_validation["checkpoint_path"])
     checkpoint = read_object(checkpoint_path)
     source_cutoff = parse_time(source_cutoff_at, "source_cutoff_at")
     knowledge_cutoff = parse_time(knowledge_cutoff_at, "knowledge_cutoff_at")
@@ -523,13 +524,23 @@ def build_graph(
 
 def validate_graph(graph_path: Path, corpus: Path, root: Path | None = None) -> dict:
     root = (root or repository_root()).resolve()
-    graph = read_object(graph_path.resolve())
+    graph_path = graph_path.resolve()
+    graph = read_object(graph_path)
     validate_graph_structure(graph, root)
-    anchor_path = Path(graph["input_identity"]["checkpoint_anchor"]["path"])
-    if (
-        sha256_file(anchor_path)
-        != graph["input_identity"]["checkpoint_anchor"]["sha256"]
-    ):
+    anchor_identity = graph["input_identity"]["checkpoint_anchor"]
+    anchor_candidates = (
+        Path(anchor_identity["path"]),
+        graph_path.parent / Path(anchor_identity["path"]).name,
+    )
+    anchor_path = next(
+        (
+            path.resolve()
+            for path in anchor_candidates
+            if path.is_file() and sha256_file(path) == anchor_identity["sha256"]
+        ),
+        None,
+    )
+    if anchor_path is None:
         raise ValueError("checkpoint anchor changed")
     expected = build_graph(
         corpus,
@@ -539,12 +550,17 @@ def validate_graph(graph_path: Path, corpus: Path, root: Path | None = None) -> 
         graph["knowledge_cutoff_at"],
         root,
     )
-    observed_stable = {
-        key: value for key, value in graph.items() if key != "generated_at"
-    }
-    expected_stable = {
-        key: value for key, value in expected.items() if key != "generated_at"
-    }
+    observed_stable = deepcopy(
+        {key: value for key, value in graph.items() if key != "generated_at"}
+    )
+    expected_stable = deepcopy(
+        {key: value for key, value in expected.items() if key != "generated_at"}
+    )
+    # Absolute locations are provenance hints, not content identity.  Hashes,
+    # the anchored Git path and commit continue to be checked above.
+    for value in (observed_stable, expected_stable):
+        value["input_identity"]["checkpoint_anchor"].pop("path", None)
+        value["input_identity"]["checkpoint"].pop("path", None)
     if observed_stable != expected_stable:
         raise ValueError("checkpoint-backed graph is stale or was edited")
     return {
