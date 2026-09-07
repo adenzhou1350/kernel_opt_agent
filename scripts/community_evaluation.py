@@ -40,6 +40,7 @@ SUITE_RUN_SUMMARY_SCHEMA = "community-suite-run-summary-v1"
 TASK_PACKET_AUDIT_SCHEMA = "community-task-packet-audit-v1"
 PRIOR_SHORTLIST_SCHEMA = "community-prior-shortlist-v1"
 FRONTIER_CONTRACT_SCHEMA = "community-frontier-contract-v1"
+HELDOUT_QUEUE_SCHEMA = "community-heldout-queue-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -461,6 +462,280 @@ def validate_suite(
         "task_count": len(suite["tasks"]),
         "cutoff_at": suite["cutoff_at"],
     }
+
+
+def absolute_identity(path: Path) -> dict:
+    resolved = path.resolve()
+    return {"path": resolved.as_posix(), "sha256": sha256_file(resolved)}
+
+
+def build_heldout_queue(
+    receipt_paths: list[Path],
+    graph_path: Path,
+    methods_path: Path | None,
+    corpus: Path,
+    cutoff_at: str,
+    max_items: int,
+    random_seed: int,
+    root: Path | None = None,
+) -> dict:
+    """Select post-cutoff PRs from discovery metadata without solution artifacts."""
+    root = root or repository_root()
+    if not receipt_paths:
+        raise ValueError("held-out selection requires at least one sync receipt")
+    if not 1 <= max_items <= 100:
+        raise ValueError("held-out max_items must be between 1 and 100")
+    if random_seed < 0:
+        raise ValueError("held-out random_seed must be non-negative")
+    cutoff = parse_time(cutoff_at)
+
+    graph_path = graph_path.resolve()
+    validate_graph(graph_path, corpus, root)
+    graph = read_object(graph_path)
+    graph_cutoff = graph.get("temporal_cutoff_at")
+    if graph_cutoff is None or parse_time(graph_cutoff) != cutoff:
+        raise ValueError("training graph cutoff does not match held-out cutoff")
+    training_sources = {
+        (node["repository"], int(node["pr_number"])) for node in graph["nodes"]
+    }
+
+    method_identity = None
+    if methods_path is not None:
+        methods_path = methods_path.resolve()
+        method_errors = validate_json_file(
+            methods_path,
+            root / "schemas" / "optimization_method_snapshot.schema.json",
+        )
+        if method_errors:
+            raise ValueError(
+                "invalid held-out method snapshot: " + "; ".join(method_errors)
+            )
+        methods = read_object(methods_path)
+        if parse_time(methods["cutoff_at"]) != cutoff:
+            raise ValueError("training method cutoff does not match held-out cutoff")
+        method_ids = []
+        for card in methods["cards"]:
+            if parse_time(card["source"]["available_at"]) > cutoff:
+                raise ValueError(
+                    f"held-out method snapshot leaks future method {card['method_id']}"
+                )
+            method_ids.append(card["method_id"])
+        if sorted(method_ids) != methods["included_method_ids"]:
+            raise ValueError(
+                "held-out method snapshot card ids do not match included ids"
+            )
+        if len(method_ids) != len(set(method_ids)):
+            raise ValueError("held-out method snapshot contains duplicate method ids")
+        method_identity = absolute_identity(methods_path)
+
+    receipt_schema = root / "schemas" / "community_sync_receipt.schema.json"
+    receipt_identities = []
+    candidate_count = 0
+    deduplicated: dict[tuple[str, int], dict] = {}
+    for raw_path in sorted({path.resolve() for path in receipt_paths}):
+        errors = validate_json_file(raw_path, receipt_schema)
+        if errors:
+            raise ValueError(
+                f"invalid held-out sync receipt {raw_path}: " + "; ".join(errors)
+            )
+        receipt = read_object(raw_path)
+        if receipt["schema_version"] != "community-sync-receipt-v2":
+            raise ValueError("held-out selection requires community-sync-receipt-v2")
+        if (
+            receipt.get("window_basis") != "UPDATED_AT"
+            or receipt.get("heldout_eligibility_basis") != "EARLIEST_PUBLIC_AT"
+        ):
+            raise ValueError("held-out sync receipt has unsafe time semantics")
+        receipt_identities.append(absolute_identity(raw_path))
+        repository = receipt["repository"]
+        for candidate in receipt["candidates"]:
+            candidate_count += 1
+            if candidate["earliest_public_at"] != candidate["created_at"]:
+                raise ValueError(
+                    f"held-out candidate {repository}#{candidate['pr_number']} "
+                    "has inconsistent earliest public time"
+                )
+            earliest = parse_time(candidate["earliest_public_at"])
+            updated = parse_time(candidate["updated_at"])
+            if earliest > updated:
+                raise ValueError(
+                    f"held-out candidate {repository}#{candidate['pr_number']} "
+                    "was updated before it was public"
+                )
+            key = (repository, int(candidate["pr_number"]))
+            row = {
+                "repository": repository,
+                "pr_number": int(candidate["pr_number"]),
+                "title": candidate["title"],
+                "earliest_public_at": candidate["earliest_public_at"],
+                "updated_at": candidate["updated_at"],
+                "classifications": sorted(candidate["classifications"]),
+                "discovery_score": int(candidate["selection_score"]),
+            }
+            previous = deduplicated.get(key)
+            if previous is not None:
+                if previous["earliest_public_at"] != row["earliest_public_at"]:
+                    raise ValueError(
+                        f"held-out candidate {repository}#{candidate['pr_number']} "
+                        "has conflicting creation times"
+                    )
+                if parse_time(previous["updated_at"]) >= updated:
+                    continue
+            deduplicated[key] = row
+
+    eligible = []
+    excluded = []
+    for key, row in sorted(deduplicated.items()):
+        if parse_time(row["earliest_public_at"]) <= cutoff:
+            excluded.append(
+                {
+                    "repository": row["repository"],
+                    "pr_number": row["pr_number"],
+                    "earliest_public_at": row["earliest_public_at"],
+                    "reason": "PRE_CUTOFF_PUBLIC",
+                }
+            )
+            continue
+        if key in training_sources:
+            excluded.append(
+                {
+                    "repository": row["repository"],
+                    "pr_number": row["pr_number"],
+                    "earliest_public_at": row["earliest_public_at"],
+                    "reason": "TRAINING_SOURCE",
+                }
+            )
+            continue
+        row["diversity_group"] = (
+            row["repository"] + ":" + ",".join(row["classifications"])
+        )
+        row["seeded_tiebreak"] = hashlib.sha256(
+            f"{random_seed}:{row['repository']}:{row['pr_number']}".encode()
+        ).hexdigest()
+        eligible.append(row)
+
+    grouped: dict[str, list[dict]] = {}
+    for row in eligible:
+        grouped.setdefault(row["diversity_group"], []).append(row)
+    for rows in grouped.values():
+        rows.sort(
+            key=lambda row: (-row["discovery_score"], row["seeded_tiebreak"])
+        )
+        for rank, row in enumerate(rows, start=1):
+            row["within_group_rank"] = rank
+    eligible.sort(
+        key=lambda row: (
+            row["within_group_rank"] != 1,
+            -row["discovery_score"],
+            row["seeded_tiebreak"],
+        )
+    )
+    for rank, row in enumerate(eligible, start=1):
+        row["priority_rank"] = rank
+        row["selection"] = "SELECTED" if rank <= max_items else "BACKLOG"
+
+    queue = {
+        "schema_version": HELDOUT_QUEUE_SCHEMA,
+        "generated_at": now(),
+        "cutoff_at": cutoff_at,
+        "claim_boundary": "DISCOVERY_METADATA_SELECTION_ONLY",
+        "input_identity": {
+            "receipts": receipt_identities,
+            "training_graph": absolute_identity(graph_path),
+            "training_methods": method_identity,
+            "corpus_index_sha256": sha256_file(corpus.resolve() / "index.json"),
+        },
+        "policy": {
+            "max_items": max_items,
+            "random_seed": random_seed,
+            "required_receipt_schema": "community-sync-receipt-v2",
+            "eligibility_time_field": "earliest_public_at",
+            "exclude_training_sources": True,
+            "selection_inputs": [
+                "repository",
+                "pr_number",
+                "classifications",
+                "selection_score",
+                "earliest_public_at",
+            ],
+            "ordering": (
+                "DIVERSE_GROUP_FIRST_THEN_DISCOVERY_SCORE_THEN_SEEDED_HASH"
+            ),
+        },
+        "inventory": {
+            "receipt_candidate_count": candidate_count,
+            "deduplicated_count": len(deduplicated),
+            "eligible_count": len(eligible),
+            "selected_count": min(len(eligible), max_items),
+            "backlog_count": max(0, len(eligible) - max_items),
+            "excluded_pre_cutoff_count": sum(
+                row["reason"] == "PRE_CUTOFF_PUBLIC" for row in excluded
+            ),
+            "excluded_training_source_count": sum(
+                row["reason"] == "TRAINING_SOURCE" for row in excluded
+            ),
+        },
+        "items": eligible,
+        "excluded": excluded,
+    }
+    errors = validate_instance(
+        queue,
+        read_object(root / "schemas" / "community_heldout_queue.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid held-out queue: " + "; ".join(errors))
+    return queue
+
+
+def validate_heldout_queue(
+    queue_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    queue_path = queue_path.resolve()
+    errors = validate_json_file(
+        queue_path, root / "schemas" / "community_heldout_queue.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid held-out queue: " + "; ".join(errors))
+    queue = read_object(queue_path)
+    inputs = queue["input_identity"]
+    corpus_index = corpus.resolve() / "index.json"
+    if sha256_file(corpus_index) != inputs["corpus_index_sha256"]:
+        raise ValueError("held-out queue corpus index changed")
+    for identity in [*inputs["receipts"], inputs["training_graph"]]:
+        path = Path(identity["path"])
+        if not path.is_file() or sha256_file(path) != identity["sha256"]:
+            raise ValueError(f"held-out queue input changed: {identity['path']}")
+    method_identity = inputs["training_methods"]
+    methods_path = None
+    if method_identity is not None:
+        methods_path = Path(method_identity["path"])
+        if (
+            not methods_path.is_file()
+            or sha256_file(methods_path) != method_identity["sha256"]
+        ):
+            raise ValueError(
+                f"held-out queue input changed: {method_identity['path']}"
+            )
+    expected = build_heldout_queue(
+        [Path(identity["path"]) for identity in inputs["receipts"]],
+        Path(inputs["training_graph"]["path"]),
+        methods_path,
+        corpus,
+        queue["cutoff_at"],
+        int(queue["policy"]["max_items"]),
+        int(queue["policy"]["random_seed"]),
+        root,
+    )
+    observed_stable = {
+        key: value for key, value in queue.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("held-out queue is stale or was edited without recomputation")
+    return {"status": "PASS", **queue["inventory"]}
 
 
 def identity_for(path: Path, base: Path) -> dict:
@@ -2473,6 +2748,18 @@ def parse_args() -> argparse.Namespace:
     validate = subparsers.add_parser("validate-suite")
     validate.add_argument("--suite", type=Path, required=True)
     validate.add_argument("--corpus", type=Path, required=True)
+    heldout = subparsers.add_parser("build-heldout-queue")
+    heldout.add_argument("--receipt", type=Path, action="append", required=True)
+    heldout.add_argument("--graph", type=Path, required=True)
+    heldout.add_argument("--methods", type=Path)
+    heldout.add_argument("--corpus", type=Path, required=True)
+    heldout.add_argument("--cutoff-at", required=True)
+    heldout.add_argument("--max-items", type=int, default=8)
+    heldout.add_argument("--random-seed", type=int, required=True)
+    heldout.add_argument("--output", type=Path, required=True)
+    heldout_validate = subparsers.add_parser("validate-heldout-queue")
+    heldout_validate.add_argument("--queue", type=Path, required=True)
+    heldout_validate.add_argument("--corpus", type=Path, required=True)
     materialize = subparsers.add_parser("materialize-trial")
     materialize.add_argument("--suite", type=Path, required=True)
     materialize.add_argument("--corpus", type=Path, required=True)
@@ -2524,6 +2811,20 @@ def main() -> int:
     try:
         if args.operation == "validate-suite":
             result = validate_suite(args.suite, args.corpus)
+        elif args.operation == "build-heldout-queue":
+            result = build_heldout_queue(
+                args.receipt,
+                args.graph,
+                args.methods,
+                args.corpus,
+                args.cutoff_at,
+                args.max_items,
+                args.random_seed,
+            )
+            atomic_json(args.output.resolve(), result)
+            result = {**result["inventory"], "status": "PASS", "queue": str(args.output.resolve())}
+        elif args.operation == "validate-heldout-queue":
+            result = validate_heldout_queue(args.queue, args.corpus)
         elif args.operation == "materialize-trial":
             result = materialize_trial(
                 args.suite,

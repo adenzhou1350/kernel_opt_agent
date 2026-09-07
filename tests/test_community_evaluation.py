@@ -20,6 +20,7 @@ from community_evaluation import (
     audit_task_packets,
     audit_codex_execution,
     assess_trial,
+    build_heldout_queue,
     build_prior_shortlist,
     compare_trials,
     exact_two_sided_sign_p,
@@ -33,6 +34,7 @@ from community_evaluation import (
     validate_source_receipt,
     validate_schedule,
     validate_qualification_checkpoint,
+    validate_heldout_queue,
     validate_suite,
 )
 from community_trial_runner import commit_finalizer_draft, valid_result
@@ -41,6 +43,7 @@ from community_knowledge import (
     build_graph,
     capture_pr,
     sha256_file,
+    sync_repository,
 )
 from community_trial_runner import command_for
 from test_community_knowledge import FakeGitHubClient, event_for
@@ -358,6 +361,162 @@ def main() -> None:
             encoding="utf-8",
         )
         graph = build_graph(corpus, ["example/project", "other/project"], ROOT)
+
+        selection_cutoff = "2026-01-03T12:00:00Z"
+        selection_graph_path = base / "selection-graph.json"
+        atomic_json(
+            selection_graph_path,
+            build_graph(
+                corpus,
+                ["example/project", "other/project"],
+                ROOT,
+                selection_cutoff,
+            ),
+        )
+        selection_methods_path = base / "selection-methods.json"
+        atomic_json(
+            selection_methods_path,
+            build_snapshot(selection_cutoff, ROOT),
+        )
+        selection_receipt_path = base / "selection-sync-v2.json"
+        selection_receipt = sync_repository(
+            "example/project",
+            "2026-01-01T00:00:00Z",
+            "2026-01-05T00:00:00Z",
+            corpus,
+            selection_receipt_path,
+            FakeGitHubClient(),
+            max_captures=4,
+            dry_run=True,
+            root=ROOT,
+        )
+        eligible_candidate = json.loads(
+            json.dumps(selection_receipt["candidates"][0])
+        )
+        eligible_candidate.update(
+            {
+                "pr_number": 9,
+                "title": "Optimize a future unseen kernel path",
+                "created_at": "2026-01-04T00:00:00Z",
+                "earliest_public_at": "2026-01-04T00:00:00Z",
+                "updated_at": "2026-01-04T01:00:00Z",
+            }
+        )
+        same_group_candidate = json.loads(json.dumps(eligible_candidate))
+        same_group_candidate.update(
+            {
+                "pr_number": 10,
+                "title": "Optimize another future regression path",
+                "created_at": "2026-01-04T02:00:00Z",
+                "earliest_public_at": "2026-01-04T02:00:00Z",
+                "updated_at": "2026-01-04T03:00:00Z",
+                "selection_score": eligible_candidate["selection_score"] - 1,
+            }
+        )
+        diverse_candidate = json.loads(json.dumps(eligible_candidate))
+        diverse_candidate.update(
+            {
+                "pr_number": 11,
+                "title": "Reduce movement in a future unseen path",
+                "created_at": "2026-01-04T04:00:00Z",
+                "earliest_public_at": "2026-01-04T04:00:00Z",
+                "updated_at": "2026-01-04T05:00:00Z",
+                "classifications": ["DATA_MOVEMENT"],
+                "selection_score": 1,
+            }
+        )
+        selection_receipt["candidates"].extend(
+            [eligible_candidate, same_group_candidate, diverse_candidate]
+        )
+        selection_receipt["candidate_count"] += 3
+        atomic_json(selection_receipt_path, selection_receipt)
+        heldout_queue_path = base / "heldout-queue.json"
+        heldout_queue = build_heldout_queue(
+            [selection_receipt_path],
+            selection_graph_path,
+            selection_methods_path,
+            corpus,
+            selection_cutoff,
+            2,
+            20260907,
+            ROOT,
+        )
+        atomic_json(heldout_queue_path, heldout_queue)
+        assert heldout_queue["inventory"] == {
+            "receipt_candidate_count": 4,
+            "deduplicated_count": 4,
+            "eligible_count": 3,
+            "selected_count": 2,
+            "backlog_count": 1,
+            "excluded_pre_cutoff_count": 1,
+            "excluded_training_source_count": 0,
+        }
+        selected_prs = {
+            row["pr_number"]
+            for row in heldout_queue["items"]
+            if row["selection"] == "SELECTED"
+        }
+        assert selected_prs == {9, 11}
+        assert next(
+            row for row in heldout_queue["items"] if row["pr_number"] == 10
+        )["selection"] == "BACKLOG"
+        assert heldout_queue["excluded"][0]["pr_number"] == 7
+        assert heldout_queue["excluded"][0]["reason"] == "PRE_CUTOFF_PUBLIC"
+        assert validate_heldout_queue(heldout_queue_path, corpus, ROOT)[
+            "status"
+        ] == "PASS"
+        legacy_selection_path = base / "selection-sync-v1.json"
+        legacy_selection = json.loads(json.dumps(selection_receipt))
+        legacy_selection["schema_version"] = "community-sync-receipt-v1"
+        atomic_json(legacy_selection_path, legacy_selection)
+        try:
+            build_heldout_queue(
+                [legacy_selection_path],
+                selection_graph_path,
+                selection_methods_path,
+                corpus,
+                selection_cutoff,
+                2,
+                20260907,
+                ROOT,
+            )
+        except ValueError as error:
+            assert "requires community-sync-receipt-v2" in str(error)
+        else:
+            raise AssertionError("legacy sync receipt was accepted for held-out selection")
+        future_methods_path = base / "future-methods.json"
+        future_methods = json.loads(
+            selection_methods_path.read_text(encoding="utf-8")
+        )
+        future_methods["cards"][0]["source"]["available_at"] = (
+            "2026-01-04T00:00:00Z"
+        )
+        atomic_json(future_methods_path, future_methods)
+        try:
+            build_heldout_queue(
+                [selection_receipt_path],
+                selection_graph_path,
+                future_methods_path,
+                corpus,
+                selection_cutoff,
+                2,
+                20260907,
+                ROOT,
+            )
+        except ValueError as error:
+            assert "leaks future method" in str(error)
+        else:
+            raise AssertionError("future method was accepted for held-out selection")
+        tampered_heldout = json.loads(json.dumps(heldout_queue))
+        tampered_heldout["items"][0]["discovery_score"] += 1
+        atomic_json(heldout_queue_path, tampered_heldout)
+        try:
+            validate_heldout_queue(heldout_queue_path, corpus, ROOT)
+        except ValueError as error:
+            assert "stale or was edited" in str(error)
+        else:
+            raise AssertionError("edited held-out queue was accepted")
+        atomic_json(heldout_queue_path, heldout_queue)
 
         suite_dir = base / "suite"
         assets = suite_dir / "assets"

@@ -348,3 +348,15 @@ the PR `created_at`. A temporal held-out task is eligible only when
 `earliest_public_at` is after the evaluation cutoff; a pre-cutoff PR does not
 become unseen merely because a review, force-push, close or merge updates it
 later.
+
+Before authoring held-out task packets, combine one or more v2 sync receipts
+with the exact cutoff graph and method snapshot through
+`community-eval build-heldout-queue`. The selector rejects pre-cutoff public
+PRs and training-graph sources, deduplicates overlapping discovery windows,
+then orders candidates by one-first-per repository/classification group,
+discovery score and a frozen seeded hash. It reads discovery metadata only;
+diffs, reviews, lifecycle outcomes and hidden reference results are outside the
+selection input. `validate-heldout-queue` rehashes every receipt, graph, method
+snapshot and corpus index, recomputes the queue and rejects edited priorities.
+The queue selects what becomes a task candidate; it does not expose source
+patches or count as a trial result.
