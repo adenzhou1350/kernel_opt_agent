@@ -41,6 +41,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-materialized-feasibility": Command("community_materialized_feasibility.py", "fail closed after task and harness materialization"),
         "community-screening-feedback": Command("community_screening_feedback.py", "record postselection corrections for future cohort routing"),
         "community-window-validate": Command("community_window_validation.py", "validate one discovery window with run-scoped reuse and exact timing"),
+        "community-window-assemble": Command("community_window_assemble.py", "assemble one frozen-receipt window through checkpoint extension"),
         "community-runtime-preflight": Command("community_runtime_preflight.py", "prove an isolated runtime imports without GPU execution"),
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
     },
