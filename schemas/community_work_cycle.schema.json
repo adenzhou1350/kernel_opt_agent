@@ -37,6 +37,34 @@
       "minimum": 0,
       "maximum": 300
     },
+    "budget_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["enforcement", "maximum_cycle_seconds", "phase_seconds"],
+      "properties": {
+        "enforcement": {"const": "FAIL_CLOSED_BEFORE_NEW_PHASE_OR_EXPENSIVE_COMMAND"},
+        "maximum_cycle_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "phase_seconds": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": false,
+          "properties": {
+            "COMMUNITY_RESEARCH": {"type": "number", "minimum": 0},
+            "BOTTLENECK_DIAGNOSIS": {"type": "number", "minimum": 0},
+            "TASK_MATERIALIZATION": {"type": "number", "minimum": 0},
+            "ENVIRONMENT_PREPARATION": {"type": "number", "minimum": 0},
+            "CANDIDATE_IMPLEMENTATION": {"type": "number", "minimum": 0},
+            "COMPILE_AND_MEASURE": {"type": "number", "minimum": 0},
+            "CORRECTNESS_VALIDATION": {"type": "number", "minimum": 0},
+            "PERFORMANCE_VALIDATION": {"type": "number", "minimum": 0},
+            "WHOLE_MODEL_VALIDATION": {"type": "number", "minimum": 0},
+            "UPSTREAM_PACKAGING": {"type": "number", "minimum": 0},
+            "EXTERNAL_WAIT": {"type": "number", "minimum": 0},
+            "UNATTRIBUTED_LEGACY_WORK": {"type": "number", "minimum": 0}
+          }
+        }
+      }
+    },
     "spans": {
       "type": "array",
       "items": {"$ref": "#/$defs/span"}

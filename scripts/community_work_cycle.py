@@ -43,6 +43,21 @@ MILESTONES = (
     "PR_READY_FOR_REVIEW",
     "PR_MERGED",
 )
+DEFAULT_MAXIMUM_CYCLE_SECONDS = 7200.0
+DEFAULT_PHASE_BUDGET_SECONDS = {
+    "COMMUNITY_RESEARCH": 600.0,
+    "BOTTLENECK_DIAGNOSIS": 600.0,
+    "TASK_MATERIALIZATION": 900.0,
+    "ENVIRONMENT_PREPARATION": 1800.0,
+    "CANDIDATE_IMPLEMENTATION": 1200.0,
+    "COMPILE_AND_MEASURE": 2400.0,
+    "CORRECTNESS_VALIDATION": 900.0,
+    "PERFORMANCE_VALIDATION": 900.0,
+    "WHOLE_MODEL_VALIDATION": 1200.0,
+    "UPSTREAM_PACKAGING": 900.0,
+    "EXTERNAL_WAIT": 3600.0,
+    "UNATTRIBUTED_LEGACY_WORK": 0.0,
+}
 
 
 def root() -> Path:
@@ -212,6 +227,109 @@ def validate_ledger_object(
 def validate_ledger(path: Path, allow_active: bool = True) -> dict:
     path = path.resolve()
     return validate_ledger_object(read_object(path), path, allow_active)
+
+
+def evaluate_budget(ledger_path: Path, at: str | None = None) -> dict:
+    ledger_path = ledger_path.resolve()
+    ledger = validate_ledger(ledger_path)
+    cycle_start = parse_time(ledger["started_at"], "started_at")
+    cycle_end = (
+        parse_time(ledger["ended_at"], "ended_at")
+        if ledger.get("status") == "CLOSED"
+        else None
+    )
+    if cycle_end is not None and at is None:
+        evaluated_at = cycle_end
+    else:
+        evaluated_at = parse_time(timestamp(at), "evaluated_at")
+    if evaluated_at < cycle_start:
+        raise ValueError("budget evaluation precedes work cycle")
+    if cycle_end is not None and evaluated_at > cycle_end:
+        raise ValueError("budget evaluation follows closed work cycle")
+
+    phase_seconds = {phase: 0.0 for phase in PHASES}
+    for span in ledger["spans"]:
+        started = parse_time(span["started_at"], f"{span['span_id']}.started_at")
+        if started > evaluated_at:
+            continue
+        ended = (
+            evaluated_at
+            if span["status"] == "ACTIVE"
+            else min(
+                parse_time(span["ended_at"], f"{span['span_id']}.ended_at"),
+                evaluated_at,
+            )
+        )
+        phase_seconds[span["phase"]] += max(0.0, (ended - started).total_seconds())
+
+    elapsed_seconds = (evaluated_at - cycle_start).total_seconds()
+    policy = ledger.get("budget_policy")
+    violations = []
+    if policy is not None:
+        maximum_cycle = float(policy["maximum_cycle_seconds"])
+        if elapsed_seconds > maximum_cycle:
+            violations.append(
+                {
+                    "scope": "CYCLE",
+                    "phase": None,
+                    "observed_seconds": elapsed_seconds,
+                    "limit_seconds": maximum_cycle,
+                    "overrun_seconds": elapsed_seconds - maximum_cycle,
+                }
+            )
+        for phase, limit in policy["phase_seconds"].items():
+            observed = phase_seconds[phase]
+            limit = float(limit)
+            if observed > limit:
+                violations.append(
+                    {
+                        "scope": "PHASE",
+                        "phase": phase,
+                        "observed_seconds": observed,
+                        "limit_seconds": limit,
+                        "overrun_seconds": observed - limit,
+                    }
+                )
+
+    status = (
+        "NOT_CONFIGURED" if policy is None else ("EXCEEDED" if violations else "PASS")
+    )
+    report = {
+        "schema_version": "community-work-cycle-budget-status-v1",
+        "generated_at": now(),
+        "claim_boundary": "BUDGET_ENFORCEMENT_STATUS_NOT_PERFORMANCE_EVIDENCE",
+        "cycle_identity": {
+            "path": ledger_path.as_posix(),
+            "sha256": sha256_file(ledger_path),
+        },
+        "cycle_id": ledger["cycle_id"],
+        "task_id": ledger["task_id"],
+        "evaluated_at": evaluated_at.isoformat(),
+        "status": status,
+        "elapsed_seconds": elapsed_seconds,
+        "maximum_cycle_seconds": (
+            float(policy["maximum_cycle_seconds"]) if policy is not None else None
+        ),
+        "phase_seconds": phase_seconds,
+        "phase_budgets_seconds": (
+            {key: float(value) for key, value in policy["phase_seconds"].items()}
+            if policy is not None
+            else {}
+        ),
+        "violations": violations,
+        "allowed_actions": {
+            "end_active_phase": True,
+            "start_new_phase": status != "EXCEEDED",
+            "dispatch_expensive_work": status == "PASS",
+        },
+    }
+    errors = validate_instance(
+        report,
+        read_object(root() / "schemas/community_work_cycle_budget_status.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid work-cycle budget status: " + "; ".join(errors))
+    return report
 
 
 def write_ledger(path: Path, ledger: dict) -> None:
@@ -404,6 +522,9 @@ def pair_baseline(paths: list[Path]) -> dict:
 def init_ledger(args: argparse.Namespace) -> dict:
     if args.output.exists():
         raise FileExistsError(args.output)
+    phase_budgets = dict(DEFAULT_PHASE_BUDGET_SECONDS)
+    for phase, seconds in args.phase_budget:
+        phase_budgets[phase] = seconds
     ledger = {
         "schema_version": LEDGER_SCHEMA_V2,
         "cycle_id": args.cycle_id,
@@ -415,6 +536,11 @@ def init_ledger(args: argparse.Namespace) -> dict:
         "status": "ACTIVE",
         "ended_at": None,
         "maximum_unaccounted_seconds": args.maximum_unaccounted_seconds,
+        "budget_policy": {
+            "enforcement": "FAIL_CLOSED_BEFORE_NEW_PHASE_OR_EXPENSIVE_COMMAND",
+            "maximum_cycle_seconds": args.maximum_cycle_seconds,
+            "phase_seconds": phase_budgets,
+        },
         "spans": [],
         "milestones": [],
         "outcome": {
@@ -438,13 +564,22 @@ def start_phase(args: argparse.Namespace) -> dict:
         raise ValueError("another primary phase is already active")
     if any(span["span_id"] == args.span_id for span in ledger["spans"]):
         raise ValueError(f"duplicate span_id: {args.span_id}")
+    start_at = timestamp(args.at)
+    budget = evaluate_budget(args.ledger, start_at)
+    if budget["status"] == "EXCEEDED":
+        raise ValueError(
+            "work-cycle budget does not allow a new phase: " + budget["status"]
+        )
+    phase_limit = budget["phase_budgets_seconds"].get(args.phase)
+    if phase_limit is not None and budget["phase_seconds"][args.phase] >= phase_limit:
+        raise ValueError(f"phase budget is exhausted: {args.phase}")
     ledger["spans"].append(
         {
             "span_id": args.span_id,
             "phase": args.phase,
             "actor": args.actor,
             "resource_id": args.resource_id,
-            "started_at": timestamp(args.at),
+            "started_at": start_at,
             "ended_at": None,
             "status": "ACTIVE",
             "evidence": [],
@@ -528,6 +663,18 @@ def parse_args() -> argparse.Namespace:
     )
     init.add_argument("--minimum-material-speedup", type=float, default=1.02)
     init.add_argument("--maximum-unaccounted-seconds", type=float, default=5.0)
+    init.add_argument(
+        "--maximum-cycle-seconds",
+        type=float,
+        default=DEFAULT_MAXIMUM_CYCLE_SECONDS,
+    )
+    init.add_argument(
+        "--phase-budget",
+        type=parse_phase_budget,
+        action="append",
+        default=[],
+        metavar="PHASE=SECONDS",
+    )
     init.add_argument("--output", type=Path, required=True)
     start = commands.add_parser("start-phase")
     start.add_argument("--ledger", type=Path, required=True)
@@ -566,6 +713,10 @@ def parse_args() -> argparse.Namespace:
     close.add_argument("--at")
     validate = commands.add_parser("validate")
     validate.add_argument("--ledger", type=Path, required=True)
+    budget = commands.add_parser("check-budget")
+    budget.add_argument("--ledger", type=Path, required=True)
+    budget.add_argument("--at")
+    budget.add_argument("--output", type=Path)
     summary = commands.add_parser("summarize")
     summary.add_argument("--ledger", type=Path, required=True)
     summary.add_argument("--output", type=Path, required=True)
@@ -592,6 +743,12 @@ def main() -> int:
     elif args.operation == "validate":
         ledger = validate_ledger(args.ledger)
         result = {"status": "PASS", "cycle_id": ledger["cycle_id"]}
+    elif args.operation == "check-budget":
+        result = evaluate_budget(args.ledger, args.at)
+        if args.output is not None:
+            atomic_json(args.output.resolve(), result)
+        print(json.dumps(result, indent=2, sort_keys=True))
+        return 0 if result["status"] == "PASS" else 2
     elif args.operation == "summarize":
         result = summarize(args.ledger)
         atomic_json(args.output.resolve(), result)
@@ -600,6 +757,21 @@ def main() -> int:
         atomic_json(args.output.resolve(), result)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
+
+
+def parse_phase_budget(value: str) -> tuple[str, float]:
+    phase, separator, seconds_text = value.partition("=")
+    if not separator or phase not in PHASES:
+        raise argparse.ArgumentTypeError("phase budget must be PHASE=SECONDS")
+    try:
+        seconds = float(seconds_text)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "phase budget seconds must be numeric"
+        ) from error
+    if seconds < 0:
+        raise argparse.ArgumentTypeError("phase budget seconds must be non-negative")
+    return phase, seconds
 
 
 if __name__ == "__main__":

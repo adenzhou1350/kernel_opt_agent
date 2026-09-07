@@ -15,7 +15,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
     close_cycle,
+    evaluate_budget,
     pair_baseline,
+    start_phase,
     summarize,
     validate_ledger,
     write_ledger,
@@ -256,9 +258,117 @@ def test_materialization_and_environment_time_are_not_laundered_as_implementatio
         )
 
 
+def test_budget_gate_blocks_new_work_after_phase_overrun() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = ledger(evidence)
+        cycle.update(
+            {
+                "schema_version": "community-work-cycle-v2",
+                "status": "ACTIVE",
+                "ended_at": None,
+                "maximum_unaccounted_seconds": 5,
+                "budget_policy": {
+                    "enforcement": "FAIL_CLOSED_BEFORE_NEW_PHASE_OR_EXPENSIVE_COMMAND",
+                    "maximum_cycle_seconds": 300,
+                    "phase_seconds": {"COMMUNITY_RESEARCH": 30},
+                },
+            }
+        )
+        cycle["spans"] = [cycle["spans"][0]]
+        cycle["milestones"] = []
+        cycle["outcome"] = {
+            "correctness": "NOT_RUN",
+            "best_speedup": None,
+            "best_whole_model_speedup": None,
+            "upstream_ready": False,
+            "pull_request_url": None,
+            "merged": False,
+        }
+        path = base / "budgeted-cycle.json"
+        atomic_json(path, cycle)
+
+        status = evaluate_budget(path, "2026-09-07T04:01:00Z")
+        assert status["status"] == "EXCEEDED"
+        assert status["violations"] == [
+            {
+                "scope": "PHASE",
+                "phase": "COMMUNITY_RESEARCH",
+                "observed_seconds": 60,
+                "limit_seconds": 30,
+                "overrun_seconds": 30,
+            }
+        ]
+        assert not status["allowed_actions"]["start_new_phase"]
+        assert not status["allowed_actions"]["dispatch_expensive_work"]
+        assert status["allowed_actions"]["end_active_phase"]
+
+        args = type(
+            "Args",
+            (),
+            {
+                "ledger": path,
+                "span_id": "implementation",
+                "phase": "CANDIDATE_IMPLEMENTATION",
+                "actor": "AGENT",
+                "resource_id": None,
+                "at": "2026-09-07T04:01:00Z",
+            },
+        )()
+        try:
+            start_phase(args)
+        except ValueError as error:
+            assert "budget does not allow" in str(error)
+        else:
+            raise AssertionError("phase overrun allowed a new work phase")
+
+
+def test_legacy_v2_without_budget_policy_remains_operable() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = ledger(evidence)
+        cycle.update(
+            {
+                "schema_version": "community-work-cycle-v2",
+                "status": "ACTIVE",
+                "ended_at": None,
+                "maximum_unaccounted_seconds": 5,
+            }
+        )
+        cycle["spans"] = [cycle["spans"][0]]
+        cycle["milestones"] = []
+        path = base / "legacy-v2-cycle.json"
+        atomic_json(path, cycle)
+        status = evaluate_budget(path, "2026-09-07T04:01:00Z")
+        assert status["status"] == "NOT_CONFIGURED"
+        assert status["allowed_actions"]["start_new_phase"]
+        assert not status["allowed_actions"]["dispatch_expensive_work"]
+
+        args = type(
+            "Args",
+            (),
+            {
+                "ledger": path,
+                "span_id": "implementation",
+                "phase": "CANDIDATE_IMPLEMENTATION",
+                "actor": "AGENT",
+                "resource_id": None,
+                "at": "2026-09-07T04:01:00Z",
+            },
+        )()
+        updated = start_phase(args)
+        assert updated["spans"][-1]["status"] == "ACTIVE"
+
+
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_pair_baseline_reads_bound_assessments()
     test_v2_requires_explicit_close_and_complete_wall_clock_coverage()
     test_v2_cannot_close_with_an_unclassified_gap()
     test_materialization_and_environment_time_are_not_laundered_as_implementation()
+    test_budget_gate_blocks_new_work_after_phase_overrun()
+    test_legacy_v2_without_budget_policy_remains_operable()

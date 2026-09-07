@@ -49,6 +49,8 @@ python3 scripts/kernel_opt.py community-timing start-phase \
 python3 scripts/kernel_opt.py community-timing end-phase \
   --ledger work-cycle.json --span-id research-1 \
   --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing check-budget \
+  --ledger work-cycle.json --output work-cycle-budget-status.json
 python3 scripts/kernel_opt.py community-timing close \
   --ledger work-cycle.json
 python3 scripts/kernel_opt.py community-timing summarize \
@@ -67,6 +69,12 @@ This prevents a fast kernel result from hiding days spent packaging or waiting
 for external review. A prospective cycle must be explicitly closed and its
 entire start-to-end wall clock must be covered within the frozen unaccounted-time
 tolerance; otherwise summary generation fails closed.
+
+New ledgers also freeze a two-hour total budget and explicit per-phase budgets.
+`check-budget` emits a schema-validated receipt and returns non-zero after an
+overrun. An exceeded receipt forbids new phases and expensive dispatch while
+still allowing the active phase to end, so timeout evidence is retained rather
+than hidden. Legacy v2 ledgers without a budget policy remain readable.
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.

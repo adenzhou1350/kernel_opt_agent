@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_work_cycle_budget_status.schema.json",
+  "title": "Fail-closed work-cycle budget status",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "cycle_identity",
+    "cycle_id",
+    "task_id",
+    "evaluated_at",
+    "status",
+    "elapsed_seconds",
+    "maximum_cycle_seconds",
+    "phase_seconds",
+    "phase_budgets_seconds",
+    "violations",
+    "allowed_actions"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-work-cycle-budget-status-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "BUDGET_ENFORCEMENT_STATUS_NOT_PERFORMANCE_EVIDENCE"},
+    "cycle_identity": {"$ref": "#/$defs/identity"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "evaluated_at": {"type": "string", "format": "date-time"},
+    "status": {"enum": ["PASS", "EXCEEDED", "NOT_CONFIGURED"]},
+    "elapsed_seconds": {"type": "number", "minimum": 0},
+    "maximum_cycle_seconds": {"type": ["number", "null"], "exclusiveMinimum": 0},
+    "phase_seconds": {"$ref": "#/$defs/phaseSeconds"},
+    "phase_budgets_seconds": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "COMMUNITY_RESEARCH": {"type": "number", "minimum": 0},
+        "BOTTLENECK_DIAGNOSIS": {"type": "number", "minimum": 0},
+        "TASK_MATERIALIZATION": {"type": "number", "minimum": 0},
+        "ENVIRONMENT_PREPARATION": {"type": "number", "minimum": 0},
+        "CANDIDATE_IMPLEMENTATION": {"type": "number", "minimum": 0},
+        "COMPILE_AND_MEASURE": {"type": "number", "minimum": 0},
+        "CORRECTNESS_VALIDATION": {"type": "number", "minimum": 0},
+        "PERFORMANCE_VALIDATION": {"type": "number", "minimum": 0},
+        "WHOLE_MODEL_VALIDATION": {"type": "number", "minimum": 0},
+        "UPSTREAM_PACKAGING": {"type": "number", "minimum": 0},
+        "EXTERNAL_WAIT": {"type": "number", "minimum": 0},
+        "UNATTRIBUTED_LEGACY_WORK": {"type": "number", "minimum": 0}
+      }
+    },
+    "violations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["scope", "phase", "observed_seconds", "limit_seconds", "overrun_seconds"],
+        "properties": {
+          "scope": {"enum": ["CYCLE", "PHASE"]},
+          "phase": {"type": ["string", "null"], "enum": [null, "COMMUNITY_RESEARCH", "BOTTLENECK_DIAGNOSIS", "TASK_MATERIALIZATION", "ENVIRONMENT_PREPARATION", "CANDIDATE_IMPLEMENTATION", "COMPILE_AND_MEASURE", "CORRECTNESS_VALIDATION", "PERFORMANCE_VALIDATION", "WHOLE_MODEL_VALIDATION", "UPSTREAM_PACKAGING", "EXTERNAL_WAIT", "UNATTRIBUTED_LEGACY_WORK"]},
+          "observed_seconds": {"type": "number", "minimum": 0},
+          "limit_seconds": {"type": "number", "minimum": 0},
+          "overrun_seconds": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    },
+    "allowed_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["end_active_phase", "start_new_phase", "dispatch_expensive_work"],
+      "properties": {
+        "end_active_phase": {"const": true},
+        "start_new_phase": {"type": "boolean"},
+        "dispatch_expensive_work": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "phaseSeconds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["COMMUNITY_RESEARCH", "BOTTLENECK_DIAGNOSIS", "TASK_MATERIALIZATION", "ENVIRONMENT_PREPARATION", "CANDIDATE_IMPLEMENTATION", "COMPILE_AND_MEASURE", "CORRECTNESS_VALIDATION", "PERFORMANCE_VALIDATION", "WHOLE_MODEL_VALIDATION", "UPSTREAM_PACKAGING", "EXTERNAL_WAIT", "UNATTRIBUTED_LEGACY_WORK"],
+      "properties": {
+        "COMMUNITY_RESEARCH": {"type": "number", "minimum": 0},
+        "BOTTLENECK_DIAGNOSIS": {"type": "number", "minimum": 0},
+        "TASK_MATERIALIZATION": {"type": "number", "minimum": 0},
+        "ENVIRONMENT_PREPARATION": {"type": "number", "minimum": 0},
+        "CANDIDATE_IMPLEMENTATION": {"type": "number", "minimum": 0},
+        "COMPILE_AND_MEASURE": {"type": "number", "minimum": 0},
+        "CORRECTNESS_VALIDATION": {"type": "number", "minimum": 0},
+        "PERFORMANCE_VALIDATION": {"type": "number", "minimum": 0},
+        "WHOLE_MODEL_VALIDATION": {"type": "number", "minimum": 0},
+        "UPSTREAM_PACKAGING": {"type": "number", "minimum": 0},
+        "EXTERNAL_WAIT": {"type": "number", "minimum": 0},
+        "UNATTRIBUTED_LEGACY_WORK": {"type": "number", "minimum": 0}
+      }
+    }
+  }
+}
