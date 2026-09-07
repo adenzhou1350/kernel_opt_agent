@@ -100,6 +100,33 @@
           "type": "array",
           "uniqueItems": true,
           "items": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        },
+        "first_event_prior_access_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "first_method_prior_access_index": {
+          "type": ["integer", "null"],
+          "minimum": 0
+        },
+        "prior_access_after_ranking": {
+          "type": ["boolean", "null"]
+        },
+        "prior_access_before_production_edit": {
+          "type": ["boolean", "null"]
+        },
+        "verified_event_read_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "verified_method_read_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "realized_prior_access_verified": {
+          "type": ["boolean", "null"]
         }
       }
     },
@@ -123,7 +150,13 @@
           "RUNNER_PHASE_PREFIX_MISMATCH",
           "PRODUCTION_SOURCE_EDIT_DURING_FINALIZATION",
           "MULTIPLE_RESULT_COMMIT_MARKERS",
-          "RUNNER_RESULT_COMMIT_MISMATCH"
+          "RUNNER_RESULT_COMMIT_MISMATCH",
+          "PRIOR_ACCESSED_BEFORE_OPPORTUNITY_RANKING",
+          "PRIOR_ACCESSED_AFTER_PRODUCTION_EDIT",
+          "REALIZED_EVENT_WITHOUT_TRANSCRIPT_ACCESS",
+          "REALIZED_METHOD_WITHOUT_TRANSCRIPT_ACCESS",
+          "PRIOR_GATE_CLOSED_BUT_ACCESSED",
+          "CONTROL_ACCESSED_COMMUNITY_PRIOR"
         ]
       }
     }

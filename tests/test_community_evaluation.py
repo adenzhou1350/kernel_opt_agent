@@ -1711,6 +1711,136 @@ def main() -> None:
         assert "closed_prior_gate_event_receipt_mismatch" in preflight_errors
         write_result(community_dir, rows, elapsed)
 
+        # A realization label is not treatment evidence unless the successful
+        # transcript actually exposes the selected IDs from a bounded
+        # knowledge file after ranking and before the first production edit.
+        community_result_text = (community_dir / "result.json").read_text(
+            encoding="utf-8"
+        )
+        ranking_event = {
+            "type": "item.completed",
+            "item": {
+                "type": "file_change",
+                "status": "completed",
+                "changes": [
+                    {
+                        "path": str(
+                            community_dir
+                            / "evidence"
+                            / "opportunity-ranking.json"
+                        ),
+                        "kind": "add",
+                    }
+                ],
+            },
+        }
+        source_event = {
+            "type": "item.completed",
+            "item": {
+                "type": "file_change",
+                "status": "completed",
+                "changes": [
+                    {
+                        "path": str(community_dir / "source" / "candidate.py"),
+                        "kind": "add",
+                    }
+                ],
+            },
+        }
+        result_events = [
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "agent_message",
+                    "text": community_result_text,
+                },
+            },
+            {"type": "turn.completed"},
+        ]
+        no_prior_read_events = [ranking_event, source_event, *result_events]
+        (community_dir / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in no_prior_read_events),
+            encoding="utf-8",
+        )
+        (community_dir / "executor.stderr.log").write_text("", encoding="utf-8")
+        (control_dir / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in ranking_first_events),
+            encoding="utf-8",
+        )
+        control_pair_audit = audit_codex_execution(control_dir, root=ROOT)
+        assert control_pair_audit["status"] == "PASS"
+        no_prior_read_audit = audit_codex_execution(community_dir, root=ROOT)
+        assert no_prior_read_audit["status"] == "FAIL"
+        assert "REALIZED_EVENT_WITHOUT_TRANSCRIPT_ACCESS" in (
+            no_prior_read_audit["violations"]
+        )
+        assert "REALIZED_METHOD_WITHOUT_TRANSCRIPT_ACCESS" in (
+            no_prior_read_audit["violations"]
+        )
+        assert no_prior_read_audit["observations"][
+            "realized_prior_access_verified"
+        ] is False
+        try:
+            compare_trials(
+                control_dir,
+                community_dir,
+                base / "comparison-unverified-treatment.json",
+                ROOT,
+            )
+        except ValueError as error:
+            assert "lacks current passing arm audits" in str(error)
+        else:
+            raise AssertionError("self-reported treatment bypassed transcript audit")
+
+        result_object = json.loads(community_result_text)
+        selected_event_id = result_object["knowledge_realization"][
+            "selected_event_ids"
+        ][0]
+        selected_method_id = result_object["method_realization"][
+            "selected_method_id"
+        ]
+        knowledge_command = "Get-Content -Raw knowledge/prior_shortlist.json"
+        knowledge_read_events = [
+            ranking_event,
+            {
+                "type": "item.started",
+                "item": {
+                    "type": "command_execution",
+                    "command": knowledge_command,
+                    "status": "in_progress",
+                },
+            },
+            {
+                "type": "item.completed",
+                "item": {
+                    "type": "command_execution",
+                    "command": knowledge_command,
+                    "status": "completed",
+                    "exit_code": 0,
+                    "aggregated_output": (
+                        selected_event_id + "\n" + selected_method_id
+                    ),
+                },
+            },
+            source_event,
+            *result_events,
+        ]
+        (community_dir / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in knowledge_read_events),
+            encoding="utf-8",
+        )
+        verified_prior_audit = audit_codex_execution(community_dir, root=ROOT)
+        assert verified_prior_audit["status"] == "PASS"
+        assert verified_prior_audit["observations"][
+            "prior_access_after_ranking"
+        ] is True
+        assert verified_prior_audit["observations"][
+            "prior_access_before_production_edit"
+        ] is True
+        assert verified_prior_audit["observations"][
+            "realized_prior_access_verified"
+        ] is True
+
         timestamp_mismatch = json.loads(
             (community_dir / "result.json").read_text(encoding="utf-8")
         )
@@ -1732,6 +1862,12 @@ def main() -> None:
         )
         assert report["deltas"]["time_to_first_correct_seconds_saved"] == 280
         assert report["deltas"]["best_speedup_gain"] > 0
+        assert report["treatment_fidelity"][
+            "control_execution_audit_verified"
+        ] is True
+        assert report["treatment_fidelity"][
+            "realized_prior_access_verified"
+        ] is True
         assert report["treatment_fidelity"]["any_prior_realized"] is True
         assert report["treatment_fidelity"]["causal_interpretation"] == (
             "TREATMENT_REALIZED"
@@ -1784,6 +1920,14 @@ def main() -> None:
             "evidence": [],
         }
         atomic_json(community_dir / "result.json", no_treatment)
+        knowledge_read_events[4]["item"]["text"] = (
+            community_dir / "result.json"
+        ).read_text(encoding="utf-8")
+        (community_dir / "executor.jsonl").write_text(
+            "".join(json.dumps(event) + "\n" for event in knowledge_read_events),
+            encoding="utf-8",
+        )
+        audit_codex_execution(community_dir, root=ROOT)
         no_treatment_report = compare_trials(
             control_dir, community_dir, base / "comparison-no-treatment.json", ROOT
         )
@@ -1810,8 +1954,12 @@ def main() -> None:
         meta = build_ab_meta_analysis(base, ROOT)
         atomic_json(meta_path, meta)
         assert meta["inventory"]["report_count"] == 3
-        assert meta["inventory"]["primary_realized_count"] == 2
+        # Earlier pair artifacts become legacy once their bound assessment or
+        # transcript audit is superseded.  A later result rewrite cannot
+        # retain a causal-treatment label by pointing at stale evidence.
+        assert meta["inventory"]["primary_realized_count"] == 0
         assert meta["inventory"]["assignment_only_count"] == 1
+        assert meta["inventory"]["legacy_unaudited_count"] == 2
         assert meta["verdict"] == "INSUFFICIENT_PRIMARY_EVIDENCE"
         assert validate_ab_meta_analysis(meta_path, ROOT)["status"] == "PASS"
         write_result(community_dir, rows, elapsed)

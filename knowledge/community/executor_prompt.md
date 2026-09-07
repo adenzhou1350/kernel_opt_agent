@@ -83,7 +83,13 @@ Act as the isolated executor for this materialized optimization trial.
      is structurally infeasible under the frozen correctness/ABI contract.
      Falling back to a familiar implementation does not count as method
      realization. Method cards are discovery priors, never target performance
-     evidence.
+     evidence. A later realization claim also requires current passing audits
+     for both arms plus augmented-arm transcript evidence:
+     the successful bounded-knowledge read must expose the selected event or
+     method ID after `evidence/opportunity-ranking.json` is frozen and before
+     the first `source/` edit. Independently reaching the same architecture and
+     attaching a community label during finalization is not treatment
+     realization.
    - Treat prior-outcome routing as a fail-closed safety boundary. When
      `knowledge/prior_outcomes.json` exists, use only the adjustments already
      materialized into `knowledge/prior_shortlist.json`; do not recover a

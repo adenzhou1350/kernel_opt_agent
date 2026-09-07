@@ -1821,6 +1821,7 @@ def audit_codex_execution(
         raise FileNotFoundError(f"executor stderr log is missing: {stderr_path}")
 
     commands = []
+    successful_command_events = []
     completed_commands = 0
     failed_commands = 0
     declined_commands = 0
@@ -1909,6 +1910,14 @@ def audit_codex_execution(
                     completed_commands += 1
                     if item.get("exit_code") not in (None, 0):
                         failed_commands += 1
+                    else:
+                        successful_command_events.append(
+                            {
+                                "event_index": event_index,
+                                "command": str(item.get("command", "")),
+                                "output": str(item.get("aggregated_output", "")),
+                            }
+                        )
                 elif status == "failed":
                     failed_commands += 1
                 elif status == "declined":
@@ -1981,6 +1990,46 @@ def audit_codex_execution(
             violations.append(
                 "OPPORTUNITY_RANKING_NOT_FROZEN_BEFORE_SOURCE_EDIT"
             )
+    event_prior_accesses = [
+        row
+        for row in successful_command_events
+        if re.search(
+            r"(?i)knowledge[\\/](?:prior_shortlist|community_graph)\.json",
+            row["command"],
+        )
+    ]
+    method_prior_accesses = [
+        row
+        for row in successful_command_events
+        if re.search(
+            r"(?i)knowledge[\\/](?:prior_shortlist|methods)\.json",
+            row["command"],
+        )
+    ]
+    all_prior_accesses = event_prior_accesses + method_prior_accesses
+    first_prior_access_index = (
+        min(row["event_index"] for row in all_prior_accesses)
+        if all_prior_accesses
+        else None
+    )
+    prior_access_after_ranking = None
+    prior_access_before_source_edit = None
+    if first_prior_access_index is not None:
+        prior_access_after_ranking = (
+            ranking_change_index is not None
+            and first_prior_access_index > ranking_change_index
+        )
+        prior_access_before_source_edit = (
+            first_source_change_index is not None
+            and all(
+                row["event_index"] < first_source_change_index
+                for row in all_prior_accesses
+            )
+        )
+        if not prior_access_after_ranking:
+            violations.append("PRIOR_ACCESSED_BEFORE_OPPORTUNITY_RANKING")
+        if not prior_access_before_source_edit:
+            violations.append("PRIOR_ACCESSED_AFTER_PRODUCTION_EDIT")
     source_change_after_finalization = None
     if finalization_started_index is not None:
         source_change_after_finalization = any(
@@ -2026,6 +2075,58 @@ def audit_codex_execution(
         elif final_agent_result != read_object(result_path):
             violations.append("RESULT_TRANSCRIPT_MISMATCH")
 
+    verified_event_read_ids = []
+    verified_method_read_ids = []
+    realized_prior_access_verified = None
+    if result_identity is not None and not result_errors:
+        result = read_object(result_path)
+        knowledge_realization = result.get("knowledge_realization") or {}
+        method_realization = result.get("method_realization") or {}
+        selected_event_ids = knowledge_realization.get("selected_event_ids", [])
+        selected_method_id = method_realization.get("selected_method_id")
+        verified_event_read_ids = sorted(
+            event_id
+            for event_id in selected_event_ids
+            if any(event_id in row["output"] for row in event_prior_accesses)
+        )
+        if selected_method_id is not None and any(
+            selected_method_id in row["output"] for row in method_prior_accesses
+        ):
+            verified_method_read_ids = [selected_method_id]
+        event_realized = (
+            knowledge_realization.get("disposition") == "REALIZED_IN_CANDIDATE"
+        )
+        method_realized = (
+            method_realization.get("disposition") == "REALIZED_IN_CANDIDATE"
+        )
+        if event_realized or method_realized:
+            event_verified = (
+                not event_realized
+                or set(verified_event_read_ids) == set(selected_event_ids)
+            )
+            method_verified = (
+                not method_realized
+                or verified_method_read_ids == [selected_method_id]
+            )
+            realized_prior_access_verified = (
+                event_verified
+                and method_verified
+                and prior_access_after_ranking is True
+                and prior_access_before_source_edit is True
+            )
+            if event_realized and not event_verified:
+                violations.append("REALIZED_EVENT_WITHOUT_TRANSCRIPT_ACCESS")
+            if method_realized and not method_verified:
+                violations.append("REALIZED_METHOD_WITHOUT_TRANSCRIPT_ACCESS")
+        gate_closed = (
+            knowledge_realization.get("disposition") == "PRIOR_GATE_CLOSED"
+            or method_realization.get("disposition") == "PRIOR_GATE_CLOSED"
+        )
+        if gate_closed and all_prior_accesses:
+            violations.append("PRIOR_GATE_CLOSED_BUT_ACCESSED")
+        if result.get("arm") == "CONTROL" and all_prior_accesses:
+            violations.append("CONTROL_ACCESSED_COMMUNITY_PRIOR")
+
     violations = sorted(set(violations))
     receipt = {
         "schema_version": EXECUTION_AUDIT_SCHEMA,
@@ -2064,6 +2165,21 @@ def audit_codex_execution(
             "result_commit_index": result_commit_index,
             "result_commit_hash_match": result_commit_hash_match,
             "external_path_hashes": sorted(set(external_paths)),
+            "first_event_prior_access_index": (
+                min(row["event_index"] for row in event_prior_accesses)
+                if event_prior_accesses
+                else None
+            ),
+            "first_method_prior_access_index": (
+                min(row["event_index"] for row in method_prior_accesses)
+                if method_prior_accesses
+                else None
+            ),
+            "prior_access_after_ranking": prior_access_after_ranking,
+            "prior_access_before_production_edit": prior_access_before_source_edit,
+            "verified_event_read_ids": verified_event_read_ids,
+            "verified_method_read_ids": verified_method_read_ids,
+            "realized_prior_access_verified": realized_prior_access_verified,
         },
         "violations": violations,
     }
@@ -3275,6 +3391,52 @@ def seconds_saved(control: float | None, community: float | None) -> float | Non
     return float(control) - float(community)
 
 
+def current_execution_audit(trial_dir: Path, root: Path) -> dict | None:
+    """Load a current passing audit bound to this implementation and trial."""
+    trial_dir = trial_dir.resolve()
+    audit_path = trial_dir / "execution_audit.json"
+    result_path = trial_dir / "result.json"
+    if not audit_path.is_file() or not result_path.is_file():
+        return None
+    if validate_json_file(
+        audit_path, root / "schemas" / "community_trial_execution_audit.schema.json"
+    ):
+        return None
+    audit = read_object(audit_path)
+    if audit.get("status") != "PASS":
+        return None
+    try:
+        validate_identity(
+            root,
+            audit["auditor_identity"]["implementation"],
+            "execution auditor implementation",
+        )
+        validate_identity(
+            root,
+            audit["auditor_identity"]["contract"],
+            "execution auditor contract",
+        )
+    except (KeyError, ValueError):
+        return None
+    if audit.get("trial_identity") != identity_for(
+        trial_dir / "trial.json", trial_dir
+    ):
+        return None
+    if audit.get("result_identity") != identity_for(result_path, trial_dir):
+        return None
+    return audit
+
+
+def audited_prior_access_verified(trial_dir: Path, root: Path) -> bool:
+    """Return true only when a current audit proves realized-prior access."""
+    audit = current_execution_audit(trial_dir, root)
+    if audit is None:
+        return False
+    return audit.get("observations", {}).get(
+        "realized_prior_access_verified"
+    ) is True
+
+
 def compare_trials(
     control_dir: Path,
     community_dir: Path,
@@ -3293,13 +3455,32 @@ def compare_trials(
         raise ValueError("paired trials differ in success thresholds")
     control_metrics = control["metrics"]
     community_metrics = community["metrics"]
-    community_event_prior_realized = (
+    reported_community_event_prior_realized = (
         community_metrics.get("community_realization_disposition")
         == "REALIZED_IN_CANDIDATE"
     )
-    method_prior_realized = (
+    reported_method_prior_realized = (
         community_metrics.get("method_realization_disposition")
         == "REALIZED_IN_CANDIDATE"
+    )
+    reported_prior_realized = (
+        reported_community_event_prior_realized
+        or reported_method_prior_realized
+    )
+    control_audit_verified = current_execution_audit(control_dir, root) is not None
+    prior_access_verified = audited_prior_access_verified(community_dir, root)
+    if reported_prior_realized and (
+        not control_audit_verified or not prior_access_verified
+    ):
+        raise ValueError(
+            "reported prior realization lacks current passing arm audits and "
+            "transcript-access proof"
+        )
+    community_event_prior_realized = (
+        reported_community_event_prior_realized and prior_access_verified
+    )
+    method_prior_realized = (
+        reported_method_prior_realized and prior_access_verified
     )
     any_prior_realized = community_event_prior_realized or method_prior_realized
     control_path = control_dir.resolve() / "assessment.json"
@@ -3349,6 +3530,12 @@ def compare_trials(
             ),
         },
         "treatment_fidelity": {
+            "control_execution_audit_verified": control_audit_verified,
+            "reported_community_event_prior_realized": (
+                reported_community_event_prior_realized
+            ),
+            "reported_method_prior_realized": reported_method_prior_realized,
+            "realized_prior_access_verified": prior_access_verified,
             "community_event_prior_realized": community_event_prior_realized,
             "method_prior_realized": method_prior_realized,
             "any_prior_realized": any_prior_realized,
@@ -3584,12 +3771,34 @@ META_DELTA_FIELDS = (
 )
 
 
-def pair_evidence_class(path: Path, report: dict, search_root: Path) -> str:
+def pair_evidence_class(
+    path: Path, report: dict, search_root: Path, root: Path
+) -> str:
     fidelity = report.get("treatment_fidelity")
     if not isinstance(fidelity, dict):
         return "LEGACY_UNAUDITED"
     if fidelity.get("causal_interpretation") != "TREATMENT_REALIZED":
         return "ASSIGNMENT_ONLY"
+    if fidelity.get("control_execution_audit_verified") is not True:
+        return "LEGACY_UNAUDITED"
+    if fidelity.get("realized_prior_access_verified") is not True:
+        return "LEGACY_UNAUDITED"
+    try:
+        assessment_path = validate_identity(
+            path.parent,
+            report["community_assessment"],
+            "community assessment",
+        )
+        assessment = read_object(assessment_path)
+        result_path = validate_identity(
+            assessment_path.parent,
+            assessment["result_identity"],
+            "community result",
+        )
+    except (KeyError, ValueError):
+        return "LEGACY_UNAUDITED"
+    if not audited_prior_access_verified(result_path.parent, root):
+        return "LEGACY_UNAUDITED"
     relative = path.resolve().relative_to(search_root.resolve()).as_posix().lower()
     return (
         "DIAGNOSTIC_REALIZED" if "diagnostic" in relative else "PRIMARY_REALIZED"
@@ -3633,7 +3842,7 @@ def build_ab_meta_analysis(
             continue
         if report.get("schema_version") != REPORT_SCHEMA:
             continue
-        evidence_class = pair_evidence_class(path, report, search_root)
+        evidence_class = pair_evidence_class(path, report, search_root, root)
         fidelity = report.get("treatment_fidelity")
         causal = (
             fidelity.get("causal_interpretation")

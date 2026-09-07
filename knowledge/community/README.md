@@ -372,6 +372,12 @@ Agent's final summary. It rejects incomplete turns, missing/invalid results,
 network or remote-Git commands, parent/external data paths and a failed-command
 lower bound above the frozen technical-repair budget. An audited unrestricted
 run is therefore evidence only when its complete transcript passes this gate.
+For a claimed community realization it also requires a successful bounded
+knowledge read whose output contains every selected event/method ID, positioned
+after the frozen opportunity ranking and before the first production-source
+edit. A coincidentally identical local idea followed by label attachment is
+rejected as `REALIZED_*_WITHOUT_TRANSCRIPT_ACCESS`; closed-gate and control-arm
+knowledge reads are rejected independently.
 Strict assessment additionally binds the passing audit to the current trial and
 result hashes, so editing a result after audit cannot silently enter a comparison.
 `community_trial_runner.py` captures stdout and stderr directly and splits the
@@ -544,6 +550,11 @@ gate requires at least eight primary pairs across four tasks, a majority win in
 time-to-first-correct, no worse than parity in best speedup and no held-out
 correctness losses. This prevents attractive legacy or diagnostic runs from
 being counted as proof that the knowledge layer improves the Agent.
+New paired reports count a treatment only when both arms have current passing
+execution audits and the augmented-arm audit proves transcript access. Older
+self-reported realization fields, or reports whose bound
+assessment/result/audit was later overwritten, become legacy
+unaudited evidence rather than silently retaining a primary causal label.
 
 Use `community-timing` for prospective delivery-time accounting. A v2 work
 cycle records non-overlapping spans for community research, bottleneck

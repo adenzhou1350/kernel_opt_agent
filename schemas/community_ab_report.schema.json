@@ -34,6 +34,10 @@
       "additionalProperties": false,
       "required": ["community_event_prior_realized", "method_prior_realized", "any_prior_realized", "causal_interpretation"],
       "properties": {
+        "control_execution_audit_verified": {"type": "boolean"},
+        "reported_community_event_prior_realized": {"type": "boolean"},
+        "reported_method_prior_realized": {"type": "boolean"},
+        "realized_prior_access_verified": {"type": "boolean"},
         "community_event_prior_realized": {"type": "boolean"},
         "method_prior_realized": {"type": "boolean"},
         "any_prior_realized": {"type": "boolean"},
