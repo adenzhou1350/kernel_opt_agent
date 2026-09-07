@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
+from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -20,6 +22,13 @@ from schema_utils import validate_json_file  # noqa: E402
 
 ASSESSMENT_SCHEMA = ROOT / "schemas/community_postselection_task_assessment.schema.json"
 FEEDBACK_SCHEMA = ROOT / "schemas/community_screening_feedback.schema.json"
+SUMMARY_SCHEMA = ROOT / "schemas/community_screening_feedback_summary.schema.json"
+
+SUPPORTING_NON_OPTIMIZATION_OUTCOMES = {
+    "KNOWLEDGE_ONLY_NO_OPTIMIZATION_TARGET",
+    "INFEASIBLE",
+    "UPSTREAM_DUPLICATE",
+}
 
 
 def parse_time(value: str) -> datetime:
@@ -206,6 +215,152 @@ def validate_feedback(path: Path) -> dict:
     }
 
 
+def build_summary(feedback_paths: list[Path], generated_at: str) -> dict:
+    resolved = [path.resolve() for path in feedback_paths]
+    if len(set(resolved)) != len(resolved):
+        raise ValueError("screening feedback inputs must be unique")
+    rows = []
+    for path in resolved:
+        validate_feedback(path)
+        feedback = read_object(path)
+        assessment_path = validate_identity(
+            feedback["evidence"]["assessment"], "assessment"
+        )
+        assessment = validated_assessment(assessment_path)
+        rows.append(
+            {
+                "identity": identity(path),
+                "feedback": feedback,
+                "candidate_rule": assessment["future_policy_observation"][
+                    "candidate_rule"
+                ],
+            }
+        )
+    available = max(
+        (row["feedback"]["available_at"] for row in rows), key=parse_time
+    )
+    if parse_time(generated_at) < parse_time(available):
+        raise ValueError("summary cannot be generated before its newest feedback")
+
+    grouped: dict[str, list[dict]] = defaultdict(list)
+    for row in rows:
+        grouped[row["candidate_rule"]].append(row["feedback"])
+    groups = []
+    for candidate_rule, observations in sorted(grouped.items()):
+        candidates = {
+            f"{row['candidate']['repository']}#{row['candidate']['pr_number']}"
+            for row in observations
+        }
+        support = {
+            f"{row['candidate']['repository']}#{row['candidate']['pr_number']}"
+            for row in observations
+            if row["postselection"]["status"]
+            in SUPPORTING_NON_OPTIMIZATION_OUTCOMES
+        }
+        counterexamples = {
+            f"{row['candidate']['repository']}#{row['candidate']['pr_number']}"
+            for row in observations
+            if row["postselection"]["status"] == "OPTIMIZATION_TASK"
+        }
+        if support and counterexamples:
+            status = "CONTRADICTED"
+            action = "REQUIRE_CONTEXT_REFINEMENT"
+        elif len(support) >= 2:
+            status = "ELIGIBLE_FOR_POLICY_REVIEW"
+            action = "PROPOSE_FUTURE_POLICY_REVIEW"
+        else:
+            status = "INSUFFICIENT_EVIDENCE"
+            action = "RECORD_ONLY_DO_NOT_ROUTE"
+        groups.append(
+            {
+                "group_id": hashlib.sha256(candidate_rule.encode("utf-8")).hexdigest(),
+                "candidate_rule": candidate_rule,
+                "observation_ids": sorted(
+                    {row["observation_id"] for row in observations}
+                ),
+                "candidate_keys": sorted(candidates),
+                "non_optimization_candidate_keys": sorted(support),
+                "optimization_counterexample_candidate_keys": sorted(
+                    counterexamples
+                ),
+                "outcome_counts": dict(
+                    sorted(
+                        Counter(
+                            row["postselection"]["status"]
+                            for row in observations
+                        ).items()
+                    )
+                ),
+                "distinct_candidate_count": len(candidates),
+                "status": status,
+                "action": action,
+            }
+        )
+    result = {
+        "schema_version": "community-screening-feedback-summary-v1",
+        "generated_at": generated_at,
+        "available_at": available,
+        "claim_boundary": (
+            "FUTURE_POLICY_REVIEW_INPUT_NOT_AN_ACTIVATED_ROUTING_RULE"
+        ),
+        "minimum_distinct_candidates": 2,
+        "input_identities": sorted(
+            (row["identity"] for row in rows), key=lambda row: row["path"]
+        ),
+        "inventory": {
+            "feedback_count": len(rows),
+            "distinct_candidate_count": len(
+                {
+                    f"{row['feedback']['candidate']['repository']}#"
+                    f"{row['feedback']['candidate']['pr_number']}"
+                    for row in rows
+                }
+            ),
+            "rule_group_count": len(groups),
+            "insufficient_count": sum(
+                group["status"] == "INSUFFICIENT_EVIDENCE" for group in groups
+            ),
+            "review_eligible_count": sum(
+                group["status"] == "ELIGIBLE_FOR_POLICY_REVIEW"
+                for group in groups
+            ),
+            "contradicted_count": sum(
+                group["status"] == "CONTRADICTED" for group in groups
+            ),
+        },
+        "groups": groups,
+        "limitations": [
+            "A review-eligible group is not an activated routing rule.",
+            "At least two distinct candidates support review, but repository and workload context may still differ materially.",
+            "Any optimization-task counterexample for the same candidate rule forces context refinement.",
+            "Feedback is excluded from the cohort that produced it and may be consumed only by a later frozen cohort.",
+        ],
+    }
+    errors = validate_json_file_object(result, SUMMARY_SCHEMA)
+    if errors:
+        raise ValueError("invalid screening feedback summary: " + "; ".join(errors))
+    return result
+
+
+def validate_summary(path: Path) -> dict:
+    path = path.resolve()
+    errors = validate_json_file(path, SUMMARY_SCHEMA)
+    if errors:
+        raise ValueError("invalid screening feedback summary: " + "; ".join(errors))
+    observed = read_object(path)
+    inputs = [
+        validate_identity(row, "screening feedback")
+        for row in observed["input_identities"]
+    ]
+    expected = build_summary(inputs, observed["generated_at"])
+    if observed != expected:
+        raise ValueError("screening feedback summary is stale or was edited")
+    return {
+        "status": "PASS",
+        **observed["inventory"],
+    }
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     operations = parser.add_subparsers(dest="operation", required=True)
@@ -216,6 +371,12 @@ def parse_args() -> argparse.Namespace:
     build.add_argument("--output", type=Path, required=True)
     validate = operations.add_parser("validate")
     validate.add_argument("--feedback", type=Path, required=True)
+    summarize = operations.add_parser("summarize")
+    summarize.add_argument("--feedback", type=Path, action="append", required=True)
+    summarize.add_argument("--generated-at", required=True)
+    summarize.add_argument("--output", type=Path, required=True)
+    validate_summary_parser = operations.add_parser("validate-summary")
+    validate_summary_parser.add_argument("--summary", type=Path, required=True)
     return parser.parse_args()
 
 
@@ -233,8 +394,18 @@ def main() -> int:
                 "observation_id": value["observation_id"],
                 "activation_status": value["activation_policy"]["status"],
             }
-        else:
+        elif args.operation == "validate":
             result = validate_feedback(args.feedback)
+        elif args.operation == "summarize":
+            value = build_summary(args.feedback, args.generated_at)
+            atomic_json(args.output.resolve(), value)
+            result = {
+                "status": "PASS",
+                "summary": str(args.output.resolve()),
+                **value["inventory"],
+            }
+        else:
+            result = validate_summary(args.summary)
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(f"ERROR: {error}", file=sys.stderr)
         return 1

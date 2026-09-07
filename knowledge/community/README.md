@@ -175,6 +175,10 @@ python scripts/kernel_opt.py community-screening-feedback build \
   --output screening-feedback-v1.json
 python scripts/kernel_opt.py community-screening-feedback validate \
   --feedback screening-feedback-v1.json
+python scripts/kernel_opt.py community-screening-feedback summarize \
+  --feedback first-feedback.json --feedback second-feedback.json \
+  --generated-at 2026-01-03T00:00:00Z \
+  --output screening-feedback-summary.json
 ```
 
 The assessment binds the selected queue, preselection screen and chain audit,
@@ -182,7 +186,10 @@ and the feedback recomputes all three hashes and candidate links. A single
 observation is always `INSUFFICIENT_EVIDENCE` with
 `RECORD_ONLY_DO_NOT_ROUTE`; it cannot rewrite the active cohort or activate a
 new rule. Policy review requires at least two distinct candidates in the same
-explicit context, and any counterexample must remain visible. This lets the
+exact candidate-rule group. The summary can only propose future policy review;
+it never activates routing. Any observation in the same group that materializes
+as a real optimization task marks the group `CONTRADICTED` and requires context
+refinement. This lets the
 system learn from title-level false positives without turning one held-out
 example into a self-confirming heuristic.
 

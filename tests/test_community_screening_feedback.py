@@ -14,7 +14,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_screening_feedback import (  # noqa: E402
     build_feedback,
+    build_summary,
     validate_feedback,
+    validate_summary,
 )
 
 
@@ -158,7 +160,7 @@ def main() -> None:
             assert "queue evidence hash changed" in str(error)
         else:
             raise AssertionError("tampered frozen queue passed feedback validation")
-        queue_path.write_text(original_queue, encoding="utf-8")
+        atomic_json(queue_path, json.loads(original_queue))
 
         feedback["activation_policy"]["current_distinct_candidates"] = 2
         atomic_json(feedback_path, feedback)
@@ -168,6 +170,124 @@ def main() -> None:
             assert "invalid screening feedback" in str(error)
         else:
             raise AssertionError("single observation activated routing")
+        feedback = build_feedback(
+            assessment_path,
+            "example-7-ci-baseline-not-optimization-v1",
+            "2026-01-02T00:03:00Z",
+        )
+        atomic_json(feedback_path, feedback)
+
+        def additional_feedback(
+            number: int, status: str, reason_codes: list[str]
+        ) -> Path:
+            suffix = str(number)
+            next_queue_path = root / f"queue-{suffix}.json"
+            next_screen_path = root / f"screen-{suffix}.json"
+            next_audit_path = root / f"audit-{suffix}.json"
+            next_assessment_path = root / f"assessment-{suffix}.json"
+            next_feedback_path = root / f"feedback-{suffix}.json"
+            title = "CI: baseline another unguarded perf case"
+            atomic_json(
+                next_queue_path,
+                {
+                    "items": [
+                        {
+                            "repository": "example/project",
+                            "pr_number": number,
+                            "title": title,
+                            "earliest_public_at": "2026-01-02T00:01:30Z",
+                            "selection": "SELECTED",
+                        }
+                    ]
+                },
+            )
+            atomic_json(
+                next_screen_path,
+                {
+                    "items": [
+                        {
+                            "repository": "example/project",
+                            "pr_number": number,
+                            "status": "ELIGIBLE",
+                            "matched_rule_id": "default",
+                        }
+                    ]
+                },
+            )
+            atomic_json(
+                next_audit_path,
+                {
+                    "observations": {
+                        "cutoff_at": "2026-01-02T00:00:00Z",
+                        "git_commit": "a" * 40,
+                        "observed_repositories": ["example/project"],
+                    }
+                },
+            )
+            assessment = json.loads(assessment_path.read_text(encoding="utf-8"))
+            assessment["candidate"].update(
+                {
+                    "pr_number": number,
+                    "title": title,
+                    "earliest_public_at": "2026-01-02T00:01:30Z",
+                    "url": f"https://github.com/example/project/pull/{number}",
+                    "head_sha": f"{number % 10}" * 40,
+                }
+            )
+            assessment["frozen_selection_evidence"].update(
+                {
+                    "queue": file_identity(next_queue_path),
+                    "screen": file_identity(next_screen_path),
+                    "chain_audit": file_identity(next_audit_path),
+                }
+            )
+            assessment["materialization_decision"].update(
+                {
+                    "status": status,
+                    "reason_codes": reason_codes,
+                    "task_materialized": status == "OPTIMIZATION_TASK",
+                }
+            )
+            atomic_json(next_assessment_path, assessment)
+            atomic_json(
+                next_feedback_path,
+                build_feedback(
+                    next_assessment_path,
+                    f"example-{number}-feedback-v1",
+                    "2026-01-02T00:03:30Z",
+                ),
+            )
+            return next_feedback_path
+
+        supporting_path = additional_feedback(
+            8,
+            "KNOWLEDGE_ONLY_NO_OPTIMIZATION_TARGET",
+            ["CI_BASELINE_MAINTENANCE", "NO_FASTER_IMPLEMENTATION_OBJECTIVE"],
+        )
+        eligible_summary = build_summary(
+            [feedback_path, supporting_path], "2026-01-02T00:04:00Z"
+        )
+        assert eligible_summary["groups"][0]["status"] == (
+            "ELIGIBLE_FOR_POLICY_REVIEW"
+        )
+        assert eligible_summary["groups"][0]["action"] == (
+            "PROPOSE_FUTURE_POLICY_REVIEW"
+        )
+        summary_path = root / "summary.json"
+        atomic_json(summary_path, eligible_summary)
+        assert validate_summary(summary_path)["status"] == "PASS"
+
+        counterexample_path = additional_feedback(
+            9, "OPTIMIZATION_TASK", ["FASTER_IMPLEMENTATION_OBJECTIVE"]
+        )
+        contradicted = build_summary(
+            [feedback_path, supporting_path, counterexample_path],
+            "2026-01-02T00:05:00Z",
+        )
+        assert contradicted["groups"][0]["status"] == "CONTRADICTED"
+        assert contradicted["groups"][0]["action"] == (
+            "REQUIRE_CONTEXT_REFINEMENT"
+        )
     print("community screening feedback test: PASS")
 
 

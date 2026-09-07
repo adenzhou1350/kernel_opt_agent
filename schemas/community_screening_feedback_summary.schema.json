@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_screening_feedback_summary.schema.json",
+  "title": "Cross-candidate summary of postselection screening feedback",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "available_at", "claim_boundary", "minimum_distinct_candidates", "input_identities", "inventory", "groups", "limitations"],
+  "properties": {
+    "schema_version": {"const": "community-screening-feedback-summary-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "available_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "FUTURE_POLICY_REVIEW_INPUT_NOT_AN_ACTIVATED_ROUTING_RULE"},
+    "minimum_distinct_candidates": {"const": 2},
+    "input_identities": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["feedback_count", "distinct_candidate_count", "rule_group_count", "insufficient_count", "review_eligible_count", "contradicted_count"],
+      "properties": {
+        "feedback_count": {"type": "integer", "minimum": 1},
+        "distinct_candidate_count": {"type": "integer", "minimum": 1},
+        "rule_group_count": {"type": "integer", "minimum": 1},
+        "insufficient_count": {"type": "integer", "minimum": 0},
+        "review_eligible_count": {"type": "integer", "minimum": 0},
+        "contradicted_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["group_id", "candidate_rule", "observation_ids", "candidate_keys", "non_optimization_candidate_keys", "optimization_counterexample_candidate_keys", "outcome_counts", "distinct_candidate_count", "status", "action"],
+        "properties": {
+          "group_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "candidate_rule": {"type": "string", "minLength": 1},
+          "observation_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "candidate_keys": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "non_optimization_candidate_keys": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "optimization_counterexample_candidate_keys": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "outcome_counts": {
+            "type": "object",
+            "additionalProperties": {"type": "integer", "minimum": 1}
+          },
+          "distinct_candidate_count": {"type": "integer", "minimum": 1},
+          "status": {"enum": ["INSUFFICIENT_EVIDENCE", "ELIGIBLE_FOR_POLICY_REVIEW", "CONTRADICTED"]},
+          "action": {"enum": ["RECORD_ONLY_DO_NOT_ROUTE", "PROPOSE_FUTURE_POLICY_REVIEW", "REQUIRE_CONTEXT_REFINEMENT"]}
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 3,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
