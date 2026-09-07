@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_evaluation import (  # noqa: E402
     build_preselection_anchor,
+    preselection_link_errors,
     validate_preselection_anchor,
 )
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
@@ -101,6 +102,58 @@ def main() -> None:
         assert validate_preselection_anchor(anchor_path, repository)["status"] == "PASS"
 
         original = json.loads(preregistration_path.read_text(encoding="utf-8"))
+        queue = {
+            "cutoff_at": original["cutoff_at"],
+            "policy": {
+                "max_items": 4,
+                "random_seed": 7,
+                "eligibility_time_field": "earliest_public_at",
+                "required_receipt_schema": "community-sync-receipt-v2",
+            },
+            "inventory": {"receipt_candidate_count": 1, "selected_count": 1},
+        }
+        screen = {
+            "registration": "PRESELECTION",
+            "input_identity": {
+                "policy": original["policy_identity"],
+                "execution_profile": original["execution_profile_identity"],
+            },
+            "inventory": {
+                "selected_queue_count": 1,
+                "eligible_count": 1,
+                "infeasible_count": 0,
+                "harness_blocked_count": 0,
+            },
+        }
+        receipts = [
+            {
+                "schema_version": "community-sync-receipt-v2",
+                "repository": "example/project",
+                "generated_at": "2026-01-02T00:02:00Z",
+                "window": {
+                    "since": "2026-01-02T00:00:00Z",
+                    "until": "2026-01-02T00:01:00Z",
+                },
+                "candidate_count": 1,
+            }
+        ]
+        assert not preselection_link_errors(
+            original, anchor, queue, screen, receipts
+        )
+        mismatched_screen = json.loads(json.dumps(screen))
+        mismatched_screen["input_identity"]["policy"]["sha256"] = "0" * 64
+        assert "screen policy differs from preregistration" in preselection_link_errors(
+            original, anchor, queue, mismatched_screen, receipts
+        )
+        early_receipts = json.loads(json.dumps(receipts))
+        early_receipts[0]["window"]["since"] = "2026-01-01T23:59:00Z"
+        assert any(
+            "begins before cutoff" in error
+            for error in preselection_link_errors(
+                original, anchor, queue, screen, early_receipts
+            )
+        )
+
         tampered = json.loads(json.dumps(original))
         tampered["selection"]["max_items"] = 5
         atomic_json(preregistration_path, tampered)

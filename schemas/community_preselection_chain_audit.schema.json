@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_preselection_chain_audit.schema.json",
+  "title": "End-to-end audit of a Git-anchored prospective selection chain",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "input_identity", "observations", "status"],
+  "properties": {
+    "schema_version": {"const": "community-preselection-chain-audit-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "SELECTION_CHAIN_INTEGRITY_NOT_PERFORMANCE_EVIDENCE"},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anchor", "preregistration", "queue", "feasibility_screen"],
+      "properties": {
+        "anchor": {"$ref": "#/$defs/identity"},
+        "preregistration": {"$ref": "#/$defs/identity"},
+        "queue": {"$ref": "#/$defs/identity"},
+        "feasibility_screen": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "observations": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cutoff_at", "git_commit", "registered_repositories", "observed_repositories", "receipt_count", "receipt_candidate_count", "excluded_pre_cutoff_count", "selected_count", "eligible_count", "infeasible_count", "harness_blocked_count"],
+      "properties": {
+        "cutoff_at": {"type": "string", "format": "date-time"},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "registered_repositories": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "observed_repositories": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "receipt_count": {"type": "integer", "minimum": 1},
+        "receipt_candidate_count": {"type": "integer", "minimum": 0},
+        "excluded_pre_cutoff_count": {"type": "integer", "minimum": 0},
+        "selected_count": {"type": "integer", "minimum": 0},
+        "eligible_count": {"type": "integer", "minimum": 0},
+        "infeasible_count": {"type": "integer", "minimum": 0},
+        "harness_blocked_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "status": {"const": "PASS"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

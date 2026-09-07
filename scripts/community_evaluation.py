@@ -43,6 +43,7 @@ FRONTIER_CONTRACT_SCHEMA = "community-frontier-contract-v1"
 HELDOUT_QUEUE_SCHEMA = "community-heldout-queue-v1"
 FEASIBILITY_SCREEN_SCHEMA = "community-feasibility-screen-v1"
 PRESELECTION_ANCHOR_SCHEMA = "community-preselection-anchor-v1"
+PRESELECTION_CHAIN_AUDIT_SCHEMA = "community-preselection-chain-audit-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -1076,6 +1077,181 @@ def validate_preselection_anchor(
         "committed_at": anchor["git_anchor"]["committed_at"],
         "cutoff_at": anchor["cutoff_at"],
     }
+
+
+def preselection_link_errors(
+    preregistration: dict,
+    anchor: dict,
+    queue: dict,
+    screen: dict,
+    receipts: list[dict],
+) -> list[str]:
+    """Check cross-artifact invariants after each artifact passed its own audit."""
+    errors = []
+    cutoff_at = preregistration["cutoff_at"]
+    if anchor["cutoff_at"] != cutoff_at or queue["cutoff_at"] != cutoff_at:
+        errors.append("anchor, queue and preregistration cutoffs must match exactly")
+    if parse_time(anchor["git_anchor"]["committed_at"]) > parse_time(cutoff_at):
+        errors.append("anchored Git commit is later than preregistered cutoff")
+    selection = preregistration["selection"]
+    queue_policy = queue["policy"]
+    for field in ("max_items", "random_seed", "eligibility_time_field"):
+        if queue_policy[field] != selection[field]:
+            errors.append(f"queue policy {field} differs from preregistration")
+    if queue_policy["required_receipt_schema"] != selection["required_receipt_schema"]:
+        errors.append("queue receipt schema differs from preregistration")
+    registered = set(preregistration["repositories"])
+    observed = {receipt["repository"] for receipt in receipts}
+    if observed != registered:
+        errors.append("discovery receipt repositories differ from preregistration")
+    for receipt in receipts:
+        repository = receipt["repository"]
+        if receipt["schema_version"] != selection["required_receipt_schema"]:
+            errors.append(f"{repository} receipt schema differs from preregistration")
+        if parse_time(receipt["window"]["since"]) < parse_time(cutoff_at):
+            errors.append(f"{repository} discovery window begins before cutoff")
+        if parse_time(receipt["generated_at"]) < parse_time(cutoff_at):
+            errors.append(f"{repository} receipt was generated before cutoff")
+    if screen["registration"] != "PRESELECTION":
+        errors.append("feasibility screen is not labeled PRESELECTION")
+    if (
+        screen["input_identity"]["policy"]["sha256"]
+        != preregistration["policy_identity"]["sha256"]
+    ):
+        errors.append("screen policy differs from preregistration")
+    if (
+        screen["input_identity"]["execution_profile"]["sha256"]
+        != preregistration["execution_profile_identity"]["sha256"]
+    ):
+        errors.append("screen execution profile differs from preregistration")
+    if (
+        queue["inventory"]["receipt_candidate_count"]
+        != sum(int(receipt["candidate_count"]) for receipt in receipts)
+    ):
+        errors.append("queue candidate count differs from discovery receipts")
+    if (
+        screen["inventory"]["selected_queue_count"]
+        != queue["inventory"]["selected_count"]
+    ):
+        errors.append("feasibility screen does not cover the selected queue")
+    screened_total = sum(
+        int(screen["inventory"][field])
+        for field in (
+            "eligible_count",
+            "infeasible_count",
+            "harness_blocked_count",
+        )
+    )
+    if screened_total != queue["inventory"]["selected_count"]:
+        errors.append("feasibility outcome counts do not cover every selected task")
+    return errors
+
+
+def audit_preselection_chain(
+    anchor_path: Path,
+    queue_path: Path,
+    screen_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+) -> dict:
+    """Verify that a prospective queue and screen use one anchored protocol."""
+    root = (root or repository_root()).resolve()
+    anchor_path = anchor_path.resolve()
+    queue_path = queue_path.resolve()
+    screen_path = screen_path.resolve()
+    validate_preselection_anchor(anchor_path, root)
+    validate_heldout_queue(queue_path, corpus, root)
+    validate_feasibility_screen(screen_path, corpus, root)
+    anchor = read_object(anchor_path)
+    queue = read_object(queue_path)
+    screen = read_object(screen_path)
+    preregistration_path = Path(anchor["preregistration_identity"]["path"])
+    preregistration = read_object(preregistration_path)
+    receipt_paths = [
+        Path(identity["path"]) for identity in queue["input_identity"]["receipts"]
+    ]
+    receipts = [read_object(path) for path in receipt_paths]
+    errors = preselection_link_errors(
+        preregistration, anchor, queue, screen, receipts
+    )
+    if screen["input_identity"]["queue"]["sha256"] != sha256_file(queue_path):
+        errors.append("feasibility screen is bound to a different queue")
+    if errors:
+        raise ValueError("invalid preselection chain: " + "; ".join(errors))
+    registered = sorted(preregistration["repositories"])
+    observed = sorted({receipt["repository"] for receipt in receipts})
+    audit = {
+        "schema_version": PRESELECTION_CHAIN_AUDIT_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "SELECTION_CHAIN_INTEGRITY_NOT_PERFORMANCE_EVIDENCE",
+        "input_identity": {
+            "anchor": absolute_identity(anchor_path),
+            "preregistration": absolute_identity(preregistration_path),
+            "queue": absolute_identity(queue_path),
+            "feasibility_screen": absolute_identity(screen_path),
+        },
+        "observations": {
+            "cutoff_at": preregistration["cutoff_at"],
+            "git_commit": anchor["git_anchor"]["commit"],
+            "registered_repositories": registered,
+            "observed_repositories": observed,
+            "receipt_count": len(receipts),
+            "receipt_candidate_count": queue["inventory"]["receipt_candidate_count"],
+            "excluded_pre_cutoff_count": queue["inventory"][
+                "excluded_pre_cutoff_count"
+            ],
+            "selected_count": queue["inventory"]["selected_count"],
+            "eligible_count": screen["inventory"]["eligible_count"],
+            "infeasible_count": screen["inventory"]["infeasible_count"],
+            "harness_blocked_count": screen["inventory"][
+                "harness_blocked_count"
+            ],
+        },
+        "status": "PASS",
+    }
+    errors = validate_instance(
+        audit,
+        read_object(
+            root / "schemas" / "community_preselection_chain_audit.schema.json"
+        ),
+    )
+    if errors:
+        raise ValueError("invalid preselection chain audit: " + "; ".join(errors))
+    return audit
+
+
+def validate_preselection_chain_audit(
+    audit_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    root = (root or repository_root()).resolve()
+    errors = validate_json_file(
+        audit_path,
+        root / "schemas" / "community_preselection_chain_audit.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid preselection chain audit: " + "; ".join(errors))
+    audit = read_object(audit_path)
+    inputs = audit["input_identity"]
+    for identity in inputs.values():
+        path = Path(identity["path"])
+        if not path.is_file() or sha256_file(path) != identity["sha256"]:
+            raise ValueError(f"preselection chain input changed: {identity['path']}")
+    expected = audit_preselection_chain(
+        Path(inputs["anchor"]["path"]),
+        Path(inputs["queue"]["path"]),
+        Path(inputs["feasibility_screen"]["path"]),
+        corpus,
+        root,
+    )
+    observed_stable = {
+        key: value for key, value in audit.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("preselection chain audit is stale or was edited")
+    return {"status": "PASS", **audit["observations"]}
 
 
 def identity_for(path: Path, base: Path) -> dict:
@@ -3115,6 +3291,15 @@ def parse_args() -> argparse.Namespace:
     anchor.add_argument("--output", type=Path, required=True)
     anchor_validate = subparsers.add_parser("validate-preregistration-anchor")
     anchor_validate.add_argument("--anchor", type=Path, required=True)
+    chain = subparsers.add_parser("audit-preselection-chain")
+    chain.add_argument("--anchor", type=Path, required=True)
+    chain.add_argument("--queue", type=Path, required=True)
+    chain.add_argument("--screen", type=Path, required=True)
+    chain.add_argument("--corpus", type=Path, required=True)
+    chain.add_argument("--output", type=Path, required=True)
+    chain_validate = subparsers.add_parser("validate-preselection-chain")
+    chain_validate.add_argument("--audit", type=Path, required=True)
+    chain_validate.add_argument("--corpus", type=Path, required=True)
     materialize = subparsers.add_parser("materialize-trial")
     materialize.add_argument("--suite", type=Path, required=True)
     materialize.add_argument("--corpus", type=Path, required=True)
@@ -3207,6 +3392,18 @@ def main() -> int:
             }
         elif args.operation == "validate-preregistration-anchor":
             result = validate_preselection_anchor(args.anchor)
+        elif args.operation == "audit-preselection-chain":
+            result = audit_preselection_chain(
+                args.anchor, args.queue, args.screen, args.corpus
+            )
+            atomic_json(args.output.resolve(), result)
+            result = {
+                "status": "PASS",
+                **result["observations"],
+                "audit": str(args.output.resolve()),
+            }
+        elif args.operation == "validate-preselection-chain":
+            result = validate_preselection_chain_audit(args.audit, args.corpus)
         elif args.operation == "materialize-trial":
             result = materialize_trial(
                 args.suite,

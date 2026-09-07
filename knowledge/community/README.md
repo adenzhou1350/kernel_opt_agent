@@ -378,3 +378,10 @@ policy and execution profile before the declared cutoff. After the commit,
 through `git show`, checks the commit timestamp is not later than the cutoff,
 and emits an external validation receipt. A JSON `declared_at` field by itself
 is not acceptable proof of pre-registration.
+
+After discovery and screening, run `community-eval audit-preselection-chain`.
+The chain audit recomputes the anchor, queue and feasibility screen, then checks
+that repository coverage, cutoff, receipt schema, selection seed/limit, policy,
+execution profile and all denominator counts match the committed
+preregistration. Independent artifact validation is insufficient when valid
+artifacts can be accidentally combined from different prospective windows.
