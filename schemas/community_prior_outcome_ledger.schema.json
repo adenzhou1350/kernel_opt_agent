@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_prior_outcome_ledger.schema.json",
+  "title": "Held-out outcome ledger for realized community and method priors",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "meta_analysis_identity", "policy", "inventory", "observations", "aggregates"],
+  "properties": {
+    "schema_version": {"const": "community-prior-outcome-ledger-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF"},
+    "meta_analysis_identity": {"$ref": "#/$defs/identity"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["learn_from", "heldout_loss_action", "minimum_directional_observations"],
+      "properties": {
+        "learn_from": {"const": "PRIMARY_REALIZED_ONLY"},
+        "heldout_loss_action": {"const": "REQUIRE_CONTEXT_GUARD"},
+        "minimum_directional_observations": {"const": 2}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["primary_pair_count", "prior_observation_count", "event_prior_count", "method_prior_count", "guarded_prior_count", "downranked_prior_count", "upranked_prior_count"],
+      "properties": {
+        "primary_pair_count": {"type": "integer", "minimum": 0},
+        "prior_observation_count": {"type": "integer", "minimum": 0},
+        "event_prior_count": {"type": "integer", "minimum": 0},
+        "method_prior_count": {"type": "integer", "minimum": 0},
+        "guarded_prior_count": {"type": "integer", "minimum": 0},
+        "downranked_prior_count": {"type": "integer", "minimum": 0},
+        "upranked_prior_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "observations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["pair_identity", "suite_id", "task_id", "repeat_index", "prior_kind", "prior_id", "candidate_ids", "deltas"],
+        "properties": {
+          "pair_identity": {"$ref": "#/$defs/identity"},
+          "suite_id": {"type": "string", "minLength": 1},
+          "task_id": {"type": "string", "minLength": 1},
+          "repeat_index": {"type": "integer", "minimum": 1},
+          "prior_kind": {"enum": ["EVENT", "METHOD"]},
+          "prior_id": {"type": "string", "minLength": 1},
+          "candidate_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+          "deltas": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["time_to_first_correct_seconds_saved", "best_speedup_gain", "heldout_pass_count_gain"],
+            "properties": {
+              "time_to_first_correct_seconds_saved": {"type": ["number", "null"]},
+              "best_speedup_gain": {"type": ["number", "null"]},
+              "heldout_pass_count_gain": {"type": ["number", "null"]}
+            }
+          }
+        }
+      }
+    },
+    "aggregates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prior_kind", "prior_id", "observation_count", "task_count", "ttfc", "best_speedup", "heldout_loss_count", "routing_adjustment"],
+        "properties": {
+          "prior_kind": {"enum": ["EVENT", "METHOD"]},
+          "prior_id": {"type": "string", "minLength": 1},
+          "observation_count": {"type": "integer", "minimum": 1},
+          "task_count": {"type": "integer", "minimum": 1},
+          "ttfc": {"$ref": "#/$defs/signCounts"},
+          "best_speedup": {"$ref": "#/$defs/signCounts"},
+          "heldout_loss_count": {"type": "integer", "minimum": 0},
+          "routing_adjustment": {"enum": ["REQUIRE_CONTEXT_GUARD", "DOWNRANK", "UPRANK", "UNCHANGED"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "signCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wins", "losses", "ties", "missing"],
+      "properties": {
+        "wins": {"type": "integer", "minimum": 0},
+        "losses": {"type": "integer", "minimum": 0},
+        "ties": {"type": "integer", "minimum": 0},
+        "missing": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

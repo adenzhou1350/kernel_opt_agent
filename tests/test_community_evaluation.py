@@ -21,6 +21,7 @@ from community_evaluation import (
     audit_codex_execution,
     assess_trial,
     build_ab_meta_analysis,
+    build_prior_outcome_ledger,
     build_feasibility_screen,
     build_heldout_queue,
     build_prior_shortlist,
@@ -38,6 +39,7 @@ from community_evaluation import (
     validate_qualification_checkpoint,
     validate_feasibility_screen,
     validate_ab_meta_analysis,
+    validate_prior_outcome_ledger,
     validate_heldout_queue,
     validate_suite,
 )
@@ -1468,6 +1470,19 @@ def main() -> None:
         assert report["treatment_fidelity"]["causal_interpretation"] == (
             "TREATMENT_REALIZED"
         )
+        single_meta_path = base / "meta-single-realized.json"
+        single_meta = build_ab_meta_analysis(base, ROOT)
+        atomic_json(single_meta_path, single_meta)
+        single_ledger_path = base / "prior-ledger-single-realized.json"
+        single_ledger = build_prior_outcome_ledger(single_meta_path, ROOT)
+        atomic_json(single_ledger_path, single_ledger)
+        assert single_ledger["inventory"]["primary_pair_count"] == 1
+        assert single_ledger["inventory"]["prior_observation_count"] == 2
+        assert single_ledger["inventory"]["event_prior_count"] == 1
+        assert single_ledger["inventory"]["method_prior_count"] == 1
+        assert validate_prior_outcome_ledger(single_ledger_path, ROOT)[
+            "status"
+        ] == "PASS"
 
         no_treatment = json.loads(
             (community_dir / "result.json").read_text(encoding="utf-8")

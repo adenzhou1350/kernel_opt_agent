@@ -393,3 +393,11 @@ gate requires at least eight primary pairs across four tasks, a majority win in
 time-to-first-correct, no worse than parity in best speedup and no held-out
 correctness losses. This prevents attractive legacy or diagnostic runs from
 being counted as proof that the knowledge layer improves the Agent.
+
+`community-eval build-prior-outcome-ledger` follows only primary realized pairs
+through their hash-bound community assessment and result, attributes deltas to
+the event and method IDs that actually changed candidates, and emits routing
+feedback. Any held-out correctness loss requires a context guard; directional
+up/down-ranking requires at least two observations. Diagnostic, legacy and
+assignment-only reports never train this ledger, and one negative observation
+does not globally delete a method.

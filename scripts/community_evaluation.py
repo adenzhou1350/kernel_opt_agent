@@ -45,6 +45,7 @@ FEASIBILITY_SCREEN_SCHEMA = "community-feasibility-screen-v1"
 PRESELECTION_ANCHOR_SCHEMA = "community-preselection-anchor-v1"
 PRESELECTION_CHAIN_AUDIT_SCHEMA = "community-preselection-chain-audit-v1"
 META_ANALYSIS_SCHEMA = "community-ab-meta-analysis-v1"
+PRIOR_OUTCOME_LEDGER_SCHEMA = "community-prior-outcome-ledger-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -3171,6 +3172,222 @@ def validate_ab_meta_analysis(
     }
 
 
+def sign_counts(values: list[float | None]) -> dict:
+    observed = [float(value) for value in values if value is not None]
+    return {
+        "wins": sum(value > 0 for value in observed),
+        "losses": sum(value < 0 for value in observed),
+        "ties": sum(value == 0 for value in observed),
+        "missing": len(values) - len(observed),
+    }
+
+
+def build_prior_outcome_ledger(
+    meta_path: Path, root: Path | None = None
+) -> dict:
+    """Turn primary realized held-out outcomes into bounded routing feedback."""
+    root = root or repository_root()
+    meta_path = meta_path.resolve()
+    validate_ab_meta_analysis(meta_path, root)
+    meta = read_object(meta_path)
+    search_root = Path(meta["search_root"])
+    observations = []
+    primary_pair_count = 0
+    for row in meta["reports"]:
+        if row["evidence_class"] != "PRIMARY_REALIZED":
+            continue
+        primary_pair_count += 1
+        pair_path = (search_root / row["path"]).resolve()
+        if sha256_file(pair_path) != row["sha256"]:
+            raise ValueError(f"meta-analysis pair changed: {pair_path}")
+        pair = read_object(pair_path)
+        assessment_identity = pair["community_assessment"]
+        assessment_path = Path(assessment_identity["path"])
+        if not assessment_path.is_absolute():
+            assessment_path = pair_path.parent / assessment_path
+        assessment_path = assessment_path.resolve()
+        if (
+            not assessment_path.is_file()
+            or sha256_file(assessment_path) != assessment_identity["sha256"]
+        ):
+            raise ValueError(f"community assessment changed: {assessment_path}")
+        assessment = read_object(assessment_path)
+        result_identity = assessment["result_identity"]
+        result_path = Path(result_identity["path"])
+        if not result_path.is_absolute():
+            result_path = assessment_path.parent / result_path
+        result_path = result_path.resolve()
+        if (
+            not result_path.is_file()
+            or sha256_file(result_path) != result_identity["sha256"]
+        ):
+            raise ValueError(f"community result changed: {result_path}")
+        result_errors = validate_json_file(
+            result_path, root / "schemas" / "community_trial_result.schema.json"
+        )
+        if result_errors:
+            raise ValueError(
+                "invalid realized community result: " + "; ".join(result_errors)
+            )
+        result = read_object(result_path)
+        realized_priors = []
+        knowledge = result.get("knowledge_realization", {})
+        if knowledge.get("disposition") == "REALIZED_IN_CANDIDATE":
+            realized_priors.extend(
+                (
+                    "EVENT",
+                    event_id,
+                    sorted(knowledge.get("candidate_ids", [])),
+                )
+                for event_id in knowledge.get("selected_event_ids", [])
+            )
+        method = result.get("method_realization", {})
+        if method.get("disposition") == "REALIZED_IN_CANDIDATE":
+            realized_priors.append(
+                (
+                    "METHOD",
+                    method["selected_method_id"],
+                    sorted(method.get("candidate_ids", [])),
+                )
+            )
+        if not realized_priors:
+            raise ValueError(
+                f"primary realized pair names no selected prior: {pair_path}"
+            )
+        deltas = {
+            field: pair["deltas"].get(field)
+            for field in (
+                "time_to_first_correct_seconds_saved",
+                "best_speedup_gain",
+                "heldout_pass_count_gain",
+            )
+        }
+        for prior_kind, prior_id, candidate_ids in realized_priors:
+            observations.append(
+                {
+                    "pair_identity": absolute_identity(pair_path),
+                    "suite_id": pair["suite_id"],
+                    "task_id": pair["task_id"],
+                    "repeat_index": pair["repeat_index"],
+                    "prior_kind": prior_kind,
+                    "prior_id": prior_id,
+                    "candidate_ids": candidate_ids,
+                    "deltas": deltas,
+                }
+            )
+    observations.sort(
+        key=lambda row: (
+            row["prior_kind"],
+            row["prior_id"],
+            row["suite_id"],
+            row["repeat_index"],
+        )
+    )
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for row in observations:
+        grouped.setdefault((row["prior_kind"], row["prior_id"]), []).append(row)
+    aggregates = []
+    for (prior_kind, prior_id), rows in sorted(grouped.items()):
+        ttfc = sign_counts(
+            [row["deltas"]["time_to_first_correct_seconds_saved"] for row in rows]
+        )
+        speedup = sign_counts(
+            [row["deltas"]["best_speedup_gain"] for row in rows]
+        )
+        heldout_losses = sum(
+            row["deltas"]["heldout_pass_count_gain"] is not None
+            and float(row["deltas"]["heldout_pass_count_gain"]) < 0
+            for row in rows
+        )
+        if heldout_losses:
+            adjustment = "REQUIRE_CONTEXT_GUARD"
+        elif len(rows) >= 2 and ttfc["losses"] > ttfc["wins"] and (
+            speedup["losses"] >= speedup["wins"]
+        ):
+            adjustment = "DOWNRANK"
+        elif len(rows) >= 2 and ttfc["wins"] > ttfc["losses"] and (
+            speedup["wins"] >= speedup["losses"]
+        ):
+            adjustment = "UPRANK"
+        else:
+            adjustment = "UNCHANGED"
+        aggregates.append(
+            {
+                "prior_kind": prior_kind,
+                "prior_id": prior_id,
+                "observation_count": len(rows),
+                "task_count": len({row["task_id"] for row in rows}),
+                "ttfc": ttfc,
+                "best_speedup": speedup,
+                "heldout_loss_count": heldout_losses,
+                "routing_adjustment": adjustment,
+            }
+        )
+    result = {
+        "schema_version": PRIOR_OUTCOME_LEDGER_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF",
+        "meta_analysis_identity": absolute_identity(meta_path),
+        "policy": {
+            "learn_from": "PRIMARY_REALIZED_ONLY",
+            "heldout_loss_action": "REQUIRE_CONTEXT_GUARD",
+            "minimum_directional_observations": 2,
+        },
+        "inventory": {
+            "primary_pair_count": primary_pair_count,
+            "prior_observation_count": len(observations),
+            "event_prior_count": sum(row["prior_kind"] == "EVENT" for row in aggregates),
+            "method_prior_count": sum(row["prior_kind"] == "METHOD" for row in aggregates),
+            "guarded_prior_count": sum(
+                row["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+                for row in aggregates
+            ),
+            "downranked_prior_count": sum(
+                row["routing_adjustment"] == "DOWNRANK" for row in aggregates
+            ),
+            "upranked_prior_count": sum(
+                row["routing_adjustment"] == "UPRANK" for row in aggregates
+            ),
+        },
+        "observations": observations,
+        "aggregates": aggregates,
+    }
+    errors = validate_instance(
+        result,
+        read_object(root / "schemas" / "community_prior_outcome_ledger.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid prior outcome ledger: " + "; ".join(errors))
+    return result
+
+
+def validate_prior_outcome_ledger(
+    ledger_path: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    errors = validate_json_file(
+        ledger_path,
+        root / "schemas" / "community_prior_outcome_ledger.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid prior outcome ledger: " + "; ".join(errors))
+    ledger = read_object(ledger_path)
+    meta_identity = ledger["meta_analysis_identity"]
+    meta_path = Path(meta_identity["path"])
+    if not meta_path.is_file() or sha256_file(meta_path) != meta_identity["sha256"]:
+        raise ValueError("prior outcome ledger meta-analysis changed")
+    expected = build_prior_outcome_ledger(meta_path, root)
+    observed_stable = {
+        key: value for key, value in ledger.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("prior outcome ledger is stale or was edited")
+    return {"status": "PASS", **ledger["inventory"]}
+
+
 PACKET_AUDIT_STOPWORDS = {
     "and", "are", "for", "from", "into", "only", "the", "this", "that",
     "then", "while", "with", "without", "existing", "already", "available",
@@ -3516,6 +3733,11 @@ def parse_args() -> argparse.Namespace:
     meta.add_argument("--output", type=Path, required=True)
     meta_validate = subparsers.add_parser("validate-meta-analysis")
     meta_validate.add_argument("--analysis", type=Path, required=True)
+    ledger = subparsers.add_parser("build-prior-outcome-ledger")
+    ledger.add_argument("--meta-analysis", type=Path, required=True)
+    ledger.add_argument("--output", type=Path, required=True)
+    ledger_validate = subparsers.add_parser("validate-prior-outcome-ledger")
+    ledger_validate.add_argument("--ledger", type=Path, required=True)
     task_packet_audit = subparsers.add_parser("audit-task-packets")
     task_packet_audit.add_argument("--suite", type=Path, required=True)
     task_packet_audit.add_argument("--output", type=Path, required=True)
@@ -3622,6 +3844,16 @@ def main() -> int:
             }
         elif args.operation == "validate-meta-analysis":
             result = validate_ab_meta_analysis(args.analysis)
+        elif args.operation == "build-prior-outcome-ledger":
+            result = build_prior_outcome_ledger(args.meta_analysis)
+            atomic_json(args.output.resolve(), result)
+            result = {
+                "status": "PASS",
+                **result["inventory"],
+                "ledger": str(args.output.resolve()),
+            }
+        elif args.operation == "validate-prior-outcome-ledger":
+            result = validate_prior_outcome_ledger(args.ledger)
         elif args.operation == "audit-task-packets":
             result = audit_task_packets(args.suite, args.output)
         elif args.operation == "summarize-schedule":
