@@ -1,0 +1,45 @@
+{
+  "schema_version": "community-execution-profile-v1",
+  "profile_id": "nvidia-sm89-sm120-local-first-v1",
+  "observed_at": "2026-09-07T01:21:01Z",
+  "claim_boundary": "DECLARED_AVAILABILITY_NOT_LIVE_PROOF",
+  "resources": [
+    {
+      "resource_id": "local-sm89-8g",
+      "availability": "AVAILABLE",
+      "vendor": "NVIDIA",
+      "architecture": "sm89",
+      "gpu_count": 1,
+      "memory_gib_per_gpu": 8,
+      "capabilities": ["CUDA", "PYTORCH", "TRITON"],
+      "constraints": ["LOCAL_FIRST", "EIGHT_GIB_MEMORY_LIMIT"]
+    },
+    {
+      "resource_id": "single-sm120-32g",
+      "availability": "UNREACHABLE",
+      "vendor": "NVIDIA",
+      "architecture": "sm120",
+      "gpu_count": 1,
+      "memory_gib_per_gpu": 32,
+      "capabilities": ["CUDA", "PYTORCH", "TRITON"],
+      "constraints": ["OWNER_WORKLOAD_MUST_BE_VERIFIED_BEFORE_STOP", "UNREACHABLE_AT_OBSERVED_AT"]
+    },
+    {
+      "resource_id": "shared-8x-sm120-32g",
+      "availability": "UNREACHABLE",
+      "vendor": "NVIDIA",
+      "architecture": "sm120",
+      "gpu_count": 8,
+      "memory_gib_per_gpu": 32,
+      "capabilities": ["CUDA", "PYTORCH", "TRITON", "MULTI_GPU"],
+      "constraints": ["NO_SERVICE_DISRUPTION", "UNREACHABLE_AT_OBSERVED_AT", "RDMA_NOT_VERIFIED"]
+    }
+  ],
+  "harnesses": [
+    {"repository": "vllm-project/vllm", "task_family": "GENERAL_GPU_RUNTIME", "status": "READY", "reason": "LOCAL_VLLM_BASELINE_AVAILABLE"},
+    {"repository": "vllm-project/vllm", "task_family": "SERVING_SPECULATION_RUNTIME", "status": "UNKNOWN", "reason": "EXACT_DRAFT_MODEL_HARNESS_NOT_QUALIFIED"},
+    {"repository": "sgl-project/sglang", "task_family": "GENERAL_GPU_RUNTIME", "status": "READY", "reason": "LOCAL_SGLANG_BASELINE_AVAILABLE"},
+    {"repository": "sgl-project/sglang", "task_family": "INFLLM_RUNTIME", "status": "UNKNOWN", "reason": "INFLLM_WORKLOAD_NOT_QUALIFIED"},
+    {"repository": "kvcache-ai/Mooncake", "task_family": "DISTRIBUTED_RDMA_RUNTIME", "status": "UNKNOWN", "reason": "RDMA_HARDWARE_AND_HARNESS_NOT_VERIFIED"}
+  ]
+}

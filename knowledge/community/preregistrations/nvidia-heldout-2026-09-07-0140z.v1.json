@@ -1,0 +1,25 @@
+{
+  "schema_version": "community-heldout-preregistration-v1",
+  "preregistration_id": "nvidia-heldout-2026-09-07-0140z",
+  "cutoff_at": "2026-09-07T01:40:00Z",
+  "claim_boundary": "PROTOCOL_FROZEN_BEFORE_DISCOVERY",
+  "repositories": [
+    "kvcache-ai/Mooncake",
+    "sgl-project/sglang",
+    "vllm-project/vllm"
+  ],
+  "policy_identity": {
+    "path": "knowledge/community/feasibility_policy.v1.json",
+    "sha256": "90406a087fbcf51872db04fa8e470d6373164dbbef8acf27b65a90c41958bd5b"
+  },
+  "execution_profile_identity": {
+    "path": "knowledge/community/execution_profiles/nvidia-sm89-sm120-local-first.v1.json",
+    "sha256": "747252fd3c98217aba98e44127d09652986a6b2e52887600045b40b09d44fad8"
+  },
+  "selection": {
+    "max_items": 12,
+    "random_seed": 20260907,
+    "eligibility_time_field": "earliest_public_at",
+    "required_receipt_schema": "community-sync-receipt-v2"
+  }
+}

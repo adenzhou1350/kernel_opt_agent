@@ -42,6 +42,7 @@ PRIOR_SHORTLIST_SCHEMA = "community-prior-shortlist-v1"
 FRONTIER_CONTRACT_SCHEMA = "community-frontier-contract-v1"
 HELDOUT_QUEUE_SCHEMA = "community-heldout-queue-v1"
 FEASIBILITY_SCREEN_SCHEMA = "community-feasibility-screen-v1"
+PRESELECTION_ANCHOR_SCHEMA = "community-preselection-anchor-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -941,6 +942,140 @@ def validate_feasibility_screen(
     if observed_stable != expected_stable:
         raise ValueError("feasibility screen is stale or was edited")
     return {"status": "PASS", **screen["inventory"]}
+
+
+def git_bytes(repository: Path, *arguments: str) -> bytes:
+    completed = subprocess.run(
+        ["git", *arguments],
+        cwd=repository,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=False,
+    )
+    if completed.returncode:
+        detail = completed.stderr.decode("utf-8", errors="replace").strip()
+        raise ValueError(f"git {' '.join(arguments)} failed: {detail}")
+    return completed.stdout
+
+
+def anchored_repository_path(repository: Path, relative: str) -> Path:
+    repository = repository.resolve()
+    path = (repository / Path(relative)).resolve()
+    try:
+        path.relative_to(repository)
+    except ValueError as error:
+        raise ValueError(f"preregistration path escapes repository: {relative}") from error
+    if not path.is_file():
+        raise FileNotFoundError(f"preregistered input is missing: {path}")
+    return path
+
+
+def build_preselection_anchor(
+    preregistration_path: Path,
+    git_commit: str,
+    root: Path | None = None,
+) -> dict:
+    """Prove the frozen protocol and inputs existed in a pre-cutoff commit."""
+    root = (root or repository_root()).resolve()
+    preregistration_path = preregistration_path.resolve()
+    errors = validate_json_file(
+        preregistration_path,
+        root / "schemas" / "community_heldout_preregistration.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid held-out preregistration: " + "; ".join(errors))
+    try:
+        preregistration_relative = preregistration_path.relative_to(root).as_posix()
+    except ValueError as error:
+        raise ValueError("preregistration must be inside the Git repository") from error
+    resolved_commit = git_bytes(root, "rev-parse", f"{git_commit}^{{commit}}").decode().strip()
+    if not re.fullmatch(r"[0-9a-f]{40}", resolved_commit):
+        raise ValueError("Git did not resolve a full commit identity")
+    preregistration_at_commit = git_bytes(
+        root, "show", f"{resolved_commit}:{preregistration_relative}"
+    )
+    current_bytes = preregistration_path.read_bytes()
+    if preregistration_at_commit != current_bytes:
+        raise ValueError("working preregistration differs from anchored Git commit")
+    preregistration = read_object(preregistration_path)
+    committed_at = git_bytes(root, "show", "-s", "--format=%cI", resolved_commit).decode().strip()
+    if parse_time(committed_at) > parse_time(preregistration["cutoff_at"]):
+        raise ValueError("preregistration commit is later than its discovery cutoff")
+
+    roles = (
+        ("FEASIBILITY_POLICY", preregistration["policy_identity"]),
+        ("EXECUTION_PROFILE", preregistration["execution_profile_identity"]),
+    )
+    anchored_inputs = []
+    for role, identity in roles:
+        path = anchored_repository_path(root, identity["path"])
+        if sha256_file(path) != identity["sha256"]:
+            raise ValueError(f"preregistered {role.lower()} hash differs from working file")
+        committed_bytes = git_bytes(root, "show", f"{resolved_commit}:{identity['path']}")
+        committed_sha256 = hashlib.sha256(committed_bytes).hexdigest()
+        if committed_sha256 != identity["sha256"]:
+            raise ValueError(f"preregistered {role.lower()} was not frozen in Git commit")
+        anchored_inputs.append(
+            {"role": role, "path": identity["path"], "sha256": identity["sha256"]}
+        )
+    anchor = {
+        "schema_version": PRESELECTION_ANCHOR_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "GIT_EXISTENCE_BEFORE_CUTOFF_ONLY",
+        "preregistration_identity": absolute_identity(preregistration_path),
+        "git_anchor": {
+            "repository": root.as_posix(),
+            "commit": resolved_commit,
+            "committed_at": committed_at,
+            "preregistration_path": preregistration_relative,
+        },
+        "anchored_inputs": anchored_inputs,
+        "cutoff_at": preregistration["cutoff_at"],
+        "status": "PASS",
+    }
+    errors = validate_instance(
+        anchor,
+        read_object(root / "schemas" / "community_preselection_anchor.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid preselection anchor: " + "; ".join(errors))
+    return anchor
+
+
+def validate_preselection_anchor(
+    anchor_path: Path, root: Path | None = None
+) -> dict:
+    root = (root or repository_root()).resolve()
+    errors = validate_json_file(
+        anchor_path, root / "schemas" / "community_preselection_anchor.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid preselection anchor: " + "; ".join(errors))
+    anchor = read_object(anchor_path)
+    preregistration_identity = anchor["preregistration_identity"]
+    preregistration_path = Path(preregistration_identity["path"])
+    if (
+        not preregistration_path.is_file()
+        or sha256_file(preregistration_path) != preregistration_identity["sha256"]
+    ):
+        raise ValueError("preselection anchor preregistration input changed")
+    expected = build_preselection_anchor(
+        preregistration_path, anchor["git_anchor"]["commit"], root
+    )
+    observed_stable = {
+        key: value for key, value in anchor.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("preselection anchor is stale or was edited")
+    return {
+        "status": "PASS",
+        "commit": anchor["git_anchor"]["commit"],
+        "committed_at": anchor["git_anchor"]["committed_at"],
+        "cutoff_at": anchor["cutoff_at"],
+    }
 
 
 def identity_for(path: Path, base: Path) -> dict:
@@ -2974,6 +3109,12 @@ def parse_args() -> argparse.Namespace:
     feasibility_validate = subparsers.add_parser("validate-feasibility-screen")
     feasibility_validate.add_argument("--screen", type=Path, required=True)
     feasibility_validate.add_argument("--corpus", type=Path, required=True)
+    anchor = subparsers.add_parser("anchor-preregistration")
+    anchor.add_argument("--preregistration", type=Path, required=True)
+    anchor.add_argument("--git-commit", required=True)
+    anchor.add_argument("--output", type=Path, required=True)
+    anchor_validate = subparsers.add_parser("validate-preregistration-anchor")
+    anchor_validate.add_argument("--anchor", type=Path, required=True)
     materialize = subparsers.add_parser("materialize-trial")
     materialize.add_argument("--suite", type=Path, required=True)
     materialize.add_argument("--corpus", type=Path, required=True)
@@ -3052,6 +3193,20 @@ def main() -> int:
             }
         elif args.operation == "validate-feasibility-screen":
             result = validate_feasibility_screen(args.screen, args.corpus)
+        elif args.operation == "anchor-preregistration":
+            result = build_preselection_anchor(
+                args.preregistration, args.git_commit
+            )
+            atomic_json(args.output.resolve(), result)
+            result = {
+                "status": "PASS",
+                "commit": result["git_anchor"]["commit"],
+                "committed_at": result["git_anchor"]["committed_at"],
+                "cutoff_at": result["cutoff_at"],
+                "anchor": str(args.output.resolve()),
+            }
+        elif args.operation == "validate-preregistration-anchor":
+            result = validate_preselection_anchor(args.anchor)
         elif args.operation == "materialize-trial":
             result = materialize_trial(
                 args.suite,

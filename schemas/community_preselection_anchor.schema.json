@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_preselection_anchor.schema.json",
+  "title": "External receipt proving a preregistration existed in Git before cutoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "preregistration_identity", "git_anchor", "anchored_inputs", "cutoff_at", "status"],
+  "properties": {
+    "schema_version": {"const": "community-preselection-anchor-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "GIT_EXISTENCE_BEFORE_CUTOFF_ONLY"},
+    "preregistration_identity": {"$ref": "#/$defs/identity"},
+    "git_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "committed_at", "preregistration_path"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "committed_at": {"type": "string", "format": "date-time"},
+        "preregistration_path": {"type": "string", "minLength": 1}
+      }
+    },
+    "anchored_inputs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role", "path", "sha256"],
+        "properties": {
+          "role": {"enum": ["FEASIBILITY_POLICY", "EXECUTION_PROFILE"]},
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
+    "cutoff_at": {"type": "string", "format": "date-time"},
+    "status": {"const": "PASS"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -370,3 +370,11 @@ generation is labeled `POST_SELECTION_PILOT`; only a predeclared policy may
 produce `PRESELECTION`. This screen is scheduling evidence, never performance
 evidence, and it may use only the repository, title and classifications already
 present in the discovery queue—not the held-out diff, review or outcome.
+
+For a formal prospective window, commit a
+`community-heldout-preregistration-v1` document together with its referenced
+policy and execution profile before the declared cutoff. After the commit,
+`community-eval anchor-preregistration` verifies the exact three byte streams
+through `git show`, checks the commit timestamp is not later than the cutoff,
+and emits an external validation receipt. A JSON `declared_at` field by itself
+is not acceptable proof of pre-registration.
