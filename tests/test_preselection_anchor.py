@@ -81,12 +81,38 @@ def main() -> None:
         for name in (
             "community_heldout_preregistration.schema.json",
             "community_preselection_anchor.schema.json",
+            "community_prior_routing_snapshot.schema.json",
         ):
             shutil.copyfile(ROOT / "schemas" / name, schemas / name)
         policy_path = repository / "policy.json"
         profile_path = repository / "profile.json"
         atomic_json(policy_path, {"policy": "frozen"})
         atomic_json(profile_path, {"profile": "frozen"})
+        routing_path = repository / "prior-routing.json"
+        atomic_json(
+            routing_path,
+            {
+                "schema_version": "community-prior-routing-snapshot-v1",
+                "generated_at": "2026-01-01T00:00:00Z",
+                "claim_boundary": "PORTABLE_ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF",
+                "source_ledger": {
+                    "sha256": "f" * 64,
+                    "generated_at": "2026-01-01T00:00:00Z",
+                },
+                "policy": {
+                    "learn_from": "PRIMARY_REALIZED_ONLY",
+                    "heldout_loss_action": "REQUIRE_CONTEXT_GUARD",
+                    "minimum_directional_observations": 2,
+                },
+                "inventory": {
+                    "route_count": 0,
+                    "guarded_route_count": 0,
+                    "downranked_route_count": 0,
+                    "upranked_route_count": 0,
+                },
+                "routes": [],
+            },
+        )
         preregistration_path = repository / "preregistration.json"
         atomic_json(
             preregistration_path,
@@ -103,6 +129,10 @@ def main() -> None:
                 "execution_profile_identity": {
                     "path": "profile.json",
                     "sha256": sha256_file(profile_path),
+                },
+                "prior_routing_identity": {
+                    "path": "prior-routing.json",
+                    "sha256": sha256_file(routing_path),
                 },
                 "selection": {
                     "max_items": 4,
@@ -130,6 +160,11 @@ def main() -> None:
         anchor_path = repository / "anchor.json"
         atomic_json(anchor_path, anchor)
         assert validate_preselection_anchor(anchor_path, repository)["status"] == "PASS"
+        assert [row["role"] for row in anchor["anchored_inputs"]] == [
+            "FEASIBILITY_POLICY",
+            "EXECUTION_PROFILE",
+            "PRIOR_ROUTING_SNAPSHOT",
+        ]
 
         original = json.loads(preregistration_path.read_text(encoding="utf-8"))
         queue = {

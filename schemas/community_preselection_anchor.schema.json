@@ -24,13 +24,13 @@
     "anchored_inputs": {
       "type": "array",
       "minItems": 2,
-      "maxItems": 2,
+      "maxItems": 3,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "required": ["role", "path", "sha256"],
         "properties": {
-          "role": {"enum": ["FEASIBILITY_POLICY", "EXECUTION_PROFILE"]},
+          "role": {"enum": ["FEASIBILITY_POLICY", "EXECUTION_PROFILE", "PRIOR_ROUTING_SNAPSHOT"]},
           "path": {"type": "string", "minLength": 1},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
         }

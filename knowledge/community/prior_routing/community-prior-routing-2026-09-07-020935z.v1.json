@@ -1,0 +1,53 @@
+{
+  "claim_boundary": "PORTABLE_ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF",
+  "generated_at": "2026-09-07T02:39:17.594715+00:00",
+  "inventory": {
+    "downranked_route_count": 0,
+    "guarded_route_count": 2,
+    "route_count": 3,
+    "upranked_route_count": 0
+  },
+  "policy": {
+    "heldout_loss_action": "REQUIRE_CONTEXT_GUARD",
+    "learn_from": "PRIMARY_REALIZED_ONLY",
+    "minimum_directional_observations": 2
+  },
+  "routes": [
+    {
+      "failed_task_ids": [
+        "vllm-55565-deepseek-stream-token-accounting-blind-v1"
+      ],
+      "heldout_loss_count": 1,
+      "observation_count": 2,
+      "prior_id": "vllm.pr-40298.incremental-streaming-state-machine",
+      "prior_kind": "EVENT",
+      "routing_adjustment": "REQUIRE_CONTEXT_GUARD",
+      "task_count": 1
+    },
+    {
+      "failed_task_ids": [],
+      "heldout_loss_count": 0,
+      "observation_count": 1,
+      "prior_id": "community-host-loop-to-segmented-array",
+      "prior_kind": "METHOD",
+      "routing_adjustment": "UNCHANGED",
+      "task_count": 1
+    },
+    {
+      "failed_task_ids": [
+        "vllm-55565-deepseek-stream-token-accounting-blind-v1"
+      ],
+      "heldout_loss_count": 1,
+      "observation_count": 2,
+      "prior_id": "community-incremental-prefix-state-machine",
+      "prior_kind": "METHOD",
+      "routing_adjustment": "REQUIRE_CONTEXT_GUARD",
+      "task_count": 1
+    }
+  ],
+  "schema_version": "community-prior-routing-snapshot-v1",
+  "source_ledger": {
+    "generated_at": "2026-09-07T02:09:35.528116+00:00",
+    "sha256": "2949e352e28e14979eeee7dc43dbfe95030b05e180e86f246ff90d387510dd6f"
+  }
+}

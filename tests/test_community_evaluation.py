@@ -22,6 +22,7 @@ from community_evaluation import (
     assess_trial,
     build_ab_meta_analysis,
     build_prior_outcome_ledger,
+    build_prior_routing_snapshot,
     build_feasibility_screen,
     build_heldout_queue,
     build_prior_shortlist,
@@ -40,6 +41,7 @@ from community_evaluation import (
     validate_feasibility_screen,
     validate_ab_meta_analysis,
     validate_prior_outcome_ledger,
+    validate_prior_routing_snapshot,
     validate_heldout_queue,
     validate_suite,
 )
@@ -1686,6 +1688,28 @@ def main() -> None:
         assert validate_prior_outcome_ledger(single_ledger_path, ROOT)[
             "status"
         ] == "PASS"
+        routing_snapshot_path = base / "prior-routing-snapshot.json"
+        routing_snapshot = build_prior_routing_snapshot(single_ledger_path, ROOT)
+        atomic_json(routing_snapshot_path, routing_snapshot)
+        assert routing_snapshot["source_ledger"]["sha256"] == sha256_file(
+            single_ledger_path
+        )
+        assert all("pair_identity" not in row for row in routing_snapshot["routes"])
+        assert validate_prior_routing_snapshot(
+            routing_snapshot_path, single_ledger_path, ROOT
+        )["status"] == "PASS"
+        tampered_routing = json.loads(json.dumps(routing_snapshot))
+        tampered_routing["routes"][0]["routing_adjustment"] = "UPRANK"
+        atomic_json(routing_snapshot_path, tampered_routing)
+        try:
+            validate_prior_routing_snapshot(
+                routing_snapshot_path, single_ledger_path, ROOT
+            )
+        except ValueError as error:
+            assert "stale or was edited" in str(error)
+        else:
+            raise AssertionError("edited prior routing snapshot was accepted")
+        atomic_json(routing_snapshot_path, routing_snapshot)
 
         no_treatment = json.loads(
             (community_dir / "result.json").read_text(encoding="utf-8")

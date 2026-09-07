@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_prior_routing_snapshot.schema.json",
+  "title": "Portable cutoff-safe routing view derived from a prior outcome ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "source_ledger", "policy", "inventory", "routes"],
+  "properties": {
+    "schema_version": {"const": "community-prior-routing-snapshot-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "PORTABLE_ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF"},
+    "source_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "generated_at"],
+      "properties": {
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "generated_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["learn_from", "heldout_loss_action", "minimum_directional_observations"],
+      "properties": {
+        "learn_from": {"const": "PRIMARY_REALIZED_ONLY"},
+        "heldout_loss_action": {"const": "REQUIRE_CONTEXT_GUARD"},
+        "minimum_directional_observations": {"const": 2}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["route_count", "guarded_route_count", "downranked_route_count", "upranked_route_count"],
+      "properties": {
+        "route_count": {"type": "integer", "minimum": 0},
+        "guarded_route_count": {"type": "integer", "minimum": 0},
+        "downranked_route_count": {"type": "integer", "minimum": 0},
+        "upranked_route_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "routes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["prior_kind", "prior_id", "observation_count", "task_count", "heldout_loss_count", "routing_adjustment", "failed_task_ids"],
+        "properties": {
+          "prior_kind": {"enum": ["EVENT", "METHOD"]},
+          "prior_id": {"type": "string", "minLength": 1},
+          "observation_count": {"type": "integer", "minimum": 1},
+          "task_count": {"type": "integer", "minimum": 1},
+          "heldout_loss_count": {"type": "integer", "minimum": 0},
+          "routing_adjustment": {"enum": ["REQUIRE_CONTEXT_GUARD", "DOWNRANK", "UPRANK", "UNCHANGED"]},
+          "failed_task_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    }
+  }
+}

@@ -47,6 +47,7 @@ PRESELECTION_CHAIN_AUDIT_SCHEMA = "community-preselection-chain-audit-v1"
 META_ANALYSIS_SCHEMA = "community-ab-meta-analysis-v1"
 PRIOR_OUTCOME_LEDGER_SCHEMA = "community-prior-outcome-ledger-v1"
 PRIOR_CONTEXT_DISTINCTION_SCHEMA = "community-prior-context-distinction-v1"
+PRIOR_ROUTING_SNAPSHOT_SCHEMA = "community-prior-routing-snapshot-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -1196,6 +1197,11 @@ def build_preselection_anchor(
         ("FEASIBILITY_POLICY", preregistration["policy_identity"]),
         ("EXECUTION_PROFILE", preregistration["execution_profile_identity"]),
     )
+    if preregistration.get("prior_routing_identity") is not None:
+        roles = (*roles, (
+            "PRIOR_ROUTING_SNAPSHOT",
+            preregistration["prior_routing_identity"],
+        ))
     anchored_inputs = []
     for role, identity in roles:
         path = anchored_repository_path(root, identity["path"])
@@ -1208,6 +1214,29 @@ def build_preselection_anchor(
         anchored_inputs.append(
             {"role": role, "path": identity["path"], "sha256": identity["sha256"]}
         )
+        if role == "PRIOR_ROUTING_SNAPSHOT":
+            routing_errors = validate_json_file(
+                path,
+                root / "schemas" / "community_prior_routing_snapshot.schema.json",
+            )
+            if routing_errors:
+                raise ValueError(
+                    "invalid preregistered prior routing snapshot: "
+                    + "; ".join(routing_errors)
+                )
+            routing = read_object(path)
+            if parse_time(routing["generated_at"]) > parse_time(
+                preregistration["cutoff_at"]
+            ):
+                raise ValueError(
+                    "prior routing snapshot was generated after discovery cutoff"
+                )
+            if parse_time(routing["source_ledger"]["generated_at"]) > parse_time(
+                preregistration["cutoff_at"]
+            ):
+                raise ValueError(
+                    "prior routing source ledger was generated after discovery cutoff"
+                )
     anchor = {
         "schema_version": PRESELECTION_ANCHOR_SCHEMA,
         "generated_at": now(),
@@ -3794,6 +3823,95 @@ def validate_prior_outcome_ledger(
     return {"status": "PASS", **ledger["inventory"]}
 
 
+def build_prior_routing_snapshot(
+    ledger_path: Path, root: Path | None = None
+) -> dict:
+    """Produce a portable, pre-registrable routing surface without local paths."""
+    root = root or repository_root()
+    ledger_path = ledger_path.resolve()
+    validate_prior_outcome_ledger(ledger_path, root)
+    ledger = read_object(ledger_path)
+    failed_tasks: dict[tuple[str, str], set[str]] = {}
+    for row in ledger["observations"]:
+        heldout_gain = row["deltas"]["heldout_pass_count_gain"]
+        if heldout_gain is not None and float(heldout_gain) < 0:
+            failed_tasks.setdefault(
+                (row["prior_kind"], row["prior_id"]), set()
+            ).add(row["task_id"])
+    routes = [
+        {
+            "prior_kind": row["prior_kind"],
+            "prior_id": row["prior_id"],
+            "observation_count": row["observation_count"],
+            "task_count": row["task_count"],
+            "heldout_loss_count": row["heldout_loss_count"],
+            "routing_adjustment": row["routing_adjustment"],
+            "failed_task_ids": sorted(
+                failed_tasks.get((row["prior_kind"], row["prior_id"]), set())
+            ),
+        }
+        for row in ledger["aggregates"]
+    ]
+    result = {
+        "schema_version": PRIOR_ROUTING_SNAPSHOT_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": (
+            "PORTABLE_ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF"
+        ),
+        "source_ledger": {
+            "sha256": sha256_file(ledger_path),
+            "generated_at": ledger["generated_at"],
+        },
+        "policy": ledger["policy"],
+        "inventory": {
+            "route_count": len(routes),
+            "guarded_route_count": sum(
+                row["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+                for row in routes
+            ),
+            "downranked_route_count": sum(
+                row["routing_adjustment"] == "DOWNRANK" for row in routes
+            ),
+            "upranked_route_count": sum(
+                row["routing_adjustment"] == "UPRANK" for row in routes
+            ),
+        },
+        "routes": routes,
+    }
+    errors = validate_instance(
+        result,
+        read_object(root / "schemas" / "community_prior_routing_snapshot.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid prior routing snapshot: " + "; ".join(errors))
+    return result
+
+
+def validate_prior_routing_snapshot(
+    snapshot_path: Path,
+    ledger_path: Path,
+    root: Path | None = None,
+) -> dict:
+    root = root or repository_root()
+    errors = validate_json_file(
+        snapshot_path,
+        root / "schemas" / "community_prior_routing_snapshot.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid prior routing snapshot: " + "; ".join(errors))
+    snapshot = read_object(snapshot_path)
+    expected = build_prior_routing_snapshot(ledger_path, root)
+    observed_stable = {
+        key: value for key, value in snapshot.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("prior routing snapshot is stale or was edited")
+    return {"status": "PASS", **snapshot["inventory"]}
+
+
 PACKET_AUDIT_STOPWORDS = {
     "and", "are", "for", "from", "into", "only", "the", "this", "that",
     "then", "while", "with", "without", "existing", "already", "available",
@@ -4144,6 +4262,14 @@ def parse_args() -> argparse.Namespace:
     ledger.add_argument("--output", type=Path, required=True)
     ledger_validate = subparsers.add_parser("validate-prior-outcome-ledger")
     ledger_validate.add_argument("--ledger", type=Path, required=True)
+    routing_snapshot = subparsers.add_parser("build-prior-routing-snapshot")
+    routing_snapshot.add_argument("--ledger", type=Path, required=True)
+    routing_snapshot.add_argument("--output", type=Path, required=True)
+    routing_snapshot_validate = subparsers.add_parser(
+        "validate-prior-routing-snapshot"
+    )
+    routing_snapshot_validate.add_argument("--snapshot", type=Path, required=True)
+    routing_snapshot_validate.add_argument("--ledger", type=Path, required=True)
     task_packet_audit = subparsers.add_parser("audit-task-packets")
     task_packet_audit.add_argument("--suite", type=Path, required=True)
     task_packet_audit.add_argument("--output", type=Path, required=True)
@@ -4260,6 +4386,18 @@ def main() -> int:
             }
         elif args.operation == "validate-prior-outcome-ledger":
             result = validate_prior_outcome_ledger(args.ledger)
+        elif args.operation == "build-prior-routing-snapshot":
+            result = build_prior_routing_snapshot(args.ledger)
+            atomic_json(args.output.resolve(), result)
+            result = {
+                "status": "PASS",
+                **result["inventory"],
+                "snapshot": str(args.output.resolve()),
+            }
+        elif args.operation == "validate-prior-routing-snapshot":
+            result = validate_prior_routing_snapshot(
+                args.snapshot, args.ledger
+            )
         elif args.operation == "audit-task-packets":
             result = audit_task_packets(args.suite, args.output)
         elif args.operation == "summarize-schedule":

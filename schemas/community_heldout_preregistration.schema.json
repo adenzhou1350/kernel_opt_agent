@@ -18,6 +18,7 @@
     },
     "policy_identity": {"$ref": "#/$defs/identity"},
     "execution_profile_identity": {"$ref": "#/$defs/identity"},
+    "prior_routing_identity": {"$ref": "#/$defs/identity"},
     "selection": {
       "type": "object",
       "additionalProperties": false,
