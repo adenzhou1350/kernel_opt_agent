@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": ["schema_version", "generated_at", "claim_boundary", "source_ledger", "policy", "inventory", "routes"],
   "properties": {
-    "schema_version": {"const": "community-prior-routing-snapshot-v1"},
+    "schema_version": {"enum": ["community-prior-routing-snapshot-v1", "community-prior-routing-snapshot-v2"]},
     "generated_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "PORTABLE_ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF"},
     "source_ledger": {
@@ -21,11 +21,14 @@
     "policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["learn_from", "heldout_loss_action", "minimum_directional_observations"],
+      "required": ["learn_from", "heldout_loss_action"],
       "properties": {
         "learn_from": {"const": "PRIMARY_REALIZED_ONLY"},
         "heldout_loss_action": {"const": "REQUIRE_CONTEXT_GUARD"},
-        "minimum_directional_observations": {"const": 2}
+        "minimum_directional_observations": {"const": 2},
+        "minimum_directional_distinct_tasks": {"const": 2},
+        "directional_credit_policy": {"const": "ISOLATED_PRIOR_ONLY"},
+        "heldout_loss_credit_policy": {"const": "ALL_REALIZED_PRIORS"}
       }
     },
     "inventory": {
@@ -52,9 +55,27 @@
           "task_count": {"type": "integer", "minimum": 1},
           "heldout_loss_count": {"type": "integer", "minimum": 0},
           "routing_adjustment": {"enum": ["REQUIRE_CONTEXT_GUARD", "DOWNRANK", "UPRANK", "UNCHANGED"]},
-          "failed_task_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          "failed_task_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+          "directional_observation_count": {"type": "integer", "minimum": 0},
+          "directional_task_count": {"type": "integer", "minimum": 0},
+          "joint_observation_count": {"type": "integer", "minimum": 0}
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "community-prior-routing-snapshot-v1"}}},
+      "then": {"properties": {"policy": {"required": ["minimum_directional_observations"]}}}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "community-prior-routing-snapshot-v2"}}},
+      "then": {
+        "properties": {
+          "policy": {"required": ["minimum_directional_distinct_tasks", "directional_credit_policy", "heldout_loss_credit_policy"]},
+          "routes": {"items": {"required": ["directional_observation_count", "directional_task_count", "joint_observation_count"]}}
+        }
+      }
+    }
+  ]
 }

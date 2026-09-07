@@ -20,6 +20,7 @@ from community_evaluation import (
     audit_task_packets,
     audit_codex_execution,
     assess_trial,
+    aggregate_prior_observations,
     build_ab_meta_analysis,
     build_prior_outcome_ledger,
     build_prior_routing_snapshot,
@@ -44,6 +45,7 @@ from community_evaluation import (
     validate_ab_meta_analysis,
     validate_prior_outcome_ledger,
     validate_prior_routing_snapshot,
+    validate_v2_prior_attribution,
     validate_heldout_queue,
     validate_suite,
 )
@@ -66,6 +68,83 @@ def identity(path: Path, base: Path) -> dict:
         "path": path.relative_to(base).as_posix(),
         "sha256": sha256_file(path),
     }
+
+
+def prior_observation(
+    task_id: str,
+    *,
+    directional: bool,
+    heldout_gain: float = 0.0,
+) -> dict:
+    return {
+        "pair_identity": {"path": f"{task_id}.json", "sha256": "a" * 64},
+        "suite_id": f"suite-{task_id}",
+        "task_id": task_id,
+        "repeat_index": 1,
+        "prior_kind": "METHOD",
+        "prior_id": "method-a",
+        "candidate_ids": ["candidate-a"],
+        "deltas": {
+            "time_to_first_correct_seconds_saved": 10.0,
+            "best_speedup_gain": 0.1,
+            "heldout_pass_count_gain": heldout_gain,
+        },
+        "attribution": {
+            "mode": "ISOLATED_PRIOR" if directional else "JOINT_TREATMENT",
+            "co_realized_priors": [] if directional else ["EVENT:event-a"],
+            "directional_eligible": directional,
+        },
+    }
+
+
+def test_v2_outcome_learning_requires_isolation_and_distinct_tasks() -> None:
+    repeated_task = [
+        prior_observation("task-a", directional=True),
+        {**prior_observation("task-a", directional=True), "repeat_index": 2},
+    ]
+    repeated = aggregate_prior_observations(
+        repeated_task, "community-prior-outcome-ledger-v2"
+    )[0]
+    assert repeated["directional_observation_count"] == 2
+    assert repeated["directional_task_count"] == 1
+    assert repeated["routing_adjustment"] == "UNCHANGED"
+
+    independent = aggregate_prior_observations(
+        [
+            prior_observation("task-a", directional=True),
+            prior_observation("task-b", directional=True),
+        ],
+        "community-prior-outcome-ledger-v2",
+    )[0]
+    assert independent["directional_task_count"] == 2
+    assert independent["routing_adjustment"] == "UPRANK"
+
+    joint = aggregate_prior_observations(
+        [
+            prior_observation("task-a", directional=False),
+            prior_observation("task-b", directional=False),
+        ],
+        "community-prior-outcome-ledger-v2",
+    )[0]
+    assert joint["directional_observation_count"] == 0
+    assert joint["joint_observation_count"] == 2
+    assert joint["ttfc"]["missing"] == 2
+    assert joint["routing_adjustment"] == "UNCHANGED"
+
+    unsafe_joint = aggregate_prior_observations(
+        [prior_observation("task-c", directional=False, heldout_gain=-1.0)],
+        "community-prior-outcome-ledger-v2",
+    )[0]
+    assert unsafe_joint["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+
+    contradictory = prior_observation("task-d", directional=False)
+    contradictory["attribution"]["directional_eligible"] = True
+    try:
+        validate_v2_prior_attribution([contradictory])
+    except ValueError as error:
+        assert "disagrees" in str(error)
+    else:
+        raise AssertionError("contradictory causal attribution was accepted")
 
 
 def test_discovery_routing_is_contextual_and_cutoff_safe() -> None:
@@ -1924,12 +2003,30 @@ def main() -> None:
         assert single_ledger["inventory"]["prior_observation_count"] == 2
         assert single_ledger["inventory"]["event_prior_count"] == 1
         assert single_ledger["inventory"]["method_prior_count"] == 1
+        assert single_ledger["schema_version"] == (
+            "community-prior-outcome-ledger-v2"
+        )
+        assert single_ledger["inventory"]["directionally_eligible_prior_count"] == 0
+        assert single_ledger["inventory"]["joint_only_prior_count"] == 2
+        assert all(
+            row["attribution"]["mode"] == "JOINT_TREATMENT"
+            for row in single_ledger["observations"]
+        )
         assert validate_prior_outcome_ledger(single_ledger_path, ROOT)[
             "status"
         ] == "PASS"
+        late_pair_path = base / "late-unrelated-pair.json"
+        atomic_json(late_pair_path, report)
+        assert validate_prior_outcome_ledger(single_ledger_path, ROOT)[
+            "status"
+        ] == "PASS"
+        late_pair_path.unlink()
         routing_snapshot_path = base / "prior-routing-snapshot.json"
         routing_snapshot = build_prior_routing_snapshot(single_ledger_path, ROOT)
         atomic_json(routing_snapshot_path, routing_snapshot)
+        assert routing_snapshot["schema_version"] == (
+            "community-prior-routing-snapshot-v2"
+        )
         assert routing_snapshot["source_ledger"]["sha256"] == sha256_file(
             single_ledger_path
         )

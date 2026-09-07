@@ -52,9 +52,11 @@ FEASIBILITY_SCREEN_SCHEMA = "community-feasibility-screen-v1"
 PRESELECTION_ANCHOR_SCHEMA = "community-preselection-anchor-v1"
 PRESELECTION_CHAIN_AUDIT_SCHEMA = "community-preselection-chain-audit-v1"
 META_ANALYSIS_SCHEMA = "community-ab-meta-analysis-v1"
-PRIOR_OUTCOME_LEDGER_SCHEMA = "community-prior-outcome-ledger-v1"
+LEGACY_PRIOR_OUTCOME_LEDGER_SCHEMA = "community-prior-outcome-ledger-v1"
+PRIOR_OUTCOME_LEDGER_SCHEMA = "community-prior-outcome-ledger-v2"
 PRIOR_CONTEXT_DISTINCTION_SCHEMA = "community-prior-context-distinction-v1"
-PRIOR_ROUTING_SNAPSHOT_SCHEMA = "community-prior-routing-snapshot-v1"
+LEGACY_PRIOR_ROUTING_SNAPSHOT_SCHEMA = "community-prior-routing-snapshot-v1"
+PRIOR_ROUTING_SNAPSHOT_SCHEMA = "community-prior-routing-snapshot-v2"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -4488,6 +4490,38 @@ def validate_ab_meta_analysis(
     }
 
 
+def validate_frozen_ab_meta_analysis_inputs(
+    analysis_path: Path, root: Path | None = None
+) -> dict:
+    """Replay a hash-bound historical meta-analysis as a closed snapshot.
+
+    A current-universe meta-analysis must still be recomputed exactly. An
+    outcome ledger intentionally freezes one earlier meta-analysis, so later
+    reports under the same search root must not invalidate that memory.
+    """
+    root = root or repository_root()
+    errors = validate_json_file(
+        analysis_path, root / "schemas" / "community_ab_meta_analysis.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid frozen A/B meta-analysis: " + "; ".join(errors))
+    analysis = read_object(analysis_path)
+    search_root = Path(analysis["search_root"]).resolve()
+    seen_paths = set()
+    for row in analysis["reports"]:
+        pair_path = (search_root / row["path"]).resolve()
+        try:
+            pair_path.relative_to(search_root)
+        except ValueError as error:
+            raise ValueError("frozen meta-analysis pair escapes search root") from error
+        if pair_path in seen_paths:
+            raise ValueError("frozen meta-analysis repeats a pair path")
+        seen_paths.add(pair_path)
+        if not pair_path.is_file() or sha256_file(pair_path) != row["sha256"]:
+            raise ValueError(f"frozen meta-analysis pair changed: {pair_path}")
+    return analysis
+
+
 def sign_counts(values: list[float | None]) -> dict:
     observed = [float(value) for value in values if value is not None]
     return {
@@ -4498,52 +4532,118 @@ def sign_counts(values: list[float | None]) -> dict:
     }
 
 
-def aggregate_prior_observations(observations: list[dict]) -> list[dict]:
+def aggregate_prior_observations(
+    observations: list[dict],
+    schema_version: str = PRIOR_OUTCOME_LEDGER_SCHEMA,
+) -> list[dict]:
     grouped: dict[tuple[str, str], list[dict]] = {}
     for row in observations:
         grouped.setdefault((row["prior_kind"], row["prior_id"]), []).append(row)
     aggregates = []
     for (prior_kind, prior_id), rows in sorted(grouped.items()):
+        modern = schema_version == PRIOR_OUTCOME_LEDGER_SCHEMA
+        directional_rows = (
+            [row for row in rows if row["attribution"]["directional_eligible"]]
+            if modern
+            else rows
+        )
         ttfc = sign_counts(
-            [row["deltas"]["time_to_first_correct_seconds_saved"] for row in rows]
+            [
+                row["deltas"]["time_to_first_correct_seconds_saved"]
+                if not modern or row["attribution"]["directional_eligible"]
+                else None
+                for row in rows
+            ]
         )
         speedup = sign_counts(
-            [row["deltas"]["best_speedup_gain"] for row in rows]
+            [
+                row["deltas"]["best_speedup_gain"]
+                if not modern or row["attribution"]["directional_eligible"]
+                else None
+                for row in rows
+            ]
         )
         heldout_losses = sum(
             row["deltas"]["heldout_pass_count_gain"] is not None
             and float(row["deltas"]["heldout_pass_count_gain"]) < 0
             for row in rows
         )
+        directional_task_count = len({row["task_id"] for row in directional_rows})
+        directional_threshold_met = (
+            directional_task_count >= 2 if modern else len(rows) >= 2
+        )
         if heldout_losses:
             adjustment = "REQUIRE_CONTEXT_GUARD"
-        elif len(rows) >= 2 and ttfc["losses"] > ttfc["wins"] and (
+        elif directional_threshold_met and ttfc["losses"] > ttfc["wins"] and (
             speedup["losses"] >= speedup["wins"]
         ):
             adjustment = "DOWNRANK"
-        elif len(rows) >= 2 and ttfc["wins"] > ttfc["losses"] and (
+        elif directional_threshold_met and ttfc["wins"] > ttfc["losses"] and (
             speedup["wins"] >= speedup["losses"]
         ):
             adjustment = "UPRANK"
         else:
             adjustment = "UNCHANGED"
-        aggregates.append(
-            {
-                "prior_kind": prior_kind,
-                "prior_id": prior_id,
-                "observation_count": len(rows),
-                "task_count": len({row["task_id"] for row in rows}),
-                "ttfc": ttfc,
-                "best_speedup": speedup,
-                "heldout_loss_count": heldout_losses,
-                "routing_adjustment": adjustment,
-            }
-        )
+        aggregate = {
+            "prior_kind": prior_kind,
+            "prior_id": prior_id,
+            "observation_count": len(rows),
+            "task_count": len({row["task_id"] for row in rows}),
+            "ttfc": ttfc,
+            "best_speedup": speedup,
+            "heldout_loss_count": heldout_losses,
+            "routing_adjustment": adjustment,
+        }
+        if modern:
+            aggregate.update(
+                {
+                    "directional_observation_count": len(directional_rows),
+                    "directional_task_count": directional_task_count,
+                    "joint_observation_count": len(rows) - len(directional_rows),
+                }
+            )
+        aggregates.append(aggregate)
     return aggregates
 
 
+def validate_v2_prior_attribution(observations: list[dict]) -> None:
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for row in observations:
+        pair = row["pair_identity"]
+        grouped.setdefault((pair["path"], pair["sha256"]), []).append(row)
+    for rows in grouped.values():
+        contexts = {
+            (row["suite_id"], row["task_id"], row["repeat_index"])
+            for row in rows
+        }
+        if len(contexts) != 1:
+            raise ValueError("one pair identity has inconsistent trial context")
+        prior_keys = [f"{row['prior_kind']}:{row['prior_id']}" for row in rows]
+        if len(prior_keys) != len(set(prior_keys)):
+            raise ValueError("one pair repeats a realized prior")
+        isolated = len(prior_keys) == 1
+        for row, current_key in zip(rows, prior_keys):
+            attribution = row["attribution"]
+            expected_co_priors = sorted(
+                key for key in prior_keys if key != current_key
+            )
+            expected_mode = "ISOLATED_PRIOR" if isolated else "JOINT_TREATMENT"
+            if (
+                attribution["mode"] != expected_mode
+                or attribution["directional_eligible"] is not isolated
+                or attribution["co_realized_priors"] != expected_co_priors
+            ):
+                raise ValueError(
+                    "prior attribution disagrees with realized priors in its pair"
+                )
+
+
 def validate_prior_outcome_ledger_consistency(ledger: dict) -> None:
-    expected_aggregates = aggregate_prior_observations(ledger["observations"])
+    if ledger["schema_version"] == PRIOR_OUTCOME_LEDGER_SCHEMA:
+        validate_v2_prior_attribution(ledger["observations"])
+    expected_aggregates = aggregate_prior_observations(
+        ledger["observations"], ledger["schema_version"]
+    )
     if ledger["aggregates"] != expected_aggregates:
         raise ValueError("prior outcome ledger aggregates do not match observations")
     unique_pairs = {
@@ -4570,18 +4670,38 @@ def validate_prior_outcome_ledger_consistency(ledger: dict) -> None:
             row["routing_adjustment"] == "UPRANK" for row in expected_aggregates
         ),
     }
+    if ledger["schema_version"] == PRIOR_OUTCOME_LEDGER_SCHEMA:
+        expected_inventory.update(
+            {
+                "directionally_eligible_prior_count": sum(
+                    row["directional_observation_count"] > 0
+                    for row in expected_aggregates
+                ),
+                "joint_only_prior_count": sum(
+                    row["directional_observation_count"] == 0
+                    and row["joint_observation_count"] > 0
+                    for row in expected_aggregates
+                ),
+            }
+        )
     if ledger["inventory"] != expected_inventory:
         raise ValueError("prior outcome ledger inventory does not match observations")
 
 
 def build_prior_outcome_ledger(
-    meta_path: Path, root: Path | None = None
+    meta_path: Path,
+    root: Path | None = None,
+    schema_version: str = PRIOR_OUTCOME_LEDGER_SCHEMA,
+    replay_frozen_meta: bool = False,
 ) -> dict:
     """Turn primary realized held-out outcomes into bounded routing feedback."""
     root = root or repository_root()
     meta_path = meta_path.resolve()
-    validate_ab_meta_analysis(meta_path, root)
-    meta = read_object(meta_path)
+    if replay_frozen_meta:
+        meta = validate_frozen_ab_meta_analysis_inputs(meta_path, root)
+    else:
+        validate_ab_meta_analysis(meta_path, root)
+        meta = read_object(meta_path)
     search_root = Path(meta["search_root"])
     observations = []
     primary_pair_count = 0
@@ -4654,19 +4774,31 @@ def build_prior_outcome_ledger(
                 "heldout_pass_count_gain",
             )
         }
+        realized_prior_keys = sorted(
+            {f"{kind}:{prior_id}" for kind, prior_id, _ in realized_priors}
+        )
         for prior_kind, prior_id, candidate_ids in realized_priors:
-            observations.append(
-                {
-                    "pair_identity": absolute_identity(pair_path),
-                    "suite_id": pair["suite_id"],
-                    "task_id": pair["task_id"],
-                    "repeat_index": pair["repeat_index"],
-                    "prior_kind": prior_kind,
-                    "prior_id": prior_id,
-                    "candidate_ids": candidate_ids,
-                    "deltas": deltas,
+            observation = {
+                "pair_identity": absolute_identity(pair_path),
+                "suite_id": pair["suite_id"],
+                "task_id": pair["task_id"],
+                "repeat_index": pair["repeat_index"],
+                "prior_kind": prior_kind,
+                "prior_id": prior_id,
+                "candidate_ids": candidate_ids,
+                "deltas": deltas,
+            }
+            if schema_version == PRIOR_OUTCOME_LEDGER_SCHEMA:
+                current_key = f"{prior_kind}:{prior_id}"
+                isolated = len(realized_prior_keys) == 1
+                observation["attribution"] = {
+                    "mode": "ISOLATED_PRIOR" if isolated else "JOINT_TREATMENT",
+                    "co_realized_priors": [
+                        key for key in realized_prior_keys if key != current_key
+                    ],
+                    "directional_eligible": isolated,
                 }
-            )
+            observations.append(observation)
     observations.sort(
         key=lambda row: (
             row["prior_kind"],
@@ -4675,16 +4807,25 @@ def build_prior_outcome_ledger(
             row["repeat_index"],
         )
     )
-    aggregates = aggregate_prior_observations(observations)
+    aggregates = aggregate_prior_observations(observations, schema_version)
+    modern = schema_version == PRIOR_OUTCOME_LEDGER_SCHEMA
     result = {
-        "schema_version": PRIOR_OUTCOME_LEDGER_SCHEMA,
+        "schema_version": schema_version,
         "generated_at": now(),
         "claim_boundary": "ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF",
         "meta_analysis_identity": absolute_identity(meta_path),
         "policy": {
             "learn_from": "PRIMARY_REALIZED_ONLY",
             "heldout_loss_action": "REQUIRE_CONTEXT_GUARD",
-            "minimum_directional_observations": 2,
+            **(
+                {
+                    "minimum_directional_distinct_tasks": 2,
+                    "directional_credit_policy": "ISOLATED_PRIOR_ONLY",
+                    "heldout_loss_credit_policy": "ALL_REALIZED_PRIORS",
+                }
+                if modern
+                else {"minimum_directional_observations": 2}
+            ),
         },
         "inventory": {
             "primary_pair_count": primary_pair_count,
@@ -4700,6 +4841,21 @@ def build_prior_outcome_ledger(
             ),
             "upranked_prior_count": sum(
                 row["routing_adjustment"] == "UPRANK" for row in aggregates
+            ),
+            **(
+                {
+                    "directionally_eligible_prior_count": sum(
+                        row["directional_observation_count"] > 0
+                        for row in aggregates
+                    ),
+                    "joint_only_prior_count": sum(
+                        row["directional_observation_count"] == 0
+                        and row["joint_observation_count"] > 0
+                        for row in aggregates
+                    ),
+                }
+                if modern
+                else {}
             ),
         },
         "observations": observations,
@@ -4731,7 +4887,9 @@ def validate_prior_outcome_ledger(
     meta_path = Path(meta_identity["path"])
     if not meta_path.is_file() or sha256_file(meta_path) != meta_identity["sha256"]:
         raise ValueError("prior outcome ledger meta-analysis changed")
-    expected = build_prior_outcome_ledger(meta_path, root)
+    expected = build_prior_outcome_ledger(
+        meta_path, root, ledger["schema_version"], replay_frozen_meta=True
+    )
     observed_stable = {
         key: value for key, value in ledger.items() if key != "generated_at"
     }
@@ -4758,8 +4916,10 @@ def build_prior_routing_snapshot(
             failed_tasks.setdefault(
                 (row["prior_kind"], row["prior_id"]), set()
             ).add(row["task_id"])
-    routes = [
-        {
+    modern = ledger["schema_version"] == PRIOR_OUTCOME_LEDGER_SCHEMA
+    routes = []
+    for row in ledger["aggregates"]:
+        route = {
             "prior_kind": row["prior_kind"],
             "prior_id": row["prior_id"],
             "observation_count": row["observation_count"],
@@ -4770,10 +4930,23 @@ def build_prior_routing_snapshot(
                 failed_tasks.get((row["prior_kind"], row["prior_id"]), set())
             ),
         }
-        for row in ledger["aggregates"]
-    ]
+        if modern:
+            route.update(
+                {
+                    "directional_observation_count": row[
+                        "directional_observation_count"
+                    ],
+                    "directional_task_count": row["directional_task_count"],
+                    "joint_observation_count": row["joint_observation_count"],
+                }
+            )
+        routes.append(route)
     result = {
-        "schema_version": PRIOR_ROUTING_SNAPSHOT_SCHEMA,
+        "schema_version": (
+            PRIOR_ROUTING_SNAPSHOT_SCHEMA
+            if modern
+            else LEGACY_PRIOR_ROUTING_SNAPSHOT_SCHEMA
+        ),
         "generated_at": now(),
         "claim_boundary": (
             "PORTABLE_ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF"
@@ -4821,6 +4994,8 @@ def validate_prior_routing_snapshot(
         raise ValueError("invalid prior routing snapshot: " + "; ".join(errors))
     snapshot = read_object(snapshot_path)
     expected = build_prior_routing_snapshot(ledger_path, root)
+    if snapshot["schema_version"] != expected["schema_version"]:
+        raise ValueError("prior routing snapshot schema differs from source ledger")
     observed_stable = {
         key: value for key, value in snapshot.items() if key != "generated_at"
     }

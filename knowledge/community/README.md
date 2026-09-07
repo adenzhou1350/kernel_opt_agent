@@ -669,9 +669,23 @@ recorded.
 through their hash-bound community assessment and result, attributes deltas to
 the event and method IDs that actually changed candidates, and emits routing
 feedback. Any held-out correctness loss requires a context guard; directional
-up/down-ranking requires at least two observations. Diagnostic, legacy and
+up/down-ranking in new v2 ledgers requires isolated attribution across at
+least two distinct tasks. Repeating one task improves its measurement estimate
+but cannot manufacture independent learning evidence. A pair that realizes
+more than one event or method is recorded as `JOINT_TREATMENT`: its full delta
+cannot be credited to every ingredient, so it does not directionally train any
+of them. A held-out correctness loss remains safety-relevant for every realized
+ingredient and still forces `REQUIRE_CONTEXT_GUARD`. Diagnostic, legacy and
 assignment-only reports never train this ledger, and one negative observation
-does not globally delete a method.
+does not globally delete a method. V1 ledgers and routing snapshots retain
+their historical aggregation semantics for replay only.
+
+Ledger validation treats its hash-bound meta-analysis as a closed historical
+snapshot: every listed pair must remain present and byte-identical, but later
+pair reports added under the same search root do not invalidate earlier
+learning. Building a new ledger still requires an exact recomputation over the
+current universe. This separates append-only knowledge growth from tampering
+with evidence that an existing routing decision actually consumed.
 
 Create a portable, Git-anchorable routing surface without copying local pair
 paths into the repository:
