@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_optimization_graph_v2.schema.json",
+  "title": "Checkpoint-backed temporal community optimization graph",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "source_cutoff_at",
+    "knowledge_cutoff_at",
+    "claim_boundary",
+    "input_identity",
+    "repository_universe",
+    "excluded_events",
+    "nodes",
+    "lifecycle_review_queue",
+    "edges",
+    "coverage_gaps",
+    "composition_hypotheses"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-optimization-graph-v2"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "source_cutoff_at": {"type": "string", "format": "date-time"},
+    "knowledge_cutoff_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "CHECKPOINT_BOUND_DISCOVERY_PRIOR_ONLY"},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["checkpoint_anchor", "checkpoint", "checkpoint_id", "git_commit", "method_cards"],
+      "properties": {
+        "checkpoint_anchor": {"$ref": "#/$defs/identity"},
+        "checkpoint": {"$ref": "#/$defs/identity"},
+        "checkpoint_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "method_cards": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    "repository_universe": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"}
+    },
+    "excluded_events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "reason", "source_public_at"],
+        "properties": {
+          "event_id": {"type": "string", "minLength": 1},
+          "reason": {"enum": ["SOURCE_AFTER_CUTOFF", "NO_LIFECYCLE_SNAPSHOT_AT_SOURCE_CUTOFF"]},
+          "source_public_at": {"type": "string", "format": "date-time"}
+        }
+      }
+    },
+    "nodes": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "lifecycle_review_queue": {"type": "array", "items": {"type": "object"}},
+    "edges": {"type": "array", "items": {"type": "object"}},
+    "coverage_gaps": {"type": "array", "items": {"type": "object"}},
+    "composition_hypotheses": {"type": "array", "items": {"type": "object"}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
