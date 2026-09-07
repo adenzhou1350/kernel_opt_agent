@@ -62,12 +62,20 @@ def build_rollup(
     cohort_id: str,
     root: Path | None = None,
     predecessor_path: Path | None = None,
+    expected_predecessor_sha256: str | None = None,
 ) -> dict:
     root = (root or repository_root()).resolve()
     summary_paths = list(summary_paths)
     predecessor_identity = None
+    predecessor_summary_identities: dict[Path, dict] = {}
+    predecessor_ledger_identities: dict[Path, dict] = {}
     if predecessor_path is not None:
         predecessor_path = predecessor_path.resolve()
+        if expected_predecessor_sha256 is None:
+            raise ValueError("expected predecessor SHA-256 is required")
+        observed_predecessor_sha256 = sha256_file(predecessor_path)
+        if observed_predecessor_sha256 != expected_predecessor_sha256.lower():
+            raise ValueError("predecessor rollup SHA-256 differs")
         errors = validate_json_file(
             predecessor_path,
             root / "schemas/community_time_to_value_rollup.schema.json",
@@ -81,7 +89,17 @@ def build_rollup(
             path = Path(value["path"]).resolve()
             if not path.is_file() or sha256_file(path) != value["sha256"]:
                 raise ValueError(f"predecessor summary changed: {path}")
+            if path in predecessor_summary_identities:
+                raise ValueError(f"duplicate predecessor summary path: {path}")
+            predecessor_summary_identities[path] = value
             summary_paths.append(path)
+        for value in predecessor["input_identity"]["ledgers"]:
+            path = Path(value["path"]).resolve()
+            if not path.is_file() or sha256_file(path) != value["sha256"]:
+                raise ValueError(f"predecessor ledger changed: {path}")
+            if path in predecessor_ledger_identities:
+                raise ValueError(f"duplicate predecessor ledger path: {path}")
+            predecessor_ledger_identities[path] = value
         predecessor_identity = identity(predecessor_path)
     if not summary_paths:
         raise ValueError("at least one work-cycle summary is required")
@@ -106,14 +124,26 @@ def build_rollup(
         if ledger_path in ledger_paths:
             raise ValueError(f"duplicate cycle ledger: {ledger_path}")
         ledger_paths.add(ledger_path)
-        if (
-            not ledger_path.is_file()
-            or sha256_file(ledger_path) != summary["cycle_identity"]["sha256"]
+        if not ledger_path.is_file() or (
+            sha256_file(ledger_path) != summary["cycle_identity"]["sha256"]
         ):
             raise ValueError(f"cycle ledger changed: {ledger_path}")
-        expected = summarize(ledger_path)
-        if stable(summary) != stable(expected):
-            raise ValueError(f"work-cycle summary is stale or edited: {summary_path}")
+        if summary_path in predecessor_summary_identities:
+            predecessor_ledger = predecessor_ledger_identities.get(ledger_path)
+            if predecessor_ledger is None:
+                raise ValueError(
+                    f"predecessor summary ledger is absent from rollup: {ledger_path}"
+                )
+            if summary["cycle_identity"] != predecessor_ledger:
+                raise ValueError(
+                    f"predecessor summary ledger identity differs: {summary_path}"
+                )
+        else:
+            expected = summarize(ledger_path)
+            if stable(summary) != stable(expected):
+                raise ValueError(
+                    f"work-cycle summary is stale or edited: {summary_path}"
+                )
         ledger = read_object(ledger_path)
         rows.append(
             {
@@ -258,6 +288,12 @@ def build_rollup(
                 "to prospective exact timing."
             ),
             "Unobserved milestones remain null and are not replaced by forecasts.",
+            (
+                "Historical rows inherited from a predecessor are trusted only "
+                "after the caller supplies its exact SHA-256 and every frozen "
+                "summary and ledger identity still matches; newly appended rows "
+                "are recomputed from their ledgers."
+            ),
         ],
         "status": "PASS",
     }
@@ -280,6 +316,10 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="reuse every hash-bound summary from a prior rollup before appending",
     )
+    parser.add_argument(
+        "--expected-predecessor-sha256",
+        help="required exact SHA-256 when --predecessor is supplied",
+    )
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args()
 
@@ -290,6 +330,7 @@ def main() -> int:
         args.summary,
         args.cohort_id,
         predecessor_path=args.predecessor,
+        expected_predecessor_sha256=args.expected_predecessor_sha256,
     )
     atomic_json(args.output.resolve(), report)
     print(args.output.resolve())

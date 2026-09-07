@@ -181,6 +181,77 @@ def test_rollup_reports_first_value_and_refuses_duplicate_cycles(
         "test-cohort",
         ROOT,
         predecessor_path=predecessor_path,
+        expected_predecessor_sha256=sha256_file(predecessor_path),
+    )
+    assert extended["inventory"]["cycle_count"] == 2
+    assert extended["input_identity"]["predecessor_rollup"] == identity(
+        predecessor_path
+    )
+    with pytest.raises(ValueError, match="expected predecessor SHA-256"):
+        build_rollup(
+            [second_summary],
+            "test-cohort",
+            ROOT,
+            predecessor_path=predecessor_path,
+        )
+    with pytest.raises(ValueError, match="SHA-256 differs"):
+        build_rollup(
+            [second_summary],
+            "test-cohort",
+            ROOT,
+            predecessor_path=predecessor_path,
+            expected_predecessor_sha256="0" * 64,
+        )
+
+
+def test_predecessor_chain_survives_later_evidence_changes(tmp_path: Path) -> None:
+    old_evidence = tmp_path / "old-evidence.json"
+    new_evidence = tmp_path / "new-evidence.json"
+    atomic_json(old_evidence, {"version": 1})
+    atomic_json(new_evidence, {"version": 1})
+    old_ledger = tmp_path / "old-cycle.json"
+    new_ledger = tmp_path / "new-cycle.json"
+    atomic_json(
+        old_ledger,
+        cycle(
+            "old-cycle",
+            "old-task",
+            "2026-09-08T00:00:00Z",
+            "2026-09-08T00:01:00Z",
+            old_evidence,
+            valuable=False,
+        ),
+    )
+    old_summary = tmp_path / "old-summary.json"
+    atomic_json(old_summary, summarize(old_ledger))
+    predecessor_path = tmp_path / "predecessor.json"
+    atomic_json(
+        predecessor_path,
+        build_rollup([old_summary], "durable-cohort", ROOT),
+    )
+    predecessor_sha256 = sha256_file(predecessor_path)
+
+    atomic_json(old_evidence, {"version": 2})
+    atomic_json(
+        new_ledger,
+        cycle(
+            "new-cycle",
+            "new-task",
+            "2026-09-08T00:02:00Z",
+            "2026-09-08T00:03:00Z",
+            new_evidence,
+            valuable=False,
+        ),
+    )
+    new_summary = tmp_path / "new-summary.json"
+    atomic_json(new_summary, summarize(new_ledger))
+
+    extended = build_rollup(
+        [new_summary],
+        "durable-cohort",
+        ROOT,
+        predecessor_path=predecessor_path,
+        expected_predecessor_sha256=predecessor_sha256,
     )
     assert extended["inventory"]["cycle_count"] == 2
     assert extended["input_identity"]["predecessor_rollup"] == identity(
