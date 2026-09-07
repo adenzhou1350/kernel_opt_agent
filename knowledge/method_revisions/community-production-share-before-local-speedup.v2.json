@@ -1,0 +1,152 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-production-share-before-local-speedup",
+  "revision": 2,
+  "supersedes": {
+    "revision": 1,
+    "path": "knowledge/primitives/production-share-before-local-speedup.json",
+    "sha256": "c03bbfa8af9a4e117deb46b16084d423daed9d729f7b1827896e768a4193735c"
+  },
+  "title": "Prove production share and branch reachability before optimizing a local helper",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "SGLang PR #37926 staged Blackwell unified-memory decode optimization",
+    "url": "https://github.com/sgl-project/sglang/pull/37926",
+    "version": "snapshot-7bc28129fa29c75bfd97",
+    "available_at": "2026-09-06T23:59:33Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The open source reports a B300 staged ablation in which one local fusion had zero pooled effect and a larger reachable fused path closed most of the gap; it is not independent or portable target evidence."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-55469.vectorized-causal-conv-metadata",
+      "sglang.pr-37926.blackwell-unified-memory-decode-gap"
+    ],
+    "experiment_refs": [
+      {
+        "suite_id": "community-sm89-prospective-structured-mask-v1",
+        "task_id": "vllm-structured-mask-reorder-representative-e2e-v1",
+        "repeat_index": 3,
+        "arm": "COMMUNITY_AUGMENTED",
+        "available_at": "2026-09-06T11:39:01Z",
+        "artifact_sha256": "8f8a6224d8d2c8c41f91b15bea1376f420cbdb8f2e2aebc3f465755b68434381",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      }
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "production-impact-gating",
+    "amdahl-screening",
+    "branch-reachability",
+    "staged-ablation",
+    "end-to-end-attribution"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "microbenchmark speedup",
+      "host helper",
+      "launch overhead",
+      "fast path",
+      "small latency share",
+      "end-to-end regression",
+      "Amdahl ceiling",
+      "candidate prioritization",
+      "staged ablation"
+    ]
+  },
+  "implementation_recipe": [
+    "Trace the exact production branch and count how often the proposed helper or fused path is reached under the frozen workload.",
+    "Measure target component self-time, CPU dispatch time, GPU active time and end-to-end time before implementing.",
+    "Compute an optimistic removable-work or Amdahl ceiling and compare it with the frozen materiality floor.",
+    "When several changes form a path, stage them independently and preserve zero-effect ablations instead of crediting the whole patch uniformly.",
+    "Use an interleaved stable control in the same session and treat effects inside measured run-order drift as no measurable gain.",
+    "Redirect budget to the larger reachable path when a locally successful helper cannot clear the production threshold."
+  ],
+  "validation_recipe": [
+    "Instrument eligible, ineligible and fallback branches and verify the measured workload actually executes the changed path.",
+    "Record launch count, component self-time, GPU active time, end-to-end latency and output identity in the same interleaved run.",
+    "Report each commit-stage delta and the deletion upper bound rather than only final-patch versus baseline.",
+    "Match capacity, concurrency, cache state and request shape before comparing alternative pools or backends.",
+    "Reject attribution when the control drifts by an amount comparable to the claimed change."
+  ],
+  "expected_bottleneck_shifts": [
+    "An immaterial local helper should redirect search toward a larger adjacent path or orchestration boundary.",
+    "Making a previously unreachable fused path active can expose address ownership, padding and state-lifetime contracts.",
+    "After host launch chains are removed, GPU work, scheduler overhead or another stage may become dominant."
+  ],
+  "failure_modes": [
+    "A fast microbenchmark is measured on a branch the production workload never reaches.",
+    "A multi-commit patch credits every local change even when staged ablation shows one has zero pooled effect.",
+    "Inclusive profiler time or launch count is mistaken for removable critical-path time.",
+    "Control and treatment run in separate drifting sessions or use different capacity/concurrency settings.",
+    "A source-reported relative gap without absolute samples is converted into a fabricated speedup ratio.",
+    "A microsecond-scale change is credited for a larger end-to-end fluctuation than its optimistic bound permits."
+  ],
+  "scope_limits": [
+    "A zero-effect stage in one workload does not prove the helper is universally immaterial.",
+    "Architecture, backend and execution-mode changes require a new production-share and reachability trace.",
+    "Community staged results route hypotheses but cannot replace target-hardware reproduction."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "End-to-end latency contains reachable target work plus unaffected work; a proposed local change contributes only on branches actually executed by the frozen workload.",
+    "partition_axis": "reachable component critical-path time versus unaffected end-to-end latency, separated by staged patch component",
+    "local_state": [
+      "branch execution count",
+      "baseline end-to-end and component times",
+      "CPU launch and GPU active intervals",
+      "per-stage treatment deltas",
+      "materiality floor and control drift"
+    ],
+    "combine_rule": "Bound each reachable stage's removable work, combine it with unchanged residual latency, and update attribution only from same-session staged observations.",
+    "finalization": "Admit implementation or further search only when a reachable candidate's optimistic end-to-end interval clears materiality after drift and capacity controls.",
+    "work_complexity": "One branch trace and representative attribution run plus constant-time bounds per candidate stage.",
+    "span_complexity": "The gate precedes expensive implementation and closes zero-share or unreachable branches early.",
+    "communication_cost": "Adds temporary counters and staged measurements but no permanent production data movement.",
+    "invariants": [
+      "branch counts correspond to the frozen production workload",
+      "component critical-path time does not exceed end-to-end time",
+      "each staged attribution uses the same control and capacity contract",
+      "claimed global gain does not exceed reachable removable work",
+      "effects inside control drift remain inconclusive"
+    ],
+    "anti_patterns": [
+      "rank by local speedup or launch count alone",
+      "measure an unreachable fast path",
+      "credit a final bundle without staged ablation",
+      "compare different sessions, capacities or execution modes",
+      "keep optimizing below the materiality floor"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "production-impact-gate",
+      "name": "reachable production attribution before implementation",
+      "change_axes": [
+        "branch reachability",
+        "critical-path share",
+        "search ordering",
+        "global gain ceiling"
+      ],
+      "template": "Trace the changed branch, measure its production share, derive the optimistic global ceiling, and admit implementation only if it clears materiality."
+    },
+    {
+      "family": "staged-ablation-gate",
+      "name": "same-session component attribution",
+      "change_axes": [
+        "patch stage",
+        "stable control",
+        "capacity contract",
+        "drift interval"
+      ],
+      "template": "Apply one coherent patch stage at a time against an interleaved stable control, retaining zero-effect results and assigning gain only where observed bounds permit."
+    }
+  ]
+}

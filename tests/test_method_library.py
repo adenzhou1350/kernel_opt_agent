@@ -66,13 +66,22 @@ def opportunity(identifier: str, families: list[str], evidence_sha256: str) -> d
 def main() -> None:
     validated = cli("method", "validate")
     assert validated["status"] == "PASS" and validated["card_count"] >= 10, validated
-    assert validated["revision_count"] == validated["card_count"] + 1, validated
+    assert validated["revision_count"] > validated["card_count"], validated
     revisions = [
         card
         for _, card in load_card_revisions(ROOT)
         if card["method_id"] == "community-incremental-prefix-state-machine"
     ]
     assert [card.get("revision", 1) for card in revisions] == [1, 2]
+    production_share_revisions = [
+        card
+        for _, card in load_card_revisions(ROOT)
+        if card["method_id"] == "community-production-share-before-local-speedup"
+    ]
+    assert [card.get("revision", 1) for card in production_share_revisions] == [
+        1,
+        2,
+    ]
     cutoff_snapshot = build_snapshot("2026-08-31T23:59:59Z", ROOT)
     assert "cuda-hierarchical-scan-decomposition" in cutoff_snapshot["included_method_ids"]
     assert "triton-dynamic-extent-specialization-control" not in cutoff_snapshot[
@@ -150,6 +159,34 @@ def main() -> None:
         "vllm.pr-40298.incremental-streaming-state-machine",
         "vllm.pr-55565.incremental-deepseek-delimiter-state",
     ]
+    before_new_methods = build_snapshot("2026-09-06T15:00:00Z", ROOT)
+    assert "community-monotonic-inverse-indexing" not in before_new_methods[
+        "included_method_ids"
+    ]
+    after_inverse_method = build_snapshot("2026-09-06T15:10:00Z", ROOT)
+    assert "community-monotonic-inverse-indexing" in after_inverse_method[
+        "included_method_ids"
+    ]
+    before_staged_ablation = build_snapshot("2026-09-06T23:30:00Z", ROOT)
+    historical_production_share = next(
+        card
+        for card in before_staged_ablation["cards"]
+        if card["method_id"]
+        == "community-production-share-before-local-speedup"
+    )
+    assert historical_production_share.get("revision", 1) == 1
+    after_staged_ablation = build_snapshot("2026-09-07T00:10:00Z", ROOT)
+    revised_production_share = next(
+        card
+        for card in after_staged_ablation["cards"]
+        if card["method_id"]
+        == "community-production-share-before-local-speedup"
+    )
+    assert revised_production_share["revision"] == 2
+    assert (
+        "sglang.pr-37926.blackwell-unified-memory-decode-gap"
+        in revised_production_share["community_provenance"]["source_event_ids"]
+    )
 
     with tempfile.TemporaryDirectory() as chain_temporary:
         chain_root = Path(chain_temporary)

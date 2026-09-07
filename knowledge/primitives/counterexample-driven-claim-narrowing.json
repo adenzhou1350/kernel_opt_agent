@@ -1,0 +1,131 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-counterexample-driven-claim-narrowing",
+  "title": "Narrow or retract an optimization claim when matched counterevidence breaks its causal chain",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "vLLM PR #53680 DeepGEMM regression discussion and correction",
+    "url": "https://github.com/vllm-project/vllm/pull/53680",
+    "version": "snapshot-0825a8316396589b6f54",
+    "available_at": "2026-09-06T19:26:56Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "An open community discussion demonstrates a broad causal claim being narrowed after independent reproduction; it does not settle the remaining entry-point-specific regression or approve a dependency rollback."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-53680.deepgemm-regression-claim-narrowing"
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "counterexample-reconciliation",
+    "claim-scope-narrowing",
+    "exact-entrypoint-reproduction",
+    "dependency-regression-isolation"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "regression",
+      "dependency pin",
+      "counterexample",
+      "cannot reproduce",
+      "corruption",
+      "dispatch",
+      "producer consumer",
+      "environment difference",
+      "claim correction"
+    ]
+  },
+  "implementation_recipe": [
+    "Decompose the broad claim into independently testable structural, reachability, numerical, performance and end-to-end statements.",
+    "Capture the exact failing entry point, tensor identity, data preparation, dependency revision, build flags and local overlays.",
+    "Reproduce one boundary at a time on a matched independent environment and register both confirming and contradicting outcomes.",
+    "When a counterexample invalidates one causal edge, retract that edge immediately while preserving narrower facts that remain supported.",
+    "Recompute the mitigation: prefer a path gate or upstream fix, and retain a broad rollback only if its affected surface is demonstrated."
+  ],
+  "validation_recipe": [
+    "Require the original and counterexample runs to name exact source, binary, inputs, entry point and oracle identities.",
+    "Check whether a reported non-reproduction exercises the same data format and code path before treating it as contradictory.",
+    "Use negative and positive controls to separate producer, dispatcher, consumer kernel and fallback behavior.",
+    "Keep unresolved claims explicit and prohibit performance tuning or promotion that depends on a retracted mechanism.",
+    "Ensure summaries, titles, recommendation receipts and relation edges use the latest supported scope rather than stale initial prose."
+  ],
+  "expected_bottleneck_shifts": [
+    "Search should move from tuning a falsely accused primitive to isolating the first divergent producer-consumer boundary.",
+    "Broad rollback cost should shrink to a scoped compatibility gate when only one entry point remains suspect.",
+    "Evidence reconciliation can terminate low-value experimentation earlier than another round of parameter tuning."
+  ],
+  "failure_modes": [
+    "A non-reproduction uses a different checkpoint format, backend or entry point and is treated as a true counterexample.",
+    "A valid structural source difference is promoted into an unsupported numerical or performance cause.",
+    "The author corrects a comment but the Agent continues routing from a stale title or PR body.",
+    "All claims are discarded after one edge is falsified, losing a narrower reproducible issue.",
+    "A broad dependency rollback persists after evidence supports only a path-specific compatibility problem."
+  ],
+  "scope_limits": [
+    "Counterevidence narrows only the matched claim dimensions; it does not prove universal correctness.",
+    "Community corrections remain discovery evidence until independently reproduced under the target contract.",
+    "A temporary rollback may still be operationally rational even when its original causal explanation is wrong."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A broad optimization or regression claim is a chain from source change through path reachability and data contracts to observed numerical and performance outcomes.",
+    "partition_axis": "individual causal edges and claim dimensions",
+    "local_state": [
+      "source and binary revisions",
+      "input and preprocessing identities",
+      "entry-point reachability",
+      "numerical oracle result",
+      "end-to-end symptom",
+      "supporting and contradicting evidence"
+    ],
+    "combine_rule": "Retain a claim only when every required causal edge is supported; a matched counterexample retracts the broken edge and all broader conclusions depending on it.",
+    "finalization": "Publish the narrowest surviving claim, explicit unresolved edges and a mitigation whose scope does not exceed the evidence.",
+    "work_complexity": "One bounded reproduction per decision-relevant causal edge rather than repeated whole-system tuning.",
+    "span_complexity": "Structural and environment checks can run independently, but causal promotion waits for the complete path.",
+    "communication_cost": "Adds evidence reconciliation and exact identity capture while avoiding unbounded dependency or kernel experiments.",
+    "invariants": [
+      "no surviving conclusion depends on a retracted causal edge",
+      "confirming and contradicting evidence remain visible",
+      "structural facts are not silently upgraded to runtime causality",
+      "mitigation scope does not exceed the narrowest supported failure surface"
+    ],
+    "anti_patterns": [
+      "trust the PR title after later discussion retracts its mechanism",
+      "compare approximate synthetic data with a production-format counterexample",
+      "treat a missing source file as proof that a neighboring public entry point fails",
+      "continue tuning after the motivating causal claim is falsified"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "causal-edge-reproduction",
+      "name": "exact producer-dispatch-consumer replay",
+      "change_axes": [
+        "input format",
+        "producer revision",
+        "entry point",
+        "dependency revision",
+        "local overlay"
+      ],
+      "template": "Freeze one production tensor and replay it through each causal boundary with exact source and binary identities until the first divergence is localized."
+    },
+    {
+      "family": "claim-scope-revision",
+      "name": "counterexample-driven mitigation narrowing",
+      "change_axes": [
+        "claim dimension",
+        "support status",
+        "mitigation surface",
+        "reopen condition"
+      ],
+      "template": "Split the broad claim, retract dimensions contradicted by matched evidence, and replace broad rollback with the narrowest supported gate or fix."
+    }
+  ]
+}

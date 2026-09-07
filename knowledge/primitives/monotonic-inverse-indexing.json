@@ -1,0 +1,128 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-monotonic-inverse-indexing",
+  "title": "Invert a monotonic scan and correct candidates with the original predicate",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "vLLM PR #55582 output-sensitive video frame sampling",
+    "url": "https://github.com/vllm-project/vllm/pull/55582",
+    "version": "snapshot-9574639cbe513df25efa",
+    "available_at": "2026-09-06T15:09:09Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The open source reports exact differential selector output and CPU microbenchmarks; transfer requires a separately proven monotonic predicate, boundary oracle and production-share measurement."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-55582.monotonic-frame-index-inversion"
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "monotonic-predicate-inversion",
+    "output-sensitive-work",
+    "sparse-index-generation"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [
+      "floating-point-threshold",
+      "integer-index"
+    ],
+    "problem_signatures": [
+      "monotonic",
+      "first satisfying",
+      "scan",
+      "sampling",
+      "sparse",
+      "bounded output",
+      "index",
+      "timestamp"
+    ]
+  },
+  "implementation_recipe": [
+    "State the exact baseline predicate P(i, threshold) and prove it is monotonic over every legal input domain.",
+    "Derive a closed-form or logarithmic candidate index for each requested threshold without replacing the observable predicate.",
+    "Evaluate the original predicate on neighboring indices until the first satisfying index is recovered exactly.",
+    "Advance from the last accepted index, cap work at the maximum observable output count, and preserve all public stop conditions.",
+    "Retain the baseline scan behind a measured density guard when most source elements become outputs."
+  ],
+  "validation_recipe": [
+    "Differentially compare complete ordered outputs with the frozen scan baseline over deterministic random domains and every threshold discontinuity.",
+    "Generate exact-equality, predecessor, successor, non-finite, zero-step, empty-range and cap-boundary cases from the actual runtime dtype.",
+    "Measure sparse and dense regimes separately and fit time against source cardinality and output cardinality.",
+    "Verify that downstream consumers receive identical values and order before claiming an end-to-end benefit."
+  ],
+  "expected_bottleneck_shifts": [
+    "Sparse-selection work should move from O(source cardinality) toward O(output cardinality plus bounded corrections).",
+    "Inverse arithmetic, boundary correction, allocation and downstream consumption can become dominant.",
+    "Dense regimes can favor the original sequential scan and should be selected explicitly."
+  ],
+  "failure_modes": [
+    "The predicate is only mostly monotonic and a direct jump skips an earlier legal result.",
+    "Real-number algebra changes an exact floating-point boundary selected by the baseline.",
+    "Local correction is not bounded because the inverse estimate is poor for legal extrema.",
+    "A fixed density threshold is generalized across runtimes or workloads without measurement.",
+    "The local selector is accelerated while decode, I/O or another downstream stage dominates the request."
+  ],
+  "scope_limits": [
+    "Do not apply to non-monotonic searches or predicates with hidden mutable state.",
+    "A large local speedup is discovery evidence only until the selector's production share is measured.",
+    "Source-specific constants, floating-point rules and caps do not transfer without the target contract."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "The next accepted output is found by checking every source index after the previous result, even when the satisfying region is monotonic and directly estimable.",
+    "partition_axis": "requested output thresholds or samples",
+    "local_state": [
+      "previous accepted index",
+      "current target threshold",
+      "inverse-estimated candidate index",
+      "bounded predecessor and successor correction state"
+    ],
+    "combine_rule": "For each ordered threshold, invert to a candidate, correct with the exact baseline predicate, emit the first satisfying index, then advance past it.",
+    "finalization": "Stop at the public range, threshold or output cap and preserve the baseline fallback for dense domains.",
+    "work_complexity": "Target O(number of emitted outputs plus bounded boundary corrections) instead of O(source range).",
+    "span_complexity": "Ordered outputs retain a dependency through the previous accepted index; independent thresholds may be searched separately only when duplicate and ordering semantics allow it.",
+    "communication_cost": "Replaces sequential source reads and host loop iterations with inverse arithmetic and a few predicate evaluations per output.",
+    "invariants": [
+      "each emitted index is the first legal source index satisfying its threshold",
+      "emitted order and duplicate policy match the baseline",
+      "all comparisons execute in the contract's actual dtype and order",
+      "fallback and optimized paths share identical stop and cap semantics"
+    ],
+    "anti_patterns": [
+      "replace a floating-point predicate with ideal real-number division and no correction",
+      "jump through a predicate whose monotonicity was not proven",
+      "benchmark only the sparsest input and remove the dense scan",
+      "quote selector speedup as server speedup without production-share evidence"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "monotonic-predicate-inversion",
+      "name": "inverse estimate with exact local correction",
+      "change_axes": [
+        "source iterations",
+        "inverse estimate",
+        "boundary correction",
+        "output cap"
+      ],
+      "template": "Derive a candidate index for each ordered threshold, then walk locally under the original predicate until the exact first satisfying index is found."
+    },
+    {
+      "family": "density-guarded-search",
+      "name": "sparse inverse and dense scan dispatch",
+      "change_axes": [
+        "selection density",
+        "source cardinality",
+        "output cardinality",
+        "dispatch threshold"
+      ],
+      "template": "Route sparse bounded-output cases to inverse search and dense cases to the original sequential scan using a measured workload-specific frontier."
+    }
+  ]
+}
