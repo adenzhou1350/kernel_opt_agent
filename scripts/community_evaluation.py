@@ -695,6 +695,20 @@ def validate_suite(
                 raise ValueError(
                     f"strict task/oracle identity does not match {task['task_id']}"
                 )
+            if task_packet_contract == "STRICT_V3":
+                confirmed_at = parse_time(
+                    packet["intake_confirmation"]["confirmed_at"]
+                )
+                if confirmed_at <= cutoff:
+                    raise ValueError(
+                        f"STRICT_V3 task {task['task_id']} intake confirmation "
+                        "is not after the training cutoff"
+                    )
+                if confirmed_at > parse_time(task["available_at"]):
+                    raise ValueError(
+                        f"STRICT_V3 task {task['task_id']} intake confirmation "
+                        "postdates the sealed task"
+                    )
             if task.get("prospective_id") is not None:
                 seal = oracle.get("prospective_seal")
                 if seal is None:

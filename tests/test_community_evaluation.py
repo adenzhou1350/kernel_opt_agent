@@ -1106,6 +1106,21 @@ def main() -> None:
             assert "cache_semantics" in str(error)
         else:
             raise AssertionError("incomplete STRICT_V3 task packet was accepted")
+        stale_confirmation_task = json.loads(json.dumps(strict_v3_task))
+        stale_confirmation_task["intake_confirmation"]["confirmed_at"] = (
+            cutoff - timedelta(seconds=1)
+        ).isoformat()
+        atomic_json(strict_v3_task_path, stale_confirmation_task)
+        strict_v3_suite["tasks"][0]["packet"] = identity(
+            strict_v3_task_path, suite_dir
+        )
+        atomic_json(suite_path, strict_v3_suite)
+        try:
+            validate_suite(suite_path, corpus, ROOT)
+        except ValueError as error:
+            assert "not after the training cutoff" in str(error)
+        else:
+            raise AssertionError("stale STRICT_V3 intake confirmation was accepted")
         atomic_json(strict_v3_task_path, strict_v3_task)
         atomic_json(suite_path, suite)
         late_prior_path = assets / "late-prior-outcomes.json"
