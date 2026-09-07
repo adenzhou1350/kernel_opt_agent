@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -12,7 +13,8 @@ from community_knowledge import atomic_json, now, read_object, sha256_file
 from schema_utils import validate_instance, validate_json_file
 
 
-SCHEMA_VERSION = "community-discovery-funnel-v1"
+SCHEMA_VERSION_V1 = "community-discovery-funnel-v1"
+SCHEMA_VERSION = "community-discovery-funnel-v2"
 
 
 def repository_root() -> Path:
@@ -39,6 +41,16 @@ def count_rows(counter: Counter) -> list[dict]:
         {"key": key, "count": count}
         for key, count in sorted(counter.items(), key=lambda item: item[0])
     ]
+
+
+def schema_path(root: Path, version: str) -> Path:
+    names = {
+        SCHEMA_VERSION_V1: "community_discovery_funnel.schema.json",
+        SCHEMA_VERSION: "community_discovery_funnel_v2.schema.json",
+    }
+    if version not in names:
+        raise ValueError(f"unsupported discovery funnel: {version}")
+    return root / "schemas" / names[version]
 
 
 def build_funnel(
@@ -128,10 +140,18 @@ def build_funnel(
         ].append(item)
     shadow_recommendations = []
     for (rule_id, reason, family), rows in sorted(grouped.items()):
-        runnable = sum(row["screen_status"] == "ELIGIBLE" for row in rows)
-        if runnable:
+        distinct_rows = {(row["repository"], row["pr_number"]): row for row in rows}
+        distinct_runnable = sum(
+            any(
+                row["screen_status"] == "ELIGIBLE"
+                for row in rows
+                if (row["repository"], row["pr_number"]) == candidate_key
+            )
+            for candidate_key in distinct_rows
+        )
+        if distinct_runnable:
             recommendation = "KEEP"
-        elif len(rows) >= 2:
+        elif len(distinct_rows) >= 2:
             recommendation = "CONSIDER_DISCOVERY_DEMOTION"
         else:
             recommendation = "COLLECT_MORE"
@@ -141,10 +161,12 @@ def build_funnel(
                 "screen_reason": reason,
                 "task_family": family,
                 "observation_count": len(rows),
-                "runnable_count": runnable,
+                "distinct_candidate_count": len(distinct_rows),
+                "runnable_count": distinct_runnable,
                 "recommendation": recommendation,
                 "candidate_keys": [
-                    f"{row['repository']}#{row['pr_number']}" for row in rows
+                    f"{repository}#{pr_number}"
+                    for repository, pr_number in sorted(distinct_rows)
                 ],
             }
         )
@@ -189,28 +211,58 @@ def build_funnel(
         "shadow_recommendations": shadow_recommendations,
         "limitations": [
             "This report observes frozen selection chains and cannot change the current cohort.",
-            "A demotion suggestion requires at least two non-runnable observations in the same rule/reason/family group.",
+            "A demotion suggestion requires at least two distinct non-runnable PRs in the same rule/reason/family group; repeated updates never count as independent evidence.",
             "Discovery yield is scheduling evidence, not evidence of performance improvement.",
         ],
     }
     errors = validate_instance(
         report,
-        read_object(root / "schemas/community_discovery_funnel.schema.json"),
+        read_object(schema_path(root, SCHEMA_VERSION)),
     )
     if errors:
         raise ValueError("invalid discovery funnel: " + "; ".join(errors))
     return report
 
 
+def legacy_v1_view(report: dict) -> dict:
+    """Reproduce the committed v1 surface for immutable artifact validation."""
+    legacy = copy.deepcopy(report)
+    legacy["schema_version"] = SCHEMA_VERSION_V1
+    for recommendation in legacy["shadow_recommendations"]:
+        rows = [
+            row
+            for row in legacy["selected_items"]
+            if row["matched_rule_id"] == recommendation["matched_rule_id"]
+            and row["screen_reason"] == recommendation["screen_reason"]
+            and row["task_family"] == recommendation["task_family"]
+        ]
+        runnable = sum(row["screen_status"] == "ELIGIBLE" for row in rows)
+        recommendation["runnable_count"] = runnable
+        recommendation["recommendation"] = (
+            "KEEP"
+            if runnable
+            else "CONSIDER_DISCOVERY_DEMOTION"
+            if len(rows) >= 2
+            else "COLLECT_MORE"
+        )
+        recommendation["candidate_keys"] = [
+            f"{row['repository']}#{row['pr_number']}" for row in rows
+        ]
+        recommendation.pop("distinct_candidate_count")
+    legacy["limitations"][1] = (
+        "A demotion suggestion requires at least two non-runnable observations in the same rule/reason/family group."
+    )
+    return legacy
+
+
 def validate_funnel(report_path: Path, corpus: Path, root: Path | None = None) -> dict:
     root = (root or repository_root()).resolve()
     report_path = report_path.resolve()
-    errors = validate_json_file(
-        report_path, root / "schemas/community_discovery_funnel.schema.json"
-    )
+    observed = read_object(report_path)
+    version = observed.get("schema_version")
+    errors = validate_json_file(report_path, schema_path(root, version))
     if errors:
         raise ValueError("invalid discovery funnel: " + "; ".join(errors))
-    observed = read_object(report_path)
     corpus_index = corpus.resolve() / "index.json"
     corpus_identity = observed["input_identity"]["corpus_index"]
     if identity_path(corpus_identity) != corpus_index:
@@ -227,6 +279,8 @@ def validate_funnel(report_path: Path, corpus: Path, root: Path | None = None) -
             raise ValueError(f"discovery funnel audit changed: {audit_path}")
         audit_paths.append(audit_path)
     expected = build_funnel(audit_paths, corpus, root)
+    if version == SCHEMA_VERSION_V1:
+        expected = legacy_v1_view(expected)
     observed_stable = {
         key: value for key, value in observed.items() if key != "generated_at"
     }

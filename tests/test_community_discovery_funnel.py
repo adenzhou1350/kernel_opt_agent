@@ -58,8 +58,9 @@ def test_funnel_build_validate_and_tamper_guard() -> None:
     assert report["inventory"]["harness_blocked_selected"] == 1
     assert report["yield"]["discovery_to_runnable"] == 0
     assert report["shadow_recommendations"][0]["recommendation"] == ("COLLECT_MORE")
+    assert report["shadow_recommendations"][0]["distinct_candidate_count"] == 1
     schema = json.loads(
-        (ROOT / "schemas/community_discovery_funnel.schema.json").read_text(
+        (ROOT / "schemas/community_discovery_funnel_v2.schema.json").read_text(
             encoding="utf-8"
         )
     )
@@ -77,3 +78,31 @@ def test_funnel_build_validate_and_tamper_guard() -> None:
             assert "stale or was edited" in str(error)
         else:
             raise AssertionError("edited funnel must fail validation")
+    committed_v1 = (
+        ROOT.parent
+        / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
+        / "discovery-funnel-through-035615-v1.json"
+    )
+    if committed_v1.is_file():
+        assert validate_funnel(committed_v1, corpus)["status"] == "PASS"
+
+
+def test_repeated_pr_updates_do_not_become_independent_evidence() -> None:
+    audits = available_audits()
+    base = (
+        ROOT.parent / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
+    )
+    third = base / "preselection-chain-audit-postcutoff-040852-v1.json"
+    if len(audits) != 2 or not third.is_file():
+        return
+    corpus = ROOT.parent / "community-optimization-corpus"
+    report = build_funnel([*audits, third], corpus)
+    docs = next(
+        row
+        for row in report["shadow_recommendations"]
+        if row["matched_rule_id"] == "documentation-only"
+    )
+    assert docs["observation_count"] == 2
+    assert docs["distinct_candidate_count"] == 1
+    assert docs["candidate_keys"] == ["sgl-project/sglang#38261"]
+    assert docs["recommendation"] == "COLLECT_MORE"

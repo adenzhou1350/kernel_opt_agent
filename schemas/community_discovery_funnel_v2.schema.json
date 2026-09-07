@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_discovery_funnel_v2.schema.json",
+  "title": "Evidence-bound yield and distinct-PR routing feedback for prospective discovery",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "input_identity", "inventory", "yield", "repository_receipt_counts", "exclusion_reason_counts", "screen_status_counts", "screen_reason_counts", "task_family_counts", "selected_items", "shadow_recommendations", "limitations"],
+  "properties": {
+    "schema_version": {"const": "community-discovery-funnel-v2"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DESCRIPTIVE_DISCOVERY_YIELD_NOT_SELECTION_POLICY"},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["audits", "corpus_index"],
+      "properties": {
+        "audits": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/identity"}},
+        "corpus_index": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["window_count", "receipt_count", "search_match_observations", "discovery_candidate_observations", "unique_discovery_candidates", "post_cutoff_selected", "runnable_selected", "infeasible_selected", "harness_blocked_selected"],
+      "properties": {
+        "window_count": {"type": "integer", "minimum": 1},
+        "receipt_count": {"type": "integer", "minimum": 1},
+        "search_match_observations": {"type": "integer", "minimum": 0},
+        "discovery_candidate_observations": {"type": "integer", "minimum": 0},
+        "unique_discovery_candidates": {"type": "integer", "minimum": 0},
+        "post_cutoff_selected": {"type": "integer", "minimum": 0},
+        "runnable_selected": {"type": "integer", "minimum": 0},
+        "infeasible_selected": {"type": "integer", "minimum": 0},
+        "harness_blocked_selected": {"type": "integer", "minimum": 0}
+      }
+    },
+    "yield": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["search_to_discovery", "discovery_to_post_cutoff", "discovery_to_runnable", "post_cutoff_to_runnable"],
+      "properties": {
+        "search_to_discovery": {"$ref": "#/$defs/nullableRatio"},
+        "discovery_to_post_cutoff": {"$ref": "#/$defs/nullableRatio"},
+        "discovery_to_runnable": {"$ref": "#/$defs/nullableRatio"},
+        "post_cutoff_to_runnable": {"$ref": "#/$defs/nullableRatio"}
+      }
+    },
+    "repository_receipt_counts": {"$ref": "#/$defs/countRows"},
+    "exclusion_reason_counts": {"$ref": "#/$defs/countRows"},
+    "screen_status_counts": {"$ref": "#/$defs/countRows"},
+    "screen_reason_counts": {"$ref": "#/$defs/countRows"},
+    "task_family_counts": {"$ref": "#/$defs/countRows"},
+    "selected_items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "pr_number", "title", "classifications", "discovery_score", "earliest_public_at", "screen_status", "screen_reason", "task_family", "matched_rule_id", "source_audit"],
+        "properties": {
+          "repository": {"type": "string"},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "title": {"type": "string", "minLength": 1},
+          "classifications": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+          "discovery_score": {"type": "integer", "minimum": 1},
+          "earliest_public_at": {"type": "string", "format": "date-time"},
+          "screen_status": {"enum": ["ELIGIBLE", "INFEASIBLE", "HARNESS_BLOCKED"]},
+          "screen_reason": {"type": "string", "minLength": 1},
+          "task_family": {"type": "string", "minLength": 1},
+          "matched_rule_id": {"type": "string", "minLength": 1},
+          "source_audit": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    "shadow_recommendations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["matched_rule_id", "screen_reason", "task_family", "observation_count", "distinct_candidate_count", "runnable_count", "recommendation", "candidate_keys"],
+        "properties": {
+          "matched_rule_id": {"type": "string", "minLength": 1},
+          "screen_reason": {"type": "string", "minLength": 1},
+          "task_family": {"type": "string", "minLength": 1},
+          "observation_count": {"type": "integer", "minimum": 1},
+          "distinct_candidate_count": {"type": "integer", "minimum": 1},
+          "runnable_count": {"type": "integer", "minimum": 0},
+          "recommendation": {"enum": ["KEEP", "COLLECT_MORE", "CONSIDER_DISCOVERY_DEMOTION"]},
+          "candidate_keys": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}}
+        }
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nullableRatio": {
+      "oneOf": [
+        {"type": "null"},
+        {"type": "number", "minimum": 0, "maximum": 1}
+      ]
+    },
+    "countRows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "count"],
+        "properties": {
+          "key": {"type": "string", "minLength": 1},
+          "count": {"type": "integer", "minimum": 1}
+        }
+      }
+    }
+  }
+}

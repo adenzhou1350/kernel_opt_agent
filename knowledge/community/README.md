@@ -418,9 +418,10 @@ python3 scripts/kernel_opt.py community-funnel validate \
 
 The funnel records search-to-candidate, post-cutoff and runnable yield, plus
 hash-bound infeasible and harness-blocked examples. It never changes the active
-cohort. A shadow demotion suggestion requires at least two non-runnable examples
-with the same frozen rule, reason and task family, so one noisy PR cannot teach
-the discovery layer to suppress a whole optimization family.
+cohort. A shadow demotion suggestion requires at least two distinct non-runnable
+PRs with the same frozen rule, reason and task family. Repeated updates to one PR
+never count as independent evidence, so one noisy change cannot teach the
+discovery layer to suppress a whole optimization family.
 
 Use `community-eval meta-analyze` to recursively inventory paired A/B reports.
 The summary separates legacy reports, assigned-but-unrealized community arms,
