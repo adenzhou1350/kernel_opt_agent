@@ -240,9 +240,10 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
         methods = json.loads(
             (trial_dir / "knowledge" / "methods.json").read_text(encoding="utf-8")
         )
+        selected_method_id = methods["included_method_ids"][0]
         method_realization = {
-            "inspected_method_ids": [methods["included_method_ids"][0]],
-            "selected_method_id": methods["included_method_ids"][0],
+            "inspected_method_ids": [selected_method_id],
+            "selected_method_id": selected_method_id,
             "disposition": "REALIZED_IN_CANDIDATE",
             "instantiation": {
                 "partition_axis": "output rows",
@@ -271,19 +272,30 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
     if method_realization is not None:
         result["method_realization"] = method_realization
     if trial.get("knowledge_realization_required"):
-        graph = json.loads(
-            (trial_dir / "knowledge" / "community_graph.json").read_text(
+        shortlist = json.loads(
+            (trial_dir / "knowledge" / "prior_shortlist.json").read_text(
                 encoding="utf-8"
             )
         )
-        result["knowledge_realization"] = {
-            "inspected_event_ids": [graph["nodes"][0]["event_id"]],
-            "selected_event_ids": [graph["nodes"][0]["event_id"]],
-            "disposition": "REALIZED_IN_CANDIDATE",
-            "candidate_ids": [row["candidate_id"] for row in rows],
-            "rationale": "The synthetic event changed the tested candidate plan.",
-            "evidence": [rows[0]["evidence"][0]],
-        }
+        if shortlist["events"]:
+            selected_event_id = shortlist["events"][0]["id"]
+            result["knowledge_realization"] = {
+                "inspected_event_ids": [selected_event_id],
+                "selected_event_ids": [selected_event_id],
+                "disposition": "REALIZED_IN_CANDIDATE",
+                "candidate_ids": [row["candidate_id"] for row in rows],
+                "rationale": "The synthetic event changed the tested candidate plan.",
+                "evidence": [rows[0]["evidence"][0]],
+            }
+        else:
+            result["knowledge_realization"] = {
+                "inspected_event_ids": [],
+                "selected_event_ids": [],
+                "disposition": "NO_RELEVANT_COMMUNITY_PRIOR",
+                "candidate_ids": [],
+                "rationale": "No event passed the frozen prior shortlist.",
+                "evidence": [],
+            }
     atomic_json(
         trial_dir / "result.json",
         result,
@@ -770,6 +782,90 @@ def main() -> None:
         )
         cutoff = captured_at + timedelta(hours=1)
         atomic_json(methods_path, build_snapshot(cutoff.isoformat(), ROOT))
+        prior_outcomes_path = assets / "prior-outcomes.json"
+        atomic_json(
+            prior_outcomes_path,
+            {
+                "schema_version": "community-prior-outcome-ledger-v1",
+                "generated_at": (cutoff - timedelta(minutes=1)).isoformat(),
+                "claim_boundary": "ROUTING_FEEDBACK_NOT_TARGET_PERFORMANCE_PROOF",
+                "meta_analysis_identity": {
+                    "path": "meta-analysis.json",
+                    "sha256": "d" * 64,
+                },
+                "policy": {
+                    "learn_from": "PRIMARY_REALIZED_ONLY",
+                    "heldout_loss_action": "REQUIRE_CONTEXT_GUARD",
+                    "minimum_directional_observations": 2,
+                },
+                "inventory": {
+                    "primary_pair_count": 1,
+                    "prior_observation_count": 1,
+                    "event_prior_count": 1,
+                    "method_prior_count": 0,
+                    "guarded_prior_count": 1,
+                    "downranked_prior_count": 0,
+                    "upranked_prior_count": 0,
+                },
+                "observations": [
+                    {
+                        "pair_identity": {
+                            "path": "past-pair.json",
+                            "sha256": "e" * 64,
+                        },
+                        "suite_id": "past-suite",
+                        "task_id": "past.logits",
+                        "repeat_index": 1,
+                        "prior_kind": "EVENT",
+                        "prior_id": "example.fused-dequant-logits",
+                        "candidate_ids": ["past-candidate"],
+                        "deltas": {
+                            "time_to_first_correct_seconds_saved": -2.0,
+                            "best_speedup_gain": -0.01,
+                            "heldout_pass_count_gain": -1.0,
+                        },
+                    }
+                ],
+                "aggregates": [
+                    {
+                        "prior_kind": "EVENT",
+                        "prior_id": "example.fused-dequant-logits",
+                        "observation_count": 1,
+                        "task_count": 1,
+                        "ttfc": {"wins": 0, "losses": 1, "ties": 0, "missing": 0},
+                        "best_speedup": {"wins": 0, "losses": 1, "ties": 0, "missing": 0},
+                        "heldout_loss_count": 1,
+                        "routing_adjustment": "REQUIRE_CONTEXT_GUARD",
+                    }
+                ],
+            },
+        )
+        prior_context_path = assets / "prior-context-distinction.json"
+        atomic_json(
+            prior_context_path,
+            {
+                "schema_version": "community-prior-context-distinction-v1",
+                "generated_at": (cutoff + timedelta(hours=1)).isoformat(),
+                "claim_boundary": "ROUTING_EXCEPTION_NOT_PERFORMANCE_EVIDENCE",
+                "task_id": "heldout.logits",
+                "prior_outcome_ledger_sha256": sha256_file(prior_outcomes_path),
+                "exceptions": [
+                    {
+                        "prior_kind": "EVENT",
+                        "prior_id": "example.fused-dequant-logits",
+                        "failed_task_ids": ["past.logits"],
+                        "material_differences": [
+                            {
+                                "dimension": "NUMERICAL_CONTRACT",
+                                "failed_context": "Exact equality was required.",
+                                "current_context": "A frozen reference tolerance is allowed.",
+                                "causal_rationale": "The prior failure was caused by exact-rounding divergence, which this task can test under its explicit tolerance.",
+                            }
+                        ],
+                    }
+                ],
+            },
+        )
         modulation_task_path = assets / "modulation-task.json"
         atomic_json(
             modulation_task_path,
@@ -803,6 +899,40 @@ def main() -> None:
         assert shortlist["routing"]["recommendation"] == "CONSULT_BEFORE_FIRST_CANDIDATE"
         assert shortlist["routing"]["top_method_id"] == "triton-row-reduction-fusion"
         assert shortlist["rejections"]["method_provenance_gate"] > 0
+        guarded_shortlist_path = assets / "guarded-shortlist.json"
+        guarded_shortlist = build_prior_shortlist(
+            task_path,
+            environment_path,
+            graph_path,
+            methods_path,
+            guarded_shortlist_path,
+            ROOT,
+            prior_outcomes_path,
+        )
+        assert not guarded_shortlist["events"]
+        assert guarded_shortlist["rejections"]["event_prior_guard"] == 1
+        exception_shortlist_path = assets / "exception-shortlist.json"
+        exception_shortlist = build_prior_shortlist(
+            task_path,
+            environment_path,
+            graph_path,
+            methods_path,
+            exception_shortlist_path,
+            ROOT,
+            prior_outcomes_path,
+            prior_context_path,
+        )
+        assert exception_shortlist["events"][0]["id"] == (
+            "example.fused-dequant-logits"
+        )
+        assert exception_shortlist["events"][0]["prior_outcome"] == {
+            "routing_adjustment": "REQUIRE_CONTEXT_GUARD",
+            "score_delta": 0.0,
+            "observation_count": 1,
+            "task_count": 1,
+            "heldout_loss_count": 1,
+            "context_distinction_applied": True,
+        }
         suite = {
             "schema_version": "community-temporal-suite-v1",
             "suite_id": "example.temporal-v1",
@@ -810,6 +940,7 @@ def main() -> None:
             "claim_boundary": "EVALUATION_PROTOCOL_ONLY",
             "training_graph": identity(graph_path, suite_dir),
             "training_methods": identity(methods_path, suite_dir),
+            "training_prior_outcomes": identity(prior_outcomes_path, suite_dir),
             "protocol": {
                 "arms": ["CONTROL", "COMMUNITY_AUGMENTED"],
                 "repeats": 2,
@@ -850,6 +981,9 @@ def main() -> None:
                     "target_hardware": "test GPU",
                     "packet": identity(task_path, suite_dir),
                     "hidden_oracle": identity(oracle_path, suite_dir),
+                    "prior_context_distinction": identity(
+                        prior_context_path, suite_dir
+                    ),
                     "support": [
                         {
                             "source": identity(support_path, suite_dir),
@@ -862,6 +996,38 @@ def main() -> None:
         suite_path = suite_dir / "suite.json"
         atomic_json(suite_path, suite)
         assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+        late_prior_path = assets / "late-prior-outcomes.json"
+        late_prior = json.loads(prior_outcomes_path.read_text(encoding="utf-8"))
+        late_prior["generated_at"] = (cutoff + timedelta(seconds=1)).isoformat()
+        atomic_json(late_prior_path, late_prior)
+        late_suite = json.loads(json.dumps(suite))
+        late_suite["training_prior_outcomes"] = identity(
+            late_prior_path, suite_dir
+        )
+        late_suite["tasks"][0].pop("prior_context_distinction")
+        atomic_json(suite_path, late_suite)
+        try:
+            validate_suite(suite_path, corpus, ROOT)
+        except ValueError as error:
+            assert "prior outcome ledger was generated after cutoff" in str(error)
+        else:
+            raise AssertionError("post-cutoff prior outcomes were accepted")
+        bad_context_path = assets / "bad-prior-context-distinction.json"
+        bad_context = json.loads(prior_context_path.read_text(encoding="utf-8"))
+        bad_context["exceptions"][0]["failed_task_ids"] = ["invented-task"]
+        atomic_json(bad_context_path, bad_context)
+        bad_context_suite = json.loads(json.dumps(suite))
+        bad_context_suite["tasks"][0]["prior_context_distinction"] = identity(
+            bad_context_path, suite_dir
+        )
+        atomic_json(suite_path, bad_context_suite)
+        try:
+            validate_suite(suite_path, corpus, ROOT)
+        except ValueError as error:
+            assert "omits or invents failed tasks" in str(error)
+        else:
+            raise AssertionError("invalid prior context exception was accepted")
+        atomic_json(suite_path, suite)
 
         prospective_oracle_path = assets / "prospective-oracle.json"
         prospective_task = suite["tasks"][0]
@@ -970,6 +1136,10 @@ def main() -> None:
         assert not (control_dir / "knowledge").exists()
         assert (community_dir / "knowledge" / "community_graph.json").is_file()
         assert (community_dir / "knowledge" / "methods.json").is_file()
+        assert (community_dir / "knowledge" / "prior_outcomes.json").is_file()
+        assert (
+            community_dir / "knowledge" / "prior_context_distinction.json"
+        ).is_file()
         shortlist_path = community_dir / "knowledge" / "prior_shortlist.json"
         assert shortlist_path.is_file()
         shortlist = json.loads(shortlist_path.read_text(encoding="utf-8"))
@@ -982,6 +1152,12 @@ def main() -> None:
         )
         assert community_manifest["prior_shortlist"] == identity(
             shortlist_path, community_dir
+        )
+        assert community_manifest["prior_outcome_ledger"] == identity(
+            community_dir / "knowledge" / "prior_outcomes.json", community_dir
+        )
+        assert community_manifest["access_policy"]["prior_outcome_knowledge"] == (
+            "FROZEN_LEDGER_ONLY"
         )
         assert community_manifest["knowledge_realization_required"] is True
         assert not (control_dir / "input" / "oracle.json").exists()
@@ -1360,6 +1536,33 @@ def main() -> None:
         )
         assert community_assessment["metrics"]["method_realized_candidate_count"] == 2
         assert community_assessment["metrics"]["frontier_contract_passed"] is True
+
+        original_trial_manifest = json.loads(
+            (community_dir / "trial.json").read_text(encoding="utf-8")
+        )
+        original_shortlist = json.loads(
+            shortlist_path.read_text(encoding="utf-8")
+        )
+        tampered_shortlist = json.loads(json.dumps(original_shortlist))
+        tampered_shortlist["events"][0]["prior_outcome"][
+            "context_distinction_applied"
+        ] = False
+        atomic_json(shortlist_path, tampered_shortlist)
+        tampered_manifest = json.loads(json.dumps(original_trial_manifest))
+        tampered_manifest["prior_shortlist"] = identity(
+            shortlist_path, community_dir
+        )
+        atomic_json(community_dir / "trial.json", tampered_manifest)
+        try:
+            assess_trial(community_dir, ROOT)
+        except ValueError as error:
+            assert "guarded prior was selected without a context distinction" in str(
+                error
+            )
+        else:
+            raise AssertionError("a guarded prior bypass was accepted")
+        atomic_json(shortlist_path, original_shortlist)
+        atomic_json(community_dir / "trial.json", original_trial_manifest)
 
         # Exhausting either repair or causal-revision capacity is a real search
         # stop even when candidate/compile/measurement slots remain.  The

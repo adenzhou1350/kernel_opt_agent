@@ -51,7 +51,8 @@
       "properties": {
         "network": {"const": "DISABLED"},
         "community_knowledge": {"enum": ["WITHHELD", "FROZEN_GRAPH_ONLY"]},
-        "method_knowledge": {"enum": ["WITHHELD", "FROZEN_SNAPSHOT_ONLY"]}
+        "method_knowledge": {"enum": ["WITHHELD", "FROZEN_SNAPSHOT_ONLY"]},
+        "prior_outcome_knowledge": {"enum": ["WITHHELD", "FROZEN_LEDGER_ONLY"]}
       }
     },
     "source_checkout": {
@@ -74,6 +75,8 @@
     "task_support": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/identity"}},
     "community_graph": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
     "method_snapshot": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+    "prior_outcome_ledger": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+    "prior_context_distinction": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
     "prior_shortlist": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
     "knowledge_realization_required": {"type": "boolean"}
   },

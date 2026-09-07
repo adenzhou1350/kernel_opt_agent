@@ -80,6 +80,19 @@ Act as the isolated executor for this materialized optimization trial.
      Falling back to a familiar implementation does not count as method
      realization. Method cards are discovery priors, never target performance
      evidence.
+   - Treat prior-outcome routing as a fail-closed safety boundary. When
+     `knowledge/prior_outcomes.json` exists, use only the adjustments already
+     materialized into `knowledge/prior_shortlist.json`; do not recover a
+     screened-out event or method by scanning the full graph. A
+     `REQUIRE_CONTEXT_GUARD` prior may appear in the shortlist only when
+     `knowledge/prior_context_distinction.json` is present and hash-bound by
+     `trial.json`. Before realizing it, state which frozen material difference
+     breaks the failed-task causal path and test that distinction explicitly.
+     If the distinction is absent, irrelevant, or contradicted by local
+     evidence, record the corresponding prior as inapplicable and move to a
+     structurally different architecture. Outcome feedback is routing evidence,
+     never target performance evidence, and cannot justify skipping correctness
+     or held-out qualification.
    - Record `PRIOR_GATE_CLOSED` when local evidence makes retrieval negative
      expected value. Otherwise record `NO_RELEVANT_COMMUNITY_PRIOR` and/or
      `NO_RELEVANT_METHOD_PRIOR` independently when the corresponding source has

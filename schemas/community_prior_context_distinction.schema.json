@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_prior_context_distinction.schema.json",
+  "title": "Task-specific exception contract for guarded optimization priors",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "task_id",
+    "prior_outcome_ledger_sha256",
+    "exceptions"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-prior-context-distinction-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "ROUTING_EXCEPTION_NOT_PERFORMANCE_EVIDENCE"},
+    "task_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "prior_outcome_ledger_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "exceptions": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "prior_kind",
+          "prior_id",
+          "failed_task_ids",
+          "material_differences"
+        ],
+        "properties": {
+          "prior_kind": {"enum": ["EVENT", "METHOD"]},
+          "prior_id": {"type": "string", "minLength": 1},
+          "failed_task_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "material_differences": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["dimension", "failed_context", "current_context", "causal_rationale"],
+              "properties": {
+                "dimension": {
+                  "enum": [
+                    "OPERATOR_SEMANTICS",
+                    "NUMERICAL_CONTRACT",
+                    "WORKLOAD_SHAPES",
+                    "DATA_LAYOUT",
+                    "HARDWARE",
+                    "SOFTWARE_STACK",
+                    "CONCURRENCY",
+                    "EXECUTION_MODE"
+                  ]
+                },
+                "failed_context": {"type": "string", "minLength": 1},
+                "current_context": {"type": "string", "minLength": 1},
+                "causal_rationale": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

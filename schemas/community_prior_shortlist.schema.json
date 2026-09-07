@@ -16,7 +16,9 @@
         "task": {"$ref": "#/$defs/identity"},
         "environment": {"$ref": "#/$defs/identity"},
         "graph": {"$ref": "#/$defs/identity"},
-        "methods": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
+        "methods": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+        "prior_outcomes": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]},
+        "prior_context_distinction": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]}
       }
     },
     "policy": {
@@ -26,7 +28,18 @@
         "max_events": {"type": "integer", "minimum": 0, "maximum": 2},
         "max_methods": {"type": "integer", "minimum": 0, "maximum": 3},
         "minimum_token_hits": {"type": "integer", "minimum": 1},
-        "hard_gate_policy": {"const": "FAIL_CLOSED"}
+        "hard_gate_policy": {"const": "FAIL_CLOSED"},
+        "outcome_adjustments": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["UPRANK", "DOWNRANK", "UNCHANGED", "REQUIRE_CONTEXT_GUARD"],
+          "properties": {
+            "UPRANK": {"const": 1.0},
+            "DOWNRANK": {"const": -1.0},
+            "UNCHANGED": {"const": 0.0},
+            "REQUIRE_CONTEXT_GUARD": {"const": 0.0}
+          }
+        }
       }
     },
     "events": {"type": "array", "maxItems": 2, "items": {"$ref": "#/$defs/match"}},
@@ -49,8 +62,10 @@
       "properties": {
         "event_hard_gate": {"type": "integer", "minimum": 0},
         "event_low_relevance": {"type": "integer", "minimum": 0},
+        "event_prior_guard": {"type": "integer", "minimum": 0},
         "method_hard_gate": {"type": "integer", "minimum": 0},
         "method_low_relevance": {"type": "integer", "minimum": 0},
+        "method_prior_guard": {"type": "integer", "minimum": 0},
         "method_provenance_gate": {"type": "integer", "minimum": 0}
       }
     }
@@ -65,8 +80,22 @@
       "required": ["id", "score", "matched_terms", "record"],
       "properties": {
         "id": {"type": "string", "minLength": 1},
+        "base_score": {"type": "number", "minimum": 0},
         "score": {"type": "number", "minimum": 0},
         "matched_terms": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "prior_outcome": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["routing_adjustment", "score_delta", "observation_count", "task_count", "heldout_loss_count", "context_distinction_applied"],
+          "properties": {
+            "routing_adjustment": {"enum": ["NO_EVIDENCE", "REQUIRE_CONTEXT_GUARD", "DOWNRANK", "UPRANK", "UNCHANGED"]},
+            "score_delta": {"type": "number"},
+            "observation_count": {"type": "integer", "minimum": 0},
+            "task_count": {"type": "integer", "minimum": 0},
+            "heldout_loss_count": {"type": "integer", "minimum": 0},
+            "context_distinction_applied": {"type": "boolean"}
+          }
+        },
         "record": {"type": "object"}
       }
     }

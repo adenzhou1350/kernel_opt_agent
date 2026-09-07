@@ -20,6 +20,7 @@
     "claim_boundary": {"const": "EVALUATION_PROTOCOL_ONLY"},
     "training_graph": {"$ref": "#/$defs/identity"},
     "training_methods": {"$ref": "#/$defs/identity"},
+    "training_prior_outcomes": {"$ref": "#/$defs/identity"},
     "protocol": {
       "type": "object",
       "additionalProperties": false,
@@ -119,6 +120,7 @@
           "target_hardware": {"type": "string", "minLength": 1},
           "packet": {"$ref": "#/$defs/identity"},
           "hidden_oracle": {"$ref": "#/$defs/identity"},
+          "prior_context_distinction": {"$ref": "#/$defs/identity"},
           "support": {
             "type": "array",
             "uniqueItems": true,

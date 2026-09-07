@@ -46,6 +46,7 @@ PRESELECTION_ANCHOR_SCHEMA = "community-preselection-anchor-v1"
 PRESELECTION_CHAIN_AUDIT_SCHEMA = "community-preselection-chain-audit-v1"
 META_ANALYSIS_SCHEMA = "community-ab-meta-analysis-v1"
 PRIOR_OUTCOME_LEDGER_SCHEMA = "community-prior-outcome-ledger-v1"
+PRIOR_CONTEXT_DISTINCTION_SCHEMA = "community-prior-context-distinction-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -100,12 +101,84 @@ def prior_term_in_text(term: str, text: str) -> bool:
     return re.search(pattern, normalized_text) is not None
 
 
-def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: Path,
-                          methods_path: Path | None, output: Path, root: Path) -> dict:
+def prior_outcome_maps(
+    prior_outcomes: dict | None,
+    context_distinction: dict | None,
+) -> tuple[dict[tuple[str, str], dict], set[tuple[str, str]]]:
+    aggregates = {
+        (row["prior_kind"], row["prior_id"]): row
+        for row in (prior_outcomes or {}).get("aggregates", [])
+    }
+    exceptions = {
+        (row["prior_kind"], row["prior_id"])
+        for row in (context_distinction or {}).get("exceptions", [])
+    }
+    return aggregates, exceptions
+
+
+def apply_prior_outcome(
+    prior_kind: str,
+    prior_id: str,
+    base_score: float,
+    aggregates: dict[tuple[str, str], dict],
+    exceptions: set[tuple[str, str]],
+) -> tuple[float | None, dict]:
+    aggregate = aggregates.get((prior_kind, prior_id))
+    if aggregate is None:
+        return base_score, {
+            "routing_adjustment": "NO_EVIDENCE",
+            "score_delta": 0.0,
+            "observation_count": 0,
+            "task_count": 0,
+            "heldout_loss_count": 0,
+            "context_distinction_applied": False,
+        }
+    adjustment = aggregate["routing_adjustment"]
+    exception_applied = (
+        adjustment == "REQUIRE_CONTEXT_GUARD"
+        and (prior_kind, prior_id) in exceptions
+    )
+    # Keep task relevance primary: outcome feedback moves a prior by only one
+    # lexical-match equivalent rather than overriding the local diagnosis.
+    delta = {"UPRANK": 1.0, "DOWNRANK": -1.0}.get(adjustment, 0.0)
+    outcome = {
+        "routing_adjustment": adjustment,
+        "score_delta": delta,
+        "observation_count": aggregate["observation_count"],
+        "task_count": aggregate["task_count"],
+        "heldout_loss_count": aggregate["heldout_loss_count"],
+        "context_distinction_applied": exception_applied,
+    }
+    if adjustment == "REQUIRE_CONTEXT_GUARD" and not exception_applied:
+        return None, outcome
+    return max(0.0, base_score + delta), outcome
+
+
+def build_prior_shortlist(
+    task_path: Path,
+    environment_path: Path,
+    graph_path: Path,
+    methods_path: Path | None,
+    output: Path,
+    root: Path,
+    prior_outcomes_path: Path | None = None,
+    context_distinction_path: Path | None = None,
+) -> dict:
     task = read_object(task_path)
     environment = read_object(environment_path)
     graph = read_object(graph_path)
     methods = read_object(methods_path) if methods_path is not None else None
+    prior_outcomes = (
+        read_object(prior_outcomes_path) if prior_outcomes_path is not None else None
+    )
+    context_distinction = (
+        read_object(context_distinction_path)
+        if context_distinction_path is not None
+        else None
+    )
+    outcome_aggregates, context_exceptions = prior_outcome_maps(
+        prior_outcomes, context_distinction
+    )
     query = prior_tokens({"objective": task.get("objective"), "operator": task.get("operator"),
                           "workload": task.get("workload"), "baseline": task.get("baseline")})
     task_text = prior_scalar_text(task)
@@ -113,7 +186,9 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
     capability = target_compute_capability(environment)
     event_rows, method_rows = [], []
     rejected = {"event_hard_gate": 0, "event_low_relevance": 0,
+                "event_prior_guard": 0,
                 "method_hard_gate": 0, "method_low_relevance": 0,
+                "method_prior_guard": 0,
                 "method_provenance_gate": 0}
     graph_events = {node["event_id"]: node for node in graph["nodes"]}
     for node in graph["nodes"]:
@@ -130,8 +205,17 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
         if len(hits) < 2:
             rejected["event_low_relevance"] += 1
             continue
-        event_rows.append({"id": node["event_id"], "score": float(len(hits)),
-                           "matched_terms": hits, "record": node})
+        base_score = float(len(hits))
+        score, prior_outcome = apply_prior_outcome(
+            "EVENT", node["event_id"], base_score,
+            outcome_aggregates, context_exceptions,
+        )
+        if score is None:
+            rejected["event_prior_guard"] += 1
+            continue
+        event_rows.append({"id": node["event_id"], "base_score": base_score,
+                           "score": score, "matched_terms": hits,
+                           "prior_outcome": prior_outcome, "record": node})
     for card in (methods or {}).get("cards", []):
         if card["kind"] not in {
             "TRANSFORMATION",
@@ -176,9 +260,18 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
             "TRANSFORMATION": 2.0,
             "ORCHESTRATION": 1.0,
         }[card["kind"]]
+        base_score = float(len(hits)) + kind_bonus
+        score, prior_outcome = apply_prior_outcome(
+            "METHOD", card["method_id"], base_score,
+            outcome_aggregates, context_exceptions,
+        )
+        if score is None:
+            rejected["method_prior_guard"] += 1
+            continue
         method_rows.append({"id": card["method_id"],
-                            "score": float(len(hits)) + kind_bonus,
-                            "matched_terms": hits, "record": card})
+                            "base_score": base_score, "score": score,
+                            "matched_terms": hits,
+                            "prior_outcome": prior_outcome, "record": card})
     event_rows.sort(key=lambda row: (-row["score"], row["id"]))
     method_rows.sort(key=lambda row: (-row["score"], row["id"]))
     candidate_methods = [row for row in method_rows
@@ -211,9 +304,22 @@ def build_prior_shortlist(task_path: Path, environment_path: Path, graph_path: P
         "inputs": {"task": identity_for(task_path, task_path.parent.parent),
                    "environment": identity_for(environment_path, environment_path.parent.parent),
                    "graph": identity_for(graph_path, graph_path.parent.parent),
-                   "methods": identity_for(methods_path, methods_path.parent.parent) if methods_path else None},
+                   "methods": identity_for(methods_path, methods_path.parent.parent) if methods_path else None,
+                   "prior_outcomes": identity_for(
+                       prior_outcomes_path, prior_outcomes_path.parent.parent
+                   ) if prior_outcomes_path else None,
+                   "prior_context_distinction": identity_for(
+                       context_distinction_path,
+                       context_distinction_path.parent.parent,
+                   ) if context_distinction_path else None},
         "policy": {"max_events": 2, "max_methods": 3, "minimum_token_hits": 2,
-                   "hard_gate_policy": "FAIL_CLOSED"},
+                   "hard_gate_policy": "FAIL_CLOSED",
+                   "outcome_adjustments": {
+                       "UPRANK": 1.0,
+                       "DOWNRANK": -1.0,
+                       "UNCHANGED": 0.0,
+                       "REQUIRE_CONTEXT_GUARD": 0.0,
+                   }},
         "events": event_rows[:2], "methods": selected_methods,
         "routing": {
             "recommendation": routing_recommendation,
@@ -303,6 +409,55 @@ def validate_identity(base: Path, identity: dict, label: str) -> Path:
     return path
 
 
+def validate_prior_context_distinction(
+    contract_path: Path,
+    ledger_path: Path,
+    task_id: str,
+    root: Path,
+) -> dict:
+    errors = validate_json_file(
+        contract_path,
+        root / "schemas" / "community_prior_context_distinction.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid prior context distinction: " + "; ".join(errors))
+    contract = read_object(contract_path)
+    if contract["schema_version"] != PRIOR_CONTEXT_DISTINCTION_SCHEMA:
+        raise ValueError("unsupported prior context distinction schema")
+    if contract["task_id"] != task_id:
+        raise ValueError("prior context distinction task_id does not match suite task")
+    if contract["prior_outcome_ledger_sha256"] != sha256_file(ledger_path):
+        raise ValueError("prior context distinction binds a different outcome ledger")
+    ledger = read_object(ledger_path)
+    guarded = {
+        (row["prior_kind"], row["prior_id"]): row
+        for row in ledger["aggregates"]
+        if row["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+    }
+    seen: set[tuple[str, str]] = set()
+    for exception in contract["exceptions"]:
+        key = (exception["prior_kind"], exception["prior_id"])
+        if key in seen:
+            raise ValueError(f"duplicate prior context exception: {key}")
+        seen.add(key)
+        if key not in guarded:
+            raise ValueError(
+                f"prior context exception does not name a guarded prior: {key}"
+            )
+        failed_tasks = {
+            row["task_id"]
+            for row in ledger["observations"]
+            if (row["prior_kind"], row["prior_id"]) == key
+            and row["deltas"]["heldout_pass_count_gain"] is not None
+            and float(row["deltas"]["heldout_pass_count_gain"]) < 0
+        }
+        if set(exception["failed_task_ids"]) != failed_tasks:
+            raise ValueError(
+                f"prior context exception omits or invents failed tasks for {key}"
+            )
+    return contract
+
+
 def validate_suite(
     suite_path: Path, corpus: Path, root: Path | None = None
 ) -> dict:
@@ -362,6 +517,25 @@ def validate_suite(
         if len(card_ids) != len(set(card_ids)):
             raise ValueError("training method snapshot contains duplicate method ids")
         method_count = len(card_ids)
+    prior_outcome_path = None
+    if suite.get("training_prior_outcomes"):
+        prior_outcome_path = validate_identity(
+            base, suite["training_prior_outcomes"], "training prior outcome ledger"
+        )
+        prior_errors = validate_json_file(
+            prior_outcome_path,
+            root / "schemas" / "community_prior_outcome_ledger.schema.json",
+        )
+        if prior_errors:
+            raise ValueError(
+                "invalid training prior outcome ledger: " + "; ".join(prior_errors)
+            )
+        prior_outcomes = read_object(prior_outcome_path)
+        validate_prior_outcome_ledger_consistency(prior_outcomes)
+        if parse_time(prior_outcomes["generated_at"]) > cutoff:
+            raise ValueError(
+                "temporal leakage: prior outcome ledger was generated after cutoff"
+            )
     training_sources: set[tuple[str, int]] = set()
     for event_identity in graph["input_identity"]["events"]:
         event_path = validate_identity(corpus, event_identity, "training event")
@@ -395,6 +569,19 @@ def validate_suite(
         oracle_path = validate_identity(
             base, task["hidden_oracle"], f"hidden oracle {task['task_id']}"
         )
+        if task.get("prior_context_distinction") is not None:
+            if prior_outcome_path is None:
+                raise ValueError(
+                    "prior context distinction requires a training prior outcome ledger"
+                )
+            distinction_path = validate_identity(
+                base,
+                task["prior_context_distinction"],
+                f"prior context distinction {task['task_id']}",
+            )
+            validate_prior_context_distinction(
+                distinction_path, prior_outcome_path, task["task_id"], root
+            )
         if task_packet_contract == "STRICT_V2":
             packet_errors = validate_json_file(
                 packet_path, root / "schemas" / "community_heldout_task.schema.json"
@@ -1803,9 +1990,12 @@ def materialize_trial(
 
     graph_identity = None
     method_identity = None
+    prior_outcome_identity = None
+    prior_context_identity = None
     prior_shortlist_identity = None
     knowledge_policy = "WITHHELD"
     method_policy = "WITHHELD"
+    prior_outcome_policy = "WITHHELD"
     if arm == "COMMUNITY_AUGMENTED":
         (output / "knowledge").mkdir(parents=True, exist_ok=True)
         graph_source = validate_identity(
@@ -1823,6 +2013,29 @@ def materialize_trial(
             shutil.copyfile(method_source, method_target)
             method_identity = identity_for(method_target, output)
             method_policy = "FROZEN_SNAPSHOT_ONLY"
+        prior_outcome_target = None
+        if suite.get("training_prior_outcomes"):
+            prior_outcome_source = validate_identity(
+                suite_base,
+                suite["training_prior_outcomes"],
+                "training prior outcome ledger",
+            )
+            prior_outcome_target = output / "knowledge" / "prior_outcomes.json"
+            shutil.copyfile(prior_outcome_source, prior_outcome_target)
+            prior_outcome_identity = identity_for(prior_outcome_target, output)
+            prior_outcome_policy = "FROZEN_LEDGER_ONLY"
+        prior_context_target = None
+        if task.get("prior_context_distinction"):
+            prior_context_source = validate_identity(
+                suite_base,
+                task["prior_context_distinction"],
+                "prior context distinction",
+            )
+            prior_context_target = (
+                output / "knowledge" / "prior_context_distinction.json"
+            )
+            shutil.copyfile(prior_context_source, prior_context_target)
+            prior_context_identity = identity_for(prior_context_target, output)
         shortlist_target = output / "knowledge" / "prior_shortlist.json"
         build_prior_shortlist(
             task_target,
@@ -1831,6 +2044,8 @@ def materialize_trial(
             method_target if method_identity is not None else None,
             shortlist_target,
             root,
+            prior_outcome_target,
+            prior_context_target,
         )
         prior_shortlist_identity = identity_for(shortlist_target, output)
 
@@ -1858,6 +2073,7 @@ def materialize_trial(
             "network": "DISABLED",
             "community_knowledge": knowledge_policy,
             "method_knowledge": method_policy,
+            "prior_outcome_knowledge": prior_outcome_policy,
         },
         "source_checkout": {
             "repository": task["repository"],
@@ -1876,6 +2092,8 @@ def materialize_trial(
         "task_support": support_identities,
         "community_graph": graph_identity,
         "method_snapshot": method_identity,
+        "prior_outcome_ledger": prior_outcome_identity,
+        "prior_context_distinction": prior_context_identity,
         "prior_shortlist": prior_shortlist_identity,
         "knowledge_realization_required": arm == "COMMUNITY_AUGMENTED",
     }
@@ -2075,18 +2293,27 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
         raise ValueError("trial source revision must be a full lowercase commit hash")
     graph = trial["community_graph"]
     methods = trial.get("method_snapshot")
+    prior_outcomes = trial.get("prior_outcome_ledger")
+    prior_context = trial.get("prior_context_distinction")
     if trial["arm"] == "CONTROL":
         if (
             graph is not None
             or methods is not None
+            or prior_outcomes is not None
+            or prior_context is not None
             or trial.get("prior_shortlist") is not None
             or (trial_dir / "knowledge").exists()
         ):
             raise ValueError("control trial must not contain community knowledge")
+        if trial["access_policy"].get("prior_outcome_knowledge", "WITHHELD") != "WITHHELD":
+            raise ValueError("control trial must withhold prior outcome knowledge")
     else:
         if graph is None:
             raise ValueError("community trial is missing its frozen graph")
-        validate_identity(trial_dir, graph, "trial community graph")
+        graph_path = validate_identity(
+            trial_dir, graph, "trial community graph"
+        )
+        method_path = None
         if methods is not None:
             method_path = validate_identity(trial_dir, methods, "trial method snapshot")
             method_errors = validate_json_file(
@@ -2095,6 +2322,42 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
             )
             if method_errors:
                 raise ValueError("invalid trial method snapshot: " + "; ".join(method_errors))
+        prior_outcome_path = None
+        if prior_outcomes is not None:
+            prior_outcome_path = validate_identity(
+                trial_dir, prior_outcomes, "trial prior outcome ledger"
+            )
+            prior_errors = validate_json_file(
+                prior_outcome_path,
+                root / "schemas" / "community_prior_outcome_ledger.schema.json",
+            )
+            if prior_errors:
+                raise ValueError(
+                    "invalid trial prior outcome ledger: " + "; ".join(prior_errors)
+                )
+            validate_prior_outcome_ledger_consistency(
+                read_object(prior_outcome_path)
+            )
+            if trial["access_policy"].get("prior_outcome_knowledge") != "FROZEN_LEDGER_ONLY":
+                raise ValueError(
+                    "community trial prior outcome access policy is inconsistent"
+                )
+        elif trial["access_policy"].get("prior_outcome_knowledge", "WITHHELD") != "WITHHELD":
+            raise ValueError(
+                "community trial claims prior outcome access without a ledger"
+            )
+        prior_context_path = None
+        if prior_context is not None:
+            if prior_outcome_path is None:
+                raise ValueError(
+                    "trial prior context distinction requires an outcome ledger"
+                )
+            prior_context_path = validate_identity(
+                trial_dir, prior_context, "trial prior context distinction"
+            )
+            validate_prior_context_distinction(
+                prior_context_path, prior_outcome_path, trial["task_id"], root
+            )
         shortlist = trial.get("prior_shortlist")
         if shortlist is not None:
             shortlist_path = validate_identity(
@@ -2109,6 +2372,70 @@ def validate_trial(trial_dir: Path, root: Path | None = None) -> dict:
                     "invalid trial prior shortlist: "
                     + "; ".join(shortlist_errors)
                 )
+            shortlist_record = read_object(shortlist_path)
+            if shortlist_record["inputs"].get("prior_outcomes") != prior_outcomes:
+                raise ValueError("prior shortlist outcome-ledger identity mismatch")
+            if (
+                shortlist_record["inputs"].get("prior_context_distinction")
+                != prior_context
+            ):
+                raise ValueError("prior shortlist context-distinction identity mismatch")
+            selected = {
+                (kind, row["id"]): row
+                for kind, rows in (
+                    ("EVENT", shortlist_record["events"]),
+                    ("METHOD", shortlist_record["methods"]),
+                )
+                for row in rows
+            }
+            for key, row in selected.items():
+                outcome = row.get("prior_outcome")
+                if outcome is None:
+                    if prior_outcomes is not None:
+                        raise ValueError(
+                            f"prior shortlist lacks outcome routing for selected prior: {key}"
+                        )
+                    continue
+                if (
+                    outcome["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+                    and not outcome["context_distinction_applied"]
+                ):
+                    raise ValueError(
+                        f"guarded prior was selected without a context distinction: {key}"
+                    )
+            if prior_outcome_path is not None:
+                with tempfile.TemporaryDirectory() as temporary:
+                    expected_path = Path(temporary) / "prior_shortlist.json"
+                    expected = build_prior_shortlist(
+                        validate_identity(
+                            trial_dir, trial["task_input"], "trial task input"
+                        ),
+                        validate_identity(
+                            trial_dir,
+                            trial["environment_input"],
+                            "trial runtime environment",
+                        ),
+                        graph_path,
+                        method_path,
+                        expected_path,
+                        root,
+                        prior_outcome_path,
+                        prior_context_path,
+                    )
+                observed_stable = {
+                    key: value
+                    for key, value in shortlist_record.items()
+                    if key != "generated_at"
+                }
+                expected_stable = {
+                    key: value
+                    for key, value in expected.items()
+                    if key != "generated_at"
+                }
+                if observed_stable != expected_stable:
+                    raise ValueError(
+                        "prior shortlist is stale or bypasses frozen outcome routing"
+                    )
     return trial
 
 
@@ -2451,6 +2778,28 @@ def assess_trial(
 
     method_realization = result.get("method_realization")
     community_realization = result.get("knowledge_realization")
+    guarded_prior_ids: set[tuple[str, str]] = set()
+    context_exception_ids: set[tuple[str, str]] = set()
+    if trial.get("prior_outcome_ledger") is not None:
+        ledger_path = validate_identity(
+            trial_dir, trial["prior_outcome_ledger"], "trial prior outcome ledger"
+        )
+        ledger = read_object(ledger_path)
+        guarded_prior_ids = {
+            (row["prior_kind"], row["prior_id"])
+            for row in ledger["aggregates"]
+            if row["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+        }
+    if trial.get("prior_context_distinction") is not None:
+        distinction_path = validate_identity(
+            trial_dir,
+            trial["prior_context_distinction"],
+            "trial prior context distinction",
+        )
+        context_exception_ids = {
+            (row["prior_kind"], row["prior_id"])
+            for row in read_object(distinction_path)["exceptions"]
+        }
     community_disposition = None
     community_realized_candidate_count = 0
     if trial["arm"] == "CONTROL":
@@ -2475,6 +2824,17 @@ def assess_trial(
             )
         if not set(selected_event_ids).issubset(inspected_event_ids):
             raise ValueError("selected community events must be inspected events")
+        forbidden_guarded_events = {
+            event_id
+            for event_id in selected_event_ids
+            if ("EVENT", event_id) in guarded_prior_ids
+            and ("EVENT", event_id) not in context_exception_ids
+        }
+        if forbidden_guarded_events:
+            raise ValueError(
+                "selected community events bypassed a frozen context guard: "
+                + ", ".join(sorted(forbidden_guarded_events))
+            )
         realization_candidate_ids = community_realization["candidate_ids"]
         unknown_candidates = sorted(set(realization_candidate_ids) - candidate_ids)
         if unknown_candidates:
@@ -2550,6 +2910,13 @@ def assess_trial(
             if selected_method_id is None or selected_method_id not in inspected_method_ids:
                 raise ValueError(
                     "selected method must be one of the inspected snapshot methods"
+                )
+            if (
+                ("METHOD", selected_method_id) in guarded_prior_ids
+                and ("METHOD", selected_method_id) not in context_exception_ids
+            ):
+                raise ValueError(
+                    "selected method bypassed a frozen context guard"
                 )
             if method_realization["instantiation"] is None:
                 raise ValueError("selected method requires an operator instantiation")
@@ -3182,6 +3549,82 @@ def sign_counts(values: list[float | None]) -> dict:
     }
 
 
+def aggregate_prior_observations(observations: list[dict]) -> list[dict]:
+    grouped: dict[tuple[str, str], list[dict]] = {}
+    for row in observations:
+        grouped.setdefault((row["prior_kind"], row["prior_id"]), []).append(row)
+    aggregates = []
+    for (prior_kind, prior_id), rows in sorted(grouped.items()):
+        ttfc = sign_counts(
+            [row["deltas"]["time_to_first_correct_seconds_saved"] for row in rows]
+        )
+        speedup = sign_counts(
+            [row["deltas"]["best_speedup_gain"] for row in rows]
+        )
+        heldout_losses = sum(
+            row["deltas"]["heldout_pass_count_gain"] is not None
+            and float(row["deltas"]["heldout_pass_count_gain"]) < 0
+            for row in rows
+        )
+        if heldout_losses:
+            adjustment = "REQUIRE_CONTEXT_GUARD"
+        elif len(rows) >= 2 and ttfc["losses"] > ttfc["wins"] and (
+            speedup["losses"] >= speedup["wins"]
+        ):
+            adjustment = "DOWNRANK"
+        elif len(rows) >= 2 and ttfc["wins"] > ttfc["losses"] and (
+            speedup["wins"] >= speedup["losses"]
+        ):
+            adjustment = "UPRANK"
+        else:
+            adjustment = "UNCHANGED"
+        aggregates.append(
+            {
+                "prior_kind": prior_kind,
+                "prior_id": prior_id,
+                "observation_count": len(rows),
+                "task_count": len({row["task_id"] for row in rows}),
+                "ttfc": ttfc,
+                "best_speedup": speedup,
+                "heldout_loss_count": heldout_losses,
+                "routing_adjustment": adjustment,
+            }
+        )
+    return aggregates
+
+
+def validate_prior_outcome_ledger_consistency(ledger: dict) -> None:
+    expected_aggregates = aggregate_prior_observations(ledger["observations"])
+    if ledger["aggregates"] != expected_aggregates:
+        raise ValueError("prior outcome ledger aggregates do not match observations")
+    unique_pairs = {
+        (row["pair_identity"]["path"], row["pair_identity"]["sha256"])
+        for row in ledger["observations"]
+    }
+    expected_inventory = {
+        "primary_pair_count": len(unique_pairs),
+        "prior_observation_count": len(ledger["observations"]),
+        "event_prior_count": sum(
+            row["prior_kind"] == "EVENT" for row in expected_aggregates
+        ),
+        "method_prior_count": sum(
+            row["prior_kind"] == "METHOD" for row in expected_aggregates
+        ),
+        "guarded_prior_count": sum(
+            row["routing_adjustment"] == "REQUIRE_CONTEXT_GUARD"
+            for row in expected_aggregates
+        ),
+        "downranked_prior_count": sum(
+            row["routing_adjustment"] == "DOWNRANK" for row in expected_aggregates
+        ),
+        "upranked_prior_count": sum(
+            row["routing_adjustment"] == "UPRANK" for row in expected_aggregates
+        ),
+    }
+    if ledger["inventory"] != expected_inventory:
+        raise ValueError("prior outcome ledger inventory does not match observations")
+
+
 def build_prior_outcome_ledger(
     meta_path: Path, root: Path | None = None
 ) -> dict:
@@ -3283,46 +3726,7 @@ def build_prior_outcome_ledger(
             row["repeat_index"],
         )
     )
-    grouped: dict[tuple[str, str], list[dict]] = {}
-    for row in observations:
-        grouped.setdefault((row["prior_kind"], row["prior_id"]), []).append(row)
-    aggregates = []
-    for (prior_kind, prior_id), rows in sorted(grouped.items()):
-        ttfc = sign_counts(
-            [row["deltas"]["time_to_first_correct_seconds_saved"] for row in rows]
-        )
-        speedup = sign_counts(
-            [row["deltas"]["best_speedup_gain"] for row in rows]
-        )
-        heldout_losses = sum(
-            row["deltas"]["heldout_pass_count_gain"] is not None
-            and float(row["deltas"]["heldout_pass_count_gain"]) < 0
-            for row in rows
-        )
-        if heldout_losses:
-            adjustment = "REQUIRE_CONTEXT_GUARD"
-        elif len(rows) >= 2 and ttfc["losses"] > ttfc["wins"] and (
-            speedup["losses"] >= speedup["wins"]
-        ):
-            adjustment = "DOWNRANK"
-        elif len(rows) >= 2 and ttfc["wins"] > ttfc["losses"] and (
-            speedup["wins"] >= speedup["losses"]
-        ):
-            adjustment = "UPRANK"
-        else:
-            adjustment = "UNCHANGED"
-        aggregates.append(
-            {
-                "prior_kind": prior_kind,
-                "prior_id": prior_id,
-                "observation_count": len(rows),
-                "task_count": len({row["task_id"] for row in rows}),
-                "ttfc": ttfc,
-                "best_speedup": speedup,
-                "heldout_loss_count": heldout_losses,
-                "routing_adjustment": adjustment,
-            }
-        )
+    aggregates = aggregate_prior_observations(observations)
     result = {
         "schema_version": PRIOR_OUTCOME_LEDGER_SCHEMA,
         "generated_at": now(),
@@ -3358,6 +3762,7 @@ def build_prior_outcome_ledger(
     )
     if errors:
         raise ValueError("invalid prior outcome ledger: " + "; ".join(errors))
+    validate_prior_outcome_ledger_consistency(result)
     return result
 
 
@@ -3372,6 +3777,7 @@ def validate_prior_outcome_ledger(
     if errors:
         raise ValueError("invalid prior outcome ledger: " + "; ".join(errors))
     ledger = read_object(ledger_path)
+    validate_prior_outcome_ledger_consistency(ledger)
     meta_identity = ledger["meta_analysis_identity"]
     meta_path = Path(meta_identity["path"])
     if not meta_path.is_file() or sha256_file(meta_path) != meta_identity["sha256"]:
