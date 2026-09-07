@@ -14,12 +14,44 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_window_assemble import (  # noqa: E402
     REPOSITORIES,
+    command_label,
+    command_timing,
     output_collisions,
     output_paths,
     validate_deferred_request,
     validate_novelty_deferred,
     validate_receipt_window,
 )
+
+
+def test_command_timing_preserves_stage_boundaries() -> None:
+    commands = [
+        {
+            "argv": ["python", "community_evaluation.py", "build-heldout-queue"],
+            "started_at": "2026-09-07T16:00:00+00:00",
+            "ended_at": "2026-09-07T16:00:02+00:00",
+            "elapsed_seconds": 2.0,
+        },
+        {
+            "argv": ["python", "community_task_novelty.py", "build"],
+            "started_at": "2026-09-07T16:00:02+00:00",
+            "ended_at": "2026-09-07T16:00:03+00:00",
+            "elapsed_seconds": 1.0,
+        },
+    ]
+    timing = command_timing(commands)
+    assert timing["execution"] == "SEQUENTIAL_SUBPROCESSES"
+    assert timing["total_seconds"] == 3.0
+    assert [entry["name"] for entry in timing["commands"]] == [
+        "community_evaluation:build-heldout-queue",
+        "community_task_novelty:build",
+    ]
+
+
+def test_git_command_label_skips_worktree_argument() -> None:
+    assert command_label(["git", "-C", "repo", "diff", "--exit-code"]) == (
+        "git:diff"
+    )
 
 
 def write_receipt(

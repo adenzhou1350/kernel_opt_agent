@@ -9,6 +9,7 @@ import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
+from time import perf_counter
 
 from community_knowledge import atomic_json, now, read_object, sha256_file
 
@@ -27,6 +28,7 @@ def identity(path: Path) -> dict:
 
 def run(argv: list[str], timeout: float) -> dict:
     started = datetime.now().astimezone().isoformat()
+    started_clock = perf_counter()
     completed = subprocess.run(
         argv,
         check=False,
@@ -34,9 +36,13 @@ def run(argv: list[str], timeout: float) -> dict:
         text=True,
         timeout=timeout,
     )
+    elapsed_seconds = perf_counter() - started_clock
+    ended = datetime.now().astimezone().isoformat()
     result = {
         "argv": argv,
         "started_at": started,
+        "ended_at": ended,
+        "elapsed_seconds": elapsed_seconds,
         "returncode": completed.returncode,
         "stdout": completed.stdout,
         "stderr": completed.stderr,
@@ -44,6 +50,39 @@ def run(argv: list[str], timeout: float) -> dict:
     if completed.returncode:
         raise RuntimeError(json.dumps(result, sort_keys=True))
     return result
+
+
+def command_label(argv: list[str]) -> str:
+    executable = Path(argv[0]).stem.lower()
+    if executable == "git":
+        try:
+            command_index = argv.index("-C") + 2
+        except ValueError:
+            command_index = 1
+        command = argv[command_index] if command_index < len(argv) else "unknown"
+        return f"git:{command}"
+    if len(argv) >= 2:
+        script = Path(argv[1]).stem
+        command = argv[2] if len(argv) >= 3 else "main"
+        return f"{script}:{command}"
+    return executable
+
+
+def command_timing(commands: list[dict]) -> dict:
+    entries = [
+        {
+            "name": command_label(command["argv"]),
+            "started_at": command["started_at"],
+            "ended_at": command["ended_at"],
+            "elapsed_seconds": command["elapsed_seconds"],
+        }
+        for command in commands
+    ]
+    return {
+        "execution": "SEQUENTIAL_SUBPROCESSES",
+        "total_seconds": sum(entry["elapsed_seconds"] for entry in entries),
+        "commands": entries,
+    }
 
 
 def validate_receipt_window(receipts: list[Path]) -> tuple[str, str]:
@@ -458,6 +497,7 @@ def assemble(args: argparse.Namespace) -> dict:
             "policy": "ONLY_NEW_SELECTED_KEYS",
         },
         "command_count": len(commands),
+        "command_timing": command_timing(commands),
         "status": "PASS",
     }
     if args.next_checkpoint is not None:
