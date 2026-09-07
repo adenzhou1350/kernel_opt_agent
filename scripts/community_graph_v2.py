@@ -82,6 +82,142 @@ def git_method_universe(root: Path, commit: str) -> tuple[set[str], list[dict]]:
     return method_ids, identities
 
 
+def git_relation_universe(
+    root: Path, commit: str
+) -> tuple[list[dict], list[dict], dict | None]:
+    names = git_bytes(
+        root,
+        "ls-tree",
+        "-r",
+        "--name-only",
+        commit,
+        "--",
+        "knowledge/community/relations",
+    ).decode("utf-8")
+    paths = sorted(path for path in names.splitlines() if path.endswith(".json"))
+    if not paths:
+        return [], [], None
+    schema_relative = "schemas/community_relation_observation.schema.json"
+    schema_payload = git_bytes(root, "show", f"{commit}:{schema_relative}")
+    schema = json.loads(schema_payload.decode("utf-8"))
+    schema_identity = {
+        "path": schema_relative,
+        "sha256": hashlib.sha256(schema_payload).hexdigest(),
+    }
+    observations = []
+    identities = []
+    observation_ids = set()
+    for relative in paths:
+        payload = git_bytes(root, "show", f"{commit}:{relative}")
+        observation = json.loads(payload.decode("utf-8"))
+        errors = validate_instance(observation, schema)
+        if errors:
+            raise ValueError(
+                f"invalid relation observation {relative}: " + "; ".join(errors)
+            )
+        observation_id = observation["observation_id"]
+        if observation_id in observation_ids:
+            raise ValueError(f"duplicate relation observation id: {observation_id}")
+        observation_ids.add(observation_id)
+        observations.append(observation)
+        identities.append(
+            {"path": relative, "sha256": hashlib.sha256(payload).hexdigest()}
+        )
+    return observations, identities, schema_identity
+
+
+def resolve_relation_observations(
+    observations: list[dict],
+    checkpoint_events: dict[str, tuple[dict, str]],
+    known_events: set[str],
+    current_event_ids: set[str],
+    knowledge_cutoff: datetime,
+    anchor_committed_at: datetime,
+) -> tuple[list[dict], dict[str, dict]]:
+    edges = []
+    compositions = {}
+    seen_relations = set()
+    for observation in observations:
+        source = observation["source"]
+        target = observation["target"]
+        if source == target:
+            raise ValueError(
+                f"relation observation is self-referential: {observation['observation_id']}"
+            )
+        endpoints = {source, target}
+        if not endpoints.issubset(checkpoint_events):
+            missing = sorted(endpoints - set(checkpoint_events))
+            raise ValueError(
+                f"relation observation references events outside checkpoint: {missing}"
+            )
+        evidence = {row["event_id"]: row for row in observation["evidence"]}
+        if set(evidence) != endpoints or len(evidence) != 2:
+            raise ValueError(
+                "relation observation evidence must bind both endpoints exactly: "
+                + observation["observation_id"]
+            )
+        observation_available = parse_time(
+            observation["available_at"], "available_at"
+        )
+        for event_id in endpoints:
+            event, source_public_at = checkpoint_events[event_id]
+            if observation_available < parse_time(
+                source_public_at, "source_public_at"
+            ):
+                raise ValueError(
+                    "relation observation predates endpoint source: "
+                    + observation["observation_id"]
+                )
+            claims = {claim["claim_id"] for claim in event["claims"]}
+            unknown_claims = set(evidence[event_id]["claim_ids"]) - claims
+            if unknown_claims:
+                raise ValueError(
+                    f"relation observation references unknown claims for {event_id}: "
+                    f"{sorted(unknown_claims)}"
+                )
+        effective_available_at = max(observation_available, anchor_committed_at)
+        if effective_available_at > knowledge_cutoff or not endpoints.issubset(
+            known_events
+        ):
+            continue
+        relation_key = (source, observation["relation"], target)
+        if relation_key in seen_relations:
+            raise ValueError(f"duplicate relation observation: {relation_key}")
+        seen_relations.add(relation_key)
+        edges.append(
+            {
+                "source": source,
+                "type": observation["relation"],
+                "target": target,
+                "target_kind": "EVENT",
+                "resolution": "PRESENT",
+                "rationale": observation["rationale"],
+                "observation_id": observation["observation_id"],
+                "available_at": effective_available_at.isoformat(),
+            }
+        )
+        if (
+            observation["relation"] == "COMPLEMENTS"
+            and endpoints.issubset(current_event_ids)
+        ):
+            pair = sorted(endpoints)
+            hypothesis_id = stable_identifier(
+                {"relation": "COMPLEMENTS", "events": pair}
+            )
+            compositions[hypothesis_id] = {
+                "hypothesis_id": hypothesis_id,
+                "events": pair,
+                "relation": "COMPLEMENTS",
+                "rationale": observation["rationale"],
+                "claim_boundary": "UNVALIDATED_COMPOSITION_HYPOTHESIS",
+                "observation_id": observation["observation_id"],
+                "available_at": effective_available_at.isoformat(),
+                "required_context": observation["required_context"],
+                "falsification_recipe": observation["falsification_recipe"],
+            }
+    return edges, compositions
+
+
 def lifecycle_observation(
     corpus: Path,
     event: dict,
@@ -181,10 +317,13 @@ def build_graph(
         raise ValueError("repository universe must contain owner/name values")
 
     all_event_ids = {row["event_id"] for row in checkpoint["events"]}
+    checkpoint_events: dict[str, tuple[dict, str]] = {}
     selected: list[tuple[dict, str, dict]] = []
     excluded = []
     for row in checkpoint["events"]:
         available_at = row["source_public_at"]
+        event = read_object(resolve_in(corpus, row["event"]["path"]))
+        checkpoint_events[row["event_id"]] = (event, available_at)
         if parse_time(available_at, "source_public_at") > source_cutoff:
             excluded.append(
                 {
@@ -194,7 +333,6 @@ def build_graph(
                 }
             )
             continue
-        event = read_object(resolve_in(corpus, row["event"]["path"]))
         observation = lifecycle_observation(
             corpus,
             event,
@@ -230,6 +368,13 @@ def build_graph(
         for event, _, observation in selected
         if observation["status"] == "CURRENT"
     }
+    (
+        relation_observations,
+        relation_identities,
+        relation_schema_identity,
+    ) = git_relation_universe(
+        root, anchor_validation["commit"]
+    )
     edges = []
     compositions: dict[str, dict] = {}
     for event, _, _ in selected:
@@ -271,6 +416,29 @@ def build_graph(
                     "rationale": relation["rationale"],
                     "claim_boundary": "UNVALIDATED_COMPOSITION_HYPOTHESIS",
                 }
+
+    observed_edges, observed_compositions = resolve_relation_observations(
+        relation_observations,
+        checkpoint_events,
+        known_events,
+        current_event_ids,
+        knowledge_cutoff,
+        parse_time(anchor_validation["committed_at"], "anchor.committed_at"),
+    )
+    event_relation_keys = {
+        (edge["source"], edge["type"], edge["target"]) for edge in edges
+    }
+    for edge in observed_edges:
+        key = (edge["source"], edge["type"], edge["target"])
+        if key in event_relation_keys:
+            raise ValueError(f"relation observation duplicates event relation: {key}")
+        edges.append(edge)
+    for hypothesis_id, hypothesis in observed_compositions.items():
+        if hypothesis_id in compositions:
+            raise ValueError(
+                f"relation observation duplicates composition: {hypothesis_id}"
+            )
+        compositions[hypothesis_id] = hypothesis
 
     coverage: dict[tuple[str, str], dict[str, set[str]]] = {}
     for node in nodes:
@@ -344,6 +512,11 @@ def build_graph(
             compositions.values(), key=lambda item: item["hypothesis_id"]
         ),
     }
+    if relation_identities:
+        graph["input_identity"]["relation_observations"] = relation_identities
+        graph["input_identity"]["relation_observation_schema"] = (
+            relation_schema_identity
+        )
     validate_graph_structure(graph, root)
     return graph
 

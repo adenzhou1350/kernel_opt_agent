@@ -166,6 +166,16 @@ still not permission to compile or benchmark.
 The graph also resolves each immutable event against the newest PR snapshot
 visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.
 
+Relations discovered after both source events are reviewed are stored as
+append-only `community-relation-observation-v1` files under
+`knowledge/community/relations/`. They are loaded from the graph anchor's Git
+commit, never from mutable working-tree files. Each observation must bind both
+endpoint events and explicit claim IDs, state its required context and include
+a falsification recipe. The graph uses the later of the declared availability
+time and anchor commit time, so backdating a new relation cannot leak it into an
+older cohort. These records create discovery hypotheses only; they are not
+evidence of combined speedup.
+
 Before describing a checkpoint as a reusable knowledge base, run
 `community-coverage-audit` with a frozen coverage policy. The audit requires
 explicit merged, open, closed-unmerged, reverted and regression-followup

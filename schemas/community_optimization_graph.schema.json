@@ -112,7 +112,9 @@
           "target": {"type": "string", "minLength": 1},
           "target_kind": {"enum": ["EVENT", "METHOD"]},
           "resolution": {"enum": ["PRESENT", "MISSING"]},
-          "rationale": {"type": "string", "minLength": 1}
+          "rationale": {"type": "string", "minLength": 1},
+          "observation_id": {"type": "string", "minLength": 1},
+          "available_at": {"type": "string", "format": "date-time"}
         }
       }
     },
@@ -144,7 +146,11 @@
           "events": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string"}},
           "relation": {"const": "COMPLEMENTS"},
           "rationale": {"type": "string", "minLength": 1},
-          "claim_boundary": {"const": "UNVALIDATED_COMPOSITION_HYPOTHESIS"}
+          "claim_boundary": {"const": "UNVALIDATED_COMPOSITION_HYPOTHESIS"},
+          "observation_id": {"type": "string", "minLength": 1},
+          "available_at": {"type": "string", "format": "date-time"},
+          "required_context": {"$ref": "#/$defs/strings"},
+          "falsification_recipe": {"$ref": "#/$defs/strings"}
         }
       }
     }

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_relation_observation.schema.json",
+  "title": "Append-only reviewed relation between immutable community events",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observation_id",
+    "available_at",
+    "review_status",
+    "claim_boundary",
+    "source",
+    "relation",
+    "target",
+    "rationale",
+    "required_context",
+    "falsification_recipe",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-relation-observation-v1"},
+    "observation_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9_.-]+$"},
+    "available_at": {"type": "string", "format": "date-time"},
+    "review_status": {"const": "REVIEWED"},
+    "claim_boundary": {"const": "DISCOVERY_PRIOR_ONLY_NOT_COMBINED_PERFORMANCE_EVIDENCE"},
+    "source": {"type": "string", "minLength": 1},
+    "relation": {
+      "enum": [
+        "REQUIRES",
+        "COMPLEMENTS",
+        "CONFLICTS",
+        "SUBSUMES",
+        "PORTED_FROM",
+        "SUPERSEDED_BY",
+        "REVERTED_BY",
+        "REGRESSION_OF"
+      ]
+    },
+    "target": {"type": "string", "minLength": 1},
+    "rationale": {"type": "string", "minLength": 1},
+    "required_context": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "falsification_recipe": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "claim_ids"],
+        "properties": {
+          "event_id": {"type": "string", "minLength": 1},
+          "claim_ids": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}

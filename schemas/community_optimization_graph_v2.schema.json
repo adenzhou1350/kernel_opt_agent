@@ -37,6 +37,13 @@
         "method_cards": {
           "type": "array",
           "items": {"$ref": "#/$defs/identity"}
+        },
+        "relation_observations": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity"}
+        },
+        "relation_observation_schema": {
+          "$ref": "#/$defs/identity"
         }
       }
     },

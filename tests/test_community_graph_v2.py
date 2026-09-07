@@ -14,7 +14,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_checkpoint import build_anchor  # noqa: E402
-from community_graph_v2 import build_graph, validate_graph  # noqa: E402
+from community_graph_v2 import (  # noqa: E402
+    build_graph,
+    parse_time,
+    resolve_relation_observations,
+    validate_graph,
+)
 from community_knowledge import atomic_json  # noqa: E402
 from schema_utils import validate_instance  # noqa: E402
 
@@ -129,3 +134,74 @@ def test_temporal_suite_v2_requires_the_complete_knowledge_chain() -> None:
         {"schema_version": "community-temporal-suite-v1"}, schema
     )
     assert not any("knowledge_checkpoint_anchor" in error for error in v1_errors)
+
+
+def test_relation_observation_is_temporal_claim_bound_and_context_guarded() -> None:
+    first = {
+        "event_id": "repo-a.pr-1.first",
+        "claims": [{"claim_id": "first-claim"}],
+    }
+    second = {
+        "event_id": "repo-b.pr-2.second",
+        "claims": [{"claim_id": "second-claim"}],
+    }
+    checkpoint_events = {
+        first["event_id"]: (first, "2026-09-01T00:00:00Z"),
+        second["event_id"]: (second, "2026-09-02T00:00:00Z"),
+    }
+    observation = {
+        "observation_id": "cross-project.v1",
+        "available_at": "2026-09-03T00:00:00Z",
+        "source": first["event_id"],
+        "relation": "COMPLEMENTS",
+        "target": second["event_id"],
+        "rationale": "The methods remove different sequential stages.",
+        "required_context": ["Both stages occur in one weighted workload."],
+        "falsification_recipe": ["Measure isolated and combined arms."],
+        "evidence": [
+            {"event_id": first["event_id"], "claim_ids": ["first-claim"]},
+            {"event_id": second["event_id"], "claim_ids": ["second-claim"]},
+        ],
+    }
+    known = set(checkpoint_events)
+    edges, compositions = resolve_relation_observations(
+        [observation],
+        checkpoint_events,
+        known,
+        known,
+        parse_time("2026-09-05T00:00:00Z", "cutoff"),
+        parse_time("2026-09-04T00:00:00Z", "commit"),
+    )
+    assert len(edges) == 1
+    assert len(compositions) == 1
+    composition = next(iter(compositions.values()))
+    assert composition["available_at"] == "2026-09-04T00:00:00+00:00"
+    assert composition["required_context"] == observation["required_context"]
+
+    edges, compositions = resolve_relation_observations(
+        [observation],
+        checkpoint_events,
+        known,
+        known,
+        parse_time("2026-09-03T12:00:00Z", "cutoff"),
+        parse_time("2026-09-04T00:00:00Z", "commit"),
+    )
+    assert edges == []
+    assert compositions == {}
+
+    invalid = dict(observation)
+    invalid["evidence"] = [dict(row) for row in observation["evidence"]]
+    invalid["evidence"][0]["claim_ids"] = ["unknown"]
+    try:
+        resolve_relation_observations(
+            [invalid],
+            checkpoint_events,
+            known,
+            known,
+            parse_time("2026-09-05T00:00:00Z", "cutoff"),
+            parse_time("2026-09-04T00:00:00Z", "commit"),
+        )
+    except ValueError as error:
+        assert "unknown claims" in str(error)
+    else:
+        raise AssertionError("relation observation accepted an unknown claim")

@@ -1,0 +1,39 @@
+{
+  "schema_version": "community-relation-observation-v1",
+  "observation_id": "sglang-38117-complements-vllm-55494.v1",
+  "available_at": "2026-09-07T12:09:42.0810058Z",
+  "review_status": "REVIEWED",
+  "claim_boundary": "DISCOVERY_PRIOR_ONLY_NOT_COMBINED_PERFORMANCE_EVIDENCE",
+  "source": "sglang.pr-38117.gumbel-sampler-dispatch",
+  "relation": "COMPLEMENTS",
+  "target": "vllm.pr-55494.lossless-packed-bf16-lm-head",
+  "rationale": "The methods remove distinct sequential low-batch decode costs: exact packed BF16 projection reduces lm_head weight traffic before token selection, while the exponential-race sampler removes general multinomial dispatch and validation after probabilities are produced. They are a transferable cross-framework composition hypothesis, not competing rewrites of the same work.",
+  "required_context": [
+    "Port both methods into one serving stack; source code from two frameworks is not directly composable.",
+    "Use an unquantized BF16 lm_head that satisfies the exact-packing guard and unseeded stochastic sampling that satisfies the exponential-race guard.",
+    "Measure the production-weighted share of both stages and reject the composition when its Amdahl ceiling is below 1.02x.",
+    "Preserve the stock lm_head path, deterministic seeded sampling, and rollout controls as independent fallbacks."
+  ],
+  "falsification_recipe": [
+    "Benchmark baseline, packed-lm-head-only, sampler-only, and combined arms under one model, hardware, batch distribution, and sampling policy.",
+    "Require exact packed-weight reconstruction and logits agreement for the projection path.",
+    "Use a statistical goodness-of-fit test for stochastic samples and exact equality for the seeded fallback.",
+    "Reject the composition if either guard rarely fires, one rewrite removes the other's measured share, or combined end-to-end speedup is below 1.02x."
+  ],
+  "evidence": [
+    {
+      "event_id": "sglang.pr-38117.gumbel-sampler-dispatch",
+      "claim_ids": [
+        "unseeded-exponential-race-rewrite",
+        "source-reported-5090-throughput"
+      ]
+    },
+    {
+      "event_id": "vllm.pr-55494.lossless-packed-bf16-lm-head",
+      "claim_ids": [
+        "exact-packed-reconstruction",
+        "review-risks-remediated"
+      ]
+    }
+  ]
+}
