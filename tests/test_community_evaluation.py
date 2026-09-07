@@ -20,6 +20,7 @@ from community_evaluation import (
     audit_task_packets,
     audit_codex_execution,
     assess_trial,
+    build_feasibility_screen,
     build_heldout_queue,
     build_prior_shortlist,
     compare_trials,
@@ -34,6 +35,7 @@ from community_evaluation import (
     validate_source_receipt,
     validate_schedule,
     validate_qualification_checkpoint,
+    validate_feasibility_screen,
     validate_heldout_queue,
     validate_suite,
 )
@@ -442,6 +444,131 @@ def main() -> None:
             ROOT,
         )
         atomic_json(heldout_queue_path, heldout_queue)
+
+        feasibility_queue = build_heldout_queue(
+            [selection_receipt_path],
+            selection_graph_path,
+            selection_methods_path,
+            corpus,
+            selection_cutoff,
+            3,
+            20260907,
+            ROOT,
+        )
+        atomic_json(heldout_queue_path, feasibility_queue)
+        feasibility_policy_path = base / "feasibility-policy.json"
+        atomic_json(
+            feasibility_policy_path,
+            {
+                "schema_version": "community-feasibility-policy-v1",
+                "policy_id": "test-metadata-policy",
+                "declared_at": "2027-01-01T00:00:00Z",
+                "claim_boundary": "DISCOVERY_METADATA_FEASIBILITY_ONLY",
+                "default_rule": {
+                    "task_family": "GENERAL_KERNEL",
+                    "requirements": {
+                        "vendors_any": ["NVIDIA"],
+                        "capabilities_all": ["CUDA"],
+                        "minimum_gpu_count": 1,
+                        "minimum_memory_gib_per_gpu": 1,
+                    },
+                    "reason": "DECLARED_RESOURCE_AND_HARNESS_READY",
+                },
+                "rules": [
+                    {
+                        "rule_id": "amd-only",
+                        "priority": 1,
+                        "match": {"title_regex": "another future regression"},
+                        "task_family": "AMD_KERNEL",
+                        "requirements": {
+                            "vendors_any": ["AMD"],
+                            "capabilities_all": ["ROCM"],
+                            "minimum_gpu_count": 1,
+                            "minimum_memory_gib_per_gpu": 1,
+                        },
+                        "reason": "REQUIRES_AMD_ROCM",
+                    },
+                    {
+                        "rule_id": "analysis-only",
+                        "priority": 2,
+                        "match": {"classifications_any": ["DATA_MOVEMENT"]},
+                        "task_family": "ANALYSIS_VISUALIZATION",
+                        "requirements": {
+                            "vendors_any": [],
+                            "capabilities_all": [],
+                            "minimum_gpu_count": 1,
+                            "minimum_memory_gib_per_gpu": 0,
+                        },
+                        "forced_status": "HARNESS_BLOCKED",
+                        "reason": "NO_RUNTIME_PERFORMANCE_TARGET",
+                    },
+                ],
+            },
+        )
+        feasibility_profile_path = base / "execution-profile.json"
+        atomic_json(
+            feasibility_profile_path,
+            {
+                "schema_version": "community-execution-profile-v1",
+                "profile_id": "test-local-nvidia",
+                "observed_at": "2026-01-03T13:00:00Z",
+                "claim_boundary": "DECLARED_AVAILABILITY_NOT_LIVE_PROOF",
+                "resources": [
+                    {
+                        "resource_id": "local-sm89",
+                        "availability": "AVAILABLE",
+                        "vendor": "NVIDIA",
+                        "architecture": "sm89",
+                        "gpu_count": 1,
+                        "memory_gib_per_gpu": 8,
+                        "capabilities": ["CUDA"],
+                        "constraints": [],
+                    }
+                ],
+                "harnesses": [
+                    {
+                        "repository": "example/project",
+                        "task_family": "GENERAL_KERNEL",
+                        "status": "READY",
+                        "reason": "TEST_HARNESS_READY",
+                    }
+                ],
+            },
+        )
+        feasibility_screen_path = base / "feasibility-screen.json"
+        feasibility_screen = build_feasibility_screen(
+            heldout_queue_path,
+            feasibility_policy_path,
+            feasibility_profile_path,
+            corpus,
+            ROOT,
+        )
+        atomic_json(feasibility_screen_path, feasibility_screen)
+        assert feasibility_screen["registration"] == "POST_SELECTION_PILOT"
+        assert feasibility_screen["inventory"] == {
+            "selected_queue_count": 3,
+            "eligible_count": 1,
+            "infeasible_count": 1,
+            "harness_blocked_count": 1,
+        }
+        assert {row["status"] for row in feasibility_screen["items"]} == {
+            "ELIGIBLE",
+            "INFEASIBLE",
+            "HARNESS_BLOCKED",
+        }
+        assert validate_feasibility_screen(
+            feasibility_screen_path, corpus, ROOT
+        )["status"] == "PASS"
+        tampered_screen = json.loads(json.dumps(feasibility_screen))
+        tampered_screen["items"][0]["reason"] = "EDITED"
+        atomic_json(feasibility_screen_path, tampered_screen)
+        try:
+            validate_feasibility_screen(feasibility_screen_path, corpus, ROOT)
+        except ValueError as error:
+            assert "stale or was edited" in str(error)
+        else:
+            raise AssertionError("edited feasibility screen was accepted")
+        atomic_json(feasibility_screen_path, feasibility_screen)
         assert heldout_queue["inventory"] == {
             "receipt_candidate_count": 4,
             "deduplicated_count": 4,

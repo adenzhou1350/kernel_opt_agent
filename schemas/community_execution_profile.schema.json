@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_execution_profile.schema.json",
+  "title": "Declared execution resources and harness readiness",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "profile_id", "observed_at", "claim_boundary", "resources", "harnesses"],
+  "properties": {
+    "schema_version": {"const": "community-execution-profile-v1"},
+    "profile_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DECLARED_AVAILABILITY_NOT_LIVE_PROOF"},
+    "resources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resource_id", "availability", "vendor", "architecture", "gpu_count", "memory_gib_per_gpu", "capabilities", "constraints"],
+        "properties": {
+          "resource_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "availability": {"enum": ["AVAILABLE", "RESERVED", "SHARED_NO_DISRUPTION", "UNREACHABLE"]},
+          "vendor": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+          "architecture": {"type": "string", "minLength": 1},
+          "gpu_count": {"type": "integer", "minimum": 1},
+          "memory_gib_per_gpu": {"type": "number", "exclusiveMinimum": 0},
+          "capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+          "constraints": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "harnesses": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "task_family", "status", "reason"],
+        "properties": {
+          "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+          "task_family": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+          "status": {"enum": ["READY", "MISSING", "UNKNOWN"]},
+          "reason": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}
+        }
+      }
+    }
+  }
+}

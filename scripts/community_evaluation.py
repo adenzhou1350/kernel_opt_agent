@@ -41,6 +41,7 @@ TASK_PACKET_AUDIT_SCHEMA = "community-task-packet-audit-v1"
 PRIOR_SHORTLIST_SCHEMA = "community-prior-shortlist-v1"
 FRONTIER_CONTRACT_SCHEMA = "community-frontier-contract-v1"
 HELDOUT_QUEUE_SCHEMA = "community-heldout-queue-v1"
+FEASIBILITY_SCREEN_SCHEMA = "community-feasibility-screen-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -736,6 +737,210 @@ def validate_heldout_queue(
     if observed_stable != expected_stable:
         raise ValueError("held-out queue is stale or was edited without recomputation")
     return {"status": "PASS", **queue["inventory"]}
+
+
+def rule_matches_candidate(rule: dict, candidate: dict) -> bool:
+    match = rule.get("match", {})
+    repositories = match.get("repositories")
+    if repositories is not None and candidate["repository"] not in repositories:
+        return False
+    classifications = match.get("classifications_any")
+    if classifications is not None and not (
+        set(classifications) & set(candidate["classifications"])
+    ):
+        return False
+    title_regex = match.get("title_regex")
+    if title_regex is not None and re.search(
+        title_regex, candidate["title"], flags=re.IGNORECASE
+    ) is None:
+        return False
+    return True
+
+
+def resource_satisfies(resource: dict, requirements: dict) -> bool:
+    vendors = requirements["vendors_any"]
+    return (
+        (not vendors or resource["vendor"] in vendors)
+        and set(requirements["capabilities_all"]) <= set(resource["capabilities"])
+        and resource["gpu_count"] >= requirements["minimum_gpu_count"]
+        and resource["memory_gib_per_gpu"]
+        >= requirements["minimum_memory_gib_per_gpu"]
+    )
+
+
+def build_feasibility_screen(
+    queue_path: Path,
+    policy_path: Path,
+    profile_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+) -> dict:
+    """Account for every selected task using frozen discovery metadata only."""
+    root = root or repository_root()
+    queue_path = queue_path.resolve()
+    policy_path = policy_path.resolve()
+    profile_path = profile_path.resolve()
+    validate_heldout_queue(queue_path, corpus, root)
+    for path, schema_name, label in (
+        (policy_path, "community_feasibility_policy.schema.json", "policy"),
+        (profile_path, "community_execution_profile.schema.json", "profile"),
+    ):
+        errors = validate_json_file(path, root / "schemas" / schema_name)
+        if errors:
+            raise ValueError(f"invalid feasibility {label}: " + "; ".join(errors))
+    queue = read_object(queue_path)
+    policy = read_object(policy_path)
+    profile = read_object(profile_path)
+
+    priorities = [int(rule["priority"]) for rule in policy["rules"]]
+    if len(priorities) != len(set(priorities)):
+        raise ValueError("feasibility policy rule priorities must be unique")
+    for rule in policy["rules"]:
+        title_regex = rule["match"].get("title_regex")
+        if title_regex is not None:
+            try:
+                re.compile(title_regex)
+            except re.error as error:
+                raise ValueError(
+                    f"invalid feasibility regex in {rule['rule_id']}: {error}"
+                ) from error
+    resource_ids = [row["resource_id"] for row in profile["resources"]]
+    if len(resource_ids) != len(set(resource_ids)):
+        raise ValueError("execution profile resource ids must be unique")
+    harness_keys = [
+        (row["repository"], row["task_family"]) for row in profile["harnesses"]
+    ]
+    if len(harness_keys) != len(set(harness_keys)):
+        raise ValueError("execution profile harness keys must be unique")
+    harnesses = {
+        (row["repository"], row["task_family"]): row
+        for row in profile["harnesses"]
+    }
+
+    rules = sorted(policy["rules"], key=lambda row: int(row["priority"]))
+    items = []
+    for candidate in queue["items"]:
+        if candidate["selection"] != "SELECTED":
+            continue
+        rule = next(
+            (row for row in rules if rule_matches_candidate(row, candidate)),
+            policy["default_rule"],
+        )
+        rule_id = rule.get("rule_id", "default")
+        requirements = rule["requirements"]
+        capable = sorted(
+            resource["resource_id"]
+            for resource in profile["resources"]
+            if resource_satisfies(resource, requirements)
+        )
+        ready = sorted(
+            resource["resource_id"]
+            for resource in profile["resources"]
+            if resource["resource_id"] in capable
+            and resource["availability"] == "AVAILABLE"
+        )
+        harness = harnesses.get((candidate["repository"], rule["task_family"]))
+        harness_status = harness["status"] if harness else "UNKNOWN"
+        if rule.get("forced_status") is not None:
+            status = rule["forced_status"]
+            reason = rule["reason"]
+            harness_status = "NOT_APPLICABLE"
+        elif not capable:
+            status = "INFEASIBLE"
+            reason = "NO_DECLARED_RESOURCE_SATISFIES_REQUIREMENTS"
+        elif not ready:
+            status = "HARNESS_BLOCKED"
+            reason = "CAPABLE_RESOURCE_NOT_CURRENTLY_AVAILABLE"
+        elif harness_status != "READY":
+            status = "HARNESS_BLOCKED"
+            reason = harness["reason"] if harness else "HARNESS_NOT_DECLARED"
+        else:
+            status = "ELIGIBLE"
+            reason = rule["reason"]
+        items.append(
+            {
+                "repository": candidate["repository"],
+                "pr_number": candidate["pr_number"],
+                "queue_priority_rank": candidate["priority_rank"],
+                "task_family": rule["task_family"],
+                "matched_rule_id": rule_id,
+                "requirements": requirements,
+                "status": status,
+                "reason": reason,
+                "candidate_resource_ids": capable,
+                "ready_resource_ids": ready,
+                "harness_status": harness_status,
+            }
+        )
+    items.sort(key=lambda row: row["queue_priority_rank"])
+    selected_count = queue["inventory"]["selected_count"]
+    if len(items) != selected_count:
+        raise ValueError("feasibility screen did not account for every selected task")
+    registration = (
+        "PRESELECTION"
+        if parse_time(policy["declared_at"]) <= parse_time(queue["generated_at"])
+        else "POST_SELECTION_PILOT"
+    )
+    screen = {
+        "schema_version": FEASIBILITY_SCREEN_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "FEASIBILITY_ACCOUNTING_NOT_PERFORMANCE_EVIDENCE",
+        "registration": registration,
+        "input_identity": {
+            "queue": absolute_identity(queue_path),
+            "policy": absolute_identity(policy_path),
+            "execution_profile": absolute_identity(profile_path),
+        },
+        "inventory": {
+            "selected_queue_count": selected_count,
+            "eligible_count": sum(row["status"] == "ELIGIBLE" for row in items),
+            "infeasible_count": sum(row["status"] == "INFEASIBLE" for row in items),
+            "harness_blocked_count": sum(
+                row["status"] == "HARNESS_BLOCKED" for row in items
+            ),
+        },
+        "items": items,
+    }
+    errors = validate_instance(
+        screen,
+        read_object(root / "schemas" / "community_feasibility_screen.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid feasibility screen: " + "; ".join(errors))
+    return screen
+
+
+def validate_feasibility_screen(
+    screen_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    errors = validate_json_file(
+        screen_path, root / "schemas" / "community_feasibility_screen.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid feasibility screen: " + "; ".join(errors))
+    screen = read_object(screen_path)
+    inputs = screen["input_identity"]
+    for identity in inputs.values():
+        path = Path(identity["path"])
+        if not path.is_file() or sha256_file(path) != identity["sha256"]:
+            raise ValueError(f"feasibility screen input changed: {identity['path']}")
+    expected = build_feasibility_screen(
+        Path(inputs["queue"]["path"]),
+        Path(inputs["policy"]["path"]),
+        Path(inputs["execution_profile"]["path"]),
+        corpus,
+        root,
+    )
+    observed_stable = {
+        key: value for key, value in screen.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("feasibility screen is stale or was edited")
+    return {"status": "PASS", **screen["inventory"]}
 
 
 def identity_for(path: Path, base: Path) -> dict:
@@ -2760,6 +2965,15 @@ def parse_args() -> argparse.Namespace:
     heldout_validate = subparsers.add_parser("validate-heldout-queue")
     heldout_validate.add_argument("--queue", type=Path, required=True)
     heldout_validate.add_argument("--corpus", type=Path, required=True)
+    feasibility = subparsers.add_parser("build-feasibility-screen")
+    feasibility.add_argument("--queue", type=Path, required=True)
+    feasibility.add_argument("--policy", type=Path, required=True)
+    feasibility.add_argument("--profile", type=Path, required=True)
+    feasibility.add_argument("--corpus", type=Path, required=True)
+    feasibility.add_argument("--output", type=Path, required=True)
+    feasibility_validate = subparsers.add_parser("validate-feasibility-screen")
+    feasibility_validate.add_argument("--screen", type=Path, required=True)
+    feasibility_validate.add_argument("--corpus", type=Path, required=True)
     materialize = subparsers.add_parser("materialize-trial")
     materialize.add_argument("--suite", type=Path, required=True)
     materialize.add_argument("--corpus", type=Path, required=True)
@@ -2825,6 +3039,19 @@ def main() -> int:
             result = {**result["inventory"], "status": "PASS", "queue": str(args.output.resolve())}
         elif args.operation == "validate-heldout-queue":
             result = validate_heldout_queue(args.queue, args.corpus)
+        elif args.operation == "build-feasibility-screen":
+            result = build_feasibility_screen(
+                args.queue, args.policy, args.profile, args.corpus
+            )
+            atomic_json(args.output.resolve(), result)
+            result = {
+                **result["inventory"],
+                "registration": result["registration"],
+                "status": "PASS",
+                "screen": str(args.output.resolve()),
+            }
+        elif args.operation == "validate-feasibility-screen":
+            result = validate_feasibility_screen(args.screen, args.corpus)
         elif args.operation == "materialize-trial":
             result = materialize_trial(
                 args.suite,

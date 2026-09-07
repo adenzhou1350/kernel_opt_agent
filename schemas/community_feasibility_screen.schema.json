@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_feasibility_screen.schema.json",
+  "title": "Hash-bound accounting of held-out task feasibility",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "registration", "input_identity", "inventory", "items"],
+  "properties": {
+    "schema_version": {"const": "community-feasibility-screen-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "FEASIBILITY_ACCOUNTING_NOT_PERFORMANCE_EVIDENCE"},
+    "registration": {"enum": ["PRESELECTION", "POST_SELECTION_PILOT"]},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue", "policy", "execution_profile"],
+      "properties": {
+        "queue": {"$ref": "#/$defs/identity"},
+        "policy": {"$ref": "#/$defs/identity"},
+        "execution_profile": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_queue_count", "eligible_count", "infeasible_count", "harness_blocked_count"],
+      "properties": {
+        "selected_queue_count": {"type": "integer", "minimum": 0},
+        "eligible_count": {"type": "integer", "minimum": 0},
+        "infeasible_count": {"type": "integer", "minimum": 0},
+        "harness_blocked_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "pr_number", "queue_priority_rank", "task_family", "matched_rule_id", "requirements", "status", "reason", "candidate_resource_ids", "ready_resource_ids", "harness_status"],
+        "properties": {
+          "repository": {"type": "string"},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "queue_priority_rank": {"type": "integer", "minimum": 1},
+          "task_family": {"type": "string"},
+          "matched_rule_id": {"type": "string"},
+          "requirements": {"type": "object"},
+          "status": {"enum": ["ELIGIBLE", "INFEASIBLE", "HARNESS_BLOCKED"]},
+          "reason": {"type": "string"},
+          "candidate_resource_ids": {"type": "array", "items": {"type": "string"}},
+          "ready_resource_ids": {"type": "array", "items": {"type": "string"}},
+          "harness_status": {"enum": ["READY", "MISSING", "UNKNOWN", "NOT_APPLICABLE"]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

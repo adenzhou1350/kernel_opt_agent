@@ -1,0 +1,97 @@
+{
+  "schema_version": "community-feasibility-policy-v1",
+  "policy_id": "nvidia-runtime-heldout-v1",
+  "declared_at": "2026-09-07T01:15:00Z",
+  "claim_boundary": "DISCOVERY_METADATA_FEASIBILITY_ONLY",
+  "default_rule": {
+    "task_family": "GENERAL_GPU_RUNTIME",
+    "requirements": {
+      "vendors_any": ["NVIDIA"],
+      "capabilities_all": ["CUDA"],
+      "minimum_gpu_count": 1,
+      "minimum_memory_gib_per_gpu": 1
+    },
+    "reason": "DECLARED_RESOURCE_AND_HARNESS_READY"
+  },
+  "rules": [
+    {
+      "rule_id": "analysis-visualization-only",
+      "priority": 1,
+      "match": {"title_regex": "\\b(plots?|charts?|visuali[sz](e|ation))\\b"},
+      "task_family": "ANALYSIS_VISUALIZATION",
+      "requirements": {
+        "vendors_any": [],
+        "capabilities_all": [],
+        "minimum_gpu_count": 1,
+        "minimum_memory_gib_per_gpu": 0
+      },
+      "forced_status": "HARNESS_BLOCKED",
+      "reason": "NO_RUNTIME_PERFORMANCE_TARGET_IN_DISCOVERY_METADATA"
+    },
+    {
+      "rule_id": "intel-xpu-only",
+      "priority": 2,
+      "match": {"title_regex": "\\b(xpu|intel gpu|oneapi)\\b"},
+      "task_family": "INTEL_XPU_RUNTIME",
+      "requirements": {
+        "vendors_any": ["INTEL"],
+        "capabilities_all": ["XPU"],
+        "minimum_gpu_count": 1,
+        "minimum_memory_gib_per_gpu": 1
+      },
+      "reason": "REQUIRES_INTEL_XPU"
+    },
+    {
+      "rule_id": "amd-rocm-only",
+      "priority": 3,
+      "match": {"title_regex": "\\b(amd|rocm|gfx[0-9]+)\\b"},
+      "task_family": "AMD_ROCM_RUNTIME",
+      "requirements": {
+        "vendors_any": ["AMD"],
+        "capabilities_all": ["ROCM"],
+        "minimum_gpu_count": 1,
+        "minimum_memory_gib_per_gpu": 1
+      },
+      "reason": "REQUIRES_AMD_ROCM"
+    },
+    {
+      "rule_id": "rdma-distributed-runtime",
+      "priority": 4,
+      "match": {"title_regex": "\\b(rdma|infiniband|rdma-core)\\b"},
+      "task_family": "DISTRIBUTED_RDMA_RUNTIME",
+      "requirements": {
+        "vendors_any": [],
+        "capabilities_all": ["RDMA"],
+        "minimum_gpu_count": 2,
+        "minimum_memory_gib_per_gpu": 1
+      },
+      "reason": "DECLARED_RDMA_RESOURCE_AND_HARNESS_READY"
+    },
+    {
+      "rule_id": "serving-speculation-runtime",
+      "priority": 5,
+      "match": {"title_regex": "\\b(speculative|speculation|draft model|draft kv)\\b"},
+      "task_family": "SERVING_SPECULATION_RUNTIME",
+      "requirements": {
+        "vendors_any": ["NVIDIA"],
+        "capabilities_all": ["CUDA"],
+        "minimum_gpu_count": 1,
+        "minimum_memory_gib_per_gpu": 8
+      },
+      "reason": "DECLARED_RESOURCE_AND_HARNESS_READY"
+    },
+    {
+      "rule_id": "infllm-runtime",
+      "priority": 6,
+      "match": {"title_regex": "\\binfllm([_-]?v[0-9]+)?\\b"},
+      "task_family": "INFLLM_RUNTIME",
+      "requirements": {
+        "vendors_any": ["NVIDIA"],
+        "capabilities_all": ["CUDA"],
+        "minimum_gpu_count": 1,
+        "minimum_memory_gib_per_gpu": 8
+      },
+      "reason": "DECLARED_RESOURCE_AND_HARNESS_READY"
+    }
+  ]
+}

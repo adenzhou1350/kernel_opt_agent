@@ -360,3 +360,13 @@ selection input. `validate-heldout-queue` rehashes every receipt, graph, method
 snapshot and corpus index, recomputes the queue and rejects edited priorities.
 The queue selects what becomes a task candidate; it does not expose source
 patches or count as a trial result.
+
+Run `community-eval build-feasibility-screen` before turning selected queue
+rows into task packets. The screen hashes the queue, a versioned metadata-only
+policy and an execution profile, then accounts for every selected row as
+`ELIGIBLE`, `INFEASIBLE` or `HARNESS_BLOCKED`. Unavailable hardware and missing
+harnesses remain visible in the denominator. A policy declared after queue
+generation is labeled `POST_SELECTION_PILOT`; only a predeclared policy may
+produce `PRESELECTION`. This screen is scheduling evidence, never performance
+evidence, and it may use only the repository, title and classifications already
+present in the discovery queue—not the held-out diff, review or outcome.

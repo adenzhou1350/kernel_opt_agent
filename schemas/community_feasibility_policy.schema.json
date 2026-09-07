@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_feasibility_policy.schema.json",
+  "title": "Discovery-metadata-only held-out feasibility policy",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "policy_id", "declared_at", "claim_boundary", "default_rule", "rules"],
+  "properties": {
+    "schema_version": {"const": "community-feasibility-policy-v1"},
+    "policy_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "declared_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DISCOVERY_METADATA_FEASIBILITY_ONLY"},
+    "default_rule": {"$ref": "#/$defs/outcomeRule"},
+    "rules": {
+      "type": "array",
+      "items": {
+        "allOf": [
+          {"$ref": "#/$defs/outcomeRule"},
+          {
+            "type": "object",
+            "required": ["rule_id", "priority", "match"],
+            "properties": {
+              "rule_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+              "priority": {"type": "integer", "minimum": 1},
+              "match": {
+                "type": "object",
+                "additionalProperties": false,
+                "minProperties": 1,
+                "properties": {
+                  "repositories": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"}
+                  },
+                  "title_regex": {"type": "string", "minLength": 1},
+                  "classifications_any": {
+                    "type": "array",
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "items": {"type": "string", "pattern": "^[A-Z][A-Z_]+$"}
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "requirements": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vendors_any", "capabilities_all", "minimum_gpu_count", "minimum_memory_gib_per_gpu"],
+      "properties": {
+        "vendors_any": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+        "capabilities_all": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+        "minimum_gpu_count": {"type": "integer", "minimum": 1},
+        "minimum_memory_gib_per_gpu": {"type": "number", "minimum": 0}
+      }
+    },
+    "outcomeRule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_family", "requirements", "reason"],
+      "properties": {
+        "rule_id": {"type": "string"},
+        "priority": {"type": "integer"},
+        "match": {"type": "object"},
+        "task_family": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+        "requirements": {"$ref": "#/$defs/requirements"},
+        "forced_status": {"enum": ["INFEASIBLE", "HARNESS_BLOCKED"]},
+        "reason": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}
+      }
+    }
+  }
+}
