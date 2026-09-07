@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_work_cycle_summary.schema.json",
+  "title": "Optimization work-cycle timing summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "cycle_identity",
+    "cycle_id",
+    "task_id",
+    "observation_mode",
+    "phase_seconds",
+    "buckets",
+    "wall_clock",
+    "time_to_milestone_seconds",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-work-cycle-summary-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DESCRIPTIVE_TIMING_ONLY"},
+    "cycle_identity": {"$ref": "#/$defs/identity"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "observation_mode": {
+      "enum": ["PROSPECTIVE_EXACT", "LEGACY_MILESTONE_BOUNDS"]
+    },
+    "phase_seconds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "COMMUNITY_RESEARCH",
+        "BOTTLENECK_DIAGNOSIS",
+        "CANDIDATE_IMPLEMENTATION",
+        "COMPILE_AND_MEASURE",
+        "CORRECTNESS_VALIDATION",
+        "PERFORMANCE_VALIDATION",
+        "WHOLE_MODEL_VALIDATION",
+        "UPSTREAM_PACKAGING",
+        "EXTERNAL_WAIT",
+        "UNATTRIBUTED_LEGACY_WORK"
+      ],
+      "properties": {
+        "COMMUNITY_RESEARCH": {"type": "number", "minimum": 0},
+        "BOTTLENECK_DIAGNOSIS": {"type": "number", "minimum": 0},
+        "CANDIDATE_IMPLEMENTATION": {"type": "number", "minimum": 0},
+        "COMPILE_AND_MEASURE": {"type": "number", "minimum": 0},
+        "CORRECTNESS_VALIDATION": {"type": "number", "minimum": 0},
+        "PERFORMANCE_VALIDATION": {"type": "number", "minimum": 0},
+        "WHOLE_MODEL_VALIDATION": {"type": "number", "minimum": 0},
+        "UPSTREAM_PACKAGING": {"type": "number", "minimum": 0},
+        "EXTERNAL_WAIT": {"type": "number", "minimum": 0},
+        "UNATTRIBUTED_LEGACY_WORK": {"type": "number", "minimum": 0}
+      }
+    },
+    "buckets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "research_seconds",
+        "implementation_seconds",
+        "compute_seconds",
+        "validation_seconds",
+        "packaging_seconds",
+        "external_wait_seconds",
+        "unattributed_legacy_seconds"
+      ],
+      "properties": {
+        "research_seconds": {"type": "number", "minimum": 0},
+        "implementation_seconds": {"type": "number", "minimum": 0},
+        "compute_seconds": {"type": "number", "minimum": 0},
+        "validation_seconds": {"type": "number", "minimum": 0},
+        "packaging_seconds": {"type": "number", "minimum": 0},
+        "external_wait_seconds": {"type": "number", "minimum": 0},
+        "unattributed_legacy_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "wall_clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed_seconds", "accounted_seconds", "unaccounted_seconds"],
+      "properties": {
+        "observed_seconds": {"type": "number", "minimum": 0},
+        "accounted_seconds": {"type": "number", "minimum": 0},
+        "unaccounted_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "time_to_milestone_seconds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "FIRST_CANDIDATE_PROPOSED",
+        "FIRST_SCREEN_CORRECT",
+        "FIRST_MATERIAL_IMPROVEMENT",
+        "FIRST_QUALIFIED_RESULT",
+        "UPSTREAM_PACKAGE_READY",
+        "PR_DRAFT_OPENED",
+        "PR_READY_FOR_REVIEW",
+        "PR_MERGED"
+      ],
+      "properties": {
+        "FIRST_CANDIDATE_PROPOSED": {"$ref": "#/$defs/nullableSeconds"},
+        "FIRST_SCREEN_CORRECT": {"$ref": "#/$defs/nullableSeconds"},
+        "FIRST_MATERIAL_IMPROVEMENT": {"$ref": "#/$defs/nullableSeconds"},
+        "FIRST_QUALIFIED_RESULT": {"$ref": "#/$defs/nullableSeconds"},
+        "UPSTREAM_PACKAGE_READY": {"$ref": "#/$defs/nullableSeconds"},
+        "PR_DRAFT_OPENED": {"$ref": "#/$defs/nullableSeconds"},
+        "PR_READY_FOR_REVIEW": {"$ref": "#/$defs/nullableSeconds"},
+        "PR_MERGED": {"$ref": "#/$defs/nullableSeconds"}
+      }
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "best_speedup", "best_whole_model_speedup", "upstream_ready", "pull_request_url", "merged"],
+      "properties": {
+        "correctness": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+        "best_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "best_whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "upstream_ready": {"type": "boolean"},
+        "pull_request_url": {"type": ["string", "null"], "format": "uri"},
+        "merged": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nullableSeconds": {"type": ["number", "null"], "minimum": 0}
+  }
+}

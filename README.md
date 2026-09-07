@@ -24,6 +24,32 @@ For audited trials, the JSONL execution transcriptâ€”not agent-reported timingâ€
 the authority that proves the final ranking was frozen before the first
 production-source edit.
 
+Record the complete delivery cycle separately from performance metrics:
+
+```bash
+python3 scripts/kernel_opt.py community-timing init \
+  --cycle-id <cycle-id> --task-id <task-id> \
+  --minimum-material-speedup 1.02 --output work-cycle.json
+python3 scripts/kernel_opt.py community-timing start-phase \
+  --ledger work-cycle.json --span-id research-1 \
+  --phase COMMUNITY_RESEARCH --actor AGENT
+python3 scripts/kernel_opt.py community-timing end-phase \
+  --ledger work-cycle.json --span-id research-1 \
+  --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing summarize \
+  --ledger work-cycle.json --output work-cycle-summary.json
+```
+
+The ledger uses non-overlapping primary wall-clock spans for community research,
+bottleneck diagnosis, implementation, compile/measurement, correctness,
+performance, whole-model validation, upstream packaging and external wait.
+Hash-bound milestones report time to the first candidate, correct result,
+material improvement, qualified result, upstream-ready package, draft PR,
+ready-for-review PR and merge. Legacy trials may retain milestone bounds but
+must leave unavailable phase attribution under `UNATTRIBUTED_LEGACY_WORK`.
+This prevents a fast kernel result from hiding days spent packaging or waiting
+for external review.
+
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
 

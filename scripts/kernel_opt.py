@@ -32,6 +32,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "method": Command("method_library.py", "match transferable optimization methods to ranked opportunities"),
         "community": Command("community_knowledge.py", "capture and validate community optimization evidence"),
         "community-eval": Command("community_evaluation.py", "run temporal fixed-budget community-knowledge A/B trials"),
+        "community-timing": Command("community_work_cycle.py", "record research, compute, validation and upstream-delivery time"),
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
     },
     "hardware": {

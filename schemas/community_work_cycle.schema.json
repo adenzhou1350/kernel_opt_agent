@@ -1,0 +1,135 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_work_cycle.schema.json",
+  "title": "Evidence-bound optimization work-cycle timing ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "cycle_id",
+    "task_id",
+    "started_at",
+    "observation_mode",
+    "claim_boundary",
+    "minimum_material_speedup",
+    "spans",
+    "milestones",
+    "outcome"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-work-cycle-v1"},
+    "cycle_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "task_id": {"type": "string", "minLength": 1},
+    "started_at": {"type": "string", "format": "date-time"},
+    "observation_mode": {
+      "enum": ["PROSPECTIVE_EXACT", "LEGACY_MILESTONE_BOUNDS"]
+    },
+    "claim_boundary": {
+      "const": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY"
+    },
+    "minimum_material_speedup": {"type": "number", "exclusiveMinimum": 1},
+    "spans": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/span"}
+    },
+    "milestones": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/milestone"}
+    },
+    "outcome": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "correctness",
+        "best_speedup",
+        "best_whole_model_speedup",
+        "upstream_ready",
+        "pull_request_url",
+        "merged"
+      ],
+      "properties": {
+        "correctness": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+        "best_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "best_whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "upstream_ready": {"type": "boolean"},
+        "pull_request_url": {"type": ["string", "null"], "format": "uri"},
+        "merged": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "span": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "span_id",
+        "phase",
+        "actor",
+        "started_at",
+        "ended_at",
+        "status",
+        "evidence"
+      ],
+      "properties": {
+        "span_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+        "phase": {
+          "enum": [
+            "COMMUNITY_RESEARCH",
+            "BOTTLENECK_DIAGNOSIS",
+            "CANDIDATE_IMPLEMENTATION",
+            "COMPILE_AND_MEASURE",
+            "CORRECTNESS_VALIDATION",
+            "PERFORMANCE_VALIDATION",
+            "WHOLE_MODEL_VALIDATION",
+            "UPSTREAM_PACKAGING",
+            "EXTERNAL_WAIT",
+            "UNATTRIBUTED_LEGACY_WORK"
+          ]
+        },
+        "actor": {"enum": ["AGENT", "CPU", "GPU", "EXTERNAL"]},
+        "resource_id": {"type": ["string", "null"], "minLength": 1},
+        "started_at": {"type": "string", "format": "date-time"},
+        "ended_at": {"type": ["string", "null"], "format": "date-time"},
+        "status": {"enum": ["ACTIVE", "COMPLETE", "INTERRUPTED"]},
+        "evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "at", "evidence"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "FIRST_CANDIDATE_PROPOSED",
+            "FIRST_SCREEN_CORRECT",
+            "FIRST_MATERIAL_IMPROVEMENT",
+            "FIRST_QUALIFIED_RESULT",
+            "UPSTREAM_PACKAGE_READY",
+            "PR_DRAFT_OPENED",
+            "PR_READY_FOR_REVIEW",
+            "PR_MERGED"
+          ]
+        },
+        "at": {"type": "string", "format": "date-time"},
+        "evidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/identity"}
+        }
+      }
+    }
+  }
+}
