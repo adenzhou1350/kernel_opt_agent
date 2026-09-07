@@ -14,7 +14,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_window_assemble import (  # noqa: E402
     REPOSITORIES,
+    output_collisions,
     output_paths,
+    validate_deferred_request,
     validate_receipt_window,
 )
 
@@ -73,3 +75,19 @@ def test_output_names_are_derived_from_one_window_identity(tmp_path: Path) -> No
         "discovery-funnel-cumulative-through-20260907-170000Z-v1.json"
     )
     assert paths["manifest"].parent == tmp_path
+
+
+def test_deferred_intake_requires_successor_checkpoint() -> None:
+    with pytest.raises(ValueError, match="requires --next-checkpoint"):
+        validate_deferred_request(None, Path("deferred.json"))
+    validate_deferred_request(Path("checkpoint.json"), Path("deferred.json"))
+    validate_deferred_request(None, None)
+
+
+def test_deferred_intake_participates_in_preflight_collisions(
+    tmp_path: Path,
+) -> None:
+    paths = output_paths(tmp_path, "a", "b")
+    deferred = tmp_path / "deferred.json"
+    deferred.write_text("{}", encoding="utf-8")
+    assert output_collisions(paths, None, deferred) == [str(deferred.resolve())]

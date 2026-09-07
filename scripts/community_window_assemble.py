@@ -85,15 +85,36 @@ def output_paths(output_dir: Path, artifact_prefix: str, funnel_stamp: str) -> d
     }
 
 
+def validate_deferred_request(
+    next_checkpoint: Path | None, deferred_intake: Path | None
+) -> None:
+    if deferred_intake is not None and next_checkpoint is None:
+        raise ValueError("--deferred-intake requires --next-checkpoint")
+
+
+def output_collisions(
+    paths: dict[str, Path],
+    next_checkpoint: Path | None,
+    deferred_intake: Path | None,
+) -> list[str]:
+    candidates = list(paths.values())
+    if next_checkpoint is not None:
+        candidates.append(next_checkpoint.resolve())
+    if deferred_intake is not None:
+        candidates.append(deferred_intake.resolve())
+    return [str(path) for path in candidates if path.exists()]
+
+
 def assemble(args: argparse.Namespace) -> dict:
+    validate_deferred_request(args.next_checkpoint, args.deferred_intake)
     source_root = args.source_root.resolve()
     corpus = args.corpus.resolve()
     output_dir = args.output_dir.resolve()
     receipts = [path.resolve() for path in args.receipt]
     paths = output_paths(output_dir, args.artifact_prefix, args.funnel_stamp)
-    collisions = [str(path) for path in paths.values() if path.exists()]
-    if args.next_checkpoint is not None and args.next_checkpoint.resolve().exists():
-        collisions.append(str(args.next_checkpoint.resolve()))
+    collisions = output_collisions(
+        paths, args.next_checkpoint, args.deferred_intake
+    )
     if collisions:
         raise FileExistsError(
             "refusing to overwrite artifacts: " + ", ".join(collisions)
@@ -293,6 +314,34 @@ def assemble(args: argparse.Namespace) -> dict:
                 args.command_timeout,
             )
         )
+        if args.deferred_intake is not None:
+            deferred_script = (
+                Path(__file__).resolve().parent / "community_deferred_intake.py"
+            )
+            deferred_argv = [
+                python,
+                str(deferred_script),
+                "build",
+                "--predecessor-checkpoint",
+                str(args.checkpoint.resolve()),
+                "--successor-checkpoint",
+                str(next_checkpoint),
+            ]
+            for receipt in receipts:
+                deferred_argv.extend(["--receipt", str(receipt)])
+            deferred_argv.extend(
+                [
+                    "--cutoff-at",
+                    args.cutoff_at,
+                    "--corpus",
+                    str(corpus),
+                    "--source-root",
+                    str(source_root),
+                    "--output",
+                    str(args.deferred_intake.resolve()),
+                ]
+            )
+            commands.append(run(deferred_argv, args.command_timeout))
         commands.append(
             run(
                 [
@@ -353,6 +402,17 @@ def assemble(args: argparse.Namespace) -> dict:
         manifest["output_identity"]["next_checkpoint"] = identity(
             args.next_checkpoint
         )
+    if args.deferred_intake is not None:
+        deferred = read_object(args.deferred_intake.resolve())
+        manifest["output_identity"]["deferred_intake"] = identity(
+            args.deferred_intake
+        )
+        manifest["inventory"]["deferred_pre_cutoff_count"] = deferred[
+            "inventory"
+        ]["deferred_pre_cutoff_count"]
+        manifest["inventory"]["withheld_post_cutoff_count"] = deferred[
+            "inventory"
+        ]["withheld_post_cutoff_count"]
     atomic_json(paths["manifest"], manifest)
     return {
         "manifest": str(paths["manifest"]),
@@ -372,6 +432,14 @@ def parser() -> argparse.ArgumentParser:
         "--next-checkpoint",
         type=Path,
         help="write a hash-bound successor checkpoint without a full prefix replay",
+    )
+    value.add_argument(
+        "--deferred-intake",
+        type=Path,
+        help=(
+            "write a leakage-safe future-cohort metadata queue; requires "
+            "--next-checkpoint"
+        ),
     )
     value.add_argument("--anchor", type=Path, required=True)
     value.add_argument("--graph", type=Path, required=True)
