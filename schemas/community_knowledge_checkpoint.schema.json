@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_knowledge_checkpoint.schema.json",
+  "title": "Immutable event and lifecycle snapshot universe for temporal graphs",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "checkpoint_id", "generated_at", "claim_boundary", "corpus_layout", "events", "lifecycle_snapshots"],
+  "properties": {
+    "schema_version": {"const": "community-knowledge-checkpoint-v1"},
+    "checkpoint_id": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "KNOWLEDGE_UNIVERSE_IDENTITY_NOT_PERFORMANCE_EVIDENCE"},
+    "corpus_layout": {"const": "PATHS_RELATIVE_TO_RUNTIME_CORPUS_ROOT"},
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["event_id", "event", "source_public_at", "source_manifest"],
+        "properties": {
+          "event_id": {"type": "string", "minLength": 1},
+          "event": {"$ref": "#/$defs/identity"},
+          "source_public_at": {"type": "string", "format": "date-time"},
+          "source_manifest": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    "lifecycle_snapshots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "pr_number", "snapshot_id", "source_available_at", "manifest"],
+        "properties": {
+          "repository": {"type": "string", "minLength": 1},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "snapshot_id": {"type": "string", "minLength": 1},
+          "source_available_at": {"type": "string", "format": "date-time"},
+          "manifest": {"$ref": "#/$defs/identity"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

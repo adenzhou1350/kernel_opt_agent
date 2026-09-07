@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_knowledge_checkpoint_anchor.schema.json",
+  "title": "Git proof that a knowledge checkpoint existed before a future cutoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "checkpoint_identity", "git_anchor", "not_after", "status"],
+  "properties": {
+    "schema_version": {"const": "community-knowledge-checkpoint-anchor-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "GIT_EXISTENCE_BEFORE_KNOWLEDGE_CUTOFF_ONLY"},
+    "checkpoint_identity": {"$ref": "#/$defs/identity"},
+    "git_anchor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit", "committed_at", "checkpoint_path"],
+      "properties": {
+        "repository": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "committed_at": {"type": "string", "format": "date-time"},
+        "checkpoint_path": {"type": "string", "minLength": 1}
+      }
+    },
+    "not_after": {"type": "string", "format": "date-time"},
+    "status": {"const": "PASS"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

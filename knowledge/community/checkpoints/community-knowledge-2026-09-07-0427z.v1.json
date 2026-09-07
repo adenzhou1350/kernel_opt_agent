@@ -1,0 +1,469 @@
+{
+  "checkpoint_id": "e562a6e8aedc362fd607cad7d0a47c873d77dd9fd92bae6abe5a65c3ad64acc4",
+  "claim_boundary": "KNOWLEDGE_UNIVERSE_IDENTITY_NOT_PERFORMANCE_EVIDENCE",
+  "corpus_layout": "PATHS_RELATIVE_TO_RUNTIME_CORPUS_ROOT",
+  "events": [
+    {
+      "event": {
+        "path": "events/mooncake-pr-3310-grouped-scatter-tasks.json",
+        "sha256": "8a71b3b38e21b7d45555c7ecc38882ae3f8900de9765ac40cb98c8bc26cb408f"
+      },
+      "event_id": "mooncake.pr-3310.grouped-scatter-tasks",
+      "source_manifest": {
+        "path": "snapshots/github/kvcache-ai/Mooncake/3310/0fc0ed9e9ebd5e051722/manifest.json",
+        "sha256": "3beeedabc6c0d6779bf07b3cdfb7a38a0d79113dddbe4ddc3dfa8842daf184ca"
+      },
+      "source_public_at": "2026-08-25T22:31:50+00:00"
+    },
+    {
+      "event": {
+        "path": "events/mooncake-pr-3731-unwired-rdma-direct-path.json",
+        "sha256": "020ce1e0ad9467bc248dfa0c85986614576ab82af34733f66ce4184f810b3dd3"
+      },
+      "event_id": "mooncake.pr-3731.unwired-rdma-direct-path",
+      "source_manifest": {
+        "path": "snapshots/github/kvcache-ai/Mooncake/3731/9ae4aff0ce9a7afb2733/manifest.json",
+        "sha256": "00023abf2f4d7f3d95777c375a33285049637b4acbc8a3b41a3fff61ad1196bc"
+      },
+      "source_public_at": "2026-09-02T03:23:50+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-26080-fp8-quant-micro-optimization.json",
+        "sha256": "5c618774ac9a9201da226accab6a19704c035632ba9ea5a5c833c2f13324652d"
+      },
+      "event_id": "sglang.pr-26080.fp8-quant-micro-optimization",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/26080/eb5f2593a76dda954934/manifest.json",
+        "sha256": "e055e99f722948bd2b39fc2c32bbc8d9510e250c2682b008fe246bc8b14979bb"
+      },
+      "source_public_at": "2026-09-06T01:23:18+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-26089-cross-architecture-fp8-fusion.json",
+        "sha256": "a5ed1e7dce99934fc892aa9529749245309f87bb94ed0e350332565070c6ec49"
+      },
+      "event_id": "sglang.pr-26089.cross-architecture-fp8-fusion",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/26089/a8180102c06c6bc2c65c/manifest.json",
+        "sha256": "6f8fcb7b386d0a5bfb54f939a58194272c348a4a144890c8893f25cbaaa708dd"
+      },
+      "source_public_at": "2026-09-06T01:23:20+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-32313-tp-lm-head-all-to-all.json",
+        "sha256": "c8817d8f4609af8a43e8f56b17446be012d8fe520276b800f223e8b562ed1597"
+      },
+      "event_id": "sglang.pr-32313.tp-lm-head-all-to-all",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/32313/1b197b83a3dc6115b712/manifest.json",
+        "sha256": "0741e160ab39189540b3f80382f37557fb89367328460dc30b13067495f1e48a"
+      },
+      "source_public_at": "2026-08-28T08:48:00+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-37018-sm90-fp8-shape-routing.json",
+        "sha256": "5104b879fa81d27de26919e9fbd0c9065f7415d2ec52724dc05951d45da1a853"
+      },
+      "event_id": "sglang.pr-37018.sm90-fp8-shape-routing",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/37018/033a0ac3ae7570dc4037/manifest.json",
+        "sha256": "3f6f2feecb0fb87992989a0fd7608961bd6e320794292d2e4dc50396e678cc79"
+      },
+      "source_public_at": "2026-08-29T23:59:31+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-37926-blackwell-unified-memory-decode-gap.json",
+        "sha256": "667ff6ce6cef699f0235c9327162ca90d43bd21791c4b68220059c591ea0e8d1"
+      },
+      "event_id": "sglang.pr-37926.blackwell-unified-memory-decode-gap",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/37926/7bc28129fa29c75bfd97/manifest.json",
+        "sha256": "f900b404b3cd02640496d38e3deef46d0b370e40de3aa6b0e2779ad4bc1c7709"
+      },
+      "source_public_at": "2026-09-06T23:59:33+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-38117-gumbel-sampler-dispatch.json",
+        "sha256": "ea6b9a37ba874d8334b1c914ab87a8d6d78d2f59ad35927467d42e64746bbef6"
+      },
+      "event_id": "sglang.pr-38117.gumbel-sampler-dispatch",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/38117/6c5f9297240784ff0ab1/manifest.json",
+        "sha256": "481e73d790bbec29d8f484c8864b2c647977847de4e0c41d46528d9a1b329897"
+      },
+      "source_public_at": "2026-09-06T14:40:35+00:00"
+    },
+    {
+      "event": {
+        "path": "events/sglang-pr-38163-revert-unified-kv-swa-accounting.json",
+        "sha256": "88cea87556183720a4d2167fb7b8802261cd3df684ed9e6aaa38f1bcd82b448b"
+      },
+      "event_id": "sglang.pr-38163.revert-unified-kv-swa-accounting",
+      "source_manifest": {
+        "path": "snapshots/github/sgl-project/sglang/38163/1a1cbae909f591ad266b/manifest.json",
+        "sha256": "3d757c8441fa90bd19c1b51af481ab794590e0e41e7f51ec9d93a1b38eeda890"
+      },
+      "source_public_at": "2026-09-06T00:29:24+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-40298-incremental-streaming-state-machine.json",
+        "sha256": "994a802082b2b913cf8e4f0d11c041fe50a8f092ae10f81e3bba936240acaced"
+      },
+      "event_id": "vllm.pr-40298.incremental-streaming-state-machine",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/40298/9fbf43c488c3858be5b6/manifest.json",
+        "sha256": "68507f04882141bab0ddbdd4bf87b0c59530ef76961054bdf864684e50882333"
+      },
+      "source_public_at": "2026-05-25T01:13:54+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-48870-fused-wna16-tied-lm-head.json",
+        "sha256": "802cc653a8a5ed167f3d66bac2115f7d0c89300e89c756116d4ad9a326dd1bb3"
+      },
+      "event_id": "vllm.pr-48870.fused-wna16-tied-lm-head",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/48870/3eeb23dac65d323c91f4/manifest.json",
+        "sha256": "f50d1c6d87c1abfcc7f23b4b22ae7ab7cbd694b49046a18cb9f321ac6bcf63e0"
+      },
+      "source_public_at": "2026-08-19T22:31:54+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-52388-multi-group-metadata-fusion.json",
+        "sha256": "01b6bb539aafc9ccbe532077de702c0dd54f541b8707b3d9b28ad271dab5c3ec"
+      },
+      "event_id": "vllm.pr-52388.multi-group-metadata-fusion",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/52388/e14eb851859654fe6366/manifest.json",
+        "sha256": "e3d8efe02d586d3e180fc7a34ec85d8e8d21307e0a3d3397821f4c7f3462dd7c"
+      },
+      "source_public_at": "2026-08-25T15:00:32+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-53680-deepgemm-regression-claim-narrowing.json",
+        "sha256": "d09f9c197f8c43fed4c9641116758c58337f3c746da29b0d9d44d06cd7f27ac4"
+      },
+      "event_id": "vllm.pr-53680.deepgemm-regression-claim-narrowing",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/53680/0825a8316396589b6f54/manifest.json",
+        "sha256": "5d792bb652e1e9310b6ca3d74ef75cf23ddd8b65942f269ec64f658a8989cb5c"
+      },
+      "source_public_at": "2026-09-06T19:26:56+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-55469-vectorized-causal-conv-metadata.json",
+        "sha256": "ed0705c9f25307a1c69a9db203bd6e975ea54bd81455e75b9af9ce309ab324a5"
+      },
+      "event_id": "vllm.pr-55469.vectorized-causal-conv-metadata",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55469/b26cac3b996e54aff803/manifest.json",
+        "sha256": "d715a8e82f785d034401e2646997a3a72eb92c074d956a548eb8b51f854b416e"
+      },
+      "source_public_at": "2026-09-05T13:43:57+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-55494-lossless-packed-bf16-lm-head.json",
+        "sha256": "183076e5bf23a8ce1691234ffc26b00c215cf877f6220bde4e9a5c4dd0ca42d4"
+      },
+      "event_id": "vllm.pr-55494.lossless-packed-bf16-lm-head",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55494/a14ad5b144b9d9641c27/manifest.json",
+        "sha256": "97a42096b89db95b1cac912707b52c826b42f8346f83e36a4c1e9035c4c7c37a"
+      },
+      "source_public_at": "2026-09-05T19:50:25+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-55499-hoist-ragged-prefill-validation.json",
+        "sha256": "fe14ac49fbcb702c22855edab802704f29e47f9b93949781d7ef8b7242f50a39"
+      },
+      "event_id": "vllm.pr-55499.hoist-ragged-prefill-validation",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55499/523a81e91095aa509175/manifest.json",
+        "sha256": "87078408122c87e6f39887df4e945e6ad6702d2f786a0759fc2c237ca31b2823"
+      },
+      "source_public_at": "2026-09-06T01:27:31+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-55532-awq-hoist-overflow.json",
+        "sha256": "b6e309d1b30257dafd90a2f07a336bf40b1c5ac126219c054f3a76f31226418a"
+      },
+      "event_id": "vllm.pr-55532.awq-hoist-overflow",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55532/91aefb1f2443425907f6/manifest.json",
+        "sha256": "cd09c97a7430f903d2567ceb97e88513e0f59f095a8ae0725c677ed77dd80f44"
+      },
+      "source_public_at": "2026-09-06T04:07:47+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-55565-incremental-deepseek-delimiter-state.json",
+        "sha256": "4767292da7ba96a1f2c2ba251c3f380b136d730e2ddc4e6821307090449692e6"
+      },
+      "event_id": "vllm.pr-55565.incremental-deepseek-delimiter-state",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55565/ddaacecd413c1d6f13dd/manifest.json",
+        "sha256": "743499660f145e095a033c18f4d9a03d676df1e59c068ddb460dc5e0e41b3c5a"
+      },
+      "source_public_at": "2026-09-06T11:55:15+00:00"
+    },
+    {
+      "event": {
+        "path": "events/vllm-pr-55582-monotonic-frame-index-inversion.json",
+        "sha256": "e47e3f77cf63ceaf6968912ed63bed7b04cbf5759234e619a958f476152e12bb"
+      },
+      "event_id": "vllm.pr-55582.monotonic-frame-index-inversion",
+      "source_manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55582/9574639cbe513df25efa/manifest.json",
+        "sha256": "1f07d6a894281cad07b045c129df73722a59c55f72cd9d4c078c7b7ab057a608"
+      },
+      "source_public_at": "2026-09-06T15:09:09+00:00"
+    }
+  ],
+  "generated_at": "2026-09-07T04:30:49.381001+00:00",
+  "lifecycle_snapshots": [
+    {
+      "manifest": {
+        "path": "snapshots/github/kvcache-ai/Mooncake/3310/0fc0ed9e9ebd5e051722/manifest.json",
+        "sha256": "3beeedabc6c0d6779bf07b3cdfb7a38a0d79113dddbe4ddc3dfa8842daf184ca"
+      },
+      "pr_number": 3310,
+      "repository": "kvcache-ai/Mooncake",
+      "snapshot_id": "0fc0ed9e9ebd5e051722",
+      "source_available_at": "2026-09-03T02:25:04+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/kvcache-ai/Mooncake/3310/3612c60af986879a00d7/manifest.json",
+        "sha256": "354e0fe856536ca4a7d5d31d448d82d0efcd261bc0cfea2daba941545f980e54"
+      },
+      "pr_number": 3310,
+      "repository": "kvcache-ai/Mooncake",
+      "snapshot_id": "3612c60af986879a00d7",
+      "source_available_at": "2026-09-03T02:25:04+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/kvcache-ai/Mooncake/3731/9ae4aff0ce9a7afb2733/manifest.json",
+        "sha256": "00023abf2f4d7f3d95777c375a33285049637b4acbc8a3b41a3fff61ad1196bc"
+      },
+      "pr_number": 3731,
+      "repository": "kvcache-ai/Mooncake",
+      "snapshot_id": "9ae4aff0ce9a7afb2733",
+      "source_available_at": "2026-09-02T03:23:50+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/26080/eb5f2593a76dda954934/manifest.json",
+        "sha256": "e055e99f722948bd2b39fc2c32bbc8d9510e250c2682b008fe246bc8b14979bb"
+      },
+      "pr_number": 26080,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "eb5f2593a76dda954934",
+      "source_available_at": "2026-09-06T01:23:19+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/26089/a8180102c06c6bc2c65c/manifest.json",
+        "sha256": "6f8fcb7b386d0a5bfb54f939a58194272c348a4a144890c8893f25cbaaa708dd"
+      },
+      "pr_number": 26089,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "a8180102c06c6bc2c65c",
+      "source_available_at": "2026-09-06T01:23:21+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/32313/1b197b83a3dc6115b712/manifest.json",
+        "sha256": "0741e160ab39189540b3f80382f37557fb89367328460dc30b13067495f1e48a"
+      },
+      "pr_number": 32313,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "1b197b83a3dc6115b712",
+      "source_available_at": "2026-08-31T07:03:22+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/37018/033a0ac3ae7570dc4037/manifest.json",
+        "sha256": "3f6f2feecb0fb87992989a0fd7608961bd6e320794292d2e4dc50396e678cc79"
+      },
+      "pr_number": 37018,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "033a0ac3ae7570dc4037",
+      "source_available_at": "2026-09-01T04:39:48+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/37926/7bc28129fa29c75bfd97/manifest.json",
+        "sha256": "f900b404b3cd02640496d38e3deef46d0b370e40de3aa6b0e2779ad4bc1c7709"
+      },
+      "pr_number": 37926,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "7bc28129fa29c75bfd97",
+      "source_available_at": "2026-09-06T23:59:33+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/38117/6c5f9297240784ff0ab1/manifest.json",
+        "sha256": "481e73d790bbec29d8f484c8864b2c647977847de4e0c41d46528d9a1b329897"
+      },
+      "pr_number": 38117,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "6c5f9297240784ff0ab1",
+      "source_available_at": "2026-09-06T14:40:35+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/sgl-project/sglang/38163/1a1cbae909f591ad266b/manifest.json",
+        "sha256": "3d757c8441fa90bd19c1b51af481ab794590e0e41e7f51ec9d93a1b38eeda890"
+      },
+      "pr_number": 38163,
+      "repository": "sgl-project/sglang",
+      "snapshot_id": "1a1cbae909f591ad266b",
+      "source_available_at": "2026-09-06T03:36:25+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/40298/9fbf43c488c3858be5b6/manifest.json",
+        "sha256": "68507f04882141bab0ddbdd4bf87b0c59530ef76961054bdf864684e50882333"
+      },
+      "pr_number": 40298,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "9fbf43c488c3858be5b6",
+      "source_available_at": "2026-08-20T08:17:22+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/48870/3eeb23dac65d323c91f4/manifest.json",
+        "sha256": "f50d1c6d87c1abfcc7f23b4b22ae7ab7cbd694b49046a18cb9f321ac6bcf63e0"
+      },
+      "pr_number": 48870,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "3eeb23dac65d323c91f4",
+      "source_available_at": "2026-09-05T18:15:04+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/52388/e14eb851859654fe6366/manifest.json",
+        "sha256": "e3d8efe02d586d3e180fc7a34ec85d8e8d21307e0a3d3397821f4c7f3462dd7c"
+      },
+      "pr_number": 52388,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "e14eb851859654fe6366",
+      "source_available_at": "2026-09-05T13:40:32+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/53680/0825a8316396589b6f54/manifest.json",
+        "sha256": "5d792bb652e1e9310b6ca3d74ef75cf23ddd8b65942f269ec64f658a8989cb5c"
+      },
+      "pr_number": 53680,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "0825a8316396589b6f54",
+      "source_available_at": "2026-09-06T19:26:57+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55469/b26cac3b996e54aff803/manifest.json",
+        "sha256": "d715a8e82f785d034401e2646997a3a72eb92c074d956a548eb8b51f854b416e"
+      },
+      "pr_number": 55469,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "b26cac3b996e54aff803",
+      "source_available_at": "2026-09-05T13:43:57+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55494/3c37bf02007f6be8f2c2/manifest.json",
+        "sha256": "821d8d8bc762ee6cf828f2bfbc78568c78e56d4442b50c6edaee894ea321f12f"
+      },
+      "pr_number": 55494,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "3c37bf02007f6be8f2c2",
+      "source_available_at": "2026-09-05T18:53:34+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55494/a14ad5b144b9d9641c27/manifest.json",
+        "sha256": "97a42096b89db95b1cac912707b52c826b42f8346f83e36a4c1e9035c4c7c37a"
+      },
+      "pr_number": 55494,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "a14ad5b144b9d9641c27",
+      "source_available_at": "2026-09-05T19:50:25+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55499/523a81e91095aa509175/manifest.json",
+        "sha256": "87078408122c87e6f39887df4e945e6ad6702d2f786a0759fc2c237ca31b2823"
+      },
+      "pr_number": 55499,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "523a81e91095aa509175",
+      "source_available_at": "2026-09-06T01:27:32+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55532/91aefb1f2443425907f6/manifest.json",
+        "sha256": "cd09c97a7430f903d2567ceb97e88513e0f59f095a8ae0725c677ed77dd80f44"
+      },
+      "pr_number": 55532,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "91aefb1f2443425907f6",
+      "source_available_at": "2026-09-06T04:07:47+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55565/b232c6f3e56312ed56aa/manifest.json",
+        "sha256": "a20f2cc21c8149e73333c38ad745bd0bc43a8e93c48297631a4c84b6b0ccc30d"
+      },
+      "pr_number": 55565,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "b232c6f3e56312ed56aa",
+      "source_available_at": "2026-09-06T11:55:15+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55565/caebabf458a45894fd17/manifest.json",
+        "sha256": "bf6246f2d47173fc21c778f13290264cb873d12f66d0a2b4722d947ad64a17f3"
+      },
+      "pr_number": 55565,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "caebabf458a45894fd17",
+      "source_available_at": "2026-09-06T11:55:15+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55565/ddaacecd413c1d6f13dd/manifest.json",
+        "sha256": "743499660f145e095a033c18f4d9a03d676df1e59c068ddb460dc5e0e41b3c5a"
+      },
+      "pr_number": 55565,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "ddaacecd413c1d6f13dd",
+      "source_available_at": "2026-09-06T11:55:15+00:00"
+    },
+    {
+      "manifest": {
+        "path": "snapshots/github/vllm-project/vllm/55582/9574639cbe513df25efa/manifest.json",
+        "sha256": "1f07d6a894281cad07b045c129df73722a59c55f72cd9d4c078c7b7ab057a608"
+      },
+      "pr_number": 55582,
+      "repository": "vllm-project/vllm",
+      "snapshot_id": "9574639cbe513df25efa",
+      "source_available_at": "2026-09-06T15:09:09+00:00"
+    }
+  ],
+  "schema_version": "community-knowledge-checkpoint-v1"
+}

@@ -423,6 +423,29 @@ PRs with the same frozen rule, reason and task family. Repeated updates to one P
 never count as independent evidence, so one noisy change cannot teach the
 discovery layer to suppress a whole optimization family.
 
+Before starting a future temporal cohort, freeze the exact event and lifecycle
+snapshot universe rather than binding the mutable global corpus index:
+
+```bash
+python3 scripts/kernel_opt.py community-checkpoint build \
+  --corpus /path/to/community-corpus \
+  --output knowledge/community/checkpoints/checkpoint-v1.json
+
+# Commit the checkpoint, then prove those exact bytes existed before the future
+# evaluation boundary.
+python3 scripts/kernel_opt.py community-checkpoint anchor \
+  --checkpoint knowledge/community/checkpoints/checkpoint-v1.json \
+  --corpus /path/to/community-corpus \
+  --git-commit <full-commit> --not-after <future-cutoff> \
+  --output /path/to/checkpoint-anchor.json
+```
+
+The checkpoint binds each reviewed event, its evidence manifest, and every
+lifecycle manifest visible when the checkpoint was built. Later corpus growth
+does not rewrite that universe. The Git anchor supplies the independently
+verifiable knowledge-availability time; a source PR's older public timestamp is
+not enough to claim the later reviewed card was available to an earlier agent.
+
 Use `community-eval meta-analyze` to recursively inventory paired A/B reports.
 The summary separates legacy reports, assigned-but-unrealized community arms,
 diagnostic realized treatments and primary realized treatments. Its advantage
