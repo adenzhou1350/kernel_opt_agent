@@ -211,6 +211,7 @@ def main() -> None:
         )
         queue = {
             "cutoff_at": original["cutoff_at"],
+            "input_identity": {},
             "policy": {
                 "max_items": 4,
                 "random_seed": 7,
