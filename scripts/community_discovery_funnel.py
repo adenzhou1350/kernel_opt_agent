@@ -11,6 +11,7 @@ from pathlib import Path
 
 from community_evaluation import validate_preselection_chain_audit
 from community_knowledge import atomic_json, now, read_object, sha256_file
+from community_validation_session import ValidationSession
 from schema_utils import validate_instance, validate_json_file
 
 
@@ -118,7 +119,10 @@ def schema_path(root: Path, version: str) -> Path:
 
 
 def build_funnel(
-    audit_paths: list[Path], corpus: Path, root: Path | None = None
+    audit_paths: list[Path],
+    corpus: Path,
+    root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     """Revalidate complete chains and summarize preselection routing yield."""
     root = (root or repository_root()).resolve()
@@ -139,7 +143,9 @@ def build_funnel(
     receipt_count = 0
 
     for audit_path in resolved:
-        validate_preselection_chain_audit(audit_path, corpus, root)
+        validate_preselection_chain_audit(
+            audit_path, corpus, root, validation_session=validation_session
+        )
         audit = read_object(audit_path)
         queue_path = identity_path(audit["input_identity"]["queue"])
         screen_path = identity_path(audit["input_identity"]["feasibility_screen"])
@@ -319,9 +325,23 @@ def legacy_v1_view(report: dict) -> dict:
     return legacy
 
 
-def validate_funnel(report_path: Path, corpus: Path, root: Path | None = None) -> dict:
+def validate_funnel(
+    report_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+    validation_session: ValidationSession | None = None,
+) -> dict:
     root = (root or repository_root()).resolve()
     report_path = report_path.resolve()
+    corpus = corpus.resolve()
+    if validation_session is not None:
+        cached = validation_session.get(
+            "discovery-funnel-v2",
+            report_path,
+            context=(corpus / "index.json",),
+        )
+        if cached is not None:
+            return cached
     observed = read_object(report_path)
     version = observed.get("schema_version")
     errors = validate_json_file(report_path, schema_path(root, version))
@@ -342,7 +362,12 @@ def validate_funnel(report_path: Path, corpus: Path, root: Path | None = None) -
         ):
             raise ValueError(f"discovery funnel audit changed: {audit_path}")
         audit_paths.append(audit_path)
-    expected = build_funnel(audit_paths, corpus, root)
+    expected = build_funnel(
+        audit_paths,
+        corpus,
+        root,
+        validation_session=validation_session,
+    )
     if version == SCHEMA_VERSION_V1:
         expected = legacy_v1_view(expected)
     observed_stable = {
@@ -353,7 +378,15 @@ def validate_funnel(report_path: Path, corpus: Path, root: Path | None = None) -
     }
     if observed_stable != expected_stable:
         raise ValueError("discovery funnel is stale or was edited")
-    return {"status": "PASS", **observed["inventory"], **observed["yield"]}
+    result = {"status": "PASS", **observed["inventory"], **observed["yield"]}
+    if validation_session is not None:
+        validation_session.put(
+            "discovery-funnel-v2",
+            report_path,
+            result,
+            context=(corpus / "index.json",),
+        )
+    return result
 
 
 def build_routing_snapshot(

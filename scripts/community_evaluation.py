@@ -27,6 +27,7 @@ from community_knowledge import (
     validate_graph,
 )
 from schema_utils import validate_instance, validate_json_file
+from community_validation_session import ValidationSession
 
 
 SUITE_SCHEMAS = {"community-temporal-suite-v1", "community-temporal-suite-v2"}
@@ -1078,10 +1079,20 @@ def build_heldout_queue(
 
 
 def validate_heldout_queue(
-    queue_path: Path, corpus: Path, root: Path | None = None
+    queue_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     root = root or repository_root()
     queue_path = queue_path.resolve()
+    corpus = corpus.resolve()
+    if validation_session is not None:
+        cached = validation_session.get(
+            "heldout-queue-v1", queue_path, context=(corpus / "index.json",)
+        )
+        if cached is not None:
+            return cached
     errors = validate_json_file(
         queue_path, root / "schemas" / "community_heldout_queue.schema.json"
     )
@@ -1133,7 +1144,15 @@ def validate_heldout_queue(
     }
     if observed_stable != expected_stable:
         raise ValueError("held-out queue is stale or was edited without recomputation")
-    return {"status": "PASS", **queue["inventory"]}
+    result = {"status": "PASS", **queue["inventory"]}
+    if validation_session is not None:
+        validation_session.put(
+            "heldout-queue-v1",
+            queue_path,
+            result,
+            context=(corpus / "index.json",),
+        )
+    return result
 
 
 def rule_matches_candidate(rule: dict, candidate: dict) -> bool:
@@ -1171,13 +1190,16 @@ def build_feasibility_screen(
     profile_path: Path,
     corpus: Path,
     root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     """Account for every selected task using frozen discovery metadata only."""
     root = root or repository_root()
     queue_path = queue_path.resolve()
     policy_path = policy_path.resolve()
     profile_path = profile_path.resolve()
-    validate_heldout_queue(queue_path, corpus, root)
+    validate_heldout_queue(
+        queue_path, corpus, root, validation_session=validation_session
+    )
     for path, schema_name, label in (
         (policy_path, "community_feasibility_policy.schema.json", "policy"),
         (profile_path, "community_execution_profile.schema.json", "profile"),
@@ -1308,9 +1330,22 @@ def build_feasibility_screen(
 
 
 def validate_feasibility_screen(
-    screen_path: Path, corpus: Path, root: Path | None = None
+    screen_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     root = root or repository_root()
+    screen_path = screen_path.resolve()
+    corpus = corpus.resolve()
+    if validation_session is not None:
+        cached = validation_session.get(
+            "feasibility-screen-v1",
+            screen_path,
+            context=(corpus / "index.json",),
+        )
+        if cached is not None:
+            return cached
     errors = validate_json_file(
         screen_path, root / "schemas" / "community_feasibility_screen.schema.json"
     )
@@ -1328,6 +1363,7 @@ def validate_feasibility_screen(
         Path(inputs["execution_profile"]["path"]),
         corpus,
         root,
+        validation_session=validation_session,
     )
     observed_stable = {
         key: value for key, value in screen.items() if key != "generated_at"
@@ -1337,7 +1373,15 @@ def validate_feasibility_screen(
     }
     if observed_stable != expected_stable:
         raise ValueError("feasibility screen is stale or was edited")
-    return {"status": "PASS", **screen["inventory"]}
+    result = {"status": "PASS", **screen["inventory"]}
+    if validation_session is not None:
+        validation_session.put(
+            "feasibility-screen-v1",
+            screen_path,
+            result,
+            context=(corpus / "index.json",),
+        )
+    return result
 
 
 def git_bytes(repository: Path, *arguments: str) -> bytes:
@@ -1505,9 +1549,16 @@ def build_preselection_anchor(
 
 
 def validate_preselection_anchor(
-    anchor_path: Path, root: Path | None = None
+    anchor_path: Path,
+    root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     root = (root or repository_root()).resolve()
+    anchor_path = anchor_path.resolve()
+    if validation_session is not None:
+        cached = validation_session.get("preselection-anchor-v1", anchor_path)
+        if cached is not None:
+            return cached
     errors = validate_json_file(
         anchor_path, root / "schemas" / "community_preselection_anchor.schema.json"
     )
@@ -1532,12 +1583,15 @@ def validate_preselection_anchor(
     }
     if observed_stable != expected_stable:
         raise ValueError("preselection anchor is stale or was edited")
-    return {
+    result = {
         "status": "PASS",
         "commit": anchor["git_anchor"]["commit"],
         "committed_at": anchor["git_anchor"]["committed_at"],
         "cutoff_at": anchor["cutoff_at"],
     }
+    if validation_session is not None:
+        validation_session.put("preselection-anchor-v1", anchor_path, result)
+    return result
 
 
 def preselection_link_errors(
@@ -1635,15 +1689,22 @@ def audit_preselection_chain(
     screen_path: Path,
     corpus: Path,
     root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     """Verify that a prospective queue and screen use one anchored protocol."""
     root = (root or repository_root()).resolve()
     anchor_path = anchor_path.resolve()
     queue_path = queue_path.resolve()
     screen_path = screen_path.resolve()
-    validate_preselection_anchor(anchor_path, root)
-    validate_heldout_queue(queue_path, corpus, root)
-    validate_feasibility_screen(screen_path, corpus, root)
+    validate_preselection_anchor(
+        anchor_path, root, validation_session=validation_session
+    )
+    validate_heldout_queue(
+        queue_path, corpus, root, validation_session=validation_session
+    )
+    validate_feasibility_screen(
+        screen_path, corpus, root, validation_session=validation_session
+    )
     anchor = read_object(anchor_path)
     queue = read_object(queue_path)
     screen = read_object(screen_path)
@@ -1703,9 +1764,22 @@ def audit_preselection_chain(
 
 
 def validate_preselection_chain_audit(
-    audit_path: Path, corpus: Path, root: Path | None = None
+    audit_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+    validation_session: ValidationSession | None = None,
 ) -> dict:
     root = (root or repository_root()).resolve()
+    audit_path = audit_path.resolve()
+    corpus = corpus.resolve()
+    if validation_session is not None:
+        cached = validation_session.get(
+            "preselection-chain-audit-v1",
+            audit_path,
+            context=(corpus / "index.json",),
+        )
+        if cached is not None:
+            return cached
     errors = validate_json_file(
         audit_path,
         root / "schemas" / "community_preselection_chain_audit.schema.json",
@@ -1724,6 +1798,7 @@ def validate_preselection_chain_audit(
         Path(inputs["feasibility_screen"]["path"]),
         corpus,
         root,
+        validation_session=validation_session,
     )
     observed_stable = {
         key: value for key, value in audit.items() if key != "generated_at"
@@ -1733,7 +1808,15 @@ def validate_preselection_chain_audit(
     }
     if observed_stable != expected_stable:
         raise ValueError("preselection chain audit is stale or was edited")
-    return {"status": "PASS", **audit["observations"]}
+    result = {"status": "PASS", **audit["observations"]}
+    if validation_session is not None:
+        validation_session.put(
+            "preselection-chain-audit-v1",
+            audit_path,
+            result,
+            context=(corpus / "index.json",),
+        )
+    return result
 
 
 def identity_for(path: Path, base: Path) -> dict:

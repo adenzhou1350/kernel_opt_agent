@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_window_validation.schema.json",
+  "title": "Run-scoped fail-closed validation timing for one community discovery window",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "status",
+    "requested_inputs",
+    "input_identity",
+    "validator_implementation",
+    "stages",
+    "total_seconds",
+    "cache",
+    "error",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-window-validation-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "CPU_VALIDATION_TIMING_NOT_GPU_OR_OPTIMIZATION_PERFORMANCE"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "requested_inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue", "screen", "audit", "funnel", "corpus", "source_root"],
+      "properties": {
+        "queue": {"type": "string", "minLength": 1},
+        "screen": {"type": "string", "minLength": 1},
+        "audit": {"type": "string", "minLength": 1},
+        "funnel": {"type": "string", "minLength": 1},
+        "corpus": {"type": "string", "minLength": 1},
+        "source_root": {"type": "string", "minLength": 1}
+      }
+    },
+    "input_identity": {
+      "oneOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["queue", "screen", "audit", "funnel", "corpus_index", "source_root"],
+          "properties": {
+            "queue": {"$ref": "#/$defs/identity"},
+            "screen": {"$ref": "#/$defs/identity"},
+            "audit": {"$ref": "#/$defs/identity"},
+            "funnel": {"$ref": "#/$defs/identity"},
+            "corpus_index": {"$ref": "#/$defs/identity"},
+            "source_root": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "validator_implementation": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 4,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "status", "seconds"],
+        "properties": {
+          "name": {"enum": ["QUEUE", "FEASIBILITY_SCREEN", "PRESELECTION_CHAIN", "CUMULATIVE_FUNNEL"]},
+          "status": {"const": "PASS"},
+          "seconds": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "total_seconds": {"type": "number", "minimum": 0},
+    "cache": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scope", "entries", "hits", "misses"],
+      "properties": {
+        "scope": {"const": "PROCESS_LOCAL_CONTENT_ADDRESSED"},
+        "entries": {"type": "integer", "minimum": 0},
+        "hits": {"type": "integer", "minimum": 0},
+        "misses": {"type": "integer", "minimum": 0}
+      }
+    },
+    "no_cache_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "stages", "total_seconds", "session_speedup", "error"],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL"]},
+        "stages": {
+          "type": "array",
+          "minItems": 0,
+          "maxItems": 4,
+          "items": {"$ref": "#/$defs/stage"}
+        },
+        "total_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "session_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "error": {"type": ["string", "null"]}
+      }
+    },
+    "error": {"type": ["string", "null"]},
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
+  },
+  "$defs": {
+    "stage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "status", "seconds"],
+      "properties": {
+        "name": {"enum": ["QUEUE", "FEASIBILITY_SCREEN", "PRESELECTION_CHAIN", "CUMULATIVE_FUNNEL"]},
+        "status": {"const": "PASS"},
+        "seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

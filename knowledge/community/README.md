@@ -560,6 +560,31 @@ PRs with the same frozen rule, reason and task family. Repeated updates to one P
 never count as independent evidence, so one noisy change cannot teach the
 discovery layer to suppress a whole optimization family.
 
+Validate a completed future-cohort window through one process-local,
+content-addressed session when exact CPU validation time matters:
+
+```bash
+python3 scripts/kernel_opt.py community-window-validate \
+  --queue /path/to/window-queue.json \
+  --screen /path/to/window-screen.json \
+  --audit /path/to/window-chain-audit.json \
+  --funnel /path/to/cumulative-funnel.json \
+  --corpus /path/to/community-corpus \
+  --source-root /path/to/frozen-source-checkout \
+  --output /path/to/window-validation.json
+```
+
+The session may reuse a successful queue, screen or chain validation only
+inside that process. Before every reuse it rehashes the artifact and every
+reachable file identity, resolving relative identities only against explicitly
+declared source and corpus roots. An unresolved identity fails closed. The
+output records per-stage and total validation time plus cache hits and misses.
+Use `--compare-no-cache` only for periodic architecture checks: it performs a
+second, independent full replay and records the directly comparable speedup.
+No cache is persisted, and final release evidence still requires an independent
+no-cache validation. This removes repeated computation without converting a
+cache hit into protocol or performance evidence.
+
 Before starting a future temporal cohort, freeze the exact event and lifecycle
 snapshot universe rather than binding the mutable global corpus index:
 
