@@ -36,6 +36,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-funnel": Command("community_discovery_funnel.py", "measure discovery yield and retain routing feedback"),
         "community-checkpoint": Command("community_checkpoint.py", "freeze and Git-anchor one knowledge universe"),
         "community-graph-v2": Command("community_graph_v2.py", "build checkpoint-backed temporal knowledge graphs"),
+        "community-materialized-feasibility": Command("community_materialized_feasibility.py", "fail closed after task and harness materialization"),
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
     },
     "hardware": {

@@ -1,0 +1,102 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_materialization_manifest.schema.json",
+  "title": "Post-selection task and harness materialization manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "task",
+    "preselection_screen",
+    "execution_profile",
+    "resource_status",
+    "candidate",
+    "target_resource_ids",
+    "artifacts"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-materialization-manifest-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DECLARED_POST_SELECTION_INPUTS_NOT_EXECUTION_AUTHORITY"},
+    "task": {"$ref": "#/$defs/fileIdentity"},
+    "preselection_screen": {"$ref": "#/$defs/fileIdentity"},
+    "execution_profile": {"$ref": "#/$defs/fileIdentity"},
+    "resource_status": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/fileIdentity"}
+      ]
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pr_number", "purpose", "existing_reference_pr"],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "pr_number": {"type": "integer", "minimum": 1},
+        "purpose": {"enum": ["BLIND_REDISCOVERY", "NEW_UPSTREAM_WORK"]},
+        "existing_reference_pr": {
+          "type": ["string", "null"],
+          "pattern": "^https://github\\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/pull/[1-9][0-9]*$"
+        }
+      }
+    },
+    "target_resource_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/artifact"}
+    }
+  },
+  "$defs": {
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "required", "status", "reason", "evidence"],
+      "properties": {
+        "role": {
+          "enum": [
+            "BASELINE_SOURCE",
+            "OPERATOR_HARNESS",
+            "WHOLE_MODEL_HARNESS",
+            "MODEL_OR_WEIGHTS",
+            "LIVE_HARDWARE_STATUS"
+          ]
+        },
+        "required": {"type": "boolean"},
+        "status": {"enum": ["READY", "MISSING", "UNVERIFIED", "NOT_APPLICABLE"]},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/fileIdentity"}
+        }
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"status": {"const": "READY"}}},
+          "then": {"properties": {"evidence": {"minItems": 1}}}
+        },
+        {
+          "if": {"properties": {"required": {"const": true}}},
+          "then": {"properties": {"status": {"not": {"const": "NOT_APPLICABLE"}}}}
+        }
+      ]
+    }
+  }
+}

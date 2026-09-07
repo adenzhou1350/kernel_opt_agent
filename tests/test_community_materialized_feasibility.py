@@ -1,0 +1,233 @@
+#!/usr/bin/env python3
+"""Exercise the post-materialization feasibility and duplicate-PR gates."""
+
+from __future__ import annotations
+
+import json
+import sys
+import tempfile
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "scripts"))
+
+from community_knowledge import atomic_json, sha256_file  # noqa: E402
+from community_materialized_feasibility import (  # noqa: E402
+    build_assessment,
+    validate_assessment,
+)
+
+
+def identity(path: Path) -> dict:
+    return {"path": path.resolve().as_posix(), "sha256": sha256_file(path)}
+
+
+def write_inputs(base: Path) -> tuple[Path, Path, Path, Path, Path]:
+    task = base / "task.json"
+    screen = base / "screen.json"
+    profile = base / "profile.json"
+    resource_status = base / "resource-status.json"
+    baseline = base / "baseline.py"
+    baseline.write_text("def baseline():\n    return 1\n", encoding="utf-8")
+    atomic_json(resource_status, {"observed": "idle"})
+    atomic_json(
+        task,
+        {
+            "schema_version": "community-heldout-task-v2",
+            "task_id": "example.materialized-task",
+            "information_policy": "SYMPTOM_CONTRACT_AND_BASELINE_ONLY",
+            "objective": "Make the operator faster without changing results.",
+            "operator": {
+                "equation": "y = x",
+                "input_shapes": ["x: [B, H]"],
+                "input_dtype": "bfloat16",
+                "output_dtype": "bfloat16",
+                "layout": "contiguous",
+                "numerical_contract": "exact",
+                "aliasing": "inputs are read-only",
+            },
+            "workload": {
+                "primary_mode": "decode",
+                "shape_weights": {"B=1": 1.0},
+                "integration": "example runtime",
+                "latency_objective": "median GPU latency",
+                "required_controls": ["randomized paired order"],
+            },
+            "hardware": {
+                "device": "NVIDIA RTX 5090",
+                "compute_capability": "sm120",
+                "memory_gib": 31.0,
+                "software": "CUDA test runtime",
+                "allowed_programming_models": ["PyTorch CUDA"],
+            },
+            "baseline": {
+                "implementation": "baseline.py",
+                "observed_symptom": "redundant work",
+                "candidate_bottlenecks": ["launch overhead"],
+                "bottleneck_status": "STATIC_ONLY",
+                "claim_boundary": "TASK_INPUT_NOT_RESULT",
+            },
+            "acceptance": {
+                "correctness": ["exact output"],
+                "performance": ["at least 1.02x"],
+                "upstream": "reproducible patch",
+            },
+        },
+    )
+    atomic_json(
+        screen,
+        {
+            "schema_version": "community-feasibility-screen-v1",
+            "generated_at": "2026-09-07T05:00:00Z",
+            "claim_boundary": "FEASIBILITY_ACCOUNTING_NOT_PERFORMANCE_EVIDENCE",
+            "registration": "PRESELECTION",
+            "input_identity": {
+                "queue": identity(baseline),
+                "policy": identity(baseline),
+                "execution_profile": identity(baseline),
+            },
+            "inventory": {
+                "selected_queue_count": 1,
+                "eligible_count": 1,
+                "infeasible_count": 0,
+                "harness_blocked_count": 0,
+            },
+            "items": [
+                {
+                    "repository": "example/project",
+                    "pr_number": 7,
+                    "queue_priority_rank": 1,
+                    "task_family": "GENERAL_GPU_RUNTIME",
+                    "matched_rule_id": "default",
+                    "requirements": {},
+                    "status": "ELIGIBLE",
+                    "reason": "DECLARED_RESOURCE_AND_HARNESS_READY",
+                    "candidate_resource_ids": ["single-sm120-32g"],
+                    "ready_resource_ids": ["single-sm120-32g"],
+                    "harness_status": "READY",
+                }
+            ],
+        },
+    )
+    atomic_json(
+        profile,
+        {
+            "schema_version": "community-execution-profile-v1",
+            "profile_id": "test-sm120",
+            "observed_at": "2026-09-07T05:00:00Z",
+            "claim_boundary": "DECLARED_AVAILABILITY_NOT_LIVE_PROOF",
+            "resources": [
+                {
+                    "resource_id": "single-sm120-32g",
+                    "availability": "AVAILABLE",
+                    "vendor": "NVIDIA",
+                    "architecture": "sm120",
+                    "gpu_count": 1,
+                    "memory_gib_per_gpu": 32,
+                    "capabilities": ["CUDA", "PYTORCH"],
+                    "constraints": [],
+                }
+            ],
+            "harnesses": [],
+        },
+    )
+    return task, screen, profile, resource_status, baseline
+
+
+def manifest_object(
+    task: Path,
+    screen: Path,
+    profile: Path,
+    resource_status: Path,
+    baseline: Path,
+) -> dict:
+    return {
+        "schema_version": "community-materialization-manifest-v1",
+        "generated_at": "2026-09-07T05:01:00Z",
+        "claim_boundary": "DECLARED_POST_SELECTION_INPUTS_NOT_EXECUTION_AUTHORITY",
+        "task": identity(task),
+        "preselection_screen": identity(screen),
+        "execution_profile": identity(profile),
+        "resource_status": identity(resource_status),
+        "candidate": {
+            "repository": "example/project",
+            "pr_number": 7,
+            "purpose": "BLIND_REDISCOVERY",
+            "existing_reference_pr": "https://github.com/example/project/pull/7",
+        },
+        "target_resource_ids": ["single-sm120-32g"],
+        "artifacts": [
+            {
+                "role": "BASELINE_SOURCE",
+                "required": True,
+                "status": "READY",
+                "reason": "EXACT_BASELINE_PRESENT",
+                "evidence": [identity(baseline)],
+            },
+            {
+                "role": "OPERATOR_HARNESS",
+                "required": True,
+                "status": "MISSING",
+                "reason": "EXACT_HARNESS_NOT_MATERIALIZED",
+                "evidence": [],
+            },
+            {
+                "role": "LIVE_HARDWARE_STATUS",
+                "required": True,
+                "status": "READY",
+                "reason": "READ_ONLY_STATUS_CAPTURED",
+                "evidence": [identity(resource_status)],
+            },
+        ],
+    }
+
+
+def test_materialized_gate_blocks_missing_harness_and_duplicate_upstream() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        manifest_path = base / "manifest.json"
+        manifest = manifest_object(task, screen, profile, resource_status, baseline)
+        atomic_json(manifest_path, manifest)
+        blocked = build_assessment(manifest_path, ROOT)
+        assert blocked["decision"] == "HARNESS_BLOCKED"
+        assert blocked["matched_resource_ids"] == ["single-sm120-32g"]
+        assert blocked["blockers"] == ["MISSING_OPERATOR_HARNESS"]
+        assert not blocked["allowed_actions"]["request_supervisor_review"]
+
+        harness = base / "harness.py"
+        harness.write_text("def run():\n    return 1\n", encoding="utf-8")
+        manifest["artifacts"][1] = {
+            "role": "OPERATOR_HARNESS",
+            "required": True,
+            "status": "READY",
+            "reason": "EXACT_HARNESS_PRESENT",
+            "evidence": [identity(harness)],
+        }
+        manifest["candidate"]["purpose"] = "NEW_UPSTREAM_WORK"
+        atomic_json(manifest_path, manifest)
+        duplicate = build_assessment(manifest_path, ROOT)
+        assert duplicate["decision"] == "UPSTREAM_DUPLICATE"
+        assert duplicate["blockers"] == ["EXISTING_UPSTREAM_PR_TARGET"]
+        assert not duplicate["allowed_actions"]["package_upstream_pr"]
+
+        manifest["candidate"]["purpose"] = "BLIND_REDISCOVERY"
+        atomic_json(manifest_path, manifest)
+        eligible = build_assessment(manifest_path, ROOT)
+        assert eligible["decision"] == "ELIGIBLE_FOR_SUPERVISOR_REVIEW"
+        assert eligible["allowed_actions"]["request_supervisor_review"]
+        assert not eligible["allowed_actions"]["dispatch_gpu"]
+        assessment_path = base / "assessment.json"
+        atomic_json(assessment_path, eligible)
+        assert validate_assessment(assessment_path, ROOT)["status"] == "PASS"
+
+        edited = json.loads(assessment_path.read_text(encoding="utf-8"))
+        edited["allowed_actions"]["dispatch_gpu"] = True
+        atomic_json(assessment_path, edited)
+        try:
+            validate_assessment(assessment_path, ROOT)
+        except ValueError as error:
+            assert "expected constant False" in str(error)
+        else:
+            raise AssertionError("edited dispatch authority passed validation")

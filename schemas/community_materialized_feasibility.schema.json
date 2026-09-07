@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_materialized_feasibility.schema.json",
+  "title": "Recomputed post-materialization feasibility gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "registration",
+    "inputs",
+    "candidate",
+    "matched_resource_ids",
+    "artifact_inventory",
+    "decision",
+    "blockers",
+    "allowed_actions"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-materialized-feasibility-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "POST_MATERIALIZATION_GATE_NOT_PERFORMANCE_EVIDENCE_OR_DISPATCH_APPROVAL"},
+    "registration": {"const": "POST_MATERIALIZATION"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest", "task", "preselection_screen", "execution_profile", "resource_status"],
+      "properties": {
+        "manifest": {"$ref": "#/$defs/fileIdentity"},
+        "task": {"$ref": "#/$defs/fileIdentity"},
+        "preselection_screen": {"$ref": "#/$defs/fileIdentity"},
+        "execution_profile": {"$ref": "#/$defs/fileIdentity"},
+        "resource_status": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/fileIdentity"}
+          ]
+        }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pr_number", "task_id", "purpose", "existing_reference_pr"],
+      "properties": {
+        "repository": {"type": "string"},
+        "pr_number": {"type": "integer", "minimum": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "purpose": {"enum": ["BLIND_REDISCOVERY", "NEW_UPSTREAM_WORK"]},
+        "existing_reference_pr": {"type": ["string", "null"]}
+      }
+    },
+    "matched_resource_ids": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "artifact_inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required_count",
+        "ready_required_count",
+        "missing_required_count",
+        "unverified_required_count"
+      ],
+      "properties": {
+        "required_count": {"type": "integer", "minimum": 0},
+        "ready_required_count": {"type": "integer", "minimum": 0},
+        "missing_required_count": {"type": "integer", "minimum": 0},
+        "unverified_required_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "decision": {
+      "enum": [
+        "ELIGIBLE_FOR_SUPERVISOR_REVIEW",
+        "PRESELECTION_BLOCKED",
+        "RESOURCE_BLOCKED",
+        "HARNESS_BLOCKED",
+        "UPSTREAM_DUPLICATE"
+      ]
+    },
+    "blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "allowed_actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["read_only_research", "prepare_missing_artifacts", "request_supervisor_review", "dispatch_gpu", "package_upstream_pr"],
+      "properties": {
+        "read_only_research": {"type": "boolean"},
+        "prepare_missing_artifacts": {"type": "boolean"},
+        "request_supervisor_review": {"type": "boolean"},
+        "dispatch_gpu": {"const": false},
+        "package_upstream_pr": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "fileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
