@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_deferred_intake.schema.json",
+  "title": "Metadata-only future-cohort review queue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "status", "claim_boundary", "source_window", "policy", "inventory", "items", "withheld_post_cutoff_keys", "input_identity"],
+  "properties": {
+    "schema_version": {"const": "community-deferred-training-intake-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"const": "PASS"},
+    "claim_boundary": {"const": "METADATA_ONLY_NEXT_COHORT_REVIEW_QUEUE_NOT_CURRENT_COHORT_TRAINING_OR_PERFORMANCE_EVIDENCE"},
+    "source_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["since", "until", "current_cohort_cutoff_at"],
+      "properties": {
+        "since": {"type": "string", "format": "date-time"},
+        "until": {"type": "string", "format": "date-time"},
+        "current_cohort_cutoff_at": {"type": "string", "format": "date-time"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["current_cohort_route", "diff_review", "hypothesis_strength", "promotion_requirements"],
+      "properties": {
+        "current_cohort_route": {"const": "RECORD_ONLY_DO_NOT_ROUTE"},
+        "diff_review": {"const": "FORBIDDEN_UNTIL_NEXT_COHORT_RULES_AND_CUTOFF_ARE_FROZEN"},
+        "hypothesis_strength": {"const": "UNREAD_METADATA_ONLY"},
+        "promotion_requirements": {"type": "array", "minItems": 5, "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["previous_unique_candidates", "current_unique_candidates", "new_unique_candidates", "deferred_pre_cutoff_count", "withheld_post_cutoff_count", "receipt_candidate_count", "reobserved_candidate_count"],
+      "properties": {
+        "previous_unique_candidates": {"type": "integer", "minimum": 0},
+        "current_unique_candidates": {"type": "integer", "minimum": 0},
+        "new_unique_candidates": {"type": "integer", "minimum": 0},
+        "deferred_pre_cutoff_count": {"type": "integer", "minimum": 0},
+        "withheld_post_cutoff_count": {"type": "integer", "minimum": 0},
+        "receipt_candidate_count": {"type": "integer", "minimum": 0},
+        "reobserved_candidate_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["repository", "pr_number", "title", "created_at", "earliest_public_at", "updated_at", "classifications", "selection_score", "disposition", "hypothesis_status"],
+        "properties": {
+          "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "title": {"type": "string", "minLength": 1},
+          "created_at": {"type": "string", "format": "date-time"},
+          "earliest_public_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"},
+          "classifications": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z][A-Z_]+$"}},
+          "selection_score": {"type": "integer", "minimum": 1},
+          "disposition": {"const": "NEXT_COHORT_REVIEW"},
+          "hypothesis_status": {"const": "UNREAD"}
+        }
+      }
+    },
+    "withheld_post_cutoff_keys": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*$"}},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predecessor_checkpoint", "successor_checkpoint", "receipts"],
+      "properties": {
+        "predecessor_checkpoint": {"$ref": "#/$defs/identity"},
+        "successor_checkpoint": {"$ref": "#/$defs/identity"},
+        "receipts": {"type": "array", "minItems": 3, "maxItems": 3, "items": {"$ref": "#/$defs/identity"}}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
