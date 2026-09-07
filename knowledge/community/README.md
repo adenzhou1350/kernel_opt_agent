@@ -385,3 +385,11 @@ that repository coverage, cutoff, receipt schema, selection seed/limit, policy,
 execution profile and all denominator counts match the committed
 preregistration. Independent artifact validation is insufficient when valid
 artifacts can be accidentally combined from different prospective windows.
+
+Use `community-eval meta-analyze` to recursively inventory paired A/B reports.
+The summary separates legacy reports, assigned-but-unrealized community arms,
+diagnostic realized treatments and primary realized treatments. Its advantage
+gate requires at least eight primary pairs across four tasks, a majority win in
+time-to-first-correct, no worse than parity in best speedup and no held-out
+correctness losses. This prevents attractive legacy or diagnostic runs from
+being counted as proof that the knowledge layer improves the Agent.

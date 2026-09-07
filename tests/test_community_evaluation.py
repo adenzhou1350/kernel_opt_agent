@@ -20,6 +20,7 @@ from community_evaluation import (
     audit_task_packets,
     audit_codex_execution,
     assess_trial,
+    build_ab_meta_analysis,
     build_feasibility_screen,
     build_heldout_queue,
     build_prior_shortlist,
@@ -36,6 +37,7 @@ from community_evaluation import (
     validate_schedule,
     validate_qualification_checkpoint,
     validate_feasibility_screen,
+    validate_ab_meta_analysis,
     validate_heldout_queue,
     validate_suite,
 )
@@ -1501,6 +1503,14 @@ def main() -> None:
         assert no_treatment_report["treatment_fidelity"]["causal_interpretation"] == (
             "ASSIGNMENT_WITHOUT_REALIZED_PRIOR"
         )
+        meta_path = base / "meta-analysis.json"
+        meta = build_ab_meta_analysis(base, ROOT)
+        atomic_json(meta_path, meta)
+        assert meta["inventory"]["report_count"] == 3
+        assert meta["inventory"]["primary_realized_count"] == 2
+        assert meta["inventory"]["assignment_only_count"] == 1
+        assert meta["verdict"] == "INSUFFICIENT_PRIMARY_EVIDENCE"
+        assert validate_ab_meta_analysis(meta_path, ROOT)["status"] == "PASS"
         write_result(community_dir, rows, elapsed)
 
         ranking_path = community_dir / "evidence" / "opportunity-ranking.json"

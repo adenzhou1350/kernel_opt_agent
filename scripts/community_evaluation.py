@@ -44,6 +44,7 @@ HELDOUT_QUEUE_SCHEMA = "community-heldout-queue-v1"
 FEASIBILITY_SCREEN_SCHEMA = "community-feasibility-screen-v1"
 PRESELECTION_ANCHOR_SCHEMA = "community-preselection-anchor-v1"
 PRESELECTION_CHAIN_AUDIT_SCHEMA = "community-preselection-chain-audit-v1"
+META_ANALYSIS_SCHEMA = "community-ab-meta-analysis-v1"
 ARMS = ("CONTROL", "COMMUNITY_AUGMENTED")
 METRICS = {
     "TIME_TO_FIRST_CORRECT",
@@ -2997,6 +2998,179 @@ def aggregate_pair_reports(
     return summary
 
 
+META_DELTA_FIELDS = (
+    "time_to_first_correct_seconds_saved",
+    "time_to_first_improvement_seconds_saved",
+    "best_speedup_gain",
+    "architecture_family_count_gain",
+    "heldout_pass_count_gain",
+    "best_whole_model_speedup_gain",
+    "upstream_ready_count_gain",
+)
+
+
+def pair_evidence_class(path: Path, report: dict, search_root: Path) -> str:
+    fidelity = report.get("treatment_fidelity")
+    if not isinstance(fidelity, dict):
+        return "LEGACY_UNAUDITED"
+    if fidelity.get("causal_interpretation") != "TREATMENT_REALIZED":
+        return "ASSIGNMENT_ONLY"
+    relative = path.resolve().relative_to(search_root.resolve()).as_posix().lower()
+    return (
+        "DIAGNOSTIC_REALIZED" if "diagnostic" in relative else "PRIMARY_REALIZED"
+    )
+
+
+def metric_meta_summary(reports: list[dict], field: str) -> dict:
+    values = [
+        float(report["deltas"][field])
+        for report in reports
+        if report["deltas"].get(field) is not None
+    ]
+    wins = sum(value > 0 for value in values)
+    losses = sum(value < 0 for value in values)
+    ties = sum(value == 0 for value in values)
+    return {
+        "observed": len(values),
+        "community_wins": wins,
+        "control_wins": losses,
+        "ties": ties,
+        "missing": len(reports) - len(values),
+        "median_delta": float(median(values)) if values else None,
+        "two_sided_exact_sign_p": exact_two_sided_sign_p(wins, losses),
+    }
+
+
+def build_ab_meta_analysis(
+    search_root: Path, root: Path | None = None
+) -> dict:
+    """Inventory every pair report and separate assignment from realized treatment."""
+    root = root or repository_root()
+    search_root = search_root.resolve()
+    if not search_root.is_dir():
+        raise FileNotFoundError(f"A/B meta-analysis root is missing: {search_root}")
+    rows = []
+    primary_reports = []
+    for path in sorted(search_root.rglob("*.json")):
+        try:
+            report = read_object(path)
+        except (OSError, ValueError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        if report.get("schema_version") != REPORT_SCHEMA:
+            continue
+        evidence_class = pair_evidence_class(path, report, search_root)
+        fidelity = report.get("treatment_fidelity")
+        causal = (
+            fidelity.get("causal_interpretation")
+            if isinstance(fidelity, dict)
+            else "LEGACY_UNAUDITED"
+        )
+        if evidence_class != "LEGACY_UNAUDITED":
+            errors = validate_json_file(
+                path, root / "schemas" / "community_ab_report.schema.json"
+            )
+            if errors:
+                raise ValueError(
+                    f"invalid non-legacy pair report {path}: " + "; ".join(errors)
+                )
+        row = {
+            "path": path.relative_to(search_root).as_posix(),
+            "sha256": sha256_file(path),
+            "suite_id": str(report.get("suite_id", "")),
+            "task_id": str(report.get("task_id", "")),
+            "repeat_index": int(report.get("repeat_index", 0)),
+            "evidence_class": evidence_class,
+            "causal_interpretation": causal,
+        }
+        if row["repeat_index"] < 1:
+            raise ValueError(f"pair report has invalid repeat index: {path}")
+        rows.append(row)
+        if evidence_class == "PRIMARY_REALIZED":
+            primary_reports.append(report)
+    classes = [row["evidence_class"] for row in rows]
+    inventory = {
+        "report_count": len(rows),
+        "primary_realized_count": classes.count("PRIMARY_REALIZED"),
+        "primary_task_count": len(
+            {report["task_id"] for report in primary_reports}
+        ),
+        "diagnostic_realized_count": classes.count("DIAGNOSTIC_REALIZED"),
+        "assignment_only_count": classes.count("ASSIGNMENT_ONLY"),
+        "legacy_unaudited_count": classes.count("LEGACY_UNAUDITED"),
+    }
+    metrics = {
+        field: metric_meta_summary(primary_reports, field)
+        for field in META_DELTA_FIELDS
+    }
+    if (
+        inventory["primary_realized_count"] < 8
+        or inventory["primary_task_count"] < 4
+    ):
+        verdict = "INSUFFICIENT_PRIMARY_EVIDENCE"
+    else:
+        ttfc = metrics["time_to_first_correct_seconds_saved"]
+        speedup = metrics["best_speedup_gain"]
+        heldout = metrics["heldout_pass_count_gain"]
+        advantage = (
+            ttfc["community_wins"] > ttfc["control_wins"]
+            and speedup["community_wins"] >= speedup["control_wins"]
+            and heldout["control_wins"] == 0
+        )
+        verdict = "ADVANTAGE_OBSERVED" if advantage else "NO_ADVANTAGE_OBSERVED"
+    result = {
+        "schema_version": META_ANALYSIS_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "DESCRIPTIVE_CROSS_TASK_EVIDENCE_ONLY",
+        "search_root": search_root.as_posix(),
+        "policy": {
+            "discovery": "RECURSIVE_SCHEMA_VERSION_SCAN",
+            "diagnostic_path_token": "diagnostic",
+            "minimum_primary_pairs": 8,
+            "minimum_primary_tasks": 4,
+            "advantage_rule": (
+                "TTFC_MAJORITY_AND_SPEEDUP_MAJORITY_AND_NO_HELDOUT_LOSS"
+            ),
+        },
+        "inventory": inventory,
+        "primary_metrics": metrics,
+        "reports": rows,
+        "verdict": verdict,
+    }
+    errors = validate_instance(
+        result,
+        read_object(root / "schemas" / "community_ab_meta_analysis.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid A/B meta-analysis: " + "; ".join(errors))
+    return result
+
+
+def validate_ab_meta_analysis(
+    analysis_path: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    errors = validate_json_file(
+        analysis_path, root / "schemas" / "community_ab_meta_analysis.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid A/B meta-analysis: " + "; ".join(errors))
+    analysis = read_object(analysis_path)
+    expected = build_ab_meta_analysis(Path(analysis["search_root"]), root)
+    observed_stable = {
+        key: value for key, value in analysis.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("A/B meta-analysis is stale or was edited")
+    return {
+        "status": "PASS",
+        "verdict": analysis["verdict"],
+        **analysis["inventory"],
+    }
+
+
 PACKET_AUDIT_STOPWORDS = {
     "and", "are", "for", "from", "into", "only", "the", "this", "that",
     "then", "while", "with", "without", "existing", "already", "available",
@@ -3337,6 +3511,11 @@ def parse_args() -> argparse.Namespace:
     aggregate = subparsers.add_parser("aggregate-repeats")
     aggregate.add_argument("--pairs", type=Path, nargs="+", required=True)
     aggregate.add_argument("--output", type=Path, required=True)
+    meta = subparsers.add_parser("meta-analyze")
+    meta.add_argument("--search-root", type=Path, required=True)
+    meta.add_argument("--output", type=Path, required=True)
+    meta_validate = subparsers.add_parser("validate-meta-analysis")
+    meta_validate.add_argument("--analysis", type=Path, required=True)
     task_packet_audit = subparsers.add_parser("audit-task-packets")
     task_packet_audit.add_argument("--suite", type=Path, required=True)
     task_packet_audit.add_argument("--output", type=Path, required=True)
@@ -3432,6 +3611,17 @@ def main() -> int:
             )
         elif args.operation == "aggregate-repeats":
             result = aggregate_pair_reports(args.pairs, args.output)
+        elif args.operation == "meta-analyze":
+            result = build_ab_meta_analysis(args.search_root)
+            atomic_json(args.output.resolve(), result)
+            result = {
+                "status": "PASS",
+                "verdict": result["verdict"],
+                **result["inventory"],
+                "analysis": str(args.output.resolve()),
+            }
+        elif args.operation == "validate-meta-analysis":
+            result = validate_ab_meta_analysis(args.analysis)
         elif args.operation == "audit-task-packets":
             result = audit_task_packets(args.suite, args.output)
         elif args.operation == "summarize-schedule":

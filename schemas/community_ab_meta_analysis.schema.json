@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_ab_meta_analysis.schema.json",
+  "title": "Exhaustive treatment-fidelity-aware community A/B inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "search_root", "policy", "inventory", "primary_metrics", "reports", "verdict"],
+  "properties": {
+    "schema_version": {"const": "community-ab-meta-analysis-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DESCRIPTIVE_CROSS_TASK_EVIDENCE_ONLY"},
+    "search_root": {"type": "string", "minLength": 1},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["discovery", "diagnostic_path_token", "minimum_primary_pairs", "minimum_primary_tasks", "advantage_rule"],
+      "properties": {
+        "discovery": {"const": "RECURSIVE_SCHEMA_VERSION_SCAN"},
+        "diagnostic_path_token": {"const": "diagnostic"},
+        "minimum_primary_pairs": {"const": 8},
+        "minimum_primary_tasks": {"const": 4},
+        "advantage_rule": {"const": "TTFC_MAJORITY_AND_SPEEDUP_MAJORITY_AND_NO_HELDOUT_LOSS"}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["report_count", "primary_realized_count", "primary_task_count", "diagnostic_realized_count", "assignment_only_count", "legacy_unaudited_count"],
+      "properties": {
+        "report_count": {"type": "integer", "minimum": 0},
+        "primary_realized_count": {"type": "integer", "minimum": 0},
+        "primary_task_count": {"type": "integer", "minimum": 0},
+        "diagnostic_realized_count": {"type": "integer", "minimum": 0},
+        "assignment_only_count": {"type": "integer", "minimum": 0},
+        "legacy_unaudited_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "primary_metrics": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/metricSummary"}
+    },
+    "reports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256", "suite_id", "task_id", "repeat_index", "evidence_class", "causal_interpretation"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "suite_id": {"type": "string"},
+          "task_id": {"type": "string"},
+          "repeat_index": {"type": "integer", "minimum": 1},
+          "evidence_class": {"enum": ["PRIMARY_REALIZED", "DIAGNOSTIC_REALIZED", "ASSIGNMENT_ONLY", "LEGACY_UNAUDITED"]},
+          "causal_interpretation": {"enum": ["TREATMENT_REALIZED", "ASSIGNMENT_WITHOUT_REALIZED_PRIOR", "LEGACY_UNAUDITED"]}
+        }
+      }
+    },
+    "verdict": {"enum": ["INSUFFICIENT_PRIMARY_EVIDENCE", "ADVANTAGE_OBSERVED", "NO_ADVANTAGE_OBSERVED"]}
+  },
+  "$defs": {
+    "metricSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["observed", "community_wins", "control_wins", "ties", "missing", "median_delta", "two_sided_exact_sign_p"],
+      "properties": {
+        "observed": {"type": "integer", "minimum": 0},
+        "community_wins": {"type": "integer", "minimum": 0},
+        "control_wins": {"type": "integer", "minimum": 0},
+        "ties": {"type": "integer", "minimum": 0},
+        "missing": {"type": "integer", "minimum": 0},
+        "median_delta": {"type": ["number", "null"]},
+        "two_sided_exact_sign_p": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+      }
+    }
+  }
+}
