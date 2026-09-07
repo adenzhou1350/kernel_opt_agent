@@ -47,6 +47,12 @@ matched candidate, budget skip, query URL and whether GitHub truncated search
 coverage. Feed its `next_since` into the next scheduled window; never silently
 advance a cursor after a failed run.
 
+The CLI reads `GITHUB_TOKEN` first and then `GH_TOKEN`; token values are never
+written to receipts or logs. An unauthenticated or exhausted request reports
+the GitHub rate-limit resource, remaining count, UTC reset time and optional
+retry delay. Do not advance `next_since` or create an empty success receipt on
+HTTP failure; retry the same closed window only after the reported reset.
+
 Refresh every PR already referenced by an event under a separate fixed budget:
 
 ```bash
@@ -373,11 +379,21 @@ present in the discovery queue—not the held-out diff, review or outcome.
 
 For a formal prospective window, commit a
 `community-heldout-preregistration-v1` document together with its referenced
-policy and execution profile before the declared cutoff. After the commit,
-`community-eval anchor-preregistration` verifies the exact three byte streams
-through `git show`, checks the commit timestamp is not later than the cutoff,
-and emits an external validation receipt. A JSON `declared_at` field by itself
-is not acceptable proof of pre-registration.
+policy, execution profile and optional portable prior-routing snapshot before
+the declared cutoff. The optional `evaluation` block freezes both arms,
+repeats, randomization, network policy, model identity, strict task contract,
+candidate/compile/measurement/repair/revision/wall budgets, material threshold,
+all seven metrics and the source outcome-ledger hash. After the commit,
+`community-eval anchor-preregistration` verifies every referenced byte stream
+through `git show`, checks the commit timestamp and both routing timestamps are
+not later than the cutoff, and emits an external validation receipt. A JSON
+`declared_at` field by itself is not acceptable proof of pre-registration.
+
+An anchored temporal suite may set `preselection_anchor`,
+`training_prior_routing` and `training_prior_outcomes`. Suite validation then
+fails closed unless its cutoff and complete evaluation protocol equal the
+pre-registration and the portable snapshot binds the exact source-ledger hash.
+This makes the pre-registration executable rather than advisory.
 
 After discovery and screening, run `community-eval audit-preselection-chain`.
 The chain audit recomputes the anchor, queue and feasibility screen, then checks
@@ -401,3 +417,30 @@ feedback. Any held-out correctness loss requires a context guard; directional
 up/down-ranking requires at least two observations. Diagnostic, legacy and
 assignment-only reports never train this ledger, and one negative observation
 does not globally delete a method.
+
+Create a portable, Git-anchorable routing surface without copying local pair
+paths into the repository:
+
+```bash
+python scripts/kernel_opt.py community-eval build-prior-outcome-ledger \
+  --meta-analysis /path/to/community-ab-meta-analysis.json \
+  --output /path/to/community-prior-outcome-ledger.json
+
+python scripts/kernel_opt.py community-eval build-prior-routing-snapshot \
+  --ledger /path/to/community-prior-outcome-ledger.json \
+  --output knowledge/community/prior_routing/routing-v1.json
+
+python scripts/kernel_opt.py community-eval validate-prior-routing-snapshot \
+  --snapshot knowledge/community/prior_routing/routing-v1.json \
+  --ledger /path/to/community-prior-outcome-ledger.json
+```
+
+The portable snapshot contains only aggregate route decisions, the failed task
+IDs needed for a context guard and the source-ledger hash. It deliberately
+omits absolute assessment/pair paths and raw target measurements. Future
+augmented trials still receive the hash-bound source ledger; control trials
+receive neither form. A `REQUIRE_CONTEXT_GUARD` event or method is excluded
+unless the suite binds a task-specific context-distinction contract that names
+every prior held-out failure and an explicit causal difference. The shortlist
+is deterministically rebuilt during trial validation, and the assessor rejects
+a result that reintroduces a guarded prior by scanning the full graph.
