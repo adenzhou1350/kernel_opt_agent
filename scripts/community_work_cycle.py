@@ -13,7 +13,9 @@ from community_knowledge import atomic_json, now, read_object, sha256_file
 from schema_utils import validate_instance, validate_json_file
 
 
-LEDGER_SCHEMA = "community-work-cycle-v1"
+LEDGER_SCHEMA_V1 = "community-work-cycle-v1"
+LEDGER_SCHEMA_V2 = "community-work-cycle-v2"
+LEDGER_SCHEMAS = {LEDGER_SCHEMA_V1, LEDGER_SCHEMA_V2}
 SUMMARY_SCHEMA = "community-work-cycle-summary-v1"
 PAIR_BASELINE_SCHEMA = "community-work-cycle-pair-baseline-v1"
 PHASES = (
@@ -82,11 +84,23 @@ def validate_ledger_object(
     )
     if errors:
         raise ValueError("invalid work-cycle ledger: " + "; ".join(errors))
-    if ledger["schema_version"] != LEDGER_SCHEMA:
+    if ledger["schema_version"] not in LEDGER_SCHEMAS:
         raise ValueError("unsupported work-cycle ledger")
     cycle_start = parse_time(ledger["started_at"], "started_at")
+    cycle_end = None
+    if ledger["schema_version"] == LEDGER_SCHEMA_V2:
+        if ledger["status"] == "ACTIVE":
+            if ledger["ended_at"] is not None:
+                raise ValueError("active work cycle has ended_at")
+        else:
+            if ledger["ended_at"] is None:
+                raise ValueError("closed work cycle lacks ended_at")
+            cycle_end = parse_time(ledger["ended_at"], "ended_at")
+            if cycle_end < cycle_start:
+                raise ValueError("work cycle ends before it starts")
     span_ids: set[str] = set()
     intervals: list[tuple[datetime, datetime, str]] = []
+    active_span_count = 0
     for span in ledger["spans"]:
         if span["span_id"] in span_ids:
             raise ValueError(f"duplicate span_id: {span['span_id']}")
@@ -96,6 +110,7 @@ def validate_ledger_object(
             raise ValueError(f"span starts before cycle: {span['span_id']}")
         ended_value = span["ended_at"]
         if span["status"] == "ACTIVE":
+            active_span_count += 1
             if ended_value is not None:
                 raise ValueError(f"active span has ended_at: {span['span_id']}")
             if not allow_active:
@@ -109,11 +124,17 @@ def validate_ledger_object(
             if not span["evidence"]:
                 raise ValueError(f"closed span lacks evidence: {span['span_id']}")
             intervals.append((started, ended, span["span_id"]))
+            if cycle_end is not None and ended > cycle_end:
+                raise ValueError(f"span ends after work cycle: {span['span_id']}")
         for identity in span["evidence"]:
             evidence = evidence_path(identity, ledger_path)
             if not evidence.is_file() or sha256_file(evidence) != identity["sha256"]:
                 raise ValueError(f"span evidence changed: {identity['path']}")
     intervals.sort()
+    if active_span_count > 1:
+        raise ValueError("multiple primary spans are active")
+    if cycle_end is not None and active_span_count:
+        raise ValueError("closed work cycle has an active span")
     for previous, current in zip(intervals, intervals[1:]):
         if current[0] < previous[1]:
             raise ValueError(f"primary spans overlap: {previous[2]} and {current[2]}")
@@ -126,6 +147,8 @@ def validate_ledger_object(
         at = parse_time(item["at"], f"{kind}.at")
         if at < cycle_start:
             raise ValueError(f"milestone precedes cycle: {kind}")
+        if cycle_end is not None and at > cycle_end:
+            raise ValueError(f"milestone follows work cycle: {kind}")
         milestones[kind] = at
         for identity in item["evidence"]:
             evidence = evidence_path(identity, ledger_path)
@@ -165,6 +188,20 @@ def validate_ledger_object(
         raise ValueError("PR milestone requires pull_request_url")
     if "PR_MERGED" in milestones and not outcome["merged"]:
         raise ValueError("PR_MERGED conflicts with outcome")
+    if cycle_end is not None:
+        cursor = cycle_start
+        unaccounted = 0.0
+        for started, ended, _ in intervals:
+            if started > cursor:
+                unaccounted += (started - cursor).total_seconds()
+            cursor = max(cursor, ended)
+        if cycle_end > cursor:
+            unaccounted += (cycle_end - cursor).total_seconds()
+        if unaccounted > ledger["maximum_unaccounted_seconds"]:
+            raise ValueError(
+                "closed work cycle exceeds maximum unaccounted time: "
+                f"{unaccounted:.6f}s > {ledger['maximum_unaccounted_seconds']:.6f}s"
+            )
     return ledger
 
 
@@ -184,6 +221,8 @@ def summarize(path: Path) -> dict:
     path = path.resolve()
     ledger = validate_ledger(path, allow_active=False)
     cycle_start = parse_time(ledger["started_at"], "started_at")
+    if ledger["schema_version"] == LEDGER_SCHEMA_V2 and ledger["status"] != "CLOSED":
+        raise ValueError("cannot summarize an active v2 work cycle")
     phase_seconds = {phase: 0.0 for phase in PHASES}
     end_points = [cycle_start]
     for span in ledger["spans"]:
@@ -196,7 +235,12 @@ def summarize(path: Path) -> dict:
         for item in ledger["milestones"]
     }
     end_points.extend(milestone_times.values())
-    observed = (max(end_points) - cycle_start).total_seconds()
+    observed_end = (
+        parse_time(ledger["ended_at"], "ended_at")
+        if ledger["schema_version"] == LEDGER_SCHEMA_V2
+        else max(end_points)
+    )
+    observed = (observed_end - cycle_start).total_seconds()
     accounted = sum(phase_seconds.values())
     time_to = {
         kind: (
@@ -237,6 +281,24 @@ def summarize(path: Path) -> dict:
         },
         "time_to_milestone_seconds": time_to,
         "outcome": ledger["outcome"],
+        "timing_integrity": {
+            "ledger_schema_version": ledger["schema_version"],
+            "cycle_status": (
+                ledger["status"]
+                if ledger["schema_version"] == LEDGER_SCHEMA_V2
+                else "LEGACY"
+            ),
+            "maximum_unaccounted_seconds": (
+                ledger["maximum_unaccounted_seconds"]
+                if ledger["schema_version"] == LEDGER_SCHEMA_V2
+                else None
+            ),
+            "coverage_status": (
+                "PASS"
+                if ledger["schema_version"] == LEDGER_SCHEMA_V2
+                else "LEGACY_GAPS_REPORTED"
+            ),
+        },
     }
     errors = validate_instance(
         report,
@@ -337,13 +399,16 @@ def init_ledger(args: argparse.Namespace) -> dict:
     if args.output.exists():
         raise FileExistsError(args.output)
     ledger = {
-        "schema_version": LEDGER_SCHEMA,
+        "schema_version": LEDGER_SCHEMA_V2,
         "cycle_id": args.cycle_id,
         "task_id": args.task_id,
         "started_at": timestamp(args.started_at),
         "observation_mode": args.observation_mode,
         "claim_boundary": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY",
         "minimum_material_speedup": args.minimum_material_speedup,
+        "status": "ACTIVE",
+        "ended_at": None,
+        "maximum_unaccounted_seconds": args.maximum_unaccounted_seconds,
         "spans": [],
         "milestones": [],
         "outcome": {
@@ -361,6 +426,8 @@ def init_ledger(args: argparse.Namespace) -> dict:
 
 def start_phase(args: argparse.Namespace) -> dict:
     ledger = validate_ledger(args.ledger)
+    if ledger.get("status") == "CLOSED":
+        raise ValueError("cannot start a phase in a closed work cycle")
     if any(span["status"] == "ACTIVE" for span in ledger["spans"]):
         raise ValueError("another primary phase is already active")
     if any(span["span_id"] == args.span_id for span in ledger["spans"]):
@@ -396,6 +463,8 @@ def end_phase(args: argparse.Namespace) -> dict:
 
 def mark(args: argparse.Namespace) -> dict:
     ledger = validate_ledger(args.ledger)
+    if ledger.get("status") == "CLOSED":
+        raise ValueError("cannot mark a milestone in a closed work cycle")
     if any(item["kind"] == args.kind for item in ledger["milestones"]):
         raise ValueError(f"duplicate milestone: {args.kind}")
     ledger["milestones"].append(
@@ -411,6 +480,8 @@ def mark(args: argparse.Namespace) -> dict:
 
 def record_outcome(args: argparse.Namespace) -> dict:
     ledger = validate_ledger(args.ledger)
+    if ledger.get("status") == "CLOSED":
+        raise ValueError("cannot change the outcome of a closed work cycle")
     ledger["outcome"] = {
         "correctness": args.correctness,
         "best_speedup": args.best_speedup,
@@ -419,6 +490,20 @@ def record_outcome(args: argparse.Namespace) -> dict:
         "pull_request_url": args.pull_request_url,
         "merged": args.merged,
     }
+    write_ledger(args.ledger, ledger)
+    return ledger
+
+
+def close_cycle(args: argparse.Namespace) -> dict:
+    ledger = validate_ledger(args.ledger)
+    if ledger["schema_version"] != LEDGER_SCHEMA_V2:
+        raise ValueError("only a v2 work cycle can be explicitly closed")
+    if ledger["status"] == "CLOSED":
+        raise ValueError("work cycle is already closed")
+    if any(span["status"] == "ACTIVE" for span in ledger["spans"]):
+        raise ValueError("cannot close a work cycle with an active span")
+    ledger["status"] = "CLOSED"
+    ledger["ended_at"] = timestamp(args.at)
     write_ledger(args.ledger, ledger)
     return ledger
 
@@ -436,6 +521,7 @@ def parse_args() -> argparse.Namespace:
         default="PROSPECTIVE_EXACT",
     )
     init.add_argument("--minimum-material-speedup", type=float, default=1.02)
+    init.add_argument("--maximum-unaccounted-seconds", type=float, default=5.0)
     init.add_argument("--output", type=Path, required=True)
     start = commands.add_parser("start-phase")
     start.add_argument("--ledger", type=Path, required=True)
@@ -469,6 +555,9 @@ def parse_args() -> argparse.Namespace:
     outcome.add_argument("--upstream-ready", action="store_true")
     outcome.add_argument("--pull-request-url")
     outcome.add_argument("--merged", action="store_true")
+    close = commands.add_parser("close")
+    close.add_argument("--ledger", type=Path, required=True)
+    close.add_argument("--at")
     validate = commands.add_parser("validate")
     validate.add_argument("--ledger", type=Path, required=True)
     summary = commands.add_parser("summarize")
@@ -492,6 +581,8 @@ def main() -> int:
         result = mark(args)
     elif args.operation == "record-outcome":
         result = record_outcome(args)
+    elif args.operation == "close":
+        result = close_cycle(args)
     elif args.operation == "validate":
         ledger = validate_ledger(args.ledger)
         result = {"status": "PASS", "cycle_id": ledger["cycle_id"]}

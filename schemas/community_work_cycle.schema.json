@@ -17,7 +17,9 @@
     "outcome"
   ],
   "properties": {
-    "schema_version": {"const": "community-work-cycle-v1"},
+    "schema_version": {
+      "enum": ["community-work-cycle-v1", "community-work-cycle-v2"]
+    },
     "cycle_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
     "task_id": {"type": "string", "minLength": 1},
     "started_at": {"type": "string", "format": "date-time"},
@@ -28,6 +30,13 @@
       "const": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY"
     },
     "minimum_material_speedup": {"type": "number", "exclusiveMinimum": 1},
+    "status": {"enum": ["ACTIVE", "CLOSED"]},
+    "ended_at": {"type": ["string", "null"], "format": "date-time"},
+    "maximum_unaccounted_seconds": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 300
+    },
     "spans": {
       "type": "array",
       "items": {"$ref": "#/$defs/span"}
@@ -57,6 +66,18 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-work-cycle-v2"}
+        }
+      },
+      "then": {
+        "required": ["status", "ended_at", "maximum_unaccounted_seconds"]
+      }
+    }
+  ],
   "$defs": {
     "identity": {
       "type": "object",

@@ -124,6 +124,24 @@
         "pull_request_url": {"type": ["string", "null"], "format": "uri"},
         "merged": {"type": "boolean"}
       }
+    },
+    "timing_integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ledger_schema_version",
+        "cycle_status",
+        "maximum_unaccounted_seconds",
+        "coverage_status"
+      ],
+      "properties": {
+        "ledger_schema_version": {
+          "enum": ["community-work-cycle-v1", "community-work-cycle-v2"]
+        },
+        "cycle_status": {"enum": ["LEGACY", "ACTIVE", "CLOSED"]},
+        "maximum_unaccounted_seconds": {"type": ["number", "null"], "minimum": 0},
+        "coverage_status": {"enum": ["LEGACY_GAPS_REPORTED", "PASS"]}
+      }
     }
   },
   "$defs": {

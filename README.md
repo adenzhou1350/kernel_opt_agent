@@ -46,11 +46,13 @@ python3 scripts/kernel_opt.py community-timing start-phase \
 python3 scripts/kernel_opt.py community-timing end-phase \
   --ledger work-cycle.json --span-id research-1 \
   --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing close \
+  --ledger work-cycle.json
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 ```
 
-The ledger uses non-overlapping primary wall-clock spans for community research,
+The v2 ledger uses non-overlapping primary wall-clock spans for community research,
 bottleneck diagnosis, implementation, compile/measurement, correctness,
 performance, whole-model validation, upstream packaging and external wait.
 Hash-bound milestones report time to the first candidate, correct result,
@@ -58,7 +60,9 @@ material improvement, qualified result, upstream-ready package, draft PR,
 ready-for-review PR and merge. Legacy trials may retain milestone bounds but
 must leave unavailable phase attribution under `UNATTRIBUTED_LEGACY_WORK`.
 This prevents a fast kernel result from hiding days spent packaging or waiting
-for external review.
+for external review. A prospective cycle must be explicitly closed and its
+entire start-to-end wall clock must be covered within the frozen unaccounted-time
+tolerance; otherwise summary generation fails closed.
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.

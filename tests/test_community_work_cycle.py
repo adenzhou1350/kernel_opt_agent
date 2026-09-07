@@ -14,6 +14,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
+    close_cycle,
     pair_baseline,
     summarize,
     validate_ledger,
@@ -160,6 +161,68 @@ def test_pair_baseline_reads_bound_assessments() -> None:
         ]
         > 0
     )
+
+
+def test_v2_requires_explicit_close_and_complete_wall_clock_coverage() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = ledger(evidence)
+        cycle.update(
+            {
+                "schema_version": "community-work-cycle-v2",
+                "status": "CLOSED",
+                "ended_at": "2026-09-07T04:04:00Z",
+                "maximum_unaccounted_seconds": 0,
+            }
+        )
+        path = base / "cycle-v2.json"
+        atomic_json(path, cycle)
+        assert validate_ledger(path)["status"] == "CLOSED"
+        report = summarize(path)
+        assert report["timing_integrity"] == {
+            "ledger_schema_version": "community-work-cycle-v2",
+            "cycle_status": "CLOSED",
+            "maximum_unaccounted_seconds": 0,
+            "coverage_status": "PASS",
+        }
+
+        broken = json.loads(path.read_text(encoding="utf-8"))
+        broken["spans"][1]["started_at"] = "2026-09-07T04:01:10Z"
+        broken["spans"][1]["ended_at"] = "2026-09-07T04:03:00Z"
+        atomic_json(path, broken)
+        try:
+            validate_ledger(path)
+        except ValueError as error:
+            assert "unaccounted time" in str(error)
+        else:
+            raise AssertionError("v2 accepted an unclassified wall-clock gap")
+
+
+def test_v2_cannot_close_with_an_unclassified_gap() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = ledger(evidence)
+        cycle.update(
+            {
+                "schema_version": "community-work-cycle-v2",
+                "status": "ACTIVE",
+                "ended_at": None,
+                "maximum_unaccounted_seconds": 0,
+            }
+        )
+        path = base / "cycle-v2-active.json"
+        atomic_json(path, cycle)
+        args = type("Args", (), {"ledger": path, "at": "2026-09-07T04:04:10Z"})()
+        try:
+            close_cycle(args)
+        except ValueError as error:
+            assert "unaccounted time" in str(error)
+        else:
+            raise AssertionError("v2 closed while ten seconds were unclassified")
 
 
 if __name__ == "__main__":
