@@ -19,6 +19,41 @@
     "policy_identity": {"$ref": "#/$defs/identity"},
     "execution_profile_identity": {"$ref": "#/$defs/identity"},
     "prior_routing_identity": {"$ref": "#/$defs/identity"},
+    "evaluation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["arms", "repeats", "randomized_order", "network_policy", "model_identity", "task_packet_contract", "budgets", "minimum_material_speedup", "metrics", "source_ledger_sha256"],
+      "properties": {
+        "arms": {"const": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+        "repeats": {"type": "integer", "minimum": 1},
+        "randomized_order": {"const": true},
+        "network_policy": {"const": "DISABLED_AFTER_MATERIALIZATION"},
+        "model_identity": {"type": "string", "minLength": 1},
+        "task_packet_contract": {"const": "STRICT_V2"},
+        "budgets": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wall_clock_seconds", "max_command_seconds", "max_candidates", "max_compile_attempts", "max_measurements", "max_technical_repairs", "max_causal_revisions"],
+          "properties": {
+            "wall_clock_seconds": {"type": "number", "exclusiveMinimum": 0},
+            "max_command_seconds": {"type": "number", "exclusiveMinimum": 0},
+            "max_candidates": {"type": "integer", "minimum": 1},
+            "max_compile_attempts": {"type": "integer", "minimum": 0},
+            "max_measurements": {"type": "integer", "minimum": 0},
+            "max_technical_repairs": {"type": "integer", "minimum": 0},
+            "max_causal_revisions": {"type": "integer", "minimum": 0}
+          }
+        },
+        "minimum_material_speedup": {"type": "number", "exclusiveMinimum": 1},
+        "metrics": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": {"enum": ["TIME_TO_FIRST_CORRECT", "TIME_TO_FIRST_IMPROVEMENT", "BEST_SPEEDUP", "ARCHITECTURE_FAMILY_COVERAGE", "HELDOUT_CORRECTNESS", "WHOLE_MODEL_SPEEDUP", "UPSTREAM_READINESS"]}
+        },
+        "source_ledger_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "selection": {
       "type": "object",
       "additionalProperties": false,

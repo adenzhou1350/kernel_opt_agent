@@ -1237,6 +1237,15 @@ def build_preselection_anchor(
                 raise ValueError(
                     "prior routing source ledger was generated after discovery cutoff"
                 )
+            evaluation = preregistration.get("evaluation")
+            if (
+                evaluation is not None
+                and evaluation["source_ledger_sha256"]
+                != routing["source_ledger"]["sha256"]
+            ):
+                raise ValueError(
+                    "evaluation source ledger differs from prior routing snapshot"
+                )
     anchor = {
         "schema_version": PRESELECTION_ANCHOR_SCHEMA,
         "generated_at": now(),
