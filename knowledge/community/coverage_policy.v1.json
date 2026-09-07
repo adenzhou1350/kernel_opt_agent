@@ -1,0 +1,30 @@
+{
+  "schema_version": "community-coverage-policy-v1",
+  "policy_id": "three-repository-lifecycle-and-transfer-v1",
+  "required_outcomes": {
+    "MERGED": 1,
+    "OPEN": 1,
+    "CLOSED_UNMERGED": 1,
+    "REGRESSION_FOLLOWUP": 1,
+    "REVERTED": 1
+  },
+  "required_repositories": {
+    "vllm-project/vllm": 1,
+    "sgl-project/sglang": 1,
+    "kvcache-ai/Mooncake": 1
+  },
+  "required_relation_types": [
+    "COMPLEMENTS",
+    "CONFLICTS",
+    "PORTED_FROM",
+    "REGRESSION_OF",
+    "REQUIRES",
+    "REVERTED_BY",
+    "SUPERSEDED_BY"
+  ],
+  "minimum_reviewed_fraction": 1.0,
+  "minimum_negative_event_count": 5,
+  "minimum_cross_repository_compositions": 2,
+  "maximum_unresolved_relation_fraction": 0.5,
+  "maximum_single_repository_node_fraction": 0.7
+}

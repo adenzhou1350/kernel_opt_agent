@@ -20,6 +20,9 @@ Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
 versus community-augmented trials. New trials bind a machine-audited architecture
 frontier: the executor must pre-register minimum search dimensions, map every
 candidate to them, and cannot close an untested unknown bound with prose alone.
+Use `community-coverage-audit` to prove that a checkpoint contains the frozen
+lifecycle, repository, review, negative-example and cross-project relation
+breadth required by its policy. Coverage PASS is not an effectiveness claim.
 Before any expensive work on a selected community task, use
 `community-materialized-feasibility`. V2 separately requires the
 runtime/environment and validates exact live device/L2 identity instead of

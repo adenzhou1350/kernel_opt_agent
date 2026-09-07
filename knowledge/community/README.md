@@ -165,6 +165,21 @@ still not permission to compile or benchmark.
 
 The graph also resolves each immutable event against the newest PR snapshot
 visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.
+
+Before describing a checkpoint as a reusable knowledge base, run
+`community-coverage-audit` with a frozen coverage policy. The audit requires
+explicit merged, open, closed-unmerged, reverted and regression-followup
+events, all registered repositories, review coverage, negative examples,
+relation types and cross-project compositions. It also caps unresolved-edge
+and single-repository concentration. A PASS proves breadth only; it does not
+prove that the knowledge layer improves held-out optimization outcomes.
+The command requires `--graph-validation-root` because a checkpoint may be
+anchored in a different immutable worktree; that exact repository path and
+HEAD commit are recorded in the audit rather than silently substituting the
+current development checkout.
+The command returns a non-zero status when coverage is `FAIL`; retain the
+artifact and close the measured gap instead of lowering a policy after seeing
+the checkpoint.
 Instead, the node enters `lifecycle_review_queue` and is screened out of direct
 candidate transfer until a reviewer emits an event bound to the new snapshot.
 This prevents an open proposal that was later closed, changed or contradicted

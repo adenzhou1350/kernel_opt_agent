@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_coverage_audit.schema.json",
+  "title": "Checkpoint-bound community knowledge coverage audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "status",
+    "input_identity",
+    "inventory",
+    "checks",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-coverage-audit-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "CHECKPOINT_COVERAGE_NOT_METHOD_EFFECTIVENESS"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["graph", "policy", "graph_validation_root"],
+      "properties": {
+        "graph": {"$ref": "#/$defs/identity"},
+        "policy": {"$ref": "#/$defs/identity"},
+        "graph_validation_root": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "head_commit"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "head_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+          }
+        }
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_count",
+        "repository_counts",
+        "outcome_counts",
+        "reviewed_count",
+        "negative_event_count",
+        "edge_count",
+        "relation_type_counts",
+        "unresolved_relation_count",
+        "coverage_gap_count",
+        "composition_count",
+        "cross_repository_composition_count",
+        "lifecycle_review_queue_count",
+        "reviewed_fraction",
+        "unresolved_relation_fraction",
+        "maximum_single_repository_node_fraction"
+      ],
+      "properties": {
+        "node_count": {"type": "integer", "minimum": 0},
+        "repository_counts": {"$ref": "#/$defs/countMap"},
+        "outcome_counts": {"$ref": "#/$defs/countMap"},
+        "reviewed_count": {"type": "integer", "minimum": 0},
+        "negative_event_count": {"type": "integer", "minimum": 0},
+        "edge_count": {"type": "integer", "minimum": 0},
+        "relation_type_counts": {"$ref": "#/$defs/countMap"},
+        "unresolved_relation_count": {"type": "integer", "minimum": 0},
+        "coverage_gap_count": {"type": "integer", "minimum": 0},
+        "composition_count": {"type": "integer", "minimum": 0},
+        "cross_repository_composition_count": {"type": "integer", "minimum": 0},
+        "lifecycle_review_queue_count": {"type": "integer", "minimum": 0},
+        "reviewed_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "unresolved_relation_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "maximum_single_repository_node_fraction": {"type": "number", "minimum": 0, "maximum": 1}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["check_id", "status", "observed", "requirement"],
+        "properties": {
+          "check_id": {"type": "string", "minLength": 1},
+          "status": {"enum": ["PASS", "FAIL"]},
+          "observed": {"type": "number"},
+          "requirement": {"type": "number"}
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "countMap": {
+      "type": "object",
+      "additionalProperties": {"type": "integer", "minimum": 0}
+    }
+  }
+}
