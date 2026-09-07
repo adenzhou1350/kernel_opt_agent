@@ -14,10 +14,10 @@ from community_evaluation import (
     validate_heldout_queue,
     validate_preselection_chain_audit,
 )
+from community_funnel_checkpoint import validate_incremental_funnel
 from community_knowledge import atomic_json, now, sha256_file
 from community_validation_session import ValidationSession
 from schema_utils import validate_instance
-
 
 SCHEMA_VERSION = "community-window-validation-v1"
 
@@ -42,6 +42,7 @@ def validate_window(
     source_root: Path,
     implementation_root: Path | None = None,
     compare_no_cache: bool = False,
+    funnel_checkpoint: Path | None = None,
 ) -> dict:
     implementation_root = (implementation_root or repository_root()).resolve()
     source_root = source_root.resolve()
@@ -52,6 +53,11 @@ def validate_window(
         "screen": screen.resolve().as_posix(),
         "audit": audit.resolve().as_posix(),
         "funnel": funnel.resolve().as_posix(),
+        "funnel_checkpoint": (
+            funnel_checkpoint.resolve().as_posix()
+            if funnel_checkpoint is not None
+            else None
+        ),
         "corpus": corpus.as_posix(),
         "source_root": source_root.as_posix(),
     }
@@ -73,8 +79,20 @@ def validate_window(
         ),
         (
             "CUMULATIVE_FUNNEL",
-            validate_funnel,
-            (funnel.resolve(), corpus, source_root),
+            validate_incremental_funnel
+            if funnel_checkpoint is not None
+            else validate_funnel,
+            (
+                (
+                    funnel.resolve(),
+                    funnel_checkpoint.resolve(),
+                    corpus,
+                    source_root,
+                    implementation_root,
+                )
+                if funnel_checkpoint is not None
+                else (funnel.resolve(), corpus, source_root)
+            ),
         ),
     )
 
@@ -89,9 +107,7 @@ def validate_window(
                 if active_session is None:
                     result = operation(*arguments)
                 else:
-                    result = operation(
-                        *arguments, validation_session=active_session
-                    )
+                    result = operation(*arguments, validation_session=active_session)
                 stages.append(
                     {
                         "name": name,
@@ -113,11 +129,13 @@ def validate_window(
         "community_validation_session.py",
         "community_evaluation.py",
         "community_discovery_funnel.py",
+        "community_funnel_checkpoint.py",
         "schema_utils.py",
     )
     implementation = [
         *(implementation_root / "scripts" / path for path in script_names),
         implementation_root / "schemas/community_window_validation.schema.json",
+        implementation_root / "schemas/community_funnel_checkpoint.schema.json",
     ]
     try:
         input_identity = {
@@ -125,6 +143,9 @@ def validate_window(
             "screen": identity(screen),
             "audit": identity(audit),
             "funnel": identity(funnel),
+            "funnel_checkpoint": (
+                identity(funnel_checkpoint) if funnel_checkpoint is not None else None
+            ),
             "corpus_index": identity(corpus / "index.json"),
             "source_root": source_root.as_posix(),
         }
@@ -135,9 +156,7 @@ def validate_window(
     report = {
         "schema_version": SCHEMA_VERSION,
         "generated_at": now(),
-        "claim_boundary": (
-            "CPU_VALIDATION_TIMING_NOT_GPU_OR_OPTIMIZATION_PERFORMANCE"
-        ),
+        "claim_boundary": ("CPU_VALIDATION_TIMING_NOT_GPU_OR_OPTIMIZATION_PERFORMANCE"),
         "status": "FAIL" if failure is not None else "PASS",
         "requested_inputs": requested_inputs,
         "input_identity": input_identity,
@@ -148,9 +167,22 @@ def validate_window(
         "error": failure,
         "limitations": [
             "Cache entries exist only in this process and are never persisted.",
-            "Every cache hit rechecks the artifact and its reachable file-identity closure by SHA-256.",
+            (
+                "Every cache hit rechecks the artifact and its reachable "
+                "file-identity closure by SHA-256."
+            ),
             "Release evidence still requires an independent no-cache full replay.",
-            "These are CPU validation times, not discovery, GPU, or optimization performance measurements.",
+            (
+                "These are CPU validation times, not discovery, GPU, or "
+                "optimization performance measurements."
+            ),
+            (
+                "The cumulative funnel used a frozen, hash-bound prefix and "
+                "revalidated only its new suffix; release evidence still "
+                "requires a full replay."
+                if funnel_checkpoint is not None
+                else "The cumulative funnel was validated by full replay."
+            ),
         ],
     }
     if compare_no_cache and failure is None:
@@ -168,11 +200,13 @@ def validate_window(
         }
         if no_cache_failure is not None:
             report["status"] = "FAIL"
-            report["error"] = "independent no-cache validation failed: " + no_cache_failure
+            report["error"] = (
+                "independent no-cache validation failed: " + no_cache_failure
+            )
     schema = json.loads(
-        (implementation_root / "schemas/community_window_validation.schema.json").read_text(
-            encoding="utf-8"
-        )
+        (
+            implementation_root / "schemas/community_window_validation.schema.json"
+        ).read_text(encoding="utf-8")
     )
     errors = validate_instance(report, schema)
     if errors:
@@ -188,6 +222,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--funnel", type=Path, required=True)
     parser.add_argument("--corpus", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, required=True)
+    parser.add_argument(
+        "--funnel-checkpoint",
+        type=Path,
+        help=(
+            "frozen prior-window checkpoint used to validate only the new funnel suffix"
+        ),
+    )
     parser.add_argument(
         "--compare-no-cache",
         action="store_true",
@@ -207,6 +248,7 @@ def main() -> int:
         args.corpus,
         args.source_root,
         compare_no_cache=args.compare_no_cache,
+        funnel_checkpoint=args.funnel_checkpoint,
     )
     atomic_json(args.output.resolve(), report)
     print(args.output.resolve())

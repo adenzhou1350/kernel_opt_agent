@@ -9,7 +9,6 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -77,6 +76,8 @@ def test_explicit_identity_root_resolves_corpus_relative_paths() -> None:
         session = ValidationSession(source, identity_roots=(corpus,))
         session.put("example", artifact, {"status": "PASS"})
         assert session.get("example", artifact) is not None
+        closure = session.identity_closure((artifact,))
+        assert event.resolve().as_posix() in closure
 
 
 def test_window_validator_preserves_fail_closed_receipt() -> None:

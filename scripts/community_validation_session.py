@@ -90,6 +90,10 @@ class ValidationSession:
         )
         return result
 
+    def identity_closure(self, roots: tuple[Path, ...]) -> dict[str, str]:
+        """Return the verified transitive identity closure for durable receipts."""
+        return dict(self._identity_closure(roots))
+
     def _identity_closure(self, roots: tuple[Path, ...]) -> dict[str, str]:
         pending = [path.resolve() for path in roots]
         closure: dict[str, str] = {}

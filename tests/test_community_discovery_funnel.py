@@ -10,7 +10,6 @@ import tempfile
 from collections import Counter
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
@@ -22,6 +21,12 @@ from community_discovery_funnel import (  # noqa: E402
     validate_funnel,
 )
 from community_evaluation import validate_preselection_chain_audit  # noqa: E402
+from community_funnel_checkpoint import (  # noqa: E402
+    build_checkpoint,
+    extend_funnel,
+    validate_checkpoint,
+    validate_incremental_funnel,
+)
 from community_knowledge import atomic_json  # noqa: E402
 from schema_utils import validate_instance  # noqa: E402
 
@@ -131,6 +136,42 @@ def test_repeated_pr_updates_do_not_become_independent_evidence() -> None:
     assert docs["recommendation"] == "COLLECT_MORE"
 
 
+def test_hash_bound_checkpoint_replays_only_new_funnel_suffix() -> None:
+    base = (
+        ROOT.parent / "community-validation/prospective-heldout-outcome-v4-2026-09-07"
+    )
+    prior = base / "discovery-funnel-cumulative-through-20260907-134704Z-v1.json"
+    current = base / "discovery-funnel-cumulative-through-20260907-143943Z-v1.json"
+    new_audit = base / "preselection-chain-audit-134704-20260907-143943Z-v1.json"
+    corpus = ROOT.parent / "community-optimization-corpus"
+    if not all(path.exists() for path in (prior, current, new_audit, corpus)):
+        return
+    with tempfile.TemporaryDirectory() as temporary:
+        checkpoint_path = Path(temporary) / "checkpoint.json"
+        checkpoint = build_checkpoint(prior, corpus)
+        atomic_json(checkpoint_path, checkpoint)
+        assert validate_checkpoint(checkpoint_path, corpus)["status"] == "PASS"
+        incremental = extend_funnel(checkpoint_path, [new_audit], corpus)
+        observed = json.loads(current.read_text(encoding="utf-8"))
+        incremental.pop("generated_at")
+        observed.pop("generated_at")
+        assert incremental == observed
+        assert (
+            validate_incremental_funnel(current, checkpoint_path, corpus)["status"]
+            == "PASS"
+        )
+
+        edited = json.loads(checkpoint_path.read_text(encoding="utf-8"))
+        edited["input_identity"]["source_funnel"]["sha256"] = "0" * 64
+        atomic_json(checkpoint_path, edited)
+        try:
+            validate_checkpoint(checkpoint_path, corpus)
+        except ValueError as error:
+            assert "source funnel changed" in str(error)
+        else:
+            raise AssertionError("edited checkpoint must fail validation")
+
+
 def test_context_bound_routing_requires_distinct_nonrunnable_evidence() -> None:
     recommendation = {
         "matched_rule_id": "amd-only",
@@ -170,9 +211,7 @@ def test_context_bound_routing_requires_distinct_nonrunnable_evidence() -> None:
     }
     rules = derive_routing_rules(funnel, policy, nvidia_profile)
     assert len(rules) == 1
-    assert rules[0]["action"] == (
-        "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES"
-    )
+    assert rules[0]["action"] == ("DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES")
     assert rules[0]["evidence_candidate_keys"] == [
         "example/project#7",
         "example/project#8",

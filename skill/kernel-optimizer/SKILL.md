@@ -115,6 +115,17 @@ selects the next model-driven action; `--apply-safe` may perform deterministic
 ranking and planning steps but never executes an unmaterialized experiment or
 silently applies an arbitrary numeric result to the global model.
 
+For a long-running prospective community-discovery cohort, pay for one complete
+funnel replay, then build a `community-funnel-checkpoint` and freeze its exact
+identity before opening the next window. Pass that checkpoint to
+`community-window-validate` so scheduling revalidates the entire hash-reachable
+historical closure but semantically recomputes only the unseen audit suffix.
+Never use the fast checkpoint path as release evidence: before packaging a PR
+or publishing an outcome, run an independent full no-checkpoint replay. Record
+research, materialization, environment preparation, compute, correctness,
+performance, whole-model validation and upstream packaging as separate timing
+spans; a knowledge-only rejection has zero compute and no implied speedup.
+
 For plan construction and resource mapping, read
 [references/microarchitecture_planning.md](references/microarchitecture_planning.md),
 then use [references/modeling.md](references/modeling.md) for lower bounds.  For

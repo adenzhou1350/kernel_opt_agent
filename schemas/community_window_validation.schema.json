@@ -26,12 +26,13 @@
     "requested_inputs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["queue", "screen", "audit", "funnel", "corpus", "source_root"],
+      "required": ["queue", "screen", "audit", "funnel", "funnel_checkpoint", "corpus", "source_root"],
       "properties": {
         "queue": {"type": "string", "minLength": 1},
         "screen": {"type": "string", "minLength": 1},
         "audit": {"type": "string", "minLength": 1},
         "funnel": {"type": "string", "minLength": 1},
+        "funnel_checkpoint": {"type": ["string", "null"]},
         "corpus": {"type": "string", "minLength": 1},
         "source_root": {"type": "string", "minLength": 1}
       }
@@ -42,12 +43,18 @@
         {
           "type": "object",
           "additionalProperties": false,
-          "required": ["queue", "screen", "audit", "funnel", "corpus_index", "source_root"],
+          "required": ["queue", "screen", "audit", "funnel", "funnel_checkpoint", "corpus_index", "source_root"],
           "properties": {
             "queue": {"$ref": "#/$defs/identity"},
             "screen": {"$ref": "#/$defs/identity"},
             "audit": {"$ref": "#/$defs/identity"},
             "funnel": {"$ref": "#/$defs/identity"},
+            "funnel_checkpoint": {
+              "oneOf": [
+                {"type": "null"},
+                {"$ref": "#/$defs/identity"}
+              ]
+            },
             "corpus_index": {"$ref": "#/$defs/identity"},
             "source_root": {"type": "string", "minLength": 1}
           }
