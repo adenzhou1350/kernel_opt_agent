@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import subprocess
 import sys
@@ -82,6 +83,42 @@ def command_timing(commands: list[dict]) -> dict:
         "execution": "SEQUENTIAL_SUBPROCESSES",
         "total_seconds": sum(entry["elapsed_seconds"] for entry in entries),
         "commands": entries,
+    }
+
+
+def validate_command_boundaries(
+    commands: list[dict], *, require_successor: bool
+) -> dict:
+    labels = Counter(command_label(command["argv"]) for command in commands)
+    required = {
+        "community_funnel_checkpoint:extend": 1,
+        "community_window_validation:--queue": 1,
+    }
+    if require_successor:
+        required.update(
+            {
+                "community_funnel_checkpoint:advance": 1,
+                "community_funnel_checkpoint:validate-fast": 1,
+            }
+        )
+    mismatches = {
+        label: {"expected": count, "observed": labels[label]}
+        for label, count in required.items()
+        if labels[label] != count
+    }
+    if mismatches:
+        raise ValueError(
+            "window assembly validation boundaries differ: "
+            + json.dumps(mismatches, sort_keys=True)
+        )
+    return {
+        "window_validation_receipt": "REQUIRED",
+        "checkpoint_advance_revalidation": (
+            "REQUIRED" if require_successor else "NOT_APPLICABLE"
+        ),
+        "successor_fast_validation": (
+            "REQUIRED" if require_successor else "NOT_APPLICABLE"
+        ),
     }
 
 
@@ -327,24 +364,11 @@ def assemble(args: argparse.Namespace) -> dict:
             args.command_timeout,
         )
     )
-    commands.append(
-        run(
-            [
-                python,
-                str(checkpoint_script),
-                "validate-incremental",
-                "--report",
-                str(paths["funnel"]),
-                "--checkpoint",
-                str(args.checkpoint.resolve()),
-                "--corpus",
-                str(corpus),
-                "--source-root",
-                str(source_root),
-            ],
-            args.command_timeout,
-        )
-    )
+    # Do not run a third, unrecorded incremental-funnel replay here.  The
+    # window validator below emits the durable validation receipt, while
+    # checkpoint ``advance`` independently revalidates the same report before
+    # constructing successor state.  Keeping both boundaries preserves the
+    # fail-closed handoff and removes only the redundant middle subprocess.
     validation_script = (
         Path(__file__).resolve().parent / "community_window_validation.py"
     )
@@ -447,6 +471,9 @@ def assemble(args: argparse.Namespace) -> dict:
                          f"{expected_count}, got {observed_count}")
     queue = read_object(paths["queue"])
     novelty = read_object(paths["novelty_guard"])
+    validation_boundaries = validate_command_boundaries(
+        commands, require_successor=args.next_checkpoint is not None
+    )
     manifest = {
         "schema_version": "community-window-assembly-v2",
         "generated_at": now(),
@@ -498,6 +525,7 @@ def assemble(args: argparse.Namespace) -> dict:
         },
         "command_count": len(commands),
         "command_timing": command_timing(commands),
+        "validation_boundaries": validation_boundaries,
         "status": "PASS",
     }
     if args.next_checkpoint is not None:

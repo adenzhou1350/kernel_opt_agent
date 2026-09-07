@@ -18,6 +18,7 @@ from community_window_assemble import (  # noqa: E402
     command_timing,
     output_collisions,
     output_paths,
+    validate_command_boundaries,
     validate_deferred_request,
     validate_novelty_deferred,
     validate_receipt_window,
@@ -52,6 +53,23 @@ def test_git_command_label_skips_worktree_argument() -> None:
     assert command_label(["git", "-C", "repo", "diff", "--exit-code"]) == (
         "git:diff"
     )
+
+
+def test_command_boundaries_require_two_independent_incremental_checks() -> None:
+    commands = [
+        {"argv": ["python", "community_funnel_checkpoint.py", "extend"]},
+        {"argv": ["python", "community_window_validation.py", "--queue"]},
+        {"argv": ["python", "community_funnel_checkpoint.py", "advance"]},
+        {"argv": ["python", "community_funnel_checkpoint.py", "validate-fast"]},
+    ]
+    boundaries = validate_command_boundaries(commands, require_successor=True)
+    assert boundaries == {
+        "window_validation_receipt": "REQUIRED",
+        "checkpoint_advance_revalidation": "REQUIRED",
+        "successor_fast_validation": "REQUIRED",
+    }
+    with pytest.raises(ValueError, match="validation boundaries differ"):
+        validate_command_boundaries(commands[:-2], require_successor=True)
 
 
 def write_receipt(
