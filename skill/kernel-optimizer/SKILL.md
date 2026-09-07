@@ -120,6 +120,13 @@ funnel replay, then build a `community-funnel-checkpoint` and freeze its exact
 identity before opening the next window. Pass that checkpoint to
 `community-window-validate` so scheduling revalidates the entire hash-reachable
 historical closure but semantically recomputes only the unseen audit suffix.
+After a checkpoint exists, construct every successor funnel with
+`community-funnel-checkpoint extend --checkpoint ... --audit ...`; do not
+rebuild the prefix by extracting audit paths in shell code. Validate the
+successor with `validate-incremental` and assert that its window count is the
+checkpoint prefix count plus the number of new audits. A schema-valid report
+with a shorter prefix is a protocol failure and must be preserved under its
+original filename before retrying with a new output path.
 Never use the fast checkpoint path as release evidence: before packaging a PR
 or publishing an outcome, run an independent full no-checkpoint replay. Record
 research, materialization, environment preparation, compute, correctness,
