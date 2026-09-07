@@ -1,0 +1,57 @@
+{
+  "schema_version": "community-heldout-preregistration-v1",
+  "preregistration_id": "nvidia-heldout-2026-09-07-0330z-v5",
+  "cutoff_at": "2026-09-07T03:30:00Z",
+  "claim_boundary": "PROTOCOL_FROZEN_BEFORE_DISCOVERY",
+  "repositories": [
+    "kvcache-ai/Mooncake",
+    "sgl-project/sglang",
+    "vllm-project/vllm"
+  ],
+  "policy_identity": {
+    "path": "knowledge/community/feasibility_policy.v2.json",
+    "sha256": "0326a05abd6d95e1d04ee69d32645bcf2d425f18c47ddb7c8c6410cc4e97dcda"
+  },
+  "execution_profile_identity": {
+    "path": "knowledge/community/execution_profiles/nvidia-sm89-sm120-verified-2026-09-07.v2.json",
+    "sha256": "016453bc19340677527d75a0eb28830aa925d9056794d37a25315dbdac634c21"
+  },
+  "prior_routing_identity": {
+    "path": "knowledge/community/prior_routing/community-prior-routing-2026-09-07-020935z.v1.json",
+    "sha256": "975fc16aeed2fbd697b1f63234596048528e0ff2e156ea76f7ea0048e902d160"
+  },
+  "selection": {
+    "max_items": 12,
+    "random_seed": 20260907,
+    "eligibility_time_field": "earliest_public_at",
+    "required_receipt_schema": "community-sync-receipt-v2"
+  },
+  "evaluation": {
+    "arms": ["CONTROL", "COMMUNITY_AUGMENTED"],
+    "repeats": 2,
+    "randomized_order": true,
+    "network_policy": "DISABLED_AFTER_MATERIALIZATION",
+    "model_identity": "same-model-same-settings-within-pair",
+    "task_packet_contract": "STRICT_V2",
+    "budgets": {
+      "wall_clock_seconds": 600,
+      "max_command_seconds": 120,
+      "max_candidates": 4,
+      "max_compile_attempts": 6,
+      "max_measurements": 6,
+      "max_technical_repairs": 2,
+      "max_causal_revisions": 2
+    },
+    "minimum_material_speedup": 1.02,
+    "metrics": [
+      "TIME_TO_FIRST_CORRECT",
+      "TIME_TO_FIRST_IMPROVEMENT",
+      "BEST_SPEEDUP",
+      "ARCHITECTURE_FAMILY_COVERAGE",
+      "HELDOUT_CORRECTNESS",
+      "WHOLE_MODEL_SPEEDUP",
+      "UPSTREAM_READINESS"
+    ],
+    "source_ledger_sha256": "2949e352e28e14979eeee7dc43dbfe95030b05e180e86f246ff90d387510dd6f"
+  }
+}
