@@ -30,7 +30,7 @@ Then execute an evidence-driven loop:
 5. Cheaply screen every valid architecture family on an anchor and edge case.
    Discovery results route work only; they do not accept a candidate or claim a
    hardware fact. Promote at most 2--4 survivors.
-   For a community-discovered task, run the v3 post-materialization feasibility
+   For a community-discovered task, run the v4 post-materialization feasibility
    gate before requesting supervisor review. It requires separate hash-bound
    baseline, operator harness, whole-model harness, model/weights,
    runtime/environment and live-hardware roles. A script without an installed,
@@ -41,6 +41,10 @@ Then execute an evidence-driven loop:
    and active-process observations. Dispatch may use only the returned
    `eligible_gpu_indices`; insufficient idle GPUs fail closed even when the
    aggregate resource name and architecture match.
+   A ready runtime must bind a PASS `community-runtime-preflight` receipt for
+   the exact interpreter, source commit and resource. The preflight may import
+   packages but invokes no installer, builder or GPU benchmark, and fails if
+   imports initialize CUDA. It does not replace supervisor approval.
 6. For qualification finalists, build `hardware_evidence.json` from exact
    vendor-official documents and official target-device queries. Archive URL,
    command, version, section, artifact and SHA-256. Do not record an inferred

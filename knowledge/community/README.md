@@ -98,15 +98,15 @@ evidence and must not be filtered out of the source lake.
 ## Post-selection materialization gate
 
 Metadata feasibility is deliberately coarse. Before compiling, measuring or
-allocating a GPU, materialize a v3 manifest and validate it through the public
-command surface (v1/v2 remain replay-compatible):
+allocating a GPU, materialize a v4 manifest and validate it through the public
+command surface (v1/v2/v3 remain replay-compatible):
 
 ```bash
 python scripts/kernel_opt.py community-materialized-feasibility build \
-  --manifest /path/to/community-materialization-manifest-v3.json \
-  --output /path/to/community-materialized-feasibility-v3.json
+  --manifest /path/to/community-materialization-manifest-v4.json \
+  --output /path/to/community-materialized-feasibility-v4.json
 python scripts/kernel_opt.py community-materialized-feasibility validate \
-  --assessment /path/to/community-materialized-feasibility-v3.json
+  --assessment /path/to/community-materialized-feasibility-v4.json
 ```
 
 V2 requires six distinct hash-bound roles: exact baseline source, operator
@@ -133,6 +133,35 @@ emits `eligible_gpu_indices` plus per-device reasons. A shared host with one
 idle card and seven busy or excluded cards may satisfy a one-GPU task using only
 that explicit index, but it cannot satisfy an eight-GPU task. Empty
 `nvidia-smi` process output never overrides nonzero utilization.
+
+Before marking `RUNTIME_OR_ENVIRONMENT` ready, produce its receipt without
+asking the preflight to install, build or benchmark:
+
+```bash
+python scripts/kernel_opt.py community-runtime-preflight run \
+  --python /isolated/env/bin/python \
+  --environment-root /isolated/env \
+  --resource-id single-sm120-32g \
+  --source-checkout /work/sglang \
+  --expected-source-commit <40-hex-commit> \
+  --pythonpath-root /work/sglang/python \
+  --forbidden-root /home/oem/h3-single-5090 \
+  --require-import torch --require-import triton --require-import sglang \
+  --output runtime-preflight.json
+```
+
+The receipt binds the requested interpreter entry, resolved binary hash,
+observed `sys.prefix`, clean source commit, import versions and origins,
+reserved-environment separation and whether importing initialized CUDA. This
+handles normal Linux virtual-environment symlinks without trusting path text
+alone. A dirty source tree or CUDA-initializing import makes the receipt fail.
+V4 schema-validates
+the receipt, requires `status=PASS`, verifies its
+resource belongs to the manifest target set, and requires the runtime artifact
+to bind that exact file identity. A frozen receipt-age limit rejects stale or
+postdated observations. The command itself invokes no installer,
+builder or GPU benchmark. This preflight proves import readiness only; it is
+still not permission to compile or benchmark.
 
 The graph also resolves each immutable event against the newest PR snapshot
 visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.

@@ -26,6 +26,10 @@ runtime/environment and validates exact live device/L2 identity instead of
 trusting a coarse architecture-family match from the discovery screen. V3 also
 binds per-GPU memory, utilization, P-state and active-process observations, then
 returns the exact GPU indices that satisfy the declared idle-resource budget.
+V4 requires the runtime role to bind a PASS receipt produced by
+`community-runtime-preflight`; a directory name or unverified driver can no
+longer make the runtime ready. The manifest also freezes a receipt-age limit;
+stale or postdated runtime observations fail closed.
 For audited trials, the JSONL execution transcript—not agent-reported timing—is
 the authority that proves the final ranking was frozen before the first
 production-source edit.

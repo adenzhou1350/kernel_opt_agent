@@ -1,0 +1,136 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_runtime_preflight_receipt.schema.json",
+  "title": "CPU-only runtime import and source-identity preflight",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observed_at",
+    "claim_boundary",
+    "status",
+    "resource_id",
+    "environment",
+    "pythonpath_roots",
+    "forbidden_roots",
+    "source_checkout",
+    "probes",
+    "checks",
+    "actions"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-runtime-preflight-receipt-v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "CPU_ONLY_IMPORT_AND_SOURCE_IDENTITY_NOT_GPU_EXECUTION"},
+    "status": {"enum": ["PASS", "FAIL"]},
+    "resource_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "environment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "root",
+        "python_executable",
+        "python_binary_resolved",
+        "python_executable_sha256",
+        "python_version",
+        "observed_sys_executable",
+        "observed_sys_prefix",
+        "observed_sys_base_prefix",
+        "python_inside_environment_root",
+        "python_prefix_matches_environment_root"
+      ],
+      "properties": {
+        "root": {"type": "string", "minLength": 1},
+        "python_executable": {"type": "string", "minLength": 1},
+        "python_binary_resolved": {"type": "string", "minLength": 1},
+        "python_executable_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "python_version": {"type": "string", "minLength": 1},
+        "observed_sys_executable": {"type": "string", "minLength": 1},
+        "observed_sys_prefix": {"type": "string", "minLength": 1},
+        "observed_sys_base_prefix": {"type": "string", "minLength": 1},
+        "python_inside_environment_root": {"type": "boolean"},
+        "python_prefix_matches_environment_root": {"type": "boolean"}
+      }
+    },
+    "pythonpath_roots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "forbidden_roots": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "source_checkout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "expected_commit", "observed_commit", "dirty"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "expected_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "observed_commit": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "dirty": {"type": ["boolean", "null"]}
+      }
+    },
+    "probes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["module", "status", "version", "origin", "origin_allowed", "error_type", "error_message"],
+        "properties": {
+          "module": {"type": "string", "minLength": 1},
+          "status": {"enum": ["PASS", "FAIL"]},
+          "version": {"type": ["string", "null"]},
+          "origin": {"type": ["string", "null"]},
+          "origin_allowed": {"type": "boolean"},
+          "error_type": {"type": ["string", "null"]},
+          "error_message": {"type": ["string", "null"]}
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "all_imports_passed",
+        "all_origins_allowed",
+        "source_commit_matches",
+        "source_checkout_clean",
+        "python_inside_environment_root",
+        "python_prefix_matches_environment_root",
+        "environment_outside_forbidden_roots",
+        "cuda_initialized_after_imports"
+      ],
+      "properties": {
+        "all_imports_passed": {"type": "boolean"},
+        "all_origins_allowed": {"type": "boolean"},
+        "source_commit_matches": {"type": "boolean"},
+        "source_checkout_clean": {"type": "boolean"},
+        "python_inside_environment_root": {"type": "boolean"},
+        "python_prefix_matches_environment_root": {"type": "boolean"},
+        "environment_outside_forbidden_roots": {"type": "boolean"},
+        "cuda_initialized_after_imports": {"type": ["boolean", "null"]}
+      }
+    },
+    "actions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "packages_installed_by_preflight",
+        "compilation_requested_by_preflight",
+        "gpu_benchmarks_started"
+      ],
+      "properties": {
+        "packages_installed_by_preflight": {"const": false},
+        "compilation_requested_by_preflight": {"const": false},
+        "gpu_benchmarks_started": {"const": 0}
+      }
+    }
+  }
+}

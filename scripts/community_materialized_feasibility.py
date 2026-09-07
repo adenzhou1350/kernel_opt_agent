@@ -17,16 +17,26 @@ from community_knowledge import (  # noqa: E402
     read_object,
     sha256_file,
 )
+from community_runtime_preflight import validate_receipt as validate_runtime_receipt  # noqa: E402
 from schema_utils import validate_instance, validate_json_file  # noqa: E402
 
 
 MANIFEST_SCHEMA_V1 = "community-materialization-manifest-v1"
 MANIFEST_SCHEMA_V2 = "community-materialization-manifest-v2"
 MANIFEST_SCHEMA_V3 = "community-materialization-manifest-v3"
-MANIFEST_SCHEMAS = {MANIFEST_SCHEMA_V1, MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}
+MANIFEST_SCHEMA_V4 = "community-materialization-manifest-v4"
+MANIFEST_SCHEMAS = {
+    MANIFEST_SCHEMA_V1,
+    MANIFEST_SCHEMA_V2,
+    MANIFEST_SCHEMA_V3,
+    MANIFEST_SCHEMA_V4,
+}
 ASSESSMENT_SCHEMA_V1 = "community-materialized-feasibility-v1"
 ASSESSMENT_SCHEMA_V2 = "community-materialized-feasibility-v2"
 ASSESSMENT_SCHEMA_V3 = "community-materialized-feasibility-v3"
+ASSESSMENT_SCHEMA_V4 = "community-materialized-feasibility-v4"
+LIVE_RESOURCE_SCHEMAS = {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3, MANIFEST_SCHEMA_V4}
+PER_DEVICE_RESOURCE_SCHEMAS = {MANIFEST_SCHEMA_V3, MANIFEST_SCHEMA_V4}
 READY_AVAILABILITY = {"AVAILABLE", "SHARED_NO_DISRUPTION"}
 V2_REQUIRED_ROLES = {
     "BASELINE_SOURCE",
@@ -83,7 +93,7 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
         seen_roles.add(role)
         for identity in artifact["evidence"]:
             validate_identity(identity, f"materialization artifact {role}")
-    if manifest["schema_version"] in {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}:
+    if manifest["schema_version"] in LIVE_RESOURCE_SCHEMAS:
         roles = {item["role"] for item in manifest["artifacts"] if item["required"]}
         missing_roles = sorted(V2_REQUIRED_ROLES - roles)
         if missing_roles:
@@ -111,7 +121,7 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
             )
         resource_status = read_object(resource_status_path)
         if (
-            manifest["schema_version"] == MANIFEST_SCHEMA_V3
+            manifest["schema_version"] in PER_DEVICE_RESOURCE_SCHEMAS
             and resource_status["schema_version"]
             != "community-materialized-resource-status-v2"
         ):
@@ -119,7 +129,7 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
         resource_ids = [item["resource_id"] for item in resource_status["resources"]]
         if len(resource_ids) != len(set(resource_ids)):
             raise ValueError("duplicate live resource status id")
-        if manifest["schema_version"] == MANIFEST_SCHEMA_V3:
+        if manifest["schema_version"] in PER_DEVICE_RESOURCE_SCHEMAS:
             for resource in resource_status["resources"]:
                 device_indices = [item["gpu_index"] for item in resource["devices"]]
                 if len(device_indices) != len(set(device_indices)):
@@ -149,6 +159,37 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
             raise ValueError("live resource status postdates the manifest")
         if status_age.total_seconds() > maximum_age:
             raise ValueError("live resource status is too old for the manifest")
+        if manifest["schema_version"] == MANIFEST_SCHEMA_V4:
+            runtime_path = validate_identity(
+                manifest["runtime_receipt"], "manifest runtime receipt"
+            )
+            runtime_receipt = validate_runtime_receipt(runtime_path, root)
+            if runtime_receipt["status"] != "PASS":
+                raise ValueError("runtime preflight receipt did not pass")
+            runtime_observed = parse_timestamp(runtime_receipt["observed_at"])
+            runtime_age = parse_timestamp(manifest["generated_at"]) - runtime_observed
+            if runtime_age.total_seconds() < 0:
+                raise ValueError("runtime preflight receipt postdates the manifest")
+            if (
+                runtime_age.total_seconds()
+                > manifest["runtime_receipt_maximum_age_seconds"]
+            ):
+                raise ValueError(
+                    "runtime preflight receipt is too old for the manifest"
+                )
+            if runtime_receipt["resource_id"] not in manifest["target_resource_ids"]:
+                raise ValueError("runtime preflight resource is not a manifest target")
+            runtime_artifacts = [
+                item
+                for item in manifest["artifacts"]
+                if item["role"] == "RUNTIME_OR_ENVIRONMENT"
+            ]
+            if len(runtime_artifacts) != 1 or runtime_artifacts[0]["status"] != "READY":
+                raise ValueError("v4 runtime artifact is not ready")
+            if manifest["runtime_receipt"] not in runtime_artifacts[0]["evidence"]:
+                raise ValueError(
+                    "v4 runtime artifact does not bind the runtime receipt"
+                )
     return manifest
 
 
@@ -271,7 +312,7 @@ def matching_resources(
                 and float(profile_l2) != float(live_resource["l2_cache_mib"])
             ):
                 reasons.append("PROFILE_LIVE_L2_MISMATCH")
-            if manifest["schema_version"] == MANIFEST_SCHEMA_V3:
+            if manifest["schema_version"] in PER_DEVICE_RESOURCE_SCHEMAS:
                 excluded = set(live_resource["excluded_gpu_indices"])
                 candidates = [
                     item
@@ -367,7 +408,7 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
     screen_item = screen_items[0]
     live_status = (
         read_object(Path(manifest["resource_status"]["path"]))
-        if manifest["schema_version"] in {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}
+        if manifest["schema_version"] in LIVE_RESOURCE_SCHEMAS
         else None
     )
     matched, resource_diagnostics = matching_resources(
@@ -410,6 +451,7 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
             MANIFEST_SCHEMA_V1: ASSESSMENT_SCHEMA_V1,
             MANIFEST_SCHEMA_V2: ASSESSMENT_SCHEMA_V2,
             MANIFEST_SCHEMA_V3: ASSESSMENT_SCHEMA_V3,
+            MANIFEST_SCHEMA_V4: ASSESSMENT_SCHEMA_V4,
         }[manifest["schema_version"]],
         "generated_at": now(),
         "claim_boundary": (
@@ -422,6 +464,11 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
             "preselection_screen": manifest["preselection_screen"],
             "execution_profile": manifest["execution_profile"],
             "resource_status": manifest["resource_status"],
+            **(
+                {"runtime_receipt": manifest["runtime_receipt"]}
+                if manifest["schema_version"] == MANIFEST_SCHEMA_V4
+                else {}
+            ),
         },
         "candidate": {
             **candidate,
@@ -452,7 +499,7 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
             ),
         },
     }
-    if manifest["schema_version"] in {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}:
+    if manifest["schema_version"] in LIVE_RESOURCE_SCHEMAS:
         result["resource_match_diagnostics"] = resource_diagnostics
     errors = validate_instance(
         result,

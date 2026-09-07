@@ -292,6 +292,85 @@ def v3_manifest_object(
     return manifest
 
 
+def v4_manifest_object(
+    task: Path,
+    screen: Path,
+    profile: Path,
+    resource_status: Path,
+    evidence: Path,
+) -> tuple[dict, Path]:
+    manifest = v3_manifest_object(task, screen, profile, resource_status, evidence)
+    runtime_receipt = resource_status.with_name("runtime-preflight.json")
+    atomic_json(
+        runtime_receipt,
+        {
+            "schema_version": "community-runtime-preflight-receipt-v1",
+            "observed_at": "2026-09-07T05:00:30Z",
+            "claim_boundary": "CPU_ONLY_IMPORT_AND_SOURCE_IDENTITY_NOT_GPU_EXECUTION",
+            "status": "PASS",
+            "resource_id": "single-sm120-32g",
+            "environment": {
+                "root": "/opt/isolated-runtime",
+                "python_executable": "/opt/isolated-runtime/bin/python",
+                "python_binary_resolved": "/usr/bin/python3.12",
+                "python_executable_sha256": "a" * 64,
+                "python_version": "3.12.11",
+                "observed_sys_executable": "/opt/isolated-runtime/bin/python",
+                "observed_sys_prefix": "/opt/isolated-runtime",
+                "observed_sys_base_prefix": "/usr",
+                "python_inside_environment_root": True,
+                "python_prefix_matches_environment_root": True,
+            },
+            "pythonpath_roots": ["/work/sglang/python"],
+            "forbidden_roots": ["/home/oem/h3-single-5090"],
+            "source_checkout": {
+                "path": "/work/sglang",
+                "expected_commit": "b" * 40,
+                "observed_commit": "b" * 40,
+                "dirty": False,
+            },
+            "probes": [
+                {
+                    "module": "torch",
+                    "status": "PASS",
+                    "version": "2.9.1",
+                    "origin": "/opt/isolated-runtime/lib/python3.12/site-packages/torch/__init__.py",
+                    "origin_allowed": True,
+                    "error_type": None,
+                    "error_message": None,
+                }
+            ],
+            "checks": {
+                "all_imports_passed": True,
+                "all_origins_allowed": True,
+                "source_commit_matches": True,
+                "source_checkout_clean": True,
+                "python_inside_environment_root": True,
+                "python_prefix_matches_environment_root": True,
+                "environment_outside_forbidden_roots": True,
+                "cuda_initialized_after_imports": False,
+            },
+            "actions": {
+                "packages_installed_by_preflight": False,
+                "compilation_requested_by_preflight": False,
+                "gpu_benchmarks_started": 0,
+            },
+        },
+    )
+    manifest["schema_version"] = "community-materialization-manifest-v4"
+    manifest["runtime_receipt"] = identity(runtime_receipt)
+    manifest["runtime_receipt_maximum_age_seconds"] = 300
+    runtime_artifact = next(
+        item
+        for item in manifest["artifacts"]
+        if item["role"] == "RUNTIME_OR_ENVIRONMENT"
+    )
+    runtime_artifact["status"] = "READY"
+    runtime_artifact["reason"] = "CPU_ONLY_IMPORT_PREFLIGHT_PASSED"
+    runtime_artifact["evidence"] = [identity(runtime_receipt)]
+    return manifest, runtime_receipt
+
+
 def test_materialized_gate_blocks_missing_harness_and_duplicate_upstream() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -540,3 +619,61 @@ def test_v3_requires_enough_idle_per_device_resources() -> None:
         assert eligible["matched_resource_ids"] == ["single-sm120-32g"]
         assert eligible["resource_match_diagnostics"][0]["reasons"] == []
         assert eligible["resource_match_diagnostics"][0]["eligible_gpu_indices"] == [0]
+
+
+def test_v4_requires_a_bound_passing_runtime_preflight() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        manifest, runtime_receipt = v4_manifest_object(
+            task, screen, profile, resource_status, baseline
+        )
+        manifest_path = base / "manifest-v4.json"
+        atomic_json(manifest_path, manifest)
+
+        eligible = build_assessment(manifest_path, ROOT)
+        assert eligible["schema_version"] == "community-materialized-feasibility-v4"
+        assert eligible["decision"] == "ELIGIBLE_FOR_SUPERVISOR_REVIEW"
+        assert eligible["inputs"]["runtime_receipt"] == identity(runtime_receipt)
+        assert not eligible["allowed_actions"]["dispatch_gpu"]
+
+        failed = json.loads(runtime_receipt.read_text(encoding="utf-8"))
+        failed["status"] = "FAIL"
+        failed["checks"]["all_imports_passed"] = False
+        failed["probes"][0]["status"] = "FAIL"
+        failed["probes"][0]["error_type"] = "ImportError"
+        failed["probes"][0]["error_message"] = "missing dependency"
+        atomic_json(runtime_receipt, failed)
+        manifest["runtime_receipt"] = identity(runtime_receipt)
+        runtime_artifact = next(
+            item
+            for item in manifest["artifacts"]
+            if item["role"] == "RUNTIME_OR_ENVIRONMENT"
+        )
+        runtime_artifact["evidence"] = [identity(runtime_receipt)]
+        atomic_json(manifest_path, manifest)
+        try:
+            build_assessment(manifest_path, ROOT)
+        except ValueError as error:
+            assert "runtime preflight receipt did not pass" in str(error)
+        else:
+            raise AssertionError("v4 manifest accepted a failing runtime preflight")
+
+
+def test_v4_rejects_a_stale_runtime_preflight() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        manifest, _ = v4_manifest_object(
+            task, screen, profile, resource_status, baseline
+        )
+        manifest["runtime_receipt_maximum_age_seconds"] = 10
+        manifest_path = base / "manifest-v4-stale-runtime.json"
+        atomic_json(manifest_path, manifest)
+
+        try:
+            build_assessment(manifest_path, ROOT)
+        except ValueError as error:
+            assert "runtime preflight receipt is too old" in str(error)
+        else:
+            raise AssertionError("v4 manifest accepted a stale runtime preflight")

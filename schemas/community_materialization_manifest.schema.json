@@ -21,7 +21,8 @@
       "enum": [
         "community-materialization-manifest-v1",
         "community-materialization-manifest-v2",
-        "community-materialization-manifest-v3"
+        "community-materialization-manifest-v3",
+        "community-materialization-manifest-v4"
       ]
     },
     "generated_at": {"type": "string", "format": "date-time"},
@@ -34,6 +35,17 @@
         {"type": "null"},
         {"$ref": "#/$defs/fileIdentity"}
       ]
+    },
+    "runtime_receipt": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/fileIdentity"}
+      ]
+    },
+    "runtime_receipt_maximum_age_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3600
     },
     "candidate": {
       "type": "object",
@@ -213,6 +225,43 @@
             ]
           },
           "resource_status": {"$ref": "#/$defs/fileIdentity"},
+          "artifacts": {
+            "allOf": [
+              {"contains": {"properties": {"role": {"const": "BASELINE_SOURCE"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "OPERATOR_HARNESS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "WHOLE_MODEL_HARNESS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "MODEL_OR_WEIGHTS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "RUNTIME_OR_ENVIRONMENT"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "LIVE_HARDWARE_STATUS"}, "required": {"const": true}}, "required": ["role", "required"]}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-materialization-manifest-v4"}
+        }
+      },
+      "then": {
+        "required": ["hardware_match", "runtime_receipt", "runtime_receipt_maximum_age_seconds"],
+        "properties": {
+          "hardware_match": {
+            "allOf": [
+              {"$ref": "#/$defs/hardwareMatch"},
+              {
+                "required": [
+                  "minimum_ready_gpu_count",
+                  "maximum_gpu_utilization_percent",
+                  "maximum_used_memory_mib_per_gpu",
+                  "require_zero_active_compute_processes"
+                ]
+              }
+            ]
+          },
+          "resource_status": {"$ref": "#/$defs/fileIdentity"},
+          "runtime_receipt": {"$ref": "#/$defs/fileIdentity"},
           "artifacts": {
             "allOf": [
               {"contains": {"properties": {"role": {"const": "BASELINE_SOURCE"}, "required": {"const": true}}, "required": ["role", "required"]}},

@@ -22,7 +22,8 @@
       "enum": [
         "community-materialized-feasibility-v1",
         "community-materialized-feasibility-v2",
-        "community-materialized-feasibility-v3"
+        "community-materialized-feasibility-v3",
+        "community-materialized-feasibility-v4"
       ]
     },
     "generated_at": {"type": "string", "format": "date-time"},
@@ -38,6 +39,12 @@
         "preselection_screen": {"$ref": "#/$defs/fileIdentity"},
         "execution_profile": {"$ref": "#/$defs/fileIdentity"},
         "resource_status": {
+          "oneOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/fileIdentity"}
+          ]
+        },
+        "runtime_receipt": {
           "oneOf": [
             {"type": "null"},
             {"$ref": "#/$defs/fileIdentity"}
@@ -144,6 +151,20 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-materialized-feasibility-v4"}
+        }
+      },
+      "then": {
+        "properties": {
+          "inputs": {"required": ["runtime_receipt"]}
+        }
+      }
+    }
+  ],
   "$defs": {
     "fileIdentity": {
       "type": "object",
