@@ -4,7 +4,7 @@
   "title": "Cutoff-safe immutable optimization method snapshot",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "generated_at", "cutoff_at", "claim_boundary", "library_identity", "included_method_ids", "excluded_method_ids", "cards"],
+  "required": ["schema_version", "generated_at", "cutoff_at", "claim_boundary", "library_identity", "included_method_ids", "excluded_method_ids", "excluded_method_count", "withheld_revision_count", "cards"],
   "properties": {
     "schema_version": {"const": "optimization-method-snapshot-v1"},
     "generated_at": {"type": "string", "format": "date-time"},
@@ -20,6 +20,8 @@
     },
     "included_method_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
     "excluded_method_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "excluded_method_count": {"type": "integer", "minimum": 0},
+    "withheld_revision_count": {"type": "integer", "minimum": 0},
     "cards": {"type": "array", "minItems": 1, "items": {"type": "object"}}
   },
   "$defs": {

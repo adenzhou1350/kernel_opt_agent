@@ -8,6 +8,17 @@
   "properties": {
     "schema_version": {"const": "optimization-method-v1"},
     "method_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "revision": {"type": "integer", "minimum": 2},
+    "supersedes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["revision", "path", "sha256"],
+      "properties": {
+        "revision": {"type": "integer", "minimum": 1},
+        "path": {"type": "string", "pattern": "^knowledge/(methods|primitives|method_revisions)/[A-Za-z0-9_.-]+\\.json$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
     "title": {"type": "string", "minLength": 1},
     "kind": {"enum": ["TRANSFORMATION", "ORCHESTRATION", "SEARCH_STRATEGY", "EVALUATION_GUARD"]},
     "source": {

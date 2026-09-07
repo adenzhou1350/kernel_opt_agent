@@ -1,0 +1,138 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-incremental-prefix-state-machine",
+  "revision": 2,
+  "supersedes": {
+    "revision": 1,
+    "path": "knowledge/primitives/incremental-prefix-state-machine.json",
+    "sha256": "944a0acaa70724ff8c56d77ddf14db7cc7f91fe8d357644224b860b133e0457e"
+  },
+  "title": "Replace repeated whole-prefix work with a monotonic incremental state machine",
+  "kind": "TRANSFORMATION",
+  "source": {
+    "title": "vLLM PR #55565 incremental DeepSeek V3/V3.1 delimiter state, extending PR #40298 review evidence",
+    "url": "https://github.com/vllm-project/vllm/pull/55565",
+    "version": "snapshot-ddaacecd413c1d6f13dd",
+    "available_at": "2026-09-06T11:55:15Z",
+    "evidence_tier": "PROJECT_OFFICIAL_GUIDANCE",
+    "claim_scope": "The open source reports differential parser equivalence and parser-loop speedups for two DeepSeek parsers; it is not maintainer approval, independent reproduction, server latency or target-hardware proof."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-40298.incremental-streaming-state-machine",
+      "vllm.pr-55565.incremental-deepseek-delimiter-state"
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "incrementalization",
+    "repeated-prefix-elimination",
+    "streaming-state-machine"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "streaming",
+      "accumulated",
+      "history",
+      "prefix",
+      "rescan",
+      "quadratic",
+      "parser",
+      "delimiter",
+      "per delta"
+    ]
+  },
+  "implementation_recipe": [
+    "Write a transition table for request start, first cumulative compatibility check, incremental updates, item completion and request completion.",
+    "Derive the smallest sufficient prefix summary: use counters or flags when a full grammar cursor and suffix buffer are unnecessary.",
+    "Perform at most one cumulative scan, then process each new delta once and advance externally visible indices exactly once at the owning transition.",
+    "Keep semantic reconstruction on the trusted batch or existing streaming path so the optimization does not invent a second serialization contract.",
+    "Bind state lifetime to one coherent request stream and make reset, reuse and interleaving behavior explicit."
+  ],
+  "validation_recipe": [
+    "Compare normalized incremental output with the frozen baseline or batch oracle over every single split point and deterministic random chunk partitions.",
+    "Cover no-item, one-item, multiple-item, incomplete input, surrounding text, empty chunks, delimiter fragments and parser reuse.",
+    "Instrument cumulative containers so tests fail if steady-state updates perform membership, count, slice or search on accepted history.",
+    "Measure complete production-boundary work over increasing history lengths and multiple delta sizes, then check whether total work changes from quadratic toward linear.",
+    "Separate the common no-item path from the actual-item path and reject a claimed universal speedup when their intervals differ or overlap."
+  ],
+  "expected_bottleneck_shifts": [
+    "Repeated whole-history scanning should become near-linear total work in emitted input length.",
+    "Delimiter recognition, tokenizer, allocation, logging and output serialization can become dominant after old-prefix work is removed.",
+    "State ownership and transition correctness replace raw scan cost as the primary risk."
+  ],
+  "failure_modes": [
+    "A transition clears unconsumed suffix data that belongs to the next field or normal-text state.",
+    "State is reset too early, survives across requests or is shared by interleaved streams.",
+    "A delimiter split across chunks is emitted, skipped or recognized twice.",
+    "The first observed delta starts after a marker already present in cumulative history and an over-aggressive delta-only fast path misses it.",
+    "Cached counts diverge when another code path mutates accepted history or changes delimiter identity.",
+    "The implementation retains complete history under a new state object and preserves quadratic slicing or search work.",
+    "A no-item microbenchmark is generalized to actual structured-output responses without separate evidence."
+  ],
+  "scope_limits": [
+    "Use only when successive calls reconsider a shared growing prefix and state can be owned for the same semantic stream.",
+    "Do not transfer concrete delimiters, field names, reset rules or malformed-input behavior across parser protocols.",
+    "PR #40298 is closed-unmerged and PR #55565 remains open; both remain discovery evidence rather than merge endorsement.",
+    "The later source reports CPU parser-loop measurements, not server latency, GPU throughput or target-workload materiality."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "Call k reprocesses history 0..k even though call k-1 already established a valid summary of 0..k-1.",
+    "partition_axis": "successive input deltas within one request-local stream",
+    "local_state": [
+      "monotonic consumed cursor or first-scan flag",
+      "bounded unresolved delimiter suffix when required",
+      "cached prefix flags or delimiter counts",
+      "current grammar state and externally visible item index"
+    ],
+    "combine_rule": "Update the smallest sufficient prefix summary from prior state and only the new delta, retaining only unresolved grammar context.",
+    "finalization": "Emit newly completed semantic fields, preserve trailing unconsumed input, and reset only at the explicit request boundary.",
+    "work_complexity": "Target O(total input plus emitted output) over the stream instead of O(number of deltas times accumulated history).",
+    "span_complexity": "Each call depends on bounded parser state and its new delta, except for one explicitly bounded compatibility scan.",
+    "communication_cost": "Adds request-local state reads and writes while removing repeated reads of historical tokens or text.",
+    "invariants": [
+      "concatenated incremental output equals the trusted complete-input semantic result",
+      "every accepted input unit is summarized once except a bounded compatibility scan or delimiter suffix",
+      "indices and cumulative counts advance exactly once at their owning transition",
+      "state lifetime is exactly one coherent request stream"
+    ],
+    "anti_patterns": [
+      "append to a full-history buffer and search it again",
+      "use delta-only detection before establishing compatibility with cumulative history",
+      "test only delimiter-aligned chunks or only the no-item path",
+      "duplicate the batch parser's type and serialization rules",
+      "reset all state inside a per-item completion transition"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "monotonic-cursor-state-machine",
+      "name": "bounded-suffix incremental parser",
+      "change_axes": [
+        "history scan length",
+        "state ownership",
+        "chunk-boundary transition",
+        "semantic output reuse"
+      ],
+      "template": "Track consumed position and grammar state, process only each new delta, and retain only the bounded suffix needed to resolve a split delimiter."
+    },
+    {
+      "family": "incremental-derived-summary",
+      "name": "cached prefix summary",
+      "change_axes": [
+        "recomputed prefix property",
+        "first-scan compatibility",
+        "summary update",
+        "coherence epoch"
+      ],
+      "template": "Cache the smallest sufficient flags or counters for the accepted prefix, perform one compatibility scan when needed, and update only from each delta under an explicit stream epoch."
+    }
+  ]
+}

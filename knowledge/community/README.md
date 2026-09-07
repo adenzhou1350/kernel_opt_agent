@@ -328,3 +328,15 @@ single-task trials. These references refine routing and failure modes after a
 negative or positive realization, but never upgrade one trial into a general
 performance claim. The refined card's `source.available_at` must be later than
 the experiment and can participate only in future cutoffs.
+
+Never append later community or experiment evidence directly to an older method
+card: that would backdate the new knowledge into historical evaluations. Write a
+full method revision under `knowledge/method_revisions/` with the same
+`method_id`, a monotonically increasing `revision`, a hash-bound `supersedes`
+pointer and a strictly later `source.available_at`. Snapshot export selects the
+latest revision visible at its cutoff; current recommendation selects the chain
+tip. The loader rejects gaps, duplicate revisions, predecessor path/hash changes
+and non-increasing availability. A temporal snapshot binds only the selected
+visible revision files; future method IDs, paths and hashes are withheld and
+represented only by anonymous counts. Current (non-temporal) recommendation
+still binds the complete revision history.

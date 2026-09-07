@@ -60,16 +60,17 @@ def card_paths(root: Path | None = None) -> list[Path]:
         [
             *knowledge.joinpath("methods").glob("*.json"),
             *knowledge.joinpath("primitives").glob("*.json"),
+            *knowledge.joinpath("method_revisions").glob("*.json"),
         ],
         key=lambda path: path.as_posix(),
     )
 
 
-def load_cards(root: Path | None = None) -> list[tuple[Path, dict]]:
+def load_card_revisions(root: Path | None = None) -> list[tuple[Path, dict]]:
     root = root or repository_root()
     schema = root / "schemas" / "optimization_method.schema.json"
-    cards: list[tuple[Path, dict]] = []
-    identifiers: set[str] = set()
+    revisions: list[tuple[Path, dict]] = []
+    identities: set[tuple[str, int]] = set()
     for path in card_paths(root):
         errors = validate_json_file(path, schema)
         if errors:
@@ -78,13 +79,75 @@ def load_cards(root: Path | None = None) -> list[tuple[Path, dict]]:
         if card.get("schema_version") != SCHEMA:
             raise ValueError(f"unsupported method card schema: {path}")
         identifier = str(card["method_id"])
-        if identifier in identifiers:
-            raise ValueError(f"duplicate method_id: {identifier}")
-        identifiers.add(identifier)
-        cards.append((path, card))
-    if not cards:
+        revision = int(card.get("revision", 1))
+        identity = (identifier, revision)
+        if identity in identities:
+            raise ValueError(f"duplicate method revision: {identifier}@{revision}")
+        identities.add(identity)
+        revisions.append((path, card))
+    if not revisions:
         raise ValueError("method library is empty")
-    return cards
+
+    by_method: dict[str, list[tuple[Path, dict]]] = {}
+    for path, card in revisions:
+        by_method.setdefault(card["method_id"], []).append((path, card))
+    root_resolved = root.resolve()
+    for identifier, rows in by_method.items():
+        rows.sort(key=lambda row: int(row[1].get("revision", 1)))
+        observed = [int(card.get("revision", 1)) for _, card in rows]
+        if observed != list(range(1, len(rows) + 1)):
+            raise ValueError(f"method revision chain is not contiguous: {identifier}")
+        for index, (path, card) in enumerate(rows):
+            revision = int(card.get("revision", 1))
+            supersedes = card.get("supersedes")
+            if revision == 1:
+                if supersedes is not None:
+                    raise ValueError(f"method revision 1 cannot supersede another card: {identifier}")
+                continue
+            if supersedes is None or supersedes["revision"] != revision - 1:
+                raise ValueError(f"method revision does not name its predecessor: {identifier}@{revision}")
+            previous_path, previous_card = rows[index - 1]
+            declared_path = (root / supersedes["path"]).resolve()
+            try:
+                declared_path.relative_to(root_resolved)
+            except ValueError as error:
+                raise ValueError("method predecessor escapes repository root") from error
+            if declared_path != previous_path.resolve():
+                raise ValueError(f"method predecessor path mismatch: {identifier}@{revision}")
+            if supersedes["sha256"] != sha256(previous_path):
+                raise ValueError(f"method predecessor hash mismatch: {identifier}@{revision}")
+            if previous_card["method_id"] != identifier:
+                raise ValueError(f"method predecessor id mismatch: {identifier}@{revision}")
+            previous_available = parse_timestamp(
+                previous_card["source"]["available_at"],
+                f"{identifier}@{revision - 1}.source.available_at",
+            )
+            current_available = parse_timestamp(
+                card["source"]["available_at"],
+                f"{identifier}@{revision}.source.available_at",
+            )
+            if current_available <= previous_available:
+                raise ValueError(
+                    f"method revision availability must increase: {identifier}@{revision}"
+                )
+    return sorted(
+        revisions,
+        key=lambda row: (row[1]["method_id"], int(row[1].get("revision", 1))),
+    )
+
+
+def load_cards(root: Path | None = None) -> list[tuple[Path, dict]]:
+    revisions = load_card_revisions(root)
+    current: dict[str, tuple[Path, dict]] = {}
+    for path, card in revisions:
+        identifier = card["method_id"]
+        if (
+            identifier not in current
+            or int(card.get("revision", 1))
+            > int(current[identifier][1].get("revision", 1))
+        ):
+            current[identifier] = (path, card)
+    return sorted(current.values(), key=lambda row: row[1]["method_id"])
 
 
 def identities(run: Path) -> list[dict]:
@@ -191,22 +254,51 @@ def parse_timestamp(value: str, label: str) -> datetime:
 def build_snapshot(cutoff_at: str, root: Path | None = None) -> dict:
     root = root or repository_root()
     cutoff = parse_timestamp(cutoff_at, "cutoff_at")
-    cards = load_cards(root)
+    revisions = load_card_revisions(root)
+    by_method: dict[str, list[dict]] = {}
+    for _, card in revisions:
+        by_method.setdefault(card["method_id"], []).append(card)
     included = []
     excluded = []
-    for _, card in cards:
-        available = parse_timestamp(card["source"]["available_at"], f"{card['method_id']}.source.available_at")
-        (included if available <= cutoff else excluded).append(card)
+    for identifier, cards in sorted(by_method.items()):
+        eligible = [
+            card
+            for card in cards
+            if parse_timestamp(
+                card["source"]["available_at"],
+                f"{identifier}.source.available_at",
+            )
+            <= cutoff
+        ]
+        if eligible:
+            included.append(
+                max(eligible, key=lambda card: int(card.get("revision", 1)))
+            )
+        else:
+            excluded.append(identifier)
     if not included:
         raise ValueError("method snapshot contains no cards available by the cutoff")
+    included_revisions = {
+        (card["method_id"], int(card.get("revision", 1))) for card in included
+    }
+    visible_revision_files = [
+        (path, card)
+        for path, card in revisions
+        if (card["method_id"], int(card.get("revision", 1)))
+        in included_revisions
+    ]
     snapshot = {
         "schema_version": SNAPSHOT_SCHEMA,
         "generated_at": now(),
         "cutoff_at": cutoff_at,
         "claim_boundary": "DISCOVERY_PRIOR_ONLY",
-        "library_identity": library_identity(cards, root),
+        "library_identity": library_identity(visible_revision_files, root),
         "included_method_ids": sorted(card["method_id"] for card in included),
-        "excluded_method_ids": sorted(card["method_id"] for card in excluded),
+        # Kept empty for v1 schema compatibility. Naming future methods here
+        # leaks their solution vocabulary into historical executor inputs.
+        "excluded_method_ids": [],
+        "excluded_method_count": len(excluded),
+        "withheld_revision_count": len(revisions) - len(included),
         "cards": sorted(included, key=lambda card: card["method_id"]),
     }
     errors = validate_instance(
@@ -226,6 +318,7 @@ def read_vendor(hardware_text: str) -> str:
 def build_receipt(run: Path, root: Path | None = None, limit: int = 3) -> dict:
     root = root or repository_root()
     cards = load_cards(root)
+    revisions = load_card_revisions(root)
     operator = read_object(run / "operator.json")
     workload = read_object(run / "workload.json")
     hardware = read_object(run / "hardware.json")
@@ -260,7 +353,7 @@ def build_receipt(run: Path, root: Path | None = None, limit: int = 3) -> dict:
         "generated_at": now(),
         "claim_scope": "DISCOVERY_PRIOR_ONLY",
         "input_identities": identities(run),
-        "library_identity": library_identity(cards, root),
+        "library_identity": library_identity(revisions, root),
         "policy": {
             "max_matches_per_opportunity": limit,
             "hardware_requirement_policy": "FAIL_CLOSED",
@@ -283,7 +376,9 @@ def validate_receipt(receipt: dict, run: Path, root: Path | None = None) -> None
         raise ValueError("unsupported method-match receipt")
     if receipt.get("input_identities") != identities(run):
         raise ValueError("method-match inputs are stale")
-    if receipt.get("library_identity") != library_identity(load_cards(root), root):
+    if receipt.get("library_identity") != library_identity(
+        load_card_revisions(root), root
+    ):
         raise ValueError("method library changed after matching")
     if receipt.get("policy", {}).get("hardware_requirement_policy") != "FAIL_CLOSED":
         raise ValueError("method matching must fail closed on unverified capabilities")
@@ -298,7 +393,13 @@ def validate_receipt(receipt: dict, run: Path, root: Path | None = None) -> None
 def command_validate(args: argparse.Namespace) -> dict:
     root = repository_root()
     cards = load_cards(root)
-    return {"status": "PASS", "card_count": len(cards), "library_identity": library_identity(cards, root)}
+    revisions = load_card_revisions(root)
+    return {
+        "status": "PASS",
+        "card_count": len(cards),
+        "revision_count": len(revisions),
+        "library_identity": library_identity(revisions, root),
+    }
 
 
 def command_recommend(args: argparse.Namespace) -> dict:
