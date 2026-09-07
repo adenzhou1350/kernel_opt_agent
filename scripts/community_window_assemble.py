@@ -92,6 +92,8 @@ def assemble(args: argparse.Namespace) -> dict:
     receipts = [path.resolve() for path in args.receipt]
     paths = output_paths(output_dir, args.artifact_prefix, args.funnel_stamp)
     collisions = [str(path) for path in paths.values() if path.exists()]
+    if args.next_checkpoint is not None and args.next_checkpoint.resolve().exists():
+        collisions.append(str(args.next_checkpoint.resolve()))
     if collisions:
         raise FileExistsError(
             "refusing to overwrite artifacts: " + ", ".join(collisions)
@@ -268,6 +270,45 @@ def assemble(args: argparse.Namespace) -> dict:
             args.command_timeout,
         )
     )
+    if args.next_checkpoint is not None:
+        next_checkpoint = args.next_checkpoint.resolve()
+        next_checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        commands.append(
+            run(
+                [
+                    python,
+                    str(checkpoint_script),
+                    "advance",
+                    "--report",
+                    str(paths["funnel"]),
+                    "--checkpoint",
+                    str(args.checkpoint.resolve()),
+                    "--corpus",
+                    str(corpus),
+                    "--source-root",
+                    str(source_root),
+                    "--output",
+                    str(next_checkpoint),
+                ],
+                args.command_timeout,
+            )
+        )
+        commands.append(
+            run(
+                [
+                    python,
+                    str(checkpoint_script),
+                    "validate-fast",
+                    "--checkpoint",
+                    str(next_checkpoint),
+                    "--corpus",
+                    str(corpus),
+                    "--source-root",
+                    str(source_root),
+                ],
+                args.command_timeout,
+            )
+        )
     funnel = read_object(paths["funnel"])
     observed_count = funnel["inventory"]["window_count"]
     if observed_count != expected_count:
@@ -308,6 +349,10 @@ def assemble(args: argparse.Namespace) -> dict:
         "command_count": len(commands),
         "status": "PASS",
     }
+    if args.next_checkpoint is not None:
+        manifest["output_identity"]["next_checkpoint"] = identity(
+            args.next_checkpoint
+        )
     atomic_json(paths["manifest"], manifest)
     return {
         "manifest": str(paths["manifest"]),
@@ -323,6 +368,11 @@ def parser() -> argparse.ArgumentParser:
     value.add_argument("--expected-source-commit", required=True)
     value.add_argument("--corpus", type=Path, required=True)
     value.add_argument("--checkpoint", type=Path, required=True)
+    value.add_argument(
+        "--next-checkpoint",
+        type=Path,
+        help="write a hash-bound successor checkpoint without a full prefix replay",
+    )
     value.add_argument("--anchor", type=Path, required=True)
     value.add_argument("--graph", type=Path, required=True)
     value.add_argument("--methods", type=Path, required=True)

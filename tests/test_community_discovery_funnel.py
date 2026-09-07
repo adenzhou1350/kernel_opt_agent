@@ -4,27 +4,34 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import sys
 import tempfile
 from collections import Counter
 from pathlib import Path
 
+import pytest
+
 ROOT = Path(__file__).resolve().parents[1]
+WORKSPACE = ROOT.parents[1] if ROOT.parent.name == ".worktrees" else ROOT.parent
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_discovery_funnel import (  # noqa: E402
     build_funnel,
     count_rows,
     derive_routing_rules,
+    identity,
     ratio,
     validate_funnel,
 )
 from community_evaluation import validate_preselection_chain_audit  # noqa: E402
 from community_funnel_checkpoint import (  # noqa: E402
+    advance_checkpoint,
     build_checkpoint,
     extend_funnel,
     validate_checkpoint,
+    validate_checkpoint_fast,
     validate_incremental_funnel,
 )
 from community_knowledge import atomic_json  # noqa: E402
@@ -42,7 +49,7 @@ def test_small_funnel_helpers_are_deterministic() -> None:
 
 def available_audits() -> list[Path]:
     base = (
-        ROOT.parent / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
+        WORKSPACE / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
     )
     return [
         path
@@ -54,12 +61,26 @@ def available_audits() -> list[Path]:
     ]
 
 
+def source_root_for_audit(audit_path: Path) -> Path:
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    anchor_path = Path(audit["input_identity"]["anchor"]["path"])
+    anchor = json.loads(anchor_path.read_text(encoding="utf-8"))
+    return Path(anchor["git_anchor"]["repository"])
+
+
+def require_historical_integration() -> None:
+    if os.environ.get("RUN_COMMUNITY_INTEGRATION") != "1":
+        pytest.skip("set RUN_COMMUNITY_INTEGRATION=1 for frozen historical replay")
+
+
 def test_funnel_build_validate_and_tamper_guard() -> None:
+    require_historical_integration()
     audits = available_audits()
     if len(audits) != 2:
         return
-    corpus = ROOT.parent / "community-optimization-corpus"
-    report = build_funnel(audits, corpus)
+    corpus = WORKSPACE / "community-optimization-corpus"
+    source_root = source_root_for_audit(audits[0])
+    report = build_funnel(audits, corpus, source_root)
     assert report["inventory"]["window_count"] == 2
     assert report["inventory"]["post_cutoff_selected"] == 1
     assert report["inventory"]["runnable_selected"] == 0
@@ -76,31 +97,32 @@ def test_funnel_build_validate_and_tamper_guard() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "funnel.json"
         atomic_json(path, report)
-        assert validate_funnel(path, corpus)["status"] == "PASS"
+        assert validate_funnel(path, corpus, source_root)["status"] == "PASS"
         edited = json.loads(path.read_text(encoding="utf-8"))
         edited["inventory"]["runnable_selected"] = 1
         atomic_json(path, edited)
         try:
-            validate_funnel(path, corpus)
+            validate_funnel(path, corpus, source_root)
         except ValueError as error:
             assert "stale or was edited" in str(error)
         else:
             raise AssertionError("edited funnel must fail validation")
     committed_v1 = (
-        ROOT.parent
+        WORKSPACE
         / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
         / "discovery-funnel-through-035615-v1.json"
     )
     if committed_v1.is_file():
-        assert validate_funnel(committed_v1, corpus)["status"] == "PASS"
+        assert validate_funnel(committed_v1, corpus, source_root)["status"] == "PASS"
 
 
 def test_anchored_chain_survives_later_corpus_index_growth() -> None:
+    require_historical_integration()
     base = (
-        ROOT.parent / "community-validation/prospective-heldout-outcome-v4-2026-09-07"
+        WORKSPACE / "community-validation/prospective-heldout-outcome-v4-2026-09-07"
     )
     audit = base / "preselection-chain-audit-postcutoff-051533-v1.json"
-    source_corpus = ROOT.parent / "community-optimization-corpus"
+    source_corpus = WORKSPACE / "community-optimization-corpus"
     if not audit.is_file() or not source_corpus.is_dir():
         return
     with tempfile.TemporaryDirectory() as temporary:
@@ -110,21 +132,24 @@ def test_anchored_chain_survives_later_corpus_index_growth() -> None:
         index = json.loads(index_path.read_text(encoding="utf-8"))
         index["generated_at"] = "2026-09-08T00:00:00Z"
         atomic_json(index_path, index)
-        assert validate_preselection_chain_audit(audit, corpus, ROOT)["status"] == (
-            "PASS"
-        )
+        assert validate_preselection_chain_audit(
+            audit, corpus, source_root_for_audit(audit)
+        )["status"] == "PASS"
 
 
 def test_repeated_pr_updates_do_not_become_independent_evidence() -> None:
+    require_historical_integration()
     audits = available_audits()
     base = (
-        ROOT.parent / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
+        WORKSPACE / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
     )
     third = base / "preselection-chain-audit-postcutoff-040852-v1.json"
     if len(audits) != 2 or not third.is_file():
         return
-    corpus = ROOT.parent / "community-optimization-corpus"
-    report = build_funnel([*audits, third], corpus)
+    corpus = WORKSPACE / "community-optimization-corpus"
+    report = build_funnel(
+        [*audits, third], corpus, source_root_for_audit(audits[0])
+    )
     docs = next(
         row
         for row in report["shadow_recommendations"]
@@ -137,35 +162,58 @@ def test_repeated_pr_updates_do_not_become_independent_evidence() -> None:
 
 
 def test_hash_bound_checkpoint_replays_only_new_funnel_suffix() -> None:
+    require_historical_integration()
     base = (
-        ROOT.parent / "community-validation/prospective-heldout-outcome-v4-2026-09-07"
+        WORKSPACE / "community-validation/prospective-heldout-outcome-v4-2026-09-07"
     )
     prior = base / "discovery-funnel-cumulative-through-20260907-134704Z-v1.json"
     current = base / "discovery-funnel-cumulative-through-20260907-143943Z-v1.json"
     new_audit = base / "preselection-chain-audit-134704-20260907-143943Z-v1.json"
-    corpus = ROOT.parent / "community-optimization-corpus"
+    corpus = WORKSPACE / "community-optimization-corpus"
     if not all(path.exists() for path in (prior, current, new_audit, corpus)):
         return
     with tempfile.TemporaryDirectory() as temporary:
+        source_root = source_root_for_audit(new_audit)
         checkpoint_path = Path(temporary) / "checkpoint.json"
-        checkpoint = build_checkpoint(prior, corpus)
+        checkpoint = build_checkpoint(prior, corpus, source_root=source_root)
         atomic_json(checkpoint_path, checkpoint)
-        assert validate_checkpoint(checkpoint_path, corpus)["status"] == "PASS"
-        incremental = extend_funnel(checkpoint_path, [new_audit], corpus)
+        assert validate_checkpoint(
+            checkpoint_path, corpus, source_root=source_root
+        )["status"] == "PASS"
+        incremental = extend_funnel(
+            checkpoint_path, [new_audit], corpus, source_root=source_root
+        )
         observed = json.loads(current.read_text(encoding="utf-8"))
         incremental.pop("generated_at")
         observed.pop("generated_at")
         assert incremental == observed
         assert (
-            validate_incremental_funnel(current, checkpoint_path, corpus)["status"]
+            validate_incremental_funnel(
+                current, checkpoint_path, corpus, source_root=source_root
+            )["status"]
             == "PASS"
         )
+
+        successor_path = Path(temporary) / "successor-checkpoint.json"
+        successor = advance_checkpoint(
+            current, checkpoint_path, corpus, source_root=source_root
+        )
+        atomic_json(successor_path, successor)
+        assert validate_checkpoint_fast(
+            successor_path, corpus, source_root=source_root
+        )["status"] == "PASS"
+        assert validate_checkpoint(
+            successor_path, corpus, source_root=source_root
+        )["status"] == "PASS"
+        full_successor = build_checkpoint(current, corpus, source_root=source_root)
+        assert successor["input_identity"] == full_successor["input_identity"]
+        assert successor["state"] == full_successor["state"]
 
         edited = json.loads(checkpoint_path.read_text(encoding="utf-8"))
         edited["input_identity"]["source_funnel"]["sha256"] = "0" * 64
         atomic_json(checkpoint_path, edited)
         try:
-            validate_checkpoint(checkpoint_path, corpus)
+            validate_checkpoint(checkpoint_path, corpus, source_root=source_root)
         except ValueError as error:
             assert "source funnel changed" in str(error)
         else:
@@ -231,3 +279,55 @@ def test_context_bound_routing_requires_distinct_nonrunnable_evidence() -> None:
     recommendation["runnable_count"] = 1
     recommendation["recommendation"] = "KEEP"
     assert derive_routing_rules(funnel, policy, nvidia_profile) == []
+
+
+def test_fast_checkpoint_validation_rechecks_every_frozen_hash(
+    tmp_path: Path,
+) -> None:
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    index_path = corpus / "index.json"
+    audit_path = tmp_path / "audit.json"
+    atomic_json(index_path, {"schema_version": "test-index"})
+    atomic_json(audit_path, {"schema_version": "test-audit"})
+    funnel_path = tmp_path / "funnel.json"
+    atomic_json(
+        funnel_path,
+        {
+            "schema_version": "community-discovery-funnel-v2",
+            "input_identity": {
+                "audits": [identity(audit_path)],
+                "corpus_index": identity(index_path),
+            },
+            "inventory": {"unique_discovery_candidates": 0},
+        },
+    )
+    checkpoint_path = tmp_path / "checkpoint.json"
+    atomic_json(
+        checkpoint_path,
+        {
+            "schema_version": "community-funnel-checkpoint-v1",
+            "generated_at": "2026-09-08T00:00:00Z",
+            "claim_boundary": "FAST_PREFIX_VALIDATION_NOT_RELEASE_EVIDENCE",
+            "input_identity": {
+                "source_funnel": identity(funnel_path),
+                "corpus_index": identity(index_path),
+                "audit_prefix": [identity(audit_path)],
+                "source_root": ROOT.as_posix(),
+            },
+            "state": {
+                "unique_candidate_keys": [],
+                "prefix_identity_closure": sorted(
+                    [identity(funnel_path), identity(index_path), identity(audit_path)],
+                    key=lambda row: row["path"],
+                ),
+            },
+            "limitations": ["unit-test fixture"],
+        },
+    )
+    assert validate_checkpoint_fast(
+        checkpoint_path, corpus, source_root=ROOT
+    )["status"] == "PASS"
+    atomic_json(audit_path, {"schema_version": "tampered"})
+    with pytest.raises(ValueError, match="closure identity changed"):
+        validate_checkpoint_fast(checkpoint_path, corpus, source_root=ROOT)

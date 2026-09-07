@@ -49,6 +49,19 @@
         }
       }
     },
+    "extension_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predecessor_checkpoint", "suffix_audits"],
+      "properties": {
+        "predecessor_checkpoint": {"$ref": "#/$defs/identity"},
+        "suffix_audits": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
     "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}}
   },
   "$defs": {

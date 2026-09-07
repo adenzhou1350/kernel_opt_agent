@@ -203,6 +203,90 @@ def validate_checkpoint(
         raise ValueError("funnel checkpoint prefix identity closure changed")
     return {
         "status": "PASS",
+        "validation_mode": "FULL_IDENTITY_CLOSURE_REPLAY",
+        "prefix_window_count": len(inputs["audit_prefix"]),
+        "unique_discovery_candidates": len(
+            checkpoint["state"]["unique_candidate_keys"]
+        ),
+    }
+
+
+def validate_checkpoint_fast(
+    checkpoint_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+    source_root: Path | None = None,
+) -> dict:
+    """Verify a previously constructed checkpoint without rebuilding its graph."""
+    root = (root or repository_root()).resolve()
+    checkpoint_path = checkpoint_path.resolve()
+    corpus = corpus.resolve()
+    errors = validate_json_file(checkpoint_path, schema_path(root))
+    if errors:
+        raise ValueError("invalid funnel checkpoint: " + "; ".join(errors))
+    checkpoint = read_object(checkpoint_path)
+    inputs = checkpoint["input_identity"]
+    recorded_source_root = Path(inputs["source_root"]).resolve()
+    if source_root is not None and source_root.resolve() != recorded_source_root:
+        raise ValueError("funnel checkpoint source root differs from request")
+    corpus_index = corpus / "index.json"
+    funnel_path = identity_path(inputs["source_funnel"])
+    for label, value, expected_path in (
+        ("corpus index", inputs["corpus_index"], corpus_index),
+        ("source funnel", inputs["source_funnel"], funnel_path),
+    ):
+        if (
+            identity_path(value) != expected_path
+            or not expected_path.is_file()
+            or sha256_file(expected_path) != value["sha256"]
+        ):
+            raise ValueError(f"funnel checkpoint {label} changed")
+    funnel = read_object(funnel_path)
+    if funnel.get("schema_version") != "community-discovery-funnel-v2":
+        raise ValueError("funnel checkpoint source is not v2")
+    if funnel["input_identity"]["corpus_index"] != inputs["corpus_index"]:
+        raise ValueError("funnel checkpoint corpus binding differs from source")
+    if funnel["input_identity"]["audits"] != inputs["audit_prefix"]:
+        raise ValueError("funnel checkpoint audit prefix differs from source")
+    if (
+        len(checkpoint["state"]["unique_candidate_keys"])
+        != funnel["inventory"]["unique_discovery_candidates"]
+    ):
+        raise ValueError("funnel checkpoint unique-candidate count differs from source")
+
+    closure = {
+        Path(row["path"]).resolve(): row["sha256"]
+        for row in checkpoint["state"]["prefix_identity_closure"]
+    }
+    required = [inputs["source_funnel"], inputs["corpus_index"], *inputs["audit_prefix"]]
+    for value in required:
+        path = identity_path(value)
+        if closure.get(path) != value["sha256"]:
+            raise ValueError("funnel checkpoint closure omits a required identity")
+    for path, digest in closure.items():
+        if not path.is_file() or sha256_file(path) != digest:
+            raise ValueError(f"funnel checkpoint closure identity changed: {path}")
+
+    provenance = checkpoint.get("extension_provenance")
+    if provenance is not None:
+        predecessor_path = identity_path(provenance["predecessor_checkpoint"])
+        if (
+            not predecessor_path.is_file()
+            or sha256_file(predecessor_path)
+            != provenance["predecessor_checkpoint"]["sha256"]
+        ):
+            raise ValueError("incremental checkpoint predecessor changed")
+        predecessor = read_object(predecessor_path)
+        prefix_length = len(predecessor["input_identity"]["audit_prefix"])
+        if inputs["audit_prefix"][:prefix_length] != predecessor["input_identity"][
+            "audit_prefix"
+        ]:
+            raise ValueError("incremental checkpoint does not extend predecessor")
+        if inputs["audit_prefix"][prefix_length:] != provenance["suffix_audits"]:
+            raise ValueError("incremental checkpoint suffix provenance differs")
+    return {
+        "status": "PASS",
+        "validation_mode": "HASH_LIST_AND_REQUIRED_MEMBERSHIP",
         "prefix_window_count": len(inputs["audit_prefix"]),
         "unique_discovery_candidates": len(
             checkpoint["state"]["unique_candidate_keys"]
@@ -217,13 +301,17 @@ def extend_funnel(
     root: Path | None = None,
     source_root: Path | None = None,
     validation_session: ValidationSession | None = None,
+    fast_checkpoint_validation: bool = True,
 ) -> dict:
     """Extend a validated prefix by revalidating only the unseen audit suffix."""
     root = (root or repository_root()).resolve()
     source_root = (source_root or root).resolve()
     corpus = corpus.resolve()
     checkpoint_path = checkpoint_path.resolve()
-    validate_checkpoint(checkpoint_path, corpus, root, source_root)
+    checkpoint_validator = (
+        validate_checkpoint_fast if fast_checkpoint_validation else validate_checkpoint
+    )
+    checkpoint_validator(checkpoint_path, corpus, root, source_root)
     checkpoint = read_object(checkpoint_path)
     source = read_object(identity_path(checkpoint["input_identity"]["source_funnel"]))
     prefix_identities = copy.deepcopy(checkpoint["input_identity"]["audit_prefix"])
@@ -358,6 +446,7 @@ def validate_incremental_funnel(
     source_root: Path | None = None,
     implementation_root: Path | None = None,
     validation_session: ValidationSession | None = None,
+    fast_checkpoint_validation: bool = True,
 ) -> dict:
     implementation_root = (implementation_root or repository_root()).resolve()
     source_root = (source_root or implementation_root).resolve()
@@ -369,7 +458,10 @@ def validate_incremental_funnel(
     )
     if errors:
         raise ValueError("invalid discovery funnel: " + "; ".join(errors))
-    validate_checkpoint(
+    checkpoint_validator = (
+        validate_checkpoint_fast if fast_checkpoint_validation else validate_checkpoint
+    )
+    checkpoint_validator(
         checkpoint_path,
         corpus,
         implementation_root,
@@ -388,6 +480,7 @@ def validate_incremental_funnel(
         implementation_root,
         source_root,
         validation_session,
+        fast_checkpoint_validation,
     )
     observed_stable = {
         key: value for key, value in observed.items() if key != "generated_at"
@@ -405,6 +498,84 @@ def validate_incremental_funnel(
     }
 
 
+def advance_checkpoint(
+    report_path: Path,
+    checkpoint_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+    source_root: Path | None = None,
+) -> dict:
+    """Create the next checkpoint from a proven prefix plus its new audit suffix."""
+    root = (root or repository_root()).resolve()
+    source_root = (source_root or root).resolve()
+    report_path = report_path.resolve()
+    checkpoint_path = checkpoint_path.resolve()
+    corpus = corpus.resolve()
+    validate_incremental_funnel(
+        report_path,
+        checkpoint_path,
+        corpus,
+        source_root,
+        root,
+        fast_checkpoint_validation=True,
+    )
+    predecessor = read_object(checkpoint_path)
+    report = read_object(report_path)
+    prefix = predecessor["input_identity"]["audit_prefix"]
+    suffix_identities = report["input_identity"]["audits"][len(prefix) :]
+    suffix_paths = [identity_path(value) for value in suffix_identities]
+
+    closure = {
+        Path(row["path"]).resolve().as_posix(): row["sha256"]
+        for row in predecessor["state"]["prefix_identity_closure"]
+    }
+    old_funnel = identity_path(predecessor["input_identity"]["source_funnel"])
+    closure.pop(old_funnel.resolve().as_posix(), None)
+    closure[report_path.as_posix()] = sha256_file(report_path)
+    closure_session = ValidationSession(source_root, identity_roots=(corpus,))
+    closure.update(closure_session.identity_closure(tuple(suffix_paths)))
+
+    unique_candidates = set(predecessor["state"]["unique_candidate_keys"])
+    for audit_path in suffix_paths:
+        audit = read_object(audit_path)
+        queue = read_object(identity_path(audit["input_identity"]["queue"]))
+        for receipt_identity in queue["input_identity"]["receipts"]:
+            receipt = read_object(identity_path(receipt_identity))
+            unique_candidates.update(
+                _candidate_key(receipt["repository"], int(candidate["pr_number"]))
+                for candidate in receipt["candidates"]
+            )
+    checkpoint = {
+        "schema_version": SCHEMA_VERSION,
+        "generated_at": now(),
+        "claim_boundary": CLAIM_BOUNDARY,
+        "input_identity": {
+            "source_funnel": identity(report_path),
+            "corpus_index": identity(corpus / "index.json"),
+            "audit_prefix": copy.deepcopy(report["input_identity"]["audits"]),
+            "source_root": source_root.as_posix(),
+        },
+        "state": {
+            "unique_candidate_keys": sorted(unique_candidates),
+            "prefix_identity_closure": [
+                {"path": path, "sha256": digest}
+                for path, digest in sorted(closure.items())
+            ],
+        },
+        "extension_provenance": {
+            "predecessor_checkpoint": identity(checkpoint_path),
+            "suffix_audits": copy.deepcopy(suffix_identities),
+        },
+        "limitations": copy.deepcopy(predecessor["limitations"]),
+    }
+    errors = validate_instance(checkpoint, read_object(schema_path(root)))
+    if errors:
+        raise ValueError("invalid incremental funnel checkpoint: " + "; ".join(errors))
+    if len(unique_candidates) != report["inventory"]["unique_discovery_candidates"]:
+        raise ValueError("incremental checkpoint unique-candidate state differs")
+    return checkpoint
+
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     operations = value.add_subparsers(dest="operation", required=True)
@@ -416,6 +587,10 @@ def parser() -> argparse.ArgumentParser:
     validate = operations.add_parser("validate")
     validate.add_argument("--checkpoint", type=Path, required=True)
     validate.add_argument("--corpus", type=Path, required=True)
+    validate_fast = operations.add_parser("validate-fast")
+    validate_fast.add_argument("--checkpoint", type=Path, required=True)
+    validate_fast.add_argument("--corpus", type=Path, required=True)
+    validate_fast.add_argument("--source-root", type=Path)
     extend = operations.add_parser("extend")
     extend.add_argument("--checkpoint", type=Path, required=True)
     extend.add_argument("--audit", action="append", type=Path, required=True)
@@ -427,6 +602,12 @@ def parser() -> argparse.ArgumentParser:
     validate_incremental.add_argument("--checkpoint", type=Path, required=True)
     validate_incremental.add_argument("--corpus", type=Path, required=True)
     validate_incremental.add_argument("--source-root", type=Path)
+    advance = operations.add_parser("advance")
+    advance.add_argument("--report", type=Path, required=True)
+    advance.add_argument("--checkpoint", type=Path, required=True)
+    advance.add_argument("--corpus", type=Path, required=True)
+    advance.add_argument("--source-root", type=Path)
+    advance.add_argument("--output", type=Path, required=True)
     return value
 
 
@@ -444,6 +625,14 @@ def main() -> int:
         print(args.output.resolve())
     elif args.operation == "validate":
         print(validate_checkpoint(args.checkpoint, args.corpus))
+    elif args.operation == "validate-fast":
+        print(
+            validate_checkpoint_fast(
+                args.checkpoint,
+                args.corpus,
+                source_root=args.source_root,
+            )
+        )
     elif args.operation == "extend":
         atomic_json(
             args.output,
@@ -455,7 +644,7 @@ def main() -> int:
             ),
         )
         print(args.output.resolve())
-    else:
+    elif args.operation == "validate-incremental":
         print(
             validate_incremental_funnel(
                 args.report,
@@ -464,6 +653,17 @@ def main() -> int:
                 source_root=args.source_root,
             )
         )
+    else:
+        atomic_json(
+            args.output,
+            advance_checkpoint(
+                args.report,
+                args.checkpoint,
+                args.corpus,
+                source_root=args.source_root,
+            ),
+        )
+        print(args.output.resolve())
     return 0
 
 
