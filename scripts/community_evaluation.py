@@ -459,6 +459,33 @@ def validate_prior_context_distinction(
     return contract
 
 
+def suite_protocol_registration_errors(suite: dict, preregistration: dict) -> list[str]:
+    errors = []
+    if parse_time(preregistration["cutoff_at"]) != parse_time(suite["cutoff_at"]):
+        errors.append("suite cutoff differs from anchored preregistration")
+    evaluation = preregistration.get("evaluation")
+    if evaluation is None:
+        errors.append("anchored suite requires a preregistered evaluation protocol")
+        return errors
+    protocol = suite["protocol"]
+    for field in (
+        "arms",
+        "repeats",
+        "randomized_order",
+        "network_policy",
+        "model_identity",
+        "task_packet_contract",
+        "budgets",
+        "minimum_material_speedup",
+        "metrics",
+    ):
+        if protocol.get(field) != evaluation[field]:
+            errors.append(
+                f"suite protocol {field} differs from anchored preregistration"
+            )
+    return errors
+
+
 def validate_suite(
     suite_path: Path, corpus: Path, root: Path | None = None
 ) -> dict:
@@ -481,6 +508,21 @@ def validate_suite(
     validate_graph(graph_path, corpus, root)
     graph = read_object(graph_path)
     cutoff = parse_time(suite["cutoff_at"])
+    anchored_preregistration = None
+    if suite.get("preselection_anchor") is not None:
+        anchor_path = validate_identity(
+            base, suite["preselection_anchor"], "suite preselection anchor"
+        )
+        validate_preselection_anchor(anchor_path, root)
+        anchor = read_object(anchor_path)
+        anchored_preregistration = read_object(
+            Path(anchor["preregistration_identity"]["path"])
+        )
+        protocol_errors = suite_protocol_registration_errors(
+            suite, anchored_preregistration
+        )
+        if protocol_errors:
+            raise ValueError("; ".join(protocol_errors))
     for node in graph["nodes"]:
         if parse_time(node["source_available_at"]) > cutoff:
             raise ValueError(
@@ -536,6 +578,48 @@ def validate_suite(
         if parse_time(prior_outcomes["generated_at"]) > cutoff:
             raise ValueError(
                 "temporal leakage: prior outcome ledger was generated after cutoff"
+            )
+    prior_routing_path = None
+    if suite.get("training_prior_routing") is not None:
+        prior_routing_path = validate_identity(
+            base, suite["training_prior_routing"], "training prior routing snapshot"
+        )
+        routing_errors = validate_json_file(
+            prior_routing_path,
+            root / "schemas" / "community_prior_routing_snapshot.schema.json",
+        )
+        if routing_errors:
+            raise ValueError(
+                "invalid training prior routing snapshot: "
+                + "; ".join(routing_errors)
+            )
+        prior_routing = read_object(prior_routing_path)
+        if parse_time(prior_routing["generated_at"]) > cutoff:
+            raise ValueError(
+                "temporal leakage: prior routing snapshot was generated after cutoff"
+            )
+        if prior_outcome_path is None:
+            raise ValueError(
+                "training prior routing snapshot requires its source outcome ledger"
+            )
+        if prior_routing["source_ledger"]["sha256"] != sha256_file(
+            prior_outcome_path
+        ):
+            raise ValueError(
+                "training prior routing snapshot binds a different outcome ledger"
+            )
+    if anchored_preregistration is not None:
+        evaluation = anchored_preregistration["evaluation"]
+        if prior_outcome_path is None:
+            raise ValueError("anchored suite is missing its preregistered outcome ledger")
+        if sha256_file(prior_outcome_path) != evaluation["source_ledger_sha256"]:
+            raise ValueError("suite outcome ledger differs from anchored preregistration")
+        routing_identity = anchored_preregistration.get("prior_routing_identity")
+        if routing_identity is None or prior_routing_path is None:
+            raise ValueError("anchored suite is missing its prior routing snapshot")
+        if sha256_file(prior_routing_path) != routing_identity["sha256"]:
+            raise ValueError(
+                "suite prior routing snapshot differs from anchored preregistration"
             )
     training_sources: set[tuple[str, int]] = set()
     for event_identity in graph["input_identity"]["events"]:

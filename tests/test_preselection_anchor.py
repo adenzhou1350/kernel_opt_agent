@@ -19,6 +19,7 @@ from community_evaluation import (  # noqa: E402
     build_preselection_anchor,
     preselection_link_errors,
     rule_matches_candidate,
+    suite_protocol_registration_errors,
     validate_preselection_anchor,
 )
 from community_knowledge import atomic_json, read_object, sha256_file  # noqa: E402
@@ -195,6 +196,19 @@ def main() -> None:
         ]
 
         original = json.loads(preregistration_path.read_text(encoding="utf-8"))
+        registered_suite = {
+            "cutoff_at": original["cutoff_at"],
+            "protocol": json.loads(json.dumps(original["evaluation"])),
+        }
+        registered_suite["protocol"].pop("source_ledger_sha256")
+        assert not suite_protocol_registration_errors(
+            registered_suite, original
+        )
+        changed_budget_suite = json.loads(json.dumps(registered_suite))
+        changed_budget_suite["protocol"]["budgets"]["wall_clock_seconds"] += 1
+        assert "suite protocol budgets differs from anchored preregistration" in (
+            suite_protocol_registration_errors(changed_budget_suite, original)
+        )
         queue = {
             "cutoff_at": original["cutoff_at"],
             "policy": {

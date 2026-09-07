@@ -21,6 +21,8 @@
     "training_graph": {"$ref": "#/$defs/identity"},
     "training_methods": {"$ref": "#/$defs/identity"},
     "training_prior_outcomes": {"$ref": "#/$defs/identity"},
+    "training_prior_routing": {"$ref": "#/$defs/identity"},
+    "preselection_anchor": {"$ref": "#/$defs/identity"},
     "protocol": {
       "type": "object",
       "additionalProperties": false,
