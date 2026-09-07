@@ -33,6 +33,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community": Command("community_knowledge.py", "capture and validate community optimization evidence"),
         "community-eval": Command("community_evaluation.py", "run temporal fixed-budget community-knowledge A/B trials"),
         "community-timing": Command("community_work_cycle.py", "record research, compute, validation and upstream-delivery time"),
+        "community-time-to-value": Command("community_time_to_value.py", "aggregate explicit work cycles without duplicate or stale summaries"),
         "community-funnel": Command("community_discovery_funnel.py", "measure discovery yield and retain routing feedback"),
         "community-funnel-checkpoint": Command("community_funnel_checkpoint.py", "validate cumulative funnels from a hash-bound prefix"),
         "community-checkpoint": Command("community_checkpoint.py", "freeze and Git-anchor one knowledge universe"),

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_time_to_value_rollup.schema.json",
+  "title": "Evidence-bound time-to-value rollup",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "cohort_id",
+    "input_identity",
+    "inventory",
+    "cohort_clock",
+    "phase_seconds",
+    "bucket_seconds",
+    "outcomes",
+    "milestones",
+    "censoring",
+    "limitations",
+    "status"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-time-to-value-rollup-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "EXPLICIT_WORK_CYCLE_ROLLUP_NOT_DELIVERY_OR_PERFORMANCE_GUARANTEE"},
+    "cohort_id": {"type": "string", "minLength": 1},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summaries", "ledgers"],
+      "properties": {
+        "summaries": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/identity"}},
+        "ledgers": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/identity"}},
+        "predecessor_rollup": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cycle_count", "unique_task_count", "prospective_exact_count", "legacy_milestone_bounds_count"],
+      "properties": {
+        "cycle_count": {"type": "integer", "minimum": 1},
+        "unique_task_count": {"type": "integer", "minimum": 1},
+        "prospective_exact_count": {"type": "integer", "minimum": 0},
+        "legacy_milestone_bounds_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "cohort_clock": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "ended_at", "elapsed_seconds", "summed_cycle_seconds"],
+      "properties": {
+        "started_at": {"type": "string", "format": "date-time"},
+        "ended_at": {"type": "string", "format": "date-time"},
+        "elapsed_seconds": {"type": "number", "minimum": 0},
+        "summed_cycle_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "phase_seconds": {"$ref": "#/$defs/nonnegativeMap"},
+    "bucket_seconds": {"$ref": "#/$defs/nonnegativeMap"},
+    "outcomes": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["correctness", "upstream_ready_cycles", "cycles_with_pull_request", "merged_cycles", "best_speedup", "best_whole_model_speedup"],
+      "properties": {
+        "correctness": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["PASS", "FAIL", "NOT_RUN"],
+          "properties": {
+            "PASS": {"type": "integer", "minimum": 0},
+            "FAIL": {"type": "integer", "minimum": 0},
+            "NOT_RUN": {"type": "integer", "minimum": 0}
+          }
+        },
+        "upstream_ready_cycles": {"type": "integer", "minimum": 0},
+        "cycles_with_pull_request": {"type": "integer", "minimum": 0},
+        "merged_cycles": {"type": "integer", "minimum": 0},
+        "best_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "best_whole_model_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0}
+      }
+    },
+    "milestones": {
+      "type": "object",
+      "additionalProperties": {"$ref": "#/$defs/milestone"},
+      "minProperties": 1
+    },
+    "censoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["first_material_improvement_unobserved", "first_review_ready_pr_unobserved"],
+      "properties": {
+        "first_material_improvement_unobserved": {"type": "boolean"},
+        "first_review_ready_pr_unobserved": {"type": "boolean"}
+      }
+    },
+    "limitations": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+    "status": {"const": "PASS"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nonnegativeMap": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"type": "number", "minimum": 0}
+    },
+    "milestone": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cycles_reaching", "first_at", "elapsed_from_cohort_start_seconds", "cycle_id", "task_id"],
+      "properties": {
+        "cycles_reaching": {"type": "integer", "minimum": 0},
+        "first_at": {"type": ["string", "null"], "format": "date-time"},
+        "elapsed_from_cohort_start_seconds": {"type": ["number", "null"], "minimum": 0},
+        "cycle_id": {"type": ["string", "null"]},
+        "task_id": {"type": ["string", "null"]}
+      }
+    }
+  }
+}
