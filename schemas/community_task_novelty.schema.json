@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_task_novelty.schema.json",
+  "title": "Predecessor-checkpoint task novelty guard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "status", "claim_boundary", "policy", "inventory", "new_selected_keys", "repeated_selected_keys", "input_identity"],
+  "properties": {
+    "schema_version": {"const": "community-task-novelty-guard-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"const": "PASS"},
+    "claim_boundary": {"const": "PREDECESSOR_KEY_NOVELTY_ONLY_NOT_TASK_FEASIBILITY_OR_PERFORMANCE_EVIDENCE"},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["novelty_identity", "prior_universe", "new_selected_disposition", "repeated_selected_disposition", "materialization_gate"],
+      "properties": {
+        "novelty_identity": {"const": "REPOSITORY_AND_PR_NUMBER"},
+        "prior_universe": {"const": "PREDECESSOR_CHECKPOINT_UNIQUE_CANDIDATE_KEYS"},
+        "new_selected_disposition": {"const": "ELIGIBLE_FOR_POSTSELECTION"},
+        "repeated_selected_disposition": {"const": "RECORD_ONLY_NOT_A_NEW_TASK"},
+        "materialization_gate": {"const": "ONLY_NEW_SELECTED_KEYS"}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["selected_observation_count", "new_selected_count", "repeated_selected_count"],
+      "properties": {
+        "selected_observation_count": {"type": "integer", "minimum": 0},
+        "new_selected_count": {"type": "integer", "minimum": 0},
+        "repeated_selected_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "new_selected_keys": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/key"}},
+    "repeated_selected_keys": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/key"}},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["predecessor_checkpoint", "queue"],
+      "properties": {
+        "predecessor_checkpoint": {"$ref": "#/$defs/identity"},
+        "queue": {"$ref": "#/$defs/identity"}
+      }
+    }
+  },
+  "$defs": {
+    "key": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

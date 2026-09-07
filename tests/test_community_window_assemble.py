@@ -17,6 +17,7 @@ from community_window_assemble import (  # noqa: E402
     output_collisions,
     output_paths,
     validate_deferred_request,
+    validate_novelty_deferred,
     validate_receipt_window,
 )
 
@@ -74,6 +75,9 @@ def test_output_names_are_derived_from_one_window_identity(tmp_path: Path) -> No
     assert paths["funnel"].name == (
         "discovery-funnel-cumulative-through-20260907-170000Z-v1.json"
     )
+    assert paths["novelty_guard"].name == (
+        "task-novelty-guard-160000-20260907-170000Z-v1.json"
+    )
     assert paths["manifest"].parent == tmp_path
 
 
@@ -91,3 +95,22 @@ def test_deferred_intake_participates_in_preflight_collisions(
     deferred = tmp_path / "deferred.json"
     deferred.write_text("{}", encoding="utf-8")
     assert output_collisions(paths, None, deferred) == [str(deferred.resolve())]
+
+
+def test_new_selected_keys_must_be_withheld_and_repeats_must_not() -> None:
+    novelty = {
+        "new_selected_keys": ["org/repo#2"],
+        "repeated_selected_keys": ["org/repo#1"],
+    }
+    validate_novelty_deferred(
+        novelty, {"withheld_post_cutoff_keys": ["org/repo#2"]}
+    )
+    with pytest.raises(ValueError, match="absent from post-cutoff"):
+        validate_novelty_deferred(
+            novelty, {"withheld_post_cutoff_keys": []}
+        )
+    with pytest.raises(ValueError, match="newly withheld"):
+        validate_novelty_deferred(
+            novelty,
+            {"withheld_post_cutoff_keys": ["org/repo#1", "org/repo#2"]},
+        )

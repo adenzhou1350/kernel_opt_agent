@@ -75,6 +75,8 @@ def validate_receipt_window(receipts: list[Path]) -> tuple[str, str]:
 def output_paths(output_dir: Path, artifact_prefix: str, funnel_stamp: str) -> dict:
     return {
         "queue": output_dir / f"heldout-queue-{artifact_prefix}-v1.json",
+        "novelty_guard": output_dir
+        / f"task-novelty-guard-{artifact_prefix}-v1.json",
         "screen": output_dir / f"preselection-screen-{artifact_prefix}-v1.json",
         "audit": output_dir / f"preselection-chain-audit-{artifact_prefix}-v1.json",
         "funnel": output_dir
@@ -90,6 +92,24 @@ def validate_deferred_request(
 ) -> None:
     if deferred_intake is not None and next_checkpoint is None:
         raise ValueError("--deferred-intake requires --next-checkpoint")
+
+
+def validate_novelty_deferred(novelty: dict, deferred: dict) -> None:
+    new_selected = set(novelty["new_selected_keys"])
+    repeated_selected = set(novelty["repeated_selected_keys"])
+    withheld = set(deferred["withheld_post_cutoff_keys"])
+    missing = sorted(new_selected - withheld)
+    if missing:
+        raise ValueError(
+            "new selected keys are absent from post-cutoff withholding: "
+            + ", ".join(missing)
+        )
+    repeated_withheld = sorted(repeated_selected & withheld)
+    if repeated_withheld:
+        raise ValueError(
+            "repeated selected keys were classified as newly withheld: "
+            + ", ".join(repeated_withheld)
+        )
 
 
 def output_collisions(
@@ -182,6 +202,29 @@ def assemble(args: argparse.Namespace) -> dict:
         ]
     )
     commands.append(run(queue_argv, args.command_timeout))
+    novelty_script = (
+        Path(__file__).resolve().parent / "community_task_novelty.py"
+    )
+    commands.append(
+        run(
+            [
+                python,
+                str(novelty_script),
+                "build",
+                "--checkpoint",
+                str(args.checkpoint.resolve()),
+                "--queue",
+                str(paths["queue"]),
+                "--corpus",
+                str(corpus),
+                "--source-root",
+                str(source_root),
+                "--output",
+                str(paths["novelty_guard"]),
+            ],
+            args.command_timeout,
+        )
+    )
     commands.append(
         run(
             [
@@ -364,8 +407,9 @@ def assemble(args: argparse.Namespace) -> dict:
         raise ValueError(f"successor window count differs: expected "
                          f"{expected_count}, got {observed_count}")
     queue = read_object(paths["queue"])
+    novelty = read_object(paths["novelty_guard"])
     manifest = {
-        "schema_version": "community-window-assembly-v1",
+        "schema_version": "community-window-assembly-v2",
         "generated_at": now(),
         "claim_boundary": "CPU_DISCOVERY_ASSEMBLY_NOT_GPU_OR_OPTIMIZATION_EVIDENCE",
         "window": {"since": since, "until": until},
@@ -388,12 +432,30 @@ def assemble(args: argparse.Namespace) -> dict:
         },
         "output_identity": {
             key: identity(paths[key])
-            for key in ("queue", "screen", "audit", "funnel", "validation")
+            for key in (
+                "queue",
+                "novelty_guard",
+                "screen",
+                "audit",
+                "funnel",
+                "validation",
+            )
         },
         "inventory": {
             "prefix_window_count": prefix_count,
             "successor_window_count": observed_count,
-            "selected_count": queue["inventory"]["selected_count"],
+            "selected_observation_count": queue["inventory"]["selected_count"],
+            "selected_count": novelty["inventory"]["new_selected_count"],
+            "new_selected_count": novelty["inventory"]["new_selected_count"],
+            "repeated_selected_count": novelty["inventory"][
+                "repeated_selected_count"
+            ],
+        },
+        "task_materialization_gate": {
+            "status": "PASS",
+            "allowed_keys": novelty["new_selected_keys"],
+            "blocked_repeat_keys": novelty["repeated_selected_keys"],
+            "policy": "ONLY_NEW_SELECTED_KEYS",
         },
         "command_count": len(commands),
         "status": "PASS",
@@ -404,6 +466,7 @@ def assemble(args: argparse.Namespace) -> dict:
         )
     if args.deferred_intake is not None:
         deferred = read_object(args.deferred_intake.resolve())
+        validate_novelty_deferred(novelty, deferred)
         manifest["output_identity"]["deferred_intake"] = identity(
             args.deferred_intake
         )
