@@ -2948,6 +2948,19 @@ def assess_trial(
 
     method_realization = result.get("method_realization")
     community_realization = result.get("knowledge_realization")
+    prior_gate_open = None
+    if trial.get("frontier_contract") is not None:
+        closure_path = validate_identity(
+            trial_dir, result["frontier_closure"], "trial frontier closure"
+        )
+        closure = read_object(closure_path)
+        ranking_path = validate_identity(
+            trial_dir,
+            closure["opportunity_ranking_identity"],
+            "trial opportunity ranking",
+        )
+        ranking = read_object(ranking_path)
+        prior_gate_open = ranking["prior_gate"]["knowledge_positive_expected_value"]
     guarded_prior_ids: set[tuple[str, str]] = set()
     context_exception_ids: set[tuple[str, str]] = set()
     if trial.get("prior_outcome_ledger") is not None:
@@ -3015,6 +3028,19 @@ def assess_trial(
         for evidence in community_realization["evidence"]:
             validate_identity(trial_dir, evidence, "community realization evidence")
         community_disposition = community_realization["disposition"]
+        if prior_gate_open and community_disposition == "PRIOR_GATE_CLOSED":
+            raise ValueError(
+                "open opportunity-ranking prior gate conflicts with "
+                "PRIOR_GATE_CLOSED event receipt"
+            )
+        if (
+            prior_gate_open is False
+            and community_disposition != "PRIOR_GATE_CLOSED"
+        ):
+            raise ValueError(
+                "closed opportunity-ranking prior gate requires "
+                "PRIOR_GATE_CLOSED event receipt"
+            )
         if community_disposition == "PRIOR_GATE_CLOSED":
             if inspected_event_ids or selected_event_ids or realization_candidate_ids:
                 raise ValueError(
@@ -3067,14 +3093,25 @@ def assess_trial(
             )
         for identity in method_realization["evidence"]:
             validate_identity(trial_dir, identity, "method realization evidence")
-        if disposition == "NO_RELEVANT_METHOD_PRIOR":
+        if prior_gate_open and disposition == "PRIOR_GATE_CLOSED":
+            raise ValueError(
+                "open opportunity-ranking prior gate conflicts with "
+                "PRIOR_GATE_CLOSED method receipt"
+            )
+        if prior_gate_open is False and disposition != "PRIOR_GATE_CLOSED":
+            raise ValueError(
+                "closed opportunity-ranking prior gate requires "
+                "PRIOR_GATE_CLOSED method receipt"
+            )
+        if disposition in {"PRIOR_GATE_CLOSED", "NO_RELEVANT_METHOD_PRIOR"}:
             if (
-                selected_method_id is not None
+                inspected_method_ids
+                or selected_method_id is not None
                 or method_realization["instantiation"] is not None
                 or realization_candidate_ids
             ):
                 raise ValueError(
-                    "NO_RELEVANT_METHOD_PRIOR cannot select, instantiate, or realize a method"
+                    f"{disposition} cannot inspect, select, instantiate, or realize a method"
                 )
         else:
             if selected_method_id is None or selected_method_id not in inspected_method_ids:

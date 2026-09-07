@@ -60,6 +60,7 @@
           "type": ["string", "null"],
           "enum": [
             null,
+            "PRIOR_GATE_CLOSED",
             "NO_RELEVANT_METHOD_PRIOR",
             "REALIZED_IN_CANDIDATE",
             "STRUCTURALLY_INFEASIBLE"

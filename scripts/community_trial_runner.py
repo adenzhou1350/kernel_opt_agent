@@ -125,6 +125,7 @@ def valid_result(result_path: Path, manifest: dict) -> tuple[bool, list[str]]:
             return None
         return path
 
+    ranking_gate_open = None
     if manifest.get("frontier_contract") is not None:
         closure_path = checked_identity(result.get("frontier_closure"), "frontier")
         if closure_path is not None:
@@ -146,6 +147,9 @@ def valid_result(result_path: Path, manifest: dict) -> tuple[bool, list[str]]:
                     else:
                         if ranking.get("created_at_seconds", 0) > elapsed:
                             errors.append("ranking_created_after_elapsed")
+                        ranking_gate_open = ranking.get("prior_gate", {}).get(
+                            "knowledge_positive_expected_value"
+                        )
                 for row in closure.get("architectures", []):
                     bound = row.get("current_upper_bound", {})
                     if (row.get("status") == "DOMINATED"
@@ -175,6 +179,23 @@ def valid_result(result_path: Path, manifest: dict) -> tuple[bool, list[str]]:
             result.get("method_realization"), dict
         ):
             errors.append("missing_method_realization")
+        if isinstance(ranking_gate_open, bool):
+            event_disposition = (result.get("knowledge_realization") or {}).get(
+                "disposition"
+            )
+            method_disposition = (result.get("method_realization") or {}).get(
+                "disposition"
+            )
+            if not ranking_gate_open:
+                if event_disposition != "PRIOR_GATE_CLOSED":
+                    errors.append("closed_prior_gate_event_receipt_mismatch")
+                if method_disposition != "PRIOR_GATE_CLOSED":
+                    errors.append("closed_prior_gate_method_receipt_mismatch")
+            else:
+                if event_disposition == "PRIOR_GATE_CLOSED":
+                    errors.append("open_prior_gate_event_receipt_mismatch")
+                if method_disposition == "PRIOR_GATE_CLOSED":
+                    errors.append("open_prior_gate_method_receipt_mismatch")
     return not errors, errors
 
 
@@ -346,6 +367,24 @@ def commit_finalizer_draft(
                 "EVALUATED" if row.get("candidate_ids") else "DEADLINE_UNTESTED"
             )
 
+    ranking_gate_open = True
+    ranking_identity = closure.get("opportunity_ranking_identity")
+    if isinstance(ranking_identity, dict):
+        ranking_path = (trial / ranking_identity.get("path", "")).resolve()
+        try:
+            ranking_path.relative_to(trial.resolve())
+        except ValueError:
+            ranking_path = None
+        if (
+            ranking_path is not None
+            and ranking_path.is_file()
+            and ranking_identity.get("sha256") == sha256(ranking_path)
+        ):
+            ranking = json.loads(ranking_path.read_text(encoding="utf-8"))
+            ranking_gate_open = ranking.get("prior_gate", {}).get(
+                "knowledge_positive_expected_value", True
+            )
+
     if manifest.get("arm") == "COMMUNITY_AUGMENTED":
         if manifest.get("knowledge_realization_required") and not result.get(
             "knowledge_realization"
@@ -353,7 +392,11 @@ def commit_finalizer_draft(
             result["knowledge_realization"] = {
                 "inspected_event_ids": [],
                 "selected_event_ids": [],
-                "disposition": "NO_RELEVANT_COMMUNITY_PRIOR",
+                "disposition": (
+                    "NO_RELEVANT_COMMUNITY_PRIOR"
+                    if ranking_gate_open
+                    else "PRIOR_GATE_CLOSED"
+                ),
                 "candidate_ids": [],
                 "rationale": (
                     "No community-event inspection or realization was recorded "
@@ -367,7 +410,11 @@ def commit_finalizer_draft(
             result["method_realization"] = {
                 "inspected_method_ids": [],
                 "selected_method_id": None,
-                "disposition": "NO_RELEVANT_METHOD_PRIOR",
+                "disposition": (
+                    "NO_RELEVANT_METHOD_PRIOR"
+                    if ranking_gate_open
+                    else "PRIOR_GATE_CLOSED"
+                ),
                 "instantiation": None,
                 "candidate_ids": [],
                 "rationale": (

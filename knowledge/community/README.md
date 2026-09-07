@@ -391,6 +391,14 @@ arm-conditional realization receipts. During transactional commit, an
 unquantified `DOMINATED` row is conservatively normalized to `EVALUATED` (or
 `DEADLINE_UNTESTED` when no candidate exists); absent realization records can
 only become explicit no-recorded-realization receipts, never positive claims.
+A frozen opportunity ranking now also supplies a binding retrieval gate. If it
+records that community knowledge has negative expected value, both the event
+and method receipts must be `PRIOR_GATE_CLOSED`; the executor, transactional
+finalizer, local preflight and assessor all reject a later attempt to inspect or
+realize a prior. This prevents a high-confidence local diagnosis from paying a
+retrieval tax or being displaced merely because a superficially relevant card
+exists. The gate controls deployment behavior; forced-treatment research must
+be declared separately instead of silently overriding it.
 A runner-inserted phase marker hashes the complete search transcript; the
 auditor rejects a changed prefix, any `source/` edit after that marker, or a
 draft/closure/result commit hash mismatch. This turns the finalization reserve
@@ -536,6 +544,18 @@ gate requires at least eight primary pairs across four tasks, a majority win in
 time-to-first-correct, no worse than parity in best speedup and no held-out
 correctness losses. This prevents attractive legacy or diagnostic runs from
 being counted as proof that the knowledge layer improves the Agent.
+
+Use `community-timing` for prospective delivery-time accounting. A v2 work
+cycle records non-overlapping spans for community research, bottleneck
+diagnosis, candidate implementation, compile/measurement, correctness,
+performance and whole-model validation, upstream packaging and external wait.
+It separately timestamps first proposal, first correct screen, first material
+improvement, first qualified result, upstream-ready package, draft PR,
+review-ready PR and merge. Closing fails when an active span remains or
+unclassified wall time exceeds the frozen allowance, so hours of stalled work
+cannot disappear from the report. `summarize-pairs` can recover legacy trial
+milestones, but deliberately refuses to invent phase allocation that was never
+recorded.
 
 `community-eval build-prior-outcome-ledger` follows only primary realized pairs
 through their hash-bound community assessment and result, attributes deltas to

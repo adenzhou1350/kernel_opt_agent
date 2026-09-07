@@ -48,8 +48,12 @@ Act as the isolated executor for this materialized optimization trial.
    - Before consulting any prior, record a `prior_gate` beside the opportunity
      ranking: diagnosis confidence, the leading local candidate, its expected
      ceiling, the largest unresolved risk, and whether knowledge has positive
-     expected value. In an augmented trial, read the shortlist's bounded
-     `routing` record after freezing the local ranking. When it says
+     expected value. This decision is binding: when
+     `knowledge_positive_expected_value` is false, do not inspect event or
+     method cards even if the shortlist recommends early consultation. Record
+     `PRIOR_GATE_CLOSED` in both realization receipts and continue the frozen
+     local ranking. When it is true, an augmented trial may read the shortlist's
+     bounded `routing` record after freezing the local ranking. When it says
      `CONSULT_BEFORE_FIRST_CANDIDATE`, inspect only its top event and top
      candidate-generation method before the first source edit; the hard-gated
      five-point match is the treatment, not an optional afterthought. When it
@@ -93,8 +97,9 @@ Act as the isolated executor for this materialized optimization trial.
      structurally different architecture. Outcome feedback is routing evidence,
      never target performance evidence, and cannot justify skipping correctness
      or held-out qualification.
-   - Record `PRIOR_GATE_CLOSED` when local evidence makes retrieval negative
-     expected value. Otherwise record `NO_RELEVANT_COMMUNITY_PRIOR` and/or
+   - Record `PRIOR_GATE_CLOSED` in both the event-side and method-side receipts
+     when local evidence makes retrieval negative expected value. Otherwise record
+     `NO_RELEVANT_COMMUNITY_PRIOR` and/or
      `NO_RELEVANT_METHOD_PRIOR` independently when the corresponding source has
      no applicable entry. Do not force an unrelated analogy merely to claim
      that knowledge was used. A prior-selected candidate must displace or
@@ -150,8 +155,10 @@ Act as the isolated executor for this materialized optimization trial.
    their SHA-256 values must match the final files. Never invent a speedup,
    correctness result, elapsed time, or upstream-readiness claim. When the
    trial exposes `method_snapshot`, populate `method_realization`: list at most
-   two inspected IDs and report exactly one of `NO_RELEVANT_METHOD_PRIOR`,
-   `REALIZED_IN_CANDIDATE`, or `STRUCTURALLY_INFEASIBLE`. A realized method must
+   two inspected IDs and report exactly one of `PRIOR_GATE_CLOSED`,
+   `NO_RELEVANT_METHOD_PRIOR`, `REALIZED_IN_CANDIDATE`, or
+   `STRUCTURALLY_INFEASIBLE`. A closed gate must have no inspected or selected
+   method, no candidate IDs, and a null instantiation. A realized method must
    reference its actual candidate IDs and evidence; an infeasibility claim must
    reference evidence. Omit this field when no method snapshot is exposed.
    When `trial.json` sets `knowledge_realization_required`, also populate

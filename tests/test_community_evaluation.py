@@ -183,7 +183,7 @@ def write_result(trial_dir: Path, rows: list[dict], elapsed: float) -> None:
                 "leading_local_candidate": "launch-fusion",
                 "expected_ceiling": "unknown before measurement",
                 "largest_unresolved_risk": "correctness",
-                "knowledge_positive_expected_value": False,
+                "knowledge_positive_expected_value": True,
             },
         },
     )
@@ -1648,6 +1648,67 @@ def main() -> None:
             json.loads((community_dir / "trial.json").read_text(encoding="utf-8")),
         )
         assert valid, preflight_errors
+        write_result(community_dir, rows, elapsed)
+
+        # A negative expected-value decision is a binding retrieval gate.  The
+        # augmented arm must not inspect or realize either event or method
+        # priors after freezing that decision.
+        ranking_path = community_dir / "evidence" / "opportunity-ranking.json"
+        closure_path = community_dir / "evidence" / "frontier-closure.json"
+        closed_ranking = json.loads(ranking_path.read_text(encoding="utf-8"))
+        closed_ranking["prior_gate"]["knowledge_positive_expected_value"] = False
+        atomic_json(ranking_path, closed_ranking)
+        closed_closure = json.loads(closure_path.read_text(encoding="utf-8"))
+        closed_closure["opportunity_ranking_identity"] = identity(
+            ranking_path, community_dir
+        )
+        atomic_json(closure_path, closed_closure)
+        closed_result = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        closed_result["frontier_closure"] = identity(closure_path, community_dir)
+        closed_result["knowledge_realization"] = {
+            "inspected_event_ids": [],
+            "selected_event_ids": [],
+            "disposition": "PRIOR_GATE_CLOSED",
+            "candidate_ids": [],
+            "rationale": "The frozen local diagnosis made retrieval negative EV.",
+            "evidence": [],
+        }
+        closed_result["method_realization"] = {
+            "inspected_method_ids": [],
+            "selected_method_id": None,
+            "disposition": "PRIOR_GATE_CLOSED",
+            "instantiation": None,
+            "candidate_ids": [],
+            "rationale": "The same binding gate prevents method-card retrieval.",
+            "evidence": [],
+        }
+        atomic_json(community_dir / "result.json", closed_result)
+        assess_trial(community_dir, ROOT)
+        valid, preflight_errors = valid_result(
+            community_dir / "result.json",
+            json.loads((community_dir / "trial.json").read_text(encoding="utf-8")),
+        )
+        assert valid, preflight_errors
+
+        gate_bypass = json.loads(json.dumps(closed_result))
+        gate_bypass["knowledge_realization"]["disposition"] = (
+            "NO_RELEVANT_COMMUNITY_PRIOR"
+        )
+        atomic_json(community_dir / "result.json", gate_bypass)
+        try:
+            assess_trial(community_dir, ROOT)
+        except ValueError as error:
+            assert "closed opportunity-ranking prior gate" in str(error)
+        else:
+            raise AssertionError("negative-EV prior gate could be bypassed")
+        valid, preflight_errors = valid_result(
+            community_dir / "result.json",
+            json.loads((community_dir / "trial.json").read_text(encoding="utf-8")),
+        )
+        assert not valid
+        assert "closed_prior_gate_event_receipt_mismatch" in preflight_errors
         write_result(community_dir, rows, elapsed)
 
         timestamp_mismatch = json.loads(
