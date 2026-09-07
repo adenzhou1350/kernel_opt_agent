@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_review_queue.schema.json",
+  "title": "Prioritized review queue for captured community optimization evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "input_identity",
+    "policy",
+    "inventory",
+    "items"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-review-queue-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "REVIEW_TRIAGE_ONLY"},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corpus_index_sha256", "events"],
+      "properties": {
+        "corpus_index_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "events": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_items", "score_formula"],
+      "properties": {
+        "max_items": {"type": "integer", "minimum": 1, "maximum": 100},
+        "score_formula": {"type": "string", "minLength": 1}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pull_request_count", "current_count", "unreviewed_count", "review_required_count", "selected_count", "backlog_count"],
+      "properties": {
+        "pull_request_count": {"type": "integer", "minimum": 1},
+        "current_count": {"type": "integer", "minimum": 0},
+        "unreviewed_count": {"type": "integer", "minimum": 0},
+        "review_required_count": {"type": "integer", "minimum": 0},
+        "selected_count": {"type": "integer", "minimum": 0},
+        "backlog_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "repository",
+          "pr_number",
+          "source_url",
+          "title",
+          "lifecycle",
+          "snapshot_id",
+          "semantic_identity",
+          "source_available_at",
+          "state",
+          "priority_score",
+          "priority_rank",
+          "selection",
+          "classifications",
+          "event_ids",
+          "current_event_ids",
+          "reasons"
+        ],
+        "properties": {
+          "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+          "pr_number": {"type": "integer", "minimum": 1},
+          "source_url": {"type": "string", "pattern": "^https://github\\.com/"},
+          "title": {"type": "string", "minLength": 1},
+          "lifecycle": {"enum": ["OPEN", "MERGED", "CLOSED_UNMERGED"]},
+          "snapshot_id": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+          "semantic_identity": {"type": "string", "pattern": "^[0-9a-f]{20}$"},
+          "source_available_at": {"type": "string", "format": "date-time"},
+          "state": {"enum": ["UNREVIEWED", "REVIEW_REQUIRED"]},
+          "priority_score": {"type": "integer", "minimum": 1},
+          "priority_rank": {"type": "integer", "minimum": 1},
+          "selection": {"enum": ["SELECTED", "BACKLOG"]},
+          "classifications": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[A-Z][A-Z_]+$"}
+          },
+          "event_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "current_event_ids": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "reasons": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    }
+  }
+}

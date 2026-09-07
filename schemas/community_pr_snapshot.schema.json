@@ -84,6 +84,7 @@
           "path": {"type": "string", "pattern": "^[a-z0-9_.-]+$"},
           "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
           "identity_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+          "identity_policy": {"enum": ["GITHUB_ARTIFACT_SEMANTIC_V2"]},
           "byte_length": {"type": "integer", "minimum": 0},
           "media_type": {"type": "string", "minLength": 1},
           "source_urls": {

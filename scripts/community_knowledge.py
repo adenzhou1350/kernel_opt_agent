@@ -28,6 +28,7 @@ GRAPH_SCHEMA = "community-optimization-graph-v1"
 MATCH_SCHEMA = "community-match-receipt-v1"
 SYNC_SCHEMA = "community-sync-receipt-v1"
 REFRESH_SCHEMA = "community-tracked-refresh-receipt-v1"
+REVIEW_QUEUE_SCHEMA = "community-review-queue-v1"
 RUN_INPUT_PATHS = (
     "operator.json",
     "workload.json",
@@ -80,6 +81,20 @@ DISCOVERY_PATTERNS = {
     "REVERT": ("revert", "rollback"),
     "KERNEL_OR_RUNTIME": ("cuda", "gemm", "kernel", "nccl", "rdma", "triton"),
     "DATA_MOVEMENT": ("all-to-all", "bandwidth", "communication", "memory", "transfer"),
+}
+VOLATILE_EMBEDDED_REPOSITORY_FIELDS = {
+    "forks",
+    "forks_count",
+    "network_count",
+    "open_issues",
+    "open_issues_count",
+    "pushed_at",
+    "size",
+    "stargazers_count",
+    "subscribers_count",
+    "updated_at",
+    "watchers",
+    "watchers_count",
 }
 
 
@@ -279,6 +294,35 @@ def pull_artifact_identity(value: dict) -> str:
     )
 
 
+def normalize_embedded_github_repositories(value: Any) -> Any:
+    if isinstance(value, list):
+        return [normalize_embedded_github_repositories(item) for item in value]
+    if not isinstance(value, dict):
+        return value
+    is_repository = (
+        isinstance(value.get("full_name"), str)
+        and isinstance(value.get("html_url"), str)
+        and ("forks_url" in value or "stargazers_url" in value)
+    )
+    return {
+        key: normalize_embedded_github_repositories(item)
+        for key, item in value.items()
+        if not (is_repository and key in VOLATILE_EMBEDDED_REPOSITORY_FIELDS)
+    }
+
+
+def artifact_semantic_identity(kind: str, value: Any) -> str:
+    if kind == "DIFF":
+        if not isinstance(value, bytes):
+            raise TypeError("DIFF semantic identity requires bytes")
+        return sha256_bytes(value)
+    if kind == "PULL_REQUEST":
+        if not isinstance(value, dict):
+            raise TypeError("PULL_REQUEST semantic identity requires an object")
+        return pull_artifact_identity(value)
+    return sha256_bytes(canonical_json(normalize_embedded_github_repositories(value)))
+
+
 def snapshot_identity(manifest: dict) -> str:
     stable = {
         "source": {
@@ -306,15 +350,13 @@ def semantic_snapshot_identity(manifest_path: Path) -> str:
     manifest = read_object(manifest_path)
     artifacts = []
     for artifact in manifest["artifacts"]:
-        identity_sha256 = artifact.get("identity_sha256", artifact["sha256"])
-        if artifact["kind"] == "PULL_REQUEST":
-            identity_sha256 = pull_artifact_identity(
-                json.loads(
-                    (manifest_path.parent / artifact["path"]).read_text(
-                        encoding="utf-8"
-                    )
-                )
-            )
+        path = manifest_path.parent / artifact["path"]
+        value: Any = (
+            path.read_bytes()
+            if artifact["kind"] == "DIFF"
+            else json.loads(path.read_text(encoding="utf-8"))
+        )
+        identity_sha256 = artifact_semantic_identity(artifact["kind"], value)
         artifacts.append({**artifact, "identity_sha256": identity_sha256})
     return snapshot_identity({**manifest, "artifacts": artifacts})
 
@@ -430,8 +472,24 @@ def validate_manifest(manifest_path: Path, root: Path | None = None) -> list[str
             errors.append(f"artifact hash changed: {artifact['path']}")
         identity_sha256 = artifact.get("identity_sha256")
         if identity_sha256 is not None:
+            policy = artifact.get("identity_policy")
             expected_identity = artifact["sha256"]
-            if artifact["kind"] == "PULL_REQUEST":
+            if policy == "GITHUB_ARTIFACT_SEMANTIC_V2":
+                try:
+                    value = (
+                        path.read_bytes()
+                        if artifact["kind"] == "DIFF"
+                        else json.loads(path.read_text(encoding="utf-8"))
+                    )
+                    expected_identity = artifact_semantic_identity(
+                        artifact["kind"], value
+                    )
+                except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
+                    errors.append(
+                        f"cannot recompute artifact identity for {artifact['path']}: {error}"
+                    )
+                    continue
+            elif artifact["kind"] == "PULL_REQUEST":
                 try:
                     expected_identity = pull_artifact_identity(
                         json.loads(path.read_text(encoding="utf-8"))
@@ -516,7 +574,7 @@ def capture_pr(
             endpoint = endpoint_for(repository, number, kind)
             if kind == "DIFF":
                 payload, urls = client.bytes(endpoint, media_type)
-                identity_sha256 = sha256_bytes(payload)
+                identity_sha256 = artifact_semantic_identity(kind, payload)
             else:
                 pages, urls = client.json_pages(endpoint, media_type)
                 value: Any = pages[0] if kind == "PULL_REQUEST" else pages
@@ -527,11 +585,7 @@ def capture_pr(
                         )
                     pull_value = value
                 payload = canonical_json(value)
-                identity_sha256 = (
-                    pull_artifact_identity(value)
-                    if kind == "PULL_REQUEST"
-                    else sha256_bytes(payload)
-                )
+                identity_sha256 = artifact_semantic_identity(kind, value)
             (staging / filename).write_bytes(payload)
             artifacts.append(
                 {
@@ -539,6 +593,7 @@ def capture_pr(
                     "path": filename,
                     "sha256": sha256_bytes(payload),
                     "identity_sha256": identity_sha256,
+                    "identity_policy": "GITHUB_ARTIFACT_SEMANTIC_V2",
                     "byte_length": len(payload),
                     "media_type": media_type,
                     "source_urls": urls,
@@ -945,6 +1000,180 @@ def refresh_tracked_events(
     return receipt
 
 
+def review_queue_input_identity(corpus: Path) -> dict:
+    return {
+        "corpus_index_sha256": sha256_file(corpus / "index.json"),
+        "events": [
+            {
+                "path": path.relative_to(corpus).as_posix(),
+                "sha256": sha256_file(path),
+            }
+            for path in event_paths(corpus)
+        ],
+    }
+
+
+def build_review_queue(
+    corpus: Path,
+    max_items: int = 20,
+    root: Path | None = None,
+) -> dict:
+    """Find captured PR evidence that is absent from the reviewed event layer."""
+    root = root or repository_root()
+    corpus = corpus.resolve()
+    validate_corpus(corpus, root)
+    if not 1 <= max_items <= 100:
+        raise ValueError("max_items must be between 1 and 100")
+
+    events_by_pr: dict[tuple[str, int], list[dict]] = {}
+    for path in event_paths(corpus):
+        validate_event(path, corpus, root)
+        event = read_object(path)
+        source = event["source_snapshot"]
+        events_by_pr.setdefault((source["repository"], source["pr_number"]), []).append(
+            event
+        )
+
+    index = read_object(corpus / "index.json")
+    pull_requests = sorted(
+        {(entry["repository"], entry["pr_number"]) for entry in index["snapshots"]}
+    )
+    queue = []
+    current_count = 0
+    for repository, number in pull_requests:
+        latest = latest_snapshot_entry(corpus, repository, number)
+        manifest_path = corpus / latest["path"] / "manifest.json"
+        latest_semantic = semantic_snapshot_identity(manifest_path)
+        manifest = read_object(manifest_path)
+        pull_artifact = next(
+            artifact
+            for artifact in manifest["artifacts"]
+            if artifact["kind"] == "PULL_REQUEST"
+        )
+        pull = json.loads(
+            (manifest_path.parent / pull_artifact["path"]).read_text(encoding="utf-8")
+        )
+        classifications = discovery_classifications(pull)
+        events = events_by_pr.get((repository, number), [])
+        current_event_ids = sorted(
+            event["event_id"]
+            for event in events
+            if semantic_snapshot_identity(event_manifest_path(corpus, event))
+            == latest_semantic
+        )
+        if current_event_ids:
+            current_count += 1
+            continue
+        state = "UNREVIEWED" if not events else "REVIEW_REQUIRED"
+        reasons = (
+            ["no optimization event references this pull request"]
+            if state == "UNREVIEWED"
+            else ["new source evidence is not covered by a current event"]
+        )
+        priority = 100 if state == "REVIEW_REQUIRED" else 80
+        if "REVERT" in classifications:
+            priority += 20
+        if "REGRESSION" in classifications:
+            priority += 15
+        priority += {
+            "CLOSED_UNMERGED": 10,
+            "MERGED": 8,
+            "OPEN": 4,
+        }[latest["lifecycle"]]
+        priority += min(5, len(classifications))
+        queue.append(
+            {
+                "repository": repository,
+                "pr_number": number,
+                "source_url": f"https://github.com/{repository}/pull/{number}",
+                "title": manifest["pull_request"]["title"],
+                "lifecycle": latest["lifecycle"],
+                "snapshot_id": latest["snapshot_id"],
+                "semantic_identity": latest_semantic,
+                "source_available_at": snapshot_source_available_at(manifest_path),
+                "state": state,
+                "priority_score": priority,
+                "classifications": classifications,
+                "event_ids": sorted(event["event_id"] for event in events),
+                "current_event_ids": current_event_ids,
+                "reasons": reasons,
+            }
+        )
+
+    queue.sort(
+        key=lambda item: (
+            -item["priority_score"],
+            -bounded_timestamp(
+                item["source_available_at"], "review source_available_at"
+            ).timestamp(),
+            item["repository"].lower(),
+            item["pr_number"],
+        )
+    )
+    for rank, item in enumerate(queue, 1):
+        item["priority_rank"] = rank
+        item["selection"] = "SELECTED" if rank <= max_items else "BACKLOG"
+
+    result = {
+        "schema_version": REVIEW_QUEUE_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "REVIEW_TRIAGE_ONLY",
+        "input_identity": review_queue_input_identity(corpus),
+        "policy": {
+            "max_items": max_items,
+            "score_formula": (
+                "100*review_required + 80*unreviewed + 20*revert + "
+                "15*regression + lifecycle(10 closed,8 merged,4 open) + "
+                "min(5,classification_count)"
+            ),
+        },
+        "inventory": {
+            "pull_request_count": len(pull_requests),
+            "current_count": current_count,
+            "unreviewed_count": sum(item["state"] == "UNREVIEWED" for item in queue),
+            "review_required_count": sum(
+                item["state"] == "REVIEW_REQUIRED" for item in queue
+            ),
+            "selected_count": min(max_items, len(queue)),
+            "backlog_count": max(0, len(queue) - max_items),
+        },
+        "items": queue,
+    }
+    errors = validate_instance(
+        result,
+        read_object(root / "schemas" / "community_review_queue.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid community review queue: " + "; ".join(errors))
+    return result
+
+
+def validate_review_queue(
+    queue_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    queue = read_object(queue_path)
+    errors = validate_instance(
+        queue,
+        read_object(root / "schemas" / "community_review_queue.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid community review queue: " + "; ".join(errors))
+    expected = build_review_queue(corpus, int(queue["policy"]["max_items"]), root)
+    observed_stable = {
+        key: value for key, value in queue.items() if key != "generated_at"
+    }
+    expected_stable = {
+        key: value for key, value in expected.items() if key != "generated_at"
+    }
+    if observed_stable != expected_stable:
+        raise ValueError("community review queue is stale or was edited")
+    return {
+        "status": "PASS",
+        **queue["inventory"],
+    }
+
+
 def validate_corpus(corpus: Path, root: Path | None = None) -> dict:
     root = root or repository_root()
     corpus = corpus.resolve()
@@ -1212,7 +1441,11 @@ def build_graph(
         key=lambda item: item["event_id"],
     )
     known_events = set(identifiers)
-    method_ids = {path.stem for path in (root / "knowledge" / "methods").glob("*.json")}
+    method_paths = [
+        *(root / "knowledge" / "methods").glob("*.json"),
+        *(root / "knowledge" / "primitives").glob("*.json"),
+    ]
+    method_ids = {read_object(path)["method_id"] for path in method_paths}
     edges = []
     compositions: dict[str, dict] = {}
     current_event_ids = {
@@ -1798,6 +2031,19 @@ def parse_args() -> argparse.Namespace:
     refresh.add_argument("--max-captures", type=int, default=20)
     refresh.add_argument("--dry-run", action="store_true")
     refresh.add_argument("--timeout", type=float, default=30.0)
+    review_queue = subparsers.add_parser(
+        "build-review-queue",
+        help="prioritize captured PR evidence missing a current reviewed event",
+    )
+    review_queue.add_argument("--corpus", type=Path, required=True)
+    review_queue.add_argument("--output", type=Path, required=True)
+    review_queue.add_argument("--max-items", type=int, default=20)
+    review_validate = subparsers.add_parser(
+        "validate-review-queue",
+        help="recompute and validate a community evidence review queue",
+    )
+    review_validate.add_argument("--corpus", type=Path, required=True)
+    review_validate.add_argument("--queue", type=Path, required=True)
     validate = subparsers.add_parser(
         "validate-corpus", help="validate every indexed snapshot and hash"
     )
@@ -1863,6 +2109,13 @@ def main() -> int:
                 args.max_captures,
                 args.dry_run,
             )
+        elif args.operation == "build-review-queue":
+            result = build_review_queue(args.corpus, args.max_items)
+            atomic_json(args.output.resolve(), result)
+            result = validate_review_queue(args.output.resolve(), args.corpus)
+            result["queue"] = str(args.output.resolve())
+        elif args.operation == "validate-review-queue":
+            result = validate_review_queue(args.queue, args.corpus)
         elif args.operation == "validate-corpus":
             result = validate_corpus(args.corpus)
         elif args.operation == "validate-event":

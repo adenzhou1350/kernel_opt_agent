@@ -19,6 +19,7 @@ from community_knowledge import (
     attach_graph,
     build_graph,
     build_match_receipt,
+    build_review_queue,
     capture_pr,
     discovery_classifications,
     read_object,
@@ -29,6 +30,7 @@ from community_knowledge import (
     validate_event,
     validate_graph,
     validate_match_receipt,
+    validate_review_queue,
 )
 
 
@@ -86,7 +88,18 @@ class FakeGitHubClient:
         if path.endswith("/pulls/7/comments?per_page=100"):
             return [{"path": "kernel.py", "body": "Preserve the fallback."}], [url]
         if "/timeline?" in path:
-            return [{"event": "merged", "commit_id": SHA_B}], [url]
+            return [
+                {
+                    "event": "merged",
+                    "commit_id": SHA_B,
+                    "repo": {
+                        "full_name": "example/project",
+                        "html_url": "https://github.test/example/project",
+                        "forks_url": "https://api.github.test/example/project/forks",
+                        "forks_count": self.repo_stars,
+                    },
+                }
+            ], [url]
         raise AssertionError(path)
 
     def bytes(self, url: str, accept: str) -> tuple[bytes, list[str]]:
@@ -246,6 +259,28 @@ def main() -> None:
         assert validate_corpus(corpus, ROOT)["snapshot_count"] == 2
 
         manifest_path = Path(third["manifest"])
+        unreviewed_queue_path = Path(temporary) / "unreviewed-queue.json"
+        unreviewed_queue = build_review_queue(corpus, max_items=1, root=ROOT)
+        atomic_json(unreviewed_queue_path, unreviewed_queue)
+        assert (
+            validate_review_queue(unreviewed_queue_path, corpus, ROOT)[
+                "unreviewed_count"
+            ]
+            == 1
+        )
+        assert unreviewed_queue["items"][0]["state"] == "UNREVIEWED"
+        assert unreviewed_queue["items"][0]["selection"] == "SELECTED"
+        tampered_queue = json.loads(json.dumps(unreviewed_queue))
+        tampered_queue["items"][0]["priority_score"] += 1
+        tampered_queue_path = Path(temporary) / "tampered-review-queue.json"
+        atomic_json(tampered_queue_path, tampered_queue)
+        try:
+            validate_review_queue(tampered_queue_path, corpus, ROOT)
+        except ValueError as error:
+            assert "stale or was edited" in str(error)
+        else:
+            raise AssertionError("edited community review queue was accepted")
+
         event_path = corpus / "events" / "event.json"
         event_path.parent.mkdir(parents=True)
         first_event = event_for(manifest_path)
@@ -254,7 +289,12 @@ def main() -> None:
                 "type": "COMPLEMENTS",
                 "target": "example.layout-aware-logits",
                 "rationale": "Compressed reads and a layout-aware schedule remove different costs.",
-            }
+            },
+            {
+                "type": "REQUIRES",
+                "target": "community-incremental-prefix-state-machine",
+                "rationale": "Exercise method resolution across the primitive library.",
+            },
         ]
         event_path.write_text(
             json.dumps(first_event, indent=2) + "\n", encoding="utf-8"
@@ -274,6 +314,16 @@ def main() -> None:
         )
         result = validate_event(event_path, corpus, ROOT)
         assert result["status"] == "PASS" and result["evidence_reference_count"] == 2
+        current_queue = build_review_queue(corpus, max_items=1, root=ROOT)
+        assert current_queue["inventory"] == {
+            "pull_request_count": 1,
+            "current_count": 1,
+            "unreviewed_count": 0,
+            "review_required_count": 0,
+            "selected_count": 0,
+            "backlog_count": 0,
+        }
+        assert current_queue["items"] == []
 
         graph_path = Path(temporary) / "community_graph.json"
         graph = build_graph(
@@ -291,6 +341,13 @@ def main() -> None:
             node["lifecycle_observation"]["status"] == "CURRENT"
             for node in graph["nodes"]
         )
+        primitive_edge = next(
+            edge
+            for edge in graph["edges"]
+            if edge["target"] == "community-incremental-prefix-state-machine"
+        )
+        assert primitive_edge["target_kind"] == "METHOD"
+        assert primitive_edge["resolution"] == "PRESENT"
         assert graph_result["coverage_gap_count"] >= 1
         assert all(
             gap["claim_boundary"] == "CORPUS_COVERAGE_GAP_ONLY"
@@ -348,6 +405,13 @@ def main() -> None:
         assert len(review_refresh["review_required_event_ids"]) == 2
         assert review_row["semantic_changed"]
         assert review_row["after"]["snapshot_id"] != third["snapshot_id"]
+        changed_queue = build_review_queue(corpus, max_items=1, root=ROOT)
+        assert changed_queue["inventory"]["review_required_count"] == 1
+        assert changed_queue["items"][0]["state"] == "REVIEW_REQUIRED"
+        assert changed_queue["items"][0]["event_ids"] == [
+            "example.fused-dequant-logits",
+            "example.layout-aware-logits",
+        ]
         review_graph = build_graph(corpus, ["example/project", "other/engine"], ROOT)
         assert len(review_graph["lifecycle_review_queue"]) == 2
         assert all(

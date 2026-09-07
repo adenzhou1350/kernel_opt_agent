@@ -60,11 +60,29 @@ The receipt lists every tracked PR, budget skip, before/after semantic snapshot,
 lifecycle and event requiring re-review. `--dry-run` materializes the bounded
 plan without issuing PR capture requests.
 
+Turn newly captured or changed evidence into a bounded review backlog:
+
+```bash
+python3 scripts/kernel_opt.py community build-review-queue \
+  --corpus /path/to/community-corpus \
+  --output /path/to/review-queue.json \
+  --max-items 10
+```
+
+Coverage is compared with a semantic identity recomputed for both legacy and
+current snapshots. Physical manifest migrations therefore do not create review
+work. A PR is `UNREVIEWED` when it has no event and `REVIEW_REQUIRED` when newer
+semantic evidence is not represented by a current event. Reverts, regressions
+and closed-unmerged changes receive explicit priority bonuses because negative
+knowledge is a first-class learning input. `validate-review-queue` rejects a
+stale or edited queue.
+
 Snapshots preserve the SHA-256 of every exact GitHub response, but deduplicate
-the pull-request artifact by PR-owned semantics rather than volatile fields in
-the nested repository object. Repository stars, fork counts and open-issue
-counts therefore cannot manufacture a new optimization revision; title, body,
-state, timestamps, labels, base/head commits or any other evidence artifact can.
+all JSON artifacts by evidence-owned semantics rather than volatile fields in
+embedded repository objects. Repository stars, fork counts, size and open-issue
+counts therefore cannot manufacture a new optimization revision when they recur
+inside the PR, review, comment or timeline payload; title, body, state, source
+timestamps, labels, base/head commits and actual evidence records still can.
 
 Never treat merge status, a PR author's benchmark, review approval or a method
 match as proof that a technique improves the current target. Reverts, closed
