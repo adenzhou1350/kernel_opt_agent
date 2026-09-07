@@ -672,11 +672,18 @@ def validate_knowledge_bundle_binding(
         if observed_path.resolve() != expected_path.resolve():
             raise ValueError(f"knowledge bundle {label} path differs from suite")
 
-    validate_identity(
+    validation_receipt_path = validate_identity(
         bundle_base,
         bundle["inputs"]["validation_receipt"],
         "knowledge bundle validation receipt",
     )
+    policy_path = None
+    if bundle["schema_version"] == "future-community-knowledge-bundle-receipt-v2":
+        policy_path = validate_identity(
+            bundle_base,
+            bundle["inputs"]["policy"],
+            "knowledge bundle coverage policy",
+        )
 
     audit_path = validate_identity(
         bundle_base,
@@ -708,6 +715,14 @@ def validate_knowledge_bundle_binding(
         or audit_method_path.resolve() != method_path.resolve()
     ):
         raise ValueError("knowledge bundle audit binds different graph or methods")
+    if policy_path is not None:
+        audit_policy_path = validate_identity(
+            audit_path.parent,
+            audit["input_identity"]["policy"],
+            "knowledge bundle audit policy",
+        )
+        if audit_policy_path.resolve() != policy_path.resolve():
+            raise ValueError("knowledge bundle audit binds a different policy")
     inventory_bindings = {
         "events": "node_count",
         "relations": "edge_count",
@@ -729,13 +744,52 @@ def validate_knowledge_bundle_binding(
         for bundle_key, audit_key in inventory_bindings.items()
     ):
         raise ValueError("knowledge bundle inventory differs from coverage audit")
-    if bundle["repository"]["commit"] != graph["input_identity"]["git_commit"]:
+    knowledge_commit = bundle["repository"].get(
+        "knowledge_commit", bundle["repository"].get("commit")
+    )
+    validator_commit = bundle["repository"].get(
+        "validator_commit", bundle["repository"].get("commit")
+    )
+    if knowledge_commit != graph["input_identity"]["git_commit"]:
         raise ValueError("knowledge bundle commit differs from training graph")
     if (
         audit["input_identity"]["graph_validation_root"]["head_commit"]
-        != bundle["repository"]["commit"]
+        != validator_commit
     ):
         raise ValueError("knowledge bundle audit was run at a different commit")
+    if bundle["schema_version"] == "future-community-knowledge-bundle-receipt-v2":
+        receipt_errors = validate_json_file(
+            validation_receipt_path,
+            root / "schemas/community_knowledge_bundle_validation.schema.json",
+        )
+        if receipt_errors:
+            raise ValueError(
+                "invalid knowledge bundle validation receipt: "
+                + "; ".join(receipt_errors)
+            )
+        validation_receipt = read_object(validation_receipt_path)
+        if (
+            validation_receipt["knowledge_commit"] != knowledge_commit
+            or validation_receipt["validator_commit"] != validator_commit
+        ):
+            raise ValueError("knowledge bundle validation receipt commit differs")
+        receipt_paths = {
+            "graph": graph_path,
+            "methods": method_path,
+            "checkpoint_anchor": anchor_path,
+            "policy": policy_path,
+            "coverage_audit": audit_path,
+        }
+        for label, expected_path in receipt_paths.items():
+            observed_path = validate_identity(
+                validation_receipt_path.parent,
+                validation_receipt["inputs"][label],
+                f"knowledge bundle validation receipt {label}",
+            )
+            if observed_path.resolve() != expected_path.resolve():
+                raise ValueError(
+                    f"knowledge bundle validation receipt binds a different {label}"
+                )
     return bundle_path
 
 

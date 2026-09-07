@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_evaluation import validate_knowledge_bundle_binding  # noqa: E402
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
+import community_knowledge_bundle as bundle_module  # noqa: E402
 
 
 CUTOFF = "2026-09-07T22:00:00+00:00"
@@ -162,6 +163,9 @@ def build_fixture(tmp_path: Path) -> tuple[dict, dict, dict[str, Path]]:
         "graph": graph_path,
         "methods": methods_path,
         "anchor": anchor_path,
+        "policy": policy_path,
+        "audit": audit_path,
+        "validation": validation_path,
         "bundle": bundle_path,
     }
 
@@ -209,3 +213,169 @@ def test_legacy_v3_graph_without_relations_remains_replayable(tmp_path: Path) ->
     suite.pop("knowledge_bundle")
     graph["input_identity"].pop("relation_observations")
     assert validate_fixture(suite, graph, paths) is None
+
+
+def test_v2_bundle_separates_knowledge_and_validator_commits(tmp_path: Path) -> None:
+    suite, graph, paths = build_fixture(tmp_path)
+    validator_commit = "3" * 40
+    bundle = json.loads(paths["bundle"].read_text(encoding="utf-8"))
+    bundle["schema_version"] = "future-community-knowledge-bundle-receipt-v2"
+    bundle["repository"].pop("commit")
+    bundle["repository"]["knowledge_commit"] = COMMIT
+    bundle["repository"]["validator_commit"] = validator_commit
+    bundle["inputs"]["policy"] = identity(paths["policy"])
+    audit = json.loads(paths["audit"].read_text(encoding="utf-8"))
+    audit["input_identity"]["graph_validation_root"]["head_commit"] = (
+        validator_commit
+    )
+    atomic_json(paths["audit"], audit)
+    bundle["inputs"]["coverage_audit"] = identity(paths["audit"])
+    atomic_json(
+        paths["validation"],
+        {
+            "schema_version": "community-knowledge-bundle-validation-v1",
+            "generated_at": CUTOFF,
+            "status": "PASS",
+            "claim_boundary": (
+                "PORTABILITY_AND_CONSISTENCY_NOT_PERFORMANCE_EVIDENCE"
+            ),
+            "knowledge_commit": COMMIT,
+            "validator_commit": validator_commit,
+            "inputs": {
+                "graph": identity(paths["graph"]),
+                "methods": identity(paths["methods"]),
+                "checkpoint_anchor": identity(paths["anchor"]),
+                "policy": identity(paths["policy"]),
+                "coverage_audit": identity(paths["audit"]),
+            },
+            "checks": ["Fixture validation is not performance evidence."],
+        },
+    )
+    bundle["inputs"]["validation_receipt"] = identity(paths["validation"])
+    atomic_json(paths["bundle"], bundle)
+    suite["knowledge_bundle"] = identity(paths["bundle"])
+    assert validate_fixture(suite, graph, paths) == paths["bundle"]
+
+    bundle["repository"]["validator_commit"] = "4" * 40
+    atomic_json(paths["bundle"], bundle)
+    suite["knowledge_bundle"] = identity(paths["bundle"])
+    try:
+        validate_fixture(suite, graph, paths)
+    except ValueError as error:
+        assert "different commit" in str(error)
+    else:
+        raise AssertionError("bundle accepted an audit from a different validator")
+
+
+def test_builder_is_atomic_portable_and_tamper_evident(
+    tmp_path: Path, monkeypatch
+) -> None:
+    knowledge_commit = COMMIT
+    validator_commit = "3" * 40
+    graph_path = tmp_path / "source-graph.json"
+    methods_path = tmp_path / "source-methods.json"
+    anchor_path = tmp_path / "source-anchor.json"
+    policy_path = tmp_path / "source-policy.json"
+    corpus_path = tmp_path / "corpus.json"
+    output_dir = tmp_path / "bundle-output"
+    graph = {
+        "source_cutoff_at": CUTOFF,
+        "knowledge_cutoff_at": CUTOFF,
+        "input_identity": {"git_commit": knowledge_commit},
+        "nodes": [{"event_id": "fixture"}],
+        "repository_universe": ["one/project", "two/project"],
+    }
+    atomic_json(graph_path, graph)
+    atomic_json(methods_path, {"cutoff_at": CUTOFF})
+    atomic_json(anchor_path, {"not_after": CUTOFF})
+    atomic_json(policy_path, {"policy": "fixture"})
+    atomic_json(corpus_path, {"schema_version": "fixture"})
+
+    def fake_audit(graph_file, policy_file, corpus, project, validation_root, methods_file):
+        return {
+            "schema_version": "community-coverage-audit-v2",
+            "generated_at": CUTOFF,
+            "claim_boundary": "CHECKPOINT_COVERAGE_NOT_METHOD_EFFECTIVENESS",
+            "status": "PASS",
+            "input_identity": {
+                "graph": identity(graph_file),
+                "methods": identity(methods_file),
+                "policy": identity(policy_file),
+                "graph_validation_root": {
+                    "path": Path(validation_root).resolve().as_posix(),
+                    "head_commit": validator_commit,
+                },
+            },
+            "inventory": coverage_inventory(),
+            "checks": [
+                {
+                    "check_id": "fixture",
+                    "status": "PASS",
+                    "observed": 1,
+                    "requirement": 1,
+                }
+            ],
+            "limitations": ["Fixture coverage is not performance evidence."],
+        }
+
+    monkeypatch.setattr(bundle_module, "require_clean_validator", lambda _: validator_commit)
+    monkeypatch.setattr(bundle_module, "git_head", lambda _: validator_commit)
+    monkeypatch.setattr(bundle_module, "build_audit", fake_audit)
+    monkeypatch.setattr(bundle_module, "validate_graph", lambda *args: {"status": "PASS"})
+    monkeypatch.setattr(bundle_module, "validate_anchor", lambda *args: {"status": "PASS"})
+    monkeypatch.setattr(
+        bundle_module, "validate_method_snapshot", lambda path, value, root: value
+    )
+    monkeypatch.setattr(bundle_module, "validate_audit", lambda *args: {"status": "PASS"})
+
+    result = bundle_module.build_bundle(
+        graph_path,
+        methods_path,
+        anchor_path,
+        policy_path,
+        corpus_path,
+        tmp_path,
+        "fixture-branch",
+        "https://example.invalid/fork",
+        output_dir,
+        ROOT,
+    )
+    assert result["status"] == "PASS"
+    bundle = json.loads(
+        (output_dir / "knowledge-bundle.json").read_text(encoding="utf-8")
+    )
+    assert bundle["repository"]["knowledge_commit"] == knowledge_commit
+    assert bundle["repository"]["validator_commit"] == validator_commit
+    assert all(
+        not Path(value["path"]).is_absolute()
+        for value in bundle["inputs"].values()
+    )
+    assert not list(tmp_path.glob(f".{output_dir.name}.*"))
+
+    try:
+        bundle_module.build_bundle(
+            graph_path,
+            methods_path,
+            anchor_path,
+            policy_path,
+            corpus_path,
+            tmp_path,
+            "fixture-branch",
+            "https://example.invalid/fork",
+            output_dir,
+            ROOT,
+        )
+    except FileExistsError as error:
+        assert "refusing to overwrite" in str(error)
+    else:
+        raise AssertionError("builder overwrote an existing bundle")
+
+    (output_dir / methods_path.name).write_text("{}\n", encoding="utf-8")
+    try:
+        bundle_module.validate_bundle(
+            output_dir / "knowledge-bundle.json", corpus_path, tmp_path, ROOT
+        )
+    except ValueError as error:
+        assert "hash changed" in str(error)
+    else:
+        raise AssertionError("validator accepted a tampered method snapshot")

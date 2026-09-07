@@ -41,6 +41,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-checkpoint": Command("community_checkpoint.py", "freeze and Git-anchor one knowledge universe"),
         "community-graph-v2": Command("community_graph_v2.py", "build checkpoint-backed temporal knowledge graphs"),
         "community-coverage-audit": Command("community_coverage_audit.py", "audit lifecycle, repository and relation breadth"),
+        "community-knowledge-bundle": Command("community_knowledge_bundle.py", "build and validate portable cutoff-aligned knowledge inputs"),
         "community-materialized-feasibility": Command("community_materialized_feasibility.py", "fail closed after task and harness materialization"),
         "community-screening-feedback": Command("community_screening_feedback.py", "record postselection corrections for future cohort routing"),
         "community-window-validate": Command("community_window_validation.py", "validate one discovery window with run-scoped reuse and exact timing"),

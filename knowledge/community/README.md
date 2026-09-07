@@ -276,6 +276,18 @@ snapshot (or vice versa). Older v3 graphs without relation observations remain
 replayable without a bundle; a later-cutoff bundle must never be attached to an
 earlier frozen cohort.
 
+Create that portable directory with `community-knowledge-bundle build` after
+the validator changes are committed. The builder copies the graph, method
+snapshot, checkpoint anchor and coverage policy into a fresh directory,
+recomputes the coverage audit, uses only bundle-relative identities and
+atomically publishes the directory after full validation. Existing output is
+never overwritten and any failed command writes a separate fail-closed receipt.
+The v2 receipt records `knowledge_commit` (the Git universe that produced the
+graph) separately from `validator_commit` (the later committed code that
+revalidated and packaged it). This lets old cutoff-safe knowledge survive a
+validator upgrade without pretending the knowledge itself was discovered at
+the later commit. V1 receipts remain replayable.
+
 When a method snapshot is exposed, the augmented result must include a
 `method_realization` receipt. It binds the inspected and selected method IDs,
 operator-specific partition/local/combine/finalize mapping, realized candidate

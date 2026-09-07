@@ -30,6 +30,11 @@ def identity(path: Path) -> dict:
     return {"path": path.as_posix(), "sha256": sha256_file(path)}
 
 
+def resolve_identity_path(base: Path, value: str) -> Path:
+    path = Path(value)
+    return path.resolve() if path.is_absolute() else (base / path).resolve()
+
+
 def validation_root_identity(path: Path) -> dict:
     path = path.resolve()
     if not path.is_dir():
@@ -375,21 +380,34 @@ def validate_audit(path: Path, corpus: Path, project_root: Path | None = None) -
         labels.append("methods")
     for label in labels:
         item = report["input_identity"][label]
-        source = Path(item["path"])
+        source = resolve_identity_path(path.parent, item["path"])
         if not source.is_file() or sha256_file(source) != item["sha256"]:
             raise ValueError(f"community coverage {label} identity changed")
+    graph_path = resolve_identity_path(
+        path.parent, report["input_identity"]["graph"]["path"]
+    )
+    policy_path = resolve_identity_path(
+        path.parent, report["input_identity"]["policy"]["path"]
+    )
+    methods_path = (
+        resolve_identity_path(
+            path.parent, report["input_identity"]["methods"]["path"]
+        )
+        if report["schema_version"] == SCHEMA_VERSION_V2
+        else None
+    )
     expected = build_audit(
-        Path(report["input_identity"]["graph"]["path"]),
-        Path(report["input_identity"]["policy"]["path"]),
+        graph_path,
+        policy_path,
         corpus,
         project_root,
         Path(report["input_identity"]["graph_validation_root"]["path"]),
-        (
-            Path(report["input_identity"]["methods"]["path"])
-            if report["schema_version"] == SCHEMA_VERSION_V2
-            else None
-        ),
+        methods_path,
     )
+    for label in labels:
+        expected["input_identity"][label]["path"] = report["input_identity"][
+            label
+        ]["path"]
     observed_copy = {
         key: value for key, value in report.items() if key != "generated_at"
     }

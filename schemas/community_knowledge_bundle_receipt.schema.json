@@ -17,17 +17,19 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": {"const": "future-community-knowledge-bundle-receipt-v1"},
+    "schema_version": {"enum": ["future-community-knowledge-bundle-receipt-v1", "future-community-knowledge-bundle-receipt-v2"]},
     "generated_at": {"type": "string", "format": "date-time"},
     "status": {"const": "READY_FOR_FUTURE_SUITE_BINDING"},
     "claim_boundary": {"const": "CUTOFF_SAFE_KNOWLEDGE_INPUT_NOT_PERFORMANCE_EVIDENCE"},
     "repository": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["branch", "commit", "fork_url"],
+      "required": ["branch", "fork_url"],
       "properties": {
         "branch": {"type": "string", "minLength": 1},
         "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "knowledge_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "validator_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "fork_url": {"type": "string", "minLength": 1}
       }
     },
@@ -55,6 +57,7 @@
         "checkpoint_anchor": {"$ref": "#/$defs/identity"},
         "graph": {"$ref": "#/$defs/identity"},
         "methods": {"$ref": "#/$defs/identity"},
+        "policy": {"$ref": "#/$defs/identity"},
         "coverage_audit": {"$ref": "#/$defs/identity"},
         "validation_receipt": {"$ref": "#/$defs/identity"}
       }
@@ -92,6 +95,21 @@
       "items": {"type": "string", "minLength": 1}
     }
   },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "future-community-knowledge-bundle-receipt-v1"}}},
+      "then": {"properties": {"repository": {"required": ["commit"]}}}
+    },
+    {
+      "if": {"properties": {"schema_version": {"const": "future-community-knowledge-bundle-receipt-v2"}}},
+      "then": {
+        "properties": {
+          "repository": {"required": ["knowledge_commit", "validator_commit"]},
+          "inputs": {"required": ["policy"]}
+        }
+      }
+    }
+  ],
   "$defs": {
     "identity": {
       "type": "object",

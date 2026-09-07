@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_knowledge_bundle_validation.schema.json",
+  "title": "Portable community knowledge bundle validation receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "status",
+    "claim_boundary",
+    "knowledge_commit",
+    "validator_commit",
+    "inputs",
+    "checks"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-knowledge-bundle-validation-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"const": "PASS"},
+    "claim_boundary": {"const": "PORTABILITY_AND_CONSISTENCY_NOT_PERFORMANCE_EVIDENCE"},
+    "knowledge_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "validator_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["graph", "methods", "checkpoint_anchor", "policy", "coverage_audit"],
+      "properties": {
+        "graph": {"$ref": "#/$defs/identity"},
+        "methods": {"$ref": "#/$defs/identity"},
+        "checkpoint_anchor": {"$ref": "#/$defs/identity"},
+        "policy": {"$ref": "#/$defs/identity"},
+        "coverage_audit": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "checks": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
