@@ -470,6 +470,11 @@ def suite_protocol_registration_errors(suite: dict, preregistration: dict) -> li
         errors.append("anchored suite requires a preregistered evaluation protocol")
         return errors
     protocol = suite["protocol"]
+    if (
+        evaluation.get("suite_schema") is not None
+        and suite["schema_version"] != evaluation["suite_schema"]
+    ):
+        errors.append("suite schema differs from anchored preregistration")
     for field in (
         "arms",
         "repeats",
@@ -1320,6 +1325,11 @@ def build_preselection_anchor(
         roles = (*roles, (
             "PRIOR_ROUTING_SNAPSHOT",
             preregistration["prior_routing_identity"],
+        ))
+    if preregistration.get("knowledge_checkpoint_identity") is not None:
+        roles = (*roles, (
+            "KNOWLEDGE_CHECKPOINT",
+            preregistration["knowledge_checkpoint_identity"],
         ))
     anchored_inputs = []
     for role, identity in roles:

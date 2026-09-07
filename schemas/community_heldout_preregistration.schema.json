@@ -19,11 +19,13 @@
     "policy_identity": {"$ref": "#/$defs/identity"},
     "execution_profile_identity": {"$ref": "#/$defs/identity"},
     "prior_routing_identity": {"$ref": "#/$defs/identity"},
+    "knowledge_checkpoint_identity": {"$ref": "#/$defs/identity"},
     "evaluation": {
       "type": "object",
       "additionalProperties": false,
       "required": ["arms", "repeats", "randomized_order", "network_policy", "model_identity", "task_packet_contract", "budgets", "minimum_material_speedup", "metrics", "source_ledger_sha256"],
       "properties": {
+        "suite_schema": {"enum": ["community-temporal-suite-v1", "community-temporal-suite-v2"]},
         "arms": {"const": ["CONTROL", "COMMUNITY_AUGMENTED"]},
         "repeats": {"type": "integer", "minimum": 1},
         "randomized_order": {"const": true},
@@ -66,6 +68,22 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "required": ["evaluation"],
+        "properties": {
+          "evaluation": {
+            "required": ["suite_schema"],
+            "properties": {
+              "suite_schema": {"const": "community-temporal-suite-v2"}
+            }
+          }
+        }
+      },
+      "then": {"required": ["knowledge_checkpoint_identity"]}
+    }
+  ],
   "$defs": {
     "identity": {
       "type": "object",
