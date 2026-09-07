@@ -253,6 +253,45 @@ def v2_manifest_object(
     return manifest
 
 
+def v3_manifest_object(
+    task: Path,
+    screen: Path,
+    profile: Path,
+    resource_status: Path,
+    evidence: Path,
+) -> dict:
+    live = json.loads(resource_status.read_text(encoding="utf-8"))
+    live["schema_version"] = "community-materialized-resource-status-v2"
+    resource = live["resources"][0]
+    resource["devices"] = [
+        {
+            "gpu_index": 0,
+            "memory_used_mib": 2,
+            "memory_total_mib": 32607,
+            "utilization_percent": 0,
+            "pstate": "P8",
+            "active_compute_process_count": 0,
+        }
+    ]
+    atomic_json(resource_status, live)
+    manifest = v2_manifest_object(task, screen, profile, resource_status, evidence)
+    manifest["schema_version"] = "community-materialization-manifest-v3"
+    manifest["resource_status"] = identity(resource_status)
+    manifest["hardware_match"].update(
+        {
+            "minimum_ready_gpu_count": 1,
+            "maximum_gpu_utilization_percent": 10,
+            "maximum_used_memory_mib_per_gpu": 1024,
+            "require_zero_active_compute_processes": True,
+        }
+    )
+    live_artifact = next(
+        item for item in manifest["artifacts"] if item["role"] == "LIVE_HARDWARE_STATUS"
+    )
+    live_artifact["evidence"] = [identity(resource_status)]
+    return manifest
+
+
 def test_materialized_gate_blocks_missing_harness_and_duplicate_upstream() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -428,3 +467,76 @@ def test_v2_rejects_a_stale_live_resource_receipt() -> None:
             assert "live resource status is too old" in str(error)
         else:
             raise AssertionError("v2 manifest accepted a stale live resource receipt")
+
+
+def test_v3_requires_enough_idle_per_device_resources() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        manifest = v3_manifest_object(task, screen, profile, resource_status, baseline)
+
+        live = json.loads(resource_status.read_text(encoding="utf-8"))
+        resource = live["resources"][0]
+        resource["gpu_indices"] = list(range(8))
+        resource["excluded_gpu_indices"] = [6]
+        resource["devices"] = [
+            {
+                "gpu_index": index,
+                "memory_used_mib": 15314 if index == 6 else 2,
+                "memory_total_mib": 32607,
+                "utilization_percent": 0 if index in {0, 6} else 100,
+                "pstate": "P8" if index in {0, 6} else "P0",
+                "active_compute_process_count": 0,
+            }
+            for index in range(8)
+        ]
+        atomic_json(resource_status, live)
+        manifest["resource_status"] = identity(resource_status)
+        live_artifact = next(
+            item
+            for item in manifest["artifacts"]
+            if item["role"] == "LIVE_HARDWARE_STATUS"
+        )
+        live_artifact["evidence"] = [identity(resource_status)]
+        manifest["hardware_match"]["minimum_ready_gpu_count"] = 8
+        manifest_path = base / "manifest-v3.json"
+        atomic_json(manifest_path, manifest)
+
+        blocked = build_assessment(manifest_path, ROOT)
+        assert blocked["schema_version"] == "community-materialized-feasibility-v3"
+        assert blocked["decision"] == "RESOURCE_BLOCKED"
+        assert blocked["resource_match_diagnostics"] == [
+            {
+                "resource_id": "single-sm120-32g",
+                "matched": False,
+                "reasons": [
+                    "GPU_UTILIZATION_ABOVE_MAXIMUM",
+                    "INSUFFICIENT_NON_EXCLUDED_GPU_COUNT",
+                    "INSUFFICIENT_READY_GPU_COUNT",
+                ],
+                "eligible_gpu_indices": [0],
+                "device_diagnostics": [
+                    {
+                        "gpu_index": index,
+                        "eligible": index == 0,
+                        "reasons": (
+                            []
+                            if index == 0
+                            else [
+                                "EXPLICITLY_EXCLUDED"
+                                if index == 6
+                                else "GPU_UTILIZATION_ABOVE_MAXIMUM"
+                            ]
+                        ),
+                    }
+                    for index in range(8)
+                ],
+            }
+        ]
+
+        manifest["hardware_match"]["minimum_ready_gpu_count"] = 1
+        atomic_json(manifest_path, manifest)
+        eligible = build_assessment(manifest_path, ROOT)
+        assert eligible["matched_resource_ids"] == ["single-sm120-32g"]
+        assert eligible["resource_match_diagnostics"][0]["reasons"] == []
+        assert eligible["resource_match_diagnostics"][0]["eligible_gpu_indices"] == [0]

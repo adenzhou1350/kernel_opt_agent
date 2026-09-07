@@ -98,15 +98,15 @@ evidence and must not be filtered out of the source lake.
 ## Post-selection materialization gate
 
 Metadata feasibility is deliberately coarse. Before compiling, measuring or
-allocating a GPU, materialize a v2 manifest and validate it through the public
-command surface:
+allocating a GPU, materialize a v3 manifest and validate it through the public
+command surface (v1/v2 remain replay-compatible):
 
 ```bash
 python scripts/kernel_opt.py community-materialized-feasibility build \
-  --manifest /path/to/community-materialization-manifest-v2.json \
-  --output /path/to/community-materialized-feasibility-v2.json
+  --manifest /path/to/community-materialization-manifest-v3.json \
+  --output /path/to/community-materialized-feasibility-v3.json
 python scripts/kernel_opt.py community-materialized-feasibility validate \
-  --assessment /path/to/community-materialized-feasibility-v2.json
+  --assessment /path/to/community-materialized-feasibility-v3.json
 ```
 
 V2 requires six distinct hash-bound roles: exact baseline source, operator
@@ -124,6 +124,15 @@ an RTX 5090/sm120 with a larger L2 is not accepted merely because both are in
 the SM12.x family. The assessment emits per-resource mismatch reasons, remains
 non-authoritative for dispatch, and keeps `dispatch_gpu` fixed to false until a
 separate supervisor approval is bound.
+
+V3 additionally requires a per-device live receipt and freezes the minimum
+ready GPU count, maximum utilization, optional memory-use ceiling and whether
+active compute processes are forbidden. The validator recomputes eligibility
+for every visible GPU, rejects duplicate or incomplete device inventories, and
+emits `eligible_gpu_indices` plus per-device reasons. A shared host with one
+idle card and seven busy or excluded cards may satisfy a one-GPU task using only
+that explicit index, but it cannot satisfy an eight-GPU task. Empty
+`nvidia-smi` process output never overrides nonzero utilization.
 
 The graph also resolves each immutable event against the newest PR snapshot
 visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.

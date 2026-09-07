@@ -12,7 +12,12 @@
     "actions"
   ],
   "properties": {
-    "schema_version": {"const": "community-materialized-resource-status-v1"},
+    "schema_version": {
+      "enum": [
+        "community-materialized-resource-status-v1",
+        "community-materialized-resource-status-v2"
+      ]
+    },
     "observed_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "POINT_IN_TIME_READ_ONLY_OBSERVATION"},
     "resources": {
@@ -62,7 +67,31 @@
             "uniqueItems": true,
             "items": {"type": "integer", "minimum": 0}
           },
-          "active_compute_process_count": {"type": "integer", "minimum": 0}
+          "active_compute_process_count": {"type": "integer", "minimum": 0},
+          "devices": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "gpu_index",
+                "memory_used_mib",
+                "memory_total_mib",
+                "utilization_percent",
+                "pstate",
+                "active_compute_process_count"
+              ],
+              "properties": {
+                "gpu_index": {"type": "integer", "minimum": 0},
+                "memory_used_mib": {"type": "number", "minimum": 0},
+                "memory_total_mib": {"type": "number", "exclusiveMinimum": 0},
+                "utilization_percent": {"type": "number", "minimum": 0, "maximum": 100},
+                "pstate": {"type": "string", "minLength": 1},
+                "active_compute_process_count": {"type": "integer", "minimum": 0}
+              }
+            }
+          }
         }
       }
     },
@@ -76,5 +105,21 @@
         "compilations_started": {"type": "integer", "minimum": 0}
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-materialized-resource-status-v2"}
+        }
+      },
+      "then": {
+        "properties": {
+          "resources": {
+            "items": {"required": ["devices"]}
+          }
+        }
+      }
+    }
+  ]
 }

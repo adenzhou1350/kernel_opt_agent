@@ -22,9 +22,11 @@ from schema_utils import validate_instance, validate_json_file  # noqa: E402
 
 MANIFEST_SCHEMA_V1 = "community-materialization-manifest-v1"
 MANIFEST_SCHEMA_V2 = "community-materialization-manifest-v2"
-MANIFEST_SCHEMAS = {MANIFEST_SCHEMA_V1, MANIFEST_SCHEMA_V2}
+MANIFEST_SCHEMA_V3 = "community-materialization-manifest-v3"
+MANIFEST_SCHEMAS = {MANIFEST_SCHEMA_V1, MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}
 ASSESSMENT_SCHEMA_V1 = "community-materialized-feasibility-v1"
 ASSESSMENT_SCHEMA_V2 = "community-materialized-feasibility-v2"
+ASSESSMENT_SCHEMA_V3 = "community-materialized-feasibility-v3"
 READY_AVAILABILITY = {"AVAILABLE", "SHARED_NO_DISRUPTION"}
 V2_REQUIRED_ROLES = {
     "BASELINE_SOURCE",
@@ -81,7 +83,7 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
         seen_roles.add(role)
         for identity in artifact["evidence"]:
             validate_identity(identity, f"materialization artifact {role}")
-    if manifest["schema_version"] == MANIFEST_SCHEMA_V2:
+    if manifest["schema_version"] in {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}:
         roles = {item["role"] for item in manifest["artifacts"] if item["required"]}
         missing_roles = sorted(V2_REQUIRED_ROLES - roles)
         if missing_roles:
@@ -108,9 +110,37 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
                 "invalid materialized live resource status: " + "; ".join(errors)
             )
         resource_status = read_object(resource_status_path)
+        if (
+            manifest["schema_version"] == MANIFEST_SCHEMA_V3
+            and resource_status["schema_version"]
+            != "community-materialized-resource-status-v2"
+        ):
+            raise ValueError("v3 manifest requires per-device resource status v2")
         resource_ids = [item["resource_id"] for item in resource_status["resources"]]
         if len(resource_ids) != len(set(resource_ids)):
             raise ValueError("duplicate live resource status id")
+        if manifest["schema_version"] == MANIFEST_SCHEMA_V3:
+            for resource in resource_status["resources"]:
+                device_indices = [item["gpu_index"] for item in resource["devices"]]
+                if len(device_indices) != len(set(device_indices)):
+                    raise ValueError("duplicate per-device GPU index")
+                if set(device_indices) != set(resource["gpu_indices"]):
+                    raise ValueError(
+                        "per-device GPU indices do not match resource indices"
+                    )
+                if not set(resource["excluded_gpu_indices"]).issubset(
+                    set(device_indices)
+                ):
+                    raise ValueError(
+                        "excluded GPU index is absent from per-device status"
+                    )
+                process_count = sum(
+                    item["active_compute_process_count"] for item in resource["devices"]
+                )
+                if process_count != resource["active_compute_process_count"]:
+                    raise ValueError(
+                        "aggregate active compute process count does not match devices"
+                    )
         status_age = parse_timestamp(manifest["generated_at"]) - parse_timestamp(
             resource_status["observed_at"]
         )
@@ -162,6 +192,7 @@ def matching_resources(
     diagnostics = []
     for resource_id in sorted(requested):
         reasons = []
+        diagnostic_details = {}
         resource = resources.get(resource_id)
         if resource is None:
             diagnostics.append(
@@ -240,10 +271,79 @@ def matching_resources(
                 and float(profile_l2) != float(live_resource["l2_cache_mib"])
             ):
                 reasons.append("PROFILE_LIVE_L2_MISMATCH")
+            if manifest["schema_version"] == MANIFEST_SCHEMA_V3:
+                excluded = set(live_resource["excluded_gpu_indices"])
+                candidates = [
+                    item
+                    for item in live_resource["devices"]
+                    if item["gpu_index"] not in excluded
+                ]
+                required_gpu_count = hardware_match["minimum_ready_gpu_count"]
+                if len(candidates) < required_gpu_count:
+                    reasons.append("INSUFFICIENT_NON_EXCLUDED_GPU_COUNT")
+                utilization_limit = hardware_match["maximum_gpu_utilization_percent"]
+                memory_limit = hardware_match["maximum_used_memory_mib_per_gpu"]
+                require_idle = hardware_match["require_zero_active_compute_processes"]
+                ready_devices = []
+                device_failure_reasons = set()
+                device_diagnostics = []
+                for device in live_resource["devices"]:
+                    device_reasons = []
+                    if device["gpu_index"] in excluded:
+                        device_reasons.append("EXPLICITLY_EXCLUDED")
+                        device_diagnostics.append(
+                            {
+                                "gpu_index": device["gpu_index"],
+                                "eligible": False,
+                                "reasons": device_reasons,
+                            }
+                        )
+                        continue
+                    device_ready = True
+                    if device["utilization_percent"] > utilization_limit:
+                        device_failure_reasons.add("GPU_UTILIZATION_ABOVE_MAXIMUM")
+                        device_reasons.append("GPU_UTILIZATION_ABOVE_MAXIMUM")
+                        device_ready = False
+                    if (
+                        memory_limit is not None
+                        and device["memory_used_mib"] > memory_limit
+                    ):
+                        device_failure_reasons.add("GPU_MEMORY_USE_ABOVE_MAXIMUM")
+                        device_reasons.append("GPU_MEMORY_USE_ABOVE_MAXIMUM")
+                        device_ready = False
+                    if require_idle and device["active_compute_process_count"] != 0:
+                        device_failure_reasons.add("GPU_HAS_ACTIVE_COMPUTE_PROCESS")
+                        device_reasons.append("GPU_HAS_ACTIVE_COMPUTE_PROCESS")
+                        device_ready = False
+                    if device_ready:
+                        ready_devices.append(device)
+                    device_diagnostics.append(
+                        {
+                            "gpu_index": device["gpu_index"],
+                            "eligible": device_ready,
+                            "reasons": sorted(device_reasons),
+                        }
+                    )
+                if len(ready_devices) < required_gpu_count:
+                    reasons.extend(sorted(device_failure_reasons))
+                    reasons.append("INSUFFICIENT_READY_GPU_COUNT")
+                diagnostic_details = {
+                    "eligible_gpu_indices": sorted(
+                        item["gpu_index"] for item in ready_devices
+                    ),
+                    "device_diagnostics": sorted(
+                        device_diagnostics, key=lambda item: item["gpu_index"]
+                    ),
+                }
         reasons = sorted(set(reasons))
         is_match = not reasons
         diagnostics.append(
-            {"resource_id": resource_id, "matched": is_match, "reasons": reasons}
+            {
+                "resource_id": resource_id,
+                "matched": is_match,
+                "reasons": reasons,
+                **diagnostic_details,
+            }
         )
         if is_match:
             matched.append(resource_id)
@@ -267,7 +367,7 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
     screen_item = screen_items[0]
     live_status = (
         read_object(Path(manifest["resource_status"]["path"]))
-        if manifest["schema_version"] == MANIFEST_SCHEMA_V2
+        if manifest["schema_version"] in {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}
         else None
     )
     matched, resource_diagnostics = matching_resources(
@@ -306,11 +406,11 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
         decision = "ELIGIBLE_FOR_SUPERVISOR_REVIEW"
 
     result = {
-        "schema_version": (
-            ASSESSMENT_SCHEMA_V2
-            if manifest["schema_version"] == MANIFEST_SCHEMA_V2
-            else ASSESSMENT_SCHEMA_V1
-        ),
+        "schema_version": {
+            MANIFEST_SCHEMA_V1: ASSESSMENT_SCHEMA_V1,
+            MANIFEST_SCHEMA_V2: ASSESSMENT_SCHEMA_V2,
+            MANIFEST_SCHEMA_V3: ASSESSMENT_SCHEMA_V3,
+        }[manifest["schema_version"]],
         "generated_at": now(),
         "claim_boundary": (
             "POST_MATERIALIZATION_GATE_NOT_PERFORMANCE_EVIDENCE_OR_DISPATCH_APPROVAL"
@@ -352,7 +452,7 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
             ),
         },
     }
-    if manifest["schema_version"] == MANIFEST_SCHEMA_V2:
+    if manifest["schema_version"] in {MANIFEST_SCHEMA_V2, MANIFEST_SCHEMA_V3}:
         result["resource_match_diagnostics"] = resource_diagnostics
     errors = validate_instance(
         result,

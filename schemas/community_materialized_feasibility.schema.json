@@ -21,7 +21,8 @@
     "schema_version": {
       "enum": [
         "community-materialized-feasibility-v1",
-        "community-materialized-feasibility-v2"
+        "community-materialized-feasibility-v2",
+        "community-materialized-feasibility-v3"
       ]
     },
     "generated_at": {"type": "string", "format": "date-time"},
@@ -74,6 +75,28 @@
             "type": "array",
             "uniqueItems": true,
             "items": {"type": "string", "minLength": 1}
+          },
+          "eligible_gpu_indices": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "integer", "minimum": 0}
+          },
+          "device_diagnostics": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["gpu_index", "eligible", "reasons"],
+              "properties": {
+                "gpu_index": {"type": "integer", "minimum": 0},
+                "eligible": {"type": "boolean"},
+                "reasons": {
+                  "type": "array",
+                  "uniqueItems": true,
+                  "items": {"type": "string", "minLength": 1}
+                }
+              }
+            }
           }
         }
       }

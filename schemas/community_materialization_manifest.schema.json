@@ -20,7 +20,8 @@
     "schema_version": {
       "enum": [
         "community-materialization-manifest-v1",
-        "community-materialization-manifest-v2"
+        "community-materialization-manifest-v2",
+        "community-materialization-manifest-v3"
       ]
     },
     "generated_at": {"type": "string", "format": "date-time"},
@@ -144,6 +145,22 @@
           "type": "integer",
           "minimum": 1,
           "maximum": 3600
+        },
+        "minimum_ready_gpu_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "maximum_gpu_utilization_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "maximum_used_memory_mib_per_gpu": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "require_zero_active_compute_processes": {
+          "type": "boolean"
         }
       }
     }
@@ -159,6 +176,42 @@
         "required": ["hardware_match"],
         "properties": {
           "hardware_match": {"$ref": "#/$defs/hardwareMatch"},
+          "resource_status": {"$ref": "#/$defs/fileIdentity"},
+          "artifacts": {
+            "allOf": [
+              {"contains": {"properties": {"role": {"const": "BASELINE_SOURCE"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "OPERATOR_HARNESS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "WHOLE_MODEL_HARNESS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "MODEL_OR_WEIGHTS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "RUNTIME_OR_ENVIRONMENT"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "LIVE_HARDWARE_STATUS"}, "required": {"const": true}}, "required": ["role", "required"]}}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-materialization-manifest-v3"}
+        }
+      },
+      "then": {
+        "required": ["hardware_match"],
+        "properties": {
+          "hardware_match": {
+            "allOf": [
+              {"$ref": "#/$defs/hardwareMatch"},
+              {
+                "required": [
+                  "minimum_ready_gpu_count",
+                  "maximum_gpu_utilization_percent",
+                  "maximum_used_memory_mib_per_gpu",
+                  "require_zero_active_compute_processes"
+                ]
+              }
+            ]
+          },
           "resource_status": {"$ref": "#/$defs/fileIdentity"},
           "artifacts": {
             "allOf": [
