@@ -14,7 +14,7 @@
     "tasks"
   ],
   "properties": {
-    "schema_version": {"enum": ["community-temporal-suite-v1", "community-temporal-suite-v2"]},
+    "schema_version": {"enum": ["community-temporal-suite-v1", "community-temporal-suite-v2", "community-temporal-suite-v3"]},
     "suite_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
     "cutoff_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "EVALUATION_PROTOCOL_ONLY"},
@@ -24,6 +24,8 @@
     "training_prior_routing": {"$ref": "#/$defs/identity"},
     "preselection_anchor": {"$ref": "#/$defs/identity"},
     "knowledge_checkpoint_anchor": {"$ref": "#/$defs/identity"},
+    "task_novelty_guard": {"$ref": "#/$defs/identity"},
+    "task_selection_manifest": {"$ref": "#/$defs/identity"},
     "protocol": {
       "type": "object",
       "additionalProperties": false,
@@ -145,7 +147,7 @@
     {
       "if": {
         "properties": {
-          "schema_version": {"const": "community-temporal-suite-v2"}
+          "schema_version": {"enum": ["community-temporal-suite-v2", "community-temporal-suite-v3"]}
         }
       },
       "then": {
@@ -155,6 +157,16 @@
           "training_prior_outcomes",
           "training_prior_routing"
         ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-temporal-suite-v3"}
+        }
+      },
+      "then": {
+        "required": ["training_methods", "task_novelty_guard", "task_selection_manifest"]
       }
     }
   ],

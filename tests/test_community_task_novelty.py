@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_task_novelty import derive_task_novelty  # noqa: E402
+from community_evaluation import validate_suite_task_novelty  # noqa: E402
 
 
 def checkpoint(*keys: str) -> dict:
@@ -52,3 +53,56 @@ def test_inventory_mismatch_and_duplicate_selected_key_fail_closed() -> None:
         derive_task_novelty(
             checkpoint(), queue([item(1), item(1)], selected_count=2)
         )
+
+
+def test_suite_v3_tasks_must_be_unique_allowed_prs_with_exact_availability() -> None:
+    suite = {
+        "tasks": [
+            {
+                "task_id": "org.repo.2",
+                "repository": "org/repo",
+                "pr_number": 2,
+                "available_at": "2026-09-07T20:00:00Z",
+            }
+        ]
+    }
+    guard = {"new_selected_keys": ["org/repo#2"]}
+    source_queue = {
+        "items": [
+            {
+                "repository": "org/repo",
+                "pr_number": 2,
+                "selection": "SELECTED",
+                "earliest_public_at": "2026-09-07T20:00:00Z",
+            }
+        ]
+    }
+    validate_suite_task_novelty(suite, guard, source_queue)
+
+    blocked = {"tasks": [{**suite["tasks"][0], "pr_number": 1}]}
+    with pytest.raises(ValueError, match="absent from novelty allow-list"):
+        validate_suite_task_novelty(blocked, guard, source_queue)
+
+    prospective = {
+        "tasks": [
+            {
+                "task_id": "prospective",
+                "repository": "org/repo",
+                "available_at": "2026-09-07T20:00:00Z",
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="requires PR-backed"):
+        validate_suite_task_novelty(prospective, guard, source_queue)
+
+    duplicate = {"tasks": [suite["tasks"][0], suite["tasks"][0]]}
+    with pytest.raises(ValueError, match="repeats task key"):
+        validate_suite_task_novelty(duplicate, guard, source_queue)
+
+    wrong_time = {
+        "tasks": [
+            {**suite["tasks"][0], "available_at": "2026-09-07T20:00:01Z"}
+        ]
+    }
+    with pytest.raises(ValueError, match="availability differs"):
+        validate_suite_task_novelty(wrong_time, guard, source_queue)

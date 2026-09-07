@@ -135,6 +135,13 @@ def test_temporal_suite_v2_requires_the_complete_knowledge_chain() -> None:
     )
     assert not any("knowledge_checkpoint_anchor" in error for error in v1_errors)
 
+    v3_errors = validate_instance(
+        {"schema_version": "community-temporal-suite-v3"}, schema
+    )
+    assert any("knowledge_checkpoint_anchor" in error for error in v3_errors)
+    assert any("task_novelty_guard" in error for error in v3_errors)
+    assert any("task_selection_manifest" in error for error in v3_errors)
+
 
 def test_relation_observation_is_temporal_claim_bound_and_context_guarded() -> None:
     first = {

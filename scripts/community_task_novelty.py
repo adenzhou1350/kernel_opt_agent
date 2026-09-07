@@ -6,7 +6,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from community_evaluation import validate_heldout_queue
 from community_funnel_checkpoint import validate_checkpoint_fast
 from community_knowledge import atomic_json, now, read_object, sha256_file
 from schema_utils import validate_instance, validate_json_file
@@ -98,6 +97,8 @@ def build_guard(
     # The queue was created by the frozen cohort implementation.  Its graph
     # anchor and schemas therefore resolve against that source root, while the
     # novelty guard itself is validated against the current runner root.
+    from community_evaluation import validate_heldout_queue
+
     validate_heldout_queue(queue_path, corpus, source_root)
     report = derive_task_novelty(
         read_object(checkpoint_path), read_object(queue_path)

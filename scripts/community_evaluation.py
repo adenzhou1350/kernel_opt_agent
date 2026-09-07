@@ -30,7 +30,11 @@ from schema_utils import validate_instance, validate_json_file
 from community_validation_session import ValidationSession
 
 
-SUITE_SCHEMAS = {"community-temporal-suite-v1", "community-temporal-suite-v2"}
+SUITE_SCHEMAS = {
+    "community-temporal-suite-v1",
+    "community-temporal-suite-v2",
+    "community-temporal-suite-v3",
+}
 TRIAL_SCHEMA = "community-evaluation-trial-v1"
 RESULT_SCHEMA = "community-trial-result-v1"
 ASSESSMENT_SCHEMA = "community-trial-assessment-v1"
@@ -494,6 +498,117 @@ def suite_protocol_registration_errors(suite: dict, preregistration: dict) -> li
     return errors
 
 
+def validate_suite_task_novelty(suite: dict, guard: dict, queue: dict) -> None:
+    """Require every v3 PR task to come from the novelty guard allow-list."""
+    allowed = set(guard["new_selected_keys"])
+    queue_items = {
+        (item["repository"], int(item["pr_number"])): item
+        for item in queue["items"]
+    }
+    observed: set[str] = set()
+    for task in suite["tasks"]:
+        if task.get("pr_number") is None:
+            raise ValueError("temporal suite v3 requires PR-backed tasks")
+        key = f"{task['repository']}#{int(task['pr_number'])}"
+        if key in observed:
+            raise ValueError(f"temporal suite v3 repeats task key: {key}")
+        observed.add(key)
+        if key not in allowed:
+            raise ValueError(
+                f"temporal suite v3 task is absent from novelty allow-list: {key}"
+            )
+        source = queue_items.get((task["repository"], int(task["pr_number"])))
+        if source is None or source["selection"] != "SELECTED":
+            raise ValueError(
+                f"temporal suite v3 task is absent from selected queue: {key}"
+            )
+        if parse_time(task["available_at"]) != parse_time(
+            source["earliest_public_at"]
+        ):
+            raise ValueError(
+                f"temporal suite v3 task availability differs from queue: {key}"
+            )
+
+
+def require_bound_path(identity: dict, path: Path, label: str) -> None:
+    if (
+        Path(identity["path"]).resolve() != path.resolve()
+        or identity["sha256"] != sha256_file(path.resolve())
+    ):
+        raise ValueError(f"temporal suite v3 {label} binding differs")
+
+
+def validate_suite_novelty_binding(
+    suite: dict,
+    base: Path,
+    corpus: Path,
+    root: Path,
+    graph_path: Path,
+    method_path: Path,
+    anchor_path: Path,
+    cutoff: datetime,
+) -> None:
+    """Close suite task selection over the exact window assembly chain."""
+    manifest_path = validate_identity(
+        base,
+        suite["task_selection_manifest"],
+        "suite task selection manifest",
+    )
+    novelty_path = validate_identity(
+        base, suite["task_novelty_guard"], "suite task novelty guard"
+    )
+    manifest = read_object(manifest_path)
+    if (
+        manifest.get("schema_version") != "community-window-assembly-v2"
+        or manifest.get("status") != "PASS"
+    ):
+        raise ValueError(
+            "temporal suite v3 requires a PASS window assembly v2 manifest"
+        )
+    require_bound_path(
+        manifest["output_identity"]["novelty_guard"],
+        novelty_path,
+        "manifest novelty guard",
+    )
+    require_bound_path(
+        manifest["input_identity"]["graph"],
+        graph_path,
+        "manifest training graph",
+    )
+    require_bound_path(
+        manifest["input_identity"]["methods"],
+        method_path,
+        "manifest training methods",
+    )
+    require_bound_path(
+        manifest["input_identity"]["anchor"],
+        anchor_path,
+        "manifest preselection anchor",
+    )
+    if parse_time(manifest["configuration"]["cutoff_at"]) != cutoff:
+        raise ValueError("temporal suite v3 manifest cutoff differs")
+    novelty = read_object(novelty_path)
+    checkpoint_path = Path(
+        novelty["input_identity"]["predecessor_checkpoint"]["path"]
+    )
+    checkpoint = read_object(checkpoint_path)
+    novelty_source_root = Path(checkpoint["input_identity"]["source_root"])
+    from community_task_novelty import validate_guard
+
+    validate_guard(novelty_path, corpus, novelty_source_root, root)
+    novelty_queue = read_object(Path(novelty["input_identity"]["queue"]["path"]))
+    if parse_time(novelty_queue["cutoff_at"]) != cutoff:
+        raise ValueError("temporal suite v3 novelty queue cutoff differs")
+    if (
+        manifest["task_materialization_gate"]["allowed_keys"]
+        != novelty["new_selected_keys"]
+        or manifest["task_materialization_gate"]["blocked_repeat_keys"]
+        != novelty["repeated_selected_keys"]
+    ):
+        raise ValueError("temporal suite v3 manifest novelty gate differs")
+    validate_suite_task_novelty(suite, novelty, novelty_queue)
+
+
 def validate_suite(
     suite_path: Path, corpus: Path, root: Path | None = None
 ) -> dict:
@@ -516,7 +631,10 @@ def validate_suite(
     validate_training_graph(graph_path, corpus, root)
     graph = read_object(graph_path)
     cutoff = parse_time(suite["cutoff_at"])
-    if suite["schema_version"] == "community-temporal-suite-v2":
+    if suite["schema_version"] in {
+        "community-temporal-suite-v2",
+        "community-temporal-suite-v3",
+    }:
         if graph["schema_version"] != "community-optimization-graph-v2":
             raise ValueError("temporal suite v2 requires checkpoint-backed graph v2")
         if (
@@ -538,6 +656,7 @@ def validate_suite(
         ):
             raise ValueError("suite and graph bind different knowledge checkpoints")
     anchored_preregistration = None
+    anchor_path = None
     if suite.get("preselection_anchor") is not None:
         anchor_path = validate_identity(
             base, suite["preselection_anchor"], "suite preselection anchor"
@@ -559,6 +678,7 @@ def validate_suite(
                 "was available after cutoff"
             )
     method_count = 0
+    method_path = None
     if suite.get("training_methods"):
         method_path = validate_identity(
             base, suite["training_methods"], "training method snapshot"
@@ -653,6 +773,18 @@ def validate_suite(
     training_sources = {
         (node["repository"], int(node["pr_number"])) for node in graph["nodes"]
     }
+
+    if suite["schema_version"] == "community-temporal-suite-v3":
+        validate_suite_novelty_binding(
+            suite,
+            base,
+            corpus,
+            root,
+            graph_path,
+            method_path,
+            anchor_path,
+            cutoff,
+        )
 
     validate_identity(base, suite["protocol"]["prompt_identity"], "trial prompt")
     validate_identity(
