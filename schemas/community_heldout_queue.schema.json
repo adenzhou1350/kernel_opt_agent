@@ -37,6 +37,7 @@
             {"$ref": "#/$defs/fileIdentity"}
           ]
         },
+        "discovery_routing_snapshot": {"$ref": "#/$defs/fileIdentity"},
         "corpus_index_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
@@ -59,9 +60,18 @@
         "eligibility_time_field": {"const": "earliest_public_at"},
         "exclude_training_sources": {"const": true},
         "selection_inputs": {
-          "const": ["repository", "pr_number", "classifications", "selection_score", "earliest_public_at"]
+          "oneOf": [
+            {"const": ["repository", "pr_number", "classifications", "selection_score", "earliest_public_at"]},
+            {"const": ["repository", "pr_number", "title", "classifications", "selection_score", "earliest_public_at", "discovery_routing_snapshot"]}
+          ]
         },
-        "ordering": {"const": "DIVERSE_GROUP_FIRST_THEN_DISCOVERY_SCORE_THEN_SEEDED_HASH"}
+        "routing_feedback": {"const": "FROZEN_CONTEXT_DEMOTION_V1"},
+        "ordering": {
+          "enum": [
+            "DIVERSE_GROUP_FIRST_THEN_DISCOVERY_SCORE_THEN_SEEDED_HASH",
+            "CONTEXT_RUNNABLE_FIRST_THEN_DIVERSE_GROUP_THEN_DISCOVERY_SCORE_THEN_SEEDED_HASH"
+          ]
+        }
       }
     },
     "inventory": {
@@ -149,7 +159,10 @@
         "within_group_rank": {"type": "integer", "minimum": 1},
         "seeded_tiebreak": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
         "selection": {"enum": ["SELECTED", "BACKLOG"]},
-        "priority_rank": {"type": "integer", "minimum": 1}
+        "priority_rank": {"type": "integer", "minimum": 1},
+        "routing_decision": {"enum": ["KEEP", "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES"]},
+        "routing_rule_id": {"type": ["string", "null"]},
+        "counterfactual_priority_rank": {"type": "integer", "minimum": 1}
       }
     }
   }

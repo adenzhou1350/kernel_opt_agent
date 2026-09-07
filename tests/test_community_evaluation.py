@@ -27,12 +27,14 @@ from community_evaluation import (
     build_heldout_queue,
     build_prior_shortlist,
     compare_trials,
+    discovery_routing_decision,
     exact_two_sided_sign_p,
     materialize_suite,
     materialize_trial,
     prepare_trial_source,
     prior_scalar_text,
     prior_term_in_text,
+    require_routing_available_before_cutoff,
     summarize_pair_rows,
     summarize_schedule_run,
     validate_source_receipt,
@@ -64,6 +66,46 @@ def identity(path: Path, base: Path) -> dict:
         "path": path.relative_to(base).as_posix(),
         "sha256": sha256_file(path),
     }
+
+
+def test_discovery_routing_is_contextual_and_cutoff_safe() -> None:
+    snapshot = {
+        "available_at": "2026-01-03T12:00:00Z",
+        "rules": [
+            {
+                "rule_id": "amd-only",
+                "match": {"title_regex": "\\b(rocm|amd)\\b"},
+                "action": "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES",
+            }
+        ],
+    }
+    decision, rule_id = discovery_routing_decision(
+        {
+            "repository": "example/project",
+            "title": "ROCm packed prefill",
+            "classifications": ["PERFORMANCE_CHANGE"],
+        },
+        snapshot,
+    )
+    assert decision == "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES"
+    assert rule_id == "amd-only"
+    assert discovery_routing_decision(
+        {
+            "repository": "example/project",
+            "title": "CUDA packed prefill",
+            "classifications": ["PERFORMANCE_CHANGE"],
+        },
+        snapshot,
+    ) == ("KEEP", None)
+    require_routing_available_before_cutoff(snapshot, "2026-01-03T12:00:00Z")
+    try:
+        require_routing_available_before_cutoff(
+            snapshot, "2026-01-03T11:59:59Z"
+        )
+    except ValueError as error:
+        assert "leaks post-cutoff" in str(error)
+    else:
+        raise AssertionError("post-cutoff discovery routing snapshot was accepted")
 
 
 def test_qualification_checkpoint() -> None:

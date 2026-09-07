@@ -786,6 +786,32 @@ def training_graph_cutoff(graph: dict) -> str | None:
     return graph.get("temporal_cutoff_at")
 
 
+def discovery_routing_decision(candidate: dict, snapshot: dict) -> tuple[str, str | None]:
+    for rule in snapshot["rules"]:
+        if rule_matches_candidate(rule, candidate):
+            return rule["action"], rule["rule_id"]
+    return "KEEP", None
+
+
+def require_routing_available_before_cutoff(snapshot: dict, cutoff_at: str) -> None:
+    if parse_time(snapshot["available_at"]) > parse_time(cutoff_at):
+        raise ValueError("discovery routing snapshot leaks post-cutoff feedback")
+
+
+def load_discovery_routing_snapshot(
+    snapshot_path: Path,
+    corpus: Path,
+    cutoff_at: str,
+    root: Path,
+) -> dict:
+    from community_discovery_funnel import validate_routing_snapshot
+
+    validate_routing_snapshot(snapshot_path, root)
+    snapshot = read_object(snapshot_path.resolve())
+    require_routing_available_before_cutoff(snapshot, cutoff_at)
+    return snapshot
+
+
 def build_heldout_queue(
     receipt_paths: list[Path],
     graph_path: Path,
@@ -795,6 +821,7 @@ def build_heldout_queue(
     max_items: int,
     random_seed: int,
     root: Path | None = None,
+    routing_snapshot_path: Path | None = None,
 ) -> dict:
     """Select post-cutoff PRs from discovery metadata without solution artifacts."""
     root = root or repository_root()
@@ -844,6 +871,15 @@ def build_heldout_queue(
         if len(method_ids) != len(set(method_ids)):
             raise ValueError("held-out method snapshot contains duplicate method ids")
         method_identity = absolute_identity(methods_path)
+
+    routing_snapshot = None
+    routing_identity = None
+    if routing_snapshot_path is not None:
+        routing_snapshot_path = routing_snapshot_path.resolve()
+        routing_snapshot = load_discovery_routing_snapshot(
+            routing_snapshot_path, corpus, cutoff_at, root
+        )
+        routing_identity = absolute_identity(routing_snapshot_path)
 
     receipt_schema = root / "schemas" / "community_sync_receipt.schema.json"
     receipt_identities = []
@@ -929,6 +965,10 @@ def build_heldout_queue(
         row["seeded_tiebreak"] = hashlib.sha256(
             f"{random_seed}:{row['repository']}:{row['pr_number']}".encode()
         ).hexdigest()
+        if routing_snapshot is not None:
+            decision, rule_id = discovery_routing_decision(row, routing_snapshot)
+            row["routing_decision"] = decision
+            row["routing_rule_id"] = rule_id
         eligible.append(row)
 
     grouped: dict[str, list[dict]] = {}
@@ -940,13 +980,26 @@ def build_heldout_queue(
         )
         for rank, row in enumerate(rows, start=1):
             row["within_group_rank"] = rank
-    eligible.sort(
-        key=lambda row: (
+    def base_order(row: dict) -> tuple:
+        return (
             row["within_group_rank"] != 1,
             -row["discovery_score"],
             row["seeded_tiebreak"],
         )
-    )
+
+    if routing_snapshot is not None:
+        counterfactual = sorted(eligible, key=base_order)
+        for rank, row in enumerate(counterfactual, start=1):
+            row["counterfactual_priority_rank"] = rank
+        eligible.sort(
+            key=lambda row: (
+                row["routing_decision"]
+                == "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES",
+                *base_order(row),
+            )
+        )
+    else:
+        eligible.sort(key=base_order)
     for rank, row in enumerate(eligible, start=1):
         row["priority_rank"] = rank
         row["selection"] = "SELECTED" if rank <= max_items else "BACKLOG"
@@ -995,6 +1048,26 @@ def build_heldout_queue(
         "items": eligible,
         "excluded": excluded,
     }
+    if routing_identity is not None:
+        queue["input_identity"]["discovery_routing_snapshot"] = routing_identity
+        queue["policy"].update(
+            {
+                "selection_inputs": [
+                    "repository",
+                    "pr_number",
+                    "title",
+                    "classifications",
+                    "selection_score",
+                    "earliest_public_at",
+                    "discovery_routing_snapshot",
+                ],
+                "routing_feedback": "FROZEN_CONTEXT_DEMOTION_V1",
+                "ordering": (
+                    "CONTEXT_RUNNABLE_FIRST_THEN_DIVERSE_GROUP_THEN_"
+                    "DISCOVERY_SCORE_THEN_SEEDED_HASH"
+                ),
+            }
+        )
     errors = validate_instance(
         queue,
         read_object(root / "schemas" / "community_heldout_queue.schema.json"),
@@ -1040,6 +1113,11 @@ def validate_heldout_queue(
         int(queue["policy"]["max_items"]),
         int(queue["policy"]["random_seed"]),
         root,
+        (
+            Path(inputs["discovery_routing_snapshot"]["path"])
+            if inputs.get("discovery_routing_snapshot") is not None
+            else None
+        ),
     )
     # The graph, not the mutable corpus index, is the frozen training universe.
     # Keep the index hash as build-time provenance for v1 queues, but do not let
@@ -1324,6 +1402,11 @@ def build_preselection_anchor(
         ("FEASIBILITY_POLICY", preregistration["policy_identity"]),
         ("EXECUTION_PROFILE", preregistration["execution_profile_identity"]),
     )
+    if preregistration.get("discovery_routing_identity") is not None:
+        roles = (*roles, (
+            "DISCOVERY_ROUTING_SNAPSHOT",
+            preregistration["discovery_routing_identity"],
+        ))
     if preregistration.get("prior_routing_identity") is not None:
         roles = (*roles, (
             "PRIOR_ROUTING_SNAPSHOT",
@@ -1377,6 +1460,25 @@ def build_preselection_anchor(
             ):
                 raise ValueError(
                     "evaluation source ledger differs from prior routing snapshot"
+                )
+        if role == "DISCOVERY_ROUTING_SNAPSHOT":
+            routing_errors = validate_json_file(
+                path,
+                root
+                / "schemas"
+                / "community_discovery_routing_snapshot.schema.json",
+            )
+            if routing_errors:
+                raise ValueError(
+                    "invalid preregistered discovery routing snapshot: "
+                    + "; ".join(routing_errors)
+                )
+            routing = read_object(path)
+            if parse_time(routing["available_at"]) > parse_time(
+                preregistration["cutoff_at"]
+            ):
+                raise ValueError(
+                    "discovery routing snapshot was available after discovery cutoff"
                 )
     anchor = {
         "schema_version": PRESELECTION_ANCHOR_SCHEMA,
@@ -1483,6 +1585,27 @@ def preselection_link_errors(
         != preregistration["execution_profile_identity"]["sha256"]
     ):
         errors.append("screen execution profile differs from preregistration")
+    queue_routing = queue["input_identity"].get("discovery_routing_snapshot")
+    registered_routing = preregistration.get("discovery_routing_identity")
+    if (queue_routing is None) != (registered_routing is None):
+        errors.append("queue discovery routing differs from preregistration")
+    elif queue_routing is not None:
+        if queue_routing["sha256"] != registered_routing["sha256"]:
+            errors.append("queue discovery routing differs from preregistration")
+        else:
+            routing = read_object(Path(queue_routing["path"]))
+            if (
+                routing["input_identity"]["feasibility_policy"]["sha256"]
+                != screen["input_identity"]["policy"]["sha256"]
+            ):
+                errors.append("discovery routing policy differs from screen policy")
+            if (
+                routing["input_identity"]["execution_profile"]["sha256"]
+                != screen["input_identity"]["execution_profile"]["sha256"]
+            ):
+                errors.append(
+                    "discovery routing profile differs from screen execution profile"
+                )
     if (
         queue["inventory"]["receipt_candidate_count"]
         != sum(int(receipt["candidate_count"]) for receipt in receipts)
@@ -4570,6 +4693,7 @@ def parse_args() -> argparse.Namespace:
     heldout.add_argument("--receipt", type=Path, action="append", required=True)
     heldout.add_argument("--graph", type=Path, required=True)
     heldout.add_argument("--methods", type=Path)
+    heldout.add_argument("--routing-snapshot", type=Path)
     heldout.add_argument("--corpus", type=Path, required=True)
     heldout.add_argument("--cutoff-at", required=True)
     heldout.add_argument("--max-items", type=int, default=8)
@@ -4680,6 +4804,7 @@ def main() -> int:
                 args.cutoff_at,
                 args.max_items,
                 args.random_seed,
+                routing_snapshot_path=args.routing_snapshot,
             )
             atomic_json(args.output.resolve(), result)
             result = {**result["inventory"], "status": "PASS", "queue": str(args.output.resolve())}

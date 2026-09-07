@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_discovery_funnel import (  # noqa: E402
     build_funnel,
     count_rows,
+    derive_routing_rules,
     ratio,
     validate_funnel,
 )
@@ -128,3 +129,66 @@ def test_repeated_pr_updates_do_not_become_independent_evidence() -> None:
     assert docs["distinct_candidate_count"] == 1
     assert docs["candidate_keys"] == ["sgl-project/sglang#38261"]
     assert docs["recommendation"] == "COLLECT_MORE"
+
+
+def test_context_bound_routing_requires_distinct_nonrunnable_evidence() -> None:
+    recommendation = {
+        "matched_rule_id": "amd-only",
+        "screen_reason": "NO_DECLARED_RESOURCE_SATISFIES_REQUIREMENTS",
+        "task_family": "AMD_RUNTIME",
+        "observation_count": 2,
+        "distinct_candidate_count": 2,
+        "runnable_count": 0,
+        "recommendation": "CONSIDER_DISCOVERY_DEMOTION",
+        "candidate_keys": ["example/project#7", "example/project#8"],
+    }
+    funnel = {"shadow_recommendations": [recommendation]}
+    policy = {
+        "rules": [
+            {
+                "rule_id": "amd-only",
+                "match": {"title_regex": "\\b(rocm|amd)\\b"},
+                "task_family": "AMD_RUNTIME",
+                "requirements": {
+                    "vendors_any": ["AMD"],
+                    "capabilities_all": ["ROCM"],
+                    "minimum_gpu_count": 1,
+                    "minimum_memory_gib_per_gpu": 1,
+                },
+            }
+        ]
+    }
+    nvidia_profile = {
+        "resources": [
+            {
+                "vendor": "NVIDIA",
+                "capabilities": ["CUDA"],
+                "gpu_count": 1,
+                "memory_gib_per_gpu": 32,
+            }
+        ]
+    }
+    rules = derive_routing_rules(funnel, policy, nvidia_profile)
+    assert len(rules) == 1
+    assert rules[0]["action"] == (
+        "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES"
+    )
+    assert rules[0]["evidence_candidate_keys"] == [
+        "example/project#7",
+        "example/project#8",
+    ]
+
+    amd_profile = {
+        "resources": [
+            {
+                "vendor": "AMD",
+                "capabilities": ["ROCM"],
+                "gpu_count": 1,
+                "memory_gib_per_gpu": 32,
+            }
+        ]
+    }
+    assert derive_routing_rules(funnel, policy, amd_profile) == []
+    recommendation["runnable_count"] = 1
+    recommendation["recommendation"] = "KEEP"
+    assert derive_routing_rules(funnel, policy, nvidia_profile) == []

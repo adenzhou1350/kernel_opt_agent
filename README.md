@@ -16,6 +16,15 @@ snapshots and reviewed optimization events. See
 `scripts/kernel_opt.py community capture-pr|validate-corpus|validate-event`.
 Use `community sync-repository` with explicit time windows for bounded,
 incremental performance-PR discovery.
+Discovery feedback is learned only through a versioned, context-bound routing
+snapshot. Build it from a validated funnel with
+`scripts/community_discovery_funnel.py build-routing`, validate it with
+`validate-routing`, and pass it to `community-eval build-heldout-queue` with
+`--routing-snapshot`. The snapshot may affect only a later cohort whose cutoff
+is at or after `available_at`. It demotes matching non-runnable work instead of
+deleting it, retains the original counterfactual rank, binds the exact policy
+and execution profile, and disappears when a runnable counterexample is
+observed in the same context.
 Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
 versus community-augmented trials. New trials bind a machine-audited architecture
 frontier: the executor must pre-register minimum search dimensions, map every

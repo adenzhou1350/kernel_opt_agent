@@ -1,0 +1,127 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_discovery_routing_snapshot.schema.json",
+  "title": "Context-bound next-cohort discovery demotion snapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "available_at",
+    "claim_boundary",
+    "input_identity",
+    "profile_id",
+    "minimum_distinct_candidates",
+    "rules",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-discovery-routing-snapshot-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "available_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "NEXT_COHORT_CONTEXT_ROUTING_NOT_CURRENT_COHORT_SELECTION_OR_PERFORMANCE_EVIDENCE"},
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_funnel", "feasibility_policy", "execution_profile"],
+      "properties": {
+        "source_funnel": {"$ref": "#/$defs/funnelIdentity"},
+        "feasibility_policy": {"$ref": "#/$defs/policyIdentity"},
+        "execution_profile": {"$ref": "#/$defs/profileIdentity"}
+      }
+    },
+    "profile_id": {"type": "string", "minLength": 1},
+    "minimum_distinct_candidates": {"const": 2},
+    "rules": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "rule_id",
+          "task_family",
+          "screen_reason",
+          "match",
+          "distinct_candidate_count",
+          "runnable_count",
+          "evidence_candidate_keys",
+          "action",
+          "reversal"
+        ],
+        "properties": {
+          "rule_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+          "task_family": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"},
+          "screen_reason": {"const": "NO_DECLARED_RESOURCE_SATISFIES_REQUIREMENTS"},
+          "match": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "repositories": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"}
+              },
+              "title_regex": {"type": "string", "minLength": 1},
+              "classifications_any": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {"type": "string", "pattern": "^[A-Z][A-Z_]+$"}
+              }
+            }
+          },
+          "distinct_candidate_count": {"type": "integer", "minimum": 2},
+          "runnable_count": {"const": 0},
+          "evidence_candidate_keys": {
+            "type": "array",
+            "minItems": 2,
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+#[1-9][0-9]*$"}
+          },
+          "action": {"const": "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES"},
+          "reversal": {"const": "CANCEL_WHEN_ANY_RUNNABLE_COUNTEREXAMPLE_APPEARS_IN_SAME_CONTEXT"}
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "funnelIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "generated_at", "sha256"],
+      "properties": {
+        "schema_version": {"const": "community-discovery-funnel-v2"},
+        "generated_at": {"type": "string", "format": "date-time"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "policyIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "declared_at", "sha256"],
+      "properties": {
+        "policy_id": {"type": "string", "minLength": 1},
+        "declared_at": {"type": "string", "format": "date-time"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "profileIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["profile_id", "observed_at", "sha256"],
+      "properties": {
+        "profile_id": {"type": "string", "minLength": 1},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import copy
 from collections import Counter, defaultdict
+from datetime import datetime, timezone
 from pathlib import Path
 
 from community_evaluation import validate_preselection_chain_audit
@@ -15,6 +16,7 @@ from schema_utils import validate_instance, validate_json_file
 
 SCHEMA_VERSION_V1 = "community-discovery-funnel-v1"
 SCHEMA_VERSION = "community-discovery-funnel-v2"
+ROUTING_SNAPSHOT_SCHEMA = "community-discovery-routing-snapshot-v1"
 
 
 def repository_root() -> Path:
@@ -41,6 +43,68 @@ def count_rows(counter: Counter) -> list[dict]:
         {"key": key, "count": count}
         for key, count in sorted(counter.items(), key=lambda item: item[0])
     ]
+
+
+def parse_time(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        raise ValueError("timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
+def resource_satisfies(resource: dict, requirements: dict) -> bool:
+    vendors = set(requirements["vendors_any"])
+    return (
+        (not vendors or resource["vendor"] in vendors)
+        and set(requirements["capabilities_all"]) <= set(resource["capabilities"])
+        and resource["gpu_count"] >= requirements["minimum_gpu_count"]
+        and resource["memory_gib_per_gpu"]
+        >= requirements["minimum_memory_gib_per_gpu"]
+    )
+
+
+def derive_routing_rules(funnel: dict, policy: dict, profile: dict) -> list[dict]:
+    """Promote only repeated, context-matched, reversible non-runnable evidence."""
+    policy_rules = {rule["rule_id"]: rule for rule in policy["rules"]}
+    routed = []
+    for recommendation in funnel["shadow_recommendations"]:
+        if (
+            recommendation["recommendation"]
+            != "CONSIDER_DISCOVERY_DEMOTION"
+            or recommendation["screen_reason"]
+            != "NO_DECLARED_RESOURCE_SATISFIES_REQUIREMENTS"
+            or recommendation["distinct_candidate_count"] < 2
+            or recommendation["runnable_count"] != 0
+        ):
+            continue
+        rule = policy_rules.get(recommendation["matched_rule_id"])
+        if rule is None or rule["task_family"] != recommendation["task_family"]:
+            continue
+        if any(
+            resource_satisfies(resource, rule["requirements"])
+            for resource in profile["resources"]
+        ):
+            continue
+        routed.append(
+            {
+                "rule_id": rule["rule_id"],
+                "task_family": rule["task_family"],
+                "screen_reason": recommendation["screen_reason"],
+                "match": copy.deepcopy(rule["match"]),
+                "distinct_candidate_count": recommendation[
+                    "distinct_candidate_count"
+                ],
+                "runnable_count": 0,
+                "evidence_candidate_keys": sorted(
+                    recommendation["candidate_keys"]
+                ),
+                "action": "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES",
+                "reversal": (
+                    "CANCEL_WHEN_ANY_RUNNABLE_COUNTEREXAMPLE_APPEARS_IN_SAME_CONTEXT"
+                ),
+            }
+        )
+    return sorted(routed, key=lambda row: row["rule_id"])
 
 
 def schema_path(root: Path, version: str) -> Path:
@@ -292,6 +356,122 @@ def validate_funnel(report_path: Path, corpus: Path, root: Path | None = None) -
     return {"status": "PASS", **observed["inventory"], **observed["yield"]}
 
 
+def build_routing_snapshot(
+    funnel_path: Path,
+    policy_path: Path,
+    profile_path: Path,
+    corpus: Path,
+    root: Path | None = None,
+) -> dict:
+    root = (root or repository_root()).resolve()
+    funnel_path = funnel_path.resolve()
+    policy_path = policy_path.resolve()
+    profile_path = profile_path.resolve()
+    funnel = read_object(funnel_path)
+    source_roots: set[Path] = set()
+    for audit_identity in funnel["input_identity"]["audits"]:
+        audit = read_object(identity_path(audit_identity))
+        anchor = read_object(identity_path(audit["input_identity"]["anchor"]))
+        source_roots.add(Path(anchor["git_anchor"]["repository"]).resolve())
+    if len(source_roots) != 1:
+        raise ValueError("discovery funnel audits do not share one source repository")
+    validate_funnel(funnel_path, corpus, source_roots.pop())
+    for path, schema_name, label in (
+        (policy_path, "community_feasibility_policy.schema.json", "policy"),
+        (profile_path, "community_execution_profile.schema.json", "profile"),
+    ):
+        errors = validate_json_file(path, root / "schemas" / schema_name)
+        if errors:
+            raise ValueError(f"invalid discovery routing {label}: " + "; ".join(errors))
+    policy = read_object(policy_path)
+    profile = read_object(profile_path)
+    rules = derive_routing_rules(funnel, policy, profile)
+    if not rules:
+        raise ValueError("no context-valid discovery demotion has enough evidence")
+    available_at = max(
+        (funnel["generated_at"], policy["declared_at"], profile["observed_at"]),
+        key=parse_time,
+    )
+    snapshot = {
+        "schema_version": ROUTING_SNAPSHOT_SCHEMA,
+        "generated_at": now(),
+        "available_at": available_at,
+        "claim_boundary": (
+            "NEXT_COHORT_CONTEXT_ROUTING_NOT_CURRENT_COHORT_SELECTION_OR_PERFORMANCE_EVIDENCE"
+        ),
+        "input_identity": {
+            "source_funnel": {
+                "schema_version": funnel["schema_version"],
+                "generated_at": funnel["generated_at"],
+                "sha256": sha256_file(funnel_path),
+            },
+            "feasibility_policy": {
+                "policy_id": policy["policy_id"],
+                "declared_at": policy["declared_at"],
+                "sha256": sha256_file(policy_path),
+            },
+            "execution_profile": {
+                "profile_id": profile["profile_id"],
+                "observed_at": profile["observed_at"],
+                "sha256": sha256_file(profile_path),
+            },
+        },
+        "profile_id": profile["profile_id"],
+        "minimum_distinct_candidates": 2,
+        "rules": rules,
+        "limitations": [
+            "A snapshot may be consumed only when available_at is no later than the next cohort cutoff.",
+            "Rules are bound to one exact feasibility policy and execution profile; they never transfer across hardware contexts by name alone.",
+            "Demotion changes ordering only and never removes a candidate or proves a performance outcome.",
+            "Any runnable counterexample in the same rule/reason/family context cancels the rule when the next snapshot is rebuilt.",
+        ],
+    }
+    errors = validate_instance(
+        snapshot,
+        read_object(root / "schemas/community_discovery_routing_snapshot.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid discovery routing snapshot: " + "; ".join(errors))
+    return snapshot
+
+
+def validate_routing_snapshot(
+    snapshot_path: Path,
+    root: Path | None = None,
+) -> dict:
+    root = (root or repository_root()).resolve()
+    snapshot_path = snapshot_path.resolve()
+    errors = validate_json_file(
+        snapshot_path,
+        root / "schemas/community_discovery_routing_snapshot.schema.json",
+    )
+    if errors:
+        raise ValueError("invalid discovery routing snapshot: " + "; ".join(errors))
+    observed = read_object(snapshot_path)
+    inputs = observed["input_identity"]
+    expected_available_at = max(
+        (
+            inputs["source_funnel"]["generated_at"],
+            inputs["feasibility_policy"]["declared_at"],
+            inputs["execution_profile"]["observed_at"],
+        ),
+        key=parse_time,
+    )
+    if observed["available_at"] != expected_available_at:
+        raise ValueError("discovery routing available_at differs from its inputs")
+    if observed["profile_id"] != inputs["execution_profile"]["profile_id"]:
+        raise ValueError("discovery routing profile id differs from its input")
+    for rule in observed["rules"]:
+        if rule["distinct_candidate_count"] != len(rule["evidence_candidate_keys"]):
+            raise ValueError("discovery routing evidence count is inconsistent")
+    return {
+        "status": "PASS",
+        "profile_id": observed["profile_id"],
+        "rule_count": len(observed["rules"]),
+        "available_at": observed["available_at"],
+    }
+
+
 def parser() -> argparse.ArgumentParser:
     value = argparse.ArgumentParser(description=__doc__)
     operations = value.add_subparsers(dest="operation", required=True)
@@ -302,6 +482,14 @@ def parser() -> argparse.ArgumentParser:
     validate = operations.add_parser("validate")
     validate.add_argument("--report", type=Path, required=True)
     validate.add_argument("--corpus", type=Path, required=True)
+    routing = operations.add_parser("build-routing")
+    routing.add_argument("--funnel", type=Path, required=True)
+    routing.add_argument("--policy", type=Path, required=True)
+    routing.add_argument("--profile", type=Path, required=True)
+    routing.add_argument("--corpus", type=Path, required=True)
+    routing.add_argument("--output", type=Path, required=True)
+    routing_validate = operations.add_parser("validate-routing")
+    routing_validate.add_argument("--snapshot", type=Path, required=True)
     return value
 
 
@@ -311,8 +499,19 @@ def main() -> int:
         report = build_funnel(args.audit, args.corpus)
         atomic_json(args.output, report)
         print(args.output.resolve())
-    else:
+    elif args.operation == "validate":
         print(validate_funnel(args.report, args.corpus))
+    elif args.operation == "build-routing":
+        snapshot = build_routing_snapshot(
+            args.funnel,
+            args.policy,
+            args.profile,
+            args.corpus,
+        )
+        atomic_json(args.output, snapshot)
+        print(args.output.resolve())
+    else:
+        print(validate_routing_snapshot(args.snapshot))
     return 0
 
 

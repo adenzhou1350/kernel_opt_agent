@@ -18,6 +18,7 @@
     },
     "policy_identity": {"$ref": "#/$defs/identity"},
     "execution_profile_identity": {"$ref": "#/$defs/identity"},
+    "discovery_routing_identity": {"$ref": "#/$defs/identity"},
     "prior_routing_identity": {"$ref": "#/$defs/identity"},
     "knowledge_checkpoint_identity": {"$ref": "#/$defs/identity"},
     "evaluation": {

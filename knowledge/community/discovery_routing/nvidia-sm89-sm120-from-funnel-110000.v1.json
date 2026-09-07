@@ -1,0 +1,49 @@
+{
+  "available_at": "2026-09-07T11:05:29.528777+00:00",
+  "claim_boundary": "NEXT_COHORT_CONTEXT_ROUTING_NOT_CURRENT_COHORT_SELECTION_OR_PERFORMANCE_EVIDENCE",
+  "generated_at": "2026-09-07T11:38:57.657652+00:00",
+  "input_identity": {
+    "execution_profile": {
+      "observed_at": "2026-09-07T03:21:38.3676861Z",
+      "profile_id": "nvidia-sm89-sm120-verified-2026-09-07-v2",
+      "sha256": "016453bc19340677527d75a0eb28830aa925d9056794d37a25315dbdac634c21"
+    },
+    "feasibility_policy": {
+      "declared_at": "2026-09-07T01:47:00Z",
+      "policy_id": "nvidia-runtime-heldout-v2",
+      "sha256": "0326a05abd6d95e1d04ee69d32645bcf2d425f18c47ddb7c8c6410cc4e97dcda"
+    },
+    "source_funnel": {
+      "generated_at": "2026-09-07T11:05:29.528777+00:00",
+      "schema_version": "community-discovery-funnel-v2",
+      "sha256": "ba303b3f0993397b6b81e9218107f4bfd3e725ab60c2bf0592247daa43af7d8e"
+    }
+  },
+  "limitations": [
+    "A snapshot may be consumed only when available_at is no later than the next cohort cutoff.",
+    "Rules are bound to one exact feasibility policy and execution profile; they never transfer across hardware contexts by name alone.",
+    "Demotion changes ordering only and never removes a candidate or proves a performance outcome.",
+    "Any runnable counterexample in the same rule/reason/family context cancels the rule when the next snapshot is rebuilt."
+  ],
+  "minimum_distinct_candidates": 2,
+  "profile_id": "nvidia-sm89-sm120-verified-2026-09-07-v2",
+  "rules": [
+    {
+      "action": "DEFER_AFTER_CONTEXT_MATCHED_RUNNABLE_CANDIDATES",
+      "distinct_candidate_count": 2,
+      "evidence_candidate_keys": [
+        "vllm-project/vllm#55672",
+        "vllm-project/vllm#55711"
+      ],
+      "match": {
+        "title_regex": "\\b(amd|rocm|gfx[0-9]+)\\b"
+      },
+      "reversal": "CANCEL_WHEN_ANY_RUNNABLE_COUNTEREXAMPLE_APPEARS_IN_SAME_CONTEXT",
+      "rule_id": "amd-rocm-only",
+      "runnable_count": 0,
+      "screen_reason": "NO_DECLARED_RESOURCE_SATISFIES_REQUIREMENTS",
+      "task_family": "AMD_ROCM_RUNTIME"
+    }
+  ],
+  "schema_version": "community-discovery-routing-snapshot-v1"
+}
