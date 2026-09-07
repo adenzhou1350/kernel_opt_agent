@@ -350,7 +350,7 @@ def build_audit(
     }
     if methods is not None:
         report["limitations"].append(
-            "Reusable-method connectivity counts either a resolved graph-method edge or a cutoff-safe method-card provenance link; it does not prove that routing will select or successfully apply that knowledge."
+            "Callable-event coverage counts either a resolved graph-method edge or a cutoff-safe method-card provenance link; it does not prove that routing will select or successfully apply that knowledge."
         )
     errors = validate_instance(
         report,
