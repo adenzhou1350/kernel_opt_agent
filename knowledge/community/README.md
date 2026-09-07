@@ -220,6 +220,16 @@ current development checkout.
 The command returns a non-zero status when coverage is `FAIL`; retain the
 artifact and close the measured gap instead of lowering a policy after seeing
 the checkpoint.
+
+Bind the exact cutoff-matched method snapshot with `--methods` to audit whether
+reviewed events have also been distilled into reusable methods. The v2
+inventory reports graph-method relations and method-card provenance separately.
+A provenance link counts only if its source event is in the frozen graph and
+neither the event nor a referenced experiment postdates the method card. This
+mirrors prior-shortlist routing: rejected cards remain visible by reason and do
+not inflate reusable-method coverage. Event cards can still route directly, so
+this metric measures method distillation rather than total event retrievability.
+
 Instead, the node enters `lifecycle_review_queue` and is screened out of direct
 candidate transfer until a reviewer emits an event bound to the new snapshot.
 This prevents an open proposal that was later closed, changed or contradicted

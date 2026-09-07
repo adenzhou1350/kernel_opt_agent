@@ -9,12 +9,13 @@ import subprocess
 from collections import Counter
 from pathlib import Path
 
-from community_graph_v2 import validate_graph as validate_source_graph
+from community_graph_v2 import parse_time, validate_graph as validate_source_graph
 from community_knowledge import atomic_json, now, read_object, sha256_file
 from schema_utils import validate_instance, validate_json_file
 
 
-SCHEMA_VERSION = "community-coverage-audit-v1"
+SCHEMA_VERSION_V1 = "community-coverage-audit-v1"
+SCHEMA_VERSION_V2 = "community-coverage-audit-v2"
 NEGATIVE_OUTCOMES = {"CLOSED_UNMERGED", "REGRESSION_FOLLOWUP", "REVERTED"}
 
 
@@ -56,7 +57,80 @@ def check(check_id: str, observed: float, requirement: float, passed: bool) -> d
     }
 
 
-def evaluate(graph: dict, policy: dict) -> tuple[dict, list[dict]]:
+def validate_method_snapshot(path: Path, graph: dict, project_root: Path) -> dict:
+    errors = validate_json_file(
+        path, project_root / "schemas/optimization_method_snapshot.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid method snapshot: " + "; ".join(errors))
+    snapshot = read_object(path)
+    cutoff = graph["source_cutoff_at"]
+    if parse_time(snapshot["cutoff_at"], "method cutoff") != parse_time(
+        cutoff, "graph source cutoff"
+    ):
+        raise ValueError("method snapshot cutoff does not match graph source cutoff")
+    method_ids = []
+    method_schema = read_object(project_root / "schemas/optimization_method.schema.json")
+    for card in snapshot["cards"]:
+        card_errors = validate_instance(card, method_schema)
+        if card_errors:
+            raise ValueError("invalid method card: " + "; ".join(card_errors))
+        method_ids.append(card["method_id"])
+        available = parse_time(card["source"]["available_at"], "method available_at")
+        if available > parse_time(cutoff, "graph source cutoff"):
+            raise ValueError(f"method leaks past graph cutoff: {card['method_id']}")
+    if sorted(method_ids) != snapshot["included_method_ids"]:
+        raise ValueError("method snapshot card ids do not match included ids")
+    if len(method_ids) != len(set(method_ids)):
+        raise ValueError("method snapshot contains duplicate method ids")
+    return snapshot
+
+
+def callable_method_provenance(
+    methods: dict, graph: dict
+) -> tuple[list[tuple[str, str]], Counter]:
+    """Apply the same provenance-time gates used by prior-shortlist routing."""
+    graph_events = {node["event_id"]: node for node in graph["nodes"]}
+    links = []
+    rejections: Counter = Counter()
+    for card in methods["cards"]:
+        provenance = card.get("community_provenance")
+        if provenance is None:
+            continue
+        available = parse_time(card["source"]["available_at"], "method available_at")
+        sources = [
+            graph_events.get(event_id)
+            for event_id in provenance["source_event_ids"]
+        ]
+        reasons = set()
+        if any(source is None for source in sources):
+            reasons.add("SOURCE_EVENT_ABSENT_FROM_GRAPH")
+        if any(
+            parse_time(source["source_available_at"], "event source_available_at")
+            > available
+            for source in sources
+            if source is not None
+        ):
+            reasons.add("SOURCE_EVENT_AVAILABLE_AFTER_METHOD")
+        if any(
+            parse_time(item["available_at"], "experiment available_at") > available
+            for item in provenance.get("experiment_refs", [])
+        ):
+            reasons.add("EXPERIMENT_AVAILABLE_AFTER_METHOD")
+        if reasons:
+            for reason in reasons:
+                rejections[reason] += 1
+            continue
+        links.extend(
+            (card["method_id"], event_id)
+            for event_id in provenance["source_event_ids"]
+        )
+    return links, rejections
+
+
+def evaluate(
+    graph: dict, policy: dict, methods: dict | None = None
+) -> tuple[dict, list[dict]]:
     nodes = graph["nodes"]
     edges = graph["edges"]
     repository_counts = Counter(item["repository"] for item in nodes)
@@ -66,27 +140,6 @@ def evaluate(graph: dict, policy: dict) -> tuple[dict, list[dict]]:
     negative_count = sum(item["outcome"] in NEGATIVE_OUTCOMES for item in nodes)
     unresolved_count = sum(item["resolution"] == "MISSING" for item in edges)
     event_repositories = {item["event_id"]: item["repository"] for item in nodes}
-    present_edges = [item for item in edges if item["resolution"] == "PRESENT"]
-    present_method_edges = [
-        item for item in present_edges if item.get("target_kind") == "METHOD"
-    ]
-    method_linked_events = {item["source"] for item in present_method_edges}
-    negative_event_ids = {
-        item["event_id"] for item in nodes if item["outcome"] in NEGATIVE_OUTCOMES
-    }
-    connected_negative_event_ids = set()
-    cross_repository_event_relations = 0
-    for item in present_edges:
-        if item["source"] in negative_event_ids:
-            connected_negative_event_ids.add(item["source"])
-        if item.get("target_kind") != "EVENT":
-            continue
-        if item["target"] in negative_event_ids:
-            connected_negative_event_ids.add(item["target"])
-        if event_repositories.get(item["source"]) != event_repositories.get(
-            item["target"]
-        ):
-            cross_repository_event_relations += 1
     cross_repository_compositions = sum(
         len(
             {
@@ -117,19 +170,80 @@ def evaluate(graph: dict, policy: dict) -> tuple[dict, list[dict]]:
         "coverage_gap_count": len(graph["coverage_gaps"]),
         "composition_count": len(graph["composition_hypotheses"]),
         "cross_repository_composition_count": cross_repository_compositions,
-        "present_method_relation_count": len(present_method_edges),
-        "method_linked_event_count": len(method_linked_events),
-        "method_linked_event_fraction": fraction(len(method_linked_events), node_count),
-        "connected_negative_event_count": len(connected_negative_event_ids),
-        "connected_negative_event_fraction": fraction(
-            len(connected_negative_event_ids), negative_count
-        ),
-        "cross_repository_event_relation_count": cross_repository_event_relations,
         "lifecycle_review_queue_count": len(graph["lifecycle_review_queue"]),
         "reviewed_fraction": reviewed_fraction,
         "unresolved_relation_fraction": unresolved_fraction,
         "maximum_single_repository_node_fraction": maximum_repository_fraction,
     }
+    if methods is not None:
+        present_edges = [item for item in edges if item["resolution"] == "PRESENT"]
+        present_method_edges = [
+            item for item in present_edges if item.get("target_kind") == "METHOD"
+        ]
+        graph_method_events = {item["source"] for item in present_method_edges}
+        provenance_links, provenance_rejections = callable_method_provenance(
+            methods, graph
+        )
+        provenance_card_count = sum(
+            card.get("community_provenance") is not None for card in methods["cards"]
+        )
+        # A card can fail more than one gate; count unique rejected cards by
+        # subtracting the callable cards from all provenance-bearing cards.
+        callable_provenance_cards = {method_id for method_id, _ in provenance_links}
+        rejected_card_count = provenance_card_count - len(callable_provenance_cards)
+        provenance_events = {event_id for _, event_id in provenance_links}
+        reusable_method_events = graph_method_events | provenance_events
+        negative_event_ids = {
+            item["event_id"]
+            for item in nodes
+            if item["outcome"] in NEGATIVE_OUTCOMES
+        }
+        connected_negative_event_ids = negative_event_ids & reusable_method_events
+        cross_repository_event_relations = 0
+        for item in present_edges:
+            if item.get("target_kind") == "EVENT":
+                if item["target"] in negative_event_ids:
+                    connected_negative_event_ids.add(item["target"])
+                if item["source"] in negative_event_ids:
+                    connected_negative_event_ids.add(item["source"])
+                if event_repositories.get(item["source"]) != event_repositories.get(
+                    item["target"]
+                ):
+                    cross_repository_event_relations += 1
+        inventory.update(
+            {
+                "graph_method_relation_count": len(present_method_edges),
+                "graph_method_linked_event_count": len(graph_method_events),
+                "graph_method_linked_event_fraction": fraction(
+                    len(graph_method_events), node_count
+                ),
+                "method_provenance_link_count": len(provenance_links),
+                "method_provenance_event_count": len(provenance_events),
+                "method_provenance_card_count": provenance_card_count,
+                "method_provenance_callable_card_count": len(
+                    callable_provenance_cards
+                ),
+                "method_provenance_rejected_card_count": rejected_card_count,
+                "method_provenance_rejection_counts": dict(
+                    sorted(provenance_rejections.items())
+                ),
+                "reusable_method_connected_event_count": len(
+                    reusable_method_events
+                ),
+                "reusable_method_connected_event_fraction": fraction(
+                    len(reusable_method_events), node_count
+                ),
+                "connected_negative_event_count": len(
+                    connected_negative_event_ids
+                ),
+                "connected_negative_event_fraction": fraction(
+                    len(connected_negative_event_ids), negative_count
+                ),
+                "cross_repository_event_relation_count": (
+                    cross_repository_event_relations
+                ),
+            }
+        )
     checks = []
     for outcome, minimum in sorted(policy["required_outcomes"].items()):
         observed = outcome_counts[outcome]
@@ -189,6 +303,7 @@ def build_audit(
     corpus: Path,
     project_root: Path | None = None,
     graph_validation_root: Path | None = None,
+    methods_path: Path | None = None,
 ) -> dict:
     project_root = project_root or root()
     graph_validation_root = (graph_validation_root or project_root).resolve()
@@ -204,28 +319,39 @@ def build_audit(
         )
     graph = read_object(graph_path)
     policy = read_object(policy_path)
-    inventory, checks = evaluate(graph, policy)
+    methods = None
+    if methods_path is not None:
+        methods_path = methods_path.resolve()
+        methods = validate_method_snapshot(methods_path, graph, project_root)
+    inventory, checks = evaluate(graph, policy, methods)
+    schema_version = SCHEMA_VERSION_V2 if methods is not None else SCHEMA_VERSION_V1
+    input_identity = {
+        "graph": identity(graph_path),
+        "policy": identity(policy_path),
+        "graph_validation_root": validation_root_identity(graph_validation_root),
+    }
+    if methods_path is not None:
+        input_identity["methods"] = identity(methods_path)
     report = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "generated_at": now(),
         "claim_boundary": "CHECKPOINT_COVERAGE_NOT_METHOD_EFFECTIVENESS",
         "status": "PASS"
         if all(item["status"] == "PASS" for item in checks)
         else "FAIL",
-        "input_identity": {
-            "graph": identity(graph_path),
-            "policy": identity(policy_path),
-            "graph_validation_root": validation_root_identity(graph_validation_root),
-        },
+        "input_identity": input_identity,
         "inventory": inventory,
         "checks": checks,
         "limitations": [
             "Breadth and lifecycle diversity do not prove that community knowledge improves optimization outcomes.",
             "Composition hypotheses remain discovery priors until a held-out task validates them.",
             "Coverage gaps identify missing repository-method intersections; they are not evidence that a transferable implementation exists.",
-            "Connectivity counts require a resolved graph edge; labels or unresolved conceptual targets do not count as reusable knowledge.",
         ],
     }
+    if methods is not None:
+        report["limitations"].append(
+            "Callable-event coverage counts either a resolved graph-method edge or a cutoff-safe method-card provenance link; it does not prove that routing will select or successfully apply that knowledge."
+        )
     errors = validate_instance(
         report,
         read_object(project_root / "schemas/community_coverage_audit.schema.json"),
@@ -244,7 +370,10 @@ def validate_audit(path: Path, corpus: Path, project_root: Path | None = None) -
     if errors:
         raise ValueError("invalid community coverage audit: " + "; ".join(errors))
     report = read_object(path)
-    for label in ("graph", "policy"):
+    labels = ["graph", "policy"]
+    if report["schema_version"] == SCHEMA_VERSION_V2:
+        labels.append("methods")
+    for label in labels:
         item = report["input_identity"][label]
         source = Path(item["path"])
         if not source.is_file() or sha256_file(source) != item["sha256"]:
@@ -255,6 +384,11 @@ def validate_audit(path: Path, corpus: Path, project_root: Path | None = None) -
         corpus,
         project_root,
         Path(report["input_identity"]["graph_validation_root"]["path"]),
+        (
+            Path(report["input_identity"]["methods"]["path"])
+            if report["schema_version"] == SCHEMA_VERSION_V2
+            else None
+        ),
     )
     observed_copy = {
         key: value for key, value in report.items() if key != "generated_at"
@@ -275,6 +409,7 @@ def parse_args() -> argparse.Namespace:
     build.add_argument("--policy", type=Path, required=True)
     build.add_argument("--corpus", type=Path, required=True)
     build.add_argument("--graph-validation-root", type=Path, required=True)
+    build.add_argument("--methods", type=Path)
     build.add_argument("--output", type=Path, required=True)
     validate = commands.add_parser("validate")
     validate.add_argument("--audit", type=Path, required=True)
@@ -290,6 +425,7 @@ def main() -> int:
             args.policy,
             args.corpus,
             graph_validation_root=args.graph_validation_root,
+            methods_path=args.methods,
         )
         atomic_json(args.output.resolve(), result)
         coverage_status = result["status"]

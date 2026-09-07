@@ -15,7 +15,7 @@
     "limitations"
   ],
   "properties": {
-    "schema_version": {"const": "community-coverage-audit-v1"},
+    "schema_version": {"enum": ["community-coverage-audit-v1", "community-coverage-audit-v2"]},
     "generated_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "CHECKPOINT_COVERAGE_NOT_METHOD_EFFECTIVENESS"},
     "status": {"enum": ["PASS", "FAIL"]},
@@ -26,6 +26,7 @@
       "properties": {
         "graph": {"$ref": "#/$defs/identity"},
         "policy": {"$ref": "#/$defs/identity"},
+        "methods": {"$ref": "#/$defs/identity"},
         "graph_validation_root": {
           "type": "object",
           "additionalProperties": false,
@@ -69,9 +70,17 @@
         "coverage_gap_count": {"type": "integer", "minimum": 0},
         "composition_count": {"type": "integer", "minimum": 0},
         "cross_repository_composition_count": {"type": "integer", "minimum": 0},
-        "present_method_relation_count": {"type": "integer", "minimum": 0},
-        "method_linked_event_count": {"type": "integer", "minimum": 0},
-        "method_linked_event_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "graph_method_relation_count": {"type": "integer", "minimum": 0},
+        "graph_method_linked_event_count": {"type": "integer", "minimum": 0},
+        "graph_method_linked_event_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "method_provenance_link_count": {"type": "integer", "minimum": 0},
+        "method_provenance_event_count": {"type": "integer", "minimum": 0},
+        "method_provenance_card_count": {"type": "integer", "minimum": 0},
+        "method_provenance_callable_card_count": {"type": "integer", "minimum": 0},
+        "method_provenance_rejected_card_count": {"type": "integer", "minimum": 0},
+        "method_provenance_rejection_counts": {"$ref": "#/$defs/countMap"},
+        "reusable_method_connected_event_count": {"type": "integer", "minimum": 0},
+        "reusable_method_connected_event_fraction": {"type": "number", "minimum": 0, "maximum": 1},
         "connected_negative_event_count": {"type": "integer", "minimum": 0},
         "connected_negative_event_fraction": {"type": "number", "minimum": 0, "maximum": 1},
         "cross_repository_event_relation_count": {"type": "integer", "minimum": 0},
@@ -102,6 +111,34 @@
       "items": {"type": "string", "minLength": 1}
     }
   },
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": "community-coverage-audit-v2"}}},
+      "then": {
+        "properties": {
+          "input_identity": {"required": ["methods"]},
+          "inventory": {
+            "required": [
+              "graph_method_relation_count",
+              "graph_method_linked_event_count",
+              "graph_method_linked_event_fraction",
+              "method_provenance_link_count",
+              "method_provenance_event_count",
+              "method_provenance_card_count",
+              "method_provenance_callable_card_count",
+              "method_provenance_rejected_card_count",
+              "method_provenance_rejection_counts",
+              "reusable_method_connected_event_count",
+              "reusable_method_connected_event_fraction",
+              "connected_negative_event_count",
+              "connected_negative_event_fraction",
+              "cross_repository_event_relation_count"
+            ]
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "identity": {
       "type": "object",

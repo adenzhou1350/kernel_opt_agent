@@ -12,7 +12,12 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from community_coverage_audit import build_audit, main, validate_audit  # noqa: E402
+from community_coverage_audit import (  # noqa: E402
+    build_audit,
+    evaluate,
+    main,
+    validate_audit,
+)
 from community_knowledge import atomic_json  # noqa: E402
 
 
@@ -40,10 +45,12 @@ def graph() -> dict:
             "repository": repository,
             "outcome": outcome,
             "review_status": "REVIEWED",
+            "source_available_at": "2026-01-01T00:00:00Z",
         }
         for index, (repository, outcome) in enumerate(zip(repositories, outcomes))
     ]
     return {
+        "source_cutoff_at": "2026-01-02T00:00:00Z",
         "nodes": nodes,
         "edges": [
             {
@@ -115,10 +122,8 @@ def test_coverage_audit_requires_lifecycle_and_cross_repository_breadth() -> Non
         assert report["status"] == "PASS"
         assert report["inventory"]["negative_event_count"] == 3
         assert report["inventory"]["cross_repository_composition_count"] == 2
-        assert report["inventory"]["present_method_relation_count"] == 1
-        assert report["inventory"]["method_linked_event_count"] == 1
-        assert report["inventory"]["connected_negative_event_count"] == 3
-        assert report["inventory"]["cross_repository_event_relation_count"] == 6
+        assert report["schema_version"] == "community-coverage-audit-v1"
+        assert "reusable_method_connected_event_count" not in report["inventory"]
         atomic_json(audit_path, report)
         with patch("community_coverage_audit.validate_source_graph"):
             assert validate_audit(audit_path, base, ROOT)["status"] == "PASS"
@@ -193,3 +198,47 @@ def test_coverage_failure_returns_nonzero_and_keeps_artifact() -> None:
             assert main() == 2
         assert audit_path.is_file()
         assert json.loads(audit_path.read_text(encoding="utf-8"))["status"] == "FAIL"
+
+
+def test_method_aware_inventory_separates_graph_and_provenance_links() -> None:
+    methods = {
+        "cards": [
+            {
+                "method_id": "method-from-negative-event",
+                "source": {"available_at": "2026-01-02T00:00:00Z"},
+                "community_provenance": {"source_event_ids": ["event-2"]},
+            }
+        ]
+    }
+    inventory, _ = evaluate(graph(), policy(), methods)
+    assert inventory["graph_method_relation_count"] == 1
+    assert inventory["graph_method_linked_event_count"] == 1
+    assert inventory["method_provenance_link_count"] == 1
+    assert inventory["method_provenance_event_count"] == 1
+    assert inventory["method_provenance_card_count"] == 1
+    assert inventory["method_provenance_callable_card_count"] == 1
+    assert inventory["method_provenance_rejected_card_count"] == 0
+    assert inventory["reusable_method_connected_event_count"] == 2
+    assert inventory["reusable_method_connected_event_fraction"] == 0.4
+    assert inventory["connected_negative_event_count"] == 3
+    assert inventory["cross_repository_event_relation_count"] == 6
+
+
+def test_method_provenance_after_card_time_is_not_callable() -> None:
+    value = graph()
+    value["nodes"][2]["source_available_at"] = "2026-01-03T00:00:00Z"
+    methods = {
+        "cards": [
+            {
+                "method_id": "premature-method",
+                "source": {"available_at": "2026-01-02T00:00:00Z"},
+                "community_provenance": {"source_event_ids": ["event-2"]},
+            }
+        ]
+    }
+    inventory, _ = evaluate(value, policy(), methods)
+    assert inventory["method_provenance_callable_card_count"] == 0
+    assert inventory["method_provenance_rejected_card_count"] == 1
+    assert inventory["method_provenance_rejection_counts"] == {
+        "SOURCE_EVENT_AVAILABLE_AFTER_METHOD": 1
+    }
