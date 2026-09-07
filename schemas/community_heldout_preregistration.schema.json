@@ -29,7 +29,7 @@
         "randomized_order": {"const": true},
         "network_policy": {"const": "DISABLED_AFTER_MATERIALIZATION"},
         "model_identity": {"type": "string", "minLength": 1},
-        "task_packet_contract": {"const": "STRICT_V2"},
+        "task_packet_contract": {"enum": ["STRICT_V2", "STRICT_V3"]},
         "budgets": {
           "type": "object",
           "additionalProperties": false,

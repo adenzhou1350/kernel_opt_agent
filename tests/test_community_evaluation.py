@@ -998,6 +998,116 @@ def main() -> None:
         suite_path = suite_dir / "suite.json"
         atomic_json(suite_path, suite)
         assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+
+        strict_v3_task_path = assets / "task-v3.json"
+        strict_v3_task = {
+            "schema_version": "community-heldout-task-v3",
+            "task_id": "heldout.logits",
+            "information_policy": "SYMPTOM_CONTRACT_AND_BASELINE_ONLY",
+            "intake_confirmation": {
+                "status": "USER_CONFIRMED",
+                "confirmed_at": (cutoff + timedelta(minutes=30)).isoformat(),
+                "confirmed_by": "test-user",
+                "confirmed_scopes": ["OPERATOR", "WORKLOAD", "HARDWARE"],
+            },
+            "objective": "Reduce held-out logits projection latency.",
+            "operator": {
+                "computation": "output = hidden @ weight.T",
+                "tensor_roles": ["hidden: activation", "weight: read-only parameter", "output: logits"],
+                "input_shapes": ["hidden[B,K]", "weight[V,K]"],
+                "strides": ["hidden contiguous row-major", "weight contiguous row-major"],
+                "input_dtypes": ["bfloat16"],
+                "output_dtypes": ["bfloat16"],
+                "state_transitions": ["stateless projection"],
+                "masks_and_boundaries": ["B >= 1", "K and V use frozen task values"],
+                "layout": "contiguous row major",
+                "numerical_contract": "Match the reference tolerance.",
+                "aliasing": "Inputs are read-only and output does not alias.",
+                "lifetimes": "Inputs remain live until the launched operation completes.",
+                "public_abi": "Preserve the historical projection call signature.",
+                "legal_rewrites": ["exact algebraic reassociation within the frozen tolerance"],
+                "forbidden_rewrites": ["quantization", "dropping vocabulary rows"],
+            },
+            "workload": {
+                "primary_mode": "single-GPU decode",
+                "shape_weights": {"B=1": 1.0},
+                "execution_modes": ["eager", "CUDA graph replay"],
+                "upstream_layouts": ["contiguous hidden state"],
+                "downstream_layouts": ["contiguous logits consumed by sampler"],
+                "call_frequency": "once per decode step",
+                "graph_capture_state": "must support eager and frozen CUDA graph replay",
+                "concurrency": "one model worker on the selected GPU",
+                "cache_semantics": "warm weights and steady-state allocator",
+                "latency_objective": "Minimize interleaved CUDA-event median.",
+                "required_controls": ["reference output", "cold-start compile exclusion"],
+            },
+            "hardware": {
+                "device": "test GPU",
+                "compute_capability": "test capability",
+                "memory_gib": 1,
+                "driver": "test driver",
+                "runtime": "test CUDA and framework runtime",
+                "compiler": "test compiler",
+                "power_clock_policy": "fixed test policy",
+                "profilers": ["test profiler"],
+                "disassemblers": ["test disassembler"],
+                "allowed_programming_models": ["PyTorch"],
+                "architecture_specific_implementation_allowed": True,
+            },
+            "baseline": {
+                "implementation": "historical matrix multiply",
+                "observed_symptom": "small-batch latency is material",
+                "bottleneck_status": "UNKNOWN_MUST_BE_MEASURED",
+                "claim_boundary": "TASK_INPUT_NOT_RESULT",
+            },
+            "acceptance": {
+                "correctness": ["reference agreement"],
+                "performance": ["interleaved CUDA-event median"],
+                "integration": ["eager and CUDA graph reachability"],
+                "upstream": "A generic guarded implementation.",
+            },
+        }
+        atomic_json(strict_v3_task_path, strict_v3_task)
+        strict_v3_suite = json.loads(json.dumps(suite))
+        strict_v3_suite["protocol"]["task_packet_contract"] = "STRICT_V3"
+        strict_v3_suite["tasks"][0]["packet"] = identity(
+            strict_v3_task_path, suite_dir
+        )
+        atomic_json(suite_path, strict_v3_suite)
+        assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+        strict_v3_trial_dir = base / "strict-v3-control-trial"
+        strict_v3_manifest = materialize_trial(
+            suite_path,
+            corpus,
+            "heldout.logits",
+            "CONTROL",
+            1,
+            strict_v3_trial_dir,
+            ROOT,
+        )
+        assert strict_v3_manifest["task_input"]["sha256"] == sha256_file(
+            strict_v3_trial_dir / "input" / "task.json"
+        )
+        assert json.loads(
+            (strict_v3_trial_dir / "input" / "task.json").read_text(
+                encoding="utf-8"
+            )
+        )["intake_confirmation"]["status"] == "USER_CONFIRMED"
+        incomplete_v3_task = json.loads(json.dumps(strict_v3_task))
+        incomplete_v3_task["workload"].pop("cache_semantics")
+        atomic_json(strict_v3_task_path, incomplete_v3_task)
+        strict_v3_suite["tasks"][0]["packet"] = identity(
+            strict_v3_task_path, suite_dir
+        )
+        atomic_json(suite_path, strict_v3_suite)
+        try:
+            validate_suite(suite_path, corpus, ROOT)
+        except ValueError as error:
+            assert "cache_semantics" in str(error)
+        else:
+            raise AssertionError("incomplete STRICT_V3 task packet was accepted")
+        atomic_json(strict_v3_task_path, strict_v3_task)
+        atomic_json(suite_path, suite)
         late_prior_path = assets / "late-prior-outcomes.json"
         late_prior = json.loads(prior_outcomes_path.read_text(encoding="utf-8"))
         late_prior["generated_at"] = (cutoff + timedelta(seconds=1)).isoformat()

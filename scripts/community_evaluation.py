@@ -667,9 +667,14 @@ def validate_suite(
             validate_prior_context_distinction(
                 distinction_path, prior_outcome_path, task["task_id"], root
             )
-        if task_packet_contract == "STRICT_V2":
+        if task_packet_contract in {"STRICT_V2", "STRICT_V3"}:
+            packet_schema = (
+                "community_heldout_task_v3.schema.json"
+                if task_packet_contract == "STRICT_V3"
+                else "community_heldout_task.schema.json"
+            )
             packet_errors = validate_json_file(
-                packet_path, root / "schemas" / "community_heldout_task.schema.json"
+                packet_path, root / "schemas" / packet_schema
             )
             if packet_errors:
                 raise ValueError(

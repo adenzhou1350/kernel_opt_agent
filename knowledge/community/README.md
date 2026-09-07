@@ -164,12 +164,17 @@ is retained as descriptive telemetry, but it is not trusted to establish that
 ordering. This also rejects a ranking that was initially written on time and
 then revised after candidate implementation began.
 
-New benchmark suites should set `protocol.task_packet_contract` to `STRICT_V2`.
-This validates a complete symptom-only operator, workload, hardware, baseline
-and acceptance contract, requires workload weights to sum to one, checks that
-the hidden oracle identifies the same task, and rejects a suite/packet hardware
-mismatch. The optional legacy mode exists only so previously sealed evaluation
-artifacts remain readable.
+New benchmark suites should set `protocol.task_packet_contract` to `STRICT_V3`.
+V3 machine-checks the complete mandatory intake instead of hiding required
+details in prose: computation and tensor roles, shapes/strides/dtypes,
+state/mask/boundary semantics, ABI and legal rewrites; weighted execution modes,
+upstream/downstream layouts, graph/concurrency/cache semantics; and exact
+device/toolchain, power/clock policy, profiler/disassembler availability and
+permission for architecture-specific code. It also requires an explicit
+`USER_CONFIRMED` record covering operator, workload and hardware. Both V2 and
+the optional legacy mode remain readable only for already frozen evaluation
+artifacts. Strict packets require workload weights to sum to one, must identify
+the same task as the hidden oracle and must match suite hardware.
 
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the

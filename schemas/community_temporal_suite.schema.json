@@ -50,7 +50,7 @@
         "environment_identity": {"$ref": "#/$defs/identity"},
         "task_packet_contract": {
           "type": "string",
-          "enum": ["LEGACY_UNSCHEMATIZED", "STRICT_V2"]
+          "enum": ["LEGACY_UNSCHEMATIZED", "STRICT_V2", "STRICT_V3"]
         },
         "budgets": {
           "type": "object",
