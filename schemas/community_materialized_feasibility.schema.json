@@ -18,7 +18,12 @@
     "allowed_actions"
   ],
   "properties": {
-    "schema_version": {"const": "community-materialized-feasibility-v1"},
+    "schema_version": {
+      "enum": [
+        "community-materialized-feasibility-v1",
+        "community-materialized-feasibility-v2"
+      ]
+    },
     "generated_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "POST_MATERIALIZATION_GATE_NOT_PERFORMANCE_EVIDENCE_OR_DISPATCH_APPROVAL"},
     "registration": {"const": "POST_MATERIALIZATION"},
@@ -55,6 +60,23 @@
       "type": "array",
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
+    },
+    "resource_match_diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["resource_id", "matched", "reasons"],
+        "properties": {
+          "resource_id": {"type": "string", "minLength": 1},
+          "matched": {"type": "boolean"},
+          "reasons": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "minLength": 1}
+          }
+        }
+      }
     },
     "artifact_inventory": {
       "type": "object",

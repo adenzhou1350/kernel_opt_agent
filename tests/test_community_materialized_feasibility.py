@@ -30,7 +30,33 @@ def write_inputs(base: Path) -> tuple[Path, Path, Path, Path, Path]:
     resource_status = base / "resource-status.json"
     baseline = base / "baseline.py"
     baseline.write_text("def baseline():\n    return 1\n", encoding="utf-8")
-    atomic_json(resource_status, {"observed": "idle"})
+    atomic_json(
+        resource_status,
+        {
+            "schema_version": "community-materialized-resource-status-v1",
+            "observed_at": "2026-09-07T05:00:00Z",
+            "claim_boundary": "POINT_IN_TIME_READ_ONLY_OBSERVATION",
+            "resources": [
+                {
+                    "resource_id": "single-sm120-32g",
+                    "availability": "AVAILABLE",
+                    "vendor": "NVIDIA",
+                    "device_name": "NVIDIA GeForce RTX 5090",
+                    "architecture": "sm120",
+                    "memory_gib_per_gpu": 32,
+                    "l2_cache_mib": 96,
+                    "gpu_indices": [0],
+                    "excluded_gpu_indices": [],
+                    "active_compute_process_count": 0,
+                }
+            ],
+            "actions": {
+                "processes_stopped": 0,
+                "gpu_benchmarks_started": 0,
+                "compilations_started": 0,
+            },
+        },
+    )
     atomic_json(
         task,
         {
@@ -123,6 +149,8 @@ def write_inputs(base: Path) -> tuple[Path, Path, Path, Path, Path]:
                     "availability": "AVAILABLE",
                     "vendor": "NVIDIA",
                     "architecture": "sm120",
+                    "device_name": "NVIDIA GeForce RTX 5090",
+                    "l2_cache_mib": 96,
                     "gpu_count": 1,
                     "memory_gib_per_gpu": 32,
                     "capabilities": ["CUDA", "PYTORCH"],
@@ -183,6 +211,48 @@ def manifest_object(
     }
 
 
+def v2_manifest_object(
+    task: Path,
+    screen: Path,
+    profile: Path,
+    resource_status: Path,
+    evidence: Path,
+) -> dict:
+    manifest = manifest_object(task, screen, profile, resource_status, evidence)
+    manifest["schema_version"] = "community-materialization-manifest-v2"
+    manifest["hardware_match"] = {
+        "device_names_any": ["NVIDIA GeForce RTX 5090"],
+        "minimum_l2_cache_mib": 96,
+        "maximum_l2_cache_mib": 128,
+        "required_capabilities_all": ["CUDA", "PYTORCH"],
+        "maximum_resource_status_age_seconds": 300,
+    }
+    manifest["candidate"] = {
+        "repository": "example/project",
+        "pr_number": 7,
+        "purpose": "NEW_UPSTREAM_WORK",
+        "existing_reference_pr": None,
+    }
+    manifest["artifacts"] = [
+        {
+            "role": role,
+            "required": True,
+            "status": "READY",
+            "reason": "HASH_BOUND_TEST_EVIDENCE",
+            "evidence": [identity(evidence)],
+        }
+        for role in (
+            "BASELINE_SOURCE",
+            "OPERATOR_HARNESS",
+            "WHOLE_MODEL_HARNESS",
+            "MODEL_OR_WEIGHTS",
+            "RUNTIME_OR_ENVIRONMENT",
+            "LIVE_HARDWARE_STATUS",
+        )
+    ]
+    return manifest
+
+
 def test_materialized_gate_blocks_missing_harness_and_duplicate_upstream() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -231,3 +301,130 @@ def test_materialized_gate_blocks_missing_harness_and_duplicate_upstream() -> No
             assert "expected constant False" in str(error)
         else:
             raise AssertionError("edited dispatch authority passed validation")
+
+
+def test_v2_requires_runtime_and_blocks_an_unverified_environment() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        manifest_path = base / "manifest.json"
+        manifest = v2_manifest_object(task, screen, profile, resource_status, baseline)
+        runtime = next(
+            item
+            for item in manifest["artifacts"]
+            if item["role"] == "RUNTIME_OR_ENVIRONMENT"
+        )
+        runtime["status"] = "UNVERIFIED"
+        runtime["reason"] = "DRIVER_EXISTS_BUT_TARGET_RUNTIME_IS_NOT_INSTALLED"
+        atomic_json(manifest_path, manifest)
+
+        blocked = build_assessment(manifest_path, ROOT)
+        assert blocked["schema_version"] == "community-materialized-feasibility-v2"
+        assert blocked["decision"] == "HARNESS_BLOCKED"
+        assert blocked["blockers"] == ["UNVERIFIED_RUNTIME_OR_ENVIRONMENT"]
+        assert blocked["matched_resource_ids"] == ["single-sm120-32g"]
+        assert blocked["resource_match_diagnostics"] == [
+            {
+                "resource_id": "single-sm120-32g",
+                "matched": True,
+                "reasons": [],
+            }
+        ]
+        assert not blocked["allowed_actions"]["dispatch_gpu"]
+
+        manifest["artifacts"] = [
+            item
+            for item in manifest["artifacts"]
+            if item["role"] != "RUNTIME_OR_ENVIRONMENT"
+        ]
+        atomic_json(manifest_path, manifest)
+        try:
+            build_assessment(manifest_path, ROOT)
+        except ValueError as error:
+            assert "invalid materialization manifest" in str(error)
+        else:
+            raise AssertionError("v2 manifest omitted the runtime role")
+
+
+def test_v2_rejects_coarse_sm_family_match_when_device_and_l2_do_not_match() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        task_object = json.loads(task.read_text(encoding="utf-8"))
+        task_object["hardware"]["device"] = "NVIDIA GB10"
+        task_object["hardware"]["compute_capability"] = "sm121"
+        atomic_json(task, task_object)
+
+        manifest_path = base / "manifest.json"
+        manifest = v2_manifest_object(task, screen, profile, resource_status, baseline)
+        manifest["task"] = identity(task)
+        manifest["hardware_match"] = {
+            "device_names_any": ["NVIDIA GB10"],
+            "minimum_l2_cache_mib": None,
+            "maximum_l2_cache_mib": 24,
+            "required_capabilities_all": ["CUDA"],
+            "maximum_resource_status_age_seconds": 300,
+        }
+        atomic_json(manifest_path, manifest)
+
+        blocked = build_assessment(manifest_path, ROOT)
+        assert blocked["decision"] == "RESOURCE_BLOCKED"
+        assert blocked["blockers"] == ["NO_MATERIALIZED_RESOURCE_MATCH"]
+        assert blocked["matched_resource_ids"] == []
+        assert blocked["resource_match_diagnostics"] == [
+            {
+                "resource_id": "single-sm120-32g",
+                "matched": False,
+                "reasons": [
+                    "ARCHITECTURE_MISMATCH",
+                    "DEVICE_NAME_MISMATCH",
+                    "L2_CACHE_ABOVE_MAXIMUM",
+                ],
+            }
+        ]
+        assert not blocked["allowed_actions"]["dispatch_gpu"]
+
+
+def test_v2_uses_live_device_identity_instead_of_trusting_the_profile() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        live = json.loads(resource_status.read_text(encoding="utf-8"))
+        live["resources"][0]["device_name"] = "NVIDIA RTX PRO 6000 Blackwell"
+        live["resources"][0]["l2_cache_mib"] = 128
+        atomic_json(resource_status, live)
+
+        manifest_path = base / "manifest.json"
+        manifest = v2_manifest_object(task, screen, profile, resource_status, baseline)
+        atomic_json(manifest_path, manifest)
+
+        blocked = build_assessment(manifest_path, ROOT)
+        assert blocked["decision"] == "RESOURCE_BLOCKED"
+        assert blocked["resource_match_diagnostics"] == [
+            {
+                "resource_id": "single-sm120-32g",
+                "matched": False,
+                "reasons": [
+                    "DEVICE_NAME_MISMATCH",
+                    "PROFILE_LIVE_DEVICE_MISMATCH",
+                    "PROFILE_LIVE_L2_MISMATCH",
+                ],
+            }
+        ]
+
+
+def test_v2_rejects_a_stale_live_resource_receipt() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        task, screen, profile, resource_status, baseline = write_inputs(base)
+        manifest_path = base / "manifest.json"
+        manifest = v2_manifest_object(task, screen, profile, resource_status, baseline)
+        manifest["generated_at"] = "2026-09-07T06:00:00Z"
+        atomic_json(manifest_path, manifest)
+
+        try:
+            build_assessment(manifest_path, ROOT)
+        except ValueError as error:
+            assert "live resource status is too old" in str(error)
+        else:
+            raise AssertionError("v2 manifest accepted a stale live resource receipt")

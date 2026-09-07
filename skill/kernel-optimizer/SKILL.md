@@ -30,6 +30,13 @@ Then execute an evidence-driven loop:
 5. Cheaply screen every valid architecture family on an anchor and edge case.
    Discovery results route work only; they do not accept a candidate or claim a
    hardware fact. Promote at most 2--4 survivors.
+   For a community-discovered task, run the v2 post-materialization feasibility
+   gate before requesting supervisor review. It requires separate hash-bound
+   baseline, operator harness, whole-model harness, model/weights,
+   runtime/environment and live-hardware roles. A script without an installed,
+   preflighted target runtime is `UNVERIFIED`, not ready. Match exact live device
+   identity and L2 constraints where the source claim depends on them; an
+   architecture-family label such as SM12.x is not an exact resource match.
 6. For qualification finalists, build `hardware_evidence.json` from exact
    vendor-official documents and official target-device queries. Archive URL,
    command, version, section, artifact and SHA-256. Do not record an inferred

@@ -13,17 +13,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+from community_checkpoint import build_anchor  # noqa: E402
 from community_graph_v2 import build_graph, validate_graph  # noqa: E402
 from community_knowledge import atomic_json  # noqa: E402
 from schema_utils import validate_instance  # noqa: E402
 
 
 CORPUS = ROOT.parents[1] / "community-optimization-corpus"
-ANCHOR = (
-    ROOT.parents[1]
-    / "community-validation"
-    / "knowledge-checkpoint-anchor-2026-09-07-0500z.v1.json"
+CHECKPOINT = (
+    ROOT
+    / "knowledge/community/checkpoints/community-knowledge-2026-09-07-0427z.v1.json"
 )
+CHECKPOINT_COMMIT = "f3db80246a30081047652098b5ace5f612125fdb"
 REPOSITORIES = [
     "vllm-project/vllm",
     "sgl-project/sglang",
@@ -35,15 +36,32 @@ def stable(graph: dict) -> dict:
     return {key: value for key, value in graph.items() if key != "generated_at"}
 
 
+def materialize_anchor(corpus: Path, output: Path) -> Path:
+    anchor_path = output / "checkpoint-anchor.json"
+    atomic_json(
+        anchor_path,
+        build_anchor(
+            CHECKPOINT,
+            corpus,
+            CHECKPOINT_COMMIT,
+            "2026-09-07T05:00:00Z",
+            ROOT,
+        ),
+    )
+    return anchor_path
+
+
 def test_graph_is_stable_when_uncheckpointed_corpus_grows() -> None:
-    if not CORPUS.is_dir() or not ANCHOR.is_file():
+    if not CORPUS.is_dir() or not CHECKPOINT.is_file():
         return
     with tempfile.TemporaryDirectory() as temporary:
-        corpus = Path(temporary) / "corpus"
+        temporary_path = Path(temporary)
+        corpus = temporary_path / "corpus"
         shutil.copytree(CORPUS, corpus)
+        anchor = materialize_anchor(corpus, temporary_path)
         first = build_graph(
             corpus,
-            ANCHOR,
+            anchor,
             REPOSITORIES,
             "2026-09-07T05:00:00Z",
             "2026-09-07T05:00:00Z",
@@ -61,7 +79,7 @@ def test_graph_is_stable_when_uncheckpointed_corpus_grows() -> None:
         )
         second = build_graph(
             corpus,
-            ANCHOR,
+            anchor,
             REPOSITORIES,
             "2026-09-07T05:00:00Z",
             "2026-09-07T05:00:00Z",
@@ -74,21 +92,23 @@ def test_graph_is_stable_when_uncheckpointed_corpus_grows() -> None:
 
 
 def test_graph_rejects_cutoff_before_checkpoint_anchor() -> None:
-    if not CORPUS.is_dir() or not ANCHOR.is_file():
+    if not CORPUS.is_dir() or not CHECKPOINT.is_file():
         return
-    try:
-        build_graph(
-            CORPUS,
-            ANCHOR,
-            REPOSITORIES,
-            "2026-09-07T04:59:59Z",
-            "2026-09-07T04:59:59Z",
-            ROOT,
-        )
-    except ValueError as error:
-        assert "knowledge anchor not_after" in str(error)
-    else:
-        raise AssertionError("graph accepted knowledge before its anchor boundary")
+    with tempfile.TemporaryDirectory() as temporary:
+        anchor = materialize_anchor(CORPUS, Path(temporary))
+        try:
+            build_graph(
+                CORPUS,
+                anchor,
+                REPOSITORIES,
+                "2026-09-07T04:59:59Z",
+                "2026-09-07T04:59:59Z",
+                ROOT,
+            )
+        except ValueError as error:
+            assert "knowledge anchor not_after" in str(error)
+        else:
+            raise AssertionError("graph accepted knowledge before its anchor boundary")
 
 
 def test_temporal_suite_v2_requires_the_complete_knowledge_chain() -> None:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -19,9 +20,20 @@ from community_knowledge import (  # noqa: E402
 from schema_utils import validate_instance, validate_json_file  # noqa: E402
 
 
-MANIFEST_SCHEMA = "community-materialization-manifest-v1"
-ASSESSMENT_SCHEMA = "community-materialized-feasibility-v1"
+MANIFEST_SCHEMA_V1 = "community-materialization-manifest-v1"
+MANIFEST_SCHEMA_V2 = "community-materialization-manifest-v2"
+MANIFEST_SCHEMAS = {MANIFEST_SCHEMA_V1, MANIFEST_SCHEMA_V2}
+ASSESSMENT_SCHEMA_V1 = "community-materialized-feasibility-v1"
+ASSESSMENT_SCHEMA_V2 = "community-materialized-feasibility-v2"
 READY_AVAILABILITY = {"AVAILABLE", "SHARED_NO_DISRUPTION"}
+V2_REQUIRED_ROLES = {
+    "BASELINE_SOURCE",
+    "OPERATOR_HARNESS",
+    "WHOLE_MODEL_HARNESS",
+    "MODEL_OR_WEIGHTS",
+    "RUNTIME_OR_ENVIRONMENT",
+    "LIVE_HARDWARE_STATUS",
+}
 
 
 def repository_root() -> Path:
@@ -42,6 +54,10 @@ def validate_identity(identity: dict, label: str) -> Path:
     return path
 
 
+def parse_timestamp(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 def validate_manifest(path: Path, root: Path | None = None) -> dict:
     root = root or repository_root()
     path = path.resolve()
@@ -51,7 +67,7 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
     if errors:
         raise ValueError("invalid materialization manifest: " + "; ".join(errors))
     manifest = read_object(path)
-    if manifest["schema_version"] != MANIFEST_SCHEMA:
+    if manifest["schema_version"] not in MANIFEST_SCHEMAS:
         raise ValueError("unsupported materialization manifest")
     for label in ("task", "preselection_screen", "execution_profile"):
         validate_identity(manifest[label], f"manifest {label}")
@@ -65,6 +81,44 @@ def validate_manifest(path: Path, root: Path | None = None) -> dict:
         seen_roles.add(role)
         for identity in artifact["evidence"]:
             validate_identity(identity, f"materialization artifact {role}")
+    if manifest["schema_version"] == MANIFEST_SCHEMA_V2:
+        roles = {item["role"] for item in manifest["artifacts"] if item["required"]}
+        missing_roles = sorted(V2_REQUIRED_ROLES - roles)
+        if missing_roles:
+            raise ValueError(
+                "v2 materialization manifest is missing required roles: "
+                + ", ".join(missing_roles)
+            )
+        hardware_match = manifest["hardware_match"]
+        minimum_l2 = hardware_match["minimum_l2_cache_mib"]
+        maximum_l2 = hardware_match["maximum_l2_cache_mib"]
+        if (
+            minimum_l2 is not None
+            and maximum_l2 is not None
+            and minimum_l2 > maximum_l2
+        ):
+            raise ValueError("minimum L2 cache requirement exceeds maximum")
+        resource_status_path = Path(manifest["resource_status"]["path"])
+        errors = validate_json_file(
+            resource_status_path,
+            root / "schemas/community_materialized_resource_status.schema.json",
+        )
+        if errors:
+            raise ValueError(
+                "invalid materialized live resource status: " + "; ".join(errors)
+            )
+        resource_status = read_object(resource_status_path)
+        resource_ids = [item["resource_id"] for item in resource_status["resources"]]
+        if len(resource_ids) != len(set(resource_ids)):
+            raise ValueError("duplicate live resource status id")
+        status_age = parse_timestamp(manifest["generated_at"]) - parse_timestamp(
+            resource_status["observed_at"]
+        )
+        maximum_age = hardware_match["maximum_resource_status_age_seconds"]
+        if status_age.total_seconds() < 0:
+            raise ValueError("live resource status postdates the manifest")
+        if status_age.total_seconds() > maximum_age:
+            raise ValueError("live resource status is too old for the manifest")
     return manifest
 
 
@@ -85,27 +139,115 @@ def load_validated_inputs(manifest: dict, root: Path) -> tuple[dict, dict, dict]
 
 
 def matching_resources(
-    manifest: dict, task: dict, screen_item: dict, profile: dict
-) -> list[str]:
+    manifest: dict,
+    task: dict,
+    screen_item: dict,
+    profile: dict,
+    live_status: dict | None,
+) -> tuple[list[str], list[dict]]:
     requested = set(manifest["target_resource_ids"])
     preselected = set(screen_item["ready_resource_ids"])
     target_architecture = task["hardware"]["compute_capability"].lower()
     target_memory = float(task["hardware"]["memory_gib"])
+    hardware_match = manifest.get("hardware_match")
+    resources = {item["resource_id"]: item for item in profile["resources"]}
+    if len(resources) != len(profile["resources"]):
+        raise ValueError("duplicate execution profile resource id")
+    live_resources = (
+        {item["resource_id"]: item for item in live_status["resources"]}
+        if live_status is not None
+        else {}
+    )
     matched = []
-    for resource in profile["resources"]:
-        resource_id = resource["resource_id"]
-        if resource_id not in requested or resource_id not in preselected:
+    diagnostics = []
+    for resource_id in sorted(requested):
+        reasons = []
+        resource = resources.get(resource_id)
+        if resource is None:
+            diagnostics.append(
+                {
+                    "resource_id": resource_id,
+                    "matched": False,
+                    "reasons": ["PROFILE_RESOURCE_MISSING"],
+                }
+            )
             continue
+        if resource_id not in preselected:
+            reasons.append("NOT_READY_AT_PRESELECTION")
         if resource["availability"] not in READY_AVAILABILITY:
-            continue
+            reasons.append("RESOURCE_NOT_AVAILABLE")
         if resource["vendor"] != "NVIDIA":
-            continue
+            reasons.append("VENDOR_MISMATCH")
         if resource["architecture"].lower() != target_architecture:
-            continue
+            reasons.append("ARCHITECTURE_MISMATCH")
         if float(resource["memory_gib_per_gpu"]) < target_memory:
-            continue
-        matched.append(resource_id)
-    return sorted(matched)
+            reasons.append("INSUFFICIENT_MEMORY")
+        if hardware_match is not None:
+            live_resource = live_resources.get(resource_id)
+            if live_resource is None:
+                reasons.append("LIVE_RESOURCE_MISSING")
+                diagnostics.append(
+                    {
+                        "resource_id": resource_id,
+                        "matched": False,
+                        "reasons": sorted(set(reasons)),
+                    }
+                )
+                continue
+            if live_resource["availability"] not in READY_AVAILABILITY:
+                reasons.append("LIVE_RESOURCE_NOT_AVAILABLE")
+            if live_resource["vendor"] != resource["vendor"]:
+                reasons.append("PROFILE_LIVE_VENDOR_MISMATCH")
+            if live_resource["architecture"].lower() != target_architecture:
+                reasons.append("ARCHITECTURE_MISMATCH")
+            if (
+                live_resource["architecture"].lower()
+                != resource["architecture"].lower()
+            ):
+                reasons.append("PROFILE_LIVE_ARCHITECTURE_MISMATCH")
+            if float(live_resource["memory_gib_per_gpu"]) < target_memory:
+                reasons.append("INSUFFICIENT_LIVE_MEMORY")
+            allowed_names = {
+                item.casefold() for item in hardware_match["device_names_any"]
+            }
+            resource_name = live_resource["device_name"]
+            if resource_name.casefold() not in allowed_names:
+                reasons.append("DEVICE_NAME_MISMATCH")
+            profile_name = resource.get("device_name")
+            if (
+                profile_name is not None
+                and profile_name.casefold() != resource_name.casefold()
+            ):
+                reasons.append("PROFILE_LIVE_DEVICE_MISMATCH")
+            required_capabilities = set(hardware_match["required_capabilities_all"])
+            if not required_capabilities.issubset(set(resource["capabilities"])):
+                reasons.append("CAPABILITY_MISMATCH")
+            minimum_l2 = hardware_match["minimum_l2_cache_mib"]
+            maximum_l2 = hardware_match["maximum_l2_cache_mib"]
+            if minimum_l2 is not None or maximum_l2 is not None:
+                l2_cache = live_resource["l2_cache_mib"]
+                if l2_cache is None:
+                    reasons.append("L2_CACHE_NOT_DECLARED")
+                else:
+                    if minimum_l2 is not None and float(l2_cache) < float(minimum_l2):
+                        reasons.append("L2_CACHE_BELOW_MINIMUM")
+                    if maximum_l2 is not None and float(l2_cache) > float(maximum_l2):
+                        reasons.append("L2_CACHE_ABOVE_MAXIMUM")
+            profile_l2 = resource.get("l2_cache_mib")
+            if (
+                profile_l2 is not None
+                and live_resource["l2_cache_mib"] is not None
+                and float(profile_l2) != float(live_resource["l2_cache_mib"])
+            ):
+                reasons.append("PROFILE_LIVE_L2_MISMATCH")
+        reasons = sorted(set(reasons))
+        is_match = not reasons
+        diagnostics.append(
+            {"resource_id": resource_id, "matched": is_match, "reasons": reasons}
+        )
+        if is_match:
+            matched.append(resource_id)
+    return sorted(matched), diagnostics
 
 
 def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
@@ -123,7 +265,14 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
     if len(screen_items) != 1:
         raise ValueError("materialized candidate does not resolve to one screen item")
     screen_item = screen_items[0]
-    matched = matching_resources(manifest, task, screen_item, profile)
+    live_status = (
+        read_object(Path(manifest["resource_status"]["path"]))
+        if manifest["schema_version"] == MANIFEST_SCHEMA_V2
+        else None
+    )
+    matched, resource_diagnostics = matching_resources(
+        manifest, task, screen_item, profile, live_status
+    )
 
     required = [item for item in manifest["artifacts"] if item["required"]]
     missing = [item for item in required if item["status"] == "MISSING"]
@@ -157,7 +306,11 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
         decision = "ELIGIBLE_FOR_SUPERVISOR_REVIEW"
 
     result = {
-        "schema_version": ASSESSMENT_SCHEMA,
+        "schema_version": (
+            ASSESSMENT_SCHEMA_V2
+            if manifest["schema_version"] == MANIFEST_SCHEMA_V2
+            else ASSESSMENT_SCHEMA_V1
+        ),
         "generated_at": now(),
         "claim_boundary": (
             "POST_MATERIALIZATION_GATE_NOT_PERFORMANCE_EVIDENCE_OR_DISPATCH_APPROVAL"
@@ -199,6 +352,8 @@ def build_assessment(manifest_path: Path, root: Path | None = None) -> dict:
             ),
         },
     }
+    if manifest["schema_version"] == MANIFEST_SCHEMA_V2:
+        result["resource_match_diagnostics"] = resource_diagnostics
     errors = validate_instance(
         result,
         read_object(root / "schemas/community_materialized_feasibility.schema.json"),

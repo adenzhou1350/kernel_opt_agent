@@ -17,7 +17,12 @@
     "artifacts"
   ],
   "properties": {
-    "schema_version": {"const": "community-materialization-manifest-v1"},
+    "schema_version": {
+      "enum": [
+        "community-materialization-manifest-v1",
+        "community-materialization-manifest-v2"
+      ]
+    },
     "generated_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "DECLARED_POST_SELECTION_INPUTS_NOT_EXECUTION_AUTHORITY"},
     "task": {"$ref": "#/$defs/fileIdentity"},
@@ -49,6 +54,12 @@
       "uniqueItems": true,
       "items": {"type": "string", "minLength": 1}
     },
+    "hardware_match": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/hardwareMatch"}
+      ]
+    },
     "artifacts": {
       "type": "array",
       "minItems": 1,
@@ -76,6 +87,7 @@
             "OPERATOR_HARNESS",
             "WHOLE_MODEL_HARNESS",
             "MODEL_OR_WEIGHTS",
+            "RUNTIME_OR_ENVIRONMENT",
             "LIVE_HARDWARE_STATUS"
           ]
         },
@@ -97,6 +109,69 @@
           "then": {"properties": {"status": {"not": {"const": "NOT_APPLICABLE"}}}}
         }
       ]
+    },
+    "hardwareMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "device_names_any",
+        "minimum_l2_cache_mib",
+        "maximum_l2_cache_mib",
+        "required_capabilities_all",
+        "maximum_resource_status_age_seconds"
+      ],
+      "properties": {
+        "device_names_any": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "minimum_l2_cache_mib": {
+          "type": ["number", "null"],
+          "minimum": 0
+        },
+        "maximum_l2_cache_mib": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0
+        },
+        "required_capabilities_all": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+        },
+        "maximum_resource_status_age_seconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 3600
+        }
+      }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-materialization-manifest-v2"}
+        }
+      },
+      "then": {
+        "required": ["hardware_match"],
+        "properties": {
+          "hardware_match": {"$ref": "#/$defs/hardwareMatch"},
+          "resource_status": {"$ref": "#/$defs/fileIdentity"},
+          "artifacts": {
+            "allOf": [
+              {"contains": {"properties": {"role": {"const": "BASELINE_SOURCE"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "OPERATOR_HARNESS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "WHOLE_MODEL_HARNESS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "MODEL_OR_WEIGHTS"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "RUNTIME_OR_ENVIRONMENT"}, "required": {"const": true}}, "required": ["role", "required"]}},
+              {"contains": {"properties": {"role": {"const": "LIVE_HARDWARE_STATUS"}, "required": {"const": true}}, "required": ["role", "required"]}}
+            ]
+          }
+        }
+      }
+    }
+  ]
 }

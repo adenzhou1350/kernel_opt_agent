@@ -95,6 +95,36 @@ match as proof that a technique improves the current target. Reverts, closed
 changes, regression reports and contradictory reviews remain first-class
 evidence and must not be filtered out of the source lake.
 
+## Post-selection materialization gate
+
+Metadata feasibility is deliberately coarse. Before compiling, measuring or
+allocating a GPU, materialize a v2 manifest and validate it through the public
+command surface:
+
+```bash
+python scripts/kernel_opt.py community-materialized-feasibility build \
+  --manifest /path/to/community-materialization-manifest-v2.json \
+  --output /path/to/community-materialized-feasibility-v2.json
+python scripts/kernel_opt.py community-materialized-feasibility validate \
+  --assessment /path/to/community-materialized-feasibility-v2.json
+```
+
+V2 requires six distinct hash-bound roles: exact baseline source, operator
+harness, whole-model harness, model or weights, runtime or environment, and a
+point-in-time live hardware receipt. The runtime role is not implied by the
+presence of a driver: packages, imports and the intended isolated environment
+must be installed and preflighted. The live receipt is schema validated and is
+the source of truth for exact device name, compute capability, memory and L2
+capacity. Static execution-profile data is only a declared routing prior; any
+profile/live disagreement blocks dispatch.
+
+Use `hardware_match` to state exact device-name alternatives, L2 bounds and
+required capabilities. If a source result depends on GB10/sm121 with 24 MiB L2,
+an RTX 5090/sm120 with a larger L2 is not accepted merely because both are in
+the SM12.x family. The assessment emits per-resource mismatch reasons, remains
+non-authoritative for dispatch, and keeps `dispatch_gpu` fixed to false until a
+separate supervisor approval is bound.
+
 The graph also resolves each immutable event against the newest PR snapshot
 visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.
 Instead, the node enters `lifecycle_review_queue` and is screened out of direct

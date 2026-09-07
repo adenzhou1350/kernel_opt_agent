@@ -22,6 +22,8 @@
           "availability": {"enum": ["AVAILABLE", "RESERVED", "SHARED_NO_DISRUPTION", "UNREACHABLE"]},
           "vendor": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
           "architecture": {"type": "string", "minLength": 1},
+          "device_name": {"type": "string", "minLength": 1},
+          "l2_cache_mib": {"type": "number", "exclusiveMinimum": 0},
           "gpu_count": {"type": "integer", "minimum": 1},
           "memory_gib_per_gpu": {"type": "number", "exclusiveMinimum": 0},
           "capabilities": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},

@@ -20,6 +20,10 @@ Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
 versus community-augmented trials. New trials bind a machine-audited architecture
 frontier: the executor must pre-register minimum search dimensions, map every
 candidate to them, and cannot close an untested unknown bound with prose alone.
+Before any expensive work on a selected community task, use
+`community-materialized-feasibility` with a v2 manifest. It separately requires
+the runtime/environment and validates exact live device/L2 identity instead of
+trusting a coarse architecture-family match from the discovery screen.
 For audited trials, the JSONL execution transcript—not agent-reported timing—is
 the authority that proves the final ranking was frozen before the first
 production-source edit.
