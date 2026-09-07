@@ -402,6 +402,26 @@ execution profile and all denominator counts match the committed
 preregistration. Independent artifact validation is insufficient when valid
 artifacts can be accidentally combined from different prospective windows.
 
+Accumulate the validated selection chains into a descriptive discovery funnel:
+
+```bash
+python3 scripts/kernel_opt.py community-funnel build \
+  --audit /path/to/chain-audit-window-1.json \
+  --audit /path/to/chain-audit-window-2.json \
+  --corpus /path/to/community-corpus \
+  --output /path/to/discovery-funnel.json
+
+python3 scripts/kernel_opt.py community-funnel validate \
+  --report /path/to/discovery-funnel.json \
+  --corpus /path/to/community-corpus
+```
+
+The funnel records search-to-candidate, post-cutoff and runnable yield, plus
+hash-bound infeasible and harness-blocked examples. It never changes the active
+cohort. A shadow demotion suggestion requires at least two non-runnable examples
+with the same frozen rule, reason and task family, so one noisy PR cannot teach
+the discovery layer to suppress a whole optimization family.
+
 Use `community-eval meta-analyze` to recursively inventory paired A/B reports.
 The summary separates legacy reports, assigned-but-unrealized community arms,
 diagnostic realized treatments and primary realized treatments. Its advantage
