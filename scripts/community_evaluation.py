@@ -1016,9 +1016,6 @@ def validate_heldout_queue(
         raise ValueError("invalid held-out queue: " + "; ".join(errors))
     queue = read_object(queue_path)
     inputs = queue["input_identity"]
-    corpus_index = corpus.resolve() / "index.json"
-    if sha256_file(corpus_index) != inputs["corpus_index_sha256"]:
-        raise ValueError("held-out queue corpus index changed")
     for identity in [*inputs["receipts"], inputs["training_graph"]]:
         path = Path(identity["path"])
         if not path.is_file() or sha256_file(path) != identity["sha256"]:
@@ -1044,6 +1041,12 @@ def validate_heldout_queue(
         int(queue["policy"]["random_seed"]),
         root,
     )
+    # The graph, not the mutable corpus index, is the frozen training universe.
+    # Keep the index hash as build-time provenance for v1 queues, but do not let
+    # later knowledge ingestion invalidate a previously anchored selection chain.
+    expected["input_identity"]["corpus_index_sha256"] = inputs[
+        "corpus_index_sha256"
+    ]
     observed_stable = {
         key: value for key, value in queue.items() if key != "generated_at"
     }

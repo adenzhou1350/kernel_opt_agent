@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sys
 import tempfile
 from collections import Counter
@@ -19,6 +20,7 @@ from community_discovery_funnel import (  # noqa: E402
     ratio,
     validate_funnel,
 )
+from community_evaluation import validate_preselection_chain_audit  # noqa: E402
 from community_knowledge import atomic_json  # noqa: E402
 from schema_utils import validate_instance  # noqa: E402
 
@@ -85,6 +87,26 @@ def test_funnel_build_validate_and_tamper_guard() -> None:
     )
     if committed_v1.is_file():
         assert validate_funnel(committed_v1, corpus)["status"] == "PASS"
+
+
+def test_anchored_chain_survives_later_corpus_index_growth() -> None:
+    base = (
+        ROOT.parent / "community-validation/prospective-heldout-outcome-v4-2026-09-07"
+    )
+    audit = base / "preselection-chain-audit-postcutoff-051533-v1.json"
+    source_corpus = ROOT.parent / "community-optimization-corpus"
+    if not audit.is_file() or not source_corpus.is_dir():
+        return
+    with tempfile.TemporaryDirectory() as temporary:
+        corpus = Path(temporary) / "corpus"
+        shutil.copytree(source_corpus, corpus)
+        index_path = corpus / "index.json"
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        index["generated_at"] = "2026-09-08T00:00:00Z"
+        atomic_json(index_path, index)
+        assert validate_preselection_chain_audit(audit, corpus, ROOT)["status"] == (
+            "PASS"
+        )
 
 
 def test_repeated_pr_updates_do_not_become_independent_evidence() -> None:
