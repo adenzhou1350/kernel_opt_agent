@@ -26,7 +26,7 @@ INDEX_SCHEMA = "community-corpus-index-v1"
 EVENT_SCHEMA = "community-optimization-event-v1"
 GRAPH_SCHEMA = "community-optimization-graph-v1"
 MATCH_SCHEMA = "community-match-receipt-v1"
-SYNC_SCHEMA = "community-sync-receipt-v1"
+SYNC_SCHEMA = "community-sync-receipt-v2"
 REFRESH_SCHEMA = "community-tracked-refresh-receipt-v1"
 REVIEW_QUEUE_SCHEMA = "community-review-queue-v1"
 RUN_INPUT_PATHS = (
@@ -798,16 +798,31 @@ def sync_repository(
             continue
         number = item.get("number")
         title = item.get("title")
+        created_at = item.get("created_at")
         updated_at = item.get("updated_at")
         if not isinstance(number, int) or number < 1:
             raise ValueError("GitHub search candidate has no valid PR number")
         if not isinstance(title, str) or not title:
             raise ValueError(f"GitHub search candidate #{number} has no title")
-        bounded_timestamp(str(updated_at), f"candidate #{number} updated_at")
+        created_time = bounded_timestamp(
+            str(created_at), f"candidate #{number} created_at"
+        )
+        updated_time = bounded_timestamp(
+            str(updated_at), f"candidate #{number} updated_at"
+        )
+        if created_time > updated_time:
+            raise ValueError(
+                f"GitHub search candidate #{number} predates its creation"
+            )
         candidates.append(
             {
                 "pr_number": number,
                 "title": title,
+                "created_at": created_at,
+                # GitHub PR created_at is the earliest public observation.
+                # The discovery API window is updated_at-based, which is useful
+                # for refresh but unsafe for held-out temporal eligibility.
+                "earliest_public_at": created_at,
                 "updated_at": updated_at,
                 "classifications": classifications,
                 "selection_score": discovery_selection_score(item, classifications),
@@ -849,6 +864,8 @@ def sync_repository(
         "claim_boundary": "DISCOVERY_INDEX_ONLY",
         "repository": repository,
         "window": {"since": since, "until": until},
+        "window_basis": "UPDATED_AT",
+        "heldout_eligibility_basis": "EARLIEST_PUBLIC_AT",
         "query_urls": query_urls,
         "authenticated": client.authenticated,
         "search_total_count": total_count,

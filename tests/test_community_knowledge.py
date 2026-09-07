@@ -32,6 +32,7 @@ from community_knowledge import (
     validate_match_receipt,
     validate_review_queue,
 )
+from schema_utils import validate_instance
 
 
 SHA_A = "a" * 40
@@ -116,6 +117,7 @@ class FakeGitHubClient:
                     "number": 7,
                     "title": "Fix kernel performance regression",
                     "body": "Restore the faster fused path.",
+                    "created_at": "2025-12-31T00:00:00Z",
                     "updated_at": "2026-01-03T00:00:00Z",
                     "labels": [{"name": "performance"}],
                 },
@@ -123,6 +125,7 @@ class FakeGitHubClient:
                     "number": 8,
                     "title": "Update documentation",
                     "body": "Template: check performance and regression; no measurements.",
+                    "created_at": "2026-01-02T00:00:00Z",
                     "updated_at": "2026-01-02T00:00:00Z",
                     "labels": [],
                 },
@@ -254,6 +257,30 @@ def main() -> None:
         )
         assert sync_receipt["candidate_count"] == 1
         assert sync_receipt["candidates"][0]["decision"] == "CAPTURED"
+        assert sync_receipt["window_basis"] == "UPDATED_AT"
+        assert sync_receipt["heldout_eligibility_basis"] == "EARLIEST_PUBLIC_AT"
+        assert sync_receipt["candidates"][0]["earliest_public_at"] == (
+            "2025-12-31T00:00:00Z"
+        )
+        assert (
+            sync_receipt["candidates"][0]["earliest_public_at"]
+            < sync_receipt["window"]["since"]
+        )
+        sync_schema = read_object(ROOT / "schemas" / "community_sync_receipt.schema.json")
+        missing_first_public = json.loads(json.dumps(sync_receipt))
+        missing_first_public["candidates"][0].pop("earliest_public_at")
+        assert any(
+            "earliest_public_at" in error
+            for error in validate_instance(missing_first_public, sync_schema)
+        )
+        legacy_sync = json.loads(json.dumps(sync_receipt))
+        legacy_sync["schema_version"] = "community-sync-receipt-v1"
+        legacy_sync.pop("window_basis")
+        legacy_sync.pop("heldout_eligibility_basis")
+        for candidate_row in legacy_sync["candidates"]:
+            candidate_row.pop("created_at")
+            candidate_row.pop("earliest_public_at")
+        assert validate_instance(legacy_sync, sync_schema) == []
         assert "REGRESSION" in sync_receipt["candidates"][0]["classifications"]
         assert sync_receipt["next_since"] == "2026-01-04T00:00:00Z"
         assert validate_corpus(corpus, ROOT)["snapshot_count"] == 2

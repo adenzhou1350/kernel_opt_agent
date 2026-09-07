@@ -340,3 +340,11 @@ and non-increasing availability. A temporal snapshot binds only the selected
 visible revision files; future method IDs, paths and hashes are withheld and
 represented only by anonymous counts. Current (non-temporal) recommendation
 still binds the complete revision history.
+
+GitHub discovery windows are based on `updated_at`, so they are ingestion and
+refresh windows, not held-out eligibility windows. New sync receipts record
+both `window_basis=UPDATED_AT` and each candidate's `earliest_public_at` from
+the PR `created_at`. A temporal held-out task is eligible only when
+`earliest_public_at` is after the evaluation cutoff; a pre-cutoff PR does not
+become unseen merely because a review, force-push, close or merge updates it
+later.
