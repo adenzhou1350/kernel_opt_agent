@@ -21,6 +21,8 @@ PAIR_BASELINE_SCHEMA = "community-work-cycle-pair-baseline-v1"
 PHASES = (
     "COMMUNITY_RESEARCH",
     "BOTTLENECK_DIAGNOSIS",
+    "TASK_MATERIALIZATION",
+    "ENVIRONMENT_PREPARATION",
     "CANDIDATE_IMPLEMENTATION",
     "COMPILE_AND_MEASURE",
     "CORRECTNESS_VALIDATION",
@@ -33,6 +35,7 @@ PHASES = (
 MILESTONES = (
     "FIRST_CANDIDATE_PROPOSED",
     "FIRST_SCREEN_CORRECT",
+    "FIRST_MATERIALIZATION_DECISION",
     "FIRST_MATERIAL_IMPROVEMENT",
     "FIRST_QUALIFIED_RESULT",
     "UPSTREAM_PACKAGE_READY",
@@ -158,6 +161,7 @@ def validate_ledger_object(
     ordered = [
         "FIRST_CANDIDATE_PROPOSED",
         "FIRST_SCREEN_CORRECT",
+        "FIRST_MATERIALIZATION_DECISION",
         "FIRST_MATERIAL_IMPROVEMENT",
         "FIRST_QUALIFIED_RESULT",
         "UPSTREAM_PACKAGE_READY",
@@ -265,6 +269,8 @@ def summarize(path: Path) -> dict:
         "buckets": {
             "research_seconds": phase_seconds["COMMUNITY_RESEARCH"]
             + phase_seconds["BOTTLENECK_DIAGNOSIS"],
+            "materialization_seconds": phase_seconds["TASK_MATERIALIZATION"],
+            "environment_preparation_seconds": phase_seconds["ENVIRONMENT_PREPARATION"],
             "implementation_seconds": phase_seconds["CANDIDATE_IMPLEMENTATION"],
             "compute_seconds": phase_seconds["COMPILE_AND_MEASURE"],
             "validation_seconds": phase_seconds["CORRECTNESS_VALIDATION"]

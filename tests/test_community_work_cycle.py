@@ -225,6 +225,40 @@ def test_v2_cannot_close_with_an_unclassified_gap() -> None:
             raise AssertionError("v2 closed while ten seconds were unclassified")
 
 
+def test_materialization_and_environment_time_are_not_laundered_as_implementation() -> (
+    None
+):
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = ledger(evidence)
+        cycle["spans"][0]["phase"] = "TASK_MATERIALIZATION"
+        cycle["spans"][1]["phase"] = "ENVIRONMENT_PREPARATION"
+        cycle["milestones"].insert(
+            2,
+            {
+                "kind": "FIRST_MATERIALIZATION_DECISION",
+                "at": "2026-09-07T04:04:00Z",
+                "evidence": [identity(evidence)],
+            },
+        )
+        path = base / "materialization-cycle.json"
+        atomic_json(path, cycle)
+
+        report = summarize(path)
+        assert report["buckets"]["research_seconds"] == 0
+        assert report["buckets"]["materialization_seconds"] == 60
+        assert report["buckets"]["environment_preparation_seconds"] == 120
+        assert report["buckets"]["implementation_seconds"] == 0
+        assert (
+            report["time_to_milestone_seconds"]["FIRST_MATERIALIZATION_DECISION"] == 240
+        )
+
+
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_pair_baseline_reads_bound_assessments()
+    test_v2_requires_explicit_close_and_complete_wall_clock_coverage()
+    test_v2_cannot_close_with_an_unclassified_gap()
+    test_materialization_and_environment_time_are_not_laundered_as_implementation()

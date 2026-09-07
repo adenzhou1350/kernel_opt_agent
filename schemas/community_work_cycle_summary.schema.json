@@ -46,6 +46,8 @@
       "properties": {
         "COMMUNITY_RESEARCH": {"type": "number", "minimum": 0},
         "BOTTLENECK_DIAGNOSIS": {"type": "number", "minimum": 0},
+        "TASK_MATERIALIZATION": {"type": "number", "minimum": 0},
+        "ENVIRONMENT_PREPARATION": {"type": "number", "minimum": 0},
         "CANDIDATE_IMPLEMENTATION": {"type": "number", "minimum": 0},
         "COMPILE_AND_MEASURE": {"type": "number", "minimum": 0},
         "CORRECTNESS_VALIDATION": {"type": "number", "minimum": 0},
@@ -70,6 +72,8 @@
       ],
       "properties": {
         "research_seconds": {"type": "number", "minimum": 0},
+        "materialization_seconds": {"type": "number", "minimum": 0},
+        "environment_preparation_seconds": {"type": "number", "minimum": 0},
         "implementation_seconds": {"type": "number", "minimum": 0},
         "compute_seconds": {"type": "number", "minimum": 0},
         "validation_seconds": {"type": "number", "minimum": 0},
@@ -104,6 +108,7 @@
       "properties": {
         "FIRST_CANDIDATE_PROPOSED": {"$ref": "#/$defs/nullableSeconds"},
         "FIRST_SCREEN_CORRECT": {"$ref": "#/$defs/nullableSeconds"},
+        "FIRST_MATERIALIZATION_DECISION": {"$ref": "#/$defs/nullableSeconds"},
         "FIRST_MATERIAL_IMPROVEMENT": {"$ref": "#/$defs/nullableSeconds"},
         "FIRST_QUALIFIED_RESULT": {"$ref": "#/$defs/nullableSeconds"},
         "UPSTREAM_PACKAGE_READY": {"$ref": "#/$defs/nullableSeconds"},

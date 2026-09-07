@@ -56,9 +56,10 @@ python3 scripts/kernel_opt.py community-timing summarize \
 ```
 
 The v2 ledger uses non-overlapping primary wall-clock spans for community research,
-bottleneck diagnosis, implementation, compile/measurement, correctness,
-performance, whole-model validation, upstream packaging and external wait.
-Hash-bound milestones report time to the first candidate, correct result,
+bottleneck diagnosis, task materialization, environment preparation, implementation,
+compile/measurement, correctness, performance, whole-model validation, upstream
+packaging and external wait. Hash-bound milestones report time to the first
+candidate, screening result, materialization decision, correct result,
 material improvement, qualified result, upstream-ready package, draft PR,
 ready-for-review PR and merge. Legacy trials may retain milestone bounds but
 must leave unavailable phase attribution under `UNATTRIBUTED_LEGACY_WORK`.

@@ -106,6 +106,8 @@
           "enum": [
             "COMMUNITY_RESEARCH",
             "BOTTLENECK_DIAGNOSIS",
+            "TASK_MATERIALIZATION",
+            "ENVIRONMENT_PREPARATION",
             "CANDIDATE_IMPLEMENTATION",
             "COMPILE_AND_MEASURE",
             "CORRECTNESS_VALIDATION",
@@ -136,6 +138,7 @@
           "enum": [
             "FIRST_CANDIDATE_PROPOSED",
             "FIRST_SCREEN_CORRECT",
+            "FIRST_MATERIALIZATION_DECISION",
             "FIRST_MATERIAL_IMPROVEMENT",
             "FIRST_QUALIFIED_RESULT",
             "UPSTREAM_PACKAGE_READY",
