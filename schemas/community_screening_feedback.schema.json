@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_screening_feedback.schema.json",
+  "title": "Append-only feedback from frozen preselection to postselection materialization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observation_id", "available_at", "claim_boundary", "cohort", "candidate", "preselection", "postselection", "context_signature", "activation_policy", "knowledge_value", "evidence"],
+  "properties": {
+    "schema_version": {"const": "community-screening-feedback-v1"},
+    "observation_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]+$"},
+    "available_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "FUTURE_COHORT_SCREENING_FEEDBACK_NOT_CURRENT_COHORT_SELECTION_OR_PERFORMANCE_EVIDENCE"},
+    "cohort": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cutoff_at", "git_commit", "excluded_from_same_cohort"],
+      "properties": {
+        "cutoff_at": {"type": "string", "format": "date-time"},
+        "git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "excluded_from_same_cohort": {"const": true}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pr_number", "title", "earliest_public_at", "head_sha"],
+      "properties": {
+        "repository": {"type": "string"},
+        "pr_number": {"type": "integer", "minimum": 1},
+        "title": {"type": "string", "minLength": 1},
+        "earliest_public_at": {"type": "string", "format": "date-time"},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"}
+      }
+    },
+    "preselection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "matched_rule_id"],
+      "properties": {
+        "status": {"enum": ["ELIGIBLE", "INFEASIBLE", "HARNESS_BLOCKED"]},
+        "matched_rule_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "postselection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_codes", "gpu_dispatched", "task_materialized"],
+      "properties": {
+        "status": {"enum": ["OPTIMIZATION_TASK", "KNOWLEDGE_ONLY_NO_OPTIMIZATION_TARGET", "HARNESS_BLOCKED", "RESOURCE_BLOCKED", "INFEASIBLE", "UPSTREAM_DUPLICATE", "PROTOCOL_FAILURE"]},
+        "reason_codes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+        "gpu_dispatched": {"type": "boolean"},
+        "task_materialized": {"type": "boolean"}
+      }
+    },
+    "context_signature": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+    "activation_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["minimum_distinct_candidates", "current_distinct_candidates", "status", "action"],
+      "properties": {
+        "minimum_distinct_candidates": {"const": 2},
+        "current_distinct_candidates": {"const": 1},
+        "status": {"const": "INSUFFICIENT_EVIDENCE"},
+        "action": {"const": "RECORD_ONLY_DO_NOT_ROUTE"}
+      }
+    },
+    "knowledge_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_family", "positive_method", "negative_experience", "falsification"],
+      "properties": {
+        "event_family": {"type": "string"},
+        "positive_method": {"type": "string"},
+        "negative_experience": {"type": "string"},
+        "falsification": {"type": "string"}
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assessment", "queue", "screen", "chain_audit"],
+      "properties": {
+        "assessment": {"$ref": "#/$defs/identity"},
+        "queue": {"$ref": "#/$defs/identity"},
+        "screen": {"$ref": "#/$defs/identity"},
+        "chain_audit": {"$ref": "#/$defs/identity"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

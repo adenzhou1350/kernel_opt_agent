@@ -1,0 +1,125 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_postselection_task_assessment.schema.json",
+  "title": "Post-selection public-metadata task assessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "candidate",
+    "frozen_selection_evidence",
+    "public_problem_statement",
+    "materialization_decision",
+    "knowledge_value",
+    "future_policy_observation",
+    "source_access"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-postselection-task-assessment-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "POST_SELECTION_PUBLIC_METADATA_ASSESSMENT_NOT_PERFORMANCE_EXECUTION"},
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "pr_number", "title", "earliest_public_at", "url", "state_at_assessment", "draft_at_assessment", "base_sha", "head_sha", "head_ref", "commit_count", "changed_file_count", "additions", "deletions"],
+      "properties": {
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "pr_number": {"type": "integer", "minimum": 1},
+        "title": {"type": "string", "minLength": 1},
+        "earliest_public_at": {"type": "string", "format": "date-time"},
+        "url": {"type": "string", "pattern": "^https://github\\.com/.+/pull/[1-9][0-9]*$"},
+        "state_at_assessment": {"enum": ["open", "closed"]},
+        "draft_at_assessment": {"type": "boolean"},
+        "base_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "head_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "head_ref": {"type": "string", "minLength": 1},
+        "commit_count": {"type": "integer", "minimum": 1},
+        "changed_file_count": {"type": "integer", "minimum": 1},
+        "additions": {"type": "integer", "minimum": 0},
+        "deletions": {"type": "integer", "minimum": 0}
+      }
+    },
+    "frozen_selection_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["queue", "screen", "chain_audit", "preselection_decision", "preselection_rule"],
+      "properties": {
+        "queue": {"$ref": "#/$defs/identity"},
+        "screen": {"$ref": "#/$defs/identity"},
+        "chain_audit": {"$ref": "#/$defs/identity"},
+        "preselection_decision": {"enum": ["ELIGIBLE", "INFEASIBLE", "HARNESS_BLOCKED"]},
+        "preselection_rule": {"type": "string", "minLength": 1}
+      }
+    },
+    "public_problem_statement": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["symptom", "reported_regressions", "declared_change", "declared_benchmarking", "target_hardware_in_source"],
+      "properties": {
+        "symptom": {"type": "string", "minLength": 1},
+        "reported_regressions": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "declared_change": {"type": "string", "minLength": 1},
+        "declared_benchmarking": {"type": "string", "minLength": 1},
+        "target_hardware_in_source": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "materialization_decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "reason_codes", "gpu_dispatch", "compile_or_benchmark", "duplicate_pr_allowed", "task_materialized"],
+      "properties": {
+        "status": {"enum": ["OPTIMIZATION_TASK", "KNOWLEDGE_ONLY_NO_OPTIMIZATION_TARGET", "HARNESS_BLOCKED", "RESOURCE_BLOCKED", "INFEASIBLE", "UPSTREAM_DUPLICATE", "PROTOCOL_FAILURE"]},
+        "reason_codes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}},
+        "gpu_dispatch": {"type": "boolean"},
+        "compile_or_benchmark": {"type": "boolean"},
+        "duplicate_pr_allowed": {"type": "boolean"},
+        "task_materialized": {"type": "boolean"}
+      }
+    },
+    "knowledge_value": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["event_family", "positive_method", "negative_experience", "transfer_targets", "falsification"],
+      "properties": {
+        "event_family": {"type": "string", "pattern": "^[A-Z0-9_]+$"},
+        "positive_method": {"type": "string", "minLength": 1},
+        "negative_experience": {"type": "string", "minLength": 1},
+        "transfer_targets": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "falsification": {"type": "string", "minLength": 1}
+      }
+    },
+    "future_policy_observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "candidate_rule", "anti_leakage"],
+      "properties": {
+        "status": {"const": "RECORDED_FOR_FUTURE_COHORT_ONLY"},
+        "candidate_rule": {"type": "string", "minLength": 1},
+        "anti_leakage": {"type": "string", "minLength": 1}
+      }
+    },
+    "source_access": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["metadata_endpoint", "conversation_url", "patch_or_diff_read"],
+      "properties": {
+        "metadata_endpoint": {"type": "string", "pattern": "^https://api\\.github\\.com/"},
+        "conversation_url": {"type": "string", "pattern": "^https://github\\.com/"},
+        "patch_or_diff_read": {"type": "boolean"}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

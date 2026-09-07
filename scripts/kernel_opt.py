@@ -38,6 +38,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-graph-v2": Command("community_graph_v2.py", "build checkpoint-backed temporal knowledge graphs"),
         "community-coverage-audit": Command("community_coverage_audit.py", "audit lifecycle, repository and relation breadth"),
         "community-materialized-feasibility": Command("community_materialized_feasibility.py", "fail closed after task and harness materialization"),
+        "community-screening-feedback": Command("community_screening_feedback.py", "record postselection corrections for future cohort routing"),
         "community-runtime-preflight": Command("community_runtime_preflight.py", "prove an isolated runtime imports without GPU execution"),
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
     },

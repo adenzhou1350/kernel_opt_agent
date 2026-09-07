@@ -163,6 +163,29 @@ postdated observations. The command itself invokes no installer,
 builder or GPU benchmark. This preflight proves import readiness only; it is
 still not permission to compile or benchmark.
 
+When a frozen metadata screen admits a candidate that postselection review
+shows is not an optimization task, preserve the correction as append-only
+future-cohort feedback:
+
+```bash
+python scripts/kernel_opt.py community-screening-feedback build \
+  --assessment postselection-task-assessment-v1.json \
+  --observation-id project-pr-ci-baseline-not-optimization-v1 \
+  --available-at 2026-01-02T00:03:00Z \
+  --output screening-feedback-v1.json
+python scripts/kernel_opt.py community-screening-feedback validate \
+  --feedback screening-feedback-v1.json
+```
+
+The assessment binds the selected queue, preselection screen and chain audit,
+and the feedback recomputes all three hashes and candidate links. A single
+observation is always `INSUFFICIENT_EVIDENCE` with
+`RECORD_ONLY_DO_NOT_ROUTE`; it cannot rewrite the active cohort or activate a
+new rule. Policy review requires at least two distinct candidates in the same
+explicit context, and any counterexample must remain visible. This lets the
+system learn from title-level false positives without turning one held-out
+example into a self-confirming heuristic.
+
 The graph also resolves each immutable event against the newest PR snapshot
 visible at its temporal cutoff. A newer snapshot does not rewrite old evidence.
 
