@@ -18,9 +18,11 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_evaluation import (  # noqa: E402
     build_preselection_anchor,
     preselection_link_errors,
+    rule_matches_candidate,
     validate_preselection_anchor,
 )
-from community_knowledge import atomic_json, sha256_file  # noqa: E402
+from community_knowledge import atomic_json, read_object, sha256_file  # noqa: E402
+from schema_utils import validate_json_file  # noqa: E402
 
 
 def git(repository: Path, *arguments: str, timestamp: str | None = None) -> str:
@@ -44,6 +46,34 @@ def git(repository: Path, *arguments: str, timestamp: str | None = None) -> str:
 
 
 def main() -> None:
+    policy_path = ROOT / "knowledge/community/feasibility_policy.v2.json"
+    profile_path = (
+        ROOT
+        / "knowledge/community/execution_profiles/nvidia-sm89-sm120-local-first.v1.json"
+    )
+    assert not validate_json_file(
+        policy_path, ROOT / "schemas/community_feasibility_policy.schema.json"
+    )
+    assert not validate_json_file(
+        profile_path, ROOT / "schemas/community_execution_profile.schema.json"
+    )
+    documentation_rule = read_object(policy_path)["rules"][0]
+    assert rule_matches_candidate(
+        documentation_rule,
+        {
+            "repository": "sgl-project/sglang",
+            "title": "[Docs] Prefer the current CUDA graph flag",
+            "classifications": ["KERNEL_OR_RUNTIME"],
+        },
+    )
+    assert not rule_matches_candidate(
+        documentation_rule,
+        {
+            "repository": "sgl-project/sglang",
+            "title": "[Kernel] Reduce CUDA graph launch overhead",
+            "classifications": ["KERNEL_OR_RUNTIME"],
+        },
+    )
     with tempfile.TemporaryDirectory() as temporary:
         repository = Path(temporary)
         schemas = repository / "schemas"
