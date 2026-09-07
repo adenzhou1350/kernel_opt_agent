@@ -27,6 +27,7 @@ EVENT_SCHEMA = "community-optimization-event-v1"
 GRAPH_SCHEMA = "community-optimization-graph-v1"
 MATCH_SCHEMA = "community-match-receipt-v1"
 SYNC_SCHEMA = "community-sync-receipt-v1"
+REFRESH_SCHEMA = "community-tracked-refresh-receipt-v1"
 RUN_INPUT_PATHS = (
     "operator.json",
     "workload.json",
@@ -298,6 +299,24 @@ def snapshot_identity(manifest: dict) -> str:
         ],
     }
     return sha256_bytes(canonical_json(stable))[:20]
+
+
+def semantic_snapshot_identity(manifest_path: Path) -> str:
+    """Recompute the stable identity even for manifests created before it existed."""
+    manifest = read_object(manifest_path)
+    artifacts = []
+    for artifact in manifest["artifacts"]:
+        identity_sha256 = artifact.get("identity_sha256", artifact["sha256"])
+        if artifact["kind"] == "PULL_REQUEST":
+            identity_sha256 = pull_artifact_identity(
+                json.loads(
+                    (manifest_path.parent / artifact["path"]).read_text(
+                        encoding="utf-8"
+                    )
+                )
+            )
+        artifacts.append({**artifact, "identity_sha256": identity_sha256})
+    return snapshot_identity({**manifest, "artifacts": artifacts})
 
 
 def lifecycle(manifest: dict) -> str:
@@ -790,6 +809,138 @@ def sync_repository(
     )
     if errors:
         raise ValueError("invalid community sync receipt: " + "; ".join(errors))
+    atomic_json(receipt_path.resolve(), receipt)
+    return receipt
+
+
+def latest_snapshot_entry(corpus: Path, repository: str, number: int) -> dict:
+    entries = [
+        entry
+        for entry in read_object(corpus / "index.json")["snapshots"]
+        if entry["repository"] == repository and entry["pr_number"] == number
+    ]
+    if not entries:
+        raise ValueError(f"no indexed snapshot for {repository}#{number}")
+
+    def key(entry: dict) -> tuple[datetime, str]:
+        available_at = parse_source_timestamp(
+            snapshot_source_available_at(corpus / entry["path"] / "manifest.json")
+        )
+        if available_at is None:
+            raise ValueError("snapshot contains an invalid source availability time")
+        return available_at, entry["snapshot_id"]
+
+    return max(entries, key=key)
+
+
+def refresh_tracked_events(
+    corpus: Path,
+    receipt_path: Path,
+    client: GitHubClient,
+    max_captures: int = 20,
+    dry_run: bool = False,
+    root: Path | None = None,
+) -> dict:
+    """Refresh PRs already referenced by events under one explicit API budget."""
+    root = root or repository_root()
+    corpus = corpus.resolve()
+    validate_corpus(corpus, root)
+    if not 1 <= max_captures <= 100:
+        raise ValueError("max_captures must be between 1 and 100")
+
+    grouped: dict[tuple[str, int], list[dict]] = {}
+    for path in event_paths(corpus):
+        validate_event(path, corpus, root)
+        event = read_object(path)
+        source = event["source_snapshot"]
+        grouped.setdefault((source["repository"], source["pr_number"]), []).append(
+            event
+        )
+    if not grouped:
+        raise ValueError("community corpus has no tracked optimization events")
+
+    rows = []
+    review_required = set()
+    for index, ((repository, number), events) in enumerate(sorted(grouped.items())):
+        before = latest_snapshot_entry(corpus, repository, number)
+        before_semantic = semantic_snapshot_identity(
+            corpus / before["path"] / "manifest.json"
+        )
+        decision = (
+            "BUDGET_SKIPPED"
+            if index >= max_captures
+            else "DRY_RUN"
+            if dry_run
+            else "CAPTURED"
+        )
+        after = None
+        after_semantic = None
+        event_reviews: list[str] = []
+        if decision == "CAPTURED":
+            captured = capture_pr(repository, number, corpus, client, root)
+            after = latest_snapshot_entry(corpus, repository, number)
+            after_semantic = semantic_snapshot_identity(
+                corpus / after["path"] / "manifest.json"
+            )
+            for event in events:
+                observation = lifecycle_observation(corpus, event)
+                if observation["status"] == "REVIEW_REQUIRED":
+                    event_reviews.append(event["event_id"])
+                    review_required.add(event["event_id"])
+            if captured["snapshot_id"] != after["snapshot_id"]:
+                raise ValueError("captured snapshot is not the latest tracked evidence")
+        rows.append(
+            {
+                "repository": repository,
+                "pr_number": number,
+                "event_ids": sorted(event["event_id"] for event in events),
+                "decision": decision,
+                "before": {
+                    "snapshot_id": before["snapshot_id"],
+                    "semantic_identity": before_semantic,
+                    "lifecycle": before["lifecycle"],
+                    "source_available_at": snapshot_source_available_at(
+                        corpus / before["path"] / "manifest.json"
+                    ),
+                },
+                "after": (
+                    {
+                        "snapshot_id": after["snapshot_id"],
+                        "semantic_identity": after_semantic,
+                        "lifecycle": after["lifecycle"],
+                        "source_available_at": snapshot_source_available_at(
+                            corpus / after["path"] / "manifest.json"
+                        ),
+                    }
+                    if after is not None
+                    else None
+                ),
+                "semantic_changed": (
+                    after_semantic is not None and after_semantic != before_semantic
+                ),
+                "review_required_event_ids": sorted(event_reviews),
+            }
+        )
+
+    receipt = {
+        "schema_version": REFRESH_SCHEMA,
+        "generated_at": now(),
+        "claim_boundary": "TRACKED_SOURCE_REFRESH_ONLY",
+        "authenticated": client.authenticated,
+        "max_captures": max_captures,
+        "dry_run": dry_run,
+        "tracked_pr_count": len(rows),
+        "captured_count": sum(row["decision"] == "CAPTURED" for row in rows),
+        "semantic_change_count": sum(bool(row["semantic_changed"]) for row in rows),
+        "review_required_event_ids": sorted(review_required),
+        "tracked_pull_requests": rows,
+    }
+    errors = validate_instance(
+        receipt,
+        read_object(root / "schemas" / "community_tracked_refresh_receipt.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid tracked-refresh receipt: " + "; ".join(errors))
     atomic_json(receipt_path.resolve(), receipt)
     return receipt
 
@@ -1638,6 +1789,15 @@ def parse_args() -> argparse.Namespace:
     sync.add_argument("--max-captures", type=int, default=20)
     sync.add_argument("--dry-run", action="store_true")
     sync.add_argument("--timeout", type=float, default=30.0)
+    refresh = subparsers.add_parser(
+        "refresh-tracked",
+        help="refresh PRs referenced by existing events under a fixed API budget",
+    )
+    refresh.add_argument("--corpus", type=Path, required=True)
+    refresh.add_argument("--receipt", type=Path, required=True)
+    refresh.add_argument("--max-captures", type=int, default=20)
+    refresh.add_argument("--dry-run", action="store_true")
+    refresh.add_argument("--timeout", type=float, default=30.0)
     validate = subparsers.add_parser(
         "validate-corpus", help="validate every indexed snapshot and hash"
     )
@@ -1688,6 +1848,15 @@ def main() -> int:
                 args.repository,
                 args.since,
                 args.until,
+                args.corpus,
+                args.receipt,
+                client,
+                args.max_captures,
+                args.dry_run,
+            )
+        elif args.operation == "refresh-tracked":
+            client = GitHubClient(os.environ.get("GITHUB_TOKEN"), timeout=args.timeout)
+            result = refresh_tracked_events(
                 args.corpus,
                 args.receipt,
                 client,

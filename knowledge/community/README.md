@@ -47,6 +47,19 @@ matched candidate, budget skip, query URL and whether GitHub truncated search
 coverage. Feed its `next_since` into the next scheduled window; never silently
 advance a cursor after a failed run.
 
+Refresh every PR already referenced by an event under a separate fixed budget:
+
+```bash
+python3 scripts/kernel_opt.py community refresh-tracked \
+  --corpus /path/to/community-corpus \
+  --receipt /path/to/tracked-refresh.json \
+  --max-captures 20
+```
+
+The receipt lists every tracked PR, budget skip, before/after semantic snapshot,
+lifecycle and event requiring re-review. `--dry-run` materializes the bounded
+plan without issuing PR capture requests.
+
 Snapshots preserve the SHA-256 of every exact GitHub response, but deduplicate
 the pull-request artifact by PR-owned semantics rather than volatile fields in
 the nested repository object. Repository stars, fork counts and open-issue

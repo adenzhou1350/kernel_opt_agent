@@ -22,6 +22,7 @@ from community_knowledge import (
     capture_pr,
     discovery_classifications,
     read_object,
+    refresh_tracked_events,
     sha256_file,
     sync_repository,
     validate_corpus,
@@ -334,13 +335,23 @@ def main() -> None:
         # before the PR lifecycle changes.
         client.review_body = "The merged change was reverted after a regression."
         client.review_submitted_at = "2026-01-04T00:00:00Z"
-        review_update = capture_pr("example/project", 7, corpus, client, ROOT)
-        assert review_update["snapshot_id"] != third["snapshot_id"]
+        review_refresh = refresh_tracked_events(
+            corpus,
+            Path(temporary) / "review-refresh.json",
+            client,
+            max_captures=1,
+            root=ROOT,
+        )
+        review_row = review_refresh["tracked_pull_requests"][0]
+        assert review_refresh["captured_count"] == 1
+        assert review_refresh["semantic_change_count"] == 1
+        assert len(review_refresh["review_required_event_ids"]) == 2
+        assert review_row["semantic_changed"]
+        assert review_row["after"]["snapshot_id"] != third["snapshot_id"]
         review_graph = build_graph(corpus, ["example/project", "other/engine"], ROOT)
         assert len(review_graph["lifecycle_review_queue"]) == 2
         assert all(
-            row["event_outcome"] == "MERGED"
-            and row["latest_outcome"] == "MERGED"
+            row["event_outcome"] == "MERGED" and row["latest_outcome"] == "MERGED"
             for row in review_graph["lifecycle_review_queue"]
         )
 
@@ -349,8 +360,17 @@ def main() -> None:
         client.pull_state = "closed"
         client.pull_merged = False
         client.pull_updated_at = "2026-01-05T00:00:00Z"
-        later = capture_pr("example/project", 7, corpus, client, ROOT)
-        assert later["snapshot_id"] != third["snapshot_id"]
+        lifecycle_refresh = refresh_tracked_events(
+            corpus,
+            Path(temporary) / "lifecycle-refresh.json",
+            client,
+            max_captures=1,
+            root=ROOT,
+        )
+        lifecycle_row = lifecycle_refresh["tracked_pull_requests"][0]
+        assert lifecycle_row["before"]["lifecycle"] == "MERGED"
+        assert lifecycle_row["after"]["lifecycle"] == "CLOSED_UNMERGED"
+        assert lifecycle_row["semantic_changed"]
         stale_graph = build_graph(corpus, ["example/project", "other/engine"], ROOT)
         assert len(stale_graph["lifecycle_review_queue"]) == 2
         assert all(
