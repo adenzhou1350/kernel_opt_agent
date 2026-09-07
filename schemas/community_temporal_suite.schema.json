@@ -14,7 +14,7 @@
     "tasks"
   ],
   "properties": {
-    "schema_version": {"const": "community-temporal-suite-v1"},
+    "schema_version": {"enum": ["community-temporal-suite-v1", "community-temporal-suite-v2"]},
     "suite_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
     "cutoff_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {"const": "EVALUATION_PROTOCOL_ONLY"},
@@ -23,6 +23,7 @@
     "training_prior_outcomes": {"$ref": "#/$defs/identity"},
     "training_prior_routing": {"$ref": "#/$defs/identity"},
     "preselection_anchor": {"$ref": "#/$defs/identity"},
+    "knowledge_checkpoint_anchor": {"$ref": "#/$defs/identity"},
     "protocol": {
       "type": "object",
       "additionalProperties": false,
@@ -140,6 +141,23 @@
       }
     }
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {"const": "community-temporal-suite-v2"}
+        }
+      },
+      "then": {
+        "required": [
+          "knowledge_checkpoint_anchor",
+          "preselection_anchor",
+          "training_prior_outcomes",
+          "training_prior_routing"
+        ]
+      }
+    }
+  ],
   "$defs": {
     "identity": {
       "type": "object",

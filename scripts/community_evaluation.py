@@ -16,6 +16,8 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 from statistics import median
 
+from community_checkpoint import validate_anchor as validate_knowledge_anchor
+from community_graph_v2 import validate_graph as validate_graph_v2
 from community_knowledge import (
     atomic_json,
     now,
@@ -27,7 +29,7 @@ from community_knowledge import (
 from schema_utils import validate_instance, validate_json_file
 
 
-SUITE_SCHEMA = "community-temporal-suite-v1"
+SUITE_SCHEMAS = {"community-temporal-suite-v1", "community-temporal-suite-v2"}
 TRIAL_SCHEMA = "community-evaluation-trial-v1"
 RESULT_SCHEMA = "community-trial-result-v1"
 ASSESSMENT_SCHEMA = "community-trial-assessment-v1"
@@ -497,7 +499,7 @@ def validate_suite(
     if schema_errors:
         raise ValueError("invalid temporal suite: " + "; ".join(schema_errors))
     suite = read_object(suite_path)
-    if suite["schema_version"] != SUITE_SCHEMA:
+    if suite["schema_version"] not in SUITE_SCHEMAS:
         raise ValueError("unsupported temporal suite schema")
     if set(suite["protocol"]["metrics"]) != METRICS:
         raise ValueError("temporal suite must measure the complete metric set")
@@ -505,9 +507,30 @@ def validate_suite(
     base = suite_path.parent
     graph_path = validate_identity(base, suite["training_graph"], "training graph")
     validate_corpus(corpus, root)
-    validate_graph(graph_path, corpus, root)
+    validate_training_graph(graph_path, corpus, root)
     graph = read_object(graph_path)
     cutoff = parse_time(suite["cutoff_at"])
+    if suite["schema_version"] == "community-temporal-suite-v2":
+        if graph["schema_version"] != "community-optimization-graph-v2":
+            raise ValueError("temporal suite v2 requires checkpoint-backed graph v2")
+        if (
+            parse_time(graph["source_cutoff_at"]) != cutoff
+            or parse_time(graph["knowledge_cutoff_at"]) != cutoff
+        ):
+            raise ValueError("graph v2 source and knowledge cutoffs must match suite cutoff")
+        knowledge_anchor_path = validate_identity(
+            base,
+            suite["knowledge_checkpoint_anchor"],
+            "suite knowledge checkpoint anchor",
+        )
+        validate_knowledge_anchor(knowledge_anchor_path, corpus, root)
+        graph_anchor = graph["input_identity"]["checkpoint_anchor"]
+        if (
+            knowledge_anchor_path.resolve()
+            != Path(graph_anchor["path"]).resolve()
+            or sha256_file(knowledge_anchor_path) != graph_anchor["sha256"]
+        ):
+            raise ValueError("suite and graph bind different knowledge checkpoints")
     anchored_preregistration = None
     if suite.get("preselection_anchor") is not None:
         anchor_path = validate_identity(
@@ -621,12 +644,9 @@ def validate_suite(
             raise ValueError(
                 "suite prior routing snapshot differs from anchored preregistration"
             )
-    training_sources: set[tuple[str, int]] = set()
-    for event_identity in graph["input_identity"]["events"]:
-        event_path = validate_identity(corpus, event_identity, "training event")
-        event = read_object(event_path)
-        source = event["source_snapshot"]
-        training_sources.add((source["repository"], source["pr_number"]))
+    training_sources = {
+        (node["repository"], int(node["pr_number"])) for node in graph["nodes"]
+    }
 
     validate_identity(base, suite["protocol"]["prompt_identity"], "trial prompt")
     validate_identity(
@@ -746,6 +766,21 @@ def absolute_identity(path: Path) -> dict:
     return {"path": resolved.as_posix(), "sha256": sha256_file(resolved)}
 
 
+def validate_training_graph(
+    graph_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    graph = read_object(graph_path)
+    if graph.get("schema_version") == "community-optimization-graph-v2":
+        return validate_graph_v2(graph_path, corpus, root)
+    return validate_graph(graph_path, corpus, root)
+
+
+def training_graph_cutoff(graph: dict) -> str | None:
+    if graph.get("schema_version") == "community-optimization-graph-v2":
+        return graph.get("source_cutoff_at")
+    return graph.get("temporal_cutoff_at")
+
+
 def build_heldout_queue(
     receipt_paths: list[Path],
     graph_path: Path,
@@ -767,9 +802,9 @@ def build_heldout_queue(
     cutoff = parse_time(cutoff_at)
 
     graph_path = graph_path.resolve()
-    validate_graph(graph_path, corpus, root)
+    validate_training_graph(graph_path, corpus, root)
     graph = read_object(graph_path)
-    graph_cutoff = graph.get("temporal_cutoff_at")
+    graph_cutoff = training_graph_cutoff(graph)
     if graph_cutoff is None or parse_time(graph_cutoff) != cutoff:
         raise ValueError("training graph cutoff does not match held-out cutoff")
     training_sources = {

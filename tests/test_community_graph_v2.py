@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_graph_v2 import build_graph, validate_graph  # noqa: E402
 from community_knowledge import atomic_json  # noqa: E402
+from schema_utils import validate_instance  # noqa: E402
 
 
 CORPUS = ROOT.parents[1] / "community-optimization-corpus"
@@ -88,3 +89,23 @@ def test_graph_rejects_cutoff_before_checkpoint_anchor() -> None:
         assert "knowledge anchor not_after" in str(error)
     else:
         raise AssertionError("graph accepted knowledge before its anchor boundary")
+
+
+def test_temporal_suite_v2_requires_the_complete_knowledge_chain() -> None:
+    schema = json.loads(
+        (ROOT / "schemas" / "community_temporal_suite.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    v2_errors = validate_instance(
+        {"schema_version": "community-temporal-suite-v2"}, schema
+    )
+    assert any("knowledge_checkpoint_anchor" in error for error in v2_errors)
+    assert any("preselection_anchor" in error for error in v2_errors)
+    assert any("training_prior_outcomes" in error for error in v2_errors)
+    assert any("training_prior_routing" in error for error in v2_errors)
+
+    v1_errors = validate_instance(
+        {"schema_version": "community-temporal-suite-v1"}, schema
+    )
+    assert not any("knowledge_checkpoint_anchor" in error for error in v1_errors)
