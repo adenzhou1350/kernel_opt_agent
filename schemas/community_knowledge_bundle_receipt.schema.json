@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_knowledge_bundle_receipt.schema.json",
+  "title": "Cutoff-aligned community graph and method bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "status",
+    "claim_boundary",
+    "repository",
+    "cutoffs",
+    "inputs",
+    "inventory",
+    "suite_binding_rule",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "future-community-knowledge-bundle-receipt-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "status": {"const": "READY_FOR_FUTURE_SUITE_BINDING"},
+    "claim_boundary": {"const": "CUTOFF_SAFE_KNOWLEDGE_INPUT_NOT_PERFORMANCE_EVIDENCE"},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["branch", "commit", "fork_url"],
+      "properties": {
+        "branch": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "fork_url": {"type": "string", "minLength": 1}
+      }
+    },
+    "cutoffs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_cutoff_at", "knowledge_cutoff_at", "event_universe"],
+      "properties": {
+        "source_cutoff_at": {"type": "string", "format": "date-time"},
+        "knowledge_cutoff_at": {"type": "string", "format": "date-time"},
+        "event_universe": {"type": "string", "minLength": 1}
+      }
+    },
+    "inputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "checkpoint_anchor",
+        "graph",
+        "methods",
+        "coverage_audit",
+        "validation_receipt"
+      ],
+      "properties": {
+        "checkpoint_anchor": {"$ref": "#/$defs/identity"},
+        "graph": {"$ref": "#/$defs/identity"},
+        "methods": {"$ref": "#/$defs/identity"},
+        "coverage_audit": {"$ref": "#/$defs/identity"},
+        "validation_receipt": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "inventory": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "events",
+        "relations",
+        "composition_hypotheses",
+        "cross_repository_compositions",
+        "callable_community_provenance_method_cards",
+        "rejected_community_provenance_method_cards",
+        "reusable_method_connected_events",
+        "connected_negative_events",
+        "coverage_status"
+      ],
+      "properties": {
+        "events": {"type": "integer", "minimum": 0},
+        "relations": {"type": "integer", "minimum": 0},
+        "composition_hypotheses": {"type": "integer", "minimum": 0},
+        "cross_repository_compositions": {"type": "integer", "minimum": 0},
+        "callable_community_provenance_method_cards": {"type": "integer", "minimum": 0},
+        "rejected_community_provenance_method_cards": {"type": "integer", "minimum": 0},
+        "reusable_method_connected_events": {"type": "integer", "minimum": 0},
+        "connected_negative_events": {"type": "integer", "minimum": 0},
+        "coverage_status": {"const": "PASS"}
+      }
+    },
+    "suite_binding_rule": {"type": "string", "minLength": 1},
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

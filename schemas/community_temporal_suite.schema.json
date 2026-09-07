@@ -20,6 +20,7 @@
     "claim_boundary": {"const": "EVALUATION_PROTOCOL_ONLY"},
     "training_graph": {"$ref": "#/$defs/identity"},
     "training_methods": {"$ref": "#/$defs/identity"},
+    "knowledge_bundle": {"$ref": "#/$defs/identity"},
     "training_prior_outcomes": {"$ref": "#/$defs/identity"},
     "training_prior_routing": {"$ref": "#/$defs/identity"},
     "preselection_anchor": {"$ref": "#/$defs/identity"},

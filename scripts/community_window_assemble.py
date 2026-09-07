@@ -230,6 +230,8 @@ def assemble(args: argparse.Namespace) -> dict:
         "scripts/community_evaluation.py",
         "schemas/community_sync_receipt.schema.json",
         "schemas/community_heldout_preregistration.schema.json",
+        "schemas/community_coverage_audit.schema.json",
+        "schemas/community_knowledge_bundle_receipt.schema.json",
         "schemas/community_temporal_suite.schema.json",
         "knowledge/community",
     ]

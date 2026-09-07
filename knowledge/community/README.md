@@ -266,6 +266,16 @@ cards. Suite validation checks every embedded card against the method schema,
 requires its source availability to be no later than the suite cutoff, and
 requires the snapshot cutoff to equal the suite cutoff.
 
+When a v3 graph contains append-only relation observations, the suite must
+also bind a schema-validated `knowledge_bundle`. The bundle makes the graph,
+method snapshot, checkpoint anchor and PASS coverage audit one atomic training
+input. Its source and knowledge cutoffs must both equal the suite cutoff, and
+every path and SHA-256 must match the identities already named by the suite.
+This prevents a relation-aware graph from being paired with a stale method
+snapshot (or vice versa). Older v3 graphs without relation observations remain
+replayable without a bundle; a later-cutoff bundle must never be attached to an
+earlier frozen cohort.
+
 When a method snapshot is exposed, the augmented result must include a
 `method_realization` receipt. It binds the inspected and selected method IDs,
 operator-specific partition/local/combine/finalize mapping, realized candidate

@@ -609,6 +609,136 @@ def validate_suite_novelty_binding(
     validate_suite_task_novelty(suite, novelty, novelty_queue)
 
 
+def validate_knowledge_bundle_binding(
+    suite: dict,
+    base: Path,
+    graph: dict,
+    graph_path: Path,
+    method_path: Path | None,
+    anchor_path: Path | None,
+    cutoff: datetime,
+    root: Path,
+) -> Path | None:
+    """Bind modern relation graphs and method snapshots as one cutoff unit."""
+    bundle_identity = suite.get("knowledge_bundle")
+    relation_observations = graph.get("input_identity", {}).get(
+        "relation_observations", []
+    )
+    if (
+        suite["schema_version"] == "community-temporal-suite-v3"
+        and relation_observations
+        and bundle_identity is None
+    ):
+        raise ValueError(
+            "temporal suite v3 graph with relation observations requires "
+            "a knowledge bundle"
+        )
+    if bundle_identity is None:
+        return None
+    if suite["schema_version"] != "community-temporal-suite-v3":
+        raise ValueError("knowledge bundles are supported only by temporal suite v3")
+    if method_path is None or anchor_path is None:
+        raise ValueError("knowledge bundle requires methods and checkpoint anchor")
+
+    bundle_path = validate_identity(base, bundle_identity, "suite knowledge bundle")
+    bundle_errors = validate_json_file(
+        bundle_path,
+        root / "schemas" / "community_knowledge_bundle_receipt.schema.json",
+    )
+    if bundle_errors:
+        raise ValueError("invalid knowledge bundle: " + "; ".join(bundle_errors))
+    bundle = read_object(bundle_path)
+    bundle_base = bundle_path.parent
+
+    source_cutoff = parse_time(bundle["cutoffs"]["source_cutoff_at"])
+    knowledge_cutoff = parse_time(bundle["cutoffs"]["knowledge_cutoff_at"])
+    if source_cutoff != cutoff or knowledge_cutoff != cutoff:
+        raise ValueError("knowledge bundle cutoff differs from temporal suite")
+    if (
+        source_cutoff != parse_time(graph["source_cutoff_at"])
+        or knowledge_cutoff != parse_time(graph["knowledge_cutoff_at"])
+    ):
+        raise ValueError("knowledge bundle cutoff differs from training graph")
+
+    bound_paths = {
+        "graph": graph_path,
+        "methods": method_path,
+        "checkpoint_anchor": anchor_path,
+    }
+    for label, expected_path in bound_paths.items():
+        observed_path = validate_identity(
+            bundle_base, bundle["inputs"][label], f"knowledge bundle {label}"
+        )
+        if observed_path.resolve() != expected_path.resolve():
+            raise ValueError(f"knowledge bundle {label} path differs from suite")
+
+    validate_identity(
+        bundle_base,
+        bundle["inputs"]["validation_receipt"],
+        "knowledge bundle validation receipt",
+    )
+
+    audit_path = validate_identity(
+        bundle_base,
+        bundle["inputs"]["coverage_audit"],
+        "knowledge bundle coverage audit",
+    )
+    audit_errors = validate_json_file(
+        audit_path, root / "schemas" / "community_coverage_audit.schema.json"
+    )
+    if audit_errors:
+        raise ValueError(
+            "invalid knowledge bundle coverage audit: " + "; ".join(audit_errors)
+        )
+    audit = read_object(audit_path)
+    if audit["status"] != "PASS":
+        raise ValueError("knowledge bundle coverage audit is not PASS")
+    audit_graph_path = validate_identity(
+        audit_path.parent,
+        audit["input_identity"]["graph"],
+        "knowledge bundle audit graph",
+    )
+    audit_method_path = validate_identity(
+        audit_path.parent,
+        audit["input_identity"]["methods"],
+        "knowledge bundle audit methods",
+    )
+    if (
+        audit_graph_path.resolve() != graph_path.resolve()
+        or audit_method_path.resolve() != method_path.resolve()
+    ):
+        raise ValueError("knowledge bundle audit binds different graph or methods")
+    inventory_bindings = {
+        "events": "node_count",
+        "relations": "edge_count",
+        "composition_hypotheses": "composition_count",
+        "cross_repository_compositions": "cross_repository_composition_count",
+        "callable_community_provenance_method_cards": (
+            "method_provenance_callable_card_count"
+        ),
+        "rejected_community_provenance_method_cards": (
+            "method_provenance_rejected_card_count"
+        ),
+        "reusable_method_connected_events": (
+            "reusable_method_connected_event_count"
+        ),
+        "connected_negative_events": "connected_negative_event_count",
+    }
+    if bundle["inventory"]["coverage_status"] != audit["status"] or any(
+        bundle["inventory"][bundle_key] != audit["inventory"][audit_key]
+        for bundle_key, audit_key in inventory_bindings.items()
+    ):
+        raise ValueError("knowledge bundle inventory differs from coverage audit")
+    if bundle["repository"]["commit"] != graph["input_identity"]["git_commit"]:
+        raise ValueError("knowledge bundle commit differs from training graph")
+    if (
+        audit["input_identity"]["graph_validation_root"]["head_commit"]
+        != bundle["repository"]["commit"]
+    ):
+        raise ValueError("knowledge bundle audit was run at a different commit")
+    return bundle_path
+
+
 def validate_suite(
     suite_path: Path, corpus: Path, root: Path | None = None
 ) -> dict:
@@ -631,6 +761,7 @@ def validate_suite(
     validate_training_graph(graph_path, corpus, root)
     graph = read_object(graph_path)
     cutoff = parse_time(suite["cutoff_at"])
+    knowledge_anchor_path = None
     if suite["schema_version"] in {
         "community-temporal-suite-v2",
         "community-temporal-suite-v3",
@@ -709,6 +840,16 @@ def validate_suite(
         if len(card_ids) != len(set(card_ids)):
             raise ValueError("training method snapshot contains duplicate method ids")
         method_count = len(card_ids)
+    validate_knowledge_bundle_binding(
+        suite,
+        base,
+        graph,
+        graph_path,
+        method_path,
+        knowledge_anchor_path,
+        cutoff,
+        root,
+    )
     prior_outcome_path = None
     if suite.get("training_prior_outcomes"):
         prior_outcome_path = validate_identity(
