@@ -22,6 +22,8 @@ from community_knowledge import (
     build_review_queue,
     capture_pr,
     discovery_classifications,
+    github_rate_limit_detail,
+    github_token_from_environment,
     read_object,
     refresh_tracked_events,
     sha256_file,
@@ -226,6 +228,23 @@ def event_for(manifest_path: Path) -> dict:
 
 def main() -> None:
     assert len(ARTIFACT_SPECS) == 8
+    assert github_token_from_environment({}) is None
+    assert github_token_from_environment({"GH_TOKEN": " gh-value "}) == "gh-value"
+    assert github_token_from_environment(
+        {"GITHUB_TOKEN": "github-value", "GH_TOKEN": "gh-value"}
+    ) == "github-value"
+    rate_detail = github_rate_limit_detail(
+        {
+            "X-RateLimit-Remaining": "0",
+            "X-RateLimit-Resource": "core",
+            "X-RateLimit-Reset": "0",
+            "Retry-After": "60",
+        }
+    )
+    assert "remaining=0" in rate_detail
+    assert "resource=core" in rate_detail
+    assert "reset_at=1970-01-01T00:00:00+00:00" in rate_detail
+    assert "retry_after_seconds=60" in rate_detail
     assert not discovery_classifications(
         {"title": "Add autoregressive model", "body": "", "labels": []}
     )

@@ -13,6 +13,7 @@ import tempfile
 import urllib.error
 import urllib.parse
 import urllib.request
+from collections.abc import Mapping
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -150,6 +151,37 @@ def parse_link_header(value: str | None) -> dict[str, str]:
     return links
 
 
+def github_token_from_environment(
+    environment: Mapping[str, str] | None = None,
+) -> str | None:
+    """Resolve GitHub's two standard CLI token variables without logging them."""
+    values = os.environ if environment is None else environment
+    for name in ("GITHUB_TOKEN", "GH_TOKEN"):
+        token = values.get(name, "").strip()
+        if token:
+            return token
+    return None
+
+
+def github_rate_limit_detail(headers: Any) -> str:
+    remaining = headers.get("X-RateLimit-Remaining", "unknown")
+    resource = headers.get("X-RateLimit-Resource", "unknown")
+    reset = headers.get("X-RateLimit-Reset")
+    reset_at = "unknown"
+    if reset is not None:
+        try:
+            reset_at = datetime.fromtimestamp(
+                int(reset), timezone.utc
+            ).isoformat()
+        except (TypeError, ValueError, OSError):
+            reset_at = f"invalid({reset})"
+    retry_after = headers.get("Retry-After", "unspecified")
+    return (
+        f"rate-limit remaining={remaining}; resource={resource}; "
+        f"reset_at={reset_at}; retry_after_seconds={retry_after}"
+    )
+
+
 class GitHubClient:
     def __init__(self, token: str | None = None, timeout: float = 30.0):
         self.token = token
@@ -173,10 +205,9 @@ class GitHubClient:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return response.read(), dict(response.headers.items())
         except urllib.error.HTTPError as error:
-            remaining = error.headers.get("X-RateLimit-Remaining", "unknown")
             raise RuntimeError(
                 f"GitHub request failed with HTTP {error.code}; "
-                f"rate-limit remaining={remaining}; url={url}"
+                f"{github_rate_limit_detail(error.headers)}; url={url}"
             ) from error
 
     def json_pages(self, path: str, accept: str) -> tuple[list[Any], list[str]]:
@@ -2103,10 +2134,10 @@ def main() -> int:
     args = parse_args()
     try:
         if args.operation == "capture-pr":
-            client = GitHubClient(os.environ.get("GITHUB_TOKEN"), timeout=args.timeout)
+            client = GitHubClient(github_token_from_environment(), timeout=args.timeout)
             result = capture_pr(args.repository, args.number, args.corpus, client)
         elif args.operation == "sync-repository":
-            client = GitHubClient(os.environ.get("GITHUB_TOKEN"), timeout=args.timeout)
+            client = GitHubClient(github_token_from_environment(), timeout=args.timeout)
             result = sync_repository(
                 args.repository,
                 args.since,
@@ -2118,7 +2149,7 @@ def main() -> int:
                 args.dry_run,
             )
         elif args.operation == "refresh-tracked":
-            client = GitHubClient(os.environ.get("GITHUB_TOKEN"), timeout=args.timeout)
+            client = GitHubClient(github_token_from_environment(), timeout=args.timeout)
             result = refresh_tracked_events(
                 args.corpus,
                 args.receipt,
