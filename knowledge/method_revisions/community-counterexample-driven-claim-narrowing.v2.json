@@ -1,0 +1,183 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-counterexample-driven-claim-narrowing",
+  "revision": 2,
+  "supersedes": {
+    "revision": 1,
+    "path": "knowledge/primitives/counterexample-driven-claim-narrowing.json",
+    "sha256": "e711b2ca35fb3b027f230865be313ebfb85e86746445ae1199ec44d666e7fae7"
+  },
+  "title": "Narrow transfer claims and invalidate impossible bounds when matched counterevidence breaks their causal chain",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "Internal RTX 5090 Qwen1.5-MoE cross-vendor configuration-transfer A/B",
+    "url": "https://github.com/vllm-project/vllm/commit/613ab20f7f9082244240f4e9b2e7a4ee6769c38f",
+    "version": "ab-validation-summary-7e8f3bccd566add35b838d29549ed66511e5bfac9d450914563663b91f5b1b41",
+    "available_at": "2026-09-08T19:24:00Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "One sealed RTX 5090 fused-MoE screen found that an exact E/N configuration transferred from an AMD MI300X table was correctness-preserving but slower than the generic baseline and a bounded control search; it also falsified a warm-steady-state DRAM lower-bound model. This is single-task negative evidence, not a cross-framework policy verdict."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-53680.deepgemm-regression-claim-narrowing"
+    ],
+    "experiment_refs": [
+      {
+        "suite_id": "vllm-rtx5090-qwen15-moe-transfer-20260909",
+        "task_id": "qwen15-moe-e60-n1408-bf16-tp1-fused-experts-rtx5090",
+        "repeat_index": 1,
+        "arm": "COMMUNITY_AUGMENTED",
+        "available_at": "2026-09-08T19:24:00Z",
+        "artifact_sha256": "d205319bc9300aa3c885c79b871cb32dc4010d9cc96f855def1b034a493d3dcc",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      },
+      {
+        "suite_id": "vllm-rtx5090-qwen15-moe-transfer-20260909",
+        "task_id": "qwen15-moe-e60-n1408-bf16-tp1-fused-experts-rtx5090",
+        "repeat_index": 1,
+        "arm": "CONTROL",
+        "available_at": "2026-09-08T19:24:00Z",
+        "artifact_sha256": "fb6960eaab55191d13a40fdc2461de86ff70204a132ce53aa93f6215db9641b1",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      }
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "counterexample-reconciliation",
+    "claim-scope-narrowing",
+    "exact-entrypoint-reproduction",
+    "dependency-regression-isolation",
+    "cross-vendor-config-transfer",
+    "bound-falsification",
+    "cache-state-modeling"
+  ],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "regression",
+      "dependency pin",
+      "counterexample",
+      "cannot reproduce",
+      "corruption",
+      "dispatch",
+      "producer consumer",
+      "environment difference",
+      "claim correction",
+      "configuration transfer",
+      "cross vendor",
+      "roofline",
+      "cache state",
+      "measured faster than lower bound"
+    ]
+  },
+  "implementation_recipe": [
+    "Decompose the broad claim into independently testable structural, reachability, numerical, performance and end-to-end statements.",
+    "Capture the exact failing entry point, tensor identity, data preparation, dependency revision, build flags, local overlays, architecture and cache state.",
+    "Treat shape-key equality as only a retrieval hint: vendor-specific launch metadata and architecture-local schedules are not transferable candidates until normalized and compiled on the target.",
+    "Reproduce one boundary at a time on a matched independent environment and register both confirming and contradicting outcomes.",
+    "Attempt to falsify every proposed theoretical lower bound using the unchanged control before using its gap to rank candidates.",
+    "When a counterexample invalidates one causal edge, retract that edge immediately while preserving narrower facts that remain supported.",
+    "Recompute the mitigation: prefer a context guard, architecture-local search or path gate, and retain a broad rollback only if its affected surface is demonstrated."
+  ],
+  "validation_recipe": [
+    "Require the original and counterexample runs to name exact source, binary, inputs, entry point, hardware, cache state and oracle identities.",
+    "Check whether a reported non-reproduction exercises the same data format and code path before treating it as contradictory.",
+    "For configuration transfer, compare against both the unchanged generic baseline and a bounded architecture-local control over the full frozen shape portfolio.",
+    "Reject a transferred candidate when the portfolio regression guard fails even if isolated shapes improve or correctness passes.",
+    "For traffic bounds, freeze cold versus warm cache assumptions and record realized routes or unique experts instead of substituting only an expected distribution.",
+    "If measured control latency falls below a claimed latency lower bound, mark the model falsified for that workload state and prohibit gap-to-bound claims.",
+    "Use negative and positive controls to separate producer, dispatcher, consumer kernel and fallback behavior.",
+    "Keep unresolved claims explicit and prohibit performance tuning or promotion that depends on a retracted mechanism.",
+    "Ensure summaries, recommendation receipts and relation edges use the latest supported scope rather than stale initial prose."
+  ],
+  "expected_bottleneck_shifts": [
+    "Search should move from tuning a falsely accused primitive to isolating the first divergent producer-consumer boundary.",
+    "A rejected cross-vendor table transfer should redirect budget to an architecture-local schedule search rather than another semantic-nearest table.",
+    "A falsified cold-DRAM model should split the theory into warm-cache and cold-cache envelopes before candidate ranking resumes.",
+    "Broad rollback cost should shrink to a scoped compatibility or context gate when only one entry point remains suspect.",
+    "Evidence reconciliation can terminate low-value experimentation earlier than another round of parameter tuning."
+  ],
+  "failure_modes": [
+    "A non-reproduction uses a different checkpoint format, backend or entry point and is treated as a true counterexample.",
+    "An exact tensor-shape key is treated as sufficient transfer evidence across GPU vendors or architectures.",
+    "Vendor-only schedule metadata is dropped while the remaining schedule is assumed portable without a target portfolio screen.",
+    "A warm repeated benchmark is compared with a cold-DRAM byte model, producing an impossible lower bound.",
+    "Expected uniform route occupancy replaces measured unique experts or realized sparse routing.",
+    "A valid structural source difference is promoted into an unsupported numerical or performance cause.",
+    "The author corrects a comment but the Agent continues routing from a stale title or PR body.",
+    "All claims are discarded after one edge is falsified, losing a narrower reproducible issue.",
+    "A broad dependency rollback persists after evidence supports only a path-specific compatibility problem."
+  ],
+  "scope_limits": [
+    "Counterevidence narrows only the matched claim dimensions; it does not prove universal correctness.",
+    "The RTX 5090 result covers one fused-MoE operator shape family and cannot by itself demote all cross-vendor knowledge or establish a shared default.",
+    "A configuration that fails warm target screening may still be useful on its source architecture or under another cache/workload state.",
+    "Community corrections remain discovery evidence until independently reproduced under the target contract.",
+    "A temporary rollback may still be operationally rational even when its original causal explanation is wrong."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A broad optimization, transfer or regression claim is a chain from source evidence through hardware/workload applicability, path reachability and data contracts to numerical and performance outcomes.",
+    "partition_axis": "individual causal edges, claim dimensions, architecture context and cache-state envelope",
+    "local_state": [
+      "source and binary revisions",
+      "input and preprocessing identities",
+      "hardware architecture and vendor",
+      "cache state and realized routing",
+      "entry-point reachability",
+      "numerical oracle result",
+      "shape-portfolio performance",
+      "supporting and contradicting evidence"
+    ],
+    "combine_rule": "Retain a claim only when every required causal edge is supported; a matched counterexample retracts the broken edge and all broader conclusions depending on it.",
+    "finalization": "Publish the narrowest surviving claim, explicit unresolved edges and a mitigation whose scope does not exceed the evidence; invalid bounds and unsafe transfer routes remain searchable negative knowledge.",
+    "work_complexity": "One bounded reproduction per decision-relevant causal edge plus a frozen shape-portfolio screen rather than repeated whole-system tuning.",
+    "span_complexity": "Structural, architecture and environment checks can run independently, but causal promotion waits for the complete path and regression guard.",
+    "communication_cost": "Adds evidence reconciliation, cache-state identity and exact environment capture while avoiding unbounded dependency or kernel experiments.",
+    "invariants": [
+      "no surviving conclusion depends on a retracted causal edge",
+      "confirming and contradicting evidence remain visible",
+      "structural or shape matches are not silently upgraded to target performance causality",
+      "a theoretical lower bound is not exceeded by a valid observation under its declared state",
+      "mitigation scope does not exceed the narrowest supported failure surface"
+    ],
+    "anti_patterns": [
+      "trust the PR title after later discussion retracts its mechanism",
+      "rank a cross-vendor schedule from tensor dimensions alone",
+      "use a cold-memory roofline for a warm repeated harness",
+      "compare approximate synthetic data with a production-format counterexample",
+      "treat a missing source file as proof that a neighboring public entry point fails",
+      "continue tuning after the motivating causal claim or bound is falsified"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "causal-edge-reproduction",
+      "name": "exact producer-dispatch-consumer replay",
+      "change_axes": ["input format", "producer revision", "entry point", "dependency revision", "local overlay"],
+      "template": "Freeze one production tensor and replay it through each causal boundary with exact source and binary identities until the first divergence is localized."
+    },
+    {
+      "family": "architecture-local-config-screen",
+      "name": "context-guarded configuration transfer",
+      "change_axes": ["source vendor", "target architecture", "cache state", "shape portfolio", "regression guard"],
+      "template": "Normalize the source configuration, compile it on the target, compare it with generic and architecture-local controls across the frozen portfolio, and retain it only inside contexts that pass the regression guard."
+    },
+    {
+      "family": "bound-falsification",
+      "name": "cache-state-aware theory gate",
+      "change_axes": ["cold versus warm state", "realized routing", "traffic residency", "observed control"],
+      "template": "Freeze cache state and realized sparse routes, derive separate envelopes, and test the unchanged control against each bound before using any gap for ranking."
+    },
+    {
+      "family": "claim-scope-revision",
+      "name": "counterexample-driven mitigation narrowing",
+      "change_axes": ["claim dimension", "support status", "mitigation surface", "reopen condition"],
+      "template": "Split the broad claim, retract dimensions contradicted by matched evidence, and replace broad rollback with the narrowest supported gate or fix."
+    }
+  ]
+}

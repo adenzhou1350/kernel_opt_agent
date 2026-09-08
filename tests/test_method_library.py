@@ -187,6 +187,18 @@ def main() -> None:
         "sglang.pr-37926.blackwell-unified-memory-decode-gap"
         in revised_production_share["community_provenance"]["source_event_ids"]
     )
+    after_rtx5090_counterexample = build_snapshot("2026-09-08T19:25:00Z", ROOT)
+    revised_claim_narrowing = next(
+        card
+        for card in after_rtx5090_counterexample["cards"]
+        if card["method_id"] == "community-counterexample-driven-claim-narrowing"
+    )
+    assert revised_claim_narrowing["revision"] == 2
+    assert {
+        ref["arm"]
+        for ref in revised_claim_narrowing["community_provenance"]["experiment_refs"]
+    } == {"CONTROL", "COMMUNITY_AUGMENTED"}
+    assert "cache-state-modeling" in revised_claim_narrowing["opportunity_families"]
 
     with tempfile.TemporaryDirectory() as chain_temporary:
         chain_root = Path(chain_temporary)

@@ -23,6 +23,14 @@ contract lists the union of metrics every execution lane must make available;
 lane-specific artifacts may remain outside this repository when their hashes
 are bound by the checked-in summaries.
 
+Negative transfer evidence is written back as a later method revision, never by
+rewriting a card at an older availability time.  In particular, exact tensor
+shape keys do not make a launch configuration portable across GPU vendors, and
+a latency model that a matched control runs faster than is falsified for that
+declared cache/workload state.  The revised claim-narrowing guard requires a
+target compile, a frozen shape-portfolio regression screen, and separate
+warm-cache/cold-cache bounds before either route can influence candidate rank.
+
 Each control-plane evaluation cycle is preregistered under `meta_cycles/` and
 binds a standard held-out discovery declaration under `preregistrations/`.
 Cycle 1 compares the local theory-first champion with a prior-gated community
