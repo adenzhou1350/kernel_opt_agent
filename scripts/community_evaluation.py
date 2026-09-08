@@ -690,6 +690,34 @@ def validate_suite(
                 raise ValueError(
                     f"strict task/oracle identity does not match {task['task_id']}"
                 )
+            if oracle.get("reference_pr") is not None:
+                expected_reference_pr = (
+                    f"https://github.com/{task['repository']}/pull/{task['pr_number']}"
+                )
+                if oracle["reference_pr"] != expected_reference_pr:
+                    raise ValueError(
+                        f"strict hidden oracle reference PR does not match {task['task_id']}"
+                    )
+            materialized_reference = oracle.get("materialized_reference")
+            if materialized_reference is not None:
+                if materialized_reference["baseline_revision"] != task["base_revision"]:
+                    raise ValueError(
+                        f"materialized oracle baseline revision mismatch for {task['task_id']}"
+                    )
+                if materialized_reference["head_revision"] != oracle["reference_commit"]:
+                    raise ValueError(
+                        f"materialized oracle head revision mismatch for {task['task_id']}"
+                    )
+                validate_identity(
+                    oracle_path.parent,
+                    materialized_reference["head_archive"],
+                    f"materialized oracle head archive {task['task_id']}",
+                )
+                validate_identity(
+                    oracle_path.parent,
+                    materialized_reference["source_patch"],
+                    f"materialized oracle source patch {task['task_id']}",
+                )
             if task.get("prospective_id") is not None:
                 seal = oracle.get("prospective_seal")
                 if seal is None:

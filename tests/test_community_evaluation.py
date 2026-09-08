@@ -1031,6 +1031,49 @@ def main() -> None:
             raise AssertionError("invalid prior context exception was accepted")
         atomic_json(suite_path, suite)
 
+        materialized_patch_path = assets / "materialized-reference.patch"
+        materialized_patch_path.write_text("held-out patch bytes\n", encoding="utf-8")
+        materialized_head_path = assets / "materialized-head.tar.gz"
+        materialized_head_path.write_bytes(b"held-out head archive bytes")
+        materialized_oracle_path = assets / "materialized-oracle.json"
+        atomic_json(
+            materialized_oracle_path,
+            {
+                "schema_version": "community-hidden-oracle-v1",
+                "task_id": "heldout.logits",
+                "visibility": "HIDDEN_UNTIL_BOTH_ARMS_COMPLETE",
+                "reference_pr": "https://github.com/other/project/pull/8",
+                "reference_commit": "a" * 40,
+                "materialized_reference": {
+                    "baseline_revision": base_revision,
+                    "head_revision": "a" * 40,
+                    "head_archive": identity(materialized_head_path, assets),
+                    "source_patch": identity(materialized_patch_path, assets),
+                },
+                "solution_families": ["operator-fusion"],
+                "key_mechanism": "Fuse the projection with its consumer.",
+                "known_risks": ["numerical tolerance"],
+                "observed_reference": {
+                    "claim_boundary": "MATERIALIZED_SOURCE_NOT_EXECUTION_RESULT"
+                },
+            },
+        )
+        materialized_suite = json.loads(json.dumps(suite))
+        materialized_suite["tasks"][0]["hidden_oracle"] = identity(
+            materialized_oracle_path, suite_dir
+        )
+        atomic_json(suite_path, materialized_suite)
+        assert validate_suite(suite_path, corpus, ROOT)["status"] == "PASS"
+        materialized_patch_path.write_text("tampered patch bytes\n", encoding="utf-8")
+        try:
+            validate_suite(suite_path, corpus, ROOT)
+        except ValueError as error:
+            assert "materialized oracle source patch hash mismatch" in str(error)
+        else:
+            raise AssertionError("tampered materialized oracle patch was accepted")
+        materialized_patch_path.write_text("held-out patch bytes\n", encoding="utf-8")
+        atomic_json(suite_path, suite)
+
         prospective_oracle_path = assets / "prospective-oracle.json"
         prospective_task = suite["tasks"][0]
         atomic_json(
