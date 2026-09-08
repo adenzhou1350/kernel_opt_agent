@@ -38,6 +38,21 @@ challenger on the same post-cutoff vLLM and SGLang tasks. Both arms must retain
 per-phase wall/GPU accounting; a faster shortlist that merely moves failures
 later in the pipeline is not an improvement.
 
+Once both framework comparisons are complete, bind the two repeated-pair
+summaries and every per-arm work-cycle ledger in a
+`community-meta-cycle-report-v1`. The validator resolves external identities
+inside the declared evidence root, rechecks the complete pair/assessment chain,
+requires exact prospective repeat coverage, and recomputes the frozen
+improve-any/must-not-regress gate. Missing or inconclusive non-regression data
+cannot qualify a framework, and promotion additionally requires realized
+community treatment in every repeat:
+
+```bash
+python scripts/kernel_opt.py community-cycle-report validate \
+  --report /path/to/final-cycle-report.json \
+  --evidence-root /path/to/community-validation
+```
+
 Community pull requests are discovery evidence, not target-hardware performance
 proof. The reusable representation has two layers:
 

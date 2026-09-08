@@ -1,0 +1,187 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_meta_cycle_report.schema.json",
+  "title": "Final evidence-bound cross-framework policy decision",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "cycle_id",
+    "protocol_commit",
+    "protocol_identity",
+    "evidence_root_label",
+    "framework_results",
+    "aggregate_gate",
+    "decision"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-meta-cycle-report-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "FINAL_CROSS_FRAMEWORK_POLICY_DECISION"},
+    "cycle_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "protocol_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "protocol_identity": {"$ref": "#/$defs/identity"},
+    "evidence_root_label": {"type": "string", "minLength": 1},
+    "framework_results": {
+      "type": "array",
+      "minItems": 2,
+      "items": {"$ref": "#/$defs/framework_result"}
+    },
+    "aggregate_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compared_frameworks",
+        "qualified_frameworks",
+        "improve_any_met",
+        "must_not_regress_met",
+        "promotion_eligible"
+      ],
+      "properties": {
+        "compared_frameworks": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["sgl-project/sglang", "vllm-project/vllm"]}
+        },
+        "qualified_frameworks": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"enum": ["sgl-project/sglang", "vllm-project/vllm"]}
+        },
+        "improve_any_met": {"type": "boolean"},
+        "must_not_regress_met": {"type": "boolean"},
+        "promotion_eligible": {"type": "boolean"}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["outcome", "rationale", "shared_default_commit"],
+      "properties": {
+        "outcome": {"enum": ["PROMOTE_DEFAULT", "KEEP_LOCAL", "ROLL_BACK"]},
+        "rationale": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "shared_default_commit": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "repeat_ledger": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repeat_index", "identity"],
+      "properties": {
+        "repeat_index": {"type": "integer", "minimum": 1},
+        "identity": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "metric_verdicts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "TIME_TO_FIRST_CORRECT",
+        "TIME_TO_FIRST_IMPROVEMENT",
+        "VALIDATION_VALUE_PER_GPU_HOUR",
+        "UPSTREAM_READY_OR_MERGE_RATE"
+      ],
+      "properties": {
+        "TIME_TO_FIRST_CORRECT": {"$ref": "#/$defs/improvement_verdict"},
+        "TIME_TO_FIRST_IMPROVEMENT": {"$ref": "#/$defs/improvement_verdict"},
+        "VALIDATION_VALUE_PER_GPU_HOUR": {"$ref": "#/$defs/improvement_verdict"},
+        "UPSTREAM_READY_OR_MERGE_RATE": {"$ref": "#/$defs/improvement_verdict"}
+      }
+    },
+    "non_regression_verdicts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["CORRECTNESS", "REGRESSION_RATE", "WHOLE_MODEL_SPEEDUP", "VALIDATION_COST"],
+      "properties": {
+        "CORRECTNESS": {"$ref": "#/$defs/regression_verdict"},
+        "REGRESSION_RATE": {"$ref": "#/$defs/regression_verdict"},
+        "WHOLE_MODEL_SPEEDUP": {"$ref": "#/$defs/regression_verdict"},
+        "VALIDATION_COST": {"$ref": "#/$defs/regression_verdict"}
+      }
+    },
+    "improvement_verdict": {
+      "enum": ["BETTER", "NO_CHANGE", "WORSE", "INCONCLUSIVE"]
+    },
+    "regression_verdict": {
+      "enum": ["NO_REGRESSION", "REGRESSED", "INCONCLUSIVE"]
+    },
+    "framework_result": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository",
+        "suite_identity",
+        "suite_id",
+        "task_id",
+        "repeat_summary",
+        "work_cycles",
+        "metric_verdicts",
+        "non_regression_verdicts",
+        "qualification"
+      ],
+      "properties": {
+        "repository": {"enum": ["sgl-project/sglang", "vllm-project/vllm"]},
+        "suite_identity": {"$ref": "#/$defs/identity"},
+        "suite_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "repeat_summary": {"$ref": "#/$defs/identity"},
+        "work_cycles": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["control", "community_augmented"],
+          "properties": {
+            "control": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/repeat_ledger"}},
+            "community_augmented": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/repeat_ledger"}}
+          }
+        },
+        "metric_verdicts": {"$ref": "#/$defs/metric_verdicts"},
+        "non_regression_verdicts": {"$ref": "#/$defs/non_regression_verdicts"},
+        "qualification": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "improvement_metrics",
+            "regression_metrics",
+            "treatment_realized_repeats",
+            "qualified_for_cross_framework_claim"
+          ],
+          "properties": {
+            "improvement_metrics": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "regression_metrics": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {"type": "string", "minLength": 1}
+            },
+            "treatment_realized_repeats": {"type": "integer", "minimum": 0},
+            "qualified_for_cross_framework_claim": {"type": "boolean"}
+          }
+        }
+      }
+    }
+  }
+}
