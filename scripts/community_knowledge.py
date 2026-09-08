@@ -70,6 +70,7 @@ TOKEN_STOPWORDS = {
 }
 DISCOVERY_PATTERNS = {
     "PERFORMANCE_CHANGE": (
+        "autotun",
         "benchmark",
         "faster",
         "latency",
@@ -692,6 +693,7 @@ def bounded_timestamp(value: str, label: str) -> datetime:
 
 def contains_discovery_pattern(text: str, pattern: str) -> bool:
     special = {
+        "autotun": r"\bauto[- ]?tun(?:e|es|ed|ing)\b",
         "optimiz": r"\boptimi[sz](?:e|es|ed|ing|ation|ations)\b",
         "perf": r"\bperf(?:ormance)?\b",
         "regress": r"\bregress(?:ion|ions|ed|es|ing)?\b",

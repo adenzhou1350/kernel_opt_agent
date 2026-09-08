@@ -248,6 +248,13 @@ def main() -> None:
     assert not discovery_classifications(
         {"title": "Add autoregressive model", "body": "", "labels": []}
     )
+    assert "PERFORMANCE_CHANGE" in discovery_classifications(
+        {
+            "title": "Autotune the breakable prefill graph path before capture",
+            "body": "",
+            "labels": [],
+        }
+    )
     with tempfile.TemporaryDirectory() as temporary:
         corpus = Path(temporary) / "corpus"
         client = FakeGitHubClient()
