@@ -11,6 +11,7 @@
     "cycle_id",
     "protocol_commit",
     "protocol_identity",
+    "cohort_identity",
     "evidence_root_label",
     "framework_results",
     "aggregate_gate",
@@ -23,6 +24,7 @@
     "cycle_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
     "protocol_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
     "protocol_identity": {"$ref": "#/$defs/identity"},
+    "cohort_identity": {"$ref": "#/$defs/identity"},
     "evidence_root_label": {"type": "string", "minLength": 1},
     "framework_results": {
       "type": "array",

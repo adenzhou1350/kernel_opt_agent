@@ -60,6 +60,97 @@ def validate_schema(path: Path, schema_name: str, label: str, root: Path) -> dic
     return read_object(path)
 
 
+def validate_cohort(
+    cohort_path: Path,
+    cohort: dict,
+    *,
+    cycle_id: str,
+    protocol_commit: str,
+    random_seed: int,
+    repeats: int,
+    expected_repositories: set[str],
+) -> dict[str, int]:
+    if cohort.get("schema_version") != "meta-cycle-cross-framework-cohort-freeze-v1":
+        raise ValueError("unsupported cohort freeze schema")
+    frozen = cohort.get("frozen_protocol", {})
+    if (
+        cohort.get("cycle_id") != cycle_id
+        or frozen.get("commit") != protocol_commit
+        or frozen.get("random_seed") != random_seed
+        or frozen.get("repeats") != repeats
+    ):
+        raise ValueError("cohort freeze does not match the frozen cycle protocol")
+    primary = cohort.get("primary_tasks")
+    if not isinstance(primary, list) or len(primary) != len(expected_repositories):
+        raise ValueError("cohort primary task count does not match the protocol")
+    repositories = [task.get("repository") for task in primary]
+    if len(repositories) != len(set(repositories)) or set(repositories) != expected_repositories:
+        raise ValueError("cohort primary tasks must match the protocol repository set exactly")
+    task_ids = [task.get("task_id") for task in primary]
+    if any(not isinstance(task_id, str) or not task_id for task_id in task_ids):
+        raise ValueError("cohort primary tasks require stable task ids")
+    if len(task_ids) != len(set(task_ids)):
+        raise ValueError("cohort primary task ids must be unique")
+    result: dict[str, int] = {}
+    for task in primary:
+        pr_number = task.get("pr_number")
+        if not isinstance(pr_number, int) or pr_number < 1:
+            raise ValueError("cohort primary tasks require positive PR numbers")
+        result[task["repository"]] = pr_number
+    schedule = cohort.get("randomized_schedule", {}).get("entries")
+    expected_entries = len(primary) * repeats * 2
+    if not isinstance(schedule, list) or len(schedule) != expected_entries:
+        raise ValueError("cohort randomized schedule does not cover every arm and repeat")
+    blocks = [
+        (task_id, repeat_index)
+        for task_id in task_ids
+        for repeat_index in range(1, repeats + 1)
+    ]
+    blocks.sort(
+        key=lambda item: hashlib.sha256(
+            f"{random_seed}:{item[0]}:{item[1]}".encode("utf-8")
+        ).hexdigest()
+    )
+    expected_trials = []
+    for task_id, repeat_index in blocks:
+        arms = sorted(
+            ("CONTROL", "COMMUNITY_AUGMENTED"),
+            key=lambda arm: hashlib.sha256(
+                f"{random_seed}:{task_id}:{repeat_index}:{arm}".encode("utf-8")
+            ).hexdigest(),
+        )
+        expected_trials.extend((task_id, repeat_index, arm) for arm in arms)
+    expected_schedule = []
+    for task_id, repeat_index, arm in expected_trials:
+        key = hashlib.sha256(
+            f"{random_seed}:{task_id}:{repeat_index}:{arm}".encode("utf-8")
+        ).hexdigest()
+        expected_schedule.append(
+            {
+                "task_id": task_id,
+                "repeat_index": repeat_index,
+                "arm": arm,
+                "schedule_key": key,
+            }
+        )
+    for order_index, entry in enumerate(expected_schedule, start=1):
+        entry["order_index"] = order_index
+    normalized_schedule = [
+        {
+            "task_id": entry.get("task_id"),
+            "repeat_index": entry.get("repeat_index"),
+            "arm": entry.get("arm"),
+            "schedule_key": entry.get("schedule_key"),
+            "order_index": entry.get("order_index"),
+        }
+        for entry in schedule
+        if isinstance(entry, dict)
+    ]
+    if normalized_schedule != expected_schedule:
+        raise ValueError("cohort randomized schedule does not match the frozen seed")
+    return result
+
+
 def git_blob(root: Path, commit: str, relative: str) -> bytes:
     process = subprocess.run(
         ["git", "show", f"{commit}:{relative}"],
@@ -446,11 +537,30 @@ def validate_report(
     expected_non_regressions = set(protocol["decision_gate"]["must_not_regress"])
 
     expected_repositories = set(protocol["selection"]["repositories"])
+    expected_repeats = protocol["selection"]["repeats"]
+    cohort_path = validate_identity(
+        evidence_root, report["cohort_identity"], "frozen primary cohort"
+    )
+    cohort = read_object(cohort_path)
+    cohort_prs = validate_cohort(
+        cohort_path,
+        cohort,
+        cycle_id=report["cycle_id"],
+        protocol_commit=report["protocol_commit"],
+        random_seed=preregistration["selection"]["random_seed"],
+        repeats=expected_repeats,
+        expected_repositories=expected_repositories,
+    )
     frameworks = report["framework_results"]
     repositories = [item["repository"] for item in frameworks]
     if len(repositories) != len(set(repositories)) or set(repositories) != expected_repositories:
         raise ValueError("framework results must match the protocol repository set exactly")
-    expected_repeats = protocol["selection"]["repeats"]
+    suite_identities = {
+        (item["suite_identity"]["path"], item["suite_identity"]["sha256"])
+        for item in frameworks
+    }
+    if len(suite_identities) != 1:
+        raise ValueError("all framework results must bind the same exact cohort suite")
     qualified: list[str] = []
     every_non_regression_gate_met = True
     every_improvement_gate_met = True
@@ -500,6 +610,7 @@ def validate_report(
             )
             or len(matching_tasks) != 1
             or matching_tasks[0]["repository"] != framework["repository"]
+            or matching_tasks[0].get("pr_number") != cohort_prs[framework["repository"]]
             or parse_time(matching_tasks[0]["available_at"]) <= parse_time(protocol["cutoff_at"])
         ):
             raise ValueError("evaluation suite does not bind the declared protocol repository/task")

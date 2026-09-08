@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import sys
 import tempfile
@@ -26,6 +27,7 @@ PREREGISTRATION_PATH = Path(
     "knowledge/community/preregistrations/"
     "meta-cycle-1-cross-framework-2026-09-08.v1.json"
 )
+SUITE_ID = "cycle-1-cross-framework-cohort-suite"
 
 
 def relative_identity(path: Path, base: Path) -> dict:
@@ -40,7 +42,7 @@ def assessment(arm: str, repository: str, repeat: int) -> dict:
         "claim_boundary": "SINGLE_TRIAL_OBSERVATION",
         "trial_identity": null_identity,
         "result_identity": null_identity,
-        "suite_id": f"{repository.replace('/', '-')}-suite",
+        "suite_id": SUITE_ID,
         "task_id": f"{repository.replace('/', '-')}-task",
         "repeat_index": repeat,
         "arm": arm,
@@ -127,77 +129,15 @@ def ledger(repository: str, repeat: int, arm: str, evidence: Path) -> dict:
     }
 
 
-def build_framework(base: Path, repository: str) -> dict:
+def build_framework(
+    base: Path, repository: str, pr_number: int, suite_path: Path
+) -> dict:
     directory = base / repository.replace("/", "-")
-    directory.mkdir(parents=True)
+    directory.mkdir(parents=True, exist_ok=True)
     source_evidence = directory / "synthetic-evidence.json"
     source_evidence.write_text('{"synthetic": true}\n', encoding="utf-8")
-    suite_id = f"{repository.replace('/', '-')}-suite"
+    suite_id = SUITE_ID
     task_id = f"{repository.replace('/', '-')}-task"
-    null_identity = {"path": "synthetic-input.json", "sha256": "0" * 64}
-    anchor_path = directory / "preselection-anchor.json"
-    atomic_json(
-        anchor_path,
-        build_preselection_anchor(
-            ROOT / PREREGISTRATION_PATH,
-            PROTOCOL_COMMIT,
-            ROOT,
-        ),
-    )
-    suite_path = directory / "suite.json"
-    atomic_json(
-        suite_path,
-        {
-            "schema_version": "community-temporal-suite-v1",
-            "suite_id": suite_id,
-            "cutoff_at": "2026-09-08T19:30:00Z",
-            "claim_boundary": "EVALUATION_PROTOCOL_ONLY",
-            "training_graph": null_identity,
-            "preselection_anchor": relative_identity(anchor_path, directory),
-            "protocol": {
-                "arms": ["CONTROL", "COMMUNITY_AUGMENTED"],
-                "repeats": 2,
-                "randomized_order": True,
-                "random_seed": 20260908,
-                "network_policy": "DISABLED_AFTER_MATERIALIZATION",
-                "model_identity": "same-model-same-settings-within-pair",
-                "prompt_identity": null_identity,
-                "environment_identity": null_identity,
-                "task_packet_contract": "STRICT_V2",
-                "budgets": {
-                    "wall_clock_seconds": 900,
-                    "max_command_seconds": 180,
-                    "max_candidates": 4,
-                    "max_compile_attempts": 6,
-                    "max_measurements": 6,
-                    "max_technical_repairs": 2,
-                    "max_causal_revisions": 2,
-                },
-                "minimum_material_speedup": 1.02,
-                "metrics": [
-                    "TIME_TO_FIRST_CORRECT",
-                    "TIME_TO_FIRST_IMPROVEMENT",
-                    "BEST_SPEEDUP",
-                    "ARCHITECTURE_FAMILY_COVERAGE",
-                    "HELDOUT_CORRECTNESS",
-                    "WHOLE_MODEL_SPEEDUP",
-                    "UPSTREAM_READINESS",
-                ],
-            },
-            "tasks": [
-                {
-                    "task_id": task_id,
-                    "available_at": "2026-09-08T19:31:00Z",
-                    "repository": repository,
-                    "prospective_id": f"{repository.replace('/', '-')}-prospective",
-                    "base_revision": "1" * 40,
-                    "target_hardware": "synthetic-gpu",
-                    "packet": null_identity,
-                    "hidden_oracle": null_identity,
-                }
-            ],
-        },
-    )
     pairs = []
     observations = {"control": [], "community_augmented": []}
     for repeat in (1, 2):
@@ -332,9 +272,129 @@ def build_framework(base: Path, repository: str) -> dict:
     }
 
 
+def build_suite(base: Path, primary: list[tuple[str, int, str]]) -> Path:
+    null_identity = {"path": "synthetic-input.json", "sha256": "0" * 64}
+    anchor_path = base / "preselection-anchor.json"
+    atomic_json(
+        anchor_path,
+        build_preselection_anchor(
+            ROOT / PREREGISTRATION_PATH,
+            PROTOCOL_COMMIT,
+            ROOT,
+        ),
+    )
+    suite_path = base / "suite.json"
+    atomic_json(
+        suite_path,
+        {
+            "schema_version": "community-temporal-suite-v1",
+            "suite_id": SUITE_ID,
+            "cutoff_at": "2026-09-08T19:30:00Z",
+            "claim_boundary": "EVALUATION_PROTOCOL_ONLY",
+            "training_graph": null_identity,
+            "preselection_anchor": relative_identity(anchor_path, base),
+            "protocol": {
+                "arms": ["CONTROL", "COMMUNITY_AUGMENTED"],
+                "repeats": 2,
+                "randomized_order": True,
+                "random_seed": 20260908,
+                "network_policy": "DISABLED_AFTER_MATERIALIZATION",
+                "model_identity": "same-model-same-settings-within-pair",
+                "prompt_identity": null_identity,
+                "environment_identity": null_identity,
+                "task_packet_contract": "STRICT_V2",
+                "budgets": {
+                    "wall_clock_seconds": 900,
+                    "max_command_seconds": 180,
+                    "max_candidates": 4,
+                    "max_compile_attempts": 6,
+                    "max_measurements": 6,
+                    "max_technical_repairs": 2,
+                    "max_causal_revisions": 2,
+                },
+                "minimum_material_speedup": 1.02,
+                "metrics": [
+                    "TIME_TO_FIRST_CORRECT",
+                    "TIME_TO_FIRST_IMPROVEMENT",
+                    "BEST_SPEEDUP",
+                    "ARCHITECTURE_FAMILY_COVERAGE",
+                    "HELDOUT_CORRECTNESS",
+                    "WHOLE_MODEL_SPEEDUP",
+                    "UPSTREAM_READINESS",
+                ],
+            },
+            "tasks": [
+                {
+                    "task_id": f"{repository.replace('/', '-')}-task",
+                    "available_at": "2026-09-08T19:31:00Z",
+                    "repository": repository,
+                    "pr_number": pr_number,
+                    "base_revision": "1" * 40,
+                    "target_hardware": "synthetic-gpu",
+                    "packet": null_identity,
+                    "hidden_oracle": null_identity,
+                }
+                for repository, pr_number, _ in primary
+            ],
+        },
+    )
+    return suite_path
+
+
 def build_report(base: Path) -> dict:
     protocol = ROOT / PROTOCOL_PATH
-    repositories = ["sgl-project/sglang", "vllm-project/vllm"]
+    primary = [
+        ("sgl-project/sglang", 38565, "sglang-38565"),
+        ("vllm-project/vllm", 55967, "vllm-55967"),
+    ]
+    repositories = [repository for repository, _, _ in primary]
+    suite_path = build_suite(base, primary)
+    cohort_path = base / "cohort-freeze.json"
+    schedule = []
+    blocks = [(task_id, repeat_index) for _, _, task_id in primary for repeat_index in (1, 2)]
+    blocks.sort(
+        key=lambda item: hashlib.sha256(
+            f"20260908:{item[0]}:{item[1]}".encode("utf-8")
+        ).hexdigest()
+    )
+    for task_id, repeat_index in blocks:
+        arms = sorted(
+            ("CONTROL", "COMMUNITY_AUGMENTED"),
+            key=lambda arm: hashlib.sha256(
+                f"20260908:{task_id}:{repeat_index}:{arm}".encode("utf-8")
+            ).hexdigest(),
+        )
+        for arm in arms:
+                schedule_key = hashlib.sha256(
+                    f"20260908:{task_id}:{repeat_index}:{arm}".encode("utf-8")
+                ).hexdigest()
+                schedule.append(
+                    {
+                        "task_id": task_id,
+                        "repeat_index": repeat_index,
+                        "arm": arm,
+                        "schedule_key": schedule_key,
+                    }
+                )
+    for order_index, entry in enumerate(schedule, start=1):
+        entry["order_index"] = order_index
+    atomic_json(
+        cohort_path,
+        {
+            "schema_version": "meta-cycle-cross-framework-cohort-freeze-v1",
+            "cycle_id": "cycle-1-theory-first-prior-gate-v1",
+            "frozen_protocol": {
+                "commit": PROTOCOL_COMMIT,
+                "random_seed": 20260908,
+                "repeats": 2,
+            },
+            "primary_tasks": [
+                {"repository": repository, "pr_number": pr_number, "task_id": task_id}
+                for repository, pr_number, task_id in primary
+            ],
+            "randomized_schedule": {"entries": schedule},
+        },
+    )
     return {
         "schema_version": "community-meta-cycle-report-v1",
         "generated_at": "2026-09-09T01:00:00Z",
@@ -342,8 +402,12 @@ def build_report(base: Path) -> dict:
         "cycle_id": "cycle-1-theory-first-prior-gate-v1",
         "protocol_commit": PROTOCOL_COMMIT,
         "protocol_identity": {"path": PROTOCOL_PATH.as_posix(), "sha256": sha256_file(protocol)},
+        "cohort_identity": relative_identity(cohort_path, base),
         "evidence_root_label": "synthetic-test-evidence",
-        "framework_results": [build_framework(base, repository) for repository in repositories],
+        "framework_results": [
+            build_framework(base, repository, pr_number, suite_path)
+            for repository, pr_number, _ in primary
+        ],
         "aggregate_gate": {
             "compared_frameworks": repositories,
             "qualified_frameworks": repositories,
@@ -402,6 +466,42 @@ def test_observation_rejects_unreconciled_regression_rate() -> None:
             raise AssertionError("regression rate must be derived from measured counts")
 
 
+def test_final_report_rejects_substituted_cohort_or_suite() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        report_path = base / "report.json"
+        report = build_report(base)
+
+        cohort_path = base / report["cohort_identity"]["path"]
+        cohort = json.loads(cohort_path.read_text(encoding="utf-8"))
+        cohort["primary_tasks"][0]["pr_number"] = 38563
+        atomic_json(cohort_path, cohort)
+        report["cohort_identity"] = relative_identity(cohort_path, base)
+        atomic_json(report_path, report)
+        try:
+            validate_report(report_path, base)
+        except ValueError as error:
+            assert "repository/task" in str(error)
+        else:
+            raise AssertionError("a substituted cohort PR must be rejected")
+
+        report = build_report(base)
+        alternate_suite = base / "alternate-suite.json"
+        first_suite = base / report["framework_results"][0]["suite_identity"]["path"]
+        alternate_suite.write_bytes(first_suite.read_bytes())
+        report["framework_results"][0]["suite_identity"] = relative_identity(
+            alternate_suite, base
+        )
+        atomic_json(report_path, report)
+        try:
+            validate_report(report_path, base)
+        except ValueError as error:
+            assert "same exact cohort suite" in str(error)
+        else:
+            raise AssertionError("framework results must not use different suite identities")
+
+
 if __name__ == "__main__":
     test_final_report_and_fail_closed_recomputation()
     test_observation_rejects_unreconciled_regression_rate()
+    test_final_report_rejects_substituted_cohort_or_suite()
