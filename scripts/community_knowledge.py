@@ -238,8 +238,11 @@ class GitHubClient:
         since: str,
         until: str,
         maximum: int = 1000,
+        created_after: str | None = None,
     ) -> tuple[list[dict], list[str], int, bool]:
         query = f"repo:{repository} is:pr updated:{since}..{until}"
+        if created_after is not None:
+            query += f" created:{created_after}..{until}"
         parameters = urllib.parse.urlencode(
             {"q": query, "sort": "updated", "order": "desc", "per_page": 100}
         )
@@ -806,6 +809,7 @@ def sync_repository(
     max_captures: int = 20,
     dry_run: bool = False,
     root: Path | None = None,
+    created_after: str | None = None,
 ) -> dict:
     """Discover a bounded PR window and archive each selected PR snapshot."""
     root = root or repository_root()
@@ -815,6 +819,10 @@ def sync_repository(
     until_time = bounded_timestamp(until, "until")
     if since_time >= until_time:
         raise ValueError("sync window requires since < until")
+    if created_after is not None:
+        created_floor_time = bounded_timestamp(created_after, "created_after")
+        if created_floor_time > since_time:
+            raise ValueError("created_after must not be later than since")
     if not 1 <= max_captures <= 100:
         raise ValueError("max_captures must be between 1 and 100")
 
@@ -823,6 +831,7 @@ def sync_repository(
         since,
         until,
         maximum=min(1000, max(100, max_captures * 5)),
+        created_after=created_after,
     )
     candidates = []
     for item in items:
@@ -2067,6 +2076,13 @@ def parse_args() -> argparse.Namespace:
     sync.add_argument("--repository", required=True)
     sync.add_argument("--since", required=True)
     sync.add_argument("--until", required=True)
+    sync.add_argument(
+        "--created-after",
+        help=(
+            "optional server-side PR creation-time floor; must not be later "
+            "than --since"
+        ),
+    )
     sync.add_argument("--corpus", type=Path, required=True)
     sync.add_argument("--receipt", type=Path, required=True)
     sync.add_argument("--max-captures", type=int, default=20)
@@ -2149,6 +2165,7 @@ def main() -> int:
                 client,
                 args.max_captures,
                 args.dry_run,
+                created_after=args.created_after,
             )
         elif args.operation == "refresh-tracked":
             client = GitHubClient(github_token_from_environment(), timeout=args.timeout)

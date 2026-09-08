@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_knowledge import (
     ARTIFACT_SPECS,
+    GitHubClient,
     atomic_json,
     attach_graph,
     build_graph,
@@ -51,6 +52,7 @@ class FakeGitHubClient:
         self.pull_updated_at = "2026-01-03T00:00:00Z"
         self.repo_stars = 10
         self.review_submitted_at = "2026-01-02T00:00:00Z"
+        self.last_created_after: str | None = None
 
     def pull(self) -> dict:
         return {
@@ -110,9 +112,15 @@ class FakeGitHubClient:
         return b"diff --git a/kernel.py b/kernel.py\n", [url]
 
     def search_pull_requests(
-        self, repository: str, since: str, until: str, maximum: int = 1000
+        self,
+        repository: str,
+        since: str,
+        until: str,
+        maximum: int = 1000,
+        created_after: str | None = None,
     ) -> tuple[list[dict], list[str], int, bool]:
         del repository, since, until, maximum
+        self.last_created_after = created_after
         return (
             [
                 {
@@ -227,6 +235,32 @@ def event_for(manifest_path: Path) -> dict:
 
 
 def main() -> None:
+    observed_query_urls: list[str] = []
+    query_client = GitHubClient(None)
+
+    def empty_search(url: str, accept: str) -> tuple[bytes, dict[str, str]]:
+        del accept
+        observed_query_urls.append(url)
+        return (
+            json.dumps(
+                {"total_count": 0, "incomplete_results": False, "items": []}
+            ).encode("utf-8"),
+            {},
+        )
+
+    query_client.request = empty_search  # type: ignore[method-assign]
+    _, pushed_urls, _, _ = query_client.search_pull_requests(
+        "example/project",
+        "2026-01-02T00:00:00Z",
+        "2026-01-04T00:00:00Z",
+        created_after="2026-01-01T00:00:00Z",
+    )
+    assert pushed_urls == observed_query_urls
+    assert (
+        "created%3A2026-01-01T00%3A00%3A00Z..2026-01-04T00%3A00%3A00Z"
+        in pushed_urls[0]
+    )
+
     assert len(ARTIFACT_SPECS) == 8
     assert github_token_from_environment({}) is None
     assert github_token_from_environment({"GH_TOKEN": " gh-value "}) == "gh-value"
@@ -309,6 +343,37 @@ def main() -> None:
         assert validate_instance(legacy_sync, sync_schema) == []
         assert "REGRESSION" in sync_receipt["candidates"][0]["classifications"]
         assert sync_receipt["next_since"] == "2026-01-04T00:00:00Z"
+        assert client.last_created_after is None
+        pushed_down_receipt = sync_repository(
+            "example/project",
+            "2026-01-02T00:00:00Z",
+            "2026-01-04T00:00:00Z",
+            corpus,
+            Path(temporary) / "sync-created-floor.json",
+            client,
+            max_captures=1,
+            dry_run=True,
+            root=ROOT,
+            created_after="2026-01-01T00:00:00Z",
+        )
+        assert pushed_down_receipt["candidate_count"] == 1
+        assert client.last_created_after == "2026-01-01T00:00:00Z"
+        try:
+            sync_repository(
+                "example/project",
+                "2026-01-02T00:00:00Z",
+                "2026-01-04T00:00:00Z",
+                corpus,
+                Path(temporary) / "unsafe-created-floor.json",
+                client,
+                dry_run=True,
+                root=ROOT,
+                created_after="2026-01-03T00:00:00Z",
+            )
+        except ValueError as error:
+            assert "created_after must not be later than since" in str(error)
+        else:
+            raise AssertionError("an unsafe creation-time floor was accepted")
         assert validate_corpus(corpus, ROOT)["snapshot_count"] == 2
 
         manifest_path = Path(third["manifest"])
