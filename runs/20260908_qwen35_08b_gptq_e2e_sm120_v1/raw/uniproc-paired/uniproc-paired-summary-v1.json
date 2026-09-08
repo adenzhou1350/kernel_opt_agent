@@ -1,0 +1,84 @@
+{
+  "schema_version": "vllm-uniproc-paired-summary-v1",
+  "status": "PERFORMANCE_SIGNAL_CORRECTNESS_UNRESOLVED",
+  "claim_scope": "RTX 5090, Qwen3.5-0.8B GPTQ, vLLM offline LLM API, B=8 greedy 64-token decode",
+  "candidate": {
+    "change": "VLLM_ENABLE_V1_MULTIPROCESSING=0",
+    "source_change": false,
+    "intended_mechanism": "remove the EngineCore subprocess boundary for the offline single-GPU LLM path"
+  },
+  "protocol": {
+    "repeats": 2,
+    "order": [
+      "repeat-0-control",
+      "repeat-0-uniproc",
+      "repeat-1-uniproc",
+      "repeat-1-control"
+    ],
+    "fresh_cache_per_arm": true,
+    "timeout_seconds_per_arm": 600,
+    "exact_gpu_uuid": "GPU-14f89acf-cf7c-3a09-80d5-e43035823f0d",
+    "material_speedup_floor": 1.02
+  },
+  "performance": {
+    "repeat_0": {
+      "control_ms": 156.01694001816213,
+      "uniproc_ms": 135.4806479648687,
+      "speedup": 1.1515809996614326
+    },
+    "repeat_1": {
+      "control_ms": 151.406126038637,
+      "uniproc_ms": 135.48627897398546,
+      "speedup": 1.1175015446967016
+    },
+    "pooled_speedup": 1.1345409180736348,
+    "conservative_speedup": 1.1175015446967016,
+    "performance_gate": "PASS"
+  },
+  "correctness": {
+    "each_arm_generated_expected_token_count": true,
+    "uniproc_exact_across_repeats": true,
+    "control_exact_across_repeats": false,
+    "cross_arm_exact_repeat_0": false,
+    "cross_arm_exact_repeat_1": false,
+    "classification": "BASELINE_NONDETERMINISTIC_UNDER_FROZEN_EXACT_TOKEN_GATE",
+    "gate": "UNRESOLVED",
+    "reason": "The frozen acceptance rule requires exact token identity, but the multiprocess control itself changed outputs across fresh repeats. Performance therefore cannot be promoted until an independent correctness oracle is preregistered and passed."
+  },
+  "b1_screen": {
+    "status": "REJECT_FOR_B1",
+    "reference_stock_mean_ms_per_request": 117.44515958222715,
+    "uniproc_mean_ms_per_request": 122.63706583568516,
+    "speedup": 0.9576644612452294,
+    "exact_tokens_against_reference": true,
+    "note": "This is a screening comparison against prior no-profiler paired stock repeats, not a same-cycle formal pair."
+  },
+  "decision": "KEEP_AS_GUARDED_B8_CANDIDATE_ONLY",
+  "next_required_evidence": [
+    "a preregistered correctness oracle independent of the nondeterministic multiprocess output sequence",
+    "confirmation that the measured benefit applies to the intended offline/API deployment and does not regress B=1 routing",
+    "clean-current-main reproduction before any upstream proposal"
+  ],
+  "evidence": [
+    {
+      "path": "uniproc-paired-v1/repeat-0-control/result.json",
+      "sha256": "dab2a2c204e30d69437458f7e75b29f9979ae6241d6c61966616c865c5c44643"
+    },
+    {
+      "path": "uniproc-paired-v1/repeat-0-uniproc/result.json",
+      "sha256": "5ed4f61081a3c03d427ad433fc961e93df3c801357c85aef549241a7c565408e"
+    },
+    {
+      "path": "uniproc-paired-v1/repeat-1-control/result.json",
+      "sha256": "d391b3ca5b0896353c98714b02e23e07e1bdb0a3790c28452ec2e0e878034cd9"
+    },
+    {
+      "path": "uniproc-paired-v1/repeat-1-uniproc/result.json",
+      "sha256": "c56f751d09917c3520b41d5608ba8d7123dea9e089b1e4ea4bf55dbeeb4f0fcc"
+    },
+    {
+      "path": "run_uniproc_paired.sh",
+      "sha256": "84fa037bea8c2d0a0bb53b67dfe9ee8b996fb4943aee35463b64ff03e1a4a270"
+    }
+  ]
+}

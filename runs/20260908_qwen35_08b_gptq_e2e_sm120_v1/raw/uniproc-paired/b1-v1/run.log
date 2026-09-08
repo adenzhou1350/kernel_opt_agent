@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/oem/community-agent/vllm-lmhead-sm120-20260908/benchmark_vllm_offline.py", line 837, in <module>
+    main()
+  File "/home/oem/community-agent/vllm-lmhead-sm120-20260908/benchmark_vllm_offline.py", line 383, in main
+    guarded_sources = expected_source_hashes(args.expect_source_sha256)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oem/community-agent/vllm-lmhead-sm120-20260908/benchmark_vllm_offline.py", line 165, in expected_source_hashes
+    raise RuntimeError(
+RuntimeError: candidate source mismatch: /home/oem/community-agent/vllm-lmhead-pr/vllm/model_executor/layers/vocab_parallel_embedding.py expected 4f113f963a4c3dab2aa1162fa3a05c50bf339cdacd4349d6a69346d10677d92a, observed 4f113f963a4c3e341dd8aa99efd0571f8c9e1adc3acd9c03b6cc8966263006b6

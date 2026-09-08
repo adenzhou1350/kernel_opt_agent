@@ -1,0 +1,84 @@
+{
+  "claim_scope": "RTX_5090_BATCH1_NATURAL_OFFLINE_MODEL_LEVEL_SCREEN_NOT_SERVING_SOTA",
+  "conservative_end_to_end_speedup": 0.987116506387203,
+  "correctness": {
+    "exact_cross_arm_token_match": true
+  },
+  "material_improvement": false,
+  "materiality_threshold": 1.02,
+  "paired_repeats": [
+    {
+      "exact_cross_arm_token_match": true,
+      "metrics": {
+        "end_to_end_ms": {
+          "packed": 114.50617983549212,
+          "speedup": 1.025254465198642,
+          "stock": 117.39797216917698
+        },
+        "tpot_ms": {
+          "packed": 1.608165412791389,
+          "speedup": 1.0289859195540558,
+          "stock": 1.654779566076175
+        },
+        "ttft_ms": {
+          "packed": 13.195435206095377,
+          "speedup": 0.9993134060480495,
+          "stock": 13.186375300089518
+        }
+      },
+      "repeat": 0
+    },
+    {
+      "exact_cross_arm_token_match": true,
+      "metrics": {
+        "end_to_end_ms": {
+          "packed": 119.02581532679808,
+          "speedup": 0.987116506387203,
+          "stock": 117.49234699527733
+        },
+        "tpot_ms": {
+          "packed": 1.67645855819703,
+          "speedup": 0.9872418841929975,
+          "stock": 1.6550701057659118
+        },
+        "ttft_ms": {
+          "packed": 13.540029525756836,
+          "speedup": 0.9801112852388583,
+          "stock": 13.270735740661621
+        }
+      },
+      "repeat": 1
+    }
+  ],
+  "pooled": {
+    "end_to_end_ms": {
+      "packed_mean_across_repeats": 116.7659975811451,
+      "paired_speedups": [
+        1.025254465198642,
+        0.987116506387203
+      ],
+      "speedup": 1.0058164364211428,
+      "stock_mean_across_repeats": 117.44515958222715
+    },
+    "tpot_ms": {
+      "packed_mean_across_repeats": 1.6423119854942094,
+      "paired_speedups": [
+        1.0289859195540558,
+        0.9872418841929975
+      ],
+      "speedup": 1.0076799356871518,
+      "stock_mean_across_repeats": 1.6549248359210433
+    },
+    "ttft_ms": {
+      "packed_mean_across_repeats": 13.367732365926106,
+      "paired_speedups": [
+        0.9993134060480495,
+        0.9801112852388583
+      ],
+      "speedup": 0.9895885972474064,
+      "stock_mean_across_repeats": 13.228555520375568
+    }
+  },
+  "schema_version": "vllm-lmhead-sm120-model-e2e-summary-v1",
+  "status": "PASS"
+}

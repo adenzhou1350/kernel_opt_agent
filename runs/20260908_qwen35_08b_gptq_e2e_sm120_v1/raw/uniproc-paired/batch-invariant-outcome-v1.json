@@ -1,0 +1,21 @@
+{
+  "schema_version": "vllm-uniproc-batch-invariant-outcome-v1",
+  "status": "HARNESS_BLOCKED",
+  "executed_arms": 0,
+  "failure_phase": "CONTROL_ENGINE_INITIALIZATION",
+  "error": "RuntimeError: VLLM batch_invariant mode is not supported for GDN_ATTN.",
+  "classification": "FRAMEWORK_CAPABILITY_GAP_NOT_CANDIDATE_REGRESSION",
+  "decision": "STOP_FROZEN_EXPERIMENT",
+  "reason": "The common correctness mode is unsupported by the model's GDN attention backend. No arm reached model execution, so there is no performance or candidate correctness result from this experiment.",
+  "implication": "A future exact reproducibility task must add GDN_ATTN batch-invariant support or use a separately preregistered model-level correctness oracle. The original nondeterministic experiment remains unqualified.",
+  "evidence": [
+    {
+      "path": "batch-invariant-freeze-v1.json",
+      "sha256": "136aae8322490c0029205876d736765862d30b2e187a72b05b2993fac632d1a7"
+    },
+    {
+      "path": "uniproc-batch-invariant-paired-v1/repeat-0-control/run.log",
+      "sha256": "2f97f289595ec4357a2786552a9ccc432c78ab7709b02312d65157fa0ee13b9c"
+    }
+  ]
+}

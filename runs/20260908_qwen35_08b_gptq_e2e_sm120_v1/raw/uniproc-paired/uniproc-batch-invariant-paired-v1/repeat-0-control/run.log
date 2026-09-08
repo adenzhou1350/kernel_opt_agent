@@ -1,0 +1,142 @@
+INFO 09-08 23:15:37 [api_utils.py:286] non-default args: {'tokenizer': '/home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca', 'dtype': 'bfloat16', 'seed': 20260902, 'max_model_len': 4096, 'enable_prefix_caching': False, 'gpu_memory_utilization': 0.7, 'max_num_seqs': 8, 'quantization': 'gptq_marlin', 'language_model_only': True, 'model': '/home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca'}
+INFO 09-08 23:15:42 [model.py:691] Resolved architecture: Qwen3_5ForConditionalGeneration
+WARNING 09-08 23:15:42 [model.py:2365] Casting torch.float16 to torch.bfloat16.
+INFO 09-08 23:15:42 [model.py:2031] Using max model len 4096
+WARNING 09-08 23:15:42 [model.py:991] Model does not support mm_device_do_normalize, forcing mm_device_do_normalize = False.
+INFO 09-08 23:15:43 [registry.py:146] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+INFO 09-08 23:15:43 [model.py:897] Disabled mm_prefix attention mode because multimodal inputs are configuration-disabled. Attention backends without mm_prefix support may now be selected.
+INFO 09-08 23:15:43 [scheduler.py:277] Chunked prefill is enabled with max_num_batched_tokens=8192.
+INFO 09-08 23:15:43 [kernel.py:385] Final IR op priority after setting platform defaults: IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native'])
+WARNING 09-08 23:15:45 [system_utils.py:157] We must use the `spawn` multiprocessing start method. Overriding VLLM_WORKER_MULTIPROC_METHOD to 'spawn'. See https://docs.vllm.ai/en/latest/usage/troubleshooting.html#python-multiprocessing for more information. Reasons: CUDA is initialized
+(EngineCore pid=859616) INFO 09-08 23:15:48 [core.py:123] Initializing a V1 LLM engine (v0.1.dev20908+g4048b5edb) with config: model='/home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca', speculative_config=None, tokenizer='/home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca', skip_tokenizer_init=False, tokenizer_mode=auto, revision=None, tokenizer_revision=None, trust_remote_code=False, dtype=torch.bfloat16, max_seq_len=4096, download_dir=None, load_format=auto, tensor_parallel_size=1, pipeline_parallel_size=1, data_parallel_size=1, decode_context_parallel_size=1, dcp_comm_backend=ag_rs, disable_custom_all_reduce=True, quantization=auto_gptq, quantization_config=None, enforce_eager=False, enable_return_routed_experts=False, kv_cache_dtype=auto, device_config=cuda, structured_outputs_config=StructuredOutputsConfig(backend='auto', disable_any_whitespace=False, disable_additional_properties=False, reasoning_parser='', reasoning_parser_plugin='', enable_in_reasoning=False), observability_config=ObservabilityConfig(show_hidden_metrics_for_version=None, otlp_traces_endpoint=None, collect_detailed_traces=None, per_request_spec_decode_metrics='none', kv_cache_metrics=False, kv_cache_metrics_sample=0.01, cudagraph_metrics=False, enable_layerwise_nvtx_tracing=False, enable_mfu_metrics=False, enable_mm_processor_stats=False, enable_logging_iteration_details=False, jit_monitor_mode='warn', jit_monitor_verbose=False), seed=20260902, served_model_name=/home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca, enable_prefix_caching=False, enable_chunked_prefill=True, pooler_config=None, compilation_config={'mode': <CompilationMode.VLLM_COMPILE: 3>, 'debug_dump_path': None, 'cache_dir': '', 'compile_cache_save_format': 'binary', 'backend': 'inductor', 'custom_ops': ['none'], 'ir_enable_torch_wrap': True, 'splitting_ops': ['vllm::unified_attention_with_output', 'vllm::unified_mla_attention_with_output', 'vllm::mamba_mixer2', 'vllm::mamba_mixer', 'vllm::short_conv', 'vllm::qwen4_exp_compute_ple_ngram_ids', 'vllm::qwen4_exp_ple_short_conv', 'vllm::qwen4_exp_qsa_with_output', 'vllm::linear_attention', 'vllm::qwen_gdn_attention_core', 'vllm::qwen_gdn_attention_core_fused_norm_packed', 'vllm::gdn_attention_core_xpu', 'vllm::olmo_hybrid_gdn_full_forward', 'vllm::sparse_attn_indexer', 'vllm::rocm_aiter_sparse_attn_indexer', 'vllm::deepseek_v4_attention', 'vllm::hpc_rope_norm_forward', 'vllm::unified_kv_cache_update', 'vllm::unified_mla_kv_cache_update'], 'compile_mm_encoder': False, 'cudagraph_mm_encoder': False, 'encoder_cudagraph_token_budgets': [], 'encoder_cudagraph_max_vision_items_per_batch': 0, 'encoder_cudagraph_max_frames_per_batch': None, 'compile_sizes': [], 'compile_ranges_endpoints': [8192], 'inductor_compile_config': {'enable_auto_functionalized_v2': False, 'combo_kernels': True, 'benchmark_combo_kernel': True}, 'inductor_passes': {}, 'cudagraph_mode': <CUDAGraphMode.FULL_AND_PIECEWISE: (2, 1)>, 'cudagraph_num_of_warmups': 1, 'cudagraph_capture_sizes': [1, 2, 4, 8, 16], 'cudagraph_copy_inputs': False, 'cudagraph_specialize_lora': True, 'use_inductor_graph_partition': False, 'pass_config': {'fuse_norm_quant': False, 'fuse_act_quant': False, 'fuse_attn_quant': False, 'enable_sp': False, 'fuse_gemm_comms': False, 'fuse_allreduce_rms': False, 'enable_qk_norm_rope_fusion': False, 'fuse_rope_kvcache_cat_mla': False, 'fuse_act_padding': False, 'fuse_qk_norm_rope_kvcache': False}, 'max_cudagraph_capture_size': 16, 'dynamic_shapes_config': {'type': <DynamicShapesType.BACKED: 'backed'>, 'evaluate_guards': False, 'assume_32_bit_indexing': False}, 'local_cache_dir': None, 'fast_moe_cold_start': False, 'static_all_moe_layers': []}, kernel_config=KernelConfig(ir_op_priority=IrOpPriorityConfig(rms_norm=['native'], fused_add_rms_norm=['native']), enable_flashinfer_autotune=True, enable_cutedsl_warmup=True, enable_jit_warmup=True, enable_bf16x3_router_gemm=False, moe_backend='auto', linear_backend='auto', lm_head_backend='torch', lm_head_max_packed_fraction=0.9)
+(EngineCore pid=859616) INFO 09-08 23:15:49 [registry.py:146] All limits of multimodal modalities supported by the model are set to 0, running in text-only mode.
+[W908 23:15:49.245771013 Context.cpp:597] Warning: torch.backends.cuda.preferred_blas_library is an experimental feature. If you see any error or unexpected behavior when this flag is set please file an issue on GitHub. (function operator())
+(EngineCore pid=859616) INFO 09-08 23:15:49 [parallel_state.py:1798] world_size=1 rank=0 local_rank=0 distributed_init_method=file:///tmp/vllm_dist_81ca4d14a90348da9230c86f48e8e8f7 backend=nccl
+(EngineCore pid=859616) INFO 09-08 23:15:49 [parallel_state.py:2142] rank 0 in world size 1 is assigned as DP rank 0, PP rank 0, PCP rank 0, TP rank 0, EP rank N/A, EPLB rank N/A
+(EngineCore pid=859616) INFO 09-08 23:15:50 [topk_topp_sampler.py:62] Using FlashInfer for top-p & top-k sampling.
+(EngineCore pid=859616) INFO 09-08 23:15:50 [gpu_model_runner.py:5404] Starting to load model /home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca...
+(EngineCore pid=859616) INFO 09-08 23:15:50 [cuda.py:581] Using backend AttentionBackendEnum.FLASH_ATTN for vit attention
+(EngineCore pid=859616) INFO 09-08 23:15:50 [mm_encoder_attention.py:372] Using AttentionBackendEnum.FLASH_ATTN for MMEncoderAttention.
+(EngineCore pid=859616) INFO 09-08 23:15:50 [auto_gptq.py:357] Using MarlinLinearKernel for AutoGPTQLinearMethod
+(EngineCore pid=859616) INFO 09-08 23:15:50 [qwen_gdn_linear_attn.py:167] Using Triton/FLA GDN prefill kernel (requested=auto, head_k_dim=128).
+(EngineCore pid=859616) INFO 09-08 23:15:50 [qwen_gdn_linear_attn.py:519] GDN decode kernel: cuda
+(EngineCore pid=859616) INFO 09-08 23:15:50 [cuda.py:522] Using FLASH_ATTN attention backend out of potential backends: ['FLASH_ATTN', 'TRITON_ATTN', 'FLEX_ATTENTION'].
+(EngineCore pid=859616) INFO 09-08 23:15:50 [flash_attn.py:897] Using FlashAttention version 2
+(EngineCore pid=859616) INFO 09-08 23:15:51 [weight_utils.py:895] Filesystem type for checkpoints: EXT4. Checkpoint size: 0.90 GiB. Available RAM: 51.73 GiB.
+(EngineCore pid=859616) INFO 09-08 23:15:51 [weight_utils.py:918] Auto-prefetch is disabled because the filesystem (EXT4) is not a recognized network FS (NFS/Lustre). If you want to force prefetching, start vLLM with --safetensors-load-strategy=prefetch.
+(EngineCore pid=859616) Loading safetensors checkpoint shards:   0% Completed | 0/1 [00:00<?, ?it/s]
+(EngineCore pid=859616) Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00,  7.45it/s]
+(EngineCore pid=859616) Loading safetensors checkpoint shards: 100% Completed | 1/1 [00:00<00:00,  7.44it/s]
+(EngineCore pid=859616) 
+(EngineCore pid=859616) INFO 09-08 23:15:51 [default_loader.py:430] Loading weights took 0.14 seconds
+(EngineCore pid=859616) INFO 09-08 23:15:51 [gpu_model_runner.py:5498] Model loading took 0.85 GiB memory and 0.343575 seconds
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385] EngineCore failed to start.
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385] Traceback (most recent call last):
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 1347, in run_engine_core
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     return func(*args, **kwargs)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 1104, in __init__
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     super().__init__(
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 134, in __init__
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     return func(*args, **kwargs)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/executor/abstract.py", line 110, in __init__
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     self._init_executor()
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/executor/uniproc_executor.py", line 75, in _init_executor
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     current_platform.update_block_size_for_backend(self.vllm_config)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/platforms/interface.py", line 624, in update_block_size_for_backend
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     backend_cls = cls._find_non_ssm_backend(vllm_config)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/platforms/interface.py", line 603, in _find_non_ssm_backend
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     b = layer.get_attn_backend()
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]         ^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/model_executor/layers/mamba/abstract.py", line 90, in get_attn_backend
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     return get_mamba_attn_backend(self.mamba_type)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/attention/selector.py", line 219, in get_mamba_attn_backend
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     return _cached_get_mamba_attn_backend(mamba_type)
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/attention/selector.py", line 230, in _cached_get_mamba_attn_backend
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385]     raise RuntimeError(
+(EngineCore pid=859616) ERROR 09-08 23:15:51 [core.py:1385] RuntimeError: VLLM batch_invariant mode is not supported for GDN_ATTN.
+(EngineCore pid=859616) Process EngineCore:
+(EngineCore pid=859616) Traceback (most recent call last):
+(EngineCore pid=859616)   File "/usr/lib/python3.12/multiprocessing/process.py", line 314, in _bootstrap
+(EngineCore pid=859616)     self.run()
+(EngineCore pid=859616)   File "/usr/lib/python3.12/multiprocessing/process.py", line 108, in run
+(EngineCore pid=859616)     self._target(*self._args, **self._kwargs)
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 1389, in run_engine_core
+(EngineCore pid=859616)     raise e
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 1347, in run_engine_core
+(EngineCore pid=859616)     engine_core = EngineCoreProc(*args, engine_index=dp_rank, **kwargs)
+(EngineCore pid=859616)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=859616)     return func(*args, **kwargs)
+(EngineCore pid=859616)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 1104, in __init__
+(EngineCore pid=859616)     super().__init__(
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core.py", line 134, in __init__
+(EngineCore pid=859616)     self.model_executor = executor_class(vllm_config)
+(EngineCore pid=859616)                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/tracing/otel.py", line 178, in sync_wrapper
+(EngineCore pid=859616)     return func(*args, **kwargs)
+(EngineCore pid=859616)            ^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/executor/abstract.py", line 110, in __init__
+(EngineCore pid=859616)     self._init_executor()
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/executor/uniproc_executor.py", line 75, in _init_executor
+(EngineCore pid=859616)     current_platform.update_block_size_for_backend(self.vllm_config)
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/platforms/interface.py", line 624, in update_block_size_for_backend
+(EngineCore pid=859616)     backend_cls = cls._find_non_ssm_backend(vllm_config)
+(EngineCore pid=859616)                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/platforms/interface.py", line 603, in _find_non_ssm_backend
+(EngineCore pid=859616)     b = layer.get_attn_backend()
+(EngineCore pid=859616)         ^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/model_executor/layers/mamba/abstract.py", line 90, in get_attn_backend
+(EngineCore pid=859616)     return get_mamba_attn_backend(self.mamba_type)
+(EngineCore pid=859616)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/attention/selector.py", line 219, in get_mamba_attn_backend
+(EngineCore pid=859616)     return _cached_get_mamba_attn_backend(mamba_type)
+(EngineCore pid=859616)            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+(EngineCore pid=859616)   File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/attention/selector.py", line 230, in _cached_get_mamba_attn_backend
+(EngineCore pid=859616)     raise RuntimeError(
+(EngineCore pid=859616) RuntimeError: VLLM batch_invariant mode is not supported for GDN_ATTN.
+[rank0]:[W908 23:15:52.918828363 ProcessGroupNCCL.cpp:1624] Warning: WARNING: destroy_process_group() was not called before program exit, which can leak resources. For more info, please see https://pytorch.org/docs/stable/distributed.html#shutdown (function operator())
+INFO 09-08 23:15:53 [utils.py:620] [shutdown] Process manager: send sigterm to process EngineCore
+Traceback (most recent call last):
+  File "/home/oem/community-agent/vllm-lmhead-sm120-20260908/profile_batch_workload.py", line 105, in <module>
+    main()
+  File "/home/oem/community-agent/vllm-lmhead-sm120-20260908/profile_batch_workload.py", line 39, in main
+    llm = LLM(
+          ^^^^
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/entrypoints/llm.py", line 343, in __init__
+    self.llm_engine = LLMEngine.from_engine_args(
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/llm_engine.py", line 184, in from_engine_args
+    return cls(
+           ^^^^
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/llm_engine.py", line 109, in __init__
+    self.engine_core = EngineCoreClient.make_client(
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core_client.py", line 122, in make_client
+    return SyncMPClient(
+           ^^^^^^^^^^^^^
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/tracing/otel.py", line 178, in sync_wrapper
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core_client.py", line 880, in __init__
+    super().__init__(
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/core_client.py", line 656, in __init__
+    with launch_core_engines(
+  File "/usr/lib/python3.12/contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/utils.py", line 1240, in launch_core_engines
+    wait_for_engine_startup(
+  File "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/engine/utils.py", line 1320, in wait_for_engine_startup
+    raise RuntimeError(
+RuntimeError: Engine core initialization failed. See root cause above. Failed core proc(s): {}

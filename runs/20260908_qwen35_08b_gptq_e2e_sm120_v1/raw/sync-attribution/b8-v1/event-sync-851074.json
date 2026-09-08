@@ -1,0 +1,23 @@
+{
+  "pid": 851074,
+  "ppid": 850730,
+  "rows": [
+    {
+      "calls": 65,
+      "callsite": "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/worker/gpu_model_runner.py:356:get_output",
+      "max_ns": 1687420,
+      "min_ns": 1613,
+      "total_ns": 72420875
+    },
+    {
+      "calls": 66,
+      "callsite": "/home/oem/community-agent/vllm-lmhead-pr/vllm/v1/worker/gpu_model_runner.py:3936:synchronize_input_prep",
+      "max_ns": 63110,
+      "min_ns": 1092,
+      "total_ns": 214176
+    }
+  ],
+  "schema_version": "vllm-event-sync-attribution-v1",
+  "total_calls": 131,
+  "total_ns": 72635051
+}

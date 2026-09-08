@@ -1,0 +1,68 @@
+{
+  "schema_version": "production-baseline-v1",
+  "status": "INVALID",
+  "correctness": {
+    "status": "FAIL_FROZEN_EXACT_REPEAT_GATE",
+    "b1": "PASS: prior paired stock arms produced exact cross-arm token IDs",
+    "b8": "FAIL: repeat-0 and repeat-1 multiprocess CONTROL outputs differ for requests 0, 4, 5 and 6",
+    "interpretation": "The model executions completed and produced 64 tokens per request, but the frozen operator contract requires exact token identity. No performance candidate may be qualified from this run until a new independent correctness contract is preregistered in a separate run."
+  },
+  "source_identities": [
+    {
+      "kind": "guarded_source_commit",
+      "value": "4048b5edbad29bed0d052c6e258fd1c53072218f"
+    },
+    {
+      "kind": "clean_upstream_reference_commit",
+      "value": "613ab20f7f9082244240f4e9b2e7a4ee6769c38f"
+    },
+    {
+      "kind": "model_weight_manifest_sha256",
+      "value": "f62ec9bfbc15f99430bb78a85f8db5d338125284f103af28a272c961d469b0ac"
+    }
+  ],
+  "measurement_methods": {
+    "cpu_dispatch": "Nsight Systems CUDA runtime/API trace plus Python callsite-preserving Event.synchronize attribution",
+    "gpu_active": "Nsight Systems CUPTI kernel timestamps on one CUDA context and stream",
+    "end_to_end": "time.perf_counter around LLM.generate; fresh engine/cache per paired arm"
+  },
+  "environment_controls": {
+    "competing_load": "exact GPU UUID checked before every arm; <=1024 MiB memory, <=10% utilization and no compute process required",
+    "clock_power_policy": "observed-only; clocks and power were not mutated",
+    "thermal_policy": "balanced arm order; no result accepted solely from a first-position run",
+    "warmup_and_cold_start": "one warmup generation; each formal arm used a fresh compilation/cache directory"
+  },
+  "cases": [
+    {
+      "id": "natural-b1-six-requests-generate-64",
+      "status": "VALID",
+      "stock_mean_end_to_end_us_per_request": 117445.15958222715,
+      "correctness": "PASS",
+      "evidence": [
+        {
+          "path": "raw/summary-v1.json",
+          "sha256": "e828c2235e3a97e5bb551f6245cca1e0dd526d9d3f985e439f0c7e50c113e26b"
+        }
+      ]
+    },
+    {
+      "id": "natural-b8-generate-64",
+      "status": "INVALID",
+      "stock_end_to_end_us": [
+        156016.94001816213,
+        151406.126038637
+      ],
+      "correctness": "FAIL_EXACT_REPEAT",
+      "evidence": [
+        {
+          "path": "raw/uniproc-paired/uniproc-paired-v1/repeat-0-control/result.json",
+          "sha256": "dab2a2c204e30d69437458f7e75b29f9979ae6241d6c61966616c865c5c44643"
+        },
+        {
+          "path": "raw/uniproc-paired/uniproc-paired-v1/repeat-1-control/result.json",
+          "sha256": "d391b3ca5b0896353c98714b02e23e07e1bdb0a3790c28452ec2e0e878034cd9"
+        }
+      ]
+    }
+  ]
+}

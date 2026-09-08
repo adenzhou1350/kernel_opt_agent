@@ -1,0 +1,62 @@
+{
+  "block_count": 993280,
+  "checkpoint": "/home/oem/community-agent/models/Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca/model.safetensors",
+  "checkpoint_sha256": "1140ac9c554a35a2069b5964a2668641cbf0b745c4c3692179e744878dd4d47b",
+  "compute_capability": [
+    12,
+    0
+  ],
+  "correctness": {
+    "allclose": true,
+    "max_abs": 0.00390625,
+    "mean_abs": 2.7988884099272582e-08
+  },
+  "fallback_blocks": 14403,
+  "fallback_fraction": 0.014500442976804124,
+  "gpu": "NVIDIA GeForce RTX 5090",
+  "median_ms": {
+    "lossless_packed": 0.23698687553405762,
+    "torch_dense": 0.31806527137756346
+  },
+  "packed_fraction": 0.7742660679768041,
+  "runtime_dtype": "bfloat16",
+  "samples_ms": {
+    "lossless_packed": [
+      0.2365260887145996,
+      0.23772735595703126,
+      0.23745279312133788,
+      0.23677631378173827,
+      0.23719743728637696,
+      0.23765567779541016,
+      0.2376851272583008,
+      0.2377779197692871,
+      0.23646080017089843,
+      0.23645055770874024,
+      0.23622655868530273,
+      0.23595136642456055
+    ],
+    "torch_dense": [
+      0.3182271957397461,
+      0.3182624053955078,
+      0.31779008865356445,
+      0.31822015762329103,
+      0.31798271179199217,
+      0.31735872268676757,
+      0.31814783096313476,
+      0.3181939125061035,
+      0.31843584060668945,
+      0.31780544281005857,
+      0.3173855972290039,
+      0.3173855972290039
+    ]
+  },
+  "schema_version": "checkpoint-lm-head-sm120-v1",
+  "shape": [
+    248320,
+    1024
+  ],
+  "source_dtype": "float16",
+  "speedup": 1.3421218819008143,
+  "torch": "2.13.0+cu132",
+  "weight_key": "model.language_model.embed_tokens.weight"
+}

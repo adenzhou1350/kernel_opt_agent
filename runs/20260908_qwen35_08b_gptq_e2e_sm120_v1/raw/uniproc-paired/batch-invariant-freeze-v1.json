@@ -1,0 +1,49 @@
+{
+  "schema_version": "vllm-uniproc-batch-invariant-freeze-v1",
+  "created_at": "2026-09-08T23:10:00+08:00",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "reason": "The original exact-token gate was unjudgeable because multiprocess CONTROL was not exact across repeats. This is a new independent deterministic-mode task; it does not retroactively change the original result.",
+  "operator": {
+    "model": "Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca",
+    "dtype": "BF16",
+    "quantization": "GPTQ-Marlin",
+    "sampling": "greedy temperature=0, ignore_eos=true",
+    "generated_tokens_per_request": 64,
+    "batch_invariant": true,
+    "correctness": "all eight generated token sequences must be bitwise identical across arms and repeats"
+  },
+  "workload": {
+    "batch_size": 8,
+    "concurrency": 8,
+    "prompt_suite": "six frozen natural prompts repeated deterministically to eight requests",
+    "weight": 1.0,
+    "objective": "minimize LLM.generate wall time"
+  },
+  "hardware": {
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "uuid": "GPU-14f89acf-cf7c-3a09-80d5-e43035823f0d"
+  },
+  "arms": {
+    "CONTROL": {
+      "VLLM_ENABLE_V1_MULTIPROCESSING": "1",
+      "VLLM_BATCH_INVARIANT": "1"
+    },
+    "UNIPROC": {
+      "VLLM_ENABLE_V1_MULTIPROCESSING": "0",
+      "VLLM_BATCH_INVARIANT": "1"
+    }
+  },
+  "protocol": {
+    "repeats": 2,
+    "fixed_balanced_order": [
+      "repeat-0-control",
+      "repeat-0-uniproc",
+      "repeat-1-uniproc",
+      "repeat-1-control"
+    ],
+    "fresh_cache_per_arm": true,
+    "timeout_seconds_per_arm": 600,
+    "material_speedup_floor": 1.02,
+    "promotion_rule": "correctness PASS and both paired speedups >= 1.02"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": "vllm-top5-logprob-correctness-freeze-v1",
+  "created_at": "2026-09-08T23:23:00+08:00",
+  "status": "FROZEN_BEFORE_EXECUTION",
+  "scope": "Correctness only; logprob-enabled latency is not used as performance evidence.",
+  "provenance": "The comparison rule follows vLLM tests/models/utils.py::check_logprobs_close rather than a result-derived numeric tolerance.",
+  "operator": {
+    "model": "Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca",
+    "dtype": "BF16",
+    "quantization": "GPTQ-Marlin",
+    "batch_size": 8,
+    "generated_tokens_per_request": 64,
+    "sampling": "greedy temperature=0, top-5 decode logprobs returned"
+  },
+  "arms": {
+    "CONTROL": "VLLM_ENABLE_V1_MULTIPROCESSING=1",
+    "UNIPROC": "VLLM_ENABLE_V1_MULTIPROCESSING=0"
+  },
+  "oracle": {
+    "same_request_count": true,
+    "same_generated_length": true,
+    "comparison": "For each request, walk equal tokens. At the first token mismatch, require the CONTROL-selected token in UNIPROC top-5 and the UNIPROC-selected token in CONTROL top-5, then stop because later prefixes differ.",
+    "failure": "missing logprobs, missing reciprocal top-5 membership, NaN, wrong request count or wrong generated length"
+  },
+  "hardware_uuid": "GPU-14f89acf-cf7c-3a09-80d5-e43035823f0d",
+  "timeout_seconds_per_arm": 600
+}

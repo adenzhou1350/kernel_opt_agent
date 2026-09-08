@@ -1,0 +1,68 @@
+{
+  "abi": {
+    "entrypoint": "vLLM offline LLM API with an equivalent online-serving execution route",
+    "mutable_arguments": [
+      "runtime-owned recurrent state",
+      "runtime-owned KV cache",
+      "runtime-owned kernel workspace"
+    ]
+  },
+  "computation": {
+    "definition": "Run the frozen Qwen3.5-0.8B AutoRound GPTQ W4A16 group-128 checkpoint autoregressively through vLLM V1. Execute every transformer layer, recurrent and KV-cache update, output projection and greedy token selection for exactly 64 output tokens per request.",
+    "dependencies": [
+      "each output token depends on the complete recurrent and KV state from preceding tokens",
+      "all linear-attention, full-attention and MLP projections remain enabled",
+      "candidate changes must preserve the frozen integer weights, group scales, BF16 activation contract and token sequence"
+    ],
+    "forbidden_rewrites": [
+      "changing GPTQ weights, scales or group size",
+      "additional activation or weight quantization",
+      "changing sampling, output-head shortlist or generated-token count",
+      "speculative decoding, token pruning, skipped layers or early exit",
+      "using FP16 activations in place of BF16"
+    ],
+    "legal_rewrites": [
+      "lossless weight repacking",
+      "SM120-specialized kernels",
+      "dependency-preserving kernel and epilogue fusion",
+      "persistent scheduling, launch amortization and overlap that preserve lifetimes",
+      "CUDA Graph-compatible routing by active batch"
+    ]
+  },
+  "inputs": [
+    {
+      "dtype": "int64",
+      "layout": "one contiguous token-ID row per request",
+      "name": "input_ids",
+      "shape": [
+        "active_batch",
+        "prompt_tokens"
+      ]
+    }
+  ],
+  "name": "qwen35_08b_gptq_vllm_end_to_end_decode_sm120",
+  "numerics": {
+    "acceptance": "Every frozen natural prompt must produce exactly the same 64 greedy token IDs. Candidate weights and scales must retain their source bit patterns.",
+    "accumulation_dtype": "implementation-defined where stock vLLM permits it; observable output remains exact",
+    "deterministic_required": true,
+    "reference": "vLLM V1 stock execution selected by lm_head=torch at guarded source commit 4048b5edbad29bed0d052c6e258fd1c53072218f."
+  },
+  "outputs": [
+    {
+      "dtype": "int64",
+      "layout": "contiguous autoregressive order per request",
+      "name": "generated_token_ids",
+      "shape": [
+        "active_batch",
+        64
+      ]
+    }
+  ],
+  "schema_version": "operator-contract-v1",
+  "source_identity": {
+    "clean_upstream_reference_commit": "613ab20f7f9082244240f4e9b2e7a4ee6769c38f",
+    "guarded_worktree_commit": "4048b5edbad29bed0d052c6e258fd1c53072218f",
+    "qualification_requirement": "Any retained candidate must be rebuilt and revalidated in a separate clean-upstream environment before upstream packaging.",
+    "repository": "vllm-project/vllm"
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "cases": [
+    {
+      "id": "natural-b1-six-requests-generate-64",
+      "mode": "decode",
+      "parameters": {
+        "active_batch": 1,
+        "concurrency": 1,
+        "generated_tokens_per_request": 64,
+        "prompt_suite": "six SHA-256-bound natural prompts",
+        "request_count": 6,
+        "temperature": 0.0
+      },
+      "weight": 0.5
+    },
+    {
+      "id": "natural-b8-generate-64",
+      "mode": "decode",
+      "parameters": {
+        "active_batch": 8,
+        "concurrency": 8,
+        "generated_tokens_per_request": 64,
+        "prompt_suite": "the six frozen prompts with deterministic repetition to eight requests",
+        "request_count": 8,
+        "temperature": 0.0
+      },
+      "weight": 0.5
+    }
+  ],
+  "execution": {
+    "cache_semantics": "weights warm; per-request recurrent state and KV cache fresh; prefix cache disabled",
+    "call_frequency": "discovery profile once; candidate screening and qualification require randomized paired repeats",
+    "concurrency": "separate B=1 and B=8 cases; results are never pooled across cases before reporting",
+    "downstream_layout": "exactly 64 greedy token IDs per request; TTFT, TPOT, wall time and throughput reported separately",
+    "graph_mode": "vLLM default torch.compile plus CUDA Graph",
+    "upstream_layout": "BF16 tokenized natural prompts from benchmark_vllm_offline.py"
+  },
+  "name": "qwen35_08b_gptq_sm120_natural_decode_b1_b8_v1",
+  "objective": {
+    "direction": "minimize",
+    "metric": "end_to_end_us",
+    "statistic": "median"
+  },
+  "schema_version": "workload-v1",
+  "source_identity": {
+    "b1_result": "../stock-natural-v3.json",
+    "b8_result": "../stock-natural-batch8-v1.json",
+    "freeze_note": "This run formalizes the two workloads already measured on 2026-09-08; prefill and other concurrency levels require separate contracts."
+  }
+}

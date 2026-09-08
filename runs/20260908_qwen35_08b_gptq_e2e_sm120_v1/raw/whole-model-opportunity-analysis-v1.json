@@ -1,0 +1,164 @@
+{
+  "schema_version": "whole-model-opportunity-analysis-v1",
+  "created_at": "2026-09-08T22:40:00+08:00",
+  "status": "EVIDENCE_BOUND",
+  "claim_scope": "Qwen3.5-0.8B-W4A16-AutoRound-GPTQ, vLLM V1, RTX 5090, greedy 64-token decode; not a general vLLM bottleneck claim",
+  "hardware": {
+    "device_name": "NVIDIA GeForce RTX 5090",
+    "uuid": "GPU-14f89acf-cf7c-3a09-80d5-e43035823f0d",
+    "architecture": "sm_120",
+    "compute_capability": "12.0",
+    "sm_count": 170,
+    "memory_bytes": 33668726784,
+    "official_queries": [
+      "nvidia-smi",
+      "cudaGetDeviceProperties"
+    ]
+  },
+  "material_speedup_floor": 1.02,
+  "amdahl_formula": "1 / ((1 - component_wall_share) + component_wall_share / candidate_component_speedup)",
+  "workloads": [
+    {
+      "id": "natural-b1-generate-64",
+      "batch_size": 1,
+      "requests": 6,
+      "generated_tokens_per_request": 64,
+      "wall_ms": 736.4366659312509,
+      "gpu_kernel_total_ms": 146.869323,
+      "gpu_kernel_fraction_of_wall": 0.19943238813928205,
+      "cuda_event_synchronize": {
+        "calls": 775,
+        "api_time_ms": 308.08255,
+        "warning": "API time includes time waiting for GPU work and must not be added to kernel time or treated as removable CPU overhead."
+      },
+      "components": [
+        {
+          "name": "lm_head_bf16_gemv",
+          "gpu_time_ms": 122.697103,
+          "gpu_kernel_share": 0.835,
+          "component_wall_share": 0.16660917180820303,
+          "candidate_component_speedup": 1.3421218819,
+          "derived_amdahl_speedup_ceiling": 1.0443542925703966,
+          "observed_end_to_end_pooled_speedup": 1.005816,
+          "observed_end_to_end_conservative_speedup": 0.987117,
+          "decision": "CLOSE_FOR_SM120_CURRENT_CONTRACT",
+          "reason": "The operator win is real, but the paired whole-model result is not stable or material."
+        },
+        {
+          "name": "marlin_w4_backbone",
+          "gpu_time_ms": 8.287433,
+          "gpu_kernel_share": 0.056,
+          "component_wall_share": 0.011253422573033134,
+          "candidate_component_speedup_ceiling": 2.0,
+          "derived_amdahl_speedup_ceiling": 1.0056585503154418,
+          "decision": "BELOW_MATERIALITY_FLOOR",
+          "reason": "Even an optimistic 2x component speedup cannot produce 1.02x end-to-end on this workload."
+        }
+      ]
+    },
+    {
+      "id": "natural-b8-generate-64",
+      "batch_size": 8,
+      "requests": 8,
+      "generated_tokens_per_request": 64,
+      "wall_ms": 159.20918504707515,
+      "gpu_kernel_total_ms": 30.278129,
+      "gpu_kernel_fraction_of_wall": 0.1901782801730147,
+      "aggregate_output_tokens_per_second": 3215.8948608939318,
+      "cuda_event_synchronize": {
+        "calls": 132,
+        "api_time_ms": 62.67587,
+        "warning": "API time includes time waiting for GPU work and must not be added to kernel time or treated as removable CPU overhead."
+      },
+      "components": [
+        {
+          "name": "lm_head_bf16_gemm",
+          "gpu_time_ms": 20.251229,
+          "gpu_kernel_share": 0.669,
+          "component_wall_share": 0.12719887357009013,
+          "candidate_component_speedup": 1.3421218819,
+          "derived_amdahl_speedup_ceiling": 1.0335109901145814,
+          "decision": "CLOSE_FOR_SM120_CURRENT_CONTRACT",
+          "reason": "The measured operator implementation did not deliver a stable whole-model benefit, despite a theoretical ceiling above 1.02x."
+        },
+        {
+          "name": "marlin_w4_backbone",
+          "gpu_time_ms": 5.334696,
+          "gpu_kernel_share": 0.176,
+          "component_wall_share": 0.033507463771155106,
+          "candidate_component_speedup_ceiling": 2.0,
+          "derived_amdahl_speedup_ceiling": 1.0170392021092602,
+          "decision": "BELOW_MATERIALITY_FLOOR",
+          "reason": "Even an optimistic 2x component speedup remains below the frozen 1.02x end-to-end floor."
+        }
+      ]
+    }
+  ],
+  "ranked_next_actions": [
+    {
+      "rank": 1,
+      "name": "attribute_exposed_per_step_control_and_synchronization",
+      "state": "DIAGNOSE_BEFORE_IMPLEMENTING",
+      "reason": "GPU kernels occupy only about 19-20% of measured wall time in both workloads. The large cudaEventSynchronize API totals identify waiting boundaries, not automatically removable work; timeline attribution is required before estimating a speedup ceiling."
+    },
+    {
+      "rank": 2,
+      "name": "profile_separate_prefill_and_higher_concurrency_contracts",
+      "state": "NEW_WORKLOAD_CONTRACT_REQUIRED",
+      "reason": "The kernel mix changes materially between B=1 and B=8. Prefill and larger service batches must be separate frozen tasks rather than inferred from decode measurements."
+    }
+  ],
+  "reopen_conditions": {
+    "lm_head": [
+      "a slower target GPU or materially larger vocabulary increases the measured whole-model share",
+      "a new implementation produces stable paired end-to-end speedup >= 1.02x",
+      "per-token control overhead is reduced enough that lm_head becomes a larger wall-time share"
+    ],
+    "marlin_w4_backbone": [
+      "a frozen workload reports a measured component wall share large enough for its Amdahl ceiling to reach 1.02x",
+      "a cross-layer fusion removes work outside the currently measured Marlin kernels"
+    ]
+  },
+  "evidence": [
+    {
+      "path": "stock-natural-v3.json",
+      "sha256": "be2cf456fa1fcebac8ba5415f66afb482d8bc24ead3f6af3665712aa80d91c9e",
+      "claim": "B=1 natural-request wall-time and correctness record"
+    },
+    {
+      "path": "stock-natural-v3_cuda_gpu_kern_sum.csv",
+      "sha256": "8ba6b55baadb4c73c4d0b205ebbef33987b91150613851fbeceb6bc643a0b839",
+      "claim": "B=1 Nsight Systems GPU kernel summary"
+    },
+    {
+      "path": "stock-natural-v3_cuda_api_sum.csv",
+      "sha256": "5a81370b41f3732470fce9c34e5a0264de614685bf14bbb205a4e7ea47e1a651",
+      "claim": "B=1 Nsight Systems CUDA API summary"
+    },
+    {
+      "path": "stock-natural-batch8-v1.json",
+      "sha256": "5b811b26d8ab93fa31454471c7607a21f785a45acaec5d403d892b4d748a2a98",
+      "claim": "B=8 concurrent wall-time and correctness record"
+    },
+    {
+      "path": "stock-natural-batch8-v1_cuda_gpu_kern_sum.csv",
+      "sha256": "5eef19e554556bab674df31d6e9c4f33f71fc7671a31be1d0ce2f2accc800af8",
+      "claim": "B=8 Nsight Systems GPU kernel summary"
+    },
+    {
+      "path": "stock-natural-batch8-v1_cuda_api_sum.csv",
+      "sha256": "28cb288a1bfa10dd41d2f32b45dd984e2b139f90059ab0492aed44a2daa82650",
+      "claim": "B=8 Nsight Systems CUDA API summary"
+    },
+    {
+      "path": "checkpoint-lm-head-result-v1.json",
+      "sha256": "422922cc51cf93952ddea7c8c6f6e4cc9bede3ebebef7c1770232474ef466540",
+      "claim": "RTX 5090 real-checkpoint lm_head operator result"
+    },
+    {
+      "path": "summary-v1.json",
+      "sha256": "e828c2235e3a97e5bb551f6245cca1e0dd526d9d3f985e439f0c7e50c113e26b",
+      "claim": "paired whole-model four-arm result"
+    }
+  ]
+}

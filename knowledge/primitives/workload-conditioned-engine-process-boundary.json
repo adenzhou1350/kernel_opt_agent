@@ -1,0 +1,116 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "workload-conditioned-engine-process-boundary",
+  "title": "Route engine process isolation by measured request shape instead of a global default",
+  "kind": "ORCHESTRATION",
+  "source": {
+    "title": "RTX 5090 vLLM V1 multiprocess versus in-process paired reproduction",
+    "url": "https://github.com/adenzhou1350/kernel_opt_agent/tree/feature/community-optimization-lake",
+    "version": "sm120-uniproc-b8-v2",
+    "available_at": "2026-09-08T15:30:00Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "On one RTX 5090 with Qwen3.5-0.8B GPTQ, offline B=8 decode improved 1.1175x conservatively when the EngineCore subprocess boundary was removed, while a B=1 screen regressed to 0.9577x. Correctness passed a preregistered reciprocal top-5 logprob oracle."
+  },
+  "opportunity_families": [
+    "engine-process-boundary",
+    "inter-step-dispatch",
+    "workload-routing"
+  ],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": [
+      "in-process and process-isolated engine modes",
+      "representative end-to-end workload",
+      "independent output correctness oracle"
+    ],
+    "dtypes": ["any"],
+    "problem_signatures": [
+      "millisecond inter-kernel gaps aligned with decode steps",
+      "small model on fast accelerator",
+      "offline batched generation",
+      "engine IPC",
+      "workload-dependent latency reversal"
+    ]
+  },
+  "implementation_recipe": [
+    "Measure the single-stream kernel-active fraction and inter-step gaps in the exact workload before changing kernels.",
+    "Compare process-isolated and in-process execution with identical model, scheduler, graph and sampling settings.",
+    "Treat process placement as a deployment-level route keyed by the frozen service shape, never as an unconditional default.",
+    "If an upstream code change is needed, preserve an explicit isolation mode and avoid selecting from a single synthetic batch."
+  ],
+  "validation_recipe": [
+    "Use fresh caches and a balanced arm order so compilation and run position cannot favor one engine mode.",
+    "Report each workload separately; require paired end-to-end speedup above the material floor.",
+    "When exact greedy output is nondeterministic, preregister and apply the project's existing top-k logprob comparator rather than inventing a post-hoc tolerance.",
+    "Include low-concurrency counterexamples and reject global enablement when the direction reverses.",
+    "Reproduce on a clean upstream build before packaging a change."
+  ],
+  "expected_bottleneck_shifts": [
+    "Removing an EngineCore process boundary can shorten GPU-idle gaps between decode kernel bursts.",
+    "At low concurrency, lost overlap or changed thread/process placement can dominate and reverse the gain.",
+    "After orchestration overhead falls, output projection or quantized backbone kernels may regain enough wall share to cross the Amdahl materiality gate."
+  ],
+  "failure_modes": [
+    "A profiler API wait is treated as removable CPU self-time even though it includes GPU dependency waiting.",
+    "One favorable batch is used to make in-process execution the global default.",
+    "Multiprocess baseline nondeterminism is mistaken for candidate corruption or ignored without an independent oracle.",
+    "An existing environment toggle is presented as a new upstream optimization without a maintainable routing contribution.",
+    "Offline LLM measurements are generalized to the online API server, which uses a different process architecture."
+  ],
+  "scope_limits": [
+    "The positive reproduction is limited to offline B=8 decode on one model and RTX 5090; online serving was not measured.",
+    "B=1 regressed in the same investigation, so this method requires explicit workload guards.",
+    "The current vLLM GDN attention path does not support VLLM_BATCH_INVARIANT=1; exact bitwise validation remains unavailable for that model.",
+    "This card guides candidate generation and routing; it is not proof that another workload benefits."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "Each autoregressive step crosses scheduler, engine and GPU-worker boundaries before the next step can launch.",
+    "partition_axis": "process-isolation overhead and overlap benefit as a function of active batch and request cadence",
+    "local_state": [
+      "active batch distribution",
+      "inter-step GPU-idle gap",
+      "engine process mode",
+      "paired wall-time samples",
+      "correctness oracle result"
+    ],
+    "combine_rule": "Select an engine process mode only for workload regions where paired benefit remains material and all correctness guards pass.",
+    "finalization": "Emit a guarded route with negative boundaries; otherwise retain the process-isolated default.",
+    "work_complexity": "Two engine modes times the frozen workload matrix and paired repeats.",
+    "span_complexity": "One fresh-engine arm per process mode can run only when the target GPU is exclusively available.",
+    "communication_cost": "The transformation removes or retains an EngineCore IPC boundary; it does not change model tensor communication.",
+    "invariants": [
+      "model weights, graph mode, scheduler configuration and sampling are identical across arms",
+      "performance and logprob correctness are measured in separate declared experiments",
+      "negative workload regions remain visible in the route"
+    ],
+    "anti_patterns": [
+      "optimize the largest kernel while GPU idle dominates wall time",
+      "enable uniproc globally from a high-batch result",
+      "relax correctness after seeing a token mismatch",
+      "claim online-serving benefit from offline LLM evidence"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "engine-process-boundary",
+      "name": "guarded in-process offline engine",
+      "change_axes": [
+        "EngineCore process isolation",
+        "IPC and shared-memory signaling",
+        "active batch routing"
+      ],
+      "template": "For a frozen offline workload with repeated inter-step GPU-idle gaps, compare process-isolated and in-process EngineCore execution and retain in-process only behind a measured workload guard."
+    },
+    {
+      "family": "inter-step-dispatch",
+      "name": "retain isolation while reducing per-step round trips",
+      "change_axes": [
+        "message batching",
+        "shared-memory notification",
+        "scheduler-worker overlap"
+      ],
+      "template": "Use the in-process result as an upper-bound signal, then optimize the isolated client/worker round trip without changing the autoregressive dependency or output-copy lifetime."
+    }
+  ]
+}

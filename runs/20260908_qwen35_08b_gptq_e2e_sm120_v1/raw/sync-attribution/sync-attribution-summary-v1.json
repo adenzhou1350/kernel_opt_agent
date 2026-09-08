@@ -1,0 +1,102 @@
+{
+  "schema_version": "vllm-sync-attribution-summary-v1",
+  "status": "PASS_DIAGNOSTIC",
+  "claim_scope": "RTX 5090, Qwen3.5-0.8B GPTQ, vLLM V1 stock lm_head, greedy 64-token decode",
+  "method": "A process-wide wrapper preserved torch.cuda.Event.synchronize semantics and recorded callsite duration only while a harness-owned measurement marker existed.",
+  "workloads": [
+    {
+      "id": "natural-b1-six-requests",
+      "wall_ms": 706.8256809725426,
+      "generated_tokens": 384,
+      "event_sync": {
+        "get_output": {
+          "calls": 384,
+          "total_ms": 376.994114,
+          "wall_fraction": 0.533362219495594,
+          "mean_us_per_call": 981.7555052083333
+        },
+        "synchronize_input_prep": {
+          "calls": 390,
+          "total_ms": 0.880499,
+          "wall_fraction": 0.001245708841235784,
+          "mean_us_per_call": 2.2576897435897435
+        }
+      }
+    },
+    {
+      "id": "natural-b8",
+      "wall_ms": 150.90384997893125,
+      "generated_tokens": 512,
+      "engine_steps": 65,
+      "event_sync": {
+        "get_output": {
+          "calls": 65,
+          "total_ms": 72.420875,
+          "wall_fraction": 0.4799140314187556,
+          "mean_us_per_call": 1114.1673076923077
+        },
+        "synchronize_input_prep": {
+          "calls": 66,
+          "total_ms": 0.214176,
+          "wall_fraction": 0.0014192878447428785,
+          "mean_us_per_call": 3.245090909090909
+        }
+      }
+    }
+  ],
+  "nsight_gap_analysis": [
+    {
+      "id": "natural-b1-six-requests",
+      "first_to_last_kernel_ms": 735.190851,
+      "summed_kernel_ms": 146.869323,
+      "inter_kernel_gap_ms": 588.321528,
+      "gap_count_ge_1ms": 384
+    },
+    {
+      "id": "natural-b8",
+      "first_to_last_kernel_ms": 157.705715,
+      "summed_kernel_ms": 30.278129,
+      "inter_kernel_gap_ms": 127.427586,
+      "gap_count_ge_1ms": 63
+    }
+  ],
+  "decisions": [
+    {
+      "target": "synchronize_input_prep",
+      "decision": "BELOW_MATERIALITY_FLOOR",
+      "reason": "Its complete removal is bounded to roughly 0.12-0.14% of measured wall time."
+    },
+    {
+      "target": "get_output_event_synchronize",
+      "decision": "DEPENDENCY_BOUNDARY_NOT_REMOVABLE_AS_IS",
+      "reason": "The wait protects the sampled-token copy needed by the next autoregressive step. Its duration includes underlying GPU work and scheduling delay; deleting the event would violate data lifetime and token dependency."
+    },
+    {
+      "target": "inter_step_dispatch_gap",
+      "decision": "HIGH_VALUE_ARCHITECTURE_OPPORTUNITY",
+      "reason": "Single-stream Nsight timestamps show repeated millisecond-scale GPU-idle gaps aligned with decode steps; candidate designs must reduce the gap without weakening token dependencies."
+    }
+  ],
+  "evidence": [
+    {
+      "path": "b1-v1/event-sync-850005.json",
+      "sha256": "031e4565f763b2b631acb31f776014e150e733d7134111195f016ab2d59b1b4e"
+    },
+    {
+      "path": "b1-v1/result.json",
+      "sha256": "1f079d56ac9ea7b50d98f6505ba60412cde363ae567b8d69c503d847413c466f"
+    },
+    {
+      "path": "b8-v1/event-sync-851074.json",
+      "sha256": "a5848fd34a6fe830990f1d1a2fd2fcd179cfe8b2431a67d922396b51648f83f0"
+    },
+    {
+      "path": "b8-v1/result.json",
+      "sha256": "b81755eea0eaac39f8b986d4cdaf6951670502f2f16c00e3c8c7586bdf1dd60a"
+    },
+    {
+      "path": "sitecustomize.py",
+      "sha256": "e75f2e234b0b2780f15b4ab18d25ee1f09684f45f7bd4cbd85a76d9d53be8ba2"
+    }
+  ]
+}

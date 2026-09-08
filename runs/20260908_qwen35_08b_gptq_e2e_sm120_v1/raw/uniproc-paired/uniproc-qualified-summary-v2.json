@@ -1,0 +1,73 @@
+{
+  "schema_version": "vllm-uniproc-qualified-summary-v2",
+  "status": "QUALIFIED_GUARDED_ARCHITECTURE_RESULT",
+  "claim_scope": "RTX 5090, Qwen3.5-0.8B GPTQ, vLLM V1 offline LLM API, B=8 concurrent greedy 64-token decode; not online serving and not B=1",
+  "candidate": "VLLM_ENABLE_V1_MULTIPROCESSING=0",
+  "performance": {
+    "protocol": "two fresh-cache balanced-order pairs without profiler or logprobs",
+    "repeat_speedups": [
+      1.1515809996614326,
+      1.1175015446967016
+    ],
+    "pooled_speedup": 1.1345409180736348,
+    "conservative_speedup": 1.1175015446967016,
+    "material_speedup_floor": 1.02,
+    "status": "PASS"
+  },
+  "correctness": {
+    "protocol": "separate preregistered top-5 logprob oracle following vLLM tests/models/utils.py::check_logprobs_close",
+    "exact_requests": 6,
+    "reciprocal_top5_at_first_divergence": 2,
+    "failed_requests": 0,
+    "status": "PASS"
+  },
+  "negative_boundary": {
+    "workload": "B=1 sequential natural requests",
+    "screen_speedup": 0.9576644612452294,
+    "status": "REGRESSION",
+    "routing_rule": "Do not enable globally or infer a low-latency B=1 benefit from the B=8 result."
+  },
+  "failed_exact_oracle": {
+    "status": "HARNESS_BLOCKED",
+    "reason": "VLLM_BATCH_INVARIANT=1 is not supported for GDN_ATTN",
+    "interpretation": "This remains a deterministic-validation capability gap, not evidence against the candidate."
+  },
+  "upstream_readiness": {
+    "status": "NOT_READY",
+    "missing": [
+      "reproduction on a clean current-main build rather than the guarded PR worktree runtime",
+      "a maintainable source change or documented routing interface; the current result uses an existing environment variable",
+      "online/API-server applicability or an explicitly offline-only upstream scope"
+    ]
+  },
+  "evidence": [
+    {
+      "path": "uniproc-paired-v1/repeat-0-control/result.json",
+      "sha256": "dab2a2c204e30d69437458f7e75b29f9979ae6241d6c61966616c865c5c44643"
+    },
+    {
+      "path": "uniproc-paired-v1/repeat-0-uniproc/result.json",
+      "sha256": "5ed4f61081a3c03d427ad433fc961e93df3c801357c85aef549241a7c565408e"
+    },
+    {
+      "path": "uniproc-paired-v1/repeat-1-control/result.json",
+      "sha256": "d391b3ca5b0896353c98714b02e23e07e1bdb0a3790c28452ec2e0e878034cd9"
+    },
+    {
+      "path": "uniproc-paired-v1/repeat-1-uniproc/result.json",
+      "sha256": "c56f751d09917c3520b41d5608ba8d7123dea9e089b1e4ea4bf55dbeeb4f0fcc"
+    },
+    {
+      "path": "logprob-oracle-freeze-v1.json",
+      "sha256": "9987f3a4e9ed40335a05b1b97781d59d134fab63b263a2af5f20933935d0c2de"
+    },
+    {
+      "path": "top5-oracle-result-v1.json",
+      "sha256": "1d89fd22a026150eb3c1e1a8ffb8322ec1ed730a3e42479e35a1a10987f07613"
+    },
+    {
+      "path": "batch-invariant-outcome-v1.json",
+      "sha256": "9e31b8c82e1ff3745b79027bd2e625fceb6ca68351799f1a0d163d03c8660ff5"
+    }
+  ]
+}

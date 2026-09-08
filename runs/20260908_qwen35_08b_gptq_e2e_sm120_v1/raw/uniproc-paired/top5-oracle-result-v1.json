@@ -1,0 +1,58 @@
+{
+  "candidate": {
+    "path": "D:\\codes\\vllm-lmhead-pr-results\\sm120-model-e2e-20260908\\uniproc-paired\\uniproc-logprob-oracle-v1\\uniproc\\result.json",
+    "sha256": "6f94ad7b502fe490d44027dc583d3b75233bc253f29c8da3454063f17b77de79"
+  },
+  "comparisons": [
+    {
+      "request_index": 0,
+      "status": "EXACT"
+    },
+    {
+      "request_index": 1,
+      "status": "EXACT"
+    },
+    {
+      "request_index": 2,
+      "status": "EXACT"
+    },
+    {
+      "request_index": 3,
+      "status": "EXACT"
+    },
+    {
+      "candidate_token": 81193,
+      "candidate_token_in_control_top5": true,
+      "control_token": 709,
+      "control_token_in_candidate_top5": true,
+      "first_mismatch": 24,
+      "request_index": 4,
+      "status": "RECIPROCAL_TOP5"
+    },
+    {
+      "candidate_token": 8068,
+      "candidate_token_in_control_top5": true,
+      "control_token": 118267,
+      "control_token_in_candidate_top5": true,
+      "first_mismatch": 9,
+      "request_index": 5,
+      "status": "RECIPROCAL_TOP5"
+    },
+    {
+      "request_index": 6,
+      "status": "EXACT"
+    },
+    {
+      "request_index": 7,
+      "status": "EXACT"
+    }
+  ],
+  "control": {
+    "path": "D:\\codes\\vllm-lmhead-pr-results\\sm120-model-e2e-20260908\\uniproc-paired\\uniproc-logprob-oracle-v1\\control\\result.json",
+    "sha256": "9b55c7202a933358c0d3df348cd6b507c42912c7d79bb10c2891b84da6139640"
+  },
+  "failures": [],
+  "oracle": "vLLM check_logprobs_close reciprocal top-5 rule at first divergent token",
+  "schema_version": "vllm-top5-logprob-correctness-result-v1",
+  "status": "PASS"
+}
