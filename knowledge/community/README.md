@@ -1,5 +1,28 @@
 # Community optimization evidence
 
+## Cross-framework governance
+
+`meta_governance.v1.json` is the machine-readable control contract shared by
+the vLLM, Mooncake, SGLang and search-strategy evaluation lanes. It keeps one
+control-plane writer for search defaults, knowledge structure, evaluation
+protocols and cross-framework promotion decisions. Execution lanes append
+versioned evidence and propose changes; they do not independently promote a
+local result into a shared default.
+
+The optimization objective remains the gap between a hardware/workload-derived
+theoretical limit and correct production performance. Community implementations
+are discovery priors and counterexamples, not target-hardware evidence and not
+a substitute for local bottleneck analysis. A shared strategy change requires
+a prospective champion/challenger comparison on unseen candidates in at least
+two frameworks. The decision must be recorded as `PROMOTE_DEFAULT`,
+`KEEP_LOCAL` or `ROLL_BACK`.
+
+Use `community-work-cycle-v1` for wall/GPU time and delivery milestones, and
+the paired community-evaluation schemas for causal comparisons. The governance
+contract lists the union of metrics every execution lane must make available;
+lane-specific artifacts may remain outside this repository when their hashes
+are bound by the checked-in summaries.
+
 Community pull requests are discovery evidence, not target-hardware performance
 proof. The reusable representation has two layers:
 

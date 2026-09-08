@@ -14,6 +14,9 @@ Community optimization evidence can be captured as immutable, hash-bound PR
 snapshots and reviewed optimization events. See
 [knowledge/community/README.md](knowledge/community/README.md) and use
 `scripts/kernel_opt.py community capture-pr|validate-corpus|validate-event`.
+Cross-framework ownership, evidence fields and champion/challenger promotion
+rules are frozen in
+[`knowledge/community/meta_governance.v1.json`](knowledge/community/meta_governance.v1.json).
 Use `community sync-repository` with explicit time windows for bounded,
 incremental performance-PR discovery.
 Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control
