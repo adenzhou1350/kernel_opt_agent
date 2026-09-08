@@ -1,0 +1,121 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-hardware-shape-config-transfer-screen",
+  "title": "Bound exhaustive tuning with exact-shape cross-architecture configuration transfer",
+  "kind": "SEARCH_STRATEGY",
+  "source": {
+    "title": "vLLM PR #55956 RTX 5090 BF16 fused-MoE configuration",
+    "url": "https://github.com/vllm-project/vllm/pull/55956",
+    "version": "snapshot-d6f4d83aba61cbcac853",
+    "available_at": "2026-09-08T18:31:55Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "On RTX 5090 for one Qwen3 TP4 BF16 fused-MoE shape, a bounded exact-shape transfer screen produced 18/18 faster token buckets, 1.1690x geometric-mean median speedup and exact output agreement; it is neither exhaustive nor whole-model evidence."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-55956.rtx5090-bf16-moe-config-transfer"
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "hardware-config-transfer",
+    "shape-conditioned-dispatch",
+    "bounded-candidate-screening",
+    "device-specific-tiling"
+  ],
+  "applicability": {
+    "vendors": [
+      "nvidia"
+    ],
+    "architecture_affinity": [
+      "sm120",
+      "geforce-blackwell"
+    ],
+    "required_capabilities": [
+      "shape-keyed configuration inventory",
+      "target-kernel compilation preflight",
+      "target-GPU randomized paired benchmark"
+    ],
+    "dtypes": [
+      "bf16"
+    ],
+    "problem_signatures": [
+      "missing device-specific tuned configuration",
+      "generic fallback",
+      "large uncheckpointed autotune space",
+      "same operator shape available on other GPU architectures",
+      "hardware and shape conditioned dispatch"
+    ]
+  },
+  "implementation_recipe": [
+    "Freeze the exact operator signature from the intended model path, including dtype, logical dimensions, parallel sharding and runtime bucket axis.",
+    "Inventory source configurations that match the exact logical shape; treat architecture names only as candidate provenance, never as proof of transferability.",
+    "Compile-preflight every distinct source configuration on the target GPU and discard illegal shared-memory, warp or compiler combinations before timing.",
+    "Screen the surviving configurations against the current fallback under a fixed wall-clock and candidate budget with randomized interleaving.",
+    "Build a target-device table from per-bucket winners only after correctness and repeatability pass, then exercise the production loader entry point."
+  ],
+  "validation_recipe": [
+    "Use identical inputs, routing state and seeds for baseline and candidate output comparisons across every retained bucket.",
+    "Report every bucket, all paired repeats, an aggregate statistic and the worst paired observation; do not publish only favorable cells.",
+    "Verify that the normal configuration lookup resolves the target-device file without an experimental override.",
+    "Measure whole-model latency or serving throughput separately and bound expected gain by the operator's measured runtime share."
+  ],
+  "expected_bottleneck_shifts": [
+    "The target operator moves from generic tiling toward architecture-appropriate occupancy and memory traffic, after which launch overhead, expert imbalance or adjacent stages can dominate.",
+    "Autotuning cost moves from an exhaustive Cartesian product to inventory, compilation preflight and a bounded target screen."
+  ],
+  "failure_modes": [
+    "A source configuration exceeds target shared-memory or compiler limits even when the logical operator shape matches.",
+    "A superficially similar model uses different per-rank dimensions, top-k, dtype or quantization and invalidates the transfer set.",
+    "Selecting a winner from one noisy timing pass overfits measurement order or thermal state.",
+    "Kernel speedup is presented as whole-model or theoretical-optimum evidence without runtime-share and serving validation.",
+    "A device-name-specific table silently fails to load because its lookup key does not match the runtime-reported device name."
+  ],
+  "scope_limits": [
+    "This method reduces search cost; it does not prove the transferred set contains the global optimum.",
+    "A target result is valid only for the frozen device, software stack, dtype, logical shape and dispatch buckets unless independently reproduced.",
+    "An open community PR is a discovery prior and implementation example, not accepted upstream truth."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "A generic kernel fallback is used because the target hardware-shape key has no tuned entry, while other hardware tables contain the same logical operator shape.",
+    "partition_axis": "independent runtime shape or token-count buckets",
+    "local_state": [
+      "exact operator signature",
+      "source configuration set",
+      "target compilation feasibility",
+      "paired latency and correctness observations"
+    ],
+    "combine_rule": "For each frozen bucket, retain the fastest candidate that passes target compilation, correctness and repeatability gates.",
+    "finalization": "Serialize the per-bucket winners under the exact target-device key and verify the production loader selects them.",
+    "work_complexity": "O(B * C * R) timed trials for B buckets, C bounded transferred candidates and R repeats, instead of O(B * P) exhaustive parameter combinations where C is much smaller than P.",
+    "span_complexity": "Buckets and candidate preflights may be evaluated independently, but paired baseline ordering remains randomized within each measurement block.",
+    "communication_cost": "No runtime communication is added; the search reads configuration metadata and writes one target dispatch table.",
+    "invariants": [
+      "exact logical operator shape",
+      "target compilation legality",
+      "output correctness",
+      "complete bucket reporting",
+      "normal loader reachability"
+    ],
+    "anti_patterns": [
+      "copying one architecture's full table without target timing",
+      "changing workload buckets after seeing results",
+      "calling a bounded winner theoretically optimal",
+      "claiming end-to-end gains from kernel-only evidence"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "device-shape-config-transfer",
+      "name": "exact-shape target-screened device table",
+      "change_axes": [
+        "source architecture inventory",
+        "target compilation legality",
+        "per-bucket block and warp configuration",
+        "device-name dispatch key"
+      ],
+      "template": "Collect exact-shape source configs, preflight them on the target, run a bounded randomized per-bucket screen against the fallback, preserve only correct repeatable winners, and publish through the normal device-keyed loader."
+    }
+  ]
+}

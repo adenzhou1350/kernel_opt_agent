@@ -150,10 +150,19 @@ removable_us = target_component_us * (1 - 1 / component_speedup_ceiling)
 - 候选 family 必须属于该机会声明的 rewrite families；
 - 候选预测上界不得超过机会的乐观收益上界；
 - 默认候选组合至少覆盖三个不同机会；
+- 机会覆盖不再只是 promotion 阶段的事后检查：`candidate add` 在覆盖债务清零前
+  只接受排名最高的未覆盖机会；
+- `candidate run` 在候选数、架构族数、机会数任一不足时，于编译和 GPU 调用前
+  fail closed；
 - promotion artifact 保留机会身份、预测和实测残差。
 
 这把“六个看起来不同的 block-size 变体”与“跨三个全局机会的六个结构候选”
 区分开来。前者不能再仅凭数量满足多样性门禁。
+
+这里额外封住了一个真实执行漏洞：旧调度器虽然会建议下一个未覆盖机会，但
+外部执行器可以跳过 `next`，直接重复调用 `candidate add/run`，于是曾经成功的
+局部路径仍会不断获得预算。现在同一约束在写状态和花预算的 API 边界重新
+计算，提示词、调用顺序或历史成功偏好都不能绕过。
 
 ### 4.3 形成预测—观测反馈
 

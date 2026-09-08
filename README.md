@@ -126,6 +126,13 @@ Absolute-global-optimum labels are
 rejected: a decomposition-specific minimum is not a semantic lower bound.
 Candidates must bind to a ranked opportunity, stay below its gain ceiling and
 cover at least three opportunities by default.
+This coverage rule is enforced at both mutation and execution boundaries, not
+only suggested by `kernel_opt.py next`: while coverage is incomplete,
+`candidate add` accepts only the highest-ranked uncovered opportunity, and
+`candidate run` refuses to spend build or GPU budget until the minimum candidate,
+architecture-family and opportunity counts are all present. Direct CLI calls
+therefore cannot keep revisiting a familiar successful component while the global
+portfolio still has exploration debt.
 Measured dead ends can be marked `CLOSED` only with hash-bound run-local evidence,
 a global stop reason and explicit reopen conditions. Closed opportunities score
 zero and are excluded from method matching, candidate registration and next-action

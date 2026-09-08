@@ -99,6 +99,78 @@ def candidate(pool: dict, candidate_id: str) -> dict:
     return item
 
 
+def portfolio_admission(pool: dict, opportunities: dict) -> dict:
+    """Return the deterministic exploration debt before another candidate is added.
+
+    ``optimizer_step.py`` already recommends an uncovered opportunity while the
+    portfolio is narrow.  Candidate commands are public too, though, so advice
+    alone is not an invariant: an executor could repeatedly call ``candidate
+    add`` for a familiar successful component and never create the portfolio
+    that the optimizer asked for.  Recompute the same constraint at the state
+    mutation boundary so direct callers cannot bypass it.
+    """
+
+    active = sorted(
+        (
+            item
+            for item in opportunities.get("opportunities", [])
+            if item.get("status") != "CLOSED"
+        ),
+        key=lambda item: (
+            int(item.get("priority_rank", 10**9)),
+            str(item.get("opportunity_id", "")),
+        ),
+    )
+    active_ids = {
+        str(item["opportunity_id"])
+        for item in active
+        if item.get("opportunity_id")
+    }
+    covered_ids = {
+        str(item["opportunity_id"])
+        for item in pool.get("candidates", [])
+        if item.get("opportunity_id") in active_ids
+    }
+    minimum = min(
+        int(opportunities.get("policy", {}).get("min_candidate_opportunities", 1)),
+        len(active),
+    )
+    uncovered = [
+        str(item["opportunity_id"])
+        for item in active
+        if item.get("opportunity_id") not in covered_ids
+    ]
+    required = uncovered[0] if len(covered_ids) < minimum and uncovered else None
+    return {
+        "mode": "RANKED_EXPLORATION_BEFORE_REVISIT",
+        "minimum_opportunity_coverage": minimum,
+        "covered_opportunity_ids": sorted(covered_ids),
+        "uncovered_opportunity_ids_by_rank": uncovered,
+        "required_next_opportunity_id": required,
+        "exploration_debt": max(0, minimum - len(covered_ids)),
+    }
+
+
+def portfolio_execution_deficits(pool: dict, opportunities: dict) -> dict:
+    """Describe why candidate execution would prematurely spend search budget."""
+
+    candidates = pool.get("candidates", [])
+    policy = pool.get("policy", {})
+    admission = portfolio_admission(pool, opportunities)
+    families = {
+        str(item["family"])
+        for item in candidates
+        if item.get("family")
+    }
+    return {
+        "candidate_count": max(0, int(policy.get("min_candidates", 1)) - len(candidates)),
+        "architecture_family_count": max(
+            0, int(policy.get("min_families", 1)) - len(families)
+        ),
+        "opportunity_count": admission["exploration_debt"],
+    }
+
+
 def validate_command(command: dict, label: str) -> None:
     if not isinstance(command, dict):
         raise ValueError(f"{label} must be an object")
@@ -861,6 +933,17 @@ def command_add(args: argparse.Namespace) -> dict:
             "candidate cannot target a CLOSED opportunity; satisfy a recorded "
             "reopen condition and use `kernel_opt.py opportunity reopen` first"
         )
+    admission = portfolio_admission(pool, opportunities)
+    required_opportunity = admission["required_next_opportunity_id"]
+    if (
+        required_opportunity is not None
+        and spec["opportunity_id"] != required_opportunity
+    ):
+        raise ValueError(
+            "candidate portfolio has unresolved global exploration debt; "
+            f"the next candidate must target ranked uncovered opportunity "
+            f"{required_opportunity!r}, not {spec['opportunity_id']!r}"
+        )
     if spec["family"] not in opportunity.get("rewrite_families", []):
         raise ValueError("candidate family is not allowed by the linked opportunity")
     if float(spec["predicted_global_gain_us"]["upper"]) > float(opportunity["optimistic_gain_ceiling_us"]):
@@ -887,6 +970,7 @@ def command_add(args: argparse.Namespace) -> dict:
             )),
         },
         "attempts": [],
+        "portfolio_admission": admission,
     })
     if item["development_budget"]["max_technical_attempts"] < 1:
         raise ValueError("max_technical_attempts must be positive")
@@ -936,6 +1020,12 @@ def command_run(args: argparse.Namespace) -> dict:
         raise ValueError(
             "candidate opportunity was CLOSED after registration; reopen it "
             "explicitly before spending more development budget"
+        )
+    deficits = portfolio_execution_deficits(pool, opportunities)
+    if any(deficits.values()):
+        raise ValueError(
+            "candidate portfolio is not execution-ready; register the global "
+            f"portfolio before spending build/GPU budget: {deficits}"
         )
     candidate_execution_minutes = sum(
         float(stage.get("duration_seconds", 0.0))
