@@ -23,6 +23,13 @@ contract lists the union of metrics every execution lane must make available;
 lane-specific artifacts may remain outside this repository when their hashes
 are bound by the checked-in summaries.
 
+Each control-plane evaluation cycle is preregistered under `meta_cycles/` and
+binds a standard held-out discovery declaration under `preregistrations/`.
+Cycle 1 compares the local theory-first champion with a prior-gated community
+challenger on the same post-cutoff vLLM and SGLang tasks. Both arms must retain
+per-phase wall/GPU accounting; a faster shortlist that merely moves failures
+later in the pipeline is not an improvement.
+
 Community pull requests are discovery evidence, not target-hardware performance
 proof. The reusable representation has two layers:
 

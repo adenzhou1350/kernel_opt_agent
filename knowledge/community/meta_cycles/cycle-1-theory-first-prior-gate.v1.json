@@ -1,0 +1,64 @@
+{
+  "schema_version": "community-meta-cycle-v1",
+  "cycle_id": "cycle-1-theory-first-prior-gate-v1",
+  "declared_at": "2026-09-08T19:11:48Z",
+  "cutoff_at": "2026-09-08T19:30:00Z",
+  "claim_boundary": "CROSS_FRAMEWORK_POLICY_EVALUATION_PROTOCOL_ONLY",
+  "governance_identity": {
+    "path": "knowledge/community/meta_governance.v1.json",
+    "sha256": "a9d822f569d4423c9f42f9df29cd743d60244c73355c9d3e6353e3bc76851a15"
+  },
+  "discovery_preregistration_identity": {
+    "path": "knowledge/community/preregistrations/meta-cycle-1-cross-framework-2026-09-08.v1.json",
+    "sha256": "072059e5c9a9c8975ba755b31c9da30b90089a38857453e6effc2c3aaea007ea"
+  },
+  "arms": {
+    "champion": {
+      "protocol_arm": "CONTROL",
+      "policy_id": "theory-first-local-v1",
+      "policy": [
+        "Freeze operator, workload and hardware before formal measurement.",
+        "Rank local opportunities from mandatory work, reachability and a production-share bound.",
+        "Do not expose community events, methods or prior-outcome routing."
+      ]
+    },
+    "challenger": {
+      "protocol_arm": "COMMUNITY_AUGMENTED",
+      "policy_id": "theory-first-prior-gated-v1",
+      "policy": [
+        "Freeze the same local opportunity ranking before consulting community knowledge.",
+        "Consult at most the bounded shortlist selected by prior-outcome routing.",
+        "Require a production-share or reachable-removable-work ceiling before GPU qualification.",
+        "Use community material only to change a candidate architecture or close a named uncertainty."
+      ]
+    }
+  },
+  "selection": {
+    "repositories": ["sgl-project/sglang", "vllm-project/vllm"],
+    "minimum_tasks_per_repository": 1,
+    "same_task_within_pair": true,
+    "unseen_after_cutoff": true,
+    "repeats": 2
+  },
+  "resource_accounting": {
+    "work_cycle_schema": "community-work-cycle-v1",
+    "gpu_value_definition": "QUALIFIED_OR_UPSTREAM_READY_SURVIVORS_PER_GPU_HOUR",
+    "failure_stage_required": true
+  },
+  "decision_gate": {
+    "minimum_frameworks": 2,
+    "improve_any": [
+      "TIME_TO_FIRST_CORRECT",
+      "TIME_TO_FIRST_IMPROVEMENT",
+      "VALIDATION_VALUE_PER_GPU_HOUR",
+      "UPSTREAM_READY_OR_MERGE_RATE"
+    ],
+    "must_not_regress": [
+      "CORRECTNESS",
+      "REGRESSION_RATE",
+      "WHOLE_MODEL_SPEEDUP",
+      "VALIDATION_COST"
+    ],
+    "allowed_decisions": ["PROMOTE_DEFAULT", "KEEP_LOCAL", "ROLL_BACK"]
+  }
+}
