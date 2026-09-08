@@ -9,10 +9,11 @@ import json
 import subprocess
 from datetime import datetime
 from pathlib import Path
+from statistics import median
 
 from community_evaluation import validate_preselection_anchor
 from community_knowledge import read_object, sha256_file
-from community_work_cycle import validate_ledger
+from community_work_cycle_observation import validate_observation
 from schema_utils import validate_instance, validate_json_file
 
 
@@ -92,9 +93,9 @@ def validate_descendant_commit(root: Path, ancestor: str, descendant: str) -> No
         raise ValueError("shared_default_commit must descend from the frozen protocol commit")
 
 
-def validate_pair_chain(summary_path: Path, summary: dict, root: Path) -> int:
+def validate_pair_chain(summary_path: Path, summary: dict, root: Path) -> dict[int, dict]:
     repeats: set[int] = set()
-    treatment_realized = 0
+    pair_evidence: dict[int, dict] = {}
     for index, identity in enumerate(summary["pair_reports"]):
         pair_path = validate_identity(summary_path.parent, identity, f"pair report {index + 1}")
         pair = validate_schema(
@@ -111,6 +112,7 @@ def validate_pair_chain(summary_path: Path, summary: dict, root: Path) -> int:
         if repeat_index in repeats:
             raise ValueError("duplicate repeat index in pair reports")
         repeats.add(repeat_index)
+        assessments = {}
         for arm, key in (
             ("CONTROL", "control_assessment"),
             ("COMMUNITY_AUGMENTED", "community_assessment"),
@@ -133,6 +135,11 @@ def validate_pair_chain(summary_path: Path, summary: dict, root: Path) -> int:
                 or assessment["repeat_index"] != repeat_index
             ):
                 raise ValueError("paired assessment identity does not match report")
+            assessments[arm] = {
+                "path": assessment_path,
+                "identity": pair[key],
+                "assessment": assessment,
+            }
         fidelity = pair["treatment_fidelity"]
         realized = fidelity["community_event_prior_realized"] or fidelity["method_prior_realized"]
         if fidelity["any_prior_realized"] != realized:
@@ -142,23 +149,40 @@ def validate_pair_chain(summary_path: Path, summary: dict, root: Path) -> int:
         )
         if fidelity["causal_interpretation"] != expected_interpretation:
             raise ValueError("pair causal interpretation conflicts with treatment fidelity")
-        treatment_realized += int(realized)
+        pair_evidence[repeat_index] = {
+            "treatment_realized": realized,
+            "assessments": assessments,
+        }
     expected = set(range(1, summary["repeat_count"] + 1))
     if repeats != expected:
         raise ValueError(f"pair repeat indices must be exactly 1..{summary['repeat_count']}")
     if len(summary["pair_reports"]) != summary["repeat_count"]:
         raise ValueError("repeat summary pair count does not match repeat_count")
-    return treatment_realized
+    return pair_evidence
 
 
-def validate_work_cycles(
-    framework: dict, expected_repeats: int, evidence_root: Path
-) -> bool:
+def validate_observations(
+    framework: dict,
+    expected_repeats: int,
+    evidence_root: Path,
+    pair_evidence: dict[int, dict],
+    protocol: dict,
+    protocol_commit: str,
+    root: Path,
+) -> tuple[dict[str, list[dict]], bool]:
     expected_indices = set(range(1, expected_repeats + 1))
     all_prospective = True
     seen_paths: set[Path] = set()
-    for arm in ("control", "community_augmented"):
-        rows = framework["work_cycles"][arm]
+    bundles: dict[str, list[dict]] = {"control": [], "community_augmented": []}
+    arm_contracts = {
+        "control": ("CONTROL", protocol["arms"]["champion"]),
+        "community_augmented": (
+            "COMMUNITY_AUGMENTED",
+            protocol["arms"]["challenger"],
+        ),
+    }
+    for arm, (protocol_arm, arm_contract) in arm_contracts.items():
+        rows = framework["observations"][arm]
         indices = [row["repeat_index"] for row in rows]
         if (
             len(rows) != expected_repeats
@@ -166,23 +190,201 @@ def validate_work_cycles(
             or len(indices) != len(set(indices))
         ):
             raise ValueError(
-                f"{framework['repository']} {arm} work cycles must cover "
+                f"{framework['repository']} {arm} observations must cover "
                 f"exactly 1..{expected_repeats}"
             )
         for row in rows:
-            ledger_path = validate_identity(
+            observation_path = validate_identity(
                 evidence_root,
-                row["identity"],
-                f"{framework['repository']} {arm} repeat {row['repeat_index']} ledger",
+                row["observation"],
+                f"{framework['repository']} {arm} repeat {row['repeat_index']} observation",
             )
-            if ledger_path in seen_paths:
-                raise ValueError("one work-cycle ledger cannot represent multiple arms or repeats")
-            seen_paths.add(ledger_path)
-            ledger = validate_ledger(ledger_path, allow_active=False)
-            if ledger["task_id"] != framework["task_id"]:
-                raise ValueError("work-cycle task_id does not match framework result")
+            if observation_path in seen_paths:
+                raise ValueError("one observation cannot represent multiple arms or repeats")
+            seen_paths.add(observation_path)
+            bundle = validate_observation(observation_path, root)
+            observation = bundle["observation"]
+            repeat_index = row["repeat_index"]
+            if (
+                observation["repository"] != framework["repository"]
+                or observation["suite_id"] != framework["suite_id"]
+                or observation["task_id"] != framework["task_id"]
+                or observation["repeat_index"] != repeat_index
+                or observation["arm"] != protocol_arm
+                or observation["search_policy"]["policy_id"]
+                != arm_contract["policy_id"]
+                or observation["search_policy"]["protocol_commit"] != protocol_commit
+            ):
+                raise ValueError("observation does not match framework, arm, or frozen policy")
+            paired_assessment = pair_evidence[repeat_index]["assessments"][protocol_arm]
+            if (
+                bundle["assessment_path"] != paired_assessment["path"]
+                or observation["assessment_identity"]["sha256"]
+                != paired_assessment["identity"]["sha256"]
+            ):
+                raise ValueError("observation assessment does not match paired report")
+            community_source = any(
+                source["kind"] in {"COMMUNITY_EVENT", "METHOD", "HYBRID"}
+                for source in observation["candidate_sources"]
+            )
+            if arm == "community_augmented" and community_source != pair_evidence[
+                repeat_index
+            ]["treatment_realized"]:
+                raise ValueError("candidate sources conflict with pair treatment realization")
+            ledger = bundle["ledger"]
             all_prospective = all_prospective and ledger["observation_mode"] == "PROSPECTIVE_EXACT"
-    return all_prospective
+            bundles[arm].append(bundle)
+    for arm in bundles:
+        bundles[arm].sort(key=lambda item: item["observation"]["repeat_index"])
+    return bundles, all_prospective
+
+
+def numeric_verdict(
+    control: list[float | None],
+    community: list[float | None],
+    *,
+    higher_is_better: bool,
+) -> str:
+    if any(value is None for value in (*control, *community)):
+        return "INCONCLUSIVE"
+    control_median = float(median(control))  # type: ignore[arg-type]
+    community_median = float(median(community))  # type: ignore[arg-type]
+    if abs(control_median - community_median) <= 1e-12 * max(
+        1.0, abs(control_median), abs(community_median)
+    ):
+        return "NO_CHANGE"
+    community_better = community_median > control_median
+    if not higher_is_better:
+        community_better = community_median < control_median
+    return "BETTER" if community_better else "WORSE"
+
+
+def non_regression_verdict(
+    control: float | None, community: float | None, *, higher_is_better: bool
+) -> str:
+    if control is None or community is None:
+        return "INCONCLUSIVE"
+    tolerance = 1e-12 * max(1.0, abs(control), abs(community))
+    if higher_is_better:
+        return "NO_REGRESSION" if community + tolerance >= control else "REGRESSED"
+    return "NO_REGRESSION" if community <= control + tolerance else "REGRESSED"
+
+
+def derive_verdicts(bundles: dict[str, list[dict]]) -> tuple[dict, dict]:
+    control = bundles["control"]
+    community = bundles["community_augmented"]
+
+    def assessment_values(rows: list[dict], field: str) -> list[float | None]:
+        return [row["assessment"]["metrics"][field] for row in rows]
+
+    def survivor_value(rows: list[dict]) -> float | None:
+        gpu_seconds = sum(row["gpu_seconds"] for row in rows)
+        if gpu_seconds <= 0:
+            return None
+        survivors = sum(
+            int(
+                any(
+                    milestone["kind"] == "FIRST_QUALIFIED_RESULT"
+                    for milestone in row["ledger"]["milestones"]
+                )
+                or row["ledger"]["outcome"]["upstream_ready"]
+                or row["ledger"]["outcome"]["merged"]
+            )
+            for row in rows
+        )
+        return survivors / (gpu_seconds / 3600.0)
+
+    gpu_values = [survivor_value(control), survivor_value(community)]
+    upstream_rates = [
+        sum(
+            int(
+                row["ledger"]["outcome"]["upstream_ready"]
+                or row["ledger"]["outcome"]["merged"]
+            )
+            for row in rows
+        )
+        / len(rows)
+        for rows in (control, community)
+    ]
+    metric_verdicts = {
+        "TIME_TO_FIRST_CORRECT": numeric_verdict(
+            assessment_values(control, "time_to_first_correct_seconds"),
+            assessment_values(community, "time_to_first_correct_seconds"),
+            higher_is_better=False,
+        ),
+        "TIME_TO_FIRST_IMPROVEMENT": numeric_verdict(
+            assessment_values(control, "time_to_first_improvement_seconds"),
+            assessment_values(community, "time_to_first_improvement_seconds"),
+            higher_is_better=False,
+        ),
+        "VALIDATION_VALUE_PER_GPU_HOUR": numeric_verdict(
+            [gpu_values[0]], [gpu_values[1]], higher_is_better=True
+        ),
+        "UPSTREAM_READY_OR_MERGE_RATE": numeric_verdict(
+            [upstream_rates[0]], [upstream_rates[1]], higher_is_better=True
+        ),
+    }
+
+    correctness_rates: list[float | None] = []
+    for rows in (control, community):
+        outcomes = [row["ledger"]["outcome"]["correctness"] for row in rows]
+        correctness_rates.append(
+            None
+            if any(value == "NOT_RUN" for value in outcomes)
+            else sum(value == "PASS" for value in outcomes) / len(outcomes)
+        )
+    regression_rates: list[float | None] = []
+    for rows in (control, community):
+        count = sum(row["observation"]["regression"]["test_count"] for row in rows)
+        failures = sum(
+            row["observation"]["regression"]["failure_count"] for row in rows
+        )
+        regression_rates.append(None if count == 0 else failures / count)
+    workload_statuses = [
+        [row["observation"]["real_workload"]["status"] for row in rows]
+        for rows in (control, community)
+    ]
+    workload_pass_rates = [
+        sum(status == "PASS" for status in statuses) / len(statuses)
+        for statuses in workload_statuses
+    ]
+    if any("NOT_RUN" in statuses for statuses in workload_statuses):
+        whole_model_verdict = "INCONCLUSIVE"
+    elif workload_pass_rates[1] < workload_pass_rates[0]:
+        whole_model_verdict = "REGRESSED"
+    elif workload_pass_rates[1] > workload_pass_rates[0]:
+        whole_model_verdict = "NO_REGRESSION"
+    elif workload_pass_rates[0] < 1.0:
+        whole_model_verdict = "INCONCLUSIVE"
+    else:
+        whole_model_medians = [
+            float(
+                median(
+                    row["observation"]["real_workload"]["speedup"] for row in rows
+                )
+            )
+            for rows in (control, community)
+        ]
+        whole_model_verdict = non_regression_verdict(
+            whole_model_medians[0], whole_model_medians[1], higher_is_better=True
+        )
+    validation_costs = [
+        sum(row["validation_seconds"] for row in rows)
+        for rows in (control, community)
+    ]
+    non_regression_verdicts = {
+        "CORRECTNESS": non_regression_verdict(
+            correctness_rates[0], correctness_rates[1], higher_is_better=True
+        ),
+        "REGRESSION_RATE": non_regression_verdict(
+            regression_rates[0], regression_rates[1], higher_is_better=False
+        ),
+        "WHOLE_MODEL_SPEEDUP": whole_model_verdict,
+        "VALIDATION_COST": non_regression_verdict(
+            validation_costs[0], validation_costs[1], higher_is_better=False
+        ),
+    }
+    return metric_verdicts, non_regression_verdicts
 
 
 def validate_report(
@@ -323,8 +525,26 @@ def validate_report(
                 "framework suite/task/repeat count does not match repeat summary "
                 "and protocol"
             )
-        treatment_realized = validate_pair_chain(summary_path, summary, root)
-        all_prospective = validate_work_cycles(framework, expected_repeats, evidence_root)
+        pair_evidence = validate_pair_chain(summary_path, summary, root)
+        bundles, all_prospective = validate_observations(
+            framework,
+            expected_repeats,
+            evidence_root,
+            pair_evidence,
+            protocol,
+            report["protocol_commit"],
+            root,
+        )
+        calculated_metrics, calculated_non_regressions = derive_verdicts(bundles)
+        if framework["metric_verdicts"] != calculated_metrics:
+            raise ValueError("metric verdicts do not match recomputed observations")
+        if framework["non_regression_verdicts"] != calculated_non_regressions:
+            raise ValueError(
+                "non-regression verdicts do not match recomputed observations"
+            )
+        treatment_realized = sum(
+            row["treatment_realized"] for row in pair_evidence.values()
+        )
 
         improvements = sorted(
             key for key, value in framework["metric_verdicts"].items() if value == "BETTER"
@@ -354,6 +574,12 @@ def validate_report(
             and non_regression_gate
             and all_prospective
             and treatment_realized == expected_repeats
+            and all(
+                bundle["ledger"]["outcome"]["correctness"] == "PASS"
+                and bundle["observation"]["real_workload"]["status"] == "PASS"
+                for rows in bundles.values()
+                for bundle in rows
+            )
         )
         if qualification["qualified_for_cross_framework_claim"] != calculated_qualified:
             raise ValueError("framework qualification does not match evidence gates")

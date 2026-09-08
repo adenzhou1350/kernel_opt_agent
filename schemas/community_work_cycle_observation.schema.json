@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_work_cycle_observation.schema.json",
+  "title": "Unified evidence envelope for one prospective optimization arm",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "repository",
+    "suite_id",
+    "task_id",
+    "repeat_index",
+    "arm",
+    "ledger_identity",
+    "assessment_identity",
+    "candidate_sources",
+    "search_policy",
+    "failure_stage",
+    "regression",
+    "real_workload",
+    "resource_usage"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-work-cycle-observation-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "UNIFIED_OBSERVATION_NOT_CROSS_FRAMEWORK_CAUSALITY"},
+    "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+    "suite_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "repeat_index": {"type": "integer", "minimum": 1},
+    "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "ledger_identity": {"$ref": "#/$defs/identity"},
+    "assessment_identity": {"$ref": "#/$defs/identity"},
+    "candidate_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "identity"],
+        "properties": {
+          "kind": {
+            "enum": ["LOCAL_THEORY", "LOCAL_PROFILE", "COMMUNITY_EVENT", "METHOD", "HYBRID"]
+          },
+          "identity": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    "search_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy_id", "protocol_commit", "community_knowledge_exposed"],
+      "properties": {
+        "policy_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+        "protocol_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "community_knowledge_exposed": {"type": "boolean"}
+      }
+    },
+    "failure_stage": {
+      "enum": [
+        "NOT_FAILED",
+        "DISCOVERY",
+        "BOTTLENECK_DIAGNOSIS",
+        "CANDIDATE_IMPLEMENTATION",
+        "COMPILE",
+        "CORRECTNESS",
+        "PERFORMANCE",
+        "WHOLE_MODEL",
+        "UPSTREAM_PACKAGING",
+        "BUDGET_EXHAUSTED",
+        "EXTERNAL_BLOCKER"
+      ]
+    },
+    "regression": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["test_count", "failure_count", "rate", "evidence"],
+      "properties": {
+        "test_count": {"type": "integer", "minimum": 0},
+        "failure_count": {"type": "integer", "minimum": 0},
+        "rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+      }
+    },
+    "real_workload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "speedup", "evidence"],
+      "properties": {
+        "status": {"enum": ["PASS", "FAIL", "NOT_RUN"]},
+        "speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "evidence": {"type": "array", "items": {"$ref": "#/$defs/identity"}}
+      }
+    },
+    "resource_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["wall_clock_seconds", "gpu_seconds", "validation_seconds"],
+      "properties": {
+        "wall_clock_seconds": {"type": "number", "minimum": 0},
+        "gpu_seconds": {"type": "number", "minimum": 0},
+        "validation_seconds": {"type": "number", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -84,13 +84,13 @@
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
-    "repeat_ledger": {
+    "repeat_observation": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["repeat_index", "identity"],
+      "required": ["repeat_index", "observation"],
       "properties": {
         "repeat_index": {"type": "integer", "minimum": 1},
-        "identity": {"$ref": "#/$defs/identity"}
+        "observation": {"$ref": "#/$defs/identity"}
       }
     },
     "metric_verdicts": {
@@ -135,7 +135,7 @@
         "suite_id",
         "task_id",
         "repeat_summary",
-        "work_cycles",
+        "observations",
         "metric_verdicts",
         "non_regression_verdicts",
         "qualification"
@@ -146,13 +146,13 @@
         "suite_id": {"type": "string", "minLength": 1},
         "task_id": {"type": "string", "minLength": 1},
         "repeat_summary": {"$ref": "#/$defs/identity"},
-        "work_cycles": {
+        "observations": {
           "type": "object",
           "additionalProperties": false,
           "required": ["control", "community_augmented"],
           "properties": {
-            "control": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/repeat_ledger"}},
-            "community_augmented": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/repeat_ledger"}}
+            "control": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/repeat_observation"}},
+            "community_augmented": {"type": "array", "minItems": 2, "items": {"$ref": "#/$defs/repeat_observation"}}
           }
         },
         "metric_verdicts": {"$ref": "#/$defs/metric_verdicts"},

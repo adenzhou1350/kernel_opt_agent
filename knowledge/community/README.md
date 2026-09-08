@@ -38,14 +38,25 @@ challenger on the same post-cutoff vLLM and SGLang tasks. Both arms must retain
 per-phase wall/GPU accounting; a faster shortlist that merely moves failures
 later in the pipeline is not an improvement.
 
+Each formal arm/repeat first wraps its work-cycle ledger and trial assessment in
+a `community-work-cycle-observation-v1`. This envelope hash-binds candidate
+sources and the search-policy version, requires an explicit failure stage,
+checks regression counts/rate and real-workload evidence, and recomputes wall,
+GPU and validation time from the ledger:
+
+```bash
+python scripts/kernel_opt.py community-observation validate \
+  --observation /path/to/arm-repeat-observation.json
+```
+
 Once both framework comparisons are complete, bind the two repeated-pair
-summaries and every per-arm work-cycle ledger in a
+summaries and every per-arm observation in a
 `community-meta-cycle-report-v1`. The validator resolves external identities
 inside the declared evidence root, rechecks the complete pair/assessment chain,
 requires exact prospective repeat coverage, and recomputes the frozen
-improve-any/must-not-regress gate. Missing or inconclusive non-regression data
-cannot qualify a framework, and promotion additionally requires realized
-community treatment in every repeat:
+improve-any/must-not-regress verdicts from the unified observations. Missing or
+inconclusive non-regression data cannot qualify a framework, and promotion
+additionally requires realized community treatment in every repeat:
 
 ```bash
 python scripts/kernel_opt.py community-cycle-report validate \

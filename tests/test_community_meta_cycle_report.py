@@ -16,11 +16,16 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_meta_cycle_report import validate_report  # noqa: E402
 from community_evaluation import build_preselection_anchor  # noqa: E402
+from community_work_cycle_observation import validate_observation  # noqa: E402
 
 
 PROTOCOL_COMMIT = "060b8364a5d1902466a1198e3f8403c094de8e79"
 SHARED_DEFAULT_COMMIT = "608ec2a520b38b11ec4b88474178ed31ffccd445"
 PROTOCOL_PATH = Path("knowledge/community/meta_cycles/cycle-1-theory-first-prior-gate.v1.json")
+PREREGISTRATION_PATH = Path(
+    "knowledge/community/preregistrations/"
+    "meta-cycle-1-cross-framework-2026-09-08.v1.json"
+)
 
 
 def relative_identity(path: Path, base: Path) -> dict:
@@ -41,7 +46,9 @@ def assessment(arm: str, repository: str, repeat: int) -> dict:
         "arm": arm,
         "success_thresholds": {"minimum_material_speedup": 1.02},
         "metrics": {
-            "time_to_first_correct_seconds": 10.0,
+            "time_to_first_correct_seconds": (
+                8.0 if arm == "COMMUNITY_AUGMENTED" else 10.0
+            ),
             "time_to_first_improvement_seconds": 20.0,
             "best_speedup": 1.03,
             "architecture_family_count": 1,
@@ -60,7 +67,8 @@ def assessment(arm: str, repository: str, repeat: int) -> dict:
     }
 
 
-def ledger(repository: str, repeat: int, arm: str) -> dict:
+def ledger(repository: str, repeat: int, arm: str, evidence: Path) -> dict:
+    evidence_identity = relative_identity(evidence, evidence.parent)
     return {
         "schema_version": "community-work-cycle-v1",
         "cycle_id": f"{repository.replace('/', '-')}-{arm}-{repeat}",
@@ -69,8 +77,45 @@ def ledger(repository: str, repeat: int, arm: str) -> dict:
         "observation_mode": "PROSPECTIVE_EXACT",
         "claim_boundary": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY",
         "minimum_material_speedup": 1.02,
-        "spans": [],
-        "milestones": [],
+        "spans": [
+            {
+                "span_id": "compile",
+                "phase": "COMPILE_AND_MEASURE",
+                "actor": "GPU",
+                "resource_id": "synthetic-gpu",
+                "started_at": "2026-09-09T00:00:00Z",
+                "ended_at": "2026-09-09T00:00:10Z",
+                "status": "COMPLETE",
+                "evidence": [evidence_identity],
+            },
+            {
+                "span_id": "correctness",
+                "phase": "CORRECTNESS_VALIDATION",
+                "actor": "GPU",
+                "resource_id": "synthetic-gpu",
+                "started_at": "2026-09-09T00:00:10Z",
+                "ended_at": "2026-09-09T00:00:20Z",
+                "status": "COMPLETE",
+                "evidence": [evidence_identity],
+            },
+            {
+                "span_id": "whole-model",
+                "phase": "WHOLE_MODEL_VALIDATION",
+                "actor": "GPU",
+                "resource_id": "synthetic-gpu",
+                "started_at": "2026-09-09T00:00:20Z",
+                "ended_at": "2026-09-09T00:00:30Z",
+                "status": "COMPLETE",
+                "evidence": [evidence_identity],
+            },
+        ],
+        "milestones": [
+            {
+                "kind": "FIRST_QUALIFIED_RESULT",
+                "at": "2026-09-09T00:00:30Z",
+                "evidence": [evidence_identity],
+            }
+        ],
         "outcome": {
             "correctness": "PASS",
             "best_speedup": 1.03,
@@ -85,6 +130,8 @@ def ledger(repository: str, repeat: int, arm: str) -> dict:
 def build_framework(base: Path, repository: str) -> dict:
     directory = base / repository.replace("/", "-")
     directory.mkdir(parents=True)
+    source_evidence = directory / "synthetic-evidence.json"
+    source_evidence.write_text('{"synthetic": true}\n', encoding="utf-8")
     suite_id = f"{repository.replace('/', '-')}-suite"
     task_id = f"{repository.replace('/', '-')}-task"
     null_identity = {"path": "synthetic-input.json", "sha256": "0" * 64}
@@ -92,8 +139,7 @@ def build_framework(base: Path, repository: str) -> dict:
     atomic_json(
         anchor_path,
         build_preselection_anchor(
-            ROOT
-            / "knowledge/community/preregistrations/meta-cycle-1-cross-framework-2026-09-08.v1.json",
+            ROOT / PREREGISTRATION_PATH,
             PROTOCOL_COMMIT,
             ROOT,
         ),
@@ -153,7 +199,7 @@ def build_framework(base: Path, repository: str) -> dict:
         },
     )
     pairs = []
-    work_cycles = {"control": [], "community_augmented": []}
+    observations = {"control": [], "community_augmented": []}
     for repeat in (1, 2):
         assessment_paths = {}
         for arm, key in (("CONTROL", "control"), ("COMMUNITY_AUGMENTED", "community")):
@@ -161,9 +207,63 @@ def build_framework(base: Path, repository: str) -> dict:
             atomic_json(path, assessment(arm, repository, repeat))
             assessment_paths[key] = path
             ledger_path = directory / f"ledger-{key}-r{repeat}.json"
-            atomic_json(ledger_path, ledger(repository, repeat, key))
-            work_cycles["community_augmented" if key == "community" else "control"].append(
-                {"repeat_index": repeat, "identity": relative_identity(ledger_path, base)}
+            atomic_json(ledger_path, ledger(repository, repeat, key, source_evidence))
+            observation_path = directory / f"observation-{key}-r{repeat}.json"
+            is_community = key == "community"
+            atomic_json(
+                observation_path,
+                {
+                    "schema_version": "community-work-cycle-observation-v1",
+                    "generated_at": "2026-09-09T00:01:00Z",
+                    "claim_boundary": "UNIFIED_OBSERVATION_NOT_CROSS_FRAMEWORK_CAUSALITY",
+                    "repository": repository,
+                    "suite_id": suite_id,
+                    "task_id": task_id,
+                    "repeat_index": repeat,
+                    "arm": arm,
+                    "ledger_identity": relative_identity(ledger_path, directory),
+                    "assessment_identity": relative_identity(path, directory),
+                    "candidate_sources": [
+                        {
+                            "kind": "COMMUNITY_EVENT" if is_community else "LOCAL_THEORY",
+                            "identity": relative_identity(source_evidence, directory),
+                        }
+                    ],
+                    "search_policy": {
+                        "policy_id": (
+                            "theory-first-prior-gated-v1"
+                            if is_community
+                            else "theory-first-local-v1"
+                        ),
+                        "protocol_commit": PROTOCOL_COMMIT,
+                        "community_knowledge_exposed": is_community,
+                    },
+                    "failure_stage": "NOT_FAILED",
+                    "regression": {
+                        "test_count": 10,
+                        "failure_count": 0,
+                        "rate": 0.0,
+                        "evidence": [relative_identity(source_evidence, directory)],
+                    },
+                    "real_workload": {
+                        "status": "PASS",
+                        "speedup": 1.01,
+                        "evidence": [relative_identity(source_evidence, directory)],
+                    },
+                    "resource_usage": {
+                        "wall_clock_seconds": 30.0,
+                        "gpu_seconds": 30.0,
+                        "validation_seconds": 20.0,
+                    },
+                },
+            )
+            observations[
+                "community_augmented" if key == "community" else "control"
+            ].append(
+                {
+                    "repeat_index": repeat,
+                    "observation": relative_identity(observation_path, base),
+                }
             )
         pair_path = directory / f"pair-r{repeat}.json"
         atomic_json(
@@ -210,7 +310,7 @@ def build_framework(base: Path, repository: str) -> dict:
         "suite_id": suite_id,
         "task_id": task_id,
         "repeat_summary": relative_identity(summary_path, base),
-        "work_cycles": work_cycles,
+        "observations": observations,
         "metric_verdicts": {
             "TIME_TO_FIRST_CORRECT": "BETTER",
             "TIME_TO_FIRST_IMPROVEMENT": "NO_CHANGE",
@@ -259,7 +359,7 @@ def build_report(base: Path) -> dict:
     }
 
 
-def test_final_report_and_fail_closed_promotion() -> None:
+def test_final_report_and_fail_closed_recomputation() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         report_path = base / "report.json"
@@ -278,10 +378,30 @@ def test_final_report_and_fail_closed_promotion() -> None:
         try:
             validate_report(report_path, base)
         except ValueError as error:
-            assert "PROMOTE_DEFAULT" in str(error)
+            assert "recomputed observations" in str(error)
         else:
-            raise AssertionError("inconclusive correctness must not qualify for promotion")
+            raise AssertionError("declared verdicts must not override observed evidence")
+
+
+def test_observation_rejects_unreconciled_regression_rate() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        report = build_report(base)
+        identity = report["framework_results"][0]["observations"]["control"][0][
+            "observation"
+        ]
+        observation_path = base / identity["path"]
+        observation = json.loads(observation_path.read_text(encoding="utf-8"))
+        observation["regression"]["rate"] = 0.5
+        atomic_json(observation_path, observation)
+        try:
+            validate_observation(observation_path)
+        except ValueError as error:
+            assert "regression rate" in str(error)
+        else:
+            raise AssertionError("regression rate must be derived from measured counts")
 
 
 if __name__ == "__main__":
-    test_final_report_and_fail_closed_promotion()
+    test_final_report_and_fail_closed_recomputation()
+    test_observation_rejects_unreconciled_regression_rate()
