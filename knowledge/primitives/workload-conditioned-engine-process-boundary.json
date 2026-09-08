@@ -6,10 +6,10 @@
   "source": {
     "title": "RTX 5090 vLLM V1 multiprocess versus in-process paired reproduction",
     "url": "https://github.com/adenzhou1350/kernel_opt_agent/tree/feature/community-optimization-lake",
-    "version": "sm120-uniproc-b8-v2",
-    "available_at": "2026-09-08T15:30:00Z",
+    "version": "sm120-uniproc-current-main-v3",
+    "available_at": "2026-09-08T16:35:00Z",
     "evidence_tier": "INTERNAL_REPRODUCTION",
-    "claim_scope": "On one RTX 5090 with Qwen3.5-0.8B GPTQ, offline B=8 decode improved 1.1175x conservatively when the EngineCore subprocess boundary was removed, while a B=1 screen regressed to 0.9577x. Correctness passed a preregistered reciprocal top-5 logprob oracle."
+    "claim_scope": "On clean vLLM main commit 613ab20f and one RTX 5090 with Qwen3.5-0.8B GPTQ, offline B=8 decode improved 1.0376x and 1.1039x in paired repeats (1.0708x pooled) when the EngineCore subprocess boundary was removed. B=1 improved only 1.0173x, below the 1.02 material floor. Correctness passed a preregistered reciprocal top-5 logprob oracle. An older guarded worktree had shown a larger 1.1175x conservative B=8 result and a B=1 regression, demonstrating version sensitivity."
   },
   "opportunity_families": [
     "engine-process-boundary",
@@ -56,12 +56,15 @@
     "One favorable batch is used to make in-process execution the global default.",
     "Multiprocess baseline nondeterminism is mistaken for candidate corruption or ignored without an independent oracle.",
     "An existing environment toggle is presented as a new upstream optimization without a maintainable routing contribution.",
-    "Offline LLM measurements are generalized to the online API server, which uses a different process architecture."
+    "Offline LLM measurements are generalized to the online API server, which uses a different process architecture.",
+    "Transport age is attributed to the frontend Python queue without an ablation; removing the SyncMPClient output thread was neutral in two paired repeats.",
+    "Forced-copy versus tracked zero-copy behavior is changed for small msgpack headers without measurement; the small-header copy ablation was also neutral in two paired repeats."
   ],
   "scope_limits": [
-    "The positive reproduction is limited to offline B=8 decode on one model and RTX 5090; online serving was not measured.",
-    "B=1 regressed in the same investigation, so this method requires explicit workload guards.",
+    "The clean-main positive reproduction is limited to offline B=8 decode on one model and RTX 5090; online serving was not measured.",
+    "B=1 did not cross the material floor on clean main and had regressed on the older guarded worktree, so this method requires explicit workload guards.",
     "The current vLLM GDN attention path does not support VLLM_BATCH_INVARIANT=1; exact bitwise validation remains unavailable for that model.",
+    "The measured multiprocess output transport age was about 0.222 ms median versus 0.010 ms in-process, but two isolated subcomponent ablations did not recover it; the remaining opportunity spans the EngineCore output queue, serialization and ZMQ path.",
     "This card guides candidate generation and routing; it is not proof that another workload benefits."
   ],
   "algorithmic_decomposition": {

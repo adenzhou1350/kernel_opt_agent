@@ -1,0 +1,37 @@
+{
+  "schema_version": "engine-boundary-evidence-v1",
+  "status": "QUALIFIED_GUARDED_CONFIGURATION_RESULT",
+  "baseline_commit": "613ab20f7f9082244240f4e9b2e7a4ee6769c38f",
+  "hardware_uuid": "GPU-14f89acf-cf7c-3a09-80d5-e43035823f0d",
+  "model": "Qwen3.5-0.8B-W4A16-AutoRound-GPTQ-fbfcca",
+  "b8": {
+    "paired_speedups": [1.0375888778372566, 1.103934170315597],
+    "pooled_speedup": 1.0707809664899535,
+    "conservative_speedup": 1.0375888778372566,
+    "correctness": "PASS_RECIPROCAL_TOP5"
+  },
+  "b1": {
+    "speedup": 1.017303470256779,
+    "status": "BELOW_1.02_MATERIALITY"
+  },
+  "transport_diagnostic": {
+    "multiprocess_median_age_ms": 0.22204625052399933,
+    "inprocess_median_age_ms": 0.010360003216192126,
+    "estimated_64_step_delta_ms": 13.547920467699661
+  },
+  "rejected_causal_ablations": [
+    {
+      "candidate_commit": "2b78ed7b1c",
+      "name": "SyncMPClient caller-thread direct receive",
+      "paired_speedups": [0.9979792215157394, 1.0009107834693187]
+    },
+    {
+      "candidate_commit": "d25c5a570b",
+      "name": "copy small msgpack output header",
+      "paired_speedups": [0.9979322371677358, 1.0024542235250313]
+    }
+  ],
+  "routing": "NO_GLOBAL_DEFAULT_CHANGE",
+  "pr_status": "NOT_READY",
+  "next_action": "Investigate or amortize the full EngineCore output queue, serialization and ZMQ boundary; do not retry frontend queue or small-header copy in this context."
+}
