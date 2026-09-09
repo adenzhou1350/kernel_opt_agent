@@ -26,7 +26,9 @@ SNAPSHOT_SCHEMA = "community-pr-snapshot-v1"
 INDEX_SCHEMA = "community-corpus-index-v1"
 EVENT_SCHEMA = "community-optimization-event-v1"
 GRAPH_SCHEMA = "community-optimization-graph-v1"
-MATCH_SCHEMA = "community-match-receipt-v1"
+GRAPH_PUBLICATION_SCHEMA = "community-graph-publication-v1"
+GRAPH_ATTACHMENT_SCHEMA = "community-graph-attachment-v1"
+MATCH_SCHEMA = "community-match-receipt-v2"
 SYNC_SCHEMA = "community-sync-receipt-v2"
 REFRESH_SCHEMA = "community-tracked-refresh-receipt-v1"
 REVIEW_QUEUE_SCHEMA = "community-review-queue-v1"
@@ -170,9 +172,7 @@ def github_rate_limit_detail(headers: Any) -> str:
     reset_at = "unknown"
     if reset is not None:
         try:
-            reset_at = datetime.fromtimestamp(
-                int(reset), timezone.utc
-            ).isoformat()
+            reset_at = datetime.fromtimestamp(int(reset), timezone.utc).isoformat()
         except (TypeError, ValueError, OSError):
             reset_at = f"invalid({reset})"
     retry_after = headers.get("Retry-After", "unspecified")
@@ -842,9 +842,7 @@ def sync_repository(
             str(updated_at), f"candidate #{number} updated_at"
         )
         if created_time > updated_time:
-            raise ValueError(
-                f"GitHub search candidate #{number} predates its creation"
-            )
+            raise ValueError(f"GitHub search candidate #{number} predates its creation")
         candidates.append(
             {
                 "pr_number": number,
@@ -1651,6 +1649,97 @@ def validate_graph(graph_path: Path, corpus: Path, root: Path | None = None) -> 
     }
 
 
+def graph_publication_path(graph_path: Path) -> Path:
+    return graph_path.with_name(f"{graph_path.stem}.publication.json")
+
+
+def graph_attachment_path(graph_path: Path) -> Path:
+    return graph_path.with_name(f"{graph_path.stem}.attachment.json")
+
+
+def validate_graph_publication(
+    graph_path: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    graph_path = graph_path.resolve()
+    corpus = corpus.resolve()
+    receipt_path = graph_publication_path(graph_path)
+    errors = validate_json_file(
+        receipt_path, root / "schemas" / "community_graph_publication.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid current graph publication: " + "; ".join(errors))
+    receipt = read_object(receipt_path)
+    graph = read_object(graph_path)
+    if graph.get("temporal_cutoff_at") is not None:
+        raise ValueError("current graph publication cannot bind a temporal graph")
+    if receipt["graph"]["path"] != graph_path.name:
+        raise ValueError("current graph publication points to a different graph")
+    if receipt["graph"]["sha256"] != sha256_file(graph_path):
+        raise ValueError("current graph changed after publication")
+    index_path = corpus / "index.json"
+    if receipt["corpus_index"]["path"] != "index.json":
+        raise ValueError("current graph publication points to a different corpus index")
+    if receipt["corpus_index"]["sha256"] != sha256_file(index_path):
+        raise ValueError("corpus index changed after current graph publication")
+    if (
+        graph["input_identity"]["corpus_index_sha256"]
+        != receipt["corpus_index"]["sha256"]
+    ):
+        raise ValueError("current graph and publication bind different corpus indices")
+    if receipt["repository_universe"] != graph["repository_universe"]:
+        raise ValueError("current graph publication repository universe changed")
+    validation = validate_graph(graph_path, corpus, root)
+    if receipt["validation"] != validation:
+        raise ValueError("current graph publication validation summary changed")
+    return {**validation, "publication": str(receipt_path)}
+
+
+def publish_current_graph(
+    graph: dict, output: Path, corpus: Path, root: Path | None = None
+) -> dict:
+    root = root or repository_root()
+    output = output.resolve()
+    corpus = corpus.resolve()
+    if graph.get("temporal_cutoff_at") is not None:
+        raise ValueError("publish-current-graph requires temporal_cutoff_at=null")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    handle, temporary = tempfile.mkstemp(
+        prefix=f"{output.name}.", suffix=".staged", dir=output.parent
+    )
+    os.close(handle)
+    staged = Path(temporary)
+    try:
+        atomic_json(staged, graph)
+        validation = validate_graph(staged, corpus, root)
+        if graph["input_identity"]["corpus_index_sha256"] != sha256_file(
+            corpus / "index.json"
+        ):
+            raise ValueError("corpus index changed during current graph publication")
+        os.replace(staged, output)
+    finally:
+        if staged.exists():
+            staged.unlink()
+    receipt = {
+        "schema_version": GRAPH_PUBLICATION_SCHEMA,
+        "published_at": now(),
+        "state": "CURRENT_GRAPH_VALIDATED_AT_PUBLICATION",
+        "claim_boundary": (
+            "ATTACH_TIME_FRESHNESS_EVIDENCE_NOT_HISTORICAL_GRAPH_REWRITE"
+        ),
+        "graph": {"path": output.name, "sha256": sha256_file(output)},
+        "corpus_index": {
+            "path": "index.json",
+            "sha256": sha256_file(corpus / "index.json"),
+        },
+        "repository_universe": graph["repository_universe"],
+        "validation": validation,
+    }
+    receipt_path = graph_publication_path(output)
+    atomic_json(receipt_path, receipt)
+    return validate_graph_publication(output, corpus, root)
+
+
 def run_input_identities(run: Path) -> list[dict]:
     identities = []
     for relative in RUN_INPUT_PATHS:
@@ -1664,10 +1753,112 @@ def run_input_identities(run: Path) -> list[dict]:
 def attach_graph(
     run: Path, graph_path: Path, corpus: Path, root: Path | None = None
 ) -> dict:
+    root = root or repository_root()
+    graph_path = graph_path.resolve()
+    corpus = corpus.resolve()
     validation = validate_graph(graph_path, corpus, root)
     target = run.resolve() / "knowledge" / "community_graph.json"
     atomic_json(target, read_object(graph_path))
-    return {**validation, "status": "PASS", "attached_graph": str(target)}
+    attached_publication = graph_publication_path(target)
+    graph = read_object(graph_path)
+    source_publication_identity = None
+    mode = "TEMPORAL_FROZEN"
+    claim_boundary = "HISTORICAL_GRAPH_FIXED_TO_DECLARED_TEMPORAL_CUTOFF"
+    if graph["temporal_cutoff_at"] is None:
+        publication = validate_graph_publication(graph_path, corpus, root)
+        source_publication_receipt = read_object(Path(publication["publication"]))
+        source_publication_receipt["graph"] = {
+            "path": target.name,
+            "sha256": sha256_file(target),
+        }
+        atomic_json(
+            attached_publication,
+            source_publication_receipt,
+        )
+        source_publication_identity = {
+            "path": "knowledge/community_graph.publication.json",
+            "sha256": sha256_file(attached_publication),
+        }
+        mode = "CURRENT_REVALIDATE_ON_RECOMMEND"
+        claim_boundary = "CURRENT_GRAPH_REQUIRES_LIVE_CORPUS_FRESHNESS"
+    elif attached_publication.exists():
+        attached_publication.unlink()
+    attachment = {
+        "schema_version": GRAPH_ATTACHMENT_SCHEMA,
+        "attached_at": now(),
+        "mode": mode,
+        "claim_boundary": claim_boundary,
+        "graph": {
+            "path": "knowledge/community_graph.json",
+            "sha256": sha256_file(target),
+        },
+        "corpus_root": str(corpus),
+        "corpus_index_sha256_at_attachment": sha256_file(corpus / "index.json"),
+        "temporal_cutoff_at": graph["temporal_cutoff_at"],
+        "source_publication": source_publication_identity,
+        "validation": validation,
+    }
+    attachment_errors = validate_instance(
+        attachment,
+        read_object(root / "schemas" / "community_graph_attachment.schema.json"),
+    )
+    if attachment_errors:
+        raise ValueError(
+            "invalid community graph attachment: " + "; ".join(attachment_errors)
+        )
+    attachment_path = graph_attachment_path(target)
+    atomic_json(attachment_path, attachment)
+    return {
+        **validation,
+        "status": "PASS",
+        "attached_graph": str(target),
+        "attachment": str(attachment_path),
+        "mode": mode,
+    }
+
+
+def validate_graph_attachment(run: Path, root: Path | None = None) -> dict:
+    root = root or repository_root()
+    graph_path = run.resolve() / "knowledge" / "community_graph.json"
+    attachment_path = graph_attachment_path(graph_path)
+    errors = validate_json_file(
+        attachment_path, root / "schemas" / "community_graph_attachment.schema.json"
+    )
+    if errors:
+        raise ValueError("invalid community graph attachment: " + "; ".join(errors))
+    attachment = read_object(attachment_path)
+    graph = read_object(graph_path)
+    if attachment["graph"] != {
+        "path": "knowledge/community_graph.json",
+        "sha256": sha256_file(graph_path),
+    }:
+        raise ValueError("attached community graph identity changed")
+    if attachment["temporal_cutoff_at"] != graph["temporal_cutoff_at"]:
+        raise ValueError("community graph temporal mode changed after attachment")
+    corpus = Path(attachment["corpus_root"])
+    if not corpus.is_absolute() or not (corpus / "index.json").is_file():
+        raise ValueError("community graph attachment corpus root is unavailable")
+    if attachment["mode"] == "CURRENT_REVALIDATE_ON_RECOMMEND":
+        publication_path = graph_publication_path(graph_path)
+        expected_publication = {
+            "path": "knowledge/community_graph.publication.json",
+            "sha256": sha256_file(publication_path),
+        }
+        if attachment["source_publication"] != expected_publication:
+            raise ValueError(
+                "current graph publication identity changed after attachment"
+            )
+        validation = validate_graph_publication(graph_path, corpus, root)
+        if attachment["validation"] != {
+            key: validation[key] for key in attachment["validation"]
+        }:
+            raise ValueError("current graph validation summary changed")
+    else:
+        if attachment["source_publication"] is not None:
+            raise ValueError("temporal graph cannot consume a current publication")
+        if attachment["validation"]["status"] != "PASS":
+            raise ValueError("temporal graph was not valid when attached")
+    return attachment
 
 
 def scalar_text(value: object) -> str:
@@ -1870,6 +2061,8 @@ def build_composition_matches(
 def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> dict:
     root = root or repository_root()
     graph_path = run / "knowledge" / "community_graph.json"
+    attachment = validate_graph_attachment(run, root)
+    attachment_path = graph_attachment_path(graph_path)
     graph = read_object(graph_path)
     graph_errors = validate_instance(
         graph,
@@ -2007,6 +2200,11 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
             "path": "knowledge/community_graph.json",
             "sha256": sha256_file(graph_path),
         },
+        "graph_attachment_identity": {
+            "path": "knowledge/community_graph.attachment.json",
+            "sha256": sha256_file(attachment_path),
+        },
+        "graph_mode": attachment["mode"],
         "policy": {
             "max_matches_per_opportunity": limit,
             "community_claim_policy": "SOURCE_PRIOR_NOT_TARGET_PROOF",
@@ -2019,7 +2217,7 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
     }
     errors = validate_instance(
         receipt,
-        read_object(root / "schemas" / "community_match_receipt.schema.json"),
+        read_object(root / "schemas" / "community_match_receipt_v2.schema.json"),
     )
     if errors:
         raise ValueError("invalid community-match receipt: " + "; ".join(errors))
@@ -2030,7 +2228,7 @@ def validate_match_receipt(receipt: dict, run: Path, root: Path | None = None) -
     root = root or repository_root()
     errors = validate_instance(
         receipt,
-        read_object(root / "schemas" / "community_match_receipt.schema.json"),
+        read_object(root / "schemas" / "community_match_receipt_v2.schema.json"),
     )
     if errors:
         raise ValueError("invalid community-match receipt: " + "; ".join(errors))
@@ -2170,8 +2368,11 @@ def main() -> int:
             result = validate_event(args.event, args.corpus)
         elif args.operation == "build-graph":
             graph = build_graph(args.corpus, args.repository, cutoff_at=args.cutoff)
-            atomic_json(args.output.resolve(), graph)
-            result = validate_graph(args.output.resolve(), args.corpus)
+            if args.cutoff is None:
+                result = publish_current_graph(graph, args.output, args.corpus)
+            else:
+                atomic_json(args.output.resolve(), graph)
+                result = validate_graph(args.output.resolve(), args.corpus)
             result["graph"] = str(args.output.resolve())
         elif args.operation == "validate-graph":
             result = validate_graph(args.graph, args.corpus)

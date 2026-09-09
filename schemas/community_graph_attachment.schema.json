@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_graph_attachment.schema.json",
+  "title": "Validated attachment of a current or temporal community graph to one run",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "attached_at", "mode", "claim_boundary", "graph",
+    "corpus_root", "corpus_index_sha256_at_attachment", "temporal_cutoff_at",
+    "source_publication", "validation"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-graph-attachment-v1"},
+    "attached_at": {"type": "string", "format": "date-time"},
+    "mode": {"enum": ["CURRENT_REVALIDATE_ON_RECOMMEND", "TEMPORAL_FROZEN"]},
+    "claim_boundary": {
+      "enum": [
+        "CURRENT_GRAPH_REQUIRES_LIVE_CORPUS_FRESHNESS",
+        "HISTORICAL_GRAPH_FIXED_TO_DECLARED_TEMPORAL_CUTOFF"
+      ]
+    },
+    "graph": {"$ref": "#/$defs/identity"},
+    "corpus_root": {"type": "string", "minLength": 1},
+    "corpus_index_sha256_at_attachment": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "temporal_cutoff_at": {"type": ["string", "null"], "format": "date-time"},
+    "source_publication": {
+      "oneOf": [
+        {"$ref": "#/$defs/identity"},
+        {"type": "null"}
+      ]
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "node_count", "edge_count", "coverage_gap_count", "composition_count", "lifecycle_review_count"],
+      "properties": {
+        "status": {"const": "PASS"},
+        "node_count": {"type": "integer", "minimum": 1},
+        "edge_count": {"type": "integer", "minimum": 0},
+        "coverage_gap_count": {"type": "integer", "minimum": 0},
+        "composition_count": {"type": "integer", "minimum": 0},
+        "lifecycle_review_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"mode": {"const": "CURRENT_REVALIDATE_ON_RECOMMEND"}}},
+      "then": {
+        "properties": {
+          "claim_boundary": {"const": "CURRENT_GRAPH_REQUIRES_LIVE_CORPUS_FRESHNESS"},
+          "temporal_cutoff_at": {"type": "null"},
+          "source_publication": {"$ref": "#/$defs/identity"}
+        }
+      }
+    },
+    {
+      "if": {"properties": {"mode": {"const": "TEMPORAL_FROZEN"}}},
+      "then": {
+        "properties": {
+          "claim_boundary": {"const": "HISTORICAL_GRAPH_FIXED_TO_DECLARED_TEMPORAL_CUTOFF"},
+          "temporal_cutoff_at": {"type": "string", "format": "date-time"},
+          "source_publication": {"type": "null"}
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

@@ -24,13 +24,13 @@ from community_knowledge import (
     discovery_classifications,
     github_rate_limit_detail,
     github_token_from_environment,
+    publish_current_graph,
     read_object,
     refresh_tracked_events,
     sha256_file,
     sync_repository,
     validate_corpus,
     validate_event,
-    validate_graph,
     validate_match_receipt,
     validate_review_queue,
 )
@@ -230,9 +230,12 @@ def main() -> None:
     assert len(ARTIFACT_SPECS) == 8
     assert github_token_from_environment({}) is None
     assert github_token_from_environment({"GH_TOKEN": " gh-value "}) == "gh-value"
-    assert github_token_from_environment(
-        {"GITHUB_TOKEN": "github-value", "GH_TOKEN": "gh-value"}
-    ) == "github-value"
+    assert (
+        github_token_from_environment(
+            {"GITHUB_TOKEN": "github-value", "GH_TOKEN": "gh-value"}
+        )
+        == "github-value"
+    )
     rate_detail = github_rate_limit_detail(
         {
             "X-RateLimit-Remaining": "0",
@@ -285,7 +288,9 @@ def main() -> None:
             sync_receipt["candidates"][0]["earliest_public_at"]
             < sync_receipt["window"]["since"]
         )
-        sync_schema = read_object(ROOT / "schemas" / "community_sync_receipt.schema.json")
+        sync_schema = read_object(
+            ROOT / "schemas" / "community_sync_receipt.schema.json"
+        )
         missing_first_public = json.loads(json.dumps(sync_receipt))
         missing_first_public["candidates"][0].pop("earliest_public_at")
         assert any(
@@ -377,8 +382,17 @@ def main() -> None:
             ["example/project", "other/engine"],
             ROOT,
         )
-        atomic_json(graph_path, graph)
-        graph_result = validate_graph(graph_path, corpus, ROOT)
+        graph_result = publish_current_graph(graph, graph_path, corpus, ROOT)
+        published_graph_sha = sha256_file(graph_path)
+        invalid_graph = json.loads(json.dumps(graph))
+        invalid_graph["nodes"] = []
+        try:
+            publish_current_graph(invalid_graph, graph_path, corpus, ROOT)
+        except ValueError as error:
+            assert "invalid community graph" in str(error) or "stale" in str(error)
+        else:
+            raise AssertionError("invalid current graph publication succeeded")
+        assert sha256_file(graph_path) == published_graph_sha
         assert graph_result["node_count"] == 2
         assert graph_result["composition_count"] == 1
         assert graph_result["lifecycle_review_count"] == 0
@@ -451,6 +465,12 @@ def main() -> None:
         assert len(review_refresh["review_required_event_ids"]) == 2
         assert review_row["semantic_changed"]
         assert review_row["after"]["snapshot_id"] != third["snapshot_id"]
+        try:
+            build_match_receipt(run, root=ROOT)
+        except ValueError as error:
+            assert "corpus index changed" in str(error)
+        else:
+            raise AssertionError("a stale current graph produced recommendations")
         changed_queue = build_review_queue(corpus, max_items=1, root=ROOT)
         assert changed_queue["inventory"]["review_required_count"] == 1
         assert changed_queue["items"][0]["state"] == "REVIEW_REQUIRED"
@@ -488,7 +508,7 @@ def main() -> None:
             and row["latest_outcome"] == "CLOSED_UNMERGED"
             for row in stale_graph["lifecycle_review_queue"]
         )
-        atomic_json(graph_path, stale_graph)
+        publish_current_graph(stale_graph, graph_path, corpus, ROOT)
         attach_graph(run, graph_path, corpus, ROOT)
         stale_receipt = build_match_receipt(run, root=ROOT)
         stale_recommendation = stale_receipt["recommendations"][0]

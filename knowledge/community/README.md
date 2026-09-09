@@ -121,6 +121,17 @@ python scripts/kernel_opt.py community attach-graph \
   --corpus /path/to/community-corpus
 ```
 
+A non-temporal `build-graph` is a current publication, not an ordinary file
+write. It validates a staged graph against the current corpus index, atomically
+replaces the graph, and writes a sibling `*.publication.json` commit receipt.
+`attach-graph` requires that receipt for a current graph and records a
+run-local attachment identity. Every new `recommend` revalidates the attached
+publication against the live corpus; a corpus update without a matching graph
+publication therefore fails closed instead of routing from stale knowledge.
+Temporal graphs use an explicit `TEMPORAL_FROZEN` attachment and remain fixed to
+their declared cutoff. New recommendations emit
+`community-match-receipt-v2`; v1 receipts are historical evidence only.
+
 `sync-repository` searches an explicit, closed update window, classifies
 performance changes, regressions, reverts, kernel/runtime work and data-movement
 changes, then captures at most the declared PR budget. The receipt records every
