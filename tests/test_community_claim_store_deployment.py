@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
 import os
 import sys
@@ -17,7 +18,10 @@ if str(SCRIPTS) not in sys.path:
 import community_claim_store_deployment as deployment_module  # noqa: E402
 from community_claim_store_deployment import validate_deployment  # noqa: E402
 from community_claim_contracts import digest  # noqa: E402
-from community_knowledge import sha256_file  # noqa: E402
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def write_json(path: Path, value: dict) -> None:
