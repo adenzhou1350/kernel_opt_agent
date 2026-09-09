@@ -155,6 +155,69 @@ def test_empty_lane_exposes_missing_evidence_without_guessing(tmp_path: Path) ->
     assert first["delivery_funnel"]["leading_constraint"] == "NO_EVIDENCE"
 
 
+def test_downstream_correctness_closes_candidate_stage_without_guessing_speedup(
+    tmp_path: Path,
+) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["milestones"] = [
+        item for item in cycle["milestones"] if item["kind"] == "FIRST_SCREEN_CORRECT"
+    ]
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+
+    report = build_report(path)
+    first = next(
+        lane for lane in report["lanes"] if lane["lane_id"] == "VLLM_OPTIMIZATION"
+    )
+    assert first["delivery_funnel"] == {
+        "candidate_proposed": 1,
+        "screen_correct": 1,
+        "material_improvement": 0,
+        "qualified_result": 0,
+        "upstream_ready": 0,
+        "pr_opened": 0,
+        "pr_ready_for_review": 0,
+        "merged": 0,
+        "leading_constraint": "MATERIAL_IMPROVEMENT",
+    }
+
+
+def test_portfolio_constraint_is_earliest_incomplete_candidate_stage(
+    tmp_path: Path,
+) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][1]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["milestones"] = [
+        item
+        for item in cycle["milestones"]
+        if item["kind"] == "FIRST_CANDIDATE_PROPOSED"
+    ]
+    cycle["outcome"] = {
+        "correctness": "NOT_RUN",
+        "best_speedup": None,
+        "best_whole_model_speedup": None,
+        "upstream_ready": False,
+        "pull_request_url": None,
+        "merged": False,
+    }
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+
+    report = build_report(path)
+    assert report["totals"]["delivery_funnel"]["candidate_proposed"] == 4
+    assert report["totals"]["delivery_funnel"]["screen_correct"] == 3
+    assert report["totals"]["delivery_funnel"]["leading_constraint"] == "CORRECTNESS"
+
+
 def test_same_ledger_cannot_be_counted_in_two_lanes(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="cannot be counted more than once"):
         build_report(manifest(tmp_path, duplicate=True))

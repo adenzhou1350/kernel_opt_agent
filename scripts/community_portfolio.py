@@ -63,9 +63,29 @@ def delivery_funnel(ledgers: list[tuple[Path, dict]]) -> dict:
     }
     for _, ledger in ledgers:
         kinds = {item["kind"] for item in ledger["milestones"]}
-        for kind, key in milestone_keys.items():
-            counts[key] += int(kind in kinds)
         outcome = ledger["outcome"]
+
+        # A correctness result or any later delivery artifact proves that a
+        # candidate existed even when an older ledger omitted the earliest
+        # milestone.  Keep the later stages strict: a speedup, qualification,
+        # or review state is counted only from its canonical field/milestone.
+        candidate_exists = bool(kinds) or any(
+            (
+                outcome["correctness"] != "NOT_RUN",
+                outcome["best_speedup"] is not None,
+                outcome["best_whole_model_speedup"] is not None,
+                outcome["upstream_ready"],
+                outcome["pull_request_url"] is not None,
+                outcome["merged"],
+            )
+        )
+        counts["candidate_proposed"] += int(candidate_exists)
+        counts["screen_correct"] += int(
+            "FIRST_SCREEN_CORRECT" in kinds or outcome["correctness"] == "PASS"
+        )
+        for kind, key in milestone_keys.items():
+            if key not in {"candidate_proposed", "screen_correct"}:
+                counts[key] += int(kind in kinds)
         counts["upstream_ready"] += int(outcome["upstream_ready"])
         counts["pr_opened"] += int(outcome["pull_request_url"] is not None)
         counts["merged"] += int(outcome["merged"])
@@ -74,17 +94,29 @@ def delivery_funnel(ledgers: list[tuple[Path, dict]]) -> dict:
         constraint = "NO_EVIDENCE"
     else:
         ordered_constraints = (
-            ("candidate_proposed", "CANDIDATE_DISCOVERY"),
-            ("screen_correct", "CORRECTNESS"),
-            ("material_improvement", "MATERIAL_IMPROVEMENT"),
-            ("qualified_result", "QUALIFIED_RESULT"),
-            ("upstream_ready", "UPSTREAM_READINESS"),
-            ("pr_opened", "PR_CREATION"),
-            ("pr_ready_for_review", "PR_REVIEW_READINESS"),
-            ("merged", "UPSTREAM_REVIEW"),
+            ("candidate_proposed", len(ledgers), "CANDIDATE_DISCOVERY"),
+            ("screen_correct", counts["candidate_proposed"], "CORRECTNESS"),
+            (
+                "material_improvement",
+                counts["screen_correct"],
+                "MATERIAL_IMPROVEMENT",
+            ),
+            ("qualified_result", counts["material_improvement"], "QUALIFIED_RESULT"),
+            ("upstream_ready", counts["qualified_result"], "UPSTREAM_READINESS"),
+            ("pr_opened", counts["upstream_ready"], "PR_CREATION"),
+            (
+                "pr_ready_for_review",
+                counts["pr_opened"],
+                "PR_REVIEW_READINESS",
+            ),
+            ("merged", counts["pr_ready_for_review"], "UPSTREAM_REVIEW"),
         )
         constraint = next(
-            (label for key, label in ordered_constraints if counts[key] == 0),
+            (
+                label
+                for key, required, label in ordered_constraints
+                if counts[key] < required
+            ),
             "COMPLETE",
         )
     return {**counts, "leading_constraint": constraint}
