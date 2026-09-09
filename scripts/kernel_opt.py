@@ -39,6 +39,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-portfolio": Command("community_portfolio.py", "aggregate explicit work-cycle timing and PR-yield metrics across four lanes"),
         "community-funnel": Command("community_discovery_funnel.py", "measure discovery yield and retain routing feedback"),
         "community-resource-amendment": Command("community_resource_amendment.py", "validate a resource-only frozen-cohort amendment"),
+        "community-model-source-amendment": Command(
+            "community_model_source_amendment.py",
+            "validate content-equivalent model transport across providers",
+        ),
         "community-cycle-report": Command(
             "community_execution_authorization.py",
             "validate an authorization- and dispatch-provenance-bound policy decision",

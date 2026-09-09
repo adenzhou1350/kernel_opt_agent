@@ -98,6 +98,25 @@ Passing this check preserves the prospective comparison but never authorizes
 GPU dispatch. The effective source, model, package, sealed argv and live GPU
 locks must still pass a new pre-GPU and independent authorization chain.
 
+Changing a model download provider is a separate transport concern. A
+`community-model-source-amendment-v1` accepts a mirror only when both local
+trees are complete and every executor-visible relative path has identical byte
+count and SHA-256. Documentation and provider metadata may differ only when
+listed explicitly; configs, tokenizers, weights and executable code can never
+be excluded from comparison. The check also requires zero formal entries, an
+unexposed hidden oracle and no GPU authorization:
+
+```bash
+python scripts/kernel_opt.py community-model-source-amendment \
+  --amendment /path/to/model-source-amendment.json \
+  --artifact-root /path/to/materialized-models
+```
+
+A passing result proves executor-payload content equivalence, not that a
+provider's mutable branch name is the frozen upstream revision, and it never
+authorizes execution. This permits ModelScope-first transport without silently
+substituting a different model or tokenizer when Hugging Face is unavailable.
+
 Once both framework comparisons are complete, bind the two repeated-pair
 summaries and every per-arm observation in a
 `community-meta-cycle-report-v1`. The validator resolves external identities
