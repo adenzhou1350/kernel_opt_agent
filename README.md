@@ -156,6 +156,14 @@ successful terminal state to validated correctness and observation evidence.
 Reusing an epoch after restoring or replacing the database is outside SQLite's
 trust boundary and must be prevented by the external epoch issuer.
 
+Before an atomic claim store can be consumed, validate a versioned deployment
+with `scripts/community_claim_store_deployment.py`. The deployment binds one
+canonical database path, host boot identity, dispatcher executable and an
+externally issued no-rollback epoch. Epoch replacement must form an explicit
+predecessor chain, and both the declared Git commit and current worktree bytes
+for the schemas, validator and claim implementation must match. Passing this
+gate means only `ready_for_atomic_claim=true`; it never grants GPU dispatch.
+
 ## Evidence classes
 
 - `FACT`: queried or statically verified.
