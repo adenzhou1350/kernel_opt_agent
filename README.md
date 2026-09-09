@@ -320,6 +320,18 @@ per-task decision/measurability/frontier/objective chain, frozen request scope,
 expiry policy, and its own declared Git blobs. The v1 combined gate continues
 to reject non-null approvals and there is no compatibility auto-upgrade.
 
+`scripts/community_atomic_claim.py` is the non-launching transactional primitive
+used by that future dispatcher. It takes transition timestamps from its own UTC
+clock after acquiring the SQLite write transaction, binds each session to one
+canonical SQLite store path plus an externally issued no-rollback epoch,
+revalidates the frozen schedule and receipt lineage on every transition, and
+consumes entries in order without automatic retry after an ambiguous launch.
+The epoch issuer must durably prevent reuse after database deletion or rollback;
+SQLite alone cannot prove that external monotonicity. These guarantees do not
+validate a live process, GPU assignment, or successful observation; only the
+dispatcher may establish those identities and turn a consumed entry into
+authorized execution provenance.
+
 ## Four-lane delivery accounting
 
 The four autonomous execution lanes write canonical work-cycle ledgers while
