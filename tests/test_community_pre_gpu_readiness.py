@@ -71,6 +71,9 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
     write_json(
         dummy_paths["suite"],
         {
+            "protocol": {
+                "environment_identity": identity(environment_path, base),
+            },
             "tasks": [
                 {
                     "task_id": "task-a",
@@ -80,7 +83,7 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
                     "task_id": "task-b",
                     "packet": identity(dummy_paths["packet-b"], base),
                 },
-            ]
+            ],
         },
     )
     current_commit = subprocess.run(
@@ -198,6 +201,46 @@ def test_pre_gpu_readiness_fail_closed_and_resource_bound() -> None:
         write_json(readiness_path, wrong_suite_packet)
         with pytest.raises(ValueError, match="task packet identity differs"):
             validate_readiness(readiness_path, base)
+
+        wrong_suite_environment = copy.deepcopy(blocked)
+        alternate_environment = base / "alternate-environment.json"
+        write_json(
+            alternate_environment,
+            json.loads((base / "environment.json").read_text()),
+        )
+        suite = json.loads((base / "suite.json").read_text())
+        suite["protocol"]["environment_identity"] = identity(
+            alternate_environment, base
+        )
+        write_json(base / "suite.json", suite)
+        wrong_suite_environment["protocol_binding"]["temporal_suite"] = identity(
+            base / "suite.json", base
+        )
+        write_json(readiness_path, wrong_suite_environment)
+        with pytest.raises(ValueError, match="environment identity differs"):
+            validate_readiness(readiness_path, base)
+
+        write_json(
+            base / "suite.json",
+            {
+                "protocol": {
+                    "environment_identity": identity(base / "environment.json", base),
+                },
+                "tasks": [
+                    {
+                        "task_id": "task-a",
+                        "packet": identity(base / "packet-a.json", base),
+                    },
+                    {
+                        "task_id": "task-b",
+                        "packet": identity(base / "packet-b.json", base),
+                    },
+                ],
+            },
+        )
+        blocked["protocol_binding"]["temporal_suite"] = identity(
+            base / "suite.json", base
+        )
 
         premature = copy.deepcopy(blocked)
         premature["state"] = "PRE_GPU_GATE_READY"

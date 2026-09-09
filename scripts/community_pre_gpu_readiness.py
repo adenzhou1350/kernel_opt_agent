@@ -25,7 +25,9 @@ def resolve_inside(base: Path, relative: str) -> Path:
     try:
         path.relative_to(base)
     except ValueError as error:
-        raise ValueError(f"identity path escapes the artifact root: {relative}") from error
+        raise ValueError(
+            f"identity path escapes the artifact root: {relative}"
+        ) from error
     return path
 
 
@@ -64,7 +66,9 @@ def blocker_count(blockers: dict) -> int:
         if not isinstance(values, list):
             raise ValueError(f"blocker group must be an array: {label}")
         if any(not isinstance(value, str) or not value for value in values):
-            raise ValueError(f"blocker group contains an empty/non-string value: {label}")
+            raise ValueError(
+                f"blocker group contains an empty/non-string value: {label}"
+            )
         count += len(values)
     return count
 
@@ -73,7 +77,10 @@ def weight_complete(task: dict) -> bool:
     materialization = task.get("weight_materialization")
     if not isinstance(materialization, dict):
         return False
-    if "pair_complete" in materialization and materialization["pair_complete"] is not True:
+    if (
+        "pair_complete" in materialization
+        and materialization["pair_complete"] is not True
+    ):
         return False
     states = []
     if isinstance(materialization.get("state"), str):
@@ -124,6 +131,22 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
     )
     assert environment_path is not None
     environment = read_object(environment_path)
+    suite_protocol = suite.get("protocol")
+    suite_environment = (
+        suite_protocol.get("environment_identity")
+        if isinstance(suite_protocol, dict)
+        else None
+    )
+    if not isinstance(suite_environment, dict):
+        raise ValueError("temporal suite has no environment identity")
+    suite_environment_path = validate_identity(
+        suite_path.parent, suite_environment, "temporal-suite environment"
+    )
+    identities += 1
+    if suite_environment_path != environment_path or suite_environment.get(
+        "sha256"
+    ) != readiness["formal_resource"]["environment"].get("sha256"):
+        raise ValueError("frozen environment identity differs from the temporal suite")
     frozen_resources = environment.get("resources")
     if not isinstance(frozen_resources, dict) or not frozen_resources:
         raise ValueError("frozen environment has no task resources")
@@ -144,7 +167,10 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
     }
     readiness_task_ids = [task.get("task_id") for task in tasks.values()]
     if (
-        any(not isinstance(task_id, str) or not task_id for task_id in readiness_task_ids)
+        any(
+            not isinstance(task_id, str) or not task_id
+            for task_id in readiness_task_ids
+        )
         or len(readiness_task_ids) != len(set(readiness_task_ids))
         or len(suite_by_id) != len(suite_tasks)
         or set(suite_by_id) != set(readiness_task_ids)
@@ -157,15 +183,29 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
         if task["formal_resource_id"] != frozen.get("resource_id"):
             raise ValueError(f"task resource id drift: {task_id}")
         if task["formal_resource_id"] != formal_resource_id:
-            raise ValueError(f"task is not bound to the formal cohort resource: {task_id}")
+            raise ValueError(
+                f"task is not bound to the formal cohort resource: {task_id}"
+            )
         if task["formal_gpu_uuids"] != frozen.get("gpu_uuids"):
             raise ValueError(f"task GPU UUID drift: {task_id}")
         if len(task["formal_gpu_uuids"]) != frozen.get("required_gpu_count"):
             raise ValueError(f"task GPU count does not match UUID lock: {task_id}")
         check(task["intake"], f"{task_id} intake")
-        check(task["task_packet"], f"{task_id} task packet")
-        if suite_by_id[stable_task_id].get("packet") != task["task_packet"]:
-            raise ValueError(f"task packet identity differs from the temporal suite: {task_id}")
+        task_packet_path = check(task["task_packet"], f"{task_id} task packet")
+        assert task_packet_path is not None
+        suite_packet = suite_by_id[stable_task_id].get("packet")
+        if not isinstance(suite_packet, dict):
+            raise ValueError(f"temporal suite has no task packet: {task_id}")
+        suite_packet_path = validate_identity(
+            suite_path.parent, suite_packet, f"temporal-suite task packet {task_id}"
+        )
+        identities += 1
+        if suite_packet_path != task_packet_path or suite_packet.get("sha256") != task[
+            "task_packet"
+        ].get("sha256"):
+            raise ValueError(
+                f"task packet identity differs from the temporal suite: {task_id}"
+            )
         check(task["bounded_supervisor"], f"{task_id} bounded supervisor")
         if task.get("target_access_preflight") is not None:
             check(task["target_access_preflight"], f"{task_id} target access preflight")
@@ -186,7 +226,10 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
         raise ValueError(
             "a pre-GPU readiness artifact must not grant dispatch authorization"
         )
-    if readiness["execution"]["compile_started"] or readiness["execution"]["gpu_started"]:
+    if (
+        readiness["execution"]["compile_started"]
+        or readiness["execution"]["gpu_started"]
+    ):
         raise ValueError("pre-GPU evidence was written after compile/GPU execution")
     if readiness["execution"]["gpu_seconds"] != 0:
         raise ValueError("pre-GPU evidence reports nonzero GPU time")
