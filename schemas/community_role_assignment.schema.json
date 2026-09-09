@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_role_assignment.schema.json",
+  "title": "Frozen actor assignment for one community execution role",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "cycle_id", "claim_boundary", "role", "actor_id", "status"],
+  "properties": {
+    "schema_version": {"const": "community-role-assignment-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "claim_boundary": {"const": "FROZEN_ROLE_IDENTITY_NOT_APPROVAL"},
+    "role": {"enum": ["GLOBAL_SCHEDULER", "MICROARCHITECTURE_ANALYST", "EXPERIMENT_AGENT"]},
+    "actor_id": {"type": "string", "minLength": 1},
+    "status": {"const": "ACTIVE"}
+  }
+}

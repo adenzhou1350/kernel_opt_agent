@@ -1,0 +1,110 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_semantic_supervisor_approval.schema.json",
+  "title": "Semantically validated single-use community supervisor approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "approval_id", "status", "issued_at", "expires_at",
+    "claim_boundary", "validator_binding", "authorization_request", "request_id", "cycle_id",
+    "issued_by", "action", "supervisor_registry", "role_artifacts",
+    "approved_budget", "contract_bindings", "approval_scope_sha256",
+    "single_use_token", "single_use", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-semantic-supervisor-approval-v2"},
+    "approval_id": {"type": "string", "minLength": 1},
+    "status": {"const": "APPROVED"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "READY_FOR_ATOMIC_CONSUMPTION_NOT_DISPATCH_AUTHORIZATION"},
+    "validator_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_commit", "request_schema_sha256", "approval_schema_sha256",
+        "registry_schema_sha256", "role_schema_sha256", "budget_schema_sha256",
+        "validator_sha256"
+      ],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "request_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "approval_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "registry_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "role_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "budget_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "validator_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "authorization_request": {"$ref": "#/$defs/identity"},
+    "request_id": {"type": "string", "minLength": 1},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "issued_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "supervisor_id"],
+      "properties": {
+        "role": {"const": "GLOBAL_SUPERVISOR"},
+        "supervisor_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "action": {"const": "DISPATCH_FROZEN_COHORT_QUALIFICATION"},
+    "supervisor_registry": {"$ref": "#/$defs/identity"},
+    "role_artifacts": {"$ref": "#/$defs/role_artifacts"},
+    "approved_budget": {"$ref": "#/$defs/budget"},
+    "contract_bindings": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/contract_binding"}
+    },
+    "approval_scope_sha256": {"$ref": "#/$defs/sha256"},
+    "single_use_token": {"$ref": "#/$defs/sha256"},
+    "single_use": {"const": true},
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "role_artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheduler", "analyst", "experimenter"],
+      "properties": {
+        "scheduler": {"$ref": "#/$defs/identity"},
+        "analyst": {"$ref": "#/$defs/identity"},
+        "experimenter": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_dispatches", "max_process_launches", "max_wall_clock_seconds", "max_gpu_seconds"],
+      "properties": {
+        "max_dispatches": {"type": "integer", "minimum": 1},
+        "max_process_launches": {"type": "integer", "minimum": 1},
+        "max_wall_clock_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "max_gpu_seconds": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "contract_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "decision_contract", "measurability_contract", "frontier", "objective"],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "decision_contract": {"$ref": "#/$defs/identity"},
+        "measurability_contract": {"$ref": "#/$defs/identity"},
+        "frontier": {"$ref": "#/$defs/identity"},
+        "objective": {"$ref": "#/$defs/identity"}
+      }
+    }
+  }
+}

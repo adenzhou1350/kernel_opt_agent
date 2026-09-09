@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_execution_budget.schema.json",
+  "title": "Exact requested and maximum budget for one frozen community cohort",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "request_id", "cycle_id", "claim_boundary", "requested", "maximum"],
+  "properties": {
+    "schema_version": {"const": "community-execution-budget-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "request_id": {"type": "string", "minLength": 1},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "claim_boundary": {"const": "FROZEN_EXECUTION_BUDGET_NOT_AUTHORIZATION"},
+    "requested": {"$ref": "#/$defs/budget"},
+    "maximum": {"$ref": "#/$defs/budget"}
+  },
+  "$defs": {
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_dispatches", "max_process_launches", "max_wall_clock_seconds", "max_gpu_seconds"],
+      "properties": {
+        "max_dispatches": {"type": "integer", "minimum": 1},
+        "max_process_launches": {"type": "integer", "minimum": 1},
+        "max_wall_clock_seconds": {"type": "number", "exclusiveMinimum": 0},
+        "max_gpu_seconds": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

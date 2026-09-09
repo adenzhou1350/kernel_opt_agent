@@ -308,6 +308,16 @@ sealed argv were authorized. Existing frozen readiness, observation and report
 formats remain unchanged; they are inputs or legacy evidence, not substitutes
 for this combined gate.
 
+Semantic supervisor approval v2 is intentionally a pre-dispatch layer. Validate
+it with `scripts/community_semantic_approval.py`; a successful result is
+`READY_FOR_ATOMIC_CONSUMPTION`, always reports
+`gpu_dispatch_authorized=false`, and must still be consumed exactly once by a
+versioned atomic dispatcher. The validator binds the trusted supervisor
+registry, distinct scheduler/analyst/experimenter roles, exact bounded budget,
+per-task decision/measurability/frontier/objective chain, frozen request scope,
+expiry policy, and its own declared Git blobs. The v1 combined gate continues
+to reject non-null approvals and there is no compatibility auto-upgrade.
+
 ## Upstream delivery package
 
 An accepted optimization is not automatically an upstream-ready change. Build

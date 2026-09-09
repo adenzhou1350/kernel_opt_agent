@@ -274,6 +274,17 @@ arms; they may not change the frozen task identity, workload, schedule, metric
 weights or hidden-solution boundary. The supplemental gate never grants GPU
 dispatch and does not rewrite a frozen readiness artifact or validator.
 
+Semantic approval is a third, separately versioned layer. A
+`community-semantic-supervisor-approval-v2` is valid only when
+`scripts/community_semantic_approval.py` recomputes the trusted active
+supervisor, pairwise-distinct scheduler/analyst/experimenter roles, exact
+bounded budget, per-task decision/measurability/frontier/objective relations,
+request scope and expiry policy. Its successful state is only
+`READY_FOR_ATOMIC_CONSUMPTION`; it cannot authorize GPU dispatch. A later
+atomic dispatcher must claim the single-use token before creating a process,
+and a consumed token must never become reusable. Legacy v1 approvals do not
+auto-upgrade.
+
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
 community graph; an augmented trial contains only the frozen graph. During
