@@ -6,10 +6,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
+import community_execution_authorization as authorization_module  # noqa: E402
 from community_execution_authorization import (  # noqa: E402
     AUTHORIZATION_SCHEMA,
     REQUEST_SCHEMA,
@@ -22,7 +22,9 @@ from community_knowledge import sha256_file  # noqa: E402
 
 def write_json(path: Path, value: dict | list) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
 
 
 def identity(path: Path, base: Path) -> dict:
@@ -62,24 +64,56 @@ def approval(request_identity: dict) -> dict:
     }
 
 
-def build_bundle(base: Path, p_ready: bool, e_ready: bool, a_ready: bool) -> tuple[Path, dict]:
+def stub_canonical_gate_validators(monkeypatch) -> None:
+    def validate_pre(path: Path, _root: Path) -> dict:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            "state": value["state"],
+            "eligible_to_execute_arms": value["eligible_to_execute_arms"],
+        }
+
+    def validate_execution(path: Path, _root: Path) -> dict:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            "state": value["state"],
+            "eligible_by_this_gate": value["eligible_by_this_gate"],
+        }
+
+    monkeypatch.setattr(
+        authorization_module, "validate_canonical_pre_gpu_readiness", validate_pre
+    )
+    monkeypatch.setattr(
+        authorization_module,
+        "validate_canonical_execution_readiness",
+        validate_execution,
+    )
+
+
+def build_bundle(
+    base: Path, p_ready: bool, e_ready: bool, a_ready: bool
+) -> tuple[Path, dict]:
     suite_path = base / "suite.json"
     sealed_path = base / "sealed-argv.json"
     write_json(suite_path, {"suite_id": "suite-1"})
     write_json(sealed_path, ["python", "runner.py"])
-    schedule = [{
-        "order_index": 1,
-        "task_id": "task-key",
-        "repeat_index": 1,
-        "arm": "CONTROL",
-        "schedule_key": "1" * 64,
-    }]
+    schedule = [
+        {
+            "order_index": 1,
+            "task_id": "task-key",
+            "repeat_index": 1,
+            "arm": "CONTROL",
+            "schedule_key": "1" * 64,
+        }
+    ]
     cohort_path = base / "cohort.json"
-    write_json(cohort_path, {
-        "cycle_id": "cycle-1",
-        "primary_tasks": [{"task_id": "task-key"}],
-        "randomized_schedule": {"entries": schedule},
-    })
+    write_json(
+        cohort_path,
+        {
+            "cycle_id": "cycle-1",
+            "primary_tasks": [{"task_id": "task-key"}],
+            "randomized_schedule": {"entries": schedule},
+        },
+    )
     pre_path = base / "pre.json"
     pre = {
         "cycle_id": "cycle-1",
@@ -99,7 +133,9 @@ def build_bundle(base: Path, p_ready: bool, e_ready: bool, a_ready: bool) -> tup
     execution_path = base / "execution.json"
     execution = {
         "cycle_id": "cycle-1",
-        "state": "EXECUTION_CONTRACT_READY" if e_ready else "EXECUTION_CONTRACT_BLOCKED",
+        "state": "EXECUTION_CONTRACT_READY"
+        if e_ready
+        else "EXECUTION_CONTRACT_BLOCKED",
         "eligible_by_this_gate": e_ready,
         "base_readiness": identity(pre_path, base),
         "tasks": {
@@ -145,12 +181,18 @@ def build_bundle(base: Path, p_ready: bool, e_ready: bool, a_ready: bool) -> tup
         "generated_at": "2026-09-09T00:00:01Z",
         "cycle_id": "cycle-1",
         "state": "DISPATCH_AUTHORIZED" if allowed else "DISPATCH_BLOCKED",
-        "claim_boundary": "P_AND_E_AND_A_DISPATCH_GATE_NOT_EXECUTION_OR_RESULT_EVIDENCE",
+        "claim_boundary": (
+            "P_AND_E_AND_A_DISPATCH_GATE_NOT_EXECUTION_OR_RESULT_EVIDENCE"
+        ),
         "validator_binding": {
             "repository_commit": "96f86f0444f6ad354167f4c2a7e2dd00277f3d73",
             "request_schema_sha256": sha256_file(ROOT / "schemas" / REQUEST_SCHEMA),
-            "authorization_schema_sha256": sha256_file(ROOT / "schemas" / AUTHORIZATION_SCHEMA),
-            "validator_sha256": sha256_file(ROOT / "scripts" / "community_execution_authorization.py"),
+            "authorization_schema_sha256": sha256_file(
+                ROOT / "schemas" / AUTHORIZATION_SCHEMA
+            ),
+            "validator_sha256": sha256_file(
+                ROOT / "scripts" / "community_execution_authorization.py"
+            ),
         },
         "authorization_request": request_identity,
         "pre_gpu_gate": request["pre_gpu_gate"],
@@ -164,13 +206,22 @@ def build_bundle(base: Path, p_ready: bool, e_ready: bool, a_ready: bool) -> tup
         "remaining_blockers": [] if allowed else ["P_AND_E_AND_A_NOT_ALL_TRUE"],
         "gpu_dispatch_authorized": allowed,
         "hidden_oracle_exposed": False,
-        "execution": {"compile_started": False, "gpu_started": False, "gpu_seconds": 0.0},
+        "execution": {
+            "compile_started": False,
+            "gpu_started": False,
+            "gpu_seconds": 0.0,
+        },
     }
     write_json(authorization_path, authorization)
-    return authorization_path, {"request": request, "authorization": authorization, "base": base}
+    return authorization_path, {
+        "request": request,
+        "authorization": authorization,
+        "base": base,
+    }
 
 
-def test_truth_table_only_all_three_true_authorizes() -> None:
+def test_truth_table_only_all_three_true_authorizes(monkeypatch) -> None:
+    stub_canonical_gate_validators(monkeypatch)
     for p_ready in (False, True):
         for e_ready in (False, True):
             for a_ready in (False, True):
@@ -180,12 +231,15 @@ def test_truth_table_only_all_three_true_authorizes() -> None:
                     assert result["allowed"] is (p_ready and e_ready and a_ready)
 
 
-def test_request_rejects_uuid_and_sealed_argv_drift() -> None:
+def test_request_rejects_uuid_and_sealed_argv_drift(monkeypatch) -> None:
+    stub_canonical_gate_validators(monkeypatch)
     for mutation in ("uuid", "argv"):
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
             path, bundle = build_bundle(base, True, True, True)
-            request_path = base / bundle["authorization"]["authorization_request"]["path"]
+            request_path = (
+                base / bundle["authorization"]["authorization_request"]["path"]
+            )
             request = copy.deepcopy(bundle["request"])
             if mutation == "uuid":
                 request["tasks"]["task-key"]["formal_gpu_uuids"] = [
@@ -210,30 +264,39 @@ def test_request_rejects_uuid_and_sealed_argv_drift() -> None:
                 raise AssertionError(f"{mutation} drift must fail closed")
 
 
-def test_dispatch_receipt_requires_authorized_exact_schedule() -> None:
+def test_dispatch_receipt_requires_authorized_exact_schedule(monkeypatch) -> None:
+    stub_canonical_gate_validators(monkeypatch)
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         authorization_path, bundle = build_bundle(base, True, True, True)
         receipt_path = base / "receipt.json"
-        write_json(receipt_path, {
-            "schema_version": "community-dispatch-receipt-v1",
-            "dispatched_at": "2026-09-09T00:01:00Z",
-            "claim_boundary": "IMMUTABLE_DISPATCH_PROVENANCE_NOT_RESULT_EVIDENCE",
-            "cycle_id": "cycle-1",
-            "suite_id": "suite-1",
-            "task_key": "task-key",
-            "task_id": "stable-task-id",
-            "repeat_index": 1,
-            "arm": "CONTROL",
-            "order_index": 1,
-            "schedule_key": "1" * 64,
-            "combined_authorization": identity(authorization_path, base),
-            "authorization_request": bundle["authorization"]["authorization_request"],
-            "sealed_argv": bundle["request"]["tasks"]["task-key"]["sealed_argv"],
-            "dispatcher_id": "community-dispatcher-1",
-            "state": "DISPATCHED",
-        })
-        assert validate_dispatch_receipt(receipt_path, base)["receipt"]["state"] == "DISPATCHED"
+        write_json(
+            receipt_path,
+            {
+                "schema_version": "community-dispatch-receipt-v1",
+                "dispatched_at": "2026-09-09T00:01:00Z",
+                "claim_boundary": "IMMUTABLE_DISPATCH_PROVENANCE_NOT_RESULT_EVIDENCE",
+                "cycle_id": "cycle-1",
+                "suite_id": "suite-1",
+                "task_key": "task-key",
+                "task_id": "stable-task-id",
+                "repeat_index": 1,
+                "arm": "CONTROL",
+                "order_index": 1,
+                "schedule_key": "1" * 64,
+                "combined_authorization": identity(authorization_path, base),
+                "authorization_request": bundle["authorization"][
+                    "authorization_request"
+                ],
+                "sealed_argv": bundle["request"]["tasks"]["task-key"]["sealed_argv"],
+                "dispatcher_id": "community-dispatcher-1",
+                "state": "DISPATCHED",
+            },
+        )
+        assert (
+            validate_dispatch_receipt(receipt_path, base)["receipt"]["state"]
+            == "DISPATCHED"
+        )
         receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
         receipt["schedule_key"] = "2" * 64
         write_json(receipt_path, receipt)
@@ -245,19 +308,76 @@ def test_dispatch_receipt_requires_authorized_exact_schedule() -> None:
             raise AssertionError("schedule drift must fail closed")
 
 
+def test_dispatch_receipt_rejects_cycle_and_suite_substitution(monkeypatch) -> None:
+    stub_canonical_gate_validators(monkeypatch)
+    for field, replacement in (
+        ("cycle_id", "foreign-cycle"),
+        ("suite_id", "foreign-suite"),
+    ):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            authorization_path, bundle = build_bundle(base, True, True, True)
+            receipt_path = base / "receipt.json"
+            receipt = {
+                "schema_version": "community-dispatch-receipt-v1",
+                "dispatched_at": "2026-09-09T00:01:00Z",
+                "claim_boundary": "IMMUTABLE_DISPATCH_PROVENANCE_NOT_RESULT_EVIDENCE",
+                "cycle_id": "cycle-1",
+                "suite_id": "suite-1",
+                "task_key": "task-key",
+                "task_id": "stable-task-id",
+                "repeat_index": 1,
+                "arm": "CONTROL",
+                "order_index": 1,
+                "schedule_key": "1" * 64,
+                "combined_authorization": identity(authorization_path, base),
+                "authorization_request": bundle["authorization"][
+                    "authorization_request"
+                ],
+                "sealed_argv": bundle["request"]["tasks"]["task-key"]["sealed_argv"],
+                "dispatcher_id": "community-dispatcher-1",
+                "state": "DISPATCHED",
+            }
+            receipt[field] = replacement
+            write_json(receipt_path, receipt)
+            try:
+                validate_dispatch_receipt(receipt_path, base)
+            except ValueError as error:
+                assert field.removesuffix("_id") in str(error)
+            else:
+                raise AssertionError(f"{field} substitution must fail closed")
+
+
+def test_authorization_rejects_noncanonical_gate_artifacts() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        authorization_path, _ = build_bundle(base, True, True, True)
+        try:
+            validate_authorization(authorization_path, base)
+        except ValueError as error:
+            assert "pre-GPU readiness schema" in str(error)
+        else:
+            raise AssertionError("noncanonical P/E artifacts must fail closed")
+
+
 def test_observation_provenance_rejects_missing_dispatch_receipt() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         path = base / "observation-provenance.json"
-        write_json(path, {
-            "schema_version": "community-work-cycle-observation-provenance-v2",
-            "generated_at": "2026-09-09T00:02:00Z",
-            "claim_boundary": "OBSERVATION_WITH_AUTHORIZED_DISPATCH_PROVENANCE",
-            "observation": {"path": "observation.json", "sha256": "0" * 64},
-        })
+        write_json(
+            path,
+            {
+                "schema_version": "community-work-cycle-observation-provenance-v2",
+                "generated_at": "2026-09-09T00:02:00Z",
+                "claim_boundary": "OBSERVATION_WITH_AUTHORIZED_DISPATCH_PROVENANCE",
+                "observation": {"path": "observation.json", "sha256": "0" * 64},
+            },
+        )
         try:
             validate_observation_provenance(path, base)
         except ValueError as error:
             assert "dispatch_receipt" in str(error)
         else:
-            raise AssertionError("observation without a dispatch receipt must fail closed")
+            raise AssertionError(
+                "observation without a dispatch receipt must fail closed"
+            )

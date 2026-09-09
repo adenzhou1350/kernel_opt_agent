@@ -8,11 +8,16 @@ import json
 import subprocess
 from pathlib import Path
 
+from community_execution_readiness import (
+    validate_execution_readiness as validate_canonical_execution_readiness,
+)
 from community_knowledge import read_object, sha256_file
 from community_meta_cycle_report import validate_report
+from community_pre_gpu_readiness import (
+    validate_readiness as validate_canonical_pre_gpu_readiness,
+)
 from community_work_cycle_observation import validate_observation
 from schema_utils import validate_json_file
-
 
 REQUEST_SCHEMA = "community_execution_authorization_request.schema.json"
 AUTHORIZATION_SCHEMA = "community_combined_execution_authorization.schema.json"
@@ -33,7 +38,9 @@ def resolve_inside(base: Path, relative: str) -> Path:
     try:
         path.relative_to(base)
     except ValueError as error:
-        raise ValueError(f"identity path escapes the artifact root: {relative}") from error
+        raise ValueError(
+            f"identity path escapes the artifact root: {relative}"
+        ) from error
     return path
 
 
@@ -72,9 +79,8 @@ def canonical_schedule(entries: list[dict]) -> list[dict]:
 def same_identity(left: dict | None, right: dict | None) -> bool:
     if left is None or right is None:
         return left is right
-    return (
-        left.get("path") == right.get("path")
-        and left.get("sha256") == right.get("sha256")
+    return left.get("path") == right.get("path") and left.get("sha256") == right.get(
+        "sha256"
     )
 
 
@@ -87,17 +93,26 @@ def validate_request(request_path: Path, artifact_root: Path) -> dict:
     )
     cohort_path = validate_identity(artifact_root, request["cohort"], "cohort freeze")
     suite_path = validate_identity(artifact_root, request["suite"], "temporal suite")
+    pre_validation = validate_canonical_pre_gpu_readiness(pre_path, pre_path.parent)
+    execution_validation = validate_canonical_execution_readiness(
+        execution_path, artifact_root
+    )
     pre = read_object(pre_path)
     execution = read_object(execution_path)
     cohort = read_object(cohort_path)
+    suite = read_object(suite_path)
 
     if not (
-        request["cycle_id"] == pre.get("cycle_id") == execution.get("cycle_id")
+        request["cycle_id"]
+        == pre.get("cycle_id")
+        == execution.get("cycle_id")
         == cohort.get("cycle_id")
     ):
         raise ValueError("request mixes cycle identities")
     if not same_identity(execution.get("base_readiness"), request["pre_gpu_gate"]):
-        raise ValueError("execution-contract gate is not bound to the requested pre-GPU gate")
+        raise ValueError(
+            "execution-contract gate is not bound to the requested pre-GPU gate"
+        )
     pre_suite_identity = pre.get("protocol_binding", {}).get("temporal_suite")
     if not isinstance(pre_suite_identity, dict):
         raise ValueError("pre-GPU readiness has no temporal suite identity")
@@ -106,29 +121,44 @@ def validate_request(request_path: Path, artifact_root: Path) -> dict:
     )
     if pre_suite_path != suite_path:
         raise ValueError("request suite differs from pre-GPU readiness")
-    if pre.get("cohort_binding", {}).get("cohort_freeze_sha256") != request["cohort"]["sha256"]:
+    if (
+        pre.get("cohort_binding", {}).get("cohort_freeze_sha256")
+        != request["cohort"]["sha256"]
+    ):
         raise ValueError("request cohort differs from pre-GPU readiness")
-    if request["formal_resource_id"] != pre.get("formal_resource", {}).get("resource_id"):
+    if request["formal_resource_id"] != pre.get("formal_resource", {}).get(
+        "resource_id"
+    ):
         raise ValueError("request formal resource differs from pre-GPU readiness")
 
     pre_tasks = pre.get("task_freezes", {})
     execution_tasks = execution.get("tasks", {})
     request_tasks = request["tasks"]
-    if set(request_tasks) != set(pre_tasks) or set(request_tasks) != set(execution_tasks):
+    if set(request_tasks) != set(pre_tasks) or set(request_tasks) != set(
+        execution_tasks
+    ):
         raise ValueError("request task keys differ across P/E gates")
     for key, task in request_tasks.items():
-        if task["task_id"] != pre_tasks[key].get("task_id") or task["task_id"] != execution_tasks[key].get("task_id"):
+        if task["task_id"] != pre_tasks[key].get("task_id") or task[
+            "task_id"
+        ] != execution_tasks[key].get("task_id"):
             raise ValueError(f"request task identity drift: {key}")
         if task["formal_gpu_uuids"] != pre_tasks[key].get("formal_gpu_uuids"):
             raise ValueError(f"request GPU UUID drift: {key}")
-        if not same_identity(task["sealed_argv"], execution_tasks[key].get("sealed_argv")):
+        if not same_identity(
+            task["sealed_argv"], execution_tasks[key].get("sealed_argv")
+        ):
             raise ValueError(f"request sealed argv drift: {key}")
         validate_identity(artifact_root, task["sealed_argv"], f"{key} sealed argv")
 
     frozen_schedule = cohort.get("randomized_schedule", {}).get("entries")
-    if not isinstance(frozen_schedule, list) or canonical_schedule(request["schedule"]) != canonical_schedule(frozen_schedule):
+    if not isinstance(frozen_schedule, list) or canonical_schedule(
+        request["schedule"]
+    ) != canonical_schedule(frozen_schedule):
         raise ValueError("request schedule differs from the frozen cohort")
-    if sorted(row["order_index"] for row in request["schedule"]) != list(range(1, len(request["schedule"]) + 1)):
+    if sorted(row["order_index"] for row in request["schedule"]) != list(
+        range(1, len(request["schedule"]) + 1)
+    ):
         raise ValueError("request schedule order_index must be contiguous")
     scheduled_tasks = {row["task_id"] for row in request["schedule"]}
     cohort_task_ids = {task.get("task_id") for task in cohort.get("primary_tasks", [])}
@@ -137,7 +167,15 @@ def validate_request(request_path: Path, artifact_root: Path) -> dict:
     if suite_path.stat().st_size == 0:
         raise ValueError("temporal suite is empty")
 
-    return {"request": request, "pre": pre, "execution": execution, "cohort": cohort}
+    return {
+        "request": request,
+        "pre": pre,
+        "pre_validation": pre_validation,
+        "execution": execution,
+        "execution_validation": execution_validation,
+        "cohort": cohort,
+        "suite": suite,
+    }
 
 
 def validate_authorization(authorization_path: Path, artifact_root: Path) -> dict:
@@ -150,7 +188,9 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
     root = repository_root()
     expected = {
         "request_schema_sha256": sha256_file(root / "schemas" / REQUEST_SCHEMA),
-        "authorization_schema_sha256": sha256_file(root / "schemas" / AUTHORIZATION_SCHEMA),
+        "authorization_schema_sha256": sha256_file(
+            root / "schemas" / AUTHORIZATION_SCHEMA
+        ),
         "validator_sha256": sha256_file(Path(__file__)),
     }
     for key, value in expected.items():
@@ -169,15 +209,17 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
     if not same_identity(
         authorization["execution_contract_gate"], request["execution_contract_gate"]
     ):
-        raise ValueError("authorization execution-contract identity differs from request")
+        raise ValueError(
+            "authorization execution-contract identity differs from request"
+        )
 
     pre_ready = (
-        bundle["pre"].get("state") == "PRE_GPU_GATE_READY"
-        and bundle["pre"].get("eligible_to_execute_arms") is True
+        bundle["pre_validation"].get("state") == "PRE_GPU_GATE_READY"
+        and bundle["pre_validation"].get("eligible_to_execute_arms") is True
     )
     execution_ready = (
-        bundle["execution"].get("state") == "EXECUTION_CONTRACT_READY"
-        and bundle["execution"].get("eligible_by_this_gate") is True
+        bundle["execution_validation"].get("state") == "EXECUTION_CONTRACT_READY"
+        and bundle["execution_validation"].get("eligible_by_this_gate") is True
     )
     approval_identity = authorization["supervisor_approval"]
     supervisor_ready = False
@@ -210,11 +252,22 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
     if authorization["gpu_dispatch_authorized"] is not allowed:
         raise ValueError("gpu_dispatch_authorized must equal P AND E AND A")
     if allowed:
-        if authorization["state"] != "DISPATCH_AUTHORIZED" or authorization["remaining_blockers"]:
+        if (
+            authorization["state"] != "DISPATCH_AUTHORIZED"
+            or authorization["remaining_blockers"]
+        ):
             raise ValueError("authorized state requires no remaining blockers")
-    elif authorization["state"] != "DISPATCH_BLOCKED" or not authorization["remaining_blockers"]:
+    elif (
+        authorization["state"] != "DISPATCH_BLOCKED"
+        or not authorization["remaining_blockers"]
+    ):
         raise ValueError("blocked state requires at least one remaining blocker")
-    return {"authorization": authorization, "request": request, "allowed": allowed}
+    return {
+        "authorization": authorization,
+        "request": request,
+        "suite": bundle["suite"],
+        "allowed": allowed,
+    }
 
 
 def validate_dispatch_receipt(receipt_path: Path, artifact_root: Path) -> dict:
@@ -232,10 +285,18 @@ def validate_dispatch_receipt(receipt_path: Path, artifact_root: Path) -> dict:
     ):
         raise ValueError("dispatch receipt request differs from authorization")
     request = bundle["request"]
+    if receipt["cycle_id"] != request["cycle_id"]:
+        raise ValueError("dispatch receipt cycle differs from authorization request")
+    if receipt["suite_id"] != bundle["suite"].get("suite_id"):
+        raise ValueError("dispatch receipt suite differs from authorization request")
     rows = [
-        row for row in request["schedule"]
+        row
+        for row in request["schedule"]
         if receipt["task_key"] == row["task_id"]
-        and all(receipt[key] == row[key] for key in ("repeat_index", "arm", "order_index", "schedule_key"))
+        and all(
+            receipt[key] == row[key]
+            for key in ("repeat_index", "arm", "order_index", "schedule_key")
+        )
     ]
     if len(rows) != 1:
         raise ValueError("dispatch receipt is not one exact frozen schedule entry")
@@ -251,11 +312,19 @@ def validate_dispatch_receipt(receipt_path: Path, artifact_root: Path) -> dict:
 
 
 def validate_observation_provenance(path: Path, artifact_root: Path) -> dict:
-    envelope = validate_schema(path, OBSERVATION_PROVENANCE_SCHEMA, "observation provenance")
+    envelope = validate_schema(
+        path, OBSERVATION_PROVENANCE_SCHEMA, "observation provenance"
+    )
     artifact_root = artifact_root.resolve()
-    observation_path = validate_identity(artifact_root, envelope["observation"], "observation")
-    receipt_path = validate_identity(artifact_root, envelope["dispatch_receipt"], "dispatch receipt")
-    observation = validate_observation(observation_path, repository_root())["observation"]
+    observation_path = validate_identity(
+        artifact_root, envelope["observation"], "observation"
+    )
+    receipt_path = validate_identity(
+        artifact_root, envelope["dispatch_receipt"], "dispatch receipt"
+    )
+    observation = validate_observation(observation_path, repository_root())[
+        "observation"
+    ]
     receipt = validate_dispatch_receipt(receipt_path, artifact_root)["receipt"]
     for key in ("suite_id", "task_id", "repeat_index", "arm"):
         if observation[key] != receipt[key]:
@@ -266,7 +335,9 @@ def validate_observation_provenance(path: Path, artifact_root: Path) -> dict:
 def validate_report_provenance(path: Path, artifact_root: Path) -> dict:
     envelope = validate_schema(path, REPORT_PROVENANCE_SCHEMA, "report provenance")
     artifact_root = artifact_root.resolve()
-    report_path = validate_identity(artifact_root, envelope["report"], "meta-cycle report")
+    report_path = validate_identity(
+        artifact_root, envelope["report"], "meta-cycle report"
+    )
     authorization_path = validate_identity(
         artifact_root, envelope["combined_authorization"], "combined authorization"
     )
@@ -280,13 +351,20 @@ def validate_report_provenance(path: Path, artifact_root: Path) -> dict:
             expected.update(row["observation"]["sha256"] for row in rows)
     observed = set()
     for index, identity in enumerate(envelope["observation_provenance"]):
-        provenance_path = validate_identity(artifact_root, identity, f"observation provenance {index + 1}")
+        provenance_path = validate_identity(
+            artifact_root, identity, f"observation provenance {index + 1}"
+        )
         bundle = validate_observation_provenance(provenance_path, artifact_root)
-        if bundle["receipt"]["combined_authorization"] != envelope["combined_authorization"]:
+        if (
+            bundle["receipt"]["combined_authorization"]
+            != envelope["combined_authorization"]
+        ):
             raise ValueError("report mixes combined authorization identities")
         observed.add(bundle["envelope"]["observation"]["sha256"])
     if observed != expected or len(envelope["observation_provenance"]) != len(expected):
-        raise ValueError("report provenance does not cover every exact observation once")
+        raise ValueError(
+            "report provenance does not cover every exact observation once"
+        )
     return {"envelope": envelope, "report": report}
 
 
@@ -294,7 +372,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "command",
-        choices=["validate-request", "validate-authorization", "validate-receipt", "validate-observation", "validate-report"],
+        choices=[
+            "validate-request",
+            "validate-authorization",
+            "validate-receipt",
+            "validate-observation",
+            "validate-report",
+        ],
     )
     parser.add_argument("--artifact", required=True, type=Path)
     parser.add_argument("--artifact-root", required=True, type=Path)
@@ -307,7 +391,12 @@ def main() -> int:
         "validate-report": validate_report_provenance,
     }
     result = functions[args.command](args.artifact, args.artifact_root)
-    print(json.dumps({"status": "PASS", "command": args.command, "keys": sorted(result)}, indent=2))
+    print(
+        json.dumps(
+            {"status": "PASS", "command": args.command, "keys": sorted(result)},
+            indent=2,
+        )
+    )
     return 0
 
 
