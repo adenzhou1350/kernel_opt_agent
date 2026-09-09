@@ -17,6 +17,13 @@ must be a reviewable single-purpose slice with relevant tests and explicit claim
 boundaries. External experiment artifacts, hidden-oracle material, unverified
 performance claims and a monolithic backlog branch are not upstream-ready.
 
+A blocked resource or authorization gate pauses only the actions that depend on
+that gate. The lane continues one bounded safe task that reduces time to the
+next valid experiment or review, such as source-drift auditing, correctness-risk
+narrowing, evidence validation or PR slicing. Repeated no-change checks remain
+silent. A whole task stops only when its finite cycle is complete, the user
+pauses it, or the strict blocked audit proves that no safe useful work remains.
+
 The optimization objective remains the gap between a hardware/workload-derived
 theoretical limit and correct production performance. Community implementations
 are discovery priors and counterexamples, not target-hardware evidence and not

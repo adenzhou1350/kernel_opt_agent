@@ -46,6 +46,14 @@ def test_meta_governance_contract() -> None:
         delivery["upstream_pull_requests"]["forbids_unverified_performance_claims"]
         is True
     )
+    continuity = policy["continuity_policy"]
+    assert continuity["local_gate_blocks_only_dependent_actions"] is True
+    assert continuity["continue_bounded_safe_work"] is True
+    assert set(continuity["whole_task_stop_conditions"]) == {
+        "FINITE_CYCLE_COMPLETE",
+        "USER_PAUSED",
+        "STRICT_BLOCKED_AUDIT_SATISFIED",
+    }
 
 
 if __name__ == "__main__":

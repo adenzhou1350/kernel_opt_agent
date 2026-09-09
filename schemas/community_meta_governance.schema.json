@@ -9,6 +9,7 @@
     "purpose",
     "canonical_repository",
     "repository_delivery_policy",
+    "continuity_policy",
     "roles",
     "evidence_protocol",
     "promotion_policy",
@@ -92,6 +93,34 @@
             "forbids_hidden_oracle": {"const": true},
             "forbids_unverified_performance_claims": {"const": true},
             "forbids_monolithic_backlog_pr": {"const": true}
+          }
+        }
+      }
+    },
+    "continuity_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_gate_blocks_only_dependent_actions",
+        "continue_bounded_safe_work",
+        "no_material_change_is_silent",
+        "whole_task_stop_conditions"
+      ],
+      "properties": {
+        "local_gate_blocks_only_dependent_actions": {"const": true},
+        "continue_bounded_safe_work": {"const": true},
+        "no_material_change_is_silent": {"const": true},
+        "whole_task_stop_conditions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "FINITE_CYCLE_COMPLETE",
+              "USER_PAUSED",
+              "STRICT_BLOCKED_AUDIT_SATISFIED"
+            ]
           }
         }
       }

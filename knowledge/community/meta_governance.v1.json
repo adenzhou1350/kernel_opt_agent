@@ -29,6 +29,16 @@
       "forbids_monolithic_backlog_pr": true
     }
   },
+  "continuity_policy": {
+    "local_gate_blocks_only_dependent_actions": true,
+    "continue_bounded_safe_work": true,
+    "no_material_change_is_silent": true,
+    "whole_task_stop_conditions": [
+      "FINITE_CYCLE_COMPLETE",
+      "USER_PAUSED",
+      "STRICT_BLOCKED_AUDIT_SATISFIED"
+    ]
+  },
   "roles": {
     "control_plane": {
       "single_writer": true,
