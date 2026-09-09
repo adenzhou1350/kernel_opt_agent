@@ -16,7 +16,9 @@ snapshots and reviewed optimization events. See
 `scripts/kernel_opt.py community capture-pr|validate-corpus|validate-event`.
 Cross-framework ownership, evidence fields and champion/challenger promotion
 rules are defined in
-[`knowledge/community/meta_governance.v2.json`](knowledge/community/meta_governance.v2.json).
+[`knowledge/community/meta_governance.v2.json`](knowledge/community/meta_governance.v2.json)
+and the current four-lane role topology in
+[`knowledge/community/lane_topology.v3.json`](knowledge/community/lane_topology.v3.json).
 Cycle 1 keeps its original hash-bound
 [`meta_governance.v1.json`](knowledge/community/meta_governance.v1.json) identity;
 new control-plane policy is added in later versions rather than rewriting it.
