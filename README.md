@@ -340,6 +340,15 @@ predecessor chain, and both the declared Git commit and current worktree bytes
 for the schemas, validator and claim implementation must match. Passing this
 gate means only `ready_for_atomic_claim=true`; it never grants GPU dispatch.
 
+`scripts/community_execution_authorization_v2.py` is the store-bound bridge
+into that primitive. It independently re-runs the canonical pre-GPU and
+execution-contract validators, the semantic approval validator and the live
+store-deployment validator; resolves each exact argv from the frozen task and
+schedule; and derives `ready_for_atomic_claim` from `P && E && A && store`.
+Its output still has `gpu_dispatch_authorized=false`: only a later atomic
+dispatcher can consume the token, attest a child process and write terminal
+evidence. Version 1 remains legacy and is not reinterpreted in place.
+
 ## Four-lane delivery accounting
 
 The four autonomous execution lanes write canonical work-cycle ledgers while
