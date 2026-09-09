@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_entry_terminal_receipt.schema.json",
+  "title": "Terminal receipt for one consumed community schedule entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "recorded_at", "claim_boundary", "terminal_receipt_id",
+    "session_id", "entry_claim_id", "order_index", "schedule_key", "state",
+    "outcome", "dispatch_receipt_id", "launch_attempt_consumed",
+    "automatic_retry_allowed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-entry-terminal-receipt-v1"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "TERMINAL_ENTRY_EVIDENCE_PRESERVES_FAILURE_AND_AMBIGUITY"},
+    "terminal_receipt_id": {"$ref": "#/$defs/sha256"},
+    "session_id": {"$ref": "#/$defs/sha256"},
+    "entry_claim_id": {"$ref": "#/$defs/sha256"},
+    "order_index": {"type": "integer", "minimum": 1},
+    "schedule_key": {"$ref": "#/$defs/sha256"},
+    "state": {"const": "TERMINAL"},
+    "outcome": {
+      "enum": [
+        "SUCCESS", "CORRECTNESS_FAIL", "TIMEOUT", "PROCESS_FAIL",
+        "AMBIGUOUS_PRELAUNCH", "AMBIGUOUS_LAUNCH"
+      ]
+    },
+    "dispatch_receipt_id": {
+      "oneOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]
+    },
+    "launch_attempt_consumed": {"const": true},
+    "automatic_retry_allowed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
