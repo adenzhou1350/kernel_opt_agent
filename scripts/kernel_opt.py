@@ -17,6 +17,7 @@ sys.dont_write_bytecode = True
 class Command:
     script: str
     summary: str
+    prefix_args: tuple[str, ...] = ()
 
 
 COMMAND_GROUPS: dict[str, dict[str, Command]] = {
@@ -35,7 +36,15 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-timing": Command("community_work_cycle.py", "record research, compute, validation and upstream-delivery time"),
         "community-observation": Command("community_work_cycle_observation.py", "validate one unified prospective arm observation"),
         "community-funnel": Command("community_discovery_funnel.py", "measure discovery yield and retain routing feedback"),
-        "community-cycle-report": Command("community_meta_cycle_report.py", "validate a final cross-framework policy decision"),
+        "community-cycle-report": Command(
+            "community_execution_authorization.py",
+            "validate an authorization- and dispatch-provenance-bound policy decision",
+            ("validate-report",),
+        ),
+        "community-cycle-report-legacy": Command(
+            "community_meta_cycle_report.py",
+            "replay a historical report as non-actionable legacy evidence",
+        ),
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
     },
     "hardware": {
@@ -108,7 +117,9 @@ def main() -> int:
     # modules import shared helpers from scripts/; disable bytecode generation
     # before exec so normal framework use never creates scripts/__pycache__.
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
-    return subprocess.call([sys.executable, str(target), *forwarded])
+    return subprocess.call(
+        [sys.executable, str(target), *COMMANDS[args.command].prefix_args, *forwarded]
+    )
 
 
 if __name__ == "__main__":

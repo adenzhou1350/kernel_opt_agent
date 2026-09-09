@@ -16,7 +16,6 @@ from community_knowledge import read_object, sha256_file
 from community_work_cycle_observation import validate_observation
 from schema_utils import validate_instance, validate_json_file
 
-
 REPORT_SCHEMA = "community-meta-cycle-report-v1"
 PAIR_SCHEMA = "community-ab-report-v1"
 REPEAT_SCHEMA = "community-ab-repeat-summary-v1"
@@ -741,7 +740,19 @@ def main() -> int:
     args = parser.parse_args()
     if args.command == "validate":
         report = validate_report(args.report, args.evidence_root)
-        print(json.dumps({"status": "PASS", "cycle_id": report["cycle_id"]}, indent=2))
+        print(
+            json.dumps(
+                {
+                    "status": "PASS",
+                    "mode": "LEGACY_HISTORICAL_REPLAY",
+                    "claim_boundary": "NOT_AN_ACTIONABLE_POLICY_PROMOTION",
+                    "actionable_policy_decision": False,
+                    "cycle_id": report["cycle_id"],
+                    "historical_outcome": report["decision"]["outcome"],
+                },
+                indent=2,
+            )
+        )
         return 0
     raise AssertionError(args.command)
 

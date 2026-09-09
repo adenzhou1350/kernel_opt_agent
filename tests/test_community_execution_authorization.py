@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 import community_execution_authorization as authorization_module  # noqa: E402
+import community_meta_cycle_report as legacy_report_module  # noqa: E402
+import kernel_opt  # noqa: E402
 from community_execution_authorization import (  # noqa: E402
     AUTHORIZATION_SCHEMA,
     REQUEST_SCHEMA,
@@ -406,3 +408,42 @@ def test_observation_provenance_rejects_missing_dispatch_receipt() -> None:
             raise AssertionError(
                 "observation without a dispatch receipt must fail closed"
             )
+
+
+def test_public_policy_report_command_requires_provenance() -> None:
+    canonical = kernel_opt.COMMANDS["community-cycle-report"]
+    assert canonical.script == "community_execution_authorization.py"
+    assert canonical.prefix_args == ("validate-report",)
+    legacy = kernel_opt.COMMANDS["community-cycle-report-legacy"]
+    assert legacy.script == "community_meta_cycle_report.py"
+    assert legacy.prefix_args == ()
+
+
+def test_legacy_report_cli_is_explicitly_non_actionable(
+    monkeypatch, capsys, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(
+        legacy_report_module,
+        "validate_report",
+        lambda _report, _root: {
+            "cycle_id": "cycle-1",
+            "decision": {"outcome": "PROMOTE_DEFAULT"},
+        },
+    )
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "community_meta_cycle_report.py",
+            "validate",
+            "--report",
+            str(tmp_path / "report.json"),
+            "--evidence-root",
+            str(tmp_path),
+        ],
+    )
+    assert legacy_report_module.main() == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["mode"] == "LEGACY_HISTORICAL_REPLAY"
+    assert output["actionable_policy_decision"] is False
+    assert output["historical_outcome"] == "PROMOTE_DEFAULT"
