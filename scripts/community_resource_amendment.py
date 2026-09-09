@@ -79,10 +79,14 @@ def differences(left: object, right: object, pointer: str = "") -> set[str]:
 
 
 def allowed(pointer: str, prefixes: list[str]) -> bool:
-    return any(pointer == prefix or pointer.startswith(prefix + "/") for prefix in prefixes)
+    return any(
+        pointer == prefix or pointer.startswith(prefix + "/") for prefix in prefixes
+    )
 
 
-def substitute_resource_identities(value: object, replacements: dict[str, str]) -> object:
+def substitute_resource_identities(
+    value: object, replacements: dict[str, str]
+) -> object:
     """Return the only permitted resource rewrite of a frozen JSON value."""
     if isinstance(value, dict):
         return {
@@ -106,12 +110,8 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
         raise ValueError("invalid resource amendment schema: " + "; ".join(errors))
     amendment = read_object(path)
     artifact_root = artifact_root.resolve()
-    original_root = resolve_inside(
-        artifact_root, amendment["original_artifact_root"]
-    )
-    effective_root = resolve_inside(
-        artifact_root, amendment["effective_artifact_root"]
-    )
+    original_root = resolve_inside(artifact_root, amendment["original_artifact_root"])
+    effective_root = resolve_inside(artifact_root, amendment["effective_artifact_root"])
     if original_root == effective_root:
         raise ValueError("original and effective artifact roots must be distinct")
     readiness_path = checked_identity(
@@ -149,8 +149,7 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
     unsafe_prefixes = [
         value
         for value in prefixes
-        if value == "/"
-        or not any(term in value.lower() for term in SAFE_POINTER_TERMS)
+        if value == "/" or not any(term in value.lower() for term in SAFE_POINTER_TERMS)
     ]
     if unsafe_prefixes:
         raise ValueError(
@@ -213,9 +212,12 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
     replacements.update(zip(old["gpu_uuids"], new["gpu_uuids"], strict=False))
 
     expected_objects: dict[str, dict] = {}
-    for label, (_original_path, _effective_path, original, _effective) in (
-        closure_objects.items()
-    ):
+    for label, (
+        _original_path,
+        _effective_path,
+        original,
+        _effective,
+    ) in closure_objects.items():
         expected_objects[label] = substitute_resource_identities(
             copy.deepcopy(original), replacements
         )
@@ -228,12 +230,30 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
             raise ValueError("environment resource entry must be an object")
         resource["endpoint"] = new["endpoint"]
 
-    # Suite packet references are derived identities, not free-form resource fields.
+    # Suite packet and environment references are derived identities, not
+    # free-form resource fields.  A resource substitution changes the frozen
+    # environment bytes, so retaining the old digest would leave an otherwise
+    # valid-looking suite bound to the superseded host.
     suite = expected_objects["temporal-suite"]
     if not isinstance(suite.get("tasks"), list):
         raise ValueError("temporal suite must contain task packet references")
-    effective_packet_by_path: dict[str, str] = {}
+    protocol = suite.get("protocol")
+    environment_identity = (
+        protocol.get("environment_identity") if isinstance(protocol, dict) else None
+    )
+    if not isinstance(environment_identity, dict):
+        raise ValueError("temporal suite must bind the effective environment")
+    effective_environment_path = closure_objects["environment"][1]
     suite_parent = closure_objects["temporal-suite"][1].parent
+    effective_environment_by_path = {
+        effective_environment_path.relative_to(effective_root).as_posix(),
+        effective_environment_path.relative_to(suite_parent).as_posix(),
+    }
+    if environment_identity.get("path") not in effective_environment_by_path:
+        raise ValueError("temporal suite references an unbound effective environment")
+    environment_identity["sha256"] = sha256_file(effective_environment_path)
+
+    effective_packet_by_path: dict[str, str] = {}
     for task_id in task_ids:
         label = f"task-packet:{task_id}"
         effective_path = closure_objects[label][1]
@@ -247,16 +267,26 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
     referenced_paths: set[str] = set()
     for task in suite["tasks"]:
         packet = task.get("packet")
-        if not isinstance(packet, dict) or packet.get("path") not in effective_packet_by_path:
-            raise ValueError("temporal suite references an unbound effective task packet")
+        if (
+            not isinstance(packet, dict)
+            or packet.get("path") not in effective_packet_by_path
+        ):
+            raise ValueError(
+                "temporal suite references an unbound effective task packet"
+            )
         referenced_paths.add(packet["path"])
         packet["sha256"] = effective_packet_by_path[packet["path"]]
     if len(referenced_paths) != len(task_ids):
-        raise ValueError("temporal suite does not reference every effective task packet")
+        raise ValueError(
+            "temporal suite does not reference every effective task packet"
+        )
 
-    for label, (original_path, effective_path, _original, effective) in (
-        closure_objects.items()
-    ):
+    for label, (
+        original_path,
+        effective_path,
+        _original,
+        effective,
+    ) in closure_objects.items():
         if effective != expected_objects[label]:
             drift = sorted(differences(expected_objects[label], effective))
             raise ValueError(

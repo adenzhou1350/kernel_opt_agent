@@ -77,12 +77,22 @@ def fixture(root: Path) -> tuple[Path, dict]:
         effective = root / "effective" / f"{filename}.json"
         original.parent.mkdir(exist_ok=True)
         effective.parent.mkdir(exist_ok=True)
-        common = {"task": label, "schedule": ["CONTROL", "COMMUNITY_AUGMENTED"], "metric": "TTFT"}
+        common = {
+            "task": label,
+            "schedule": ["CONTROL", "COMMUNITY_AUGMENTED"],
+            "metric": "TTFT",
+        }
         if label == "temporal-suite":
             common["tasks"] = [
                 {"task_id": task_id, "packet": {"path": path, "sha256": "pending"}}
                 for task_id, path in packet_paths.items()
             ]
+            common["protocol"] = {
+                "environment_identity": {
+                    "path": "environment.json",
+                    "sha256": "pending",
+                }
+            }
         if label == "environment":
             common = {
                 "resources": {
@@ -136,9 +146,14 @@ def fixture(root: Path) -> tuple[Path, dict]:
         if item["label"].startswith("task-packet:")
     }
     suite_item = next(item for item in closure if item["label"] == "temporal-suite")
+    environment_item = next(item for item in closure if item["label"] == "environment")
     for side in ("original", "effective"):
         suite_path = root / suite_item[side]["path"]
         suite = json.loads(suite_path.read_text(encoding="utf-8"))
+        suite["protocol"]["environment_identity"] = {
+            "path": Path(environment_item[side]["path"]).name,
+            "sha256": environment_item[side]["sha256"],
+        }
         for task in suite["tasks"]:
             if side == "effective":
                 task["packet"]["sha256"] = packet_hashes[task["task_id"]]
@@ -180,6 +195,7 @@ def fixture(root: Path) -> tuple[Path, dict]:
             "/resource_id",
             "/endpoint",
             "/gpu_uuids",
+            "/protocol/environment_identity/sha256",
             "/resources",
             "/tasks/0/packet/sha256",
             "/tasks/1/packet/sha256",
@@ -292,13 +308,32 @@ def test_rejects_hidden_payload_inside_resource_field(tmp_path: Path) -> None:
         validate_amendment(amendment, tmp_path)
 
 
-def test_rejects_suite_packet_hash_not_bound_to_effective_packet(tmp_path: Path) -> None:
+def test_rejects_suite_packet_hash_not_bound_to_effective_packet(
+    tmp_path: Path,
+) -> None:
     amendment, value = fixture(tmp_path)
     rewrite_effective(
         tmp_path,
         value,
         "temporal-suite",
         lambda row: row["tasks"][0]["packet"].__setitem__("sha256", "0" * 64),
+    )
+    write(amendment, value)
+    with pytest.raises(ValueError, match="deterministic resource substitution"):
+        validate_amendment(amendment, tmp_path)
+
+
+def test_rejects_suite_environment_hash_not_bound_to_effective_environment(
+    tmp_path: Path,
+) -> None:
+    amendment, value = fixture(tmp_path)
+    rewrite_effective(
+        tmp_path,
+        value,
+        "temporal-suite",
+        lambda row: row["protocol"]["environment_identity"].__setitem__(
+            "sha256", "0" * 64
+        ),
     )
     write(amendment, value)
     with pytest.raises(ValueError, match="deterministic resource substitution"):
