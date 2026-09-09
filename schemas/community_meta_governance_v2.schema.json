@@ -1,20 +1,22 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "community_meta_governance.schema.json",
-  "title": "Single-writer governance for cross-framework optimization learning",
+  "$id": "community_meta_governance_v2.schema.json",
+  "title": "Versioned single-writer governance with repository delivery and continuity",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "schema_version",
     "purpose",
     "canonical_repository",
+    "repository_delivery_policy",
+    "continuity_policy",
     "roles",
     "evidence_protocol",
     "promotion_policy",
     "cycle_contract"
   ],
   "properties": {
-    "schema_version": {"const": "community-meta-governance-v1"},
+    "schema_version": {"const": "community-meta-governance-v2"},
     "purpose": {
       "type": "object",
       "additionalProperties": false,
@@ -44,6 +46,83 @@
         "working_fork": {"type": "string", "format": "uri"},
         "repository_role": {"const": "SHARED_POLICY_KNOWLEDGE_AND_SCHEMAS"},
         "evidence_role": {"const": "EXTERNAL_CONTENT_ADDRESSED_RUN_ARTIFACTS"}
+      }
+    },
+    "repository_delivery_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fork_sync", "upstream_pull_requests"],
+      "properties": {
+        "fork_sync": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fetch_before_decision",
+            "push_remote",
+            "push_only_clean_validated_commits",
+            "review_cadence"
+          ],
+          "properties": {
+            "fetch_before_decision": {"const": true},
+            "push_remote": {"const": "fork"},
+            "push_only_clean_validated_commits": {"const": true},
+            "review_cadence": {
+              "const": "AFTER_MATERIAL_COMMITS_AND_DAILY_WHILE_ACTIVE"
+            }
+          }
+        },
+        "upstream_pull_requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_remote",
+            "requires_reviewable_single_scope",
+            "requires_relevant_tests",
+            "requires_claim_boundaries",
+            "forbids_external_experiment_artifacts",
+            "forbids_hidden_oracle",
+            "forbids_unverified_performance_claims",
+            "forbids_monolithic_backlog_pr"
+          ],
+          "properties": {
+            "target_remote": {"const": "origin"},
+            "requires_reviewable_single_scope": {"const": true},
+            "requires_relevant_tests": {"const": true},
+            "requires_claim_boundaries": {"const": true},
+            "forbids_external_experiment_artifacts": {"const": true},
+            "forbids_hidden_oracle": {"const": true},
+            "forbids_unverified_performance_claims": {"const": true},
+            "forbids_monolithic_backlog_pr": {"const": true}
+          }
+        }
+      }
+    },
+    "continuity_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "local_gate_blocks_only_dependent_actions",
+        "continue_bounded_safe_work",
+        "no_material_change_is_silent",
+        "whole_task_stop_conditions"
+      ],
+      "properties": {
+        "local_gate_blocks_only_dependent_actions": {"const": true},
+        "continue_bounded_safe_work": {"const": true},
+        "no_material_change_is_silent": {"const": true},
+        "whole_task_stop_conditions": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "FINITE_CYCLE_COMPLETE",
+              "USER_PAUSED",
+              "STRICT_BLOCKED_AUDIT_SATISFIED"
+            ]
+          }
+        }
       }
     },
     "roles": {

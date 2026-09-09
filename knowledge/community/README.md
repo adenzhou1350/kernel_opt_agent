@@ -2,12 +2,14 @@
 
 ## Cross-framework governance
 
-`meta_governance.v1.json` is the machine-readable control contract shared by
-the vLLM, Mooncake, SGLang and search-strategy evaluation lanes. It keeps one
-control-plane writer for search defaults, knowledge structure, evaluation
-protocols and cross-framework promotion decisions. Execution lanes append
-versioned evidence and propose changes; they do not independently promote a
-local result into a shared default.
+`meta_governance.v2.json` is the current machine-readable control contract
+shared by the vLLM, Mooncake, SGLang and search-strategy evaluation lanes. It
+keeps one control-plane writer for search defaults, knowledge structure,
+evaluation protocols and cross-framework promotion decisions. Execution lanes
+append versioned evidence and propose changes; they do not independently
+promote a local result into a shared default. The Cycle 1 preregistration remains
+bound to the immutable `meta_governance.v1.json`; later policy is always added
+under a new versioned path instead of rewriting that frozen identity.
 
 The same contract separates repository synchronization from upstream delivery.
 The control plane fetches both remotes before a delivery decision and pushes

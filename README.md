@@ -15,8 +15,11 @@ snapshots and reviewed optimization events. See
 [knowledge/community/README.md](knowledge/community/README.md) and use
 `scripts/kernel_opt.py community capture-pr|validate-corpus|validate-event`.
 Cross-framework ownership, evidence fields and champion/challenger promotion
-rules are frozen in
-[`knowledge/community/meta_governance.v1.json`](knowledge/community/meta_governance.v1.json).
+rules are defined in
+[`knowledge/community/meta_governance.v2.json`](knowledge/community/meta_governance.v2.json).
+Cycle 1 keeps its original hash-bound
+[`meta_governance.v1.json`](knowledge/community/meta_governance.v1.json) identity;
+new control-plane policy is added in later versions rather than rewriting it.
 Use `community sync-repository` with explicit time windows for bounded,
 incremental performance-PR discovery.
 Use `scripts/kernel_opt.py community-eval` for cutoff-safe, fixed-budget control

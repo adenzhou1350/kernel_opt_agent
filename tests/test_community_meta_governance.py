@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import sys
 from pathlib import Path
 
@@ -14,11 +15,10 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from schema_utils import validate_instance  # noqa: E402
 
 
-def test_meta_governance_contract() -> None:
+def test_frozen_meta_governance_v1_contract() -> None:
+    policy_path = ROOT / "knowledge/community/meta_governance.v1.json"
     policy = json.loads(
-        (ROOT / "knowledge/community/meta_governance.v1.json").read_text(
-            encoding="utf-8"
-        )
+        policy_path.read_text(encoding="utf-8")
     )
     schema = json.loads(
         (ROOT / "schemas/community_meta_governance.schema.json").read_text(
@@ -35,6 +35,23 @@ def test_meta_governance_contract() -> None:
     }
     assert policy["promotion_policy"]["minimum_frameworks"] == 2
     assert policy["promotion_policy"]["requires_unseen_candidates"] is True
+    assert hashlib.sha256(policy_path.read_bytes()).hexdigest() == (
+        "a9d822f569d4423c9f42f9df29cd743d60244c73355c9d3e6353e3bc76851a15"
+    )
+
+
+def test_current_meta_governance_v2_contract() -> None:
+    policy = json.loads(
+        (ROOT / "knowledge/community/meta_governance.v2.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    schema = json.loads(
+        (ROOT / "schemas/community_meta_governance_v2.schema.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    assert not validate_instance(policy, schema)
     delivery = policy["repository_delivery_policy"]
     assert delivery["fork_sync"]["push_remote"] == "fork"
     assert delivery["fork_sync"]["fetch_before_decision"] is True
@@ -57,4 +74,5 @@ def test_meta_governance_contract() -> None:
 
 
 if __name__ == "__main__":
-    test_meta_governance_contract()
+    test_frozen_meta_governance_v1_contract()
+    test_current_meta_governance_v2_contract()

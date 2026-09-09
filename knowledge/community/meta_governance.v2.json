@@ -1,5 +1,5 @@
 {
-  "schema_version": "community-meta-governance-v1",
+  "schema_version": "community-meta-governance-v2",
   "purpose": {
     "optimization_objective": "THEORETICAL_LIMIT_TO_PRODUCTION_GAP",
     "community_knowledge_role": "DISCOVERY_PRIOR_NOT_TARGET_EVIDENCE",
@@ -10,6 +10,34 @@
     "working_fork": "https://github.com/adenzhou1350/kernel_opt_agent",
     "repository_role": "SHARED_POLICY_KNOWLEDGE_AND_SCHEMAS",
     "evidence_role": "EXTERNAL_CONTENT_ADDRESSED_RUN_ARTIFACTS"
+  },
+  "repository_delivery_policy": {
+    "fork_sync": {
+      "fetch_before_decision": true,
+      "push_remote": "fork",
+      "push_only_clean_validated_commits": true,
+      "review_cadence": "AFTER_MATERIAL_COMMITS_AND_DAILY_WHILE_ACTIVE"
+    },
+    "upstream_pull_requests": {
+      "target_remote": "origin",
+      "requires_reviewable_single_scope": true,
+      "requires_relevant_tests": true,
+      "requires_claim_boundaries": true,
+      "forbids_external_experiment_artifacts": true,
+      "forbids_hidden_oracle": true,
+      "forbids_unverified_performance_claims": true,
+      "forbids_monolithic_backlog_pr": true
+    }
+  },
+  "continuity_policy": {
+    "local_gate_blocks_only_dependent_actions": true,
+    "continue_bounded_safe_work": true,
+    "no_material_change_is_silent": true,
+    "whole_task_stop_conditions": [
+      "FINITE_CYCLE_COMPLETE",
+      "USER_PAUSED",
+      "STRICT_BLOCKED_AUDIT_SATISFIED"
+    ]
   },
   "roles": {
     "control_plane": {
