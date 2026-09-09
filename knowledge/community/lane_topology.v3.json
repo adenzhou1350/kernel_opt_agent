@@ -1,0 +1,59 @@
+{
+  "schema_version": "community-lane-topology-v3",
+  "claim_boundary": "ROLE_AND_EVIDENCE_FLOW_ONLY_NOT_EXECUTION_AUTHORIZATION",
+  "supersedes": {
+    "path": "knowledge/community/meta_governance.v2.json",
+    "sha256": "9885eaf921f6e2be18a67e0b9900bebace27c70c3096cc9cebb460ef44dfba89"
+  },
+  "control_plane": {
+    "single_writer": true,
+    "role": "SUPERVISOR_REPOSITORY_MAINTAINER",
+    "owns": [
+      "SEARCH_DEFAULTS",
+      "KNOWLEDGE_STRUCTURE",
+      "EVALUATION_PROTOCOL",
+      "CROSS_FRAMEWORK_PROMOTION",
+      "SHARED_REPOSITORY_DELIVERY",
+      "PORTFOLIO_DASHBOARD"
+    ],
+    "monitoring_mode": "PASSIVE_PULL_MATERIAL_EVENTS_ONLY"
+  },
+  "execution_lanes": [
+    {
+      "lane_id": "VLLM_OPTIMIZATION",
+      "purpose": "Continuously close theory-to-production gaps in vLLM and deliver reviewable upstream operator or structure PRs.",
+      "shared_repository_usage": "REQUIRED_METHOD_SEARCH_AND_KNOWLEDGE_PRIOR",
+      "result_protocol": "COMMUNITY_WORK_CYCLE_AND_OBSERVATION",
+      "autonomy": "ROLLING_FINITE_CYCLES",
+      "notification_policy": "MATERIAL_EVENTS_ONLY",
+      "pr_accounting": "COMMUNITY_FRAMEWORK_PR"
+    },
+    {
+      "lane_id": "VLLM_A800_ADAPTATION",
+      "purpose": "Make DeepSeek, GLM and related models correct and fast on A800 while preserving model and hardware identity.",
+      "shared_repository_usage": "REQUIRED_METHOD_SEARCH_AND_KNOWLEDGE_PRIOR",
+      "result_protocol": "COMMUNITY_WORK_CYCLE_AND_OBSERVATION",
+      "autonomy": "ROLLING_FINITE_CYCLES",
+      "notification_policy": "MATERIAL_EVENTS_ONLY",
+      "pr_accounting": "COMMUNITY_FRAMEWORK_PR"
+    },
+    {
+      "lane_id": "MOONCAKE_OPTIMIZATION",
+      "purpose": "Optimize Mooncake KV transfer, storage and disaggregated serving against workload and topology limits.",
+      "shared_repository_usage": "REQUIRED_METHOD_SEARCH_AND_KNOWLEDGE_PRIOR",
+      "result_protocol": "COMMUNITY_WORK_CYCLE_AND_OBSERVATION",
+      "autonomy": "ROLLING_FINITE_CYCLES",
+      "notification_policy": "MATERIAL_EVENTS_ONLY",
+      "pr_accounting": "COMMUNITY_FRAMEWORK_PR"
+    },
+    {
+      "lane_id": "SGLANG_OPTIMIZATION",
+      "purpose": "Continuously optimize SGLang operators, scheduling, communication and caches for real workloads.",
+      "shared_repository_usage": "REQUIRED_METHOD_SEARCH_AND_KNOWLEDGE_PRIOR",
+      "result_protocol": "COMMUNITY_WORK_CYCLE_AND_OBSERVATION",
+      "autonomy": "ROLLING_FINITE_CYCLES",
+      "notification_policy": "MATERIAL_EVENTS_ONLY",
+      "pr_accounting": "COMMUNITY_FRAMEWORK_PR"
+    }
+  ]
+}

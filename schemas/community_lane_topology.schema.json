@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_lane_topology.schema.json",
+  "title": "Autonomous optimization lane topology",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_boundary",
+    "supersedes",
+    "control_plane",
+    "execution_lanes"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-lane-topology-v3"},
+    "claim_boundary": {
+      "const": "ROLE_AND_EVIDENCE_FLOW_ONLY_NOT_EXECUTION_AUTHORIZATION"
+    },
+    "supersedes": {"$ref": "#/$defs/identity"},
+    "control_plane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["single_writer", "role", "owns", "monitoring_mode"],
+      "properties": {
+        "single_writer": {"const": true},
+        "role": {"const": "SUPERVISOR_REPOSITORY_MAINTAINER"},
+        "owns": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "SEARCH_DEFAULTS",
+              "KNOWLEDGE_STRUCTURE",
+              "EVALUATION_PROTOCOL",
+              "CROSS_FRAMEWORK_PROMOTION",
+              "SHARED_REPOSITORY_DELIVERY",
+              "PORTFOLIO_DASHBOARD"
+            ]
+          }
+        },
+        "monitoring_mode": {"const": "PASSIVE_PULL_MATERIAL_EVENTS_ONLY"}
+      }
+    },
+    "execution_lanes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/lane"}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane_id",
+        "purpose",
+        "shared_repository_usage",
+        "result_protocol",
+        "autonomy",
+        "notification_policy",
+        "pr_accounting"
+      ],
+      "properties": {
+        "lane_id": {
+          "enum": [
+            "VLLM_OPTIMIZATION",
+            "VLLM_A800_ADAPTATION",
+            "MOONCAKE_OPTIMIZATION",
+            "SGLANG_OPTIMIZATION"
+          ]
+        },
+        "purpose": {"type": "string", "minLength": 1},
+        "shared_repository_usage": {
+          "const": "REQUIRED_METHOD_SEARCH_AND_KNOWLEDGE_PRIOR"
+        },
+        "result_protocol": {"const": "COMMUNITY_WORK_CYCLE_AND_OBSERVATION"},
+        "autonomy": {"const": "ROLLING_FINITE_CYCLES"},
+        "notification_policy": {"const": "MATERIAL_EVENTS_ONLY"},
+        "pr_accounting": {"const": "COMMUNITY_FRAMEWORK_PR"}
+      }
+    }
+  }
+}
