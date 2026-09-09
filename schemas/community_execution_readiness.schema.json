@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_execution_readiness.schema.json",
+  "title": "Supplemental fail-closed execution-contract readiness for a frozen community cohort",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "cycle_id",
+    "state",
+    "claim_boundary",
+    "validator_binding",
+    "base_readiness",
+    "technical_amendment",
+    "tasks",
+    "remaining_blockers",
+    "eligible_by_this_gate",
+    "gpu_dispatch_authorized",
+    "hidden_oracle_exposed",
+    "execution"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-execution-readiness-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["EXECUTION_CONTRACT_BLOCKED", "EXECUTION_CONTRACT_READY"]},
+    "claim_boundary": {"const": "STATIC_EXECUTION_CONTRACT_GATE_NOT_EXECUTION_NOT_CORRECTNESS_OR_PERFORMANCE_EVIDENCE"},
+    "validator_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository_commit", "schema_sha256", "validator_sha256"],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "schema_sha256": {"$ref": "#/$defs/sha256"},
+        "validator_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "base_readiness": {"$ref": "#/$defs/identity"},
+    "technical_amendment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "amendment_id",
+        "applies_to_arms",
+        "same_harness_workload_metrics_across_arms",
+        "frozen_dimensions_unchanged"
+      ],
+      "properties": {
+        "amendment_id": {"type": "string", "minLength": 1},
+        "applies_to_arms": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "CONTROL"},
+            {"const": "COMMUNITY_AUGMENTED"}
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "same_harness_workload_metrics_across_arms": {"const": true},
+        "frozen_dimensions_unchanged": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["task_identity", "workload", "schedule", "metric_weights", "hidden_solution_boundary"],
+          "properties": {
+            "task_identity": {"const": true},
+            "workload": {"const": true},
+            "schedule": {"const": true},
+            "metric_weights": {"const": true},
+            "hidden_solution_boundary": {"const": true}
+          }
+        }
+      }
+    },
+    "tasks": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/task"}
+    },
+    "remaining_blockers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "eligible_by_this_gate": {"type": "boolean"},
+    "gpu_dispatch_authorized": {"const": false},
+    "hidden_oracle_exposed": {"const": false},
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["compile_started", "gpu_started", "gpu_seconds"],
+      "properties": {
+        "compile_started": {"const": false},
+        "gpu_started": {"const": false},
+        "gpu_seconds": {"const": 0.0}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "optional_identity": {
+      "oneOf": [
+        {"$ref": "#/$defs/identity"},
+        {"type": "null"}
+      ]
+    },
+    "capability_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": {"enum": ["PASS", "BLOCKED"]},
+        "evidence": {"$ref": "#/$defs/optional_identity"}
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "task_id",
+        "harness_manifest",
+        "workload",
+        "runner",
+        "sealed_argv",
+        "output_schema",
+        "required_capabilities",
+        "capability_checks"
+      ],
+      "properties": {
+        "task_id": {"type": "string", "minLength": 1},
+        "harness_manifest": {"$ref": "#/$defs/identity"},
+        "workload": {"$ref": "#/$defs/identity"},
+        "runner": {"$ref": "#/$defs/optional_identity"},
+        "sealed_argv": {"$ref": "#/$defs/optional_identity"},
+        "output_schema": {"$ref": "#/$defs/optional_identity"},
+        "required_capabilities": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9_]+$"}
+        },
+        "capability_checks": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": {"$ref": "#/$defs/capability_check"},
+          "propertyNames": {"pattern": "^[A-Z][A-Z0-9_]+$"}
+        }
+      }
+    }
+  }
+}

@@ -262,6 +262,18 @@ package locks. It remains distinct from dispatch authorization: the readiness
 artifact must not grant GPU permission, and the independent supervisor still
 owns dispatch.
 
+The frozen pre-GPU artifact is necessary but not sufficient for arm dispatch.
+Before execution, validate a separate, versioned
+`community-execution-readiness-v1` artifact with
+`scripts/community_execution_readiness.py`. This supplemental gate binds each
+task's harness manifest, workload, runner, sealed argv, output schema and
+capability-level conformance evidence. It fails closed when a binding is
+missing, a required capability is not checked, or a PASS lacks hash-bound
+evidence. Harness repairs are technical amendments applied identically to both
+arms; they may not change the frozen task identity, workload, schedule, metric
+weights or hidden-solution boundary. The supplemental gate never grants GPU
+dispatch and does not rewrite a frozen readiness artifact or validator.
+
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
 community graph; an augmented trial contains only the frozen graph. During
