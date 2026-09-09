@@ -202,6 +202,11 @@ event plus blockers instead of letting topical similarity create an invalid
 candidate. `COMPLEMENTS` means implementation-composable; mutually exclusive
 representations must use `CONFLICTS` even when they address the same bottleneck.
 
+Generated relation edges use canonical event or method IDs and carry an
+explicit `target_kind` plus `resolution`. Legacy primitive shorthand is accepted
+only when adding the `community-` namespace produces exactly one known method
+ID; ambiguous targets fail closed rather than being guessed.
+
 ## Temporal A/B evaluation
 
 Use `community-eval` to test whether the knowledge layer actually improves the

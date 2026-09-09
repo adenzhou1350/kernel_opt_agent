@@ -343,8 +343,8 @@ def main() -> None:
             },
             {
                 "type": "REQUIRES",
-                "target": "community-incremental-prefix-state-machine",
-                "rationale": "Exercise method resolution across the primitive library.",
+                "target": "incremental-prefix-state-machine",
+                "rationale": "Exercise canonical method alias resolution.",
             },
         ]
         event_path.write_text(

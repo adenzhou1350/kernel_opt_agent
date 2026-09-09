@@ -1442,6 +1442,36 @@ def graph_node(event: dict, source_available_at: str, observation: dict) -> dict
     }
 
 
+def resolve_relation_target(
+    target: str, known_events: set[str], method_ids: set[str]
+) -> tuple[str, str, bool]:
+    """Resolve one relation to a canonical event or method identity.
+
+    Early corpus cards sometimes used the filename-style shorthand of a
+    community primitive while its canonical method ID includes the
+    ``community-`` namespace. Preserve those cards without guessing across
+    multiple identities.
+    """
+    exact_event = target in known_events
+    exact_method = target in method_ids
+    aliases = sorted(
+        method_id for method_id in method_ids if method_id == f"community-{target}"
+    )
+    if exact_event and (exact_method or aliases):
+        raise ValueError(
+            f"ambiguous relation target exists as event and method: {target}"
+        )
+    if exact_method:
+        return target, "METHOD", True
+    if exact_event:
+        return target, "EVENT", True
+    if len(aliases) > 1:
+        raise ValueError(f"ambiguous relation target alias: {target}")
+    if aliases:
+        return aliases[0], "METHOD", True
+    return target, "EVENT", False
+
+
 def build_graph(
     corpus: Path,
     repositories: list[str],
@@ -1508,16 +1538,13 @@ def build_graph(
                 and target not in known_events
             ):
                 continue
-            target_kind = "METHOD" if target in method_ids else "EVENT"
-            present = (
-                target in method_ids
-                if target_kind == "METHOD"
-                else target in known_events
+            canonical_target, target_kind, present = resolve_relation_target(
+                target, known_events, method_ids
             )
             edge = {
                 "source": event["event_id"],
                 "type": relation["type"],
-                "target": target,
+                "target": canonical_target,
                 "target_kind": target_kind,
                 "resolution": "PRESENT" if present else "MISSING",
                 "rationale": relation["rationale"],
@@ -1528,9 +1555,9 @@ def build_graph(
                 and present
                 and target_kind == "EVENT"
                 and event["event_id"] in current_event_ids
-                and target in current_event_ids
+                and canonical_target in current_event_ids
             ):
-                pair = sorted((event["event_id"], target))
+                pair = sorted((event["event_id"], canonical_target))
                 hypothesis_id = stable_identifier(
                     {"relation": "COMPLEMENTS", "events": pair}
                 )
