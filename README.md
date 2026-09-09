@@ -11,6 +11,24 @@ It deliberately contains no application-specific algorithm, workload or
 performance result.  Hardware facts are separated from empirical measurements;
 measurements are keyed by device and software environment.
 
+## Bounded candidate discovery
+
+The standalone discovery CLI keeps speculative production changes in a small,
+budgeted run-local pool. It distinguishes repairable build or harness failures
+from failed optimization hypotheses and permits promotion only after the full
+registered portfolio has been screened:
+
+```bash
+python3 scripts/candidate_discovery.py init --run runs/<run-id>
+python3 scripts/candidate_discovery.py add --run runs/<run-id> --spec candidate.json
+python3 scripts/candidate_discovery.py run --run runs/<run-id> --candidate-id <id>
+python3 scripts/candidate_discovery.py promote --run runs/<run-id> --candidate-id <id>
+```
+
+Promotion means only that a candidate may enter supervised qualification. It
+does not establish production correctness, performance, portability or a
+theoretical-limit claim.
+
 ## Start a run
 
 An agent launched with this directory as its working tree is governed by
