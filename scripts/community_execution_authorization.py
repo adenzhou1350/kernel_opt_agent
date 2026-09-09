@@ -98,9 +98,13 @@ def validate_request(request_path: Path, artifact_root: Path) -> dict:
         raise ValueError("request mixes cycle identities")
     if not same_identity(execution.get("base_readiness"), request["pre_gpu_gate"]):
         raise ValueError("execution-contract gate is not bound to the requested pre-GPU gate")
-    if not same_identity(
-        pre.get("protocol_binding", {}).get("temporal_suite"), request["suite"]
-    ):
+    pre_suite_identity = pre.get("protocol_binding", {}).get("temporal_suite")
+    if not isinstance(pre_suite_identity, dict):
+        raise ValueError("pre-GPU readiness has no temporal suite identity")
+    pre_suite_path = validate_identity(
+        pre_path.parent, pre_suite_identity, "pre-GPU temporal suite"
+    )
+    if pre_suite_path != suite_path:
         raise ValueError("request suite differs from pre-GPU readiness")
     if pre.get("cohort_binding", {}).get("cohort_freeze_sha256") != request["cohort"]["sha256"]:
         raise ValueError("request cohort differs from pre-GPU readiness")
