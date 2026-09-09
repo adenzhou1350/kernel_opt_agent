@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from community_knowledge import sha256_file  # noqa: E402
+from artifact_io import sha256_file  # noqa: E402
 from community_portfolio import build_report  # noqa: E402
 
 
@@ -129,6 +129,30 @@ def test_portfolio_aggregates_four_explicit_lanes(tmp_path: Path) -> None:
     assert report["totals"]["median_time_to_first_correct_seconds"] == 30.0
     assert report["totals"]["median_time_to_first_improvement_seconds"] == 120.0
     assert report["totals"]["qualified_results_per_gpu_hour"] == 120.0
+    assert report["schema_version"] == "community-portfolio-report-v2"
+    assert report["totals"]["delivery_funnel"] == {
+        "candidate_proposed": 4,
+        "screen_correct": 4,
+        "material_improvement": 4,
+        "qualified_result": 4,
+        "upstream_ready": 0,
+        "pr_opened": 0,
+        "pr_ready_for_review": 0,
+        "merged": 0,
+        "leading_constraint": "UPSTREAM_READINESS",
+    }
+
+
+def test_empty_lane_exposes_missing_evidence_without_guessing(tmp_path: Path) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    value["lanes"][0]["work_cycle_ledgers"] = []
+    write_json(path, value)
+    report = build_report(path)
+    first = next(
+        lane for lane in report["lanes"] if lane["lane_id"] == "VLLM_OPTIMIZATION"
+    )
+    assert first["delivery_funnel"]["leading_constraint"] == "NO_EVIDENCE"
 
 
 def test_same_ledger_cannot_be_counted_in_two_lanes(tmp_path: Path) -> None:

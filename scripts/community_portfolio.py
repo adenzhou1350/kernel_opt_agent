@@ -15,7 +15,7 @@ from schema_utils import validate_instance
 
 
 MANIFEST_VERSION = "community-portfolio-manifest-v1"
-REPORT_VERSION = "community-portfolio-report-v1"
+REPORT_VERSION = "community-portfolio-report-v2"
 
 
 def root() -> Path:
@@ -39,6 +39,55 @@ def seconds(start: str, end: str) -> float:
 
 def nullable_median(values: list[float]) -> float | None:
     return median(values) if values else None
+
+
+def delivery_funnel(ledgers: list[tuple[Path, dict]]) -> dict:
+    """Expose the first evidence-backed delivery stage that remains unclosed."""
+
+    counts = {
+        "candidate_proposed": 0,
+        "screen_correct": 0,
+        "material_improvement": 0,
+        "qualified_result": 0,
+        "upstream_ready": 0,
+        "pr_opened": 0,
+        "pr_ready_for_review": 0,
+        "merged": 0,
+    }
+    milestone_keys = {
+        "FIRST_CANDIDATE_PROPOSED": "candidate_proposed",
+        "FIRST_SCREEN_CORRECT": "screen_correct",
+        "FIRST_MATERIAL_IMPROVEMENT": "material_improvement",
+        "FIRST_QUALIFIED_RESULT": "qualified_result",
+        "PR_READY_FOR_REVIEW": "pr_ready_for_review",
+    }
+    for _, ledger in ledgers:
+        kinds = {item["kind"] for item in ledger["milestones"]}
+        for kind, key in milestone_keys.items():
+            counts[key] += int(kind in kinds)
+        outcome = ledger["outcome"]
+        counts["upstream_ready"] += int(outcome["upstream_ready"])
+        counts["pr_opened"] += int(outcome["pull_request_url"] is not None)
+        counts["merged"] += int(outcome["merged"])
+
+    if not ledgers:
+        constraint = "NO_EVIDENCE"
+    else:
+        ordered_constraints = (
+            ("candidate_proposed", "CANDIDATE_DISCOVERY"),
+            ("screen_correct", "CORRECTNESS"),
+            ("material_improvement", "MATERIAL_IMPROVEMENT"),
+            ("qualified_result", "QUALIFIED_RESULT"),
+            ("upstream_ready", "UPSTREAM_READINESS"),
+            ("pr_opened", "PR_CREATION"),
+            ("pr_ready_for_review", "PR_REVIEW_READINESS"),
+            ("merged", "UPSTREAM_REVIEW"),
+        )
+        constraint = next(
+            (label for key, label in ordered_constraints if counts[key] == 0),
+            "COMPLETE",
+        )
+    return {**counts, "leading_constraint": constraint}
 
 
 def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
@@ -99,6 +148,7 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
         "qualified_results_per_gpu_hour": (
             qualified / (gpu_seconds / 3600.0) if gpu_seconds > 0 else None
         ),
+        "delivery_funnel": delivery_funnel(ledgers),
     }
 
 
@@ -158,7 +208,9 @@ def build_report(manifest_path: Path) -> dict:
     report = {
         "schema_version": REPORT_VERSION,
         "generated_at": now(),
-        "claim_boundary": "DESCRIPTIVE_PORTFOLIO_ACCOUNTING_NOT_STRATEGY_CAUSALITY",
+        "claim_boundary": (
+            "DESCRIPTIVE_PORTFOLIO_AND_DELIVERY_FUNNEL_NOT_STRATEGY_CAUSALITY"
+        ),
         "manifest_identity": {
             "path": manifest_path.as_posix(),
             "sha256": sha256_file(manifest_path),
@@ -167,7 +219,8 @@ def build_report(manifest_path: Path) -> dict:
         "totals": totals,
     }
     errors = validate_instance(
-        report, read_object(root() / "schemas/community_portfolio_report.schema.json")
+        report,
+        read_object(root() / "schemas/community_portfolio_report_v2.schema.json"),
     )
     if errors:
         raise ValueError("invalid community portfolio report: " + "; ".join(errors))
