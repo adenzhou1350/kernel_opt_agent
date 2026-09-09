@@ -12,6 +12,19 @@ from community_pre_gpu_readiness import validate_readiness
 from schema_utils import validate_json_file
 
 SCHEMA = "community_resource_amendment.schema.json"
+SAFE_POINTER_TERMS = (
+    "resource",
+    "endpoint",
+    "gpu",
+    "device",
+    "hardware",
+    "packet",
+    "server-contract",
+    "server_contract",
+    "sealed-argv",
+    "sealed_argv",
+    "environment",
+)
 
 
 def repository_root() -> Path:
@@ -106,6 +119,16 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
     if old == new or set(old["gpu_uuids"]) & set(new["gpu_uuids"]):
         raise ValueError("old and new resources must be distinct")
     prefixes = amendment["allowed_resource_pointers"]
+    unsafe_prefixes = [
+        value
+        for value in prefixes
+        if value == "/"
+        or not any(term in value.lower() for term in SAFE_POINTER_TERMS)
+    ]
+    if unsafe_prefixes:
+        raise ValueError(
+            f"allowlist contains non-resource pointers: {sorted(unsafe_prefixes)}"
+        )
     labels: set[str] = set()
     all_differences: dict[str, list[str]] = {}
     effective_texts: list[str] = []

@@ -205,3 +205,11 @@ def test_rejects_incomplete_effective_closure(tmp_path: Path) -> None:
     write(amendment, value)
     with pytest.raises(ValueError, match="complete task resource closure"):
         validate_amendment(amendment, tmp_path)
+
+
+def test_rejects_root_allowlist_bypass(tmp_path: Path) -> None:
+    amendment, value = fixture(tmp_path)
+    value["allowed_resource_pointers"] = ["/"]
+    write(amendment, value)
+    with pytest.raises(ValueError, match="non-resource pointers"):
+        validate_amendment(amendment, tmp_path)
