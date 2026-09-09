@@ -116,6 +116,11 @@ A passing result proves executor-payload content equivalence, not that a
 provider's mutable branch name is the frozen upstream revision, and it never
 authorizes execution. This permits ModelScope-first transport without silently
 substituting a different model or tokenizer when Hugging Face is unavailable.
+When a gated original tree cannot be materialized, v2 may instead bind a raw
+Hugging Face model-API response for the exact frozen commit. It validates every
+small executor file by Git blob SHA-1 and every LFS object by SHA-256 before
+matching the local replacement tree. The complete remote sibling set must be
+classified, and alternate-format files may be excluded only below `original/`.
 
 Once both framework comparisons are complete, bind the two repeated-pair
 summaries and every per-arm observation in a

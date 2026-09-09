@@ -11,7 +11,14 @@ from pathlib import Path
 from community_knowledge import read_object, sha256_file
 from schema_utils import validate_json_file
 
-SCHEMA = "community_model_source_amendment.schema.json"
+SCHEMAS = {
+    "community-model-source-amendment-v1": (
+        "community_model_source_amendment.schema.json"
+    ),
+    "community-model-source-amendment-v2": (
+        "community_model_source_amendment_v2.schema.json"
+    ),
+}
 SENSITIVE_NAMES = {
     "config.json",
     "configuration.json",
@@ -77,6 +84,22 @@ def checked_file(root: Path, row: dict, label: str) -> None:
         raise ValueError(f"{label} hash changed: {relative}")
 
 
+def checked_identity(root: Path, row: dict, label: str) -> Path:
+    relative = normalized_relative(row["path"])
+    path = resolve_inside(root, relative)
+    if path.is_symlink() or not path.is_file():
+        raise FileNotFoundError(f"{label} missing or unsafe: {relative}")
+    if sha256_file(path) != row["sha256"]:
+        raise ValueError(f"{label} hash changed: {relative}")
+    return path
+
+
+def git_blob_sha1(path: Path) -> str:
+    content = path.read_bytes()
+    header = f"blob {len(content)}\0".encode()
+    return hashlib.sha1(header + content).hexdigest()  # noqa: S324
+
+
 def validate_source(artifact_root: Path, source: dict, label: str) -> dict[str, dict]:
     source_root = resolve_inside(artifact_root, source["root"])
     if not source_root.is_dir():
@@ -134,13 +157,140 @@ def executor_digest(inventory: dict[str, dict]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def validate_metadata_source(
+    artifact_root: Path, source: dict
+) -> tuple[dict[str, dict], str]:
+    metadata_path = checked_identity(
+        artifact_root, source["metadata_evidence"], "original metadata evidence"
+    )
+    metadata = read_object(metadata_path)
+    if (
+        metadata.get("id") != source["repository"]
+        or metadata.get("sha") != source["revision"]
+    ):
+        raise ValueError("metadata repository or revision identity mismatch")
+    siblings = metadata.get("siblings")
+    if not isinstance(siblings, list):
+        raise ValueError("metadata siblings must be a list")
+    remote: dict[str, dict] = {}
+    for row in siblings:
+        if not isinstance(row, dict) or not isinstance(row.get("rfilename"), str):
+            raise ValueError("metadata contains an invalid sibling")
+        relative = normalized_relative(row["rfilename"])
+        if relative in remote:
+            raise ValueError(f"metadata contains duplicate path: {relative}")
+        remote[relative] = row
+    executor: dict[str, dict] = {}
+    for row in source["executor_inventory"]:
+        relative = normalized_relative(row["path"])
+        if relative in executor:
+            raise ValueError(f"duplicate original executor path: {relative}")
+        kind = row["identity_kind"]
+        digest = row["digest"]
+        if (kind == "GIT_BLOB_SHA1" and len(digest) != 40) or (
+            kind == "LFS_SHA256" and len(digest) != 64
+        ):
+            raise ValueError(f"digest length does not match identity kind: {relative}")
+        sibling = remote.get(relative)
+        if sibling is None or sibling.get("size") != row["bytes"]:
+            raise ValueError(f"metadata file identity mismatch: {relative}")
+        lfs = sibling.get("lfs")
+        if kind == "LFS_SHA256":
+            if not isinstance(lfs, dict) or (
+                lfs.get("sha256") != digest or lfs.get("size") != row["bytes"]
+            ):
+                raise ValueError(f"metadata LFS identity mismatch: {relative}")
+        elif lfs is not None or sibling.get("blobId") != digest:
+            raise ValueError(f"metadata Git blob identity mismatch: {relative}")
+        executor[relative] = row
+    excluded: set[str] = set()
+    for row in source["excluded_paths"]:
+        relative = normalized_relative(row["path"])
+        if relative in excluded or relative in executor:
+            raise ValueError(f"duplicate or overlapping original path: {relative}")
+        if executor_sensitive(relative):
+            alternate = row[
+                "category"
+            ] == "NON_EXECUTOR_ALTERNATE_FORMAT" and relative.startswith("original/")
+            if not alternate:
+                raise ValueError(
+                    "executor-sensitive metadata path cannot be excluded: " + relative
+                )
+        excluded.add(relative)
+    if set(remote) != set(executor) | excluded:
+        raise ValueError(
+            "original metadata inventory is not complete: "
+            f"missing={sorted((set(executor) | excluded) - set(remote))} "
+            f"unexpected={sorted(set(remote) - set(executor) - excluded)}"
+        )
+    return executor, source["metadata_evidence"]["sha256"]
+
+
+def validate_metadata_amendment(amendment: dict, artifact_root: Path) -> dict:
+    original = amendment["original_source"]
+    replacement = amendment["replacement_source"]
+    original_inventory, metadata_sha = validate_metadata_source(artifact_root, original)
+    replacement_inventory = validate_source(artifact_root, replacement, "replacement")
+    if set(original_inventory) != set(replacement_inventory):
+        raise ValueError(
+            "executor-visible path set differs: "
+            f"missing={sorted(set(original_inventory) - set(replacement_inventory))} "
+            f"unexpected={sorted(set(replacement_inventory) - set(original_inventory))}"
+        )
+    replacement_root = resolve_inside(artifact_root, replacement["root"])
+    mismatches = []
+    digest_rows = []
+    for relative in sorted(original_inventory):
+        before = original_inventory[relative]
+        after = replacement_inventory[relative]
+        path = resolve_inside(replacement_root, relative)
+        if before["bytes"] != after["bytes"]:
+            mismatches.append(relative)
+            continue
+        actual = (
+            after["sha256"]
+            if before["identity_kind"] == "LFS_SHA256"
+            else git_blob_sha1(path)
+        )
+        if actual != before["digest"]:
+            mismatches.append(relative)
+        digest_rows.append(
+            {
+                "path": relative,
+                "bytes": after["bytes"],
+                "sha256": after["sha256"],
+            }
+        )
+    if mismatches:
+        raise ValueError(f"executor-visible content differs: {mismatches}")
+    payload = json.dumps(
+        digest_rows, ensure_ascii=False, separators=(",", ":"), sort_keys=True
+    ).encode("utf-8")
+    return {
+        "status": "PASS_MODEL_SOURCE_METADATA_ATTESTED_CONTENT_EQUIVALENCE",
+        "cycle_id": amendment["cycle_id"],
+        "task_id": amendment["task_id"],
+        "component": amendment["component"],
+        "logical_model_id": amendment["logical_model_id"],
+        "original_metadata_sha256": metadata_sha,
+        "executor_files": len(original_inventory),
+        "executor_payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "gpu_dispatch_authorized": False,
+    }
+
+
 def validate_amendment(path: Path, artifact_root: Path) -> dict:
     repo = repository_root()
-    errors = validate_json_file(path, repo / "schemas" / SCHEMA)
+    amendment = read_object(path)
+    schema_name = SCHEMAS.get(amendment.get("schema_version"))
+    if schema_name is None:
+        raise ValueError("unsupported model source amendment schema version")
+    errors = validate_json_file(path, repo / "schemas" / schema_name)
     if errors:
         raise ValueError("invalid model source amendment schema: " + "; ".join(errors))
-    amendment = read_object(path)
     artifact_root = artifact_root.resolve()
+    if amendment["schema_version"] == "community-model-source-amendment-v2":
+        return validate_metadata_amendment(amendment, artifact_root)
     original = amendment["original_source"]
     replacement = amendment["replacement_source"]
     if resolve_inside(artifact_root, original["root"]) == resolve_inside(
