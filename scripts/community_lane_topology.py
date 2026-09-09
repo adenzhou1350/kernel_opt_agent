@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from community_knowledge import read_object, sha256_file
+from artifact_io import read_object, sha256_file
 from schema_utils import validate_instance
 
 

@@ -8,7 +8,7 @@ import json
 from pathlib import Path
 from statistics import median
 
-from community_knowledge import atomic_json, now, read_object, sha256_file
+from artifact_io import atomic_json, now, read_object, sha256_file
 from community_lane_topology import LANE_IDS, validate_topology
 from community_work_cycle import parse_time, summarize, validate_ledger
 from schema_utils import validate_instance
