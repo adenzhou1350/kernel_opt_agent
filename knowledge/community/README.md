@@ -44,6 +44,16 @@ contract lists the union of metrics every execution lane must make available;
 lane-specific artifacts may remain outside this repository when their hashes
 are bound by the checked-in summaries.
 
+The control plane builds its dashboard rollup from an explicit
+`community-portfolio-manifest-v1`, never by treating every JSON file under an
+experiment directory as authoritative. Each selected ledger is hash-bound and
+may appear in only one lane; duplicate cycle/task identities fail closed. Run
+`scripts/kernel_opt.py community-portfolio --manifest MANIFEST --output REPORT`
+to derive per-lane and overall time-to-first-correct, time-to-first-material-
+improvement, GPU seconds, qualified-results-per-GPU-hour, upstream-ready, PR
+and merge counts. This report is descriptive accounting. Champion/challenger
+causality still requires the paired evaluation and final-report protocol.
+
 Negative transfer evidence is written back as a later method revision, never by
 rewriting a card at an older availability time.  In particular, exact tensor
 shape keys do not make a launch configuration portable across GPU vendors, and
