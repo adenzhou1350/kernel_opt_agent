@@ -301,6 +301,12 @@ atomic dispatcher must claim the single-use token before creating a process,
 and a consumed token must never become reusable. Legacy v1 approvals do not
 auto-upgrade.
 
+The repository's atomic-claim primitive is deliberately non-launching. Its
+receipts are bound to one canonical SQLite store, use the primitive's UTC clock,
+and are revalidated with the frozen schedule before every transition. A claim
+or terminal receipt alone is not dispatch authorization: live process/GPU
+attestation and successful observation binding remain dispatcher obligations.
+
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
 community graph; an augmented trial contains only the frozen graph. During

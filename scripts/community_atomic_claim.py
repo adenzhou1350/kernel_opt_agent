@@ -10,11 +10,12 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import re
 import sqlite3
 from contextlib import closing
 from dataclasses import asdict, dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from schema_utils import validate_instance
@@ -79,6 +80,16 @@ def parse_timestamp(value: str) -> datetime:
     return parsed
 
 
+def trusted_utc_now() -> datetime:
+    """Return the process clock used for state-transition decisions."""
+
+    return datetime.now(timezone.utc)
+
+
+def timestamp_text(value: datetime) -> str:
+    return value.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
 def require_sha256(value: str, label: str) -> None:
     if not isinstance(value, str) or SHA256_PATTERN.fullmatch(value) is None:
         raise ClaimError(f"INVALID_SHA256:{label}")
@@ -101,6 +112,7 @@ class SessionBinding:
     authorization_schedule_sha256: str
     execution_schedule_sha256: str
     dispatcher_sha256: str
+    claim_store_identity_sha256: str
     formal_resource_id: str
     expires_at: str
     max_dispatches: int
@@ -114,6 +126,7 @@ class SessionBinding:
             "authorization_schedule_sha256",
             "execution_schedule_sha256",
             "dispatcher_sha256",
+            "claim_store_identity_sha256",
         ):
             require_sha256(getattr(self, field), field)
         if not all((self.request_id, self.cycle_id, self.suite_id)):
@@ -194,7 +207,13 @@ class ClaimStore:
     """SQLite-backed state store with transactional session and entry claims."""
 
     def __init__(self, path: Path):
-        self.path = path
+        self.path = path.resolve()
+        self.identity_sha256 = digest(
+            {
+                "schema_version": "community-claim-store-identity-v1",
+                "canonical_database_path": os.path.normcase(str(self.path)),
+            }
+        )
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with closing(self._connect()) as database:
             database.executescript(
@@ -243,17 +262,200 @@ class ClaimStore:
         if stored != ClaimStore._binding_json(binding):
             raise ClaimError("SESSION_BINDING_MISMATCH")
 
+    def _require_store_binding(self, binding: SessionBinding) -> None:
+        if binding.claim_store_identity_sha256 != self.identity_sha256:
+            raise ClaimError("CLAIM_STORE_IDENTITY_MISMATCH")
+
+    @staticmethod
+    def _require_self_id(receipt: dict, field: str) -> None:
+        expected = receipt.get(field)
+        unsigned = {key: value for key, value in receipt.items() if key != field}
+        if expected != digest(unsigned):
+            raise ClaimError(f"STORED_RECEIPT_IDENTITY_MISMATCH:{field}")
+
+    def _validated_session(
+        self, database: sqlite3.Connection, binding: SessionBinding
+    ) -> tuple[list[dict], int, int, str]:
+        self._require_store_binding(binding)
+        session = database.execute(
+            "SELECT binding_json,schedule_json,receipt_json,max_dispatches,"
+            "next_order_index,state FROM sessions WHERE session_id=?",
+            (binding.session_id,),
+        ).fetchone()
+        if session is None:
+            raise ClaimError("FOREIGN_OR_MISSING_SESSION")
+        binding_json, schedule_json, receipt_json, maximum, next_order, state = session
+        self._require_binding(binding_json, binding)
+        schedule = json.loads(schedule_json)
+        validate_execution_schedule(schedule, binding)
+        if maximum != binding.max_dispatches:
+            raise ClaimError("STORED_DISPATCH_BUDGET_MISMATCH")
+        if not isinstance(next_order, int) or not 1 <= next_order <= maximum + 1:
+            raise ClaimError("STORED_NEXT_ORDER_INDEX_INVALID")
+        if state not in {"ACTIVE", "COMPLETE", "ABORTED"}:
+            raise ClaimError("STORED_SESSION_STATE_INVALID")
+        session_receipt = json.loads(receipt_json)
+        validate_receipt(session_receipt, "community_cohort_session_claim.schema.json")
+        if (
+            session_receipt["session_id"] != binding.session_id
+            or session_receipt["claim_store_identity_sha256"] != self.identity_sha256
+        ):
+            raise ClaimError("STORED_SESSION_RECEIPT_IDENTITY_MISMATCH")
+        expected_receipt_fields = {
+            "request_id": binding.request_id,
+            "cycle_id": binding.cycle_id,
+            "suite_id": binding.suite_id,
+            "authorization_request_sha256": binding.authorization_request_sha256,
+            "semantic_approval_sha256": binding.semantic_approval_sha256,
+            "combined_authorization_sha256": binding.combined_authorization_sha256,
+            "single_use_token": binding.single_use_token,
+            "authorization_schedule_sha256": binding.authorization_schedule_sha256,
+            "execution_schedule_sha256": binding.execution_schedule_sha256,
+            "formal_resource_id": binding.formal_resource_id,
+            "dispatcher_sha256": binding.dispatcher_sha256,
+            "claim_store_identity_sha256": binding.claim_store_identity_sha256,
+            "expires_at": binding.expires_at,
+            "max_dispatches": binding.max_dispatches,
+        }
+        if any(
+            session_receipt.get(key) != value
+            for key, value in expected_receipt_fields.items()
+        ):
+            raise ClaimError("STORED_SESSION_RECEIPT_BINDING_MISMATCH")
+        self._validate_entry_state_invariants(
+            database, binding, schedule, maximum, next_order, state
+        )
+        return schedule, maximum, next_order, state
+
+    def _validate_entry_state_invariants(
+        self,
+        database: sqlite3.Connection,
+        binding: SessionBinding,
+        schedule: list[dict],
+        maximum: int,
+        next_order: int,
+        session_state: str,
+    ) -> None:
+        rows = database.execute(
+            "SELECT order_index,entry_json,claim_receipt_json,state,"
+            "dispatch_receipt_json,terminal_receipt_json FROM entry_claims "
+            "WHERE session_id=? ORDER BY order_index",
+            (binding.session_id,),
+        ).fetchall()
+        if [row[0] for row in rows] != list(range(1, len(rows) + 1)):
+            raise ClaimError("STORED_ENTRY_ORDER_GAP")
+        decoded: list[tuple[str, dict | None]] = []
+        for (
+            order_index,
+            entry_json,
+            claim_json,
+            state,
+            dispatch_json,
+            terminal_json,
+        ) in rows:
+            entry = json.loads(entry_json)
+            if entry != schedule[order_index - 1]:
+                raise ClaimError("STORED_ENTRY_DIFFERS_FROM_FROZEN_SCHEDULE")
+            claim = json.loads(claim_json)
+            self._require_self_id(claim, "entry_claim_id")
+            validate_receipt(claim, "community_schedule_entry_claim.schema.json")
+            if (
+                claim["session_id"] != binding.session_id
+                or claim["order_index"] != order_index
+                or any(
+                    claim[key] != entry[key]
+                    for key in (
+                        "task_id",
+                        "repeat_index",
+                        "arm",
+                        "schedule_key",
+                        "sealed_argv_sha256",
+                        "resolved_argv",
+                        "resolved_argv_sha256",
+                        "formal_gpu_uuids",
+                    )
+                )
+            ):
+                raise ClaimError("STORED_ENTRY_CLAIM_LINEAGE_MISMATCH")
+            dispatch = json.loads(dispatch_json) if dispatch_json else None
+            terminal = json.loads(terminal_json) if terminal_json else None
+            if dispatch is not None:
+                self._require_self_id(dispatch, "dispatch_receipt_id")
+                validate_receipt(
+                    dispatch, "community_entry_dispatch_receipt_v2.schema.json"
+                )
+                if (
+                    dispatch["session_id"] != binding.session_id
+                    or dispatch["entry_claim_id"] != claim["entry_claim_id"]
+                    or dispatch["order_index"] != order_index
+                ):
+                    raise ClaimError("STORED_DISPATCH_RECEIPT_LINEAGE_MISMATCH")
+            if terminal is not None:
+                self._require_self_id(terminal, "terminal_receipt_id")
+                validate_receipt(
+                    terminal, "community_entry_terminal_receipt.schema.json"
+                )
+                if (
+                    terminal["session_id"] != binding.session_id
+                    or terminal["entry_claim_id"] != claim["entry_claim_id"]
+                    or terminal["order_index"] != order_index
+                    or terminal["dispatch_receipt_id"]
+                    != (dispatch["dispatch_receipt_id"] if dispatch else None)
+                ):
+                    raise ClaimError("STORED_TERMINAL_RECEIPT_LINEAGE_MISMATCH")
+            if state == "CLAIMED_PRELAUNCH":
+                if dispatch is not None or terminal is not None:
+                    raise ClaimError("PRELAUNCH_ENTRY_HAS_LATER_RECEIPT")
+            elif state == "DISPATCHED":
+                if dispatch is None or terminal is not None:
+                    raise ClaimError("DISPATCHED_ENTRY_RECEIPT_STATE_MISMATCH")
+            elif state == "TERMINAL":
+                if terminal is None:
+                    raise ClaimError("TERMINAL_ENTRY_LACKS_RECEIPT")
+            else:
+                raise ClaimError("STORED_ENTRY_STATE_INVALID")
+            decoded.append((state, terminal))
+
+        successful_prefix = 0
+        for entry_state, terminal in decoded:
+            if entry_state == "TERMINAL" and terminal["outcome"] == "SUCCESS":
+                successful_prefix += 1
+            else:
+                break
+        if session_state == "ACTIVE":
+            if next_order != successful_prefix + 1:
+                raise ClaimError("STORED_NEXT_ORDER_DIFFERS_FROM_SUCCESS_PREFIX")
+            if len(rows) not in {successful_prefix, successful_prefix + 1}:
+                raise ClaimError("ACTIVE_SESSION_ENTRY_COUNT_INVALID")
+            if len(rows) == successful_prefix + 1 and rows[-1][3] == "TERMINAL":
+                raise ClaimError("ACTIVE_SESSION_HAS_UNAPPLIED_TERMINAL_ENTRY")
+        elif session_state == "COMPLETE":
+            if next_order != maximum + 1 or successful_prefix != maximum:
+                raise ClaimError("COMPLETE_SESSION_INVARIANT_MISMATCH")
+        else:
+            if len(rows) != next_order or not rows:
+                raise ClaimError("ABORTED_SESSION_ENTRY_COUNT_INVALID")
+            last_terminal = decoded[-1][1]
+            if (
+                decoded[-1][0] != "TERMINAL"
+                or last_terminal is None
+                or last_terminal["outcome"] == "SUCCESS"
+            ):
+                raise ClaimError("ABORTED_SESSION_LACKS_FAILURE_OR_AMBIGUITY")
+
     def create_or_resume_session(
         self,
         binding: SessionBinding,
         schedule: list[dict],
         gates: dict[str, bool],
-        generated_at: str,
     ) -> tuple[str, dict]:
         binding.validate()
+        self._require_store_binding(binding)
         if set(gates) != GATE_KEYS or not all(gates.values()):
             raise ClaimError("P_AND_E_AND_A_REQUIRED")
-        if parse_timestamp(generated_at) >= parse_timestamp(binding.expires_at):
+        current_time = trusted_utc_now()
+        generated_at = timestamp_text(current_time)
+        if current_time >= parse_timestamp(binding.expires_at):
             raise ClaimError("APPROVAL_OR_SESSION_EXPIRED")
         validate_execution_schedule(schedule, binding)
         binding_json = self._binding_json(binding)
@@ -277,6 +479,7 @@ class ClaimStore:
             "execution_schedule_sha256": binding.execution_schedule_sha256,
             "formal_resource_id": binding.formal_resource_id,
             "dispatcher_sha256": binding.dispatcher_sha256,
+            "claim_store_identity_sha256": self.identity_sha256,
             "expires_at": binding.expires_at,
             "max_dispatches": binding.max_dispatches,
             "initial_order_index": 1,
@@ -295,6 +498,7 @@ class ClaimStore:
                 if existing[:3] != expected:
                     database.execute("ROLLBACK")
                     raise ClaimError("TOKEN_ALREADY_BOUND_TO_FOREIGN_SESSION")
+                self._validated_session(database, binding)
                 database.execute("COMMIT")
                 return "EXISTING_IDENTICAL_SESSION", json.loads(existing[3])
             database.execute(
@@ -317,26 +521,19 @@ class ClaimStore:
         self,
         binding: SessionBinding,
         entry: dict,
-        claimed_at: str,
     ) -> dict:
-        if parse_timestamp(claimed_at) >= parse_timestamp(binding.expires_at):
+        current_time = trusted_utc_now()
+        claimed_at = timestamp_text(current_time)
+        if current_time >= parse_timestamp(binding.expires_at):
             raise ClaimError("SESSION_EXPIRED_AT_ENTRY_CLAIM")
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
-            session = database.execute(
-                "SELECT binding_json,schedule_json,max_dispatches,next_order_index,state "
-                "FROM sessions WHERE session_id=?",
-                (binding.session_id,),
-            ).fetchone()
-            if session is None:
-                database.execute("ROLLBACK")
-                raise ClaimError("FOREIGN_OR_MISSING_SESSION")
-            binding_json, schedule_json, maximum, next_order, state = session
-            self._require_binding(binding_json, binding)
+            schedule, maximum, next_order, state = self._validated_session(
+                database, binding
+            )
             if state != "ACTIVE":
                 database.execute("ROLLBACK")
                 raise ClaimError("SESSION_NOT_ACTIVE")
-            schedule = json.loads(schedule_json)
             matches = [
                 row
                 for row in schedule
@@ -430,11 +627,17 @@ class ClaimStore:
         binding: SessionBinding,
         order_index: int,
         process_identity: dict,
-        dispatched_at: str,
     ) -> dict:
-        parse_timestamp(dispatched_at)
+        current_time = trusted_utc_now()
+        dispatched_at = timestamp_text(current_time)
+        if current_time >= parse_timestamp(binding.expires_at):
+            raise ClaimError("SESSION_EXPIRED_BEFORE_DISPATCH")
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
+            _, _, next_order, session_state = self._validated_session(database, binding)
+            if session_state != "ACTIVE" or order_index != next_order:
+                database.execute("ROLLBACK")
+                raise ClaimError("SESSION_ENTRY_NOT_DISPATCHABLE")
             row = database.execute(
                 "SELECT entry_json,claim_receipt_json,state FROM entry_claims "
                 "WHERE session_id=? AND order_index=?",
@@ -445,6 +648,8 @@ class ClaimStore:
                 raise ClaimError("ENTRY_NOT_IN_PRELAUNCH_STATE")
             entry = json.loads(row[0])
             claim = json.loads(row[1])
+            self._require_self_id(claim, "entry_claim_id")
+            validate_receipt(claim, "community_schedule_entry_claim.schema.json")
             if parse_timestamp(dispatched_at) < parse_timestamp(claim["claimed_at"]):
                 database.execute("ROLLBACK")
                 raise ClaimError("DISPATCH_PREDATES_ENTRY_CLAIM")
@@ -492,20 +697,16 @@ class ClaimStore:
         binding: SessionBinding,
         order_index: int,
         outcome: str,
-        recorded_at: str,
     ) -> dict:
         if outcome not in TERMINAL_OUTCOMES:
             raise ClaimError("INVALID_TERMINAL_OUTCOME")
-        return self._terminal_transition(
-            binding, order_index, outcome, recorded_at, {"DISPATCHED"}
-        )
+        return self._terminal_transition(binding, order_index, outcome, {"DISPATCHED"})
 
     def record_ambiguous(
         self,
         binding: SessionBinding,
         order_index: int,
         outcome: str,
-        recorded_at: str,
     ) -> dict:
         if outcome not in AMBIGUOUS_OUTCOMES:
             raise ClaimError("INVALID_AMBIGUOUS_OUTCOME")
@@ -518,7 +719,6 @@ class ClaimStore:
             binding,
             order_index,
             outcome,
-            recorded_at,
             allowed_states,
         )
 
@@ -527,21 +727,14 @@ class ClaimStore:
         binding: SessionBinding,
         order_index: int,
         outcome: str,
-        recorded_at: str,
         allowed_states: set[str],
     ) -> dict:
-        parse_timestamp(recorded_at)
+        recorded_at = timestamp_text(trusted_utc_now())
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
-            session = database.execute(
-                "SELECT next_order_index,max_dispatches,state FROM sessions "
-                "WHERE session_id=?",
-                (binding.session_id,),
-            ).fetchone()
-            if session is None:
-                database.execute("ROLLBACK")
-                raise ClaimError("FOREIGN_OR_MISSING_SESSION")
-            next_order, maximum, session_state = session
+            _, maximum, next_order, session_state = self._validated_session(
+                database, binding
+            )
             if session_state != "ACTIVE" or order_index != next_order:
                 database.execute("ROLLBACK")
                 raise ClaimError("SESSION_ENTRY_NOT_TERMINABLE")
@@ -555,6 +748,13 @@ class ClaimStore:
                 raise ClaimError("ENTRY_NOT_IN_TERMINABLE_STATE")
             claim = json.loads(row[0])
             dispatch = json.loads(row[2]) if row[2] else None
+            self._require_self_id(claim, "entry_claim_id")
+            validate_receipt(claim, "community_schedule_entry_claim.schema.json")
+            if dispatch is not None:
+                self._require_self_id(dispatch, "dispatch_receipt_id")
+                validate_receipt(
+                    dispatch, "community_entry_dispatch_receipt_v2.schema.json"
+                )
             lower_bound = dispatch["dispatched_at"] if dispatch else claim["claimed_at"]
             if parse_timestamp(recorded_at) < parse_timestamp(lower_bound):
                 database.execute("ROLLBACK")
@@ -603,6 +803,7 @@ class ClaimStore:
 
     def recovery_state(self, binding: SessionBinding, order_index: int) -> str:
         with closing(self._connect()) as database:
+            self._validated_session(database, binding)
             row = database.execute(
                 "SELECT state FROM entry_claims WHERE session_id=? AND order_index=?",
                 (binding.session_id, order_index),
@@ -617,16 +818,7 @@ class ClaimStore:
         self, binding: SessionBinding, terminal_receipts: list[dict]
     ) -> dict:
         with closing(self._connect()) as database:
-            session = database.execute(
-                "SELECT schedule_json,next_order_index,state FROM sessions "
-                "WHERE session_id=?",
-                (binding.session_id,),
-            ).fetchone()
-            if session is None:
-                raise ClaimError("FOREIGN_OR_MISSING_SESSION")
-            schedule = json.loads(session[0])
-            next_order = session[1]
-            state = session[2]
+            schedule, _, next_order, state = self._validated_session(database, binding)
             stored_rows = database.execute(
                 "SELECT order_index,terminal_receipt_json FROM entry_claims "
                 "WHERE session_id=? ORDER BY order_index",
@@ -641,6 +833,9 @@ class ClaimStore:
         if any(value is None for _, value in stored_rows):
             raise ClaimError("MISSING_TERMINAL_RECEIPT")
         stored = [json.loads(value) for _, value in stored_rows]
+        for receipt in stored:
+            self._require_self_id(receipt, "terminal_receipt_id")
+            validate_receipt(receipt, "community_entry_terminal_receipt.schema.json")
         if terminal_receipts != stored:
             raise ClaimError("INCOMPLETE_REORDERED_OR_FOREIGN_RECEIPTS")
         expected_count = len(schedule) if state == "COMPLETE" else next_order
@@ -662,13 +857,7 @@ class ClaimStore:
 
     def snapshot(self, binding: SessionBinding) -> dict:
         with closing(self._connect()) as database:
-            session = database.execute(
-                "SELECT max_dispatches,next_order_index,state FROM sessions "
-                "WHERE session_id=?",
-                (binding.session_id,),
-            ).fetchone()
-            if session is None:
-                raise ClaimError("FOREIGN_OR_MISSING_SESSION")
+            _, maximum, next_order, state = self._validated_session(database, binding)
             claims = database.execute(
                 "SELECT order_index,state FROM entry_claims WHERE session_id=? "
                 "ORDER BY order_index",
@@ -676,9 +865,9 @@ class ClaimStore:
             ).fetchall()
         return {
             "session_id": binding.session_id,
-            "max_dispatches": session[0],
-            "next_order_index": session[1],
-            "state": session[2],
+            "max_dispatches": maximum,
+            "next_order_index": next_order,
+            "state": state,
             "entries": [
                 {"order_index": order_index, "state": state}
                 for order_index, state in claims

@@ -10,6 +10,7 @@
     "semantic_approval_sha256", "combined_authorization_sha256",
     "single_use_token", "authorization_schedule_sha256",
     "execution_schedule_sha256", "formal_resource_id", "dispatcher_sha256",
+    "claim_store_identity_sha256",
     "expires_at", "max_dispatches", "initial_order_index", "hidden_oracle_exposed"
   ],
   "properties": {
@@ -29,6 +30,7 @@
     "execution_schedule_sha256": {"$ref": "#/$defs/sha256"},
     "formal_resource_id": {"type": "string", "minLength": 1},
     "dispatcher_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_store_identity_sha256": {"$ref": "#/$defs/sha256"},
     "expires_at": {"type": "string", "format": "date-time"},
     "max_dispatches": {"type": "integer", "minimum": 1},
     "initial_order_index": {"const": 1},
