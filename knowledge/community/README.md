@@ -66,6 +66,24 @@ python scripts/kernel_opt.py community-observation validate \
   --observation /path/to/arm-repeat-observation.json
 ```
 
+If a frozen cohort host disappears before any formal arm entry executes, do not
+rewrite its suite or readiness receipt. A versioned
+`community-resource-amendment-v1` may replace only endpoint, resource-id and GPU
+identity fields across the complete executor-visible closure. The validator
+requires zero executed entries, an unexposed hidden oracle, a fail-closed prior
+readiness receipt and an independently recorded capacity-feasibility decision;
+it rejects every non-resource diff and every surviving old resource identity:
+
+```bash
+python scripts/kernel_opt.py community-resource-amendment \
+  --amendment /path/to/resource-amendment.json \
+  --artifact-root /path/to/materialized-cohort
+```
+
+Passing this check preserves the prospective comparison but never authorizes
+GPU dispatch. The effective source, model, package, sealed argv and live GPU
+locks must still pass a new pre-GPU and independent authorization chain.
+
 Once both framework comparisons are complete, bind the two repeated-pair
 summaries and every per-arm observation in a
 `community-meta-cycle-report-v1`. The validator resolves external identities

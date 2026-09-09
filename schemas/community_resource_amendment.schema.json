@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_resource_amendment.schema.json",
+  "title": "Prospective resource-only amendment for a frozen community cohort",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "cycle_id", "claim_boundary", "original_readiness", "feasibility_audit", "execution_state", "old_resource", "new_resource", "allowed_resource_pointers", "closure"],
+  "properties": {
+    "schema_version": {"const": "community-resource-amendment-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "claim_boundary": {"const": "RESOURCE_ONLY_NO_TASK_ARM_SCHEDULE_METRIC_OR_ORACLE_CHANGE"},
+    "original_readiness": {"$ref": "#/$defs/identity"},
+    "feasibility_audit": {"$ref": "#/$defs/identity"},
+    "execution_state": {
+      "type": "object", "additionalProperties": false,
+      "required": ["formal_entries_executed", "hidden_oracle_exposed", "gpu_dispatch_authorized"],
+      "properties": {"formal_entries_executed": {"const": 0}, "hidden_oracle_exposed": {"const": false}, "gpu_dispatch_authorized": {"const": false}}
+    },
+    "old_resource": {"$ref": "#/$defs/resource"},
+    "new_resource": {"$ref": "#/$defs/resource"},
+    "allowed_resource_pointers": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^/"}},
+    "closure": {
+      "type": "array", "minItems": 4,
+      "items": {
+        "type": "object", "additionalProperties": false,
+        "required": ["label", "original", "effective"],
+        "properties": {"label": {"type": "string", "minLength": 1}, "original": {"$ref": "#/$defs/identity"}, "effective": {"$ref": "#/$defs/identity"}}
+      }
+    }
+  },
+  "$defs": {
+    "sha": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"}, "sha256": {"$ref": "#/$defs/sha"}}},
+    "resource": {
+      "type": "object", "additionalProperties": false,
+      "required": ["resource_id", "endpoint", "gpu_uuids"],
+      "properties": {"resource_id": {"type": "string", "minLength": 1}, "endpoint": {"type": "string", "minLength": 1}, "gpu_uuids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^GPU-[0-9A-Za-z-]+$"}}}
+    }
+  }
+}

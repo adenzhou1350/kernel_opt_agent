@@ -36,6 +36,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-timing": Command("community_work_cycle.py", "record research, compute, validation and upstream-delivery time"),
         "community-observation": Command("community_work_cycle_observation.py", "validate one unified prospective arm observation"),
         "community-funnel": Command("community_discovery_funnel.py", "measure discovery yield and retain routing feedback"),
+        "community-resource-amendment": Command("community_resource_amendment.py", "validate a resource-only frozen-cohort amendment"),
         "community-cycle-report": Command(
             "community_execution_authorization.py",
             "validate an authorization- and dispatch-provenance-bound policy decision",
