@@ -224,21 +224,11 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
     approval_identity = authorization["supervisor_approval"]
     supervisor_ready = False
     if approval_identity is not None:
-        approval_path = validate_identity(
-            artifact_root, approval_identity, "GLOBAL_SUPERVISOR approval"
-        )
-        approval = validate_schema(
-            approval_path, "supervisor_approval.schema.json", "supervisor approval"
-        )
-        supervisor_ready = (
-            approval.get("status") == "APPROVED"
-            and approval.get("issued_by", {}).get("role") == "GLOBAL_SUPERVISOR"
-            and approval.get("action") == "DISPATCH_QUALIFICATION"
-            and approval.get("single_use") is True
-            and same_identity(
-                approval.get("experiment_identity"),
-                authorization["authorization_request"],
-            )
+        raise ValueError(
+            "combined authorization v1 cannot consume a supervisor approval: "
+            "the request does not bind the supervisor registry, exact budget, "
+            "role artifacts, or resolved decision/measurability/frontier/objective "
+            "contracts; use a versioned semantic-approval contract"
         )
 
     actual = {

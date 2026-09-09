@@ -89,6 +89,19 @@ def stub_canonical_gate_validators(monkeypatch) -> None:
     )
 
 
+def stub_authorized_bundle(monkeypatch, bundle: dict) -> None:
+    monkeypatch.setattr(
+        authorization_module,
+        "validate_authorization",
+        lambda _path, _root: {
+            "authorization": bundle["authorization"],
+            "request": bundle["request"],
+            "suite": {"suite_id": "suite-1"},
+            "allowed": True,
+        },
+    )
+
+
 def build_bundle(
     base: Path, p_ready: bool, e_ready: bool, a_ready: bool
 ) -> tuple[Path, dict]:
@@ -220,15 +233,25 @@ def build_bundle(
     }
 
 
-def test_truth_table_only_all_three_true_authorizes(monkeypatch) -> None:
+def test_v1_never_authorizes_unbound_supervisor_approval(monkeypatch) -> None:
     stub_canonical_gate_validators(monkeypatch)
     for p_ready in (False, True):
         for e_ready in (False, True):
             for a_ready in (False, True):
                 with tempfile.TemporaryDirectory() as temporary:
                     path, _ = build_bundle(Path(temporary), p_ready, e_ready, a_ready)
-                    result = validate_authorization(path, Path(temporary))
-                    assert result["allowed"] is (p_ready and e_ready and a_ready)
+                    if a_ready:
+                        try:
+                            validate_authorization(path, Path(temporary))
+                        except ValueError as error:
+                            assert "semantic-approval contract" in str(error)
+                        else:
+                            raise AssertionError(
+                                "v1 must reject an unbound supervisor approval"
+                            )
+                    else:
+                        result = validate_authorization(path, Path(temporary))
+                        assert result["allowed"] is False
 
 
 def test_request_rejects_uuid_and_sealed_argv_drift(monkeypatch) -> None:
@@ -269,6 +292,7 @@ def test_dispatch_receipt_requires_authorized_exact_schedule(monkeypatch) -> Non
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         authorization_path, bundle = build_bundle(base, True, True, True)
+        stub_authorized_bundle(monkeypatch, bundle)
         receipt_path = base / "receipt.json"
         write_json(
             receipt_path,
@@ -317,6 +341,7 @@ def test_dispatch_receipt_rejects_cycle_and_suite_substitution(monkeypatch) -> N
         with tempfile.TemporaryDirectory() as temporary:
             base = Path(temporary)
             authorization_path, bundle = build_bundle(base, True, True, True)
+            stub_authorized_bundle(monkeypatch, bundle)
             receipt_path = base / "receipt.json"
             receipt = {
                 "schema_version": "community-dispatch-receipt-v1",
