@@ -12,7 +12,6 @@ import subprocess
 from pathlib import Path
 
 from community_claim_contracts import digest, parse_timestamp
-from community_knowledge import read_object, sha256_file
 from schema_utils import validate_json_file
 
 EPOCH_SCHEMA = "community_claim_store_epoch.schema.json"
@@ -24,6 +23,21 @@ ATOMIC_CLAIM_PATH = "scripts/community_atomic_claim.py"
 
 def repository_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def read_object(path: Path) -> dict:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"expected one JSON object: {path}")
+    return value
+
+
+def sha256_file(path: Path) -> str:
+    checksum = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            checksum.update(chunk)
+    return checksum.hexdigest()
 
 
 def resolve_inside(base: Path, relative: str) -> Path:
