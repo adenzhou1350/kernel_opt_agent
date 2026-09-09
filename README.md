@@ -332,6 +332,14 @@ validate a live process, GPU assignment, or successful observation; only the
 dispatcher may establish those identities and turn a consumed entry into
 authorized execution provenance.
 
+Before an atomic claim store can be consumed, validate a versioned deployment
+with `scripts/community_claim_store_deployment.py`. The deployment binds one
+canonical database path, host boot identity, dispatcher executable and an
+externally issued no-rollback epoch. Epoch replacement must form an explicit
+predecessor chain, and both the declared Git commit and current worktree bytes
+for the schemas, validator and claim implementation must match. Passing this
+gate means only `ready_for_atomic_claim=true`; it never grants GPU dispatch.
+
 ## Four-lane delivery accounting
 
 The four autonomous execution lanes write canonical work-cycle ledgers while

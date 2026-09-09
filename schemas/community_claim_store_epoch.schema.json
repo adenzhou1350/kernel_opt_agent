@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_claim_store_epoch.schema.json",
+  "title": "Externally issued no-rollback epoch for one atomic claim store",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "issued_at", "claim_boundary", "epoch_receipt_id",
+    "issuer_id", "store_name", "epoch_sequence", "epoch_nonce_sha256",
+    "previous_epoch_receipt", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-claim-store-epoch-v1"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "EXTERNAL_NO_ROLLBACK_EPOCH_NOT_EXECUTION_AUTHORIZATION"},
+    "epoch_receipt_id": {"$ref": "#/$defs/sha256"},
+    "issuer_id": {"type": "string", "minLength": 1},
+    "store_name": {"type": "string", "minLength": 1},
+    "epoch_sequence": {"type": "integer", "minimum": 1},
+    "epoch_nonce_sha256": {"$ref": "#/$defs/sha256"},
+    "previous_epoch_receipt": {
+      "oneOf": [{"$ref": "#/$defs/identity"}, {"type": "null"}]
+    },
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
