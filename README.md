@@ -139,6 +139,23 @@ outputs and stale pre-existing artifacts, then binds logs and fresh outputs to
 its own identity. Promotion accepts PASS check results only when those exact
 artifacts occur in a trusted reproduction receipt.
 
+## Atomic cohort claims
+
+`scripts/community_atomic_claim.py` is a non-launching transactional primitive
+for consuming a frozen cohort schedule once and in order. It records session,
+entry, dispatch-identity and terminal receipts in SQLite, preserves ambiguous
+crash windows without automatic retry, and validates stored receipt lineage on
+every transition. Pure identities and schedule validation live separately in
+`scripts/community_claim_contracts.py`.
+
+This primitive does not authorize or start a process. A dispatcher must still
+validate canonical pre-GPU, execution-contract and semantic-approval artifacts,
+obtain a durable no-rollback store epoch, attest the live process and GPU lease,
+make the final expiry decision immediately before child creation, and bind a
+successful terminal state to validated correctness and observation evidence.
+Reusing an epoch after restoring or replacing the database is outside SQLite's
+trust boundary and must be prevented by the external epoch issuer.
+
 ## Evidence classes
 
 - `FACT`: queried or statically verified.
