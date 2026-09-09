@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_dispatch_receipt.schema.json",
+  "title": "Immutable receipt for one authorized community trial dispatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "dispatched_at", "claim_boundary", "cycle_id", "suite_id",
+    "task_key", "task_id", "repeat_index", "arm", "order_index", "schedule_key",
+    "combined_authorization", "authorization_request", "sealed_argv",
+    "dispatcher_id", "state"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-dispatch-receipt-v1"},
+    "dispatched_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "IMMUTABLE_DISPATCH_PROVENANCE_NOT_RESULT_EVIDENCE"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "suite_id": {"type": "string", "minLength": 1},
+    "task_key": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "repeat_index": {"type": "integer", "minimum": 1},
+    "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "order_index": {"type": "integer", "minimum": 1},
+    "schedule_key": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "combined_authorization": {"$ref": "#/$defs/identity"},
+    "authorization_request": {"$ref": "#/$defs/identity"},
+    "sealed_argv": {"$ref": "#/$defs/identity"},
+    "dispatcher_id": {"type": "string", "minLength": 1},
+    "state": {"const": "DISPATCHED"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

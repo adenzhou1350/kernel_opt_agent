@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_work_cycle_observation_provenance.schema.json",
+  "title": "Authorization provenance wrapper for one community observation",
+  "type": "object", "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "observation", "dispatch_receipt"],
+  "properties": {
+    "schema_version": {"const": "community-work-cycle-observation-provenance-v2"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "OBSERVATION_WITH_AUTHORIZED_DISPATCH_PROVENANCE"},
+    "observation": {"$ref": "#/$defs/identity"},
+    "dispatch_receipt": {"$ref": "#/$defs/identity"}
+  },
+  "$defs": {"identity": {"type": "object", "additionalProperties": false, "required": ["path", "sha256"], "properties": {"path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"}, "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}}}
+}

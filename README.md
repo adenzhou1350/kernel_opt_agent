@@ -291,6 +291,23 @@ artifacts occur in a trusted reproduction receipt.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
+## Community cohort dispatch authorization
+
+A supplemental harness gate is deliberately not a global execution decision.
+Formal community-evaluation arms use
+`scripts/community_execution_authorization.py` to bind a frozen authorization
+request and recompute three independent conditions: pre-GPU readiness (P),
+execution-contract readiness (E), and a single-use `GLOBAL_SUPERVISOR`
+qualification approval (A). Dispatch is legal only when `P && E && A`.
+
+Every launched arm/repeat has an immutable
+`community-dispatch-receipt-v1`. New observation and final-report provenance
+envelopes must bind those receipts, so a numerically valid result cannot be
+accepted without proof that its resource, GPU UUIDs, randomized schedule and
+sealed argv were authorized. Existing frozen readiness, observation and report
+formats remain unchanged; they are inputs or legacy evidence, not substitutes
+for this combined gate.
+
 ## Upstream delivery package
 
 An accepted optimization is not automatically an upstream-ready change. Build

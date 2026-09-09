@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_combined_execution_authorization.schema.json",
+  "title": "Fail-closed combined authorization for a community cohort",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "cycle_id", "state", "claim_boundary",
+    "validator_binding", "authorization_request", "pre_gpu_gate",
+    "execution_contract_gate", "supervisor_approval", "gate_decisions",
+    "remaining_blockers", "gpu_dispatch_authorized", "hidden_oracle_exposed",
+    "execution"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-combined-execution-authorization-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["DISPATCH_BLOCKED", "DISPATCH_AUTHORIZED"]},
+    "claim_boundary": {"const": "P_AND_E_AND_A_DISPATCH_GATE_NOT_EXECUTION_OR_RESULT_EVIDENCE"},
+    "validator_binding": {
+      "type": "object", "additionalProperties": false,
+      "required": ["repository_commit", "request_schema_sha256", "authorization_schema_sha256", "validator_sha256"],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "request_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "authorization_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "validator_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "authorization_request": {"$ref": "#/$defs/identity"},
+    "pre_gpu_gate": {"$ref": "#/$defs/identity"},
+    "execution_contract_gate": {"$ref": "#/$defs/identity"},
+    "supervisor_approval": {
+      "oneOf": [{"$ref": "#/$defs/identity"}, {"type": "null"}]
+    },
+    "gate_decisions": {
+      "type": "object", "additionalProperties": false,
+      "required": ["pre_gpu_ready", "execution_contract_ready", "independent_supervisor_approved"],
+      "properties": {
+        "pre_gpu_ready": {"type": "boolean"},
+        "execution_contract_ready": {"type": "boolean"},
+        "independent_supervisor_approved": {"type": "boolean"}
+      }
+    },
+    "remaining_blockers": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "gpu_dispatch_authorized": {"type": "boolean"},
+    "hidden_oracle_exposed": {"const": false},
+    "execution": {
+      "type": "object", "additionalProperties": false,
+      "required": ["compile_started", "gpu_started", "gpu_seconds"],
+      "properties": {
+        "compile_started": {"const": false},
+        "gpu_started": {"const": false},
+        "gpu_seconds": {"const": 0.0}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
