@@ -22,7 +22,7 @@ from community_claim_contracts import (
     TERMINAL_OUTCOMES,
     ClaimError,
     SessionBinding,
-    authorization_schedule,
+    authorization_schedule as authorization_schedule,
     canonical_json,
     digest,
     parse_timestamp,

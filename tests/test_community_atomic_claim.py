@@ -536,7 +536,9 @@ def test_expiry_clock_is_sampled_after_acquiring_write_lock(
             store.claim_entry(binding, rows[0])
 
         clock_called = Event()
-        expired = atomic_claim.parse_timestamp(binding.expires_at) + timedelta(seconds=1)
+        expired = atomic_claim.parse_timestamp(binding.expires_at) + timedelta(
+            seconds=1
+        )
 
         def expired_clock() -> datetime:
             clock_called.set()
@@ -576,9 +578,7 @@ def test_store_epoch_is_persistent_and_changes_store_identity() -> None:
         assert ClaimStore(path, store_epoch_sha256="1" * 64).identity_sha256 == (
             first.identity_sha256
         )
-        with pytest.raises(
-            ClaimError, match="CLAIM_STORE_EPOCH_OR_IDENTITY_MISMATCH"
-        ):
+        with pytest.raises(ClaimError, match="CLAIM_STORE_EPOCH_OR_IDENTITY_MISMATCH"):
             ClaimStore(path, store_epoch_sha256="2" * 64)
 
         archived = root / "claims.sqlite.archived"
