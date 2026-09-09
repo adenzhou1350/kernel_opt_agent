@@ -1,1 +1,0 @@
-PASS: static admission build completed; CUDA launches=0

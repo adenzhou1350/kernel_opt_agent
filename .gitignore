@@ -1,7 +1,10 @@
 __pycache__/
 *.pyc
 microbench/**/build/
-runs/*/candidates/build/
+# Run directories contain generated evidence, logs, binaries, downloaded
+# references and machine-specific state. Keep them outside the source tree.
+runs/*
+!runs/README.md
 *.tmp
 .DS_Store
 .pytest_cache/

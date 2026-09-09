@@ -1,8 +1,0 @@
-{
-  "schema_version": "resource-balance-ledger-v2",
-  "status": "DRAFT",
-  "cases": [],
-  "cross_resource_coupling": [],
-  "unresolved_material_resources": [],
-  "evidence": []
-}

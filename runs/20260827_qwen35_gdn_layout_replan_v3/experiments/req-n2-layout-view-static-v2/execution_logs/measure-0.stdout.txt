@@ -1,1 +1,0 @@
-PASS: wrote two path-specific deterministic observations value=1.0

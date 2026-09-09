@@ -70,9 +70,10 @@ python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
 Use `scripts/kernel_opt.py hardware-discover` to create a hardware snapshot,
-then use the selected microbenchmarks and analysis commands to build evidence. `runs/` is
-for generated artifacts; reusable knowledge belongs in `hardware/`,
-`microbench/`, `schemas/` or the skill references.
+then use the selected microbenchmarks and analysis commands to build evidence.
+`runs/` is a local, ignored workspace for generated artifacts; reusable code and
+knowledge belong in `hardware/`, `microbench/`, `schemas/` or the skill
+references. See [runs/README.md](runs/README.md) for the storage boundary.
 
 Each run designates one `GLOBAL_SCHEDULER` and an independent
 `GLOBAL_SUPERVISOR`. The scheduler maintains the global resource balance,
@@ -112,8 +113,9 @@ P0--P3 experiments, production/P4 validation, certification and completion.
 
 Each directory has one owner:
 
-- `runs/` contains mutable application work, raw evidence, binaries and new
-  microbenchmark candidates.
+- `runs/` contains mutable local application work, raw evidence, binaries and
+  new microbenchmark candidates. Its contents are not committed to this source
+  repository.
 - `microbench/` contains promoted application-independent source packages only.
 - `hardware/measurements/` contains immutable results keyed by complete device
   and software identity.
