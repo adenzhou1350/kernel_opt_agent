@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 from pathlib import Path
@@ -69,6 +70,20 @@ def require_commit(commit: str) -> None:
     )
     if result.returncode != 0:
         raise ValueError("authorization validator commit is unavailable")
+
+
+def git_blob_sha256(commit: str, relative_path: str) -> str:
+    result = subprocess.run(
+        ["git", "show", f"{commit}:{relative_path}"],
+        cwd=repository_root(),
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise ValueError(
+            f"authorization validator blob is unavailable: {relative_path}"
+        )
+    return hashlib.sha256(result.stdout).hexdigest()
 
 
 def canonical_schedule(entries: list[dict]) -> list[dict]:
@@ -186,16 +201,29 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
     binding = authorization["validator_binding"]
     require_commit(binding["repository_commit"])
     root = repository_root()
-    expected = {
+    paths = {
+        "request_schema_sha256": f"schemas/{REQUEST_SCHEMA}",
+        "authorization_schema_sha256": f"schemas/{AUTHORIZATION_SCHEMA}",
+        "validator_sha256": "scripts/community_execution_authorization.py",
+    }
+    declared_commit_expected = {
+        key: git_blob_sha256(binding["repository_commit"], relative_path)
+        for key, relative_path in paths.items()
+    }
+    for key, value in declared_commit_expected.items():
+        if binding[key] != value:
+            raise ValueError(f"authorization declared commit binding changed: {key}")
+
+    worktree_expected = {
         "request_schema_sha256": sha256_file(root / "schemas" / REQUEST_SCHEMA),
         "authorization_schema_sha256": sha256_file(
             root / "schemas" / AUTHORIZATION_SCHEMA
         ),
         "validator_sha256": sha256_file(Path(__file__)),
     }
-    for key, value in expected.items():
+    for key, value in worktree_expected.items():
         if binding[key] != value:
-            raise ValueError(f"authorization validator binding changed: {key}")
+            raise ValueError(f"authorization worktree binding changed: {key}")
 
     request_path = validate_identity(
         artifact_root, authorization["authorization_request"], "authorization request"

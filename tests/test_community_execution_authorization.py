@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
+import hashlib
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -88,6 +90,20 @@ def stub_canonical_gate_validators(monkeypatch) -> None:
         authorization_module,
         "validate_canonical_execution_readiness",
         validate_execution,
+    )
+    blob_hashes = {
+        f"schemas/{REQUEST_SCHEMA}": sha256_file(ROOT / "schemas" / REQUEST_SCHEMA),
+        f"schemas/{AUTHORIZATION_SCHEMA}": sha256_file(
+            ROOT / "schemas" / AUTHORIZATION_SCHEMA
+        ),
+        "scripts/community_execution_authorization.py": sha256_file(
+            ROOT / "scripts" / "community_execution_authorization.py"
+        ),
+    }
+    monkeypatch.setattr(
+        authorization_module,
+        "git_blob_sha256",
+        lambda _commit, relative_path: blob_hashes[relative_path],
     )
 
 
@@ -375,7 +391,21 @@ def test_dispatch_receipt_rejects_cycle_and_suite_substitution(monkeypatch) -> N
                 raise AssertionError(f"{field} substitution must fail closed")
 
 
-def test_authorization_rejects_noncanonical_gate_artifacts() -> None:
+def test_authorization_rejects_noncanonical_gate_artifacts(monkeypatch) -> None:
+    blob_hashes = {
+        f"schemas/{REQUEST_SCHEMA}": sha256_file(ROOT / "schemas" / REQUEST_SCHEMA),
+        f"schemas/{AUTHORIZATION_SCHEMA}": sha256_file(
+            ROOT / "schemas" / AUTHORIZATION_SCHEMA
+        ),
+        "scripts/community_execution_authorization.py": sha256_file(
+            ROOT / "scripts" / "community_execution_authorization.py"
+        ),
+    }
+    monkeypatch.setattr(
+        authorization_module,
+        "git_blob_sha256",
+        lambda _commit, relative_path: blob_hashes[relative_path],
+    )
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         authorization_path, _ = build_bundle(base, True, True, True)
@@ -385,6 +415,66 @@ def test_authorization_rejects_noncanonical_gate_artifacts() -> None:
             assert "pre-GPU readiness schema" in str(error)
         else:
             raise AssertionError("noncanonical P/E artifacts must fail closed")
+
+
+def test_git_blob_hash_reads_declared_commit_bytes() -> None:
+    commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+        text=True,
+    ).stdout.strip()
+    relative_path = f"schemas/{REQUEST_SCHEMA}"
+    blob = subprocess.run(
+        ["git", "show", f"{commit}:{relative_path}"],
+        cwd=ROOT,
+        capture_output=True,
+        check=True,
+    ).stdout
+    assert (
+        authorization_module.git_blob_sha256(commit, relative_path)
+        == hashlib.sha256(blob).hexdigest()
+    )
+
+
+def test_authorization_rejects_declared_commit_blob_drift(monkeypatch) -> None:
+    stub_canonical_gate_validators(monkeypatch)
+    monkeypatch.setattr(
+        authorization_module,
+        "git_blob_sha256",
+        lambda _commit, _relative_path: "f" * 64,
+    )
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        path, _ = build_bundle(base, False, True, False)
+        try:
+            validate_authorization(path, base)
+        except ValueError as error:
+            assert "declared commit binding changed" in str(error)
+        else:
+            raise AssertionError("declared commit blob drift must fail closed")
+
+
+def test_authorization_rejects_worktree_binding_drift(monkeypatch) -> None:
+    stub_canonical_gate_validators(monkeypatch)
+    original_sha256_file = authorization_module.sha256_file
+
+    def drift_validator(path: Path) -> str:
+        if path.resolve() == Path(authorization_module.__file__).resolve():
+            return "e" * 64
+        return original_sha256_file(path)
+
+    monkeypatch.setattr(authorization_module, "sha256_file", drift_validator)
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        path, _ = build_bundle(base, False, True, False)
+        try:
+            validate_authorization(path, base)
+        except ValueError as error:
+            assert "worktree binding changed" in str(error)
+        else:
+            raise AssertionError("worktree binding drift must fail closed")
 
 
 def test_observation_provenance_rejects_missing_dispatch_receipt() -> None:
