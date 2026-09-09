@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
 from pathlib import Path
 
 from community_knowledge import read_object, sha256_file
@@ -35,6 +36,26 @@ def validate_identity(base: Path, identity: dict, label: str) -> Path:
     if sha256_file(path) != identity["sha256"]:
         raise ValueError(f"{label} hash changed: {identity['path']}")
     return path
+
+
+def validate_commit_ancestry(root: Path, ancestor: str, descendant: str) -> None:
+    for label, commit in (("frozen protocol", ancestor), ("governance", descendant)):
+        result = subprocess.run(
+            ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+            cwd=root,
+            capture_output=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            raise ValueError(f"{label} commit is unavailable: {commit}")
+    ancestry = subprocess.run(
+        ["git", "merge-base", "--is-ancestor", ancestor, descendant],
+        cwd=root,
+        capture_output=True,
+        check=False,
+    )
+    if ancestry.returncode != 0:
+        raise ValueError("governance commit does not descend from the frozen protocol")
 
 
 def blocker_count(blockers: dict) -> int:
@@ -83,7 +104,14 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
     if readiness.get("supersedes") is not None:
         check(readiness["supersedes"], "superseded readiness")
     protocol = readiness["protocol_binding"]
-    check(protocol["temporal_suite"], "temporal suite")
+    validate_commit_ancestry(
+        root,
+        protocol["frozen_discovery_and_arm_protocol_commit"],
+        protocol["governance_validator_commit"],
+    )
+    suite_path = check(protocol["temporal_suite"], "temporal suite")
+    assert suite_path is not None
+    suite = read_object(suite_path)
     if protocol.get("packet_leakage_audit") is not None:
         check(protocol["packet_leakage_audit"], "packet leakage audit")
     for name, identity in readiness.get("supplemental_audits", {}).items():
@@ -106,8 +134,25 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
         raise ValueError(
             "task freezes, cohort primary tasks and frozen environment resources differ"
         )
+    suite_tasks = suite.get("tasks")
+    if not isinstance(suite_tasks, list):
+        raise ValueError("temporal suite has no task list")
+    suite_by_id = {
+        item.get("task_id"): item
+        for item in suite_tasks
+        if isinstance(item, dict) and isinstance(item.get("task_id"), str)
+    }
+    readiness_task_ids = [task.get("task_id") for task in tasks.values()]
+    if (
+        any(not isinstance(task_id, str) or not task_id for task_id in readiness_task_ids)
+        or len(readiness_task_ids) != len(set(readiness_task_ids))
+        or len(suite_by_id) != len(suite_tasks)
+        or set(suite_by_id) != set(readiness_task_ids)
+    ):
+        raise ValueError("temporal suite task set differs from the frozen readiness")
     formal_resource_id = readiness["formal_resource"]["resource_id"]
     for task_id, task in tasks.items():
+        stable_task_id = task["task_id"]
         frozen = frozen_resources[task_id]
         if task["formal_resource_id"] != frozen.get("resource_id"):
             raise ValueError(f"task resource id drift: {task_id}")
@@ -119,6 +164,8 @@ def validate_readiness(readiness_path: Path, artifact_root: Path) -> dict:
             raise ValueError(f"task GPU count does not match UUID lock: {task_id}")
         check(task["intake"], f"{task_id} intake")
         check(task["task_packet"], f"{task_id} task packet")
+        if suite_by_id[stable_task_id].get("packet") != task["task_packet"]:
+            raise ValueError(f"task packet identity differs from the temporal suite: {task_id}")
         check(task["bounded_supervisor"], f"{task_id} bounded supervisor")
         if task.get("target_access_preflight") is not None:
             check(task["target_access_preflight"], f"{task_id} target access preflight")

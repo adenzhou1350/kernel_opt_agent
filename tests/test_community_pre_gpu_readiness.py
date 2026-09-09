@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -67,7 +68,30 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
             }
         },
     )
+    write_json(
+        dummy_paths["suite"],
+        {
+            "tasks": [
+                {
+                    "task_id": "task-a",
+                    "packet": identity(dummy_paths["packet-a"], base),
+                },
+                {
+                    "task_id": "task-b",
+                    "packet": identity(dummy_paths["packet-b"], base),
+                },
+            ]
+        },
+    )
+    current_commit = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+    ).stdout.strip()
     task_a = {
+        "task_id": "task-a",
         "intake": identity(dummy_paths["intake-a"], base),
         "task_packet": identity(dummy_paths["packet-a"], base),
         "formal_resource_id": "shared-sm120",
@@ -84,6 +108,7 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
         "bounded_supervisor": identity(dummy_paths["supervisor-a"], base),
     }
     task_b = {
+        "task_id": "task-b",
         "intake": identity(dummy_paths["intake-b"], base),
         "task_packet": identity(dummy_paths["packet-b"], base),
         "formal_resource_id": "shared-sm120",
@@ -109,8 +134,8 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
             "reserve_touched": False,
         },
         "protocol_binding": {
-            "frozen_discovery_and_arm_protocol_commit": "1" * 40,
-            "governance_validator_commit": "2" * 40,
+            "frozen_discovery_and_arm_protocol_commit": current_commit,
+            "governance_validator_commit": current_commit,
             "temporal_suite": identity(dummy_paths["suite"], base),
         },
         "formal_resource": {
@@ -158,6 +183,20 @@ def test_pre_gpu_readiness_fail_closed_and_resource_bound() -> None:
         drifted["task_freezes"]["task-b"]["formal_gpu_uuids"] = ["GPU-other"]
         write_json(readiness_path, drifted)
         with pytest.raises(ValueError, match="GPU UUID drift"):
+            validate_readiness(readiness_path, base)
+
+        unavailable_commit = copy.deepcopy(blocked)
+        unavailable_commit["protocol_binding"]["governance_validator_commit"] = "f" * 40
+        write_json(readiness_path, unavailable_commit)
+        with pytest.raises(ValueError, match="governance commit is unavailable"):
+            validate_readiness(readiness_path, base)
+
+        wrong_suite_packet = copy.deepcopy(blocked)
+        wrong_suite_packet["task_freezes"]["task-b"]["task_packet"] = identity(
+            base / "packet-a.json", base
+        )
+        write_json(readiness_path, wrong_suite_packet)
+        with pytest.raises(ValueError, match="task packet identity differs"):
             validate_readiness(readiness_path, base)
 
         premature = copy.deepcopy(blocked)

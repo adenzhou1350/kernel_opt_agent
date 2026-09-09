@@ -117,8 +117,9 @@
     },
     "task": {
       "type": "object",
-      "required": ["intake", "task_packet", "formal_resource_id", "formal_gpu_uuids", "preflight_status", "bounded_supervisor"],
+      "required": ["task_id", "intake", "task_packet", "formal_resource_id", "formal_gpu_uuids", "preflight_status", "bounded_supervisor"],
       "properties": {
+        "task_id": {"type": "string", "minLength": 1},
         "intake": {"$ref": "#/$defs/identity"},
         "task_packet": {"$ref": "#/$defs/identity"},
         "formal_resource_id": {"type": "string", "minLength": 1},
