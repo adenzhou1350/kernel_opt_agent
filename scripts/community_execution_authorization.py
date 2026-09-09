@@ -69,6 +69,15 @@ def canonical_schedule(entries: list[dict]) -> list[dict]:
     return [{field: entry.get(field) for field in fields} for entry in entries]
 
 
+def same_identity(left: dict | None, right: dict | None) -> bool:
+    if left is None or right is None:
+        return left is right
+    return (
+        left.get("path") == right.get("path")
+        and left.get("sha256") == right.get("sha256")
+    )
+
+
 def validate_request(request_path: Path, artifact_root: Path) -> dict:
     request = validate_schema(request_path, REQUEST_SCHEMA, "authorization request")
     artifact_root = artifact_root.resolve()
@@ -87,9 +96,11 @@ def validate_request(request_path: Path, artifact_root: Path) -> dict:
         == cohort.get("cycle_id")
     ):
         raise ValueError("request mixes cycle identities")
-    if execution.get("base_readiness") != request["pre_gpu_gate"]:
+    if not same_identity(execution.get("base_readiness"), request["pre_gpu_gate"]):
         raise ValueError("execution-contract gate is not bound to the requested pre-GPU gate")
-    if pre.get("protocol_binding", {}).get("temporal_suite") != request["suite"]:
+    if not same_identity(
+        pre.get("protocol_binding", {}).get("temporal_suite"), request["suite"]
+    ):
         raise ValueError("request suite differs from pre-GPU readiness")
     if pre.get("cohort_binding", {}).get("cohort_freeze_sha256") != request["cohort"]["sha256"]:
         raise ValueError("request cohort differs from pre-GPU readiness")
@@ -106,7 +117,7 @@ def validate_request(request_path: Path, artifact_root: Path) -> dict:
             raise ValueError(f"request task identity drift: {key}")
         if task["formal_gpu_uuids"] != pre_tasks[key].get("formal_gpu_uuids"):
             raise ValueError(f"request GPU UUID drift: {key}")
-        if task["sealed_argv"] != execution_tasks[key].get("sealed_argv"):
+        if not same_identity(task["sealed_argv"], execution_tasks[key].get("sealed_argv")):
             raise ValueError(f"request sealed argv drift: {key}")
         validate_identity(artifact_root, task["sealed_argv"], f"{key} sealed argv")
 
@@ -149,9 +160,11 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
     request = bundle["request"]
     if authorization["cycle_id"] != request["cycle_id"]:
         raise ValueError("authorization cycle differs from request")
-    if authorization["pre_gpu_gate"] != request["pre_gpu_gate"]:
+    if not same_identity(authorization["pre_gpu_gate"], request["pre_gpu_gate"]):
         raise ValueError("authorization pre-GPU identity differs from request")
-    if authorization["execution_contract_gate"] != request["execution_contract_gate"]:
+    if not same_identity(
+        authorization["execution_contract_gate"], request["execution_contract_gate"]
+    ):
         raise ValueError("authorization execution-contract identity differs from request")
 
     pre_ready = (
@@ -176,7 +189,10 @@ def validate_authorization(authorization_path: Path, artifact_root: Path) -> dic
             and approval.get("issued_by", {}).get("role") == "GLOBAL_SUPERVISOR"
             and approval.get("action") == "DISPATCH_QUALIFICATION"
             and approval.get("single_use") is True
-            and approval.get("experiment_identity") == authorization["authorization_request"]
+            and same_identity(
+                approval.get("experiment_identity"),
+                authorization["authorization_request"],
+            )
         )
 
     actual = {
@@ -206,7 +222,10 @@ def validate_dispatch_receipt(receipt_path: Path, artifact_root: Path) -> dict:
     bundle = validate_authorization(authorization_path, artifact_root)
     if not bundle["allowed"]:
         raise ValueError("dispatch receipt cannot consume a blocked authorization")
-    if receipt["authorization_request"] != bundle["authorization"]["authorization_request"]:
+    if not same_identity(
+        receipt["authorization_request"],
+        bundle["authorization"]["authorization_request"],
+    ):
         raise ValueError("dispatch receipt request differs from authorization")
     request = bundle["request"]
     rows = [
@@ -217,7 +236,11 @@ def validate_dispatch_receipt(receipt_path: Path, artifact_root: Path) -> dict:
     if len(rows) != 1:
         raise ValueError("dispatch receipt is not one exact frozen schedule entry")
     task = request["tasks"].get(receipt["task_key"])
-    if task is None or task["task_id"] != receipt["task_id"] or receipt["sealed_argv"] != task["sealed_argv"]:
+    if (
+        task is None
+        or task["task_id"] != receipt["task_id"]
+        or not same_identity(receipt["sealed_argv"], task["sealed_argv"])
+    ):
         raise ValueError("dispatch receipt sealed argv differs from the frozen task")
     validate_identity(artifact_root, receipt["sealed_argv"], "dispatch sealed argv")
     return {"receipt": receipt, "authorization": bundle["authorization"]}
