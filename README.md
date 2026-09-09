@@ -320,6 +320,26 @@ per-task decision/measurability/frontier/objective chain, frozen request scope,
 expiry policy, and its own declared Git blobs. The v1 combined gate continues
 to reject non-null approvals and there is no compatibility auto-upgrade.
 
+## Four-lane delivery accounting
+
+The four autonomous execution lanes write canonical work-cycle ledgers while
+the control plane selects their identities explicitly in one portfolio manifest:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio \
+  --manifest /path/to/four-lane-portfolio-manifest.json \
+  --output /path/to/four-lane-portfolio-report.json
+```
+
+The report rejects duplicate ledger or cycle/task identities and keeps
+prospective measurements separate from legacy milestone bounds. Version 2 adds
+an evidence-backed delivery funnel from candidate proposal through correctness,
+material improvement, qualification, upstream readiness, PR review and merge.
+Its `leading_constraint` gives dashboards a transcript-free answer to where each
+lane is currently losing useful upstream output. This is descriptive accounting;
+it does not establish strategy causality or count this repository's maintenance
+PRs as framework optimization results.
+
 ## Upstream delivery package
 
 An accepted optimization is not automatically an upstream-ready change. Build
