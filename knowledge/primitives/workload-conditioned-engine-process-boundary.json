@@ -63,7 +63,7 @@
   "scope_limits": [
     "The clean-main positive reproduction is limited to offline B=8 decode on one model and RTX 5090; online serving was not measured.",
     "B=1 did not cross the material floor on clean main and had regressed on the older guarded worktree, so this method requires explicit workload guards.",
-    "The current vLLM GDN attention path does not support VLLM_BATCH_INVARIANT=1; exact bitwise validation remains unavailable for that model.",
+    "One evaluated recurrent-attention path did not support the required batch-invariant mode; exact bitwise validation therefore remained unavailable for that model.",
     "The measured multiprocess output transport age was about 0.222 ms median versus 0.010 ms in-process, but two isolated subcomponent ablations did not recover it; the remaining opportunity spans the EngineCore output queue, serialization and ZMQ path.",
     "This card guides candidate generation and routing; it is not proof that another workload benefits."
   ],
