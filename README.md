@@ -359,14 +359,26 @@ Its output still has `gpu_dispatch_authorized=false`: only a later atomic
 dispatcher can consume the token, attest a child process and write terminal
 evidence. Version 1 remains legacy and is not reinterpreted in place.
 
-`scripts/community_atomic_dispatcher.py` is that single-entry launcher. It
-revalidates combined authorization on the live claim-store host, derives the
+`scripts/community_runtime_authorization.py` adds the final fail-closed bridge
+before launch. A version-3 combined authorization revalidates version 2 and
+binds each task to an exact runtime lock, working directory, command executable,
+resolved `/proc` executable and complete child environment. Relative sealed
+commands such as `python3` are executed through the bound interpreter while
+preserving the original argv identity. The runtime authorization identity is
+part of the atomic session, so a token cannot be reused with another venv or
+environment.
+
+`scripts/community_atomic_dispatcher.py` is the runtime-bound single-entry
+launcher. It revalidates version-3 combined authorization on the live
+claim-store host, derives the
 wall/GPU ceiling from the exact `--timeout-seconds` already present in every
 sealed argv, checks the formal UUID set against live inventory, atomically
-claims the next frozen entry, launches it once, and records `/proc` argv,
-executable, boot and process-start identity. Output and log paths must be new,
-distinct and below the artifact root. A timeout or either launch crash window
-is terminal and never retried. Any ordinary process exit—including zero—stays
+claims the next frozen entry, rechecks the executable immediately before spawn,
+launches once with the exact environment, and records `/proc` argv, executable,
+environment, boot and process-start identity. Output and log paths must be new,
+distinct and below the artifact root. Runtime drift before claim does not
+consume the token; drift in the launch window is terminal and never retried.
+Any ordinary process exit—including zero—stays
 `PROCESS_EXITED_AWAITING_VALIDATED_OBSERVATION`; only the terminal-v2 evidence
 finalizer may advance the schedule as success.
 

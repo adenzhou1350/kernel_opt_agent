@@ -24,10 +24,10 @@ from community_claim_contracts import (
     validate_receipt,
     with_id,
 )
-from community_execution_authorization_v2 import validate_authorization
+from community_runtime_authorization import validate_authorization
 
 
-RESULT_SCHEMA = "community_atomic_dispatch_result.schema.json"
+RESULT_SCHEMA = "community_atomic_dispatch_result_v2.schema.json"
 
 
 class Child(Protocol):
@@ -41,11 +41,13 @@ class Child(Protocol):
 class Runtime(Protocol):
     def gpu_inventory(self) -> list[str]: ...
 
+    def preflight(self, runtime_entry: dict) -> None: ...
+
     def spawn(
-        self, argv: list[str], cwd: Path, stdout: BinaryIO, stderr: BinaryIO
+        self, runtime_entry: dict, stdout: BinaryIO, stderr: BinaryIO
     ) -> Child: ...
 
-    def attest(self, child: Child, entry: dict) -> dict: ...
+    def attest(self, child: Child, entry: dict, runtime_entry: dict) -> dict: ...
 
     def terminate(self, child: Child) -> int | None: ...
 
@@ -145,21 +147,59 @@ class PosixRuntime:
             raise ClaimError("LIVE_GPU_INVENTORY_INVALID")
         return values
 
+    @staticmethod
+    def _environment(proc: Path) -> dict[str, str]:
+        pairs = (proc / "environ").read_bytes().rstrip(b"\0").split(b"\0")
+        environment: dict[str, str] = {}
+        for pair in pairs:
+            name, separator, value = pair.partition(b"=")
+            if not separator or not name:
+                raise ClaimError("LIVE_PROCESS_ENVIRONMENT_INVALID")
+            decoded_name = name.decode("utf-8")
+            if decoded_name in environment:
+                raise ClaimError("LIVE_PROCESS_ENVIRONMENT_INVALID")
+            environment[decoded_name] = value.decode("utf-8")
+        return environment
+
+    def preflight(self, runtime_entry: dict) -> None:
+        working_directory = Path(runtime_entry["working_directory"])
+        command = Path(runtime_entry["command_executable"]["path"])
+        process = Path(runtime_entry["process_executable"]["path"])
+        if not working_directory.is_dir():
+            raise ClaimError("LIVE_WORKING_DIRECTORY_IDENTITY_MISMATCH")
+        if (
+            not command.is_file()
+            or sha256_file(command) != runtime_entry["command_executable"]["sha256"]
+        ):
+            raise ClaimError("LIVE_COMMAND_EXECUTABLE_IDENTITY_MISMATCH")
+        if (
+            not process.is_file()
+            or sha256_file(process) != runtime_entry["process_executable"]["sha256"]
+        ):
+            raise ClaimError("LIVE_PROCESS_EXECUTABLE_IDENTITY_MISMATCH")
+        if command.resolve(strict=True) != process.resolve(strict=True):
+            raise ClaimError("LIVE_COMMAND_PROCESS_EXECUTABLE_MISMATCH")
+        if digest(runtime_entry["environment"]) != runtime_entry["environment_sha256"]:
+            raise ClaimError("LIVE_ENVIRONMENT_IDENTITY_MISMATCH")
+
     def spawn(
-        self, argv: list[str], cwd: Path, stdout: BinaryIO, stderr: BinaryIO
+        self, runtime_entry: dict, stdout: BinaryIO, stderr: BinaryIO
     ) -> subprocess.Popen[bytes]:
         if os.name != "posix" or not Path("/proc").is_dir():
             raise ClaimError("ATOMIC_DISPATCHER_REQUIRES_PROCFS_POSIX_HOST")
+        self.preflight(runtime_entry)
         return subprocess.Popen(
-            argv,
-            cwd=cwd,
+            runtime_entry["launch_argv"],
+            executable=runtime_entry["command_executable"]["path"],
+            cwd=Path(runtime_entry["working_directory"]),
+            env=runtime_entry["environment"],
             stdin=subprocess.DEVNULL,
             stdout=stdout,
             stderr=stderr,
             start_new_session=True,
         )
 
-    def attest(self, child: Child, entry: dict) -> dict:
+    def attest(self, child: Child, entry: dict, runtime_entry: dict) -> dict:
         proc = Path("/proc") / str(child.pid)
         try:
             command = (proc / "cmdline").read_bytes().rstrip(b"\0").split(b"\0")
@@ -167,6 +207,7 @@ class PosixRuntime:
             stat_text = (proc / "stat").read_text(encoding="utf-8")
             stat_tail = stat_text[stat_text.rindex(")") + 2 :].split()
             executable = (proc / "exe").resolve(strict=True)
+            environment = self._environment(proc)
             boot_id = (
                 Path("/proc/sys/kernel/random/boot_id")
                 .read_text(encoding="utf-8")
@@ -174,8 +215,19 @@ class PosixRuntime:
             )
         except (FileNotFoundError, OSError, UnicodeDecodeError) as error:
             raise ClaimError("CHILD_EXITED_BEFORE_PROCESS_ATTESTATION") from error
-        if digest(argv) != entry["resolved_argv_sha256"]:
+        if (
+            digest(argv) != entry["resolved_argv_sha256"]
+            or digest(argv) != runtime_entry["launch_argv_sha256"]
+        ):
             raise ClaimError("LIVE_PROCESS_ARGV_DIFFERS_FROM_SEALED_ENTRY")
+        if (
+            executable
+            != Path(runtime_entry["process_executable"]["path"]).resolve(strict=True)
+            or sha256_file(executable) != runtime_entry["process_executable"]["sha256"]
+        ):
+            raise ClaimError("LIVE_PROCESS_EXECUTABLE_DIFFERS_FROM_PROFILE")
+        if digest(environment) != runtime_entry["environment_sha256"]:
+            raise ClaimError("LIVE_PROCESS_ENVIRONMENT_DIFFERS_FROM_PROFILE")
         return {
             "pid": child.pid,
             "hostname": socket.gethostname(),
@@ -223,15 +275,23 @@ def dispatch_one(
         if path.exists():
             raise ClaimError("DISPATCH_OUTPUT_ALREADY_EXISTS")
     schedule = bundle["execution_schedule"]
+    runtime_schedule = bundle["runtime_schedule"]
     timeouts = validate_planned_budget(schedule, bundle["approval"])
     rows = [entry for entry in schedule if entry["order_index"] == order_index]
     if len(rows) != 1:
         raise ClaimError("ORDER_INDEX_NOT_IN_FROZEN_SCHEDULE")
     entry = rows[0]
+    runtime_rows = [
+        row for row in runtime_schedule if row["order_index"] == order_index
+    ]
+    if len(runtime_rows) != 1 or runtime_rows[0]["task_id"] != entry["task_id"]:
+        raise ClaimError("RUNTIME_ENTRY_NOT_IN_FROZEN_SCHEDULE")
+    runtime_entry = runtime_rows[0]
     timeout_seconds = timeouts[order_index - 1]
     live_inventory = runtime.gpu_inventory()
     if not set(entry["formal_gpu_uuids"]).issubset(live_inventory):
         raise ClaimError("FORMAL_GPU_UUID_NOT_PRESENT_IN_LIVE_INVENTORY")
+    runtime.preflight(runtime_entry)
     gates = {
         "pre_gpu_ready": bundle["authorization"]["gate_decisions"]["pre_gpu_ready"],
         "execution_contract_ready": bundle["authorization"]["gate_decisions"][
@@ -252,9 +312,7 @@ def dispatch_one(
     try:
         with stdout_path.open("wb") as stdout, stderr_path.open("wb") as stderr:
             try:
-                child = runtime.spawn(
-                    entry["resolved_argv"], artifact_root, stdout, stderr
-                )
+                child = runtime.spawn(runtime_entry, stdout, stderr)
             except Exception:
                 terminal = store.record_ambiguous(
                     binding, order_index, "AMBIGUOUS_PRELAUNCH"
@@ -262,7 +320,7 @@ def dispatch_one(
                 state = "TERMINAL_AMBIGUOUS_PRELAUNCH"
             else:
                 try:
-                    process = runtime.attest(child, entry)
+                    process = runtime.attest(child, entry, runtime_entry)
                     dispatch = store.record_dispatch(binding, order_index, process)
                 except Exception:
                     runtime.terminate(child)
@@ -288,14 +346,20 @@ def dispatch_one(
     ended = trusted_utc_now()
     result = with_id(
         {
-            "schema_version": "community-atomic-dispatch-result-v1",
+            "schema_version": "community-atomic-dispatch-result-v2",
             "generated_at": timestamp_text(ended),
             "claim_boundary": (
-                "ONE_ATOMIC_LAUNCH_ATTEMPT_NOT_EXPERIMENT_SUCCESS_OR_POLICY_EVIDENCE"
+                "ONE_RUNTIME_BOUND_ATOMIC_LAUNCH_ATTEMPT_NOT_EXPERIMENT_SUCCESS_OR_POLICY_EVIDENCE"
             ),
             "combined_authorization_id": bundle["authorization"][
                 "combined_authorization_id"
             ],
+            "base_combined_authorization_id": bundle["base_authorization"][
+                "combined_authorization_id"
+            ],
+            "execution_profile_id": runtime_entry["execution_profile_id"],
+            "environment_sha256": runtime_entry["environment_sha256"],
+            "working_directory": runtime_entry["working_directory"],
             "session_id": binding.session_id,
             "order_index": order_index,
             "schedule_key": entry["schedule_key"],

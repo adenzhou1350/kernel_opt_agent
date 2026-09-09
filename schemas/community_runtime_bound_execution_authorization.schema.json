@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_runtime_bound_execution_authorization.schema.json",
+  "title": "Runtime-bound P-and-E-and-A authorization ready for atomic claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "claim_boundary",
+    "combined_authorization_id", "validator_binding",
+    "base_combined_authorization", "authorization_request", "cycle_id",
+    "suite_id", "formal_resource_id", "task_execution_profiles",
+    "execution_schedule", "runtime_schedule", "gate_decisions", "state",
+    "ready_for_atomic_claim", "gpu_dispatch_authorized",
+    "remaining_blockers", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-combined-execution-authorization-v3"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {
+      "const": "P_AND_E_AND_A_AND_STORE_AND_RUNTIME_RECOMPUTED_READY_FOR_ATOMIC_CLAIM_NOT_DISPATCH"
+    },
+    "combined_authorization_id": {"$ref": "#/$defs/sha256"},
+    "validator_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_commit", "authorization_schema_sha256",
+        "profile_schema_sha256", "validator_sha256",
+        "base_authorization_schema_sha256", "base_validator_sha256",
+        "dispatcher_sha256"
+      ],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "authorization_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "profile_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "validator_sha256": {"$ref": "#/$defs/sha256"},
+        "base_authorization_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "base_validator_sha256": {"$ref": "#/$defs/sha256"},
+        "dispatcher_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "base_combined_authorization": {"$ref": "#/$defs/identity"},
+    "authorization_request": {"$ref": "#/$defs/identity"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "suite_id": {"type": "string", "minLength": 1},
+    "formal_resource_id": {"type": "string", "minLength": 1},
+    "task_execution_profiles": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {"$ref": "#/$defs/identity"}
+    },
+    "execution_schedule": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/execution_entry"}
+    },
+    "runtime_schedule": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/runtime_entry"}
+    },
+    "gate_decisions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "pre_gpu_ready", "execution_contract_ready",
+        "semantic_approval_ready", "claim_store_deployment_ready",
+        "runtime_profiles_ready"
+      ],
+      "properties": {
+        "pre_gpu_ready": {"type": "boolean"},
+        "execution_contract_ready": {"type": "boolean"},
+        "semantic_approval_ready": {"type": "boolean"},
+        "claim_store_deployment_ready": {"type": "boolean"},
+        "runtime_profiles_ready": {"type": "boolean"}
+      }
+    },
+    "state": {"enum": ["READY_FOR_ATOMIC_CLAIM", "ATOMIC_CLAIM_BLOCKED"]},
+    "ready_for_atomic_claim": {"type": "boolean"},
+    "gpu_dispatch_authorized": {"const": false},
+    "remaining_blockers": {
+      "type": "array", "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "absolute_identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "execution_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_index", "task_id", "repeat_index", "arm", "schedule_key",
+        "sealed_argv_sha256", "resolved_argv", "resolved_argv_sha256",
+        "formal_gpu_uuids"
+      ],
+      "properties": {
+        "order_index": {"type": "integer", "minimum": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "repeat_index": {"type": "integer", "minimum": 1},
+        "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+        "schedule_key": {"$ref": "#/$defs/sha256"},
+        "sealed_argv_sha256": {"$ref": "#/$defs/sha256"},
+        "resolved_argv": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "resolved_argv_sha256": {"$ref": "#/$defs/sha256"},
+        "formal_gpu_uuids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^GPU-[0-9A-Za-z-]+$"}
+        }
+      }
+    },
+    "runtime_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_index", "task_id", "execution_profile_id", "launch_argv",
+        "launch_argv_sha256", "working_directory", "command_executable",
+        "process_executable", "environment", "environment_sha256"
+      ],
+      "properties": {
+        "order_index": {"type": "integer", "minimum": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "execution_profile_id": {"$ref": "#/$defs/sha256"},
+        "launch_argv": {
+          "type": "array", "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "launch_argv_sha256": {"$ref": "#/$defs/sha256"},
+        "working_directory": {"type": "string", "minLength": 1},
+        "command_executable": {"$ref": "#/$defs/absolute_identity"},
+        "process_executable": {"$ref": "#/$defs/absolute_identity"},
+        "environment": {
+          "type": "object",
+          "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+          "additionalProperties": {"type": "string"}
+        },
+        "environment_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

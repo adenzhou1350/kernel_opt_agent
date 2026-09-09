@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
 import subprocess
 import sys
 import tempfile
@@ -16,6 +18,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_atomic_claim import ClaimStore  # noqa: E402
 from community_atomic_dispatcher import (  # noqa: E402
     ClaimError,
+    PosixRuntime,
     dispatch_one,
     session_binding,
     timeout_from_argv,
@@ -45,6 +48,15 @@ def schedule() -> list[dict]:
 
 
 def bundle(rows: list[dict], store: ClaimStore) -> dict:
+    environment = {
+        "PATH": "/runtime/bin",
+        "HOME": "/runtime/home",
+        "LANG": "C.UTF-8",
+        "LC_ALL": "C.UTF-8",
+        "CUDA_VISIBLE_DEVICES": "0",
+        "NVIDIA_VISIBLE_DEVICES": "void",
+        "XDG_CACHE_HOME": "/runtime/cache",
+    }
     return {
         "authorization": {
             "combined_authorization_id": "c" * 64,
@@ -78,7 +90,29 @@ def bundle(rows: list[dict], store: ClaimStore) -> dict:
             "claim_store_identity_sha256": store.identity_sha256,
             "claim_store_epoch_sha256": store.store_epoch_sha256,
         },
+        "base_authorization": {"combined_authorization_id": "8" * 64},
         "execution_schedule": rows,
+        "runtime_schedule": [
+            {
+                "order_index": row["order_index"],
+                "task_id": row["task_id"],
+                "execution_profile_id": "7" * 64,
+                "launch_argv": row["resolved_argv"],
+                "launch_argv_sha256": row["resolved_argv_sha256"],
+                "working_directory": "/runtime/work",
+                "command_executable": {
+                    "path": "/runtime/bin/python3",
+                    "sha256": "e" * 64,
+                },
+                "process_executable": {
+                    "path": "/usr/bin/python3",
+                    "sha256": "e" * 64,
+                },
+                "environment": environment,
+                "environment_sha256": digest(environment),
+            }
+            for row in rows
+        ],
         "authorization_schedule_sha256": digest(authorization_schedule(rows)),
         "execution_schedule_sha256": digest(rows),
     }
@@ -108,25 +142,33 @@ class FakeRuntime:
         timeout: bool = False,
         spawn_error: bool = False,
         attest_error: bool = False,
+        preflight_error: bool = False,
         inventory: list[str] | None = None,
     ) -> None:
         self.child = FakeChild(exit_code=exit_code, timeout=timeout)
         self.spawn_error = spawn_error
         self.attest_error = attest_error
+        self.preflight_error = preflight_error
         self.inventory = inventory or ["GPU-11111111-1111-1111-1111-111111111111"]
         self.terminated = False
 
     def gpu_inventory(self) -> list[str]:
         return self.inventory
 
-    def spawn(self, argv, cwd, stdout, stderr):
-        del argv, cwd, stdout, stderr
+    def preflight(self, runtime_entry):
+        del runtime_entry
+        if self.preflight_error:
+            raise ClaimError("LIVE_COMMAND_EXECUTABLE_IDENTITY_MISMATCH")
+
+    def spawn(self, runtime_entry, stdout, stderr):
+        del runtime_entry, stdout, stderr
         if self.spawn_error:
             raise OSError("synthetic spawn failure")
         return self.child
 
-    def attest(self, child, entry):
+    def attest(self, child, entry, runtime_entry):
         del child
+        del runtime_entry
         if self.attest_error:
             raise ClaimError("CHILD_EXITED_BEFORE_PROCESS_ATTESTATION")
         return {
@@ -240,6 +282,28 @@ def test_missing_formal_gpu_fails_before_token_consumption() -> None:
         assert not (root / "stdout.log").exists()
 
 
+def test_runtime_drift_fails_before_token_consumption() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        rows = schedule()
+        store = ClaimStore(root / "claims.sqlite", store_epoch_sha256="9" * 64)
+        inputs = bundle(rows, store)
+        with pytest.raises(
+            ClaimError, match="LIVE_COMMAND_EXECUTABLE_IDENTITY_MISMATCH"
+        ):
+            dispatch_one(
+                inputs,
+                store,
+                session_binding(inputs),
+                1,
+                root,
+                root / "stdout.log",
+                root / "stderr.log",
+                FakeRuntime(preflight_error=True),
+            )
+        assert not (root / "stdout.log").exists()
+
+
 def test_existing_or_aliased_logs_fail_before_token_consumption() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         root = Path(temporary)
@@ -294,3 +358,51 @@ def test_timeout_flag_must_be_exactly_once() -> None:
         timeout_from_argv(
             ["python3", "x", "--timeout-seconds", "1", "--timeout-seconds", "2"]
         )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="requires Linux procfs")
+def test_posix_runtime_attests_exact_executable_argv_and_environment() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        executable = Path(sys.executable).resolve()
+        argv = ["python3", "-c", "import time; time.sleep(10)"]
+        environment = {
+            "PATH": str(executable.parent),
+            "HOME": str(root),
+            "LANG": "C.UTF-8",
+            "LC_ALL": "C.UTF-8",
+            "CUDA_VISIBLE_DEVICES": "",
+            "NVIDIA_VISIBLE_DEVICES": "void",
+            "XDG_CACHE_HOME": str(root / "cache"),
+        }
+        runtime_entry = {
+            "launch_argv": argv,
+            "launch_argv_sha256": digest(argv),
+            "working_directory": str(root),
+            "command_executable": {
+                "path": str(executable),
+                "sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
+            },
+            "process_executable": {
+                "path": str(executable),
+                "sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
+            },
+            "environment": environment,
+            "environment_sha256": digest(environment),
+        }
+        entry = {
+            "resolved_argv_sha256": digest(argv),
+            "formal_gpu_uuids": ["GPU-11111111-1111-1111-1111-111111111111"],
+        }
+        runtime = PosixRuntime()
+        with (
+            (root / "stdout").open("wb") as stdout,
+            (root / "stderr").open("wb") as stderr,
+        ):
+            child = runtime.spawn(runtime_entry, stdout, stderr)
+            try:
+                process = runtime.attest(child, entry, runtime_entry)
+                assert process["argv_sha256"] == digest(argv)
+                assert process["executable_path"] == str(executable)
+            finally:
+                runtime.terminate(child)

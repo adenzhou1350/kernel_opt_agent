@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_task_execution_profile.schema.json",
+  "title": "Exact runtime profile for one community evaluation task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "claim_boundary", "execution_profile_id",
+    "task_id", "formal_gpu_uuids", "runtime_lock", "working_directory", "sealed_argv0",
+    "command_executable", "process_executable", "environment",
+    "environment_sha256", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-task-execution-profile-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {
+      "const": "EXACT_TASK_RUNTIME_IDENTITY_NOT_EXECUTION_AUTHORIZATION"
+    },
+    "execution_profile_id": {"$ref": "#/$defs/sha256"},
+    "task_id": {"type": "string", "minLength": 1},
+    "formal_gpu_uuids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^GPU-[0-9A-Za-z-]+$"}
+    },
+    "runtime_lock": {"$ref": "#/$defs/identity"},
+    "working_directory": {"type": "string", "minLength": 1},
+    "sealed_argv0": {"type": "string", "minLength": 1},
+    "command_executable": {"$ref": "#/$defs/absolute_identity"},
+    "process_executable": {"$ref": "#/$defs/absolute_identity"},
+    "environment": {
+      "type": "object",
+      "required": [
+        "PATH", "HOME", "LANG", "LC_ALL", "CUDA_VISIBLE_DEVICES",
+        "NVIDIA_VISIBLE_DEVICES", "XDG_CACHE_HOME"
+      ],
+      "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
+      "additionalProperties": {"type": "string"}
+    },
+    "environment_sha256": {"$ref": "#/$defs/sha256"},
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "absolute_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
