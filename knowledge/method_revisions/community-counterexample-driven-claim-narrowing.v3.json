@@ -1,0 +1,75 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-counterexample-driven-claim-narrowing",
+  "revision": 3,
+  "supersedes": {
+    "revision": 2,
+    "path": "knowledge/method_revisions/community-counterexample-driven-claim-narrowing.v2.json",
+    "sha256": "c33a5d7e620f5c5fda7a362228036b1bf7cca948069575b3e9a4c59f9f5635cb"
+  },
+  "title": "Require context-length portfolios before removing compilation or execution guards",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "Internal RTX 4060 GDN compiler-disable fresh-process paired screen",
+    "url": "https://github.com/sgl-project/sglang",
+    "version": "qualification-early-stop-summary-80c42e9b7e2cbf20ad3d8e73d54040c12e148f38e0aabbc52c022edf7ef5f1c0",
+    "available_at": "2026-09-09T13:30:00Z",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "Removing torch.compiler.disable from one GDN chunk rule improved a smoke case, but the first frozen fresh-process portfolio repeat regressed weighted TTFT to 0.988924x; T128 improved while T512 and T2048 regressed. This is a single-task context guard, not a cross-framework policy verdict."
+  },
+  "opportunity_families": [
+    "counterexample-reconciliation",
+    "claim-scope-narrowing",
+    "context-length-portfolio",
+    "early-stop-validation"
+  ],
+  "applicability": {
+    "vendors": ["any"],
+    "architecture_affinity": [],
+    "required_capabilities": ["fresh-process-paired-measurement"],
+    "dtypes": [],
+    "problem_signatures": [
+      "remove compiler disable",
+      "compiler guard removal",
+      "short sequence speedup",
+      "prefill context length",
+      "smoke benchmark improvement",
+      "weighted workload regression"
+    ]
+  },
+  "implementation_recipe": [
+    "Treat removal of a compiler or execution guard as a context-sensitive candidate, not as a universally beneficial simplification.",
+    "Freeze a production-weighted context-length portfolio before measuring the candidate.",
+    "Run each arm in a fresh process when compilation state, graph state or cache reuse can otherwise leak across arms.",
+    "Retain a context guard or reject the candidate when short-context gains do not survive the weighted portfolio."
+  ],
+  "validation_recipe": [
+    "Record per-context correctness, latency and backend realization for unchanged control and candidate.",
+    "Require every repeat to pass the frozen weighted gate; stop early when remaining repeats cannot mathematically recover the decision.",
+    "Report per-context direction so a short-sequence gain cannot hide medium- or long-context regressions.",
+    "Do not translate compile-state smoke results into whole-workload, production or cross-framework claims."
+  ],
+  "expected_bottleneck_shifts": [
+    "Guard removal may reduce fixed launch or graph overhead at short contexts while exposing compilation, memory or kernel inefficiency at longer contexts.",
+    "Portfolio early-stop redirects GPU budget from an unrecoverable candidate to a different removable-work hypothesis."
+  ],
+  "failure_modes": [
+    "A single short-context smoke result is treated as representative of the production context distribution.",
+    "Warm process state is reused across arms and attributed to the code change.",
+    "An aggregate median hides a required context bucket regression.",
+    "The guard is removed before backend realization and correctness are checked."
+  ],
+  "scope_limits": [
+    "The RTX 4060 GDN result does not prove that compiler guards should remain on other operators or hardware.",
+    "A failed weighted portfolio may still justify a narrowly declared short-context specialization after separate production-share analysis.",
+    "This revision changes candidate validation and claim scope only; it is not performance evidence for a new implementation."
+  ],
+  "candidate_archetypes": [
+    {
+      "family": "context-guarded-compiler-change",
+      "name": "portfolio-qualified compiler guard removal",
+      "change_axes": ["context length", "fresh process state", "backend realization", "production weight"],
+      "template": "Freeze short, medium and long context buckets, compare unchanged and guard-removed arms in fresh processes, and retain the change only in buckets whose correctness and paired performance gates pass."
+    }
+  ]
+}
