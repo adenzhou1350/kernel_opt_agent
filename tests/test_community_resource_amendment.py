@@ -70,7 +70,8 @@ def fixture(root: Path) -> tuple[Path, dict]:
     ):
         filename = label.replace(":", "-")
         original = root / f"{filename}-old.json"
-        effective = root / f"{filename}-new.json"
+        effective = root / "effective" / f"{filename}-new.json"
+        effective.parent.mkdir(exist_ok=True)
         common = {"task": label, "schedule": ["CONTROL", "COMMUNITY_AUGMENTED"], "metric": "TTFT"}
         write(
             original,
@@ -102,6 +103,8 @@ def fixture(root: Path) -> tuple[Path, dict]:
         "generated_at": "2026-09-09T14:00:00Z",
         "cycle_id": "cycle-1",
         "claim_boundary": "RESOURCE_ONLY_NO_TASK_ARM_SCHEDULE_METRIC_OR_ORACLE_CHANGE",
+        "original_artifact_root": ".",
+        "effective_artifact_root": "effective",
         "original_readiness": identity(readiness, root),
         "feasibility_audit": identity(feasibility, root),
         "execution_state": {

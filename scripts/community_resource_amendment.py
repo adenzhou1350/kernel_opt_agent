@@ -24,6 +24,7 @@ SAFE_POINTER_TERMS = (
     "sealed-argv",
     "sealed_argv",
     "environment",
+    "memory_query_argv",
 )
 
 
@@ -87,11 +88,19 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
         raise ValueError("invalid resource amendment schema: " + "; ".join(errors))
     amendment = read_object(path)
     artifact_root = artifact_root.resolve()
+    original_root = resolve_inside(
+        artifact_root, amendment["original_artifact_root"]
+    )
+    effective_root = resolve_inside(
+        artifact_root, amendment["effective_artifact_root"]
+    )
+    if original_root == effective_root:
+        raise ValueError("original and effective artifact roots must be distinct")
     readiness_path = checked_identity(
         artifact_root, amendment["original_readiness"], "original readiness"
     )
     readiness = read_object(readiness_path)
-    canonical_readiness = validate_readiness(readiness_path, artifact_root)
+    canonical_readiness = validate_readiness(readiness_path, readiness_path.parent)
     feasibility = read_object(
         checked_identity(
             artifact_root, amendment["feasibility_audit"], "feasibility audit"
@@ -136,16 +145,21 @@ def validate_amendment(path: Path, artifact_root: Path) -> dict:
         if item["label"] in labels:
             raise ValueError(f"duplicate closure label: {item['label']}")
         labels.add(item["label"])
-        original = read_object(
-            checked_identity(
-                artifact_root, item["original"], f"{item['label']} original"
-            )
+        original_path = checked_identity(
+            artifact_root, item["original"], f"{item['label']} original"
         )
-        effective = read_object(
-            checked_identity(
-                artifact_root, item["effective"], f"{item['label']} effective"
-            )
+        effective_path = checked_identity(
+            artifact_root, item["effective"], f"{item['label']} effective"
         )
+        try:
+            original_path.relative_to(original_root)
+            effective_path.relative_to(effective_root)
+        except ValueError as error:
+            raise ValueError(
+                f"closure path is outside its declared artifact root: {item['label']}"
+            ) from error
+        original = read_object(original_path)
+        effective = read_object(effective_path)
         changed = sorted(differences(original, effective))
         if any(not allowed(value, prefixes) for value in changed):
             raise ValueError(f"non-resource drift in {item['label']}: {changed}")

@@ -4,12 +4,14 @@
   "title": "Prospective resource-only amendment for a frozen community cohort",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "generated_at", "cycle_id", "claim_boundary", "original_readiness", "feasibility_audit", "execution_state", "old_resource", "new_resource", "allowed_resource_pointers", "closure"],
+  "required": ["schema_version", "generated_at", "cycle_id", "claim_boundary", "original_artifact_root", "effective_artifact_root", "original_readiness", "feasibility_audit", "execution_state", "old_resource", "new_resource", "allowed_resource_pointers", "closure"],
   "properties": {
     "schema_version": {"const": "community-resource-amendment-v1"},
     "generated_at": {"type": "string", "format": "date-time"},
     "cycle_id": {"type": "string", "minLength": 1},
     "claim_boundary": {"const": "RESOURCE_ONLY_NO_TASK_ARM_SCHEDULE_METRIC_OR_ORACLE_CHANGE"},
+    "original_artifact_root": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+    "effective_artifact_root": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
     "original_readiness": {"$ref": "#/$defs/identity"},
     "feasibility_audit": {"$ref": "#/$defs/identity"},
     "execution_state": {
