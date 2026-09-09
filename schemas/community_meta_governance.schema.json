@@ -8,6 +8,7 @@
     "schema_version",
     "purpose",
     "canonical_repository",
+    "repository_delivery_policy",
     "roles",
     "evidence_protocol",
     "promotion_policy",
@@ -44,6 +45,55 @@
         "working_fork": {"type": "string", "format": "uri"},
         "repository_role": {"const": "SHARED_POLICY_KNOWLEDGE_AND_SCHEMAS"},
         "evidence_role": {"const": "EXTERNAL_CONTENT_ADDRESSED_RUN_ARTIFACTS"}
+      }
+    },
+    "repository_delivery_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fork_sync", "upstream_pull_requests"],
+      "properties": {
+        "fork_sync": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fetch_before_decision",
+            "push_remote",
+            "push_only_clean_validated_commits",
+            "review_cadence"
+          ],
+          "properties": {
+            "fetch_before_decision": {"const": true},
+            "push_remote": {"const": "fork"},
+            "push_only_clean_validated_commits": {"const": true},
+            "review_cadence": {
+              "const": "AFTER_MATERIAL_COMMITS_AND_DAILY_WHILE_ACTIVE"
+            }
+          }
+        },
+        "upstream_pull_requests": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target_remote",
+            "requires_reviewable_single_scope",
+            "requires_relevant_tests",
+            "requires_claim_boundaries",
+            "forbids_external_experiment_artifacts",
+            "forbids_hidden_oracle",
+            "forbids_unverified_performance_claims",
+            "forbids_monolithic_backlog_pr"
+          ],
+          "properties": {
+            "target_remote": {"const": "origin"},
+            "requires_reviewable_single_scope": {"const": true},
+            "requires_relevant_tests": {"const": true},
+            "requires_claim_boundaries": {"const": true},
+            "forbids_external_experiment_artifacts": {"const": true},
+            "forbids_hidden_oracle": {"const": true},
+            "forbids_unverified_performance_claims": {"const": true},
+            "forbids_monolithic_backlog_pr": {"const": true}
+          }
+        }
       }
     },
     "roles": {

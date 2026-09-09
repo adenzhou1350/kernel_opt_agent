@@ -35,6 +35,17 @@ def test_meta_governance_contract() -> None:
     }
     assert policy["promotion_policy"]["minimum_frameworks"] == 2
     assert policy["promotion_policy"]["requires_unseen_candidates"] is True
+    delivery = policy["repository_delivery_policy"]
+    assert delivery["fork_sync"]["push_remote"] == "fork"
+    assert delivery["fork_sync"]["fetch_before_decision"] is True
+    assert (
+        delivery["upstream_pull_requests"]["forbids_monolithic_backlog_pr"]
+        is True
+    )
+    assert (
+        delivery["upstream_pull_requests"]["forbids_unverified_performance_claims"]
+        is True
+    )
 
 
 if __name__ == "__main__":

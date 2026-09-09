@@ -9,6 +9,14 @@ protocols and cross-framework promotion decisions. Execution lanes append
 versioned evidence and propose changes; they do not independently promote a
 local result into a shared default.
 
+The same contract separates repository synchronization from upstream delivery.
+The control plane fetches both remotes before a delivery decision and pushes
+clean, validated material commits to the working fork after they are created,
+with at least a daily review while a cycle is active. An upstream pull request
+must be a reviewable single-purpose slice with relevant tests and explicit claim
+boundaries. External experiment artifacts, hidden-oracle material, unverified
+performance claims and a monolithic backlog branch are not upstream-ready.
+
 The optimization objective remains the gap between a hardware/workload-derived
 theoretical limit and correct production performance. Community implementations
 are discovery priors and counterexamples, not target-hardware evidence and not
