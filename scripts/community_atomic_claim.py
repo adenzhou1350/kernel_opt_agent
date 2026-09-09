@@ -15,6 +15,7 @@ from contextlib import closing
 from dataclasses import asdict
 from pathlib import Path
 
+from artifact_io import sha256_file
 from community_claim_contracts import (
     AMBIGUOUS_OUTCOMES,
     GATE_KEYS,
@@ -33,6 +34,7 @@ from community_claim_contracts import (
     validate_receipt,
     with_id,
 )
+from community_work_cycle_observation import validate_observation
 
 
 class ClaimStore:
@@ -134,6 +136,75 @@ class ClaimStore:
         unsigned = {key: value for key, value in receipt.items() if key != field}
         if expected != digest(unsigned):
             raise ClaimError(f"STORED_RECEIPT_IDENTITY_MISMATCH:{field}")
+
+    @staticmethod
+    def _terminal_schema(receipt: dict) -> str:
+        version = receipt.get("schema_version")
+        if version == "community-entry-terminal-receipt-v1":
+            return "community_entry_terminal_receipt.schema.json"
+        if version == "community-entry-terminal-receipt-v2":
+            return "community_entry_terminal_receipt_v2.schema.json"
+        raise ClaimError("UNSUPPORTED_TERMINAL_RECEIPT_VERSION")
+
+    @staticmethod
+    def _resolve_evidence_identity(root: Path, identity: dict, label: str) -> Path:
+        relative = Path(identity["path"])
+        if relative.is_absolute() or ".." in relative.parts:
+            raise ClaimError(f"EVIDENCE_PATH_ESCAPES_ROOT:{label}")
+        path = (root / relative).resolve()
+        try:
+            path.relative_to(root)
+        except ValueError as error:
+            raise ClaimError(f"EVIDENCE_PATH_ESCAPES_ROOT:{label}") from error
+        if not path.is_file() or sha256_file(path) != identity["sha256"]:
+            raise ClaimError(f"EVIDENCE_IDENTITY_MISMATCH:{label}")
+        return path
+
+    def _validate_terminal_receipt(self, receipt: dict) -> None:
+        self._require_self_id(receipt, "terminal_receipt_id")
+        validate_receipt(receipt, self._terminal_schema(receipt))
+        if receipt["schema_version"] == "community-entry-terminal-receipt-v1":
+            if receipt["outcome"] in {"SUCCESS", "CORRECTNESS_FAIL"}:
+                raise ClaimError("LEGACY_DECISIVE_TERMINAL_NOT_ACCEPTED")
+            return
+        root = Path(receipt["evidence_root"]).resolve()
+        expected_root_identity = digest(
+            {
+                "schema_version": "community-evidence-root-identity-v1",
+                "canonical_path": os.path.normcase(str(root)),
+            }
+        )
+        if receipt["evidence_root_identity_sha256"] != expected_root_identity:
+            raise ClaimError("EVIDENCE_ROOT_IDENTITY_MISMATCH")
+        observation_path = self._resolve_evidence_identity(
+            root, receipt["observation_identity"], "observation"
+        )
+        try:
+            result = validate_observation(observation_path)
+        except (FileNotFoundError, ValueError) as error:
+            raise ClaimError("INVALID_TERMINAL_OBSERVATION") from error
+        ledger_path = self._resolve_evidence_identity(
+            root, receipt["ledger_identity"], "ledger"
+        )
+        assessment_path = self._resolve_evidence_identity(
+            root, receipt["assessment_identity"], "assessment"
+        )
+        if (
+            result["ledger_path"] != ledger_path
+            or result["assessment_path"] != assessment_path
+        ):
+            raise ClaimError("OBSERVATION_CHILD_IDENTITY_MISMATCH")
+        correctness = result["ledger"]["outcome"]["correctness"]
+        if correctness not in {"PASS", "FAIL"}:
+            raise ClaimError("TERMINAL_OBSERVATION_CORRECTNESS_NOT_DECISIVE")
+        expected_outcome = "SUCCESS" if correctness == "PASS" else "CORRECTNESS_FAIL"
+        if (
+            receipt["validated_correctness"] != correctness
+            or receipt["outcome"] != expected_outcome
+        ):
+            raise ClaimError("TERMINAL_OUTCOME_DIFFERS_FROM_VALIDATED_OBSERVATION")
+        if receipt["outcome"] == "SUCCESS" and receipt["process_exit_code"] != 0:
+            raise ClaimError("SUCCESS_REQUIRES_ZERO_PROCESS_EXIT")
 
     def _validated_session(
         self, database: sqlite3.Connection, binding: SessionBinding
@@ -256,10 +327,7 @@ class ClaimStore:
                 ):
                     raise ClaimError("STORED_DISPATCH_RECEIPT_LINEAGE_MISMATCH")
             if terminal is not None:
-                self._require_self_id(terminal, "terminal_receipt_id")
-                validate_receipt(
-                    terminal, "community_entry_terminal_receipt.schema.json"
-                )
+                self._validate_terminal_receipt(terminal)
                 if (
                     terminal["session_id"] != binding.session_id
                     or terminal["entry_claim_id"] != claim["entry_claim_id"]
@@ -573,7 +641,160 @@ class ClaimStore:
     ) -> dict:
         if outcome not in TERMINAL_OUTCOMES:
             raise ClaimError("INVALID_TERMINAL_OUTCOME")
+        if outcome in {"SUCCESS", "CORRECTNESS_FAIL"}:
+            raise ClaimError("VALIDATED_OBSERVATION_REQUIRED")
         return self._terminal_transition(binding, order_index, outcome, {"DISPATCHED"})
+
+    def record_validated_terminal(
+        self,
+        binding: SessionBinding,
+        order_index: int,
+        observation_path: Path,
+        evidence_root: Path,
+        *,
+        process_exit_code: int,
+    ) -> dict:
+        """Finalize a dispatched entry from a canonical, hash-bound observation."""
+
+        evidence_root = evidence_root.resolve()
+        observation_path = observation_path.resolve()
+        try:
+            observation_relative = observation_path.relative_to(evidence_root)
+        except ValueError as error:
+            raise ClaimError("OBSERVATION_PATH_ESCAPES_EVIDENCE_ROOT") from error
+        if not isinstance(process_exit_code, int):
+            raise ClaimError("PROCESS_EXIT_CODE_REQUIRED")
+        try:
+            result = validate_observation(observation_path)
+        except (FileNotFoundError, ValueError) as error:
+            raise ClaimError("INVALID_TERMINAL_OBSERVATION") from error
+        observation = result["observation"]
+        correctness = result["ledger"]["outcome"]["correctness"]
+        if correctness not in {"PASS", "FAIL"}:
+            raise ClaimError("TERMINAL_OBSERVATION_CORRECTNESS_NOT_DECISIVE")
+        outcome = "SUCCESS" if correctness == "PASS" else "CORRECTNESS_FAIL"
+        if outcome == "SUCCESS" and process_exit_code != 0:
+            raise ClaimError("SUCCESS_REQUIRES_ZERO_PROCESS_EXIT")
+
+        def identity(path: Path) -> dict:
+            try:
+                relative = path.resolve().relative_to(evidence_root)
+            except ValueError as error:
+                raise ClaimError("OBSERVATION_CHILD_ESCAPES_EVIDENCE_ROOT") from error
+            return {"path": relative.as_posix(), "sha256": sha256_file(path)}
+
+        evidence = {
+            "evidence_root": str(evidence_root),
+            "evidence_root_identity_sha256": digest(
+                {
+                    "schema_version": "community-evidence-root-identity-v1",
+                    "canonical_path": os.path.normcase(str(evidence_root)),
+                }
+            ),
+            "observation_identity": {
+                "path": observation_relative.as_posix(),
+                "sha256": sha256_file(observation_path),
+            },
+            "ledger_identity": identity(result["ledger_path"]),
+            "assessment_identity": identity(result["assessment_path"]),
+            "validated_correctness": correctness,
+            "process_exit_code": process_exit_code,
+        }
+        return self._validated_terminal_transition(
+            binding,
+            order_index,
+            outcome,
+            observation,
+            evidence,
+        )
+
+    def _validated_terminal_transition(
+        self,
+        binding: SessionBinding,
+        order_index: int,
+        outcome: str,
+        observation: dict,
+        evidence: dict,
+    ) -> dict:
+        with closing(self._connect()) as database:
+            database.execute("BEGIN IMMEDIATE")
+            schedule, maximum, next_order, session_state = self._validated_session(
+                database, binding
+            )
+            if session_state != "ACTIVE" or order_index != next_order:
+                database.execute("ROLLBACK")
+                raise ClaimError("SESSION_ENTRY_NOT_TERMINABLE")
+            entry = schedule[order_index - 1]
+            if (
+                any(
+                    observation[key] != entry[key]
+                    for key in ("task_id", "repeat_index", "arm")
+                )
+                or observation["suite_id"] != binding.suite_id
+            ):
+                database.execute("ROLLBACK")
+                raise ClaimError("OBSERVATION_DIFFERS_FROM_SCHEDULE_ENTRY")
+            row = database.execute(
+                "SELECT claim_receipt_json,state,dispatch_receipt_json "
+                "FROM entry_claims WHERE session_id=? AND order_index=?",
+                (binding.session_id, order_index),
+            ).fetchone()
+            if row is None or row[1] != "DISPATCHED" or row[2] is None:
+                database.execute("ROLLBACK")
+                raise ClaimError("ENTRY_NOT_IN_TERMINABLE_STATE")
+            claim = json.loads(row[0])
+            dispatch = json.loads(row[2])
+            self._require_self_id(claim, "entry_claim_id")
+            validate_receipt(claim, "community_schedule_entry_claim.schema.json")
+            self._require_self_id(dispatch, "dispatch_receipt_id")
+            validate_receipt(
+                dispatch, "community_entry_dispatch_receipt_v2.schema.json"
+            )
+
+            # Revalidate every evidence byte after acquiring the state-transition lock.
+            provisional = {
+                "schema_version": "community-entry-terminal-receipt-v2",
+                "recorded_at": timestamp_text(trusted_utc_now()),
+                "claim_boundary": (
+                    "SUCCESS_OR_CORRECTNESS_FAILURE_REQUIRES_VALIDATED_OBSERVATION"
+                ),
+                "session_id": binding.session_id,
+                "entry_claim_id": claim["entry_claim_id"],
+                "order_index": order_index,
+                "schedule_key": claim["schedule_key"],
+                "state": "TERMINAL",
+                "outcome": outcome,
+                "dispatch_receipt_id": dispatch["dispatch_receipt_id"],
+                **evidence,
+                "launch_attempt_consumed": True,
+                "automatic_retry_allowed": False,
+            }
+            receipt = with_id(provisional, "terminal_receipt_id")
+            self._validate_terminal_receipt(receipt)
+            if parse_timestamp(receipt["recorded_at"]) < parse_timestamp(
+                dispatch["dispatched_at"]
+            ):
+                database.execute("ROLLBACK")
+                raise ClaimError("TERMINAL_RECEIPT_PREDATES_ENTRY_STATE")
+            database.execute(
+                "UPDATE entry_claims SET state='TERMINAL',terminal_receipt_json=? "
+                "WHERE session_id=? AND order_index=?",
+                (canonical_json(receipt), binding.session_id, order_index),
+            )
+            if outcome == "SUCCESS":
+                new_next = next_order + 1
+                new_state = "COMPLETE" if new_next > maximum else "ACTIVE"
+                database.execute(
+                    "UPDATE sessions SET next_order_index=?,state=? WHERE session_id=?",
+                    (new_next, new_state, binding.session_id),
+                )
+            else:
+                database.execute(
+                    "UPDATE sessions SET state='ABORTED' WHERE session_id=?",
+                    (binding.session_id,),
+                )
+            database.execute("COMMIT")
+        return receipt
 
     def record_ambiguous(
         self,
@@ -707,8 +928,7 @@ class ClaimStore:
             raise ClaimError("MISSING_TERMINAL_RECEIPT")
         stored = [json.loads(value) for _, value in stored_rows]
         for receipt in stored:
-            self._require_self_id(receipt, "terminal_receipt_id")
-            validate_receipt(receipt, "community_entry_terminal_receipt.schema.json")
+            self._validate_terminal_receipt(receipt)
         if terminal_receipts != stored:
             raise ClaimError("INCOMPLETE_REORDERED_OR_FOREIGN_RECEIPTS")
         expected_count = len(schedule) if state == "COMPLETE" else next_order

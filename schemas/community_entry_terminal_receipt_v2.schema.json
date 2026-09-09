@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_entry_terminal_receipt_v2.schema.json",
+  "title": "Evidence-bound terminal receipt for one community schedule entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "recorded_at", "claim_boundary", "terminal_receipt_id",
+    "session_id", "entry_claim_id", "order_index", "schedule_key", "state",
+    "outcome", "dispatch_receipt_id", "process_exit_code", "evidence_root",
+    "evidence_root_identity_sha256", "observation_identity", "ledger_identity",
+    "assessment_identity", "validated_correctness", "launch_attempt_consumed",
+    "automatic_retry_allowed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-entry-terminal-receipt-v2"},
+    "recorded_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {
+      "const": "SUCCESS_OR_CORRECTNESS_FAILURE_REQUIRES_VALIDATED_OBSERVATION"
+    },
+    "terminal_receipt_id": {"$ref": "#/$defs/sha256"},
+    "session_id": {"$ref": "#/$defs/sha256"},
+    "entry_claim_id": {"$ref": "#/$defs/sha256"},
+    "order_index": {"type": "integer", "minimum": 1},
+    "schedule_key": {"$ref": "#/$defs/sha256"},
+    "state": {"const": "TERMINAL"},
+    "outcome": {"enum": ["SUCCESS", "CORRECTNESS_FAIL"]},
+    "dispatch_receipt_id": {"$ref": "#/$defs/sha256"},
+    "process_exit_code": {"type": "integer"},
+    "evidence_root": {"type": "string", "minLength": 1},
+    "evidence_root_identity_sha256": {"$ref": "#/$defs/sha256"},
+    "observation_identity": {"$ref": "#/$defs/identity"},
+    "ledger_identity": {"$ref": "#/$defs/identity"},
+    "assessment_identity": {"$ref": "#/$defs/identity"},
+    "validated_correctness": {"enum": ["PASS", "FAIL"]},
+    "launch_attempt_consumed": {"const": true},
+    "automatic_retry_allowed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

@@ -30,6 +30,7 @@ from community_atomic_claim import (  # noqa: E402
     validate_receipt,
 )
 import community_atomic_claim as atomic_claim  # noqa: E402
+from artifact_io import atomic_json, sha256_file  # noqa: E402
 
 
 def relative_time(*, minutes: int) -> str:
@@ -109,6 +110,131 @@ def process_identity(entry: dict, *, pid: int = 123) -> dict:
         "executable_sha256": "e" * 64,
         "gpu_uuids": entry["formal_gpu_uuids"],
     }
+
+
+def write_observation_bundle(
+    root: Path,
+    binding: SessionBinding,
+    entry: dict,
+    *,
+    correctness: str = "PASS",
+    task_id: str | None = None,
+) -> Path:
+    task_id = task_id or entry["task_id"]
+    evidence = root / f"evidence-{entry['order_index']}-{task_id}.json"
+    evidence.write_text('{"validated": true}\n', encoding="utf-8")
+    evidence_identity = {"path": evidence.name, "sha256": sha256_file(evidence)}
+    ledger_path = root / f"ledger-{entry['order_index']}-{task_id}.json"
+    atomic_json(
+        ledger_path,
+        {
+            "schema_version": "community-work-cycle-v1",
+            "cycle_id": f"cycle-{entry['order_index']}-{correctness.lower()}",
+            "task_id": task_id,
+            "started_at": "2026-09-09T00:00:00Z",
+            "observation_mode": "PROSPECTIVE_EXACT",
+            "claim_boundary": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY",
+            "minimum_material_speedup": 1.02,
+            "spans": [
+                {
+                    "span_id": "correctness",
+                    "phase": "CORRECTNESS_VALIDATION",
+                    "actor": "CPU",
+                    "resource_id": "cpu-test",
+                    "started_at": "2026-09-09T00:00:00Z",
+                    "ended_at": "2026-09-09T00:00:01Z",
+                    "status": "COMPLETE",
+                    "evidence": [evidence_identity],
+                }
+            ],
+            "milestones": [],
+            "outcome": {
+                "correctness": correctness,
+                "best_speedup": None,
+                "best_whole_model_speedup": None,
+                "upstream_ready": False,
+                "pull_request_url": None,
+                "merged": False,
+            },
+        },
+    )
+    assessment_path = root / f"assessment-{entry['order_index']}-{task_id}.json"
+    atomic_json(
+        assessment_path,
+        {
+            "schema_version": "community-trial-assessment-v1",
+            "generated_at": "2026-09-09T00:00:01Z",
+            "claim_boundary": "SINGLE_TRIAL_OBSERVATION",
+            "trial_identity": evidence_identity,
+            "result_identity": evidence_identity,
+            "suite_id": binding.suite_id,
+            "task_id": task_id,
+            "repeat_index": entry["repeat_index"],
+            "arm": entry["arm"],
+            "success_thresholds": {"minimum_material_speedup": 1.02},
+            "metrics": {
+                "time_to_first_correct_seconds": (
+                    1.0 if correctness == "PASS" else None
+                ),
+                "time_to_first_improvement_seconds": None,
+                "best_speedup": None,
+                "architecture_family_count": 0,
+                "heldout_pass_count": 1 if correctness == "PASS" else 0,
+                "best_whole_model_speedup": None,
+                "upstream_ready_count": 0,
+            },
+            "budget_usage": {
+                "elapsed_seconds": 1.0,
+                "candidate_count": 0,
+                "compile_attempts": 0,
+                "measurement_attempts": 1,
+                "technical_repair_attempts": 0,
+                "causal_revisions": 0,
+            },
+        },
+    )
+    observation_path = root / f"observation-{entry['order_index']}-{task_id}.json"
+    atomic_json(
+        observation_path,
+        {
+            "schema_version": "community-work-cycle-observation-v1",
+            "generated_at": "2026-09-09T00:00:01Z",
+            "claim_boundary": "UNIFIED_OBSERVATION_NOT_CROSS_FRAMEWORK_CAUSALITY",
+            "repository": "example/framework",
+            "suite_id": binding.suite_id,
+            "task_id": task_id,
+            "repeat_index": entry["repeat_index"],
+            "arm": entry["arm"],
+            "ledger_identity": {
+                "path": ledger_path.name,
+                "sha256": sha256_file(ledger_path),
+            },
+            "assessment_identity": {
+                "path": assessment_path.name,
+                "sha256": sha256_file(assessment_path),
+            },
+            "candidate_sources": [],
+            "search_policy": {
+                "policy_id": "local-test-v1",
+                "protocol_commit": "0" * 40,
+                "community_knowledge_exposed": entry["arm"] == "COMMUNITY_AUGMENTED",
+            },
+            "failure_stage": ("NOT_FAILED" if correctness == "PASS" else "CORRECTNESS"),
+            "regression": {
+                "test_count": 0,
+                "failure_count": 0,
+                "rate": None,
+                "evidence": [],
+            },
+            "real_workload": {"status": "NOT_RUN", "speedup": None, "evidence": []},
+            "resource_usage": {
+                "wall_clock_seconds": 1.0,
+                "gpu_seconds": 0.0,
+                "validation_seconds": 1.0,
+            },
+        },
+    )
+    return observation_path
 
 
 def new_store(root: Path, name: str = "claims.sqlite") -> ClaimStore:
@@ -320,7 +446,16 @@ def test_stored_claim_and_terminal_ids_are_recomputed_on_read() -> None:
         create_session(second, second_binding, rows)
         second.claim_entry(second_binding, rows[0])
         second.record_dispatch(second_binding, 1, process_identity(rows[0]))
-        terminal = second.record_terminal(second_binding, 1, "CORRECTNESS_FAIL")
+        observation = write_observation_bundle(
+            Path(temporary), second_binding, rows[0], correctness="FAIL"
+        )
+        terminal = second.record_validated_terminal(
+            second_binding,
+            1,
+            observation,
+            Path(temporary),
+            process_exit_code=2,
+        )
         with closing(sqlite3.connect(second.path)) as database:
             forged = dict(terminal)
             forged["schedule_key"] = "9" * 64
@@ -376,8 +511,17 @@ def test_sequential_entries_advance_transactionally_and_complete() -> None:
                 index,
                 process_identity(entry, pid=122 + index),
             )
-            terminal = store.record_terminal(binding, index, "SUCCESS")
-            validate_receipt(terminal, "community_entry_terminal_receipt.schema.json")
+            observation = write_observation_bundle(Path(temporary), binding, entry)
+            terminal = store.record_validated_terminal(
+                binding,
+                index,
+                observation,
+                Path(temporary),
+                process_exit_code=0,
+            )
+            validate_receipt(
+                terminal, "community_entry_terminal_receipt_v2.schema.json"
+            )
             terminal_receipts.append(terminal)
         snapshot = store.snapshot(binding)
         assert snapshot["state"] == "COMPLETE"
@@ -443,11 +587,85 @@ def test_correctness_failure_is_preserved_as_terminal_evidence() -> None:
         create_session(store, binding, rows)
         store.claim_entry(binding, rows[0])
         store.record_dispatch(binding, 1, process_identity(rows[0]))
-        terminal = store.record_terminal(binding, 1, "CORRECTNESS_FAIL")
+        observation = write_observation_bundle(
+            Path(temporary), binding, rows[0], correctness="FAIL"
+        )
+        terminal = store.record_validated_terminal(
+            binding,
+            1,
+            observation,
+            Path(temporary),
+            process_exit_code=2,
+        )
         assert terminal["outcome"] == "CORRECTNESS_FAIL"
         coverage = store.validate_final_coverage(binding, [terminal])
         assert coverage["state"] == "ABORTED"
         assert coverage["complete"] is False
+
+
+@pytest.mark.parametrize("outcome", ["SUCCESS", "CORRECTNESS_FAIL"])
+def test_decisive_terminal_outcome_requires_validated_observation(outcome: str) -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        rows = execution_schedule()
+        store = new_store(Path(temporary))
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        store.claim_entry(binding, rows[0])
+        store.record_dispatch(binding, 1, process_identity(rows[0]))
+        with pytest.raises(ClaimError, match="VALIDATED_OBSERVATION_REQUIRED"):
+            store.record_terminal(binding, 1, outcome)
+
+
+def test_validated_success_requires_zero_process_exit() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        rows = execution_schedule()
+        store = new_store(root)
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        store.claim_entry(binding, rows[0])
+        store.record_dispatch(binding, 1, process_identity(rows[0]))
+        observation = write_observation_bundle(root, binding, rows[0])
+        with pytest.raises(ClaimError, match="SUCCESS_REQUIRES_ZERO_PROCESS_EXIT"):
+            store.record_validated_terminal(
+                binding, 1, observation, root, process_exit_code=1
+            )
+
+
+def test_validated_observation_must_match_frozen_schedule_entry() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        rows = execution_schedule()
+        store = new_store(root)
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        store.claim_entry(binding, rows[0])
+        store.record_dispatch(binding, 1, process_identity(rows[0]))
+        observation = write_observation_bundle(
+            root, binding, rows[0], task_id="foreign-task"
+        )
+        with pytest.raises(ClaimError, match="OBSERVATION_DIFFERS_FROM_SCHEDULE_ENTRY"):
+            store.record_validated_terminal(
+                binding, 1, observation, root, process_exit_code=0
+            )
+
+
+def test_terminal_evidence_is_revalidated_before_later_state_use() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        rows = execution_schedule()
+        store = new_store(root)
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        store.claim_entry(binding, rows[0])
+        store.record_dispatch(binding, 1, process_identity(rows[0]))
+        observation = write_observation_bundle(root, binding, rows[0])
+        store.record_validated_terminal(
+            binding, 1, observation, root, process_exit_code=0
+        )
+        observation.write_text('{"tampered": true}\n', encoding="utf-8")
+        with pytest.raises(ClaimError, match="EVIDENCE_IDENTITY_MISMATCH:observation"):
+            store.snapshot(binding)
 
 
 def test_final_coverage_rejects_missing_reordered_and_mixed_receipts() -> None:
@@ -464,7 +682,16 @@ def test_final_coverage_rejects_missing_reordered_and_mixed_receipts() -> None:
                 index,
                 process_identity(entry, pid=200 + index),
             )
-            terminals.append(store.record_terminal(binding, index, "SUCCESS"))
+            observation = write_observation_bundle(Path(temporary), binding, entry)
+            terminals.append(
+                store.record_validated_terminal(
+                    binding,
+                    index,
+                    observation,
+                    Path(temporary),
+                    process_exit_code=0,
+                )
+            )
         with pytest.raises(
             ClaimError, match="INCOMPLETE_REORDERED_OR_FOREIGN_RECEIPTS"
         ):

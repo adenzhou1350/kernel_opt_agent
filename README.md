@@ -332,6 +332,16 @@ validate a live process, GPU assignment, or successful observation; only the
 dispatcher may establish those identities and turn a consumed entry into
 authorized execution provenance.
 
+The claim store also refuses to turn a bare process exit into experimental
+success. `SUCCESS` and `CORRECTNESS_FAIL` transitions require a
+`community-entry-terminal-receipt-v2` created from a canonical
+`community-work-cycle-observation-v1`; the observation, ledger and assessment
+are revalidated and hash-bound under one evidence root while the SQLite write
+lock is held. A later state transition rechecks those bytes. Timeouts, process
+failures and ambiguous crash windows remain explicit v1 terminal outcomes and
+never advance the schedule. This is evidence finalization, not a process or GPU
+launcher.
+
 Before an atomic claim store can be consumed, validate a versioned deployment
 with `scripts/community_claim_store_deployment.py`. The deployment binds one
 canonical database path, host boot identity, dispatcher executable and an
