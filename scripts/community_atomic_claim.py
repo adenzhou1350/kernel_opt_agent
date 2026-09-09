@@ -113,6 +113,7 @@ class SessionBinding:
     execution_schedule_sha256: str
     dispatcher_sha256: str
     claim_store_identity_sha256: str
+    claim_store_epoch_sha256: str
     formal_resource_id: str
     expires_at: str
     max_dispatches: int
@@ -127,6 +128,7 @@ class SessionBinding:
             "execution_schedule_sha256",
             "dispatcher_sha256",
             "claim_store_identity_sha256",
+            "claim_store_epoch_sha256",
         ):
             require_sha256(getattr(self, field), field)
         if not all((self.request_id, self.cycle_id, self.suite_id)):
@@ -206,12 +208,15 @@ def validate_execution_schedule(rows: list[dict], binding: SessionBinding) -> No
 class ClaimStore:
     """SQLite-backed state store with transactional session and entry claims."""
 
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, *, store_epoch_sha256: str):
+        require_sha256(store_epoch_sha256, "store_epoch_sha256")
         self.path = path.resolve()
+        self.store_epoch_sha256 = store_epoch_sha256
         self.identity_sha256 = digest(
             {
                 "schema_version": "community-claim-store-identity-v1",
                 "canonical_database_path": os.path.normcase(str(self.path)),
+                "external_no_rollback_epoch_sha256": self.store_epoch_sha256,
             }
         )
         self.path.parent.mkdir(parents=True, exist_ok=True)
@@ -220,6 +225,11 @@ class ClaimStore:
                 """
                 PRAGMA journal_mode=WAL;
                 PRAGMA synchronous=FULL;
+                CREATE TABLE IF NOT EXISTS claim_store_metadata (
+                  singleton INTEGER PRIMARY KEY CHECK(singleton=1),
+                  store_epoch_sha256 TEXT NOT NULL,
+                  store_identity_sha256 TEXT NOT NULL
+                );
                 CREATE TABLE IF NOT EXISTS sessions (
                   session_id TEXT PRIMARY KEY,
                   token TEXT NOT NULL UNIQUE,
@@ -246,6 +256,17 @@ class ClaimStore:
                 );
                 """
             )
+            metadata = database.execute(
+                "SELECT store_epoch_sha256,store_identity_sha256 "
+                "FROM claim_store_metadata WHERE singleton=1"
+            ).fetchone()
+            expected = (self.store_epoch_sha256, self.identity_sha256)
+            if metadata is None:
+                database.execute(
+                    "INSERT INTO claim_store_metadata VALUES (1,?,?)", expected
+                )
+            elif metadata != expected:
+                raise ClaimError("CLAIM_STORE_EPOCH_OR_IDENTITY_MISMATCH")
 
     def _connect(self) -> sqlite3.Connection:
         database = sqlite3.connect(self.path, timeout=5.0, isolation_level=None)
@@ -263,8 +284,19 @@ class ClaimStore:
             raise ClaimError("SESSION_BINDING_MISMATCH")
 
     def _require_store_binding(self, binding: SessionBinding) -> None:
-        if binding.claim_store_identity_sha256 != self.identity_sha256:
+        if (
+            binding.claim_store_identity_sha256 != self.identity_sha256
+            or binding.claim_store_epoch_sha256 != self.store_epoch_sha256
+        ):
             raise ClaimError("CLAIM_STORE_IDENTITY_MISMATCH")
+
+    def _require_store_metadata(self, database: sqlite3.Connection) -> None:
+        metadata = database.execute(
+            "SELECT store_epoch_sha256,store_identity_sha256 "
+            "FROM claim_store_metadata WHERE singleton=1"
+        ).fetchone()
+        if metadata != (self.store_epoch_sha256, self.identity_sha256):
+            raise ClaimError("CLAIM_STORE_METADATA_MISMATCH")
 
     @staticmethod
     def _require_self_id(receipt: dict, field: str) -> None:
@@ -276,6 +308,7 @@ class ClaimStore:
     def _validated_session(
         self, database: sqlite3.Connection, binding: SessionBinding
     ) -> tuple[list[dict], int, int, str]:
+        self._require_store_metadata(database)
         self._require_store_binding(binding)
         session = database.execute(
             "SELECT binding_json,schedule_json,receipt_json,max_dispatches,"
@@ -295,6 +328,7 @@ class ClaimStore:
         if state not in {"ACTIVE", "COMPLETE", "ABORTED"}:
             raise ClaimError("STORED_SESSION_STATE_INVALID")
         session_receipt = json.loads(receipt_json)
+        self._require_self_id(session_receipt, "session_claim_id")
         validate_receipt(session_receipt, "community_cohort_session_claim.schema.json")
         if (
             session_receipt["session_id"] != binding.session_id
@@ -314,6 +348,7 @@ class ClaimStore:
             "formal_resource_id": binding.formal_resource_id,
             "dispatcher_sha256": binding.dispatcher_sha256,
             "claim_store_identity_sha256": binding.claim_store_identity_sha256,
+            "claim_store_epoch_sha256": binding.claim_store_epoch_sha256,
             "expires_at": binding.expires_at,
             "max_dispatches": binding.max_dispatches,
         }
@@ -453,41 +488,47 @@ class ClaimStore:
         self._require_store_binding(binding)
         if set(gates) != GATE_KEYS or not all(gates.values()):
             raise ClaimError("P_AND_E_AND_A_REQUIRED")
-        current_time = trusted_utc_now()
-        generated_at = timestamp_text(current_time)
-        if current_time >= parse_timestamp(binding.expires_at):
-            raise ClaimError("APPROVAL_OR_SESSION_EXPIRED")
         validate_execution_schedule(schedule, binding)
         binding_json = self._binding_json(binding)
         schedule_json = canonical_json(schedule)
-        receipt = {
-            "schema_version": "community-cohort-session-claim-v1",
-            "generated_at": generated_at,
-            "claim_boundary": (
-                "COHORT_TOKEN_CONSUMED_SESSION_CREATED_NO_PROCESS_LAUNCHED"
-            ),
-            "session_id": binding.session_id,
-            "claim_state": "SESSION_CLAIMED",
-            "request_id": binding.request_id,
-            "cycle_id": binding.cycle_id,
-            "suite_id": binding.suite_id,
-            "authorization_request_sha256": binding.authorization_request_sha256,
-            "semantic_approval_sha256": binding.semantic_approval_sha256,
-            "combined_authorization_sha256": binding.combined_authorization_sha256,
-            "single_use_token": binding.single_use_token,
-            "authorization_schedule_sha256": binding.authorization_schedule_sha256,
-            "execution_schedule_sha256": binding.execution_schedule_sha256,
-            "formal_resource_id": binding.formal_resource_id,
-            "dispatcher_sha256": binding.dispatcher_sha256,
-            "claim_store_identity_sha256": self.identity_sha256,
-            "expires_at": binding.expires_at,
-            "max_dispatches": binding.max_dispatches,
-            "initial_order_index": 1,
-            "hidden_oracle_exposed": False,
-        }
-        validate_receipt(receipt, "community_cohort_session_claim.schema.json")
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
+            self._require_store_metadata(database)
+            current_time = trusted_utc_now()
+            generated_at = timestamp_text(current_time)
+            if current_time >= parse_timestamp(binding.expires_at):
+                database.execute("ROLLBACK")
+                raise ClaimError("APPROVAL_OR_SESSION_EXPIRED")
+            receipt = with_id(
+                {
+                    "schema_version": "community-cohort-session-claim-v1",
+                    "generated_at": generated_at,
+                    "claim_boundary": (
+                        "COHORT_TOKEN_CONSUMED_SESSION_CREATED_NO_PROCESS_LAUNCHED"
+                    ),
+                    "session_id": binding.session_id,
+                    "claim_state": "SESSION_CLAIMED",
+                    "request_id": binding.request_id,
+                    "cycle_id": binding.cycle_id,
+                    "suite_id": binding.suite_id,
+                    "authorization_request_sha256": binding.authorization_request_sha256,
+                    "semantic_approval_sha256": binding.semantic_approval_sha256,
+                    "combined_authorization_sha256": binding.combined_authorization_sha256,
+                    "single_use_token": binding.single_use_token,
+                    "authorization_schedule_sha256": binding.authorization_schedule_sha256,
+                    "execution_schedule_sha256": binding.execution_schedule_sha256,
+                    "formal_resource_id": binding.formal_resource_id,
+                    "dispatcher_sha256": binding.dispatcher_sha256,
+                    "claim_store_identity_sha256": self.identity_sha256,
+                    "claim_store_epoch_sha256": self.store_epoch_sha256,
+                    "expires_at": binding.expires_at,
+                    "max_dispatches": binding.max_dispatches,
+                    "initial_order_index": 1,
+                    "hidden_oracle_exposed": False,
+                },
+                "session_claim_id",
+            )
+            validate_receipt(receipt, "community_cohort_session_claim.schema.json")
             existing = database.execute(
                 "SELECT session_id,binding_json,schedule_json,receipt_json "
                 "FROM sessions WHERE token=?",
@@ -522,15 +563,16 @@ class ClaimStore:
         binding: SessionBinding,
         entry: dict,
     ) -> dict:
-        current_time = trusted_utc_now()
-        claimed_at = timestamp_text(current_time)
-        if current_time >= parse_timestamp(binding.expires_at):
-            raise ClaimError("SESSION_EXPIRED_AT_ENTRY_CLAIM")
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
             schedule, maximum, next_order, state = self._validated_session(
                 database, binding
             )
+            current_time = trusted_utc_now()
+            claimed_at = timestamp_text(current_time)
+            if current_time >= parse_timestamp(binding.expires_at):
+                database.execute("ROLLBACK")
+                raise ClaimError("SESSION_EXPIRED_AT_ENTRY_CLAIM")
             if state != "ACTIVE":
                 database.execute("ROLLBACK")
                 raise ClaimError("SESSION_NOT_ACTIVE")
@@ -628,10 +670,6 @@ class ClaimStore:
         order_index: int,
         process_identity: dict,
     ) -> dict:
-        current_time = trusted_utc_now()
-        dispatched_at = timestamp_text(current_time)
-        if current_time >= parse_timestamp(binding.expires_at):
-            raise ClaimError("SESSION_EXPIRED_BEFORE_DISPATCH")
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
             _, _, next_order, session_state = self._validated_session(database, binding)
@@ -650,10 +688,15 @@ class ClaimStore:
             claim = json.loads(row[1])
             self._require_self_id(claim, "entry_claim_id")
             validate_receipt(claim, "community_schedule_entry_claim.schema.json")
+            self._validate_process_identity(process_identity, entry)
+            current_time = trusted_utc_now()
+            dispatched_at = timestamp_text(current_time)
+            if current_time >= parse_timestamp(binding.expires_at):
+                database.execute("ROLLBACK")
+                raise ClaimError("SESSION_EXPIRED_BEFORE_DISPATCH")
             if parse_timestamp(dispatched_at) < parse_timestamp(claim["claimed_at"]):
                 database.execute("ROLLBACK")
                 raise ClaimError("DISPATCH_PREDATES_ENTRY_CLAIM")
-            self._validate_process_identity(process_identity, entry)
             receipt = with_id(
                 {
                     "schema_version": "community-entry-dispatch-receipt-v2",
@@ -729,7 +772,6 @@ class ClaimStore:
         outcome: str,
         allowed_states: set[str],
     ) -> dict:
-        recorded_at = timestamp_text(trusted_utc_now())
         with closing(self._connect()) as database:
             database.execute("BEGIN IMMEDIATE")
             _, maximum, next_order, session_state = self._validated_session(
@@ -755,6 +797,7 @@ class ClaimStore:
                 validate_receipt(
                     dispatch, "community_entry_dispatch_receipt_v2.schema.json"
                 )
+            recorded_at = timestamp_text(trusted_utc_now())
             lower_bound = dispatch["dispatched_at"] if dispatch else claim["claimed_at"]
             if parse_timestamp(recorded_at) < parse_timestamp(lower_bound):
                 database.execute("ROLLBACK")
@@ -874,33 +917,37 @@ class ClaimStore:
             ],
         }
 
+    def load_binding(self, session_id: str) -> SessionBinding:
+        """Load one stored binding, then validate it through the normal path."""
+
+        require_sha256(session_id, "session_id")
+        with closing(self._connect()) as database:
+            row = database.execute(
+                "SELECT binding_json FROM sessions WHERE session_id=?", (session_id,)
+            ).fetchone()
+            if row is None:
+                raise ClaimError("FOREIGN_OR_MISSING_SESSION")
+            try:
+                binding = SessionBinding(**json.loads(row[0]))
+            except (TypeError, json.JSONDecodeError) as error:
+                raise ClaimError("INVALID_STORED_SESSION_BINDING") from error
+            self._validated_session(database, binding)
+        return binding
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("database", type=Path)
-    parser.add_argument("session-id")
+    parser.add_argument("session_id")
+    parser.add_argument("--store-epoch-sha256", required=True)
     args = parser.parse_args()
     require_sha256(args.session_id, "session_id")
-    with closing(sqlite3.connect(args.database)) as database:
-        row = database.execute(
-            "SELECT max_dispatches,next_order_index,state FROM sessions "
-            "WHERE session_id=?",
-            (args.session_id,),
-        ).fetchone()
-    if row is None:
-        raise ClaimError("FOREIGN_OR_MISSING_SESSION")
-    print(
-        json.dumps(
-            {
-                "session_id": args.session_id,
-                "max_dispatches": row[0],
-                "next_order_index": row[1],
-                "state": row[2],
-            },
-            indent=2,
-            sort_keys=True,
-        )
-    )
+    require_sha256(args.store_epoch_sha256, "store_epoch_sha256")
+    if not args.database.is_file():
+        raise ClaimError("CLAIM_STORE_DATABASE_MISSING")
+    store = ClaimStore(args.database, store_epoch_sha256=args.store_epoch_sha256)
+    binding = store.load_binding(args.session_id)
+    print(json.dumps(store.snapshot(binding), indent=2, sort_keys=True))
     return 0
 
 

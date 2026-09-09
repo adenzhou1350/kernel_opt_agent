@@ -303,9 +303,12 @@ auto-upgrade.
 
 The repository's atomic-claim primitive is deliberately non-launching. Its
 receipts are bound to one canonical SQLite store, use the primitive's UTC clock,
-and are revalidated with the frozen schedule before every transition. A claim
-or terminal receipt alone is not dispatch authorization: live process/GPU
-attestation and successful observation binding remain dispatcher obligations.
+and are revalidated with the frozen schedule before every transition. The UTC
+time is sampled only after the write transaction is acquired. Store identity
+also includes an externally issued no-rollback epoch; its issuer must prevent
+epoch reuse if the database is deleted or restored. A claim or terminal receipt
+alone is not dispatch authorization: live process/GPU attestation and successful
+observation binding remain dispatcher obligations.
 
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the

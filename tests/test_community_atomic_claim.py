@@ -7,12 +7,14 @@ import copy
 import ast
 import json
 import sqlite3
+import subprocess
 import sys
 import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from threading import Event
 
 import pytest
 
@@ -81,6 +83,7 @@ def session_binding(
         execution_schedule_sha256=digest(rows),
         dispatcher_sha256="d" * 64,
         claim_store_identity_sha256=store.identity_sha256,
+        claim_store_epoch_sha256=store.store_epoch_sha256,
         formal_resource_id="shared-8x-sm120-32g",
         expires_at=expires_at or relative_time(minutes=60),
         max_dispatches=len(rows),
@@ -109,7 +112,7 @@ def process_identity(entry: dict, *, pid: int = 123) -> dict:
 
 
 def new_store(root: Path, name: str = "claims.sqlite") -> ClaimStore:
-    return ClaimStore(root / name)
+    return ClaimStore(root / name, store_epoch_sha256="9" * 64)
 
 
 def create_session(
@@ -119,6 +122,9 @@ def create_session(
     assert state == "CREATED"
     validate_receipt(receipt, "community_cohort_session_claim.schema.json")
     assert receipt["claim_state"] == "SESSION_CLAIMED"
+    assert receipt["session_claim_id"] == digest(
+        {key: value for key, value in receipt.items() if key != "session_claim_id"}
+    )
     assert receipt["initial_order_index"] == 1
     return receipt
 
@@ -507,3 +513,145 @@ def test_strict_receipt_schemas_reject_unbound_fields() -> None:
         receipt["unbound_override"] = True
         with pytest.raises(ClaimError, match="additional property is forbidden"):
             validate_receipt(receipt, "community_cohort_session_claim.schema.json")
+
+
+@pytest.mark.parametrize(
+    ("transition", "expected_error"),
+    [
+        ("create", "APPROVAL_OR_SESSION_EXPIRED"),
+        ("claim", "SESSION_EXPIRED_AT_ENTRY_CLAIM"),
+        ("dispatch", "SESSION_EXPIRED_BEFORE_DISPATCH"),
+    ],
+)
+def test_expiry_clock_is_sampled_after_acquiring_write_lock(
+    monkeypatch: pytest.MonkeyPatch, transition: str, expected_error: str
+) -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        rows = execution_schedule()
+        store = new_store(Path(temporary))
+        binding = session_binding(rows, store)
+        if transition != "create":
+            create_session(store, binding, rows)
+        if transition == "dispatch":
+            store.claim_entry(binding, rows[0])
+
+        clock_called = Event()
+        expired = atomic_claim.parse_timestamp(binding.expires_at) + timedelta(seconds=1)
+
+        def expired_clock() -> datetime:
+            clock_called.set()
+            return expired
+
+        monkeypatch.setattr(atomic_claim, "trusted_utc_now", expired_clock)
+        blocker = sqlite3.connect(store.path, timeout=5, isolation_level=None)
+        blocker.execute("BEGIN IMMEDIATE")
+        try:
+            if transition == "create":
+                operation = lambda: store.create_or_resume_session(  # noqa: E731
+                    binding, rows, ready_gates()
+                )
+            elif transition == "claim":
+                operation = lambda: store.claim_entry(binding, rows[0])  # noqa: E731
+            else:
+                operation = lambda: store.record_dispatch(  # noqa: E731
+                    binding, 1, process_identity(rows[0])
+                )
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(operation)
+                assert clock_called.wait(0.1) is False
+                blocker.execute("COMMIT")
+                with pytest.raises(ClaimError, match=expected_error):
+                    future.result(timeout=5)
+        finally:
+            if blocker.in_transaction:
+                blocker.execute("ROLLBACK")
+            blocker.close()
+
+
+def test_store_epoch_is_persistent_and_changes_store_identity() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        path = root / "claims.sqlite"
+        first = ClaimStore(path, store_epoch_sha256="1" * 64)
+        assert ClaimStore(path, store_epoch_sha256="1" * 64).identity_sha256 == (
+            first.identity_sha256
+        )
+        with pytest.raises(
+            ClaimError, match="CLAIM_STORE_EPOCH_OR_IDENTITY_MISMATCH"
+        ):
+            ClaimStore(path, store_epoch_sha256="2" * 64)
+
+        archived = root / "claims.sqlite.archived"
+        path.replace(archived)
+        replacement = ClaimStore(path, store_epoch_sha256="2" * 64)
+        assert replacement.identity_sha256 != first.identity_sha256
+        rows = execution_schedule()
+        old_binding = session_binding(rows, first)
+        with pytest.raises(ClaimError, match="CLAIM_STORE_IDENTITY_MISMATCH"):
+            replacement.create_or_resume_session(old_binding, rows, ready_gates())
+
+
+def test_store_metadata_is_revalidated_on_each_transition() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        rows = execution_schedule()
+        store = new_store(Path(temporary))
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        with closing(sqlite3.connect(store.path)) as database:
+            database.execute(
+                "UPDATE claim_store_metadata SET store_identity_sha256=? "
+                "WHERE singleton=1",
+                ("0" * 64,),
+            )
+            database.commit()
+        with pytest.raises(ClaimError, match="CLAIM_STORE_METADATA_MISMATCH"):
+            store.claim_entry(binding, rows[0])
+
+
+def test_session_receipt_self_identity_detects_timestamp_tamper() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        rows = execution_schedule()
+        store = new_store(Path(temporary))
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        with closing(sqlite3.connect(store.path)) as database:
+            receipt = json.loads(
+                database.execute(
+                    "SELECT receipt_json FROM sessions WHERE session_id=?",
+                    (binding.session_id,),
+                ).fetchone()[0]
+            )
+            receipt["generated_at"] = "2026-01-01T00:00:00Z"
+            database.execute(
+                "UPDATE sessions SET receipt_json=? WHERE session_id=?",
+                (json.dumps(receipt), binding.session_id),
+            )
+            database.commit()
+        with pytest.raises(
+            ClaimError,
+            match="STORED_RECEIPT_IDENTITY_MISMATCH:session_claim_id",
+        ):
+            store.snapshot(binding)
+
+
+def test_cli_uses_validated_store_snapshot() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        rows = execution_schedule()
+        store = new_store(Path(temporary))
+        binding = session_binding(rows, store)
+        create_session(store, binding, rows)
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(ROOT / "scripts" / "community_atomic_claim.py"),
+                str(store.path),
+                binding.session_id,
+                "--store-epoch-sha256",
+                store.store_epoch_sha256,
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 0, result.stderr
+        assert json.loads(result.stdout)["state"] == "ACTIVE"
