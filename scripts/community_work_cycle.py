@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
 
-from community_knowledge import atomic_json, now, read_object, sha256_file
+from artifact_io import atomic_json, now, read_object, sha256_file
 from schema_utils import validate_instance, validate_json_file
 
 
