@@ -1,0 +1,131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_pre_gpu_readiness.schema.json",
+  "title": "Fail-closed pre-GPU readiness decision for a frozen community evaluation cohort",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "cycle_id",
+    "state",
+    "eligible_to_execute_arms",
+    "claim_boundary",
+    "cohort_binding",
+    "protocol_binding",
+    "formal_resource",
+    "task_freezes",
+    "environment_lock",
+    "authorization",
+    "remaining_pre_gpu_blockers",
+    "execution",
+    "hidden_oracle_exposed",
+    "shared_default_promotion"
+  ],
+  "properties": {
+    "schema_version": {"type": "string", "pattern": "^meta-cycle-materialization-readiness-v[0-9]+$"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "state": {"enum": ["PRE_GPU_GATE_BLOCKED", "PRE_GPU_GATE_READY"]},
+    "eligible_to_execute_arms": {"type": "boolean"},
+    "claim_boundary": {"type": "string", "minLength": 1},
+    "supersedes": {"$ref": "#/$defs/identity"},
+    "cohort_binding": {
+      "type": "object",
+      "required": ["cohort_freeze_sha256", "primary_tasks", "reserve_touched"],
+      "properties": {
+        "cohort_freeze_sha256": {"$ref": "#/$defs/sha256"},
+        "primary_tasks": {"type": "array", "minItems": 2, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "reserve_touched": {"const": false}
+      }
+    },
+    "protocol_binding": {
+      "type": "object",
+      "required": ["frozen_discovery_and_arm_protocol_commit", "governance_validator_commit", "temporal_suite"],
+      "properties": {
+        "frozen_discovery_and_arm_protocol_commit": {"$ref": "#/$defs/commit"},
+        "governance_validator_commit": {"$ref": "#/$defs/commit"},
+        "temporal_suite": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "formal_resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment", "resource_id", "endpoint", "state"],
+      "properties": {
+        "environment": {"$ref": "#/$defs/identity"},
+        "resource_id": {"type": "string", "minLength": 1},
+        "endpoint": {"type": "string", "minLength": 1},
+        "state": {"enum": ["UNREACHABLE", "TCP_ONLY", "AUTHENTICATED"]},
+        "single5090_10_100_26_82_effect": {"type": "string"}
+      }
+    },
+    "task_freezes": {
+      "type": "object",
+      "minProperties": 2,
+      "additionalProperties": {"$ref": "#/$defs/task"}
+    },
+    "environment_lock": {
+      "type": "object",
+      "required": ["capture_script", "latest_attempt", "live_gpu_uuid_lock", "live_package_lock"],
+      "properties": {
+        "capture_script": {"$ref": "#/$defs/identity"},
+        "latest_attempt": {"$ref": "#/$defs/identity_with_metadata"},
+        "live_gpu_uuid_lock": {"oneOf": [{"$ref": "#/$defs/identity"}, {"type": "null"}]},
+        "live_package_lock": {"oneOf": [{"$ref": "#/$defs/identity"}, {"type": "null"}]}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["operator_workload_hardware_intake_frozen", "gpu_dispatch_authorized"],
+      "properties": {
+        "operator_workload_hardware_intake_frozen": {"type": "boolean"},
+        "gpu_dispatch_authorized": {"type": "boolean"}
+      }
+    },
+    "remaining_pre_gpu_blockers": {"type": "object", "minProperties": 1},
+    "execution": {
+      "type": "object",
+      "required": ["compile_started", "gpu_started", "gpu_seconds", "v9_started"],
+      "properties": {
+        "compile_started": {"const": false},
+        "gpu_started": {"const": false},
+        "gpu_seconds": {"const": 0.0},
+        "v9_started": {"const": false}
+      }
+    },
+    "hidden_oracle_exposed": {"const": false},
+    "shared_default_promotion": {"const": "NOT_AUTHORIZED"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "identity": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "identity_with_metadata": {
+      "allOf": [
+        {"$ref": "#/$defs/identity"},
+        {"type": "object"}
+      ]
+    },
+    "task": {
+      "type": "object",
+      "required": ["intake", "task_packet", "formal_resource_id", "formal_gpu_uuids", "preflight_status", "bounded_supervisor"],
+      "properties": {
+        "intake": {"$ref": "#/$defs/identity"},
+        "task_packet": {"$ref": "#/$defs/identity"},
+        "formal_resource_id": {"type": "string", "minLength": 1},
+        "formal_gpu_uuids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^GPU-[0-9A-Za-z-]+$"}},
+        "preflight_status": {"enum": ["NOT_RUN", "PASS", "FAIL"]},
+        "bounded_supervisor": {"$ref": "#/$defs/identity"}
+      }
+    }
+  }
+}

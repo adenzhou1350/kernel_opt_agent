@@ -235,6 +235,16 @@ the hidden oracle identifies the same task, and rejects a suite/packet hardware
 mismatch. The optional legacy mode exists only so previously sealed evaluation
 artifacts remain readable.
 
+Before a materialized cohort can become GPU-ready, validate its readiness with
+`scripts/community_pre_gpu_readiness.py`. The readiness artifact must bind the
+same task-to-resource and task-to-GPU-UUID mapping as the frozen environment.
+Reachability of a different GPU, even one with the same product name, has no
+gate effect. `PRE_GPU_GATE_READY` requires complete frozen weights, passing live
+preflights, authenticated access to the formal resource, and hash-bound GPU and
+package locks. It remains distinct from dispatch authorization: the readiness
+artifact must not grant GPU permission, and the independent supervisor still
+owns dispatch.
+
 `materialize-suite` uses the suite's frozen random seed to create every task,
 repeat and arm in a hash-bound execution schedule. A control trial withholds the
 community graph; an augmented trial contains only the frozen graph. During
