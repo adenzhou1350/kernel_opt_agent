@@ -71,6 +71,39 @@ def review_cost_points(surface: dict) -> float:
     )
 
 
+def request_template() -> dict:
+    return {
+        "schema_version": REQUEST_VERSION,
+        "candidate_id": "replace-me",
+        "production_path_reachability": "UNPROVEN",
+        "expected_gain": {
+            "whole_workload_lower_percent": None,
+            "whole_workload_median_percent": None,
+            "whole_workload_upper_percent": 0.0,
+        },
+        "workload_coverage_fraction": 0.0,
+        "maintenance_surface": {
+            "production_files_changed": 0,
+            "production_lines_changed": 0,
+            "adds_protocol_variant": False,
+            "adds_public_api": False,
+        },
+        "delivery_evidence": {
+            "focused_correctness_pass": False,
+            "clean_commit": False,
+            "reproduction_command_present": False,
+            "real_workload_pass": False,
+            "target_hardware_pass": False,
+            "no_regression_pass": False,
+        },
+        "policy": {
+            "materiality_floor_percent": 2.0,
+            "narrow_scope_fraction": 0.1,
+            "minimum_gain_density_percent_per_point": 0.75,
+        },
+    }
+
+
 def evaluate(request: dict) -> dict:
     schema = read_object(root() / "schemas/candidate_value_gate.schema.json")
     errors = validate_instance(request, schema)
@@ -155,9 +188,17 @@ def evaluate(request: dict) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--request", type=Path, required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--request", type=Path)
+    source.add_argument("--print-template", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+
+    if args.print_template:
+        if args.output:
+            parser.error("--output requires --request")
+        print(json.dumps(request_template(), indent=2, sort_keys=True))
+        return 0
 
     request_path = args.request.resolve()
     result = evaluate(read_object(request_path))

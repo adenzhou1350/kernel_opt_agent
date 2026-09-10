@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from candidate_value_gate import evaluate  # noqa: E402
+from candidate_value_gate import evaluate, request_template  # noqa: E402
 
 
 def request() -> dict:
@@ -53,6 +53,12 @@ def test_high_value_candidate_can_reach_ready() -> None:
     result = evaluate(request())
     assert result["recommended_action"] == "READY_FOR_REVIEW"
     assert result["review_cost_points"] == 2.5
+
+
+def test_template_is_fail_closed_and_schema_valid() -> None:
+    value = request_template()
+    assert value["candidate_id"] == "replace-me"
+    assert evaluate(value)["recommended_action"] == "PROVE_REACHABILITY_FIRST"
 
 
 def test_narrow_protocol_change_is_held_at_draft() -> None:
