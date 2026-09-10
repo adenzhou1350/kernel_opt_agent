@@ -61,6 +61,19 @@ GitHub queues until Ready and a small set of relevant maintainers explicitly
 asked to review the Draft's API or overlap direction while qualification
 continues.
 
+After a PR becomes Ready, record only the time at which the system first
+observed that state and route reviewer waits with:
+
+```bash
+python3 scripts/kernel_opt.py upstream-review-handoff pr-review-handoff.json
+```
+
+The handoff clock is prospective and lower-bound-only: it never invents a
+review-request time before observation. The default policy used by the control
+dashboard waits 24 hours before one targeted reviewer follow-up and 72 hours
+before one project review-channel escalation. Decisions never authorize an
+automatic message.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
