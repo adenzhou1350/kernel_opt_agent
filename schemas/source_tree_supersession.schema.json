@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "source-tree-supersession-v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "repository",
+    "worktree_clean",
+    "validated_source",
+    "replacement_source",
+    "changed_paths",
+    "decision",
+    "source_requalification_required",
+    "non_source_identity_action",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "source-tree-supersession-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "origin_url"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "origin_url": {"type": ["string", "null"]}
+      }
+    },
+    "worktree_clean": {"const": true},
+    "validated_source": {"$ref": "#/$defs/git_identity"},
+    "replacement_source": {"$ref": "#/$defs/git_identity"},
+    "changed_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "decision": {
+      "enum": [
+        "SOURCE_TREE_EQUIVALENT_REBIND_NON_SOURCE_IDENTITIES",
+        "SOURCE_TREE_CHANGED_REQUALIFICATION_REQUIRED"
+      ]
+    },
+    "source_requalification_required": {"type": "boolean"},
+    "non_source_identity_action": {"const": "MUST_REBIND_OR_REVALIDATE"},
+    "claim_boundary": {
+      "const": "GIT_TREE_EQUIVALENCE_ONLY_NOT_BUILD_RUNTIME_WORKLOAD_HARDWARE_OR_PERFORMANCE_EQUIVALENCE"
+    }
+  },
+  "$defs": {
+    "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "git_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_ref", "commit", "tree"],
+      "properties": {
+        "requested_ref": {"type": "string", "minLength": 1},
+        "commit": {"$ref": "#/$defs/sha1"},
+        "tree": {"$ref": "#/$defs/sha1"}
+      }
+    }
+  }
+}
