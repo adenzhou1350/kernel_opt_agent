@@ -60,6 +60,16 @@ decision, or an explicit rejection.  Do not create another schema, receipt or
 validator merely to restate an already-enforced boundary; add one only after a
 reproduced gap could authorize an incorrect external or irreversible action.
 
+For every selected framework candidate, start a `PROSPECTIVE_EXACT` community
+timing ledger and record `FIRST_CANDIDATE_PROPOSED` before the first production
+source edit. Bind the selection decision as milestone evidence. When GitHub
+opens the Draft, marks it Ready or merges it, use `community-timing
+record-pr-stage` with the observed event time, PR URL and an immutable event
+receipt. Never reconstruct these timestamps later from memory or filesystem
+mtimes. If the ledger did not exist before implementation, classify that cycle
+as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
+Agent-repository maintenance PRs are never entered in a framework lane ledger.
+
 Normal local source edits, CPU-only builds and focused tests are implementation
 work and do not require repeated user authorization.  Expensive compilation,
 GPU execution, service interruption, credential use and external publication

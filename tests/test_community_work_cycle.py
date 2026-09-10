@@ -7,6 +7,7 @@ import json
 import sys
 import tempfile
 from pathlib import Path
+from types import SimpleNamespace
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -15,6 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
     pair_baseline,
+    record_pr_stage,
     summarize,
     validate_ledger,
     write_ledger,
@@ -186,6 +188,88 @@ def test_environment_and_governance_overhead_reporting() -> None:
         assert report["ratios"]["environment_governance_share_of_accounted"] == 0.75
 
 
+def test_pr_stage_is_atomic_and_fail_closed() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "github-event.json"
+        evidence.write_text('{"state": "draft"}\n', encoding="utf-8")
+        cycle = base / "cycle.json"
+        value = ledger(evidence)
+        atomic_json(cycle, value)
+
+        record_pr_stage(
+            SimpleNamespace(
+                ledger=cycle,
+                stage="DRAFT",
+                url="https://github.com/example/project/pull/7",
+                at="2026-09-07T04:05:00Z",
+                evidence=[evidence],
+            )
+        )
+        recorded = validate_ledger(cycle)
+        assert recorded["outcome"]["pull_request_url"].endswith("/pull/7")
+        assert recorded["milestones"][-1]["kind"] == "PR_DRAFT_OPENED"
+
+        record_pr_stage(
+            SimpleNamespace(
+                ledger=cycle,
+                stage="READY",
+                url="https://github.com/example/project/pull/7",
+                at="2026-09-07T04:06:00Z",
+                evidence=[evidence],
+            )
+        )
+        recorded = validate_ledger(cycle)
+        assert recorded["milestones"][-1]["kind"] == "PR_READY_FOR_REVIEW"
+
+        original = cycle.read_bytes()
+        try:
+            record_pr_stage(
+                SimpleNamespace(
+                    ledger=cycle,
+                    stage="MERGED",
+                    url="https://github.com/example/project/pull/8",
+                    at="2026-09-07T04:07:00Z",
+                    evidence=[evidence],
+                )
+            )
+        except ValueError as error:
+            assert "URL changed" in str(error)
+        else:
+            raise AssertionError("one work cycle must not switch pull requests")
+        assert cycle.read_bytes() == original
+
+        record_pr_stage(
+            SimpleNamespace(
+                ledger=cycle,
+                stage="MERGED",
+                url="https://github.com/example/project/pull/7",
+                at="2026-09-07T04:07:00Z",
+                evidence=[evidence],
+            )
+        )
+        recorded = validate_ledger(cycle)
+        assert recorded["outcome"]["merged"] is True
+        assert recorded["milestones"][-1]["kind"] == "PR_MERGED"
+
+        without_draft = base / "without-draft.json"
+        atomic_json(without_draft, value)
+        try:
+            record_pr_stage(
+                SimpleNamespace(
+                    ledger=without_draft,
+                    stage="READY",
+                    url="https://github.com/example/project/pull/9",
+                    at="2026-09-07T04:06:00Z",
+                    evidence=[evidence],
+                )
+            )
+        except ValueError as error:
+            assert "PR_DRAFT_OPENED" in str(error)
+        else:
+            raise AssertionError("READY must not invent a missing Draft event")
+
+
 def test_pair_baseline_reads_bound_assessments() -> None:
     pair = (
         ROOT.parent
@@ -207,4 +291,5 @@ def test_pair_baseline_reads_bound_assessments() -> None:
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_environment_and_governance_overhead_reporting()
+    test_pr_stage_is_atomic_and_fail_closed()
     test_pair_baseline_reads_bound_assessments()
