@@ -123,6 +123,12 @@ recommends Ready only after every applicable official-correctness,
 production-reachability, materiality, target-workload and known-regression
 gate passes.
 
+Reviewer state records code-owner requests separately from
+`early_review_handles`. This preserves the difference between reviewers that
+GitHub queues until Ready and a small set of relevant maintainers explicitly
+asked to review the Draft's API or overlap direction while qualification
+continues.
+
 After a correct discovery baseline is present, quantify several global
 opportunities before managing the production-candidate portfolio:
 

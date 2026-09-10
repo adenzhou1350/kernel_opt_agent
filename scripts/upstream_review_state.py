@@ -25,7 +25,7 @@ READY_KEYS = {
 }
 PR_KEYS = {"url", "repository", "number", "state", "draft", "internal_candidate_status"}
 CI_KEYS = {"state", "classification"}
-REVIEWER_KEYS = {"state", "handles"}
+REVIEWER_KEYS = {"state", "handles", "early_review_handles"}
 ROOT_KEYS = {
     "schema_version",
     "pull_request",
@@ -136,6 +136,7 @@ def validate(record: object) -> list[str]:
     reviewers = exact_keys(root.get("reviewers"), REVIEWER_KEYS, "reviewers", errors)
     reviewer_state = reviewers.get("state")
     handles = reviewers.get("handles")
+    early_review_handles = reviewers.get("early_review_handles")
     if reviewer_state not in REVIEWER_STATES:
         errors.append("reviewers.state: invalid state")
     if not isinstance(handles, list) or any(
@@ -144,12 +145,22 @@ def validate(record: object) -> list[str]:
         errors.append("reviewers.handles: must be a list of non-empty strings")
     elif len(handles) != len(set(handles)):
         errors.append("reviewers.handles: duplicate handles")
+    if not isinstance(early_review_handles, list) or any(
+        not isinstance(item, str) or not item for item in early_review_handles
+    ):
+        errors.append(
+            "reviewers.early_review_handles: must be a list of non-empty strings"
+        )
+    elif len(early_review_handles) != len(set(early_review_handles)):
+        errors.append("reviewers.early_review_handles: duplicate handles")
     if reviewer_state == "QUEUED_UNTIL_READY" and not (
         state == "OPEN" and draft is True
     ):
         errors.append("reviewers: QUEUED_UNTIL_READY requires an open GitHub Draft")
     if state == "ABSENT" and reviewer_state != "NONE":
         errors.append("reviewers: absent PR must have NONE state")
+    if early_review_handles and not (state == "OPEN" and draft is True):
+        errors.append("reviewers: early_review_handles require an open GitHub Draft")
     return errors
 
 
@@ -203,6 +214,11 @@ def classify(record: dict) -> dict:
     elif pull["draft"]:
         if quality == "READY_GATES_PASS":
             action, owner = "MARK_READY_AND_REQUEST_REVIEW", "AUTHOR"
+        elif reviewers["early_review_handles"]:
+            action, owner = (
+                "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW",
+                "EXECUTION_LANE_AND_REVIEWER",
+            )
         else:
             action, owner = "KEEP_DRAFT_CONTINUE_QUALIFICATION", "EXECUTION_LANE"
     elif reviewers["state"] == "CHANGES_REQUESTED":
