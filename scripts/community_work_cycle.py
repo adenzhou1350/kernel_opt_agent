@@ -25,6 +25,8 @@ PHASES = (
     "PERFORMANCE_VALIDATION",
     "WHOLE_MODEL_VALIDATION",
     "UPSTREAM_PACKAGING",
+    "ENVIRONMENT_SETUP",
+    "GOVERNANCE_VALIDATION",
     "EXTERNAL_WAIT",
     "UNATTRIBUTED_LEGACY_WORK",
 )
@@ -198,6 +200,18 @@ def summarize(path: Path) -> dict:
     end_points.extend(milestone_times.values())
     observed = (max(end_points) - cycle_start).total_seconds()
     accounted = sum(phase_seconds.values())
+    explicit_overhead_spans = sum(
+        span["phase"] in {"ENVIRONMENT_SETUP", "GOVERNANCE_VALIDATION"}
+        for span in ledger["spans"]
+    )
+    attributed_active = (
+        accounted
+        - phase_seconds["EXTERNAL_WAIT"]
+        - phase_seconds["UNATTRIBUTED_LEGACY_WORK"]
+    )
+    overhead_seconds = (
+        phase_seconds["ENVIRONMENT_SETUP"] + phase_seconds["GOVERNANCE_VALIDATION"]
+    )
     time_to = {
         kind: (
             (milestone_times[kind] - cycle_start).total_seconds()
@@ -227,6 +241,8 @@ def summarize(path: Path) -> dict:
             + phase_seconds["PERFORMANCE_VALIDATION"]
             + phase_seconds["WHOLE_MODEL_VALIDATION"],
             "packaging_seconds": phase_seconds["UPSTREAM_PACKAGING"],
+            "environment_seconds": phase_seconds["ENVIRONMENT_SETUP"],
+            "governance_seconds": phase_seconds["GOVERNANCE_VALIDATION"],
             "external_wait_seconds": phase_seconds["EXTERNAL_WAIT"],
             "unattributed_legacy_seconds": phase_seconds["UNATTRIBUTED_LEGACY_WORK"],
         },
@@ -234,6 +250,24 @@ def summarize(path: Path) -> dict:
             "observed_seconds": observed,
             "accounted_seconds": accounted,
             "unaccounted_seconds": max(0.0, observed - accounted),
+        },
+        "phase_coverage": {
+            "explicit_environment_or_governance_spans": explicit_overhead_spans,
+            "environment_governance_measurement_status": (
+                "MEASURED" if explicit_overhead_spans else "NOT_SEPARATELY_RECORDED"
+            ),
+        },
+        "ratios": {
+            "environment_governance_share_of_attributed_active": (
+                overhead_seconds / attributed_active
+                if explicit_overhead_spans and attributed_active > 0
+                else None
+            ),
+            "environment_governance_share_of_accounted": (
+                overhead_seconds / accounted
+                if explicit_overhead_spans and accounted > 0
+                else None
+            ),
         },
         "time_to_milestone_seconds": time_to,
         "outcome": ledger["outcome"],

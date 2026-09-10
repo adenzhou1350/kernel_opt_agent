@@ -52,6 +52,8 @@
         "PERFORMANCE_VALIDATION": {"type": "number", "minimum": 0},
         "WHOLE_MODEL_VALIDATION": {"type": "number", "minimum": 0},
         "UPSTREAM_PACKAGING": {"type": "number", "minimum": 0},
+        "ENVIRONMENT_SETUP": {"type": "number", "minimum": 0},
+        "GOVERNANCE_VALIDATION": {"type": "number", "minimum": 0},
         "EXTERNAL_WAIT": {"type": "number", "minimum": 0},
         "UNATTRIBUTED_LEGACY_WORK": {"type": "number", "minimum": 0}
       }
@@ -74,6 +76,8 @@
         "compute_seconds": {"type": "number", "minimum": 0},
         "validation_seconds": {"type": "number", "minimum": 0},
         "packaging_seconds": {"type": "number", "minimum": 0},
+        "environment_seconds": {"type": "number", "minimum": 0},
+        "governance_seconds": {"type": "number", "minimum": 0},
         "external_wait_seconds": {"type": "number", "minimum": 0},
         "unattributed_legacy_seconds": {"type": "number", "minimum": 0}
       }
@@ -86,6 +90,39 @@
         "observed_seconds": {"type": "number", "minimum": 0},
         "accounted_seconds": {"type": "number", "minimum": 0},
         "unaccounted_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "phase_coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "explicit_environment_or_governance_spans",
+        "environment_governance_measurement_status"
+      ],
+      "properties": {
+        "explicit_environment_or_governance_spans": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "environment_governance_measurement_status": {
+          "enum": ["MEASURED", "NOT_SEPARATELY_RECORDED"]
+        }
+      }
+    },
+    "ratios": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "environment_governance_share_of_attributed_active",
+        "environment_governance_share_of_accounted"
+      ],
+      "properties": {
+        "environment_governance_share_of_attributed_active": {
+          "$ref": "#/$defs/nullableRatio"
+        },
+        "environment_governance_share_of_accounted": {
+          "$ref": "#/$defs/nullableRatio"
+        }
       }
     },
     "time_to_milestone_seconds": {
@@ -136,6 +173,11 @@
         "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
       }
     },
-    "nullableSeconds": {"type": ["number", "null"], "minimum": 0}
+    "nullableSeconds": {"type": ["number", "null"], "minimum": 0},
+    "nullableRatio": {
+      "type": ["number", "null"],
+      "minimum": 0,
+      "maximum": 1
+    }
   }
 }
