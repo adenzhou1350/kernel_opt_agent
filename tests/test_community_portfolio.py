@@ -129,7 +129,10 @@ def test_portfolio_aggregates_four_explicit_lanes(tmp_path: Path) -> None:
     assert report["totals"]["median_time_to_first_correct_seconds"] == 30.0
     assert report["totals"]["median_time_to_first_improvement_seconds"] == 120.0
     assert report["totals"]["qualified_results_per_gpu_hour"] == 120.0
-    assert report["schema_version"] == "community-portfolio-report-v2"
+    assert report["schema_version"] == "community-portfolio-report-v3"
+    assert report["totals"]["median_candidate_to_draft_seconds"] is None
+    assert report["totals"]["median_draft_to_ready_seconds"] is None
+    assert report["totals"]["prospective_draft_to_ready_conversion_rate"] is None
     assert report["totals"]["delivery_funnel"] == {
         "candidate_proposed": 4,
         "screen_correct": 4,
@@ -230,6 +233,45 @@ def test_manifest_must_bind_all_four_lanes(tmp_path: Path) -> None:
     write_json(path, value)
     with pytest.raises(ValueError, match="each autonomous lane exactly once"):
         build_report(path)
+
+
+def test_delivery_speed_and_conversion_use_only_prospective_exact_cycles(
+    tmp_path: Path,
+) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    for lane_index in (0, 1):
+        identity = value["lanes"][lane_index]["work_cycle_ledgers"][0]
+        selected = tmp_path / identity["path"]
+        cycle = json.loads(selected.read_text(encoding="utf-8"))
+        evidence = cycle["milestones"][0]["evidence"]
+        cycle["milestones"].extend(
+            [
+                {
+                    "kind": "PR_DRAFT_OPENED",
+                    "at": "2026-01-01T00:04:10Z",
+                    "evidence": evidence,
+                },
+                {
+                    "kind": "PR_READY_FOR_REVIEW",
+                    "at": "2026-01-01T00:10:10Z",
+                    "evidence": evidence,
+                },
+            ]
+        )
+        cycle["outcome"]["pull_request_url"] = "https://example.com/pull/1"
+        if lane_index == 1:
+            cycle["observation_mode"] = "LEGACY_MILESTONE_BOUNDS"
+        write_json(selected, cycle)
+        identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+
+    totals = build_report(path)["totals"]
+    assert totals["prospective_draft_opened_count"] == 1
+    assert totals["prospective_pr_ready_count"] == 1
+    assert totals["median_candidate_to_draft_seconds"] == 240.0
+    assert totals["median_draft_to_ready_seconds"] == 360.0
+    assert totals["prospective_draft_to_ready_conversion_rate"] == 1.0
 
 
 def test_claimed_work_cycle_version_without_canonical_fields_is_rejected(

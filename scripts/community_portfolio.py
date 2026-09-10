@@ -15,7 +15,7 @@ from schema_utils import validate_instance
 
 
 MANIFEST_VERSION = "community-portfolio-manifest-v1"
-REPORT_VERSION = "community-portfolio-report-v2"
+REPORT_VERSION = "community-portfolio-report-v3"
 
 
 def root() -> Path:
@@ -125,6 +125,8 @@ def delivery_funnel(ledgers: list[tuple[Path, dict]]) -> dict:
 def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
     first_correct: list[float] = []
     first_improvement: list[float] = []
+    candidate_to_draft: list[float] = []
+    draft_to_ready: list[float] = []
     gpu_seconds = 0.0
     qualified = 0
     counts = {
@@ -137,6 +139,8 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
         "upstream_ready_count": 0,
         "draft_or_ready_pr_count": 0,
         "merged_count": 0,
+        "prospective_draft_opened_count": 0,
+        "prospective_pr_ready_count": 0,
     }
     for path, ledger in ledgers:
         mode_key = (
@@ -161,6 +165,19 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
             "FIRST_MATERIAL_IMPROVEMENT" in milestone_kinds
         )
         qualified += int("FIRST_QUALIFIED_RESULT" in milestone_kinds)
+        if ledger["observation_mode"] == "PROSPECTIVE_EXACT":
+            milestone_times = {
+                item["kind"]: item["at"] for item in ledger["milestones"]
+            }
+            draft_at = milestone_times.get("PR_DRAFT_OPENED")
+            ready_at = milestone_times.get("PR_READY_FOR_REVIEW")
+            candidate_at = milestone_times.get("FIRST_CANDIDATE_PROPOSED")
+            counts["prospective_draft_opened_count"] += int(draft_at is not None)
+            counts["prospective_pr_ready_count"] += int(ready_at is not None)
+            if candidate_at is not None and draft_at is not None:
+                candidate_to_draft.append(seconds(candidate_at, draft_at))
+            if draft_at is not None and ready_at is not None:
+                draft_to_ready.append(seconds(draft_at, ready_at))
         for span in ledger["spans"]:
             if span["actor"] == "GPU" and span["status"] != "ACTIVE":
                 gpu_seconds += seconds(span["started_at"], span["ended_at"])
@@ -177,6 +194,14 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
         "gpu_seconds": gpu_seconds,
         "median_time_to_first_correct_seconds": nullable_median(first_correct),
         "median_time_to_first_improvement_seconds": nullable_median(first_improvement),
+        "median_candidate_to_draft_seconds": nullable_median(candidate_to_draft),
+        "median_draft_to_ready_seconds": nullable_median(draft_to_ready),
+        "prospective_draft_to_ready_conversion_rate": (
+            counts["prospective_pr_ready_count"]
+            / counts["prospective_draft_opened_count"]
+            if counts["prospective_draft_opened_count"] > 0
+            else None
+        ),
         "qualified_results_per_gpu_hour": (
             qualified / (gpu_seconds / 3600.0) if gpu_seconds > 0 else None
         ),
@@ -252,7 +277,7 @@ def build_report(manifest_path: Path) -> dict:
     }
     errors = validate_instance(
         report,
-        read_object(root() / "schemas/community_portfolio_report_v2.schema.json"),
+        read_object(root() / "schemas/community_portfolio_report_v3.schema.json"),
     )
     if errors:
         raise ValueError("invalid community portfolio report: " + "; ".join(errors))
