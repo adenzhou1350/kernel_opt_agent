@@ -166,7 +166,9 @@ The value gate stops an optimistic ceiling below the materiality floor, asks
 for reachability before timing an unproven path, and holds narrow low-density
 protocol/API changes at Draft even when their focused tests pass. Its review
 cost formula is explicit and policy thresholds are supplied by the run; it is
-a routing decision, not performance proof.
+a routing decision, not performance proof. A confirmed path with an unknown
+ceiling returns `QUANTIFY_WHOLE_WORKLOAD_CEILING`; callers do not have to invent
+zero or favorable gain estimates merely to pass the schema.
 
 ## Seeded hardware evidence
 

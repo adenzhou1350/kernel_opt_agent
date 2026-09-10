@@ -31,7 +31,10 @@
       "properties": {
         "whole_workload_lower_percent": {"type": ["number", "null"]},
         "whole_workload_median_percent": {"type": ["number", "null"]},
-        "whole_workload_upper_percent": {"type": "number", "minimum": 0}
+        "whole_workload_upper_percent": {
+          "type": ["number", "null"],
+          "minimum": 0
+        }
       }
     },
     "workload_coverage_fraction": {

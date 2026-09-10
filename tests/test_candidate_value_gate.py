@@ -61,6 +61,15 @@ def test_template_is_fail_closed_and_schema_valid() -> None:
     assert evaluate(value)["recommended_action"] == "PROVE_REACHABILITY_FIRST"
 
 
+def test_confirmed_path_with_unknown_ceiling_requests_quantification() -> None:
+    value = request_template()
+    value["candidate_id"] = "confirmed-path"
+    value["production_path_reachability"] = "CONFIRMED"
+    result = evaluate(value)
+    assert result["recommended_action"] == "QUANTIFY_WHOLE_WORKLOAD_CEILING"
+    assert result["optimistic_gain_density_percent_per_point"] is None
+
+
 def test_narrow_protocol_change_is_held_at_draft() -> None:
     value = request()
     value["expected_gain"] = {
@@ -125,3 +134,8 @@ def test_unproven_path_and_invalid_requests_fail_closed() -> None:
     incomplete_interval["expected_gain"]["whole_workload_lower_percent"] = None
     with pytest.raises(ValueError, match="both be known or null"):
         evaluate(incomplete_interval)
+
+    missing_upper = request()
+    missing_upper["expected_gain"]["whole_workload_upper_percent"] = None
+    with pytest.raises(ValueError, match="upper must be known"):
+        evaluate(missing_upper)
