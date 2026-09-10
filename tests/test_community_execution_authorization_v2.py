@@ -88,9 +88,19 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
     approval_path = root / "approval.json"
     deployment_path = root / "deployment.json"
     write_json(pre_path, {"placeholder": "canonical pre gate"})
-    write_json(execution_path, {"placeholder": "canonical execution gate"})
     write_json(suite_path, {"suite_id": "suite-1"})
     write_json(sealed_path, ["python3", "runner.py", "--arm", "CONTROL"])
+    write_json(
+        execution_path,
+        {
+            "tasks": {
+                "task-a": {
+                    "task_id": "stable-task-a",
+                    "sealed_argv": identity(sealed_path, root),
+                }
+            }
+        },
+    )
     request = {
         "request_id": "request-1",
         "cycle_id": "cycle-1",
@@ -297,6 +307,41 @@ def test_authorization_rejects_declared_gate_or_schedule_drift(
         authorization["combined_authorization_id"] = digest(unsigned)
         write_json(path, authorization)
         with pytest.raises(ValueError, match="differs from sealed argv"):
+            validate_authorization(path, root, require_live_store_host=False)
+
+
+def test_authorization_rejects_sealed_argv_not_bound_by_execution_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    set_gate_validators(monkeypatch, True)
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        path, bundle = build_bundle(root)
+        execution_path = root / "execution.json"
+        execution = json.loads(execution_path.read_text(encoding="utf-8"))
+        execution["tasks"]["task-a"]["sealed_argv"]["sha256"] = "0" * 64
+        write_json(execution_path, execution)
+        request = bundle["request"]
+        request["execution_contract_gate"] = identity(execution_path, root)
+        write_json(bundle["request_path"], request)
+        approval = bundle["approval"]
+        approval["authorization_request"] = identity(bundle["request_path"], root)
+        write_json(bundle["approval_path"], approval)
+        authorization = bundle["authorization"]
+        authorization["authorization_request"] = identity(
+            bundle["request_path"], root
+        )
+        authorization["semantic_supervisor_approval"] = identity(
+            bundle["approval_path"], root
+        )
+        unsigned = {
+            key: value
+            for key, value in authorization.items()
+            if key != "combined_authorization_id"
+        }
+        authorization["combined_authorization_id"] = digest(unsigned)
+        write_json(path, authorization)
+        with pytest.raises(ValueError, match="sealed argv differs from execution"):
             validate_authorization(path, root, require_live_store_host=False)
 
 

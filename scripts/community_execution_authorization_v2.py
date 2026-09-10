@@ -246,6 +246,24 @@ def validate_authorization(
     )
     pre = validate_canonical_pre_gpu_readiness(pre_path, pre_path.parent)
     execution = validate_canonical_execution_readiness(execution_path, artifact_root)
+    execution_gate = read_object(execution_path)
+    execution_tasks = execution_gate.get("tasks")
+    if not isinstance(execution_tasks, dict):
+        raise ValueError("execution readiness has no task bindings")
+    if set(execution_tasks) != set(request["tasks"]):
+        raise ValueError("authorization tasks differ from execution readiness")
+    for task_key, request_task in request["tasks"].items():
+        execution_task = execution_tasks[task_key]
+        if execution_task.get("task_id") != request_task["task_id"]:
+            raise ValueError(
+                f"task identity differs from execution readiness: {task_key}"
+            )
+        if execution_task.get("sealed_argv", {}).get("sha256") != request_task[
+            "sealed_argv"
+        ]["sha256"]:
+            raise ValueError(
+                f"sealed argv differs from execution readiness: {task_key}"
+            )
     pre_ready = (
         pre.get("state") == "PRE_GPU_GATE_READY"
         and pre.get("eligible_to_execute_arms") is True
