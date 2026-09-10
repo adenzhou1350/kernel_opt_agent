@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_arm_treatment_manifest.schema.json",
+  "title": "Materialized implementation identity for one community evaluation arm",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "claim_boundary", "treatment_id",
+    "task_id", "arm", "realization", "implementation_identity",
+    "source_root", "source_files", "source_files_sha256",
+    "runtime_marker", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-arm-treatment-manifest-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {
+      "const": "MATERIALIZED_ARM_IMPLEMENTATION_IDENTITY_NOT_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"
+    },
+    "treatment_id": {"$ref": "#/$defs/sha256"},
+    "task_id": {"type": "string", "minLength": 1},
+    "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+    "realization": {"enum": ["BASELINE", "CHALLENGER"]},
+    "implementation_identity": {"$ref": "#/$defs/sha256"},
+    "source_root": {"type": "string", "minLength": 1},
+    "source_files": {
+      "type": "array", "minItems": 1,
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "source_files_sha256": {"$ref": "#/$defs/sha256"},
+    "runtime_marker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value"],
+      "properties": {
+        "name": {"const": "KERNEL_OPT_TREATMENT_ID"},
+        "value": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object", "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

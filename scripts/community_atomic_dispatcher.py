@@ -357,7 +357,10 @@ def dispatch_one(
             "base_combined_authorization_id": bundle["base_authorization"][
                 "combined_authorization_id"
             ],
+            "arm": runtime_entry["arm"],
             "execution_profile_id": runtime_entry["execution_profile_id"],
+            "treatment_id": runtime_entry["treatment_id"],
+            "implementation_identity": runtime_entry["implementation_identity"],
             "environment_sha256": runtime_entry["environment_sha256"],
             "working_directory": runtime_entry["working_directory"],
             "session_id": binding.session_id,

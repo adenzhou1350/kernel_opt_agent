@@ -46,6 +46,9 @@ def validator_binding() -> dict[str, str]:
         "profile_schema_sha256": ROOT
         / "schemas"
         / "community_task_execution_profile.schema.json",
+        "treatment_schema_sha256": ROOT
+        / "schemas"
+        / "community_arm_treatment_manifest.schema.json",
         "validator_sha256": ROOT / "scripts" / "community_runtime_authorization.py",
         "base_authorization_schema_sha256": ROOT
         / "schemas"
@@ -70,6 +73,11 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
     write_json(request_path, {"request": "bound"})
     write_json(base_path, {"base": "bound"})
     write_json(runtime_lock_path, {"runtime": "bound"})
+    source_paths = {}
+    for label in ("control", "challenger"):
+        source_path = root / f"source-{label}.json"
+        write_json(source_path, {"implementation": label})
+        source_paths[label] = source_path
     executable = Path(sys.executable).resolve()
     environment = {
         "PATH": str(executable.parent) + os.pathsep + os.environ.get("PATH", ""),
@@ -80,45 +88,90 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
         "NVIDIA_VISIBLE_DEVICES": "void",
         "XDG_CACHE_HOME": str(root / "cache"),
     }
-    profile = with_self_id(
-        {
-            "schema_version": "community-task-execution-profile-v1",
-            "generated_at": "2026-09-10T00:00:00Z",
-            "claim_boundary": "EXACT_TASK_RUNTIME_IDENTITY_NOT_EXECUTION_AUTHORIZATION",
-            "task_id": "stable-task-a",
-            "formal_gpu_uuids": ["GPU-11111111-1111-1111-1111-111111111111"],
-            "runtime_lock": identity(runtime_lock_path, root),
-            "working_directory": str(work.resolve()),
-            "sealed_argv0": "python3",
-            "command_executable": {
-                "path": str(executable),
-                "sha256": sha256_file(executable),
+    profiles = {}
+    profile_paths = {}
+    for arm, realization, label in (
+        ("CONTROL", "BASELINE", "control"),
+        ("COMMUNITY_AUGMENTED", "CHALLENGER", "challenger"),
+    ):
+        source_files = [identity(source_paths[label], root)]
+        implementation_identity = digest(source_files)
+        treatment = with_self_id(
+            {
+                "schema_version": "community-arm-treatment-manifest-v1",
+                "generated_at": "2026-09-10T00:00:00Z",
+                "claim_boundary": (
+                    "MATERIALIZED_ARM_IMPLEMENTATION_IDENTITY_NOT_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"
+                ),
+                "task_id": "stable-task-a",
+                "arm": arm,
+                "realization": realization,
+                "implementation_identity": implementation_identity,
+                "source_root": str(root),
+                "source_files": source_files,
+                "source_files_sha256": digest(source_files),
+                "runtime_marker": {
+                    "name": "KERNEL_OPT_TREATMENT_ID",
+                    "value": implementation_identity,
+                },
+                "hidden_oracle_exposed": False,
             },
-            "process_executable": {
-                "path": str(executable),
-                "sha256": sha256_file(executable),
+            "treatment_id",
+        )
+        treatment_path = root / f"treatment-{label}.json"
+        write_json(treatment_path, treatment)
+        arm_environment = dict(environment)
+        arm_environment["KERNEL_OPT_TREATMENT_ID"] = implementation_identity
+        profile = with_self_id(
+            {
+                "schema_version": "community-task-execution-profile-v2",
+                "generated_at": "2026-09-10T00:00:00Z",
+                "claim_boundary": (
+                    "EXACT_TASK_ARM_TREATMENT_AND_RUNTIME_IDENTITY_NOT_EXECUTION_AUTHORIZATION"
+                ),
+                "task_id": "stable-task-a",
+                "arm": arm,
+                "treatment_manifest": identity(treatment_path, root),
+                "treatment_id": treatment["treatment_id"],
+                "implementation_identity": implementation_identity,
+                "formal_gpu_uuids": ["GPU-11111111-1111-1111-1111-111111111111"],
+                "runtime_lock": identity(runtime_lock_path, root),
+                "working_directory": str(work.resolve()),
+                "sealed_argv0": "python3",
+                "command_executable": {
+                    "path": str(executable),
+                    "sha256": sha256_file(executable),
+                },
+                "process_executable": {
+                    "path": str(executable),
+                    "sha256": sha256_file(executable),
+                },
+                "environment": arm_environment,
+                "environment_sha256": digest(arm_environment),
+                "hidden_oracle_exposed": False,
             },
-            "environment": environment,
-            "environment_sha256": digest(environment),
-            "hidden_oracle_exposed": False,
-        },
-        "execution_profile_id",
-    )
-    profile_path = root / "profile.json"
-    write_json(profile_path, profile)
-    entry = {
-        "order_index": 1,
-        "task_id": "task-a",
-        "repeat_index": 1,
-        "arm": "CONTROL",
-        "schedule_key": "2" * 64,
-        "sealed_argv_sha256": "3" * 64,
-        "resolved_argv": ["python3", "runner.py", "--timeout-seconds", "10"],
-        "resolved_argv_sha256": digest(
-            ["python3", "runner.py", "--timeout-seconds", "10"]
-        ),
-        "formal_gpu_uuids": ["GPU-11111111-1111-1111-1111-111111111111"],
-    }
+            "execution_profile_id",
+        )
+        profile_path = root / f"profile-{label}.json"
+        write_json(profile_path, profile)
+        profiles[arm] = profile
+        profile_paths[arm] = profile_path
+    entries = []
+    for order_index, arm in ((1, "CONTROL"), (2, "COMMUNITY_AUGMENTED")):
+        argv = ["python3", "runner.py", "--timeout-seconds", "10", "--arm", arm]
+        entries.append(
+            {
+                "order_index": order_index,
+                "task_id": "task-a",
+                "repeat_index": 1,
+                "arm": arm,
+                "schedule_key": str(order_index + 1) * 64,
+                "sealed_argv_sha256": str(order_index + 2) * 64,
+                "resolved_argv": argv,
+                "resolved_argv_sha256": digest(argv),
+                "formal_gpu_uuids": ["GPU-11111111-1111-1111-1111-111111111111"],
+            }
+        )
     base_authorization = {
         "combined_authorization_id": "4" * 64,
         "authorization_request": identity(request_path, root),
@@ -140,23 +193,25 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
             "tasks": {
                 "task-a": {
                     "task_id": "stable-task-a",
-                    "formal_gpu_uuids": entry["formal_gpu_uuids"],
+                    "formal_gpu_uuids": entries[0]["formal_gpu_uuids"],
                 }
             },
         },
         "approval": {},
         "deployment": {},
         "suite": {},
-        "execution_schedule": [entry],
+        "execution_schedule": entries,
         "authorization_schedule_sha256": "5" * 64,
-        "execution_schedule_sha256": digest([entry]),
+        "execution_schedule_sha256": digest(entries),
         "ready_for_atomic_claim": ready,
         "gpu_dispatch_authorized": False,
     }
-    runtime_row = runtime_module.runtime_entry(entry, profile)
+    runtime_rows = [
+        runtime_module.runtime_entry(entry, profiles[entry["arm"]]) for entry in entries
+    ]
     authorization = with_self_id(
         {
-            "schema_version": "community-combined-execution-authorization-v3",
+            "schema_version": "community-combined-execution-authorization-v4",
             "generated_at": "2026-09-10T00:00:00Z",
             "claim_boundary": (
                 "P_AND_E_AND_A_AND_STORE_AND_RUNTIME_RECOMPUTED_READY_FOR_ATOMIC_CLAIM_NOT_DISPATCH"
@@ -167,9 +222,11 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
             "cycle_id": "cycle-1",
             "suite_id": "suite-1",
             "formal_resource_id": "resource-1",
-            "task_execution_profiles": {"task-a": identity(profile_path, root)},
-            "execution_schedule": [entry],
-            "runtime_schedule": [runtime_row],
+            "task_arm_execution_profiles": {
+                "task-a": {arm: identity(profile_paths[arm], root) for arm in profiles}
+            },
+            "execution_schedule": entries,
+            "runtime_schedule": runtime_rows,
             "gate_decisions": {
                 **base_authorization["gate_decisions"],
                 "runtime_profiles_ready": True,
@@ -186,8 +243,8 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
     write_json(authorization_path, authorization)
     return authorization_path, {
         "authorization": authorization,
-        "profile": profile,
-        "profile_path": profile_path,
+        "profiles": profiles,
+        "profile_paths": profile_paths,
         "base_bundle": base_bundle,
     }
 
@@ -211,6 +268,30 @@ def canonical_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
 CURRENT_BASE: dict[Path, dict] = {}
 
 
+def resign_profile_and_authorization(
+    path: Path, root: Path, bundle: dict, arm: str, profile: dict
+) -> None:
+    profile = with_self_id(
+        {key: value for key, value in profile.items() if key != "execution_profile_id"},
+        "execution_profile_id",
+    )
+    profile_path = bundle["profile_paths"][arm]
+    write_json(profile_path, profile)
+    authorization = bundle["authorization"]
+    authorization["task_arm_execution_profiles"]["task-a"][arm] = identity(
+        profile_path, root
+    )
+    authorization = with_self_id(
+        {
+            key: value
+            for key, value in authorization.items()
+            if key != "combined_authorization_id"
+        },
+        "combined_authorization_id",
+    )
+    write_json(path, authorization)
+
+
 @pytest.mark.parametrize("ready", [True, False])
 def test_runtime_authorization_binds_exact_environment_and_executable(
     ready: bool,
@@ -226,7 +307,13 @@ def test_runtime_authorization_binds_exact_environment_and_executable(
             != result["base_authorization"]["combined_authorization_id"]
         )
         assert result["runtime_schedule"][0]["environment_sha256"] == digest(
-            bundle["profile"]["environment"]
+            bundle["profiles"]["CONTROL"]["environment"]
+        )
+        assert result["runtime_schedule"][0]["arm"] == "CONTROL"
+        assert result["runtime_schedule"][1]["arm"] == "COMMUNITY_AUGMENTED"
+        assert (
+            result["runtime_schedule"][0]["implementation_identity"]
+            != result["runtime_schedule"][1]["implementation_identity"]
         )
 
 
@@ -246,7 +333,7 @@ def test_runtime_authorization_rejects_profile_drift(
         root = Path(temporary).resolve()
         path, bundle = build_bundle(root)
         CURRENT_BASE[root] = bundle["base_bundle"]
-        profile = copy.deepcopy(bundle["profile"])
+        profile = copy.deepcopy(bundle["profiles"]["CONTROL"])
         if mutation == "environment":
             profile["environment"]["PATH"] += os.pathsep + str(root / "foreign")
         elif mutation == "task":
@@ -263,10 +350,11 @@ def test_runtime_authorization_rejects_profile_drift(
             },
             "execution_profile_id",
         )
-        write_json(bundle["profile_path"], profile)
+        profile_path = bundle["profile_paths"]["CONTROL"]
+        write_json(profile_path, profile)
         authorization = bundle["authorization"]
-        authorization["task_execution_profiles"]["task-a"] = identity(
-            bundle["profile_path"], root
+        authorization["task_arm_execution_profiles"]["task-a"]["CONTROL"] = identity(
+            profile_path, root
         )
         authorization = with_self_id(
             {
@@ -300,4 +388,81 @@ def test_runtime_authorization_rejects_schedule_profile_substitution() -> None:
         )
         write_json(path, authorization)
         with pytest.raises(ValueError, match="runtime schedule differs"):
+            validate_authorization(path, root, require_live_store_host=False)
+
+
+def test_runtime_authorization_rejects_same_implementation_for_both_arms() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary).resolve()
+        path, bundle = build_bundle(root)
+        CURRENT_BASE[root] = bundle["base_bundle"]
+        profile = copy.deepcopy(bundle["profiles"]["COMMUNITY_AUGMENTED"])
+        treatment_path = root / profile["treatment_manifest"]["path"]
+        treatment = json.loads(treatment_path.read_text(encoding="utf-8"))
+        control_identity = bundle["profiles"]["CONTROL"]["implementation_identity"]
+        treatment["source_files"] = [identity(root / "source-control.json", root)]
+        treatment["source_files_sha256"] = digest(treatment["source_files"])
+        treatment["implementation_identity"] = control_identity
+        treatment["runtime_marker"]["value"] = control_identity
+        treatment = with_self_id(
+            {key: value for key, value in treatment.items() if key != "treatment_id"},
+            "treatment_id",
+        )
+        write_json(treatment_path, treatment)
+        profile["treatment_manifest"] = identity(treatment_path, root)
+        profile["treatment_id"] = treatment["treatment_id"]
+        profile["implementation_identity"] = control_identity
+        profile["environment"]["KERNEL_OPT_TREATMENT_ID"] = control_identity
+        profile["environment_sha256"] = digest(profile["environment"])
+        resign_profile_and_authorization(
+            path, root, bundle, "COMMUNITY_AUGMENTED", profile
+        )
+        with pytest.raises(ValueError, match="same implementation identity"):
+            validate_authorization(path, root, require_live_store_host=False)
+
+
+def test_runtime_authorization_rejects_swapped_arm_profile() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary).resolve()
+        path, bundle = build_bundle(root)
+        CURRENT_BASE[root] = bundle["base_bundle"]
+        authorization = bundle["authorization"]
+        arm_profiles = authorization["task_arm_execution_profiles"]["task-a"]
+        arm_profiles["CONTROL"], arm_profiles["COMMUNITY_AUGMENTED"] = (
+            arm_profiles["COMMUNITY_AUGMENTED"],
+            arm_profiles["CONTROL"],
+        )
+        authorization = with_self_id(
+            {
+                key: value
+                for key, value in authorization.items()
+                if key != "combined_authorization_id"
+            },
+            "combined_authorization_id",
+        )
+        write_json(path, authorization)
+        with pytest.raises(ValueError, match="different arm"):
+            validate_authorization(path, root, require_live_store_host=False)
+
+
+def test_runtime_authorization_rejects_source_file_drift() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary).resolve()
+        path, bundle = build_bundle(root)
+        CURRENT_BASE[root] = bundle["base_bundle"]
+        (root / "source-control.json").write_text("drift\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="source file 0 hash changed"):
+            validate_authorization(path, root, require_live_store_host=False)
+
+
+def test_runtime_authorization_rejects_missing_treatment_marker() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary).resolve()
+        path, bundle = build_bundle(root)
+        CURRENT_BASE[root] = bundle["base_bundle"]
+        profile = copy.deepcopy(bundle["profiles"]["CONTROL"])
+        del profile["environment"]["KERNEL_OPT_TREATMENT_ID"]
+        profile["environment_sha256"] = digest(profile["environment"])
+        resign_profile_and_authorization(path, root, bundle, "CONTROL", profile)
+        with pytest.raises(ValueError, match="does not realize treatment marker"):
             validate_authorization(path, root, require_live_store_host=False)

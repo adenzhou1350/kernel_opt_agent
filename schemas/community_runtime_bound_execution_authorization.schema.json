@@ -8,13 +8,13 @@
     "schema_version", "generated_at", "claim_boundary",
     "combined_authorization_id", "validator_binding",
     "base_combined_authorization", "authorization_request", "cycle_id",
-    "suite_id", "formal_resource_id", "task_execution_profiles",
+    "suite_id", "formal_resource_id", "task_arm_execution_profiles",
     "execution_schedule", "runtime_schedule", "gate_decisions", "state",
     "ready_for_atomic_claim", "gpu_dispatch_authorized",
     "remaining_blockers", "hidden_oracle_exposed"
   ],
   "properties": {
-    "schema_version": {"const": "community-combined-execution-authorization-v3"},
+    "schema_version": {"const": "community-combined-execution-authorization-v4"},
     "generated_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {
       "const": "P_AND_E_AND_A_AND_STORE_AND_RUNTIME_RECOMPUTED_READY_FOR_ATOMIC_CLAIM_NOT_DISPATCH"
@@ -25,7 +25,7 @@
       "additionalProperties": false,
       "required": [
         "repository_commit", "authorization_schema_sha256",
-        "profile_schema_sha256", "validator_sha256",
+        "profile_schema_sha256", "treatment_schema_sha256", "validator_sha256",
         "base_authorization_schema_sha256", "base_validator_sha256",
         "dispatcher_sha256"
       ],
@@ -33,6 +33,7 @@
         "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
         "authorization_schema_sha256": {"$ref": "#/$defs/sha256"},
         "profile_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "treatment_schema_sha256": {"$ref": "#/$defs/sha256"},
         "validator_sha256": {"$ref": "#/$defs/sha256"},
         "base_authorization_schema_sha256": {"$ref": "#/$defs/sha256"},
         "base_validator_sha256": {"$ref": "#/$defs/sha256"},
@@ -44,10 +45,18 @@
     "cycle_id": {"type": "string", "minLength": 1},
     "suite_id": {"type": "string", "minLength": 1},
     "formal_resource_id": {"type": "string", "minLength": 1},
-    "task_execution_profiles": {
+    "task_arm_execution_profiles": {
       "type": "object",
       "minProperties": 1,
-      "additionalProperties": {"$ref": "#/$defs/identity"}
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["CONTROL", "COMMUNITY_AUGMENTED"],
+        "properties": {
+          "CONTROL": {"$ref": "#/$defs/identity"},
+          "COMMUNITY_AUGMENTED": {"$ref": "#/$defs/identity"}
+        }
+      }
     },
     "execution_schedule": {
       "type": "array", "minItems": 1,
@@ -130,14 +139,18 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "order_index", "task_id", "execution_profile_id", "launch_argv",
+        "order_index", "task_id", "arm", "execution_profile_id",
+        "treatment_id", "implementation_identity", "launch_argv",
         "launch_argv_sha256", "working_directory", "command_executable",
         "process_executable", "environment", "environment_sha256"
       ],
       "properties": {
         "order_index": {"type": "integer", "minimum": 1},
         "task_id": {"type": "string", "minLength": 1},
+        "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
         "execution_profile_id": {"$ref": "#/$defs/sha256"},
+        "treatment_id": {"$ref": "#/$defs/sha256"},
+        "implementation_identity": {"$ref": "#/$defs/sha256"},
         "launch_argv": {
           "type": "array", "minItems": 1,
           "items": {"type": "string", "minLength": 1}

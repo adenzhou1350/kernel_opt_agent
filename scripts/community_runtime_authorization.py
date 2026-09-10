@@ -21,6 +21,7 @@ from schema_utils import validate_json_file
 
 AUTHORIZATION_SCHEMA = "community_runtime_bound_execution_authorization.schema.json"
 PROFILE_SCHEMA = "community_task_execution_profile.schema.json"
+TREATMENT_SCHEMA = "community_arm_treatment_manifest.schema.json"
 BASE_SCHEMA = "community_combined_execution_authorization_v2.schema.json"
 VALIDATOR_PATH = "scripts/community_runtime_authorization.py"
 BASE_VALIDATOR_PATH = "scripts/community_execution_authorization_v2.py"
@@ -87,6 +88,7 @@ def validate_validator_binding(binding: dict) -> None:
     paths = {
         "authorization_schema_sha256": f"schemas/{AUTHORIZATION_SCHEMA}",
         "profile_schema_sha256": f"schemas/{PROFILE_SCHEMA}",
+        "treatment_schema_sha256": f"schemas/{TREATMENT_SCHEMA}",
         "validator_sha256": VALIDATOR_PATH,
         "base_authorization_schema_sha256": f"schemas/{BASE_SCHEMA}",
         "base_validator_sha256": BASE_VALIDATOR_PATH,
@@ -120,11 +122,50 @@ def validate_profile(
     artifact_root: Path,
     task: dict,
     task_key: str,
+    arm: str,
 ) -> dict:
     profile = validate_schema(profile_path, PROFILE_SCHEMA, f"{task_key} profile")
     require_self_id(profile, "execution_profile_id", f"{task_key} profile")
     if profile["task_id"] != task["task_id"]:
         raise ValueError(f"{task_key} profile binds a different stable task id")
+    if profile["arm"] != arm:
+        raise ValueError(f"{task_key} profile binds a different arm")
+    treatment_path = validate_identity(
+        artifact_root,
+        profile["treatment_manifest"],
+        f"{task_key} {arm} treatment manifest",
+    )
+    treatment = validate_schema(
+        treatment_path, TREATMENT_SCHEMA, f"{task_key} {arm} treatment manifest"
+    )
+    require_self_id(treatment, "treatment_id", f"{task_key} {arm} treatment")
+    if treatment["task_id"] != task["task_id"] or treatment["arm"] != arm:
+        raise ValueError(f"{task_key} treatment binds a different task or arm")
+    expected_realization = "BASELINE" if arm == "CONTROL" else "CHALLENGER"
+    if treatment["realization"] != expected_realization:
+        raise ValueError(f"{task_key} treatment realization differs from arm")
+    if profile["treatment_id"] != treatment["treatment_id"]:
+        raise ValueError(f"{task_key} profile treatment identity changed")
+    if profile["implementation_identity"] != treatment["implementation_identity"]:
+        raise ValueError(f"{task_key} profile implementation identity changed")
+    source_root = require_absolute(
+        treatment["source_root"], f"{task_key} {arm} source root"
+    )
+    if not source_root.is_dir():
+        raise ValueError(f"{task_key} {arm} source root is unavailable")
+    source_files = treatment["source_files"]
+    if digest(source_files) != treatment["source_files_sha256"]:
+        raise ValueError(f"{task_key} {arm} source file set digest changed")
+    if treatment["implementation_identity"] != treatment["source_files_sha256"]:
+        raise ValueError(f"{task_key} {arm} implementation is not source-derived")
+    for index, source_identity in enumerate(source_files):
+        source_path = validate_identity(
+            source_root,
+            source_identity,
+            f"{task_key} {arm} source file {index}",
+        )
+        if not source_path.is_file():
+            raise ValueError(f"{task_key} {arm} source file is unavailable")
     if profile["formal_gpu_uuids"] != task["formal_gpu_uuids"]:
         raise ValueError(f"{task_key} profile binds different formal GPU UUIDs")
     validate_identity(
@@ -135,6 +176,11 @@ def validate_profile(
     for name, value in profile["environment"].items():
         if "\0" in name or "\0" in value:
             raise ValueError(f"{task_key} profile environment contains NUL")
+    marker = treatment["runtime_marker"]
+    if marker["value"] != treatment["implementation_identity"]:
+        raise ValueError(f"{task_key} treatment runtime marker changed")
+    if profile["environment"].get(marker["name"]) != marker["value"]:
+        raise ValueError(f"{task_key} profile does not realize treatment marker")
 
     working_directory = require_absolute(
         profile["working_directory"], f"{task_key} working directory"
@@ -179,7 +225,10 @@ def runtime_entry(entry: dict, profile: dict) -> dict:
     return {
         "order_index": entry["order_index"],
         "task_id": entry["task_id"],
+        "arm": entry["arm"],
         "execution_profile_id": profile["execution_profile_id"],
+        "treatment_id": profile["treatment_id"],
+        "implementation_identity": profile["implementation_identity"],
         "launch_argv": launch_argv,
         "launch_argv_sha256": digest(launch_argv),
         "working_directory": profile["working_directory"],
@@ -225,20 +274,28 @@ def validate_authorization(
         raise ValueError("runtime authorization execution schedule differs from base")
 
     request = base["request"]
-    if set(authorization["task_execution_profiles"]) != set(request["tasks"]):
+    if set(authorization["task_arm_execution_profiles"]) != set(request["tasks"]):
         raise ValueError("runtime profile task set differs from request")
-    profiles: dict[str, dict] = {}
+    profiles: dict[tuple[str, str], dict] = {}
     for task_key, task in request["tasks"].items():
-        profile_path = validate_identity(
-            artifact_root,
-            authorization["task_execution_profiles"][task_key],
-            f"{task_key} execution profile",
-        )
-        profiles[task_key] = validate_profile(
-            profile_path, artifact_root, task, task_key
-        )
+        arm_profiles = authorization["task_arm_execution_profiles"][task_key]
+        for arm in ("CONTROL", "COMMUNITY_AUGMENTED"):
+            profile_path = validate_identity(
+                artifact_root,
+                arm_profiles[arm],
+                f"{task_key} {arm} execution profile",
+            )
+            profiles[(task_key, arm)] = validate_profile(
+                profile_path, artifact_root, task, task_key, arm
+            )
+        control = profiles[(task_key, "CONTROL")]
+        challenger = profiles[(task_key, "COMMUNITY_AUGMENTED")]
+        if control["treatment_id"] == challenger["treatment_id"]:
+            raise ValueError(f"{task_key} arms bind the same treatment identity")
+        if control["implementation_identity"] == challenger["implementation_identity"]:
+            raise ValueError(f"{task_key} arms bind the same implementation identity")
     expected_runtime_schedule = [
-        runtime_entry(entry, profiles[entry["task_id"]])
+        runtime_entry(entry, profiles[(entry["task_id"], entry["arm"])])
         for entry in base["execution_schedule"]
     ]
     if authorization["runtime_schedule"] != expected_runtime_schedule:

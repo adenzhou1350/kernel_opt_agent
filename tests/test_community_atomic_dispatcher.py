@@ -96,7 +96,11 @@ def bundle(rows: list[dict], store: ClaimStore) -> dict:
             {
                 "order_index": row["order_index"],
                 "task_id": row["task_id"],
+                "arm": row["arm"],
                 "execution_profile_id": "7" * 64,
+                "treatment_id": ("6" if row["arm"] == "CONTROL" else "5") * 64,
+                "implementation_identity": ("4" if row["arm"] == "CONTROL" else "3")
+                * 64,
                 "launch_argv": row["resolved_argv"],
                 "launch_argv_sha256": row["resolved_argv_sha256"],
                 "working_directory": "/runtime/work",
@@ -212,6 +216,8 @@ def test_zero_exit_waits_for_validated_observation_instead_of_success() -> None:
         assert result["state"] == "PROCESS_EXITED_AWAITING_VALIDATED_OBSERVATION"
         assert result["terminal_receipt_id"] is None
         assert result["process_exit_code"] == 0
+        assert result["arm"] == "CONTROL"
+        assert result["treatment_id"] == "6" * 64
         assert store.load_binding(result["session_id"])
         assert (
             store.snapshot(store.load_binding(result["session_id"]))["state"]
