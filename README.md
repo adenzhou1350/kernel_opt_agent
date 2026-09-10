@@ -451,6 +451,26 @@ can justify their permanent review and maintenance cost.  A confirmed path
 with an unknown ceiling returns `QUANTIFY_WHOLE_WORKLOAD_CEILING`; callers do
 not have to invent zero or favorable gain estimates merely to pass the schema.
 
+When qualification stops, classify the attempt before rejecting the candidate:
+
+```bash
+python3 scripts/kernel_opt.py qualification-route --print-template \
+  > qualification-attempt.json
+python3 scripts/kernel_opt.py qualification-route \
+  --attempt qualification-attempt.json \
+  --output qualification-route.json
+```
+
+The route distinguishes an exact-source candidate assertion failure from image,
+toolchain, dependency, ISA, import-identity and platform failures. Environment
+failures retain the candidate and consume a frozen technical-repair budget;
+exhausting that budget stops dependency chasing without turning the event into a
+correctness rejection. An official workflow that intrinsically builds native
+code cannot run under a no-build contract: the result explicitly asks for that
+build to be authorized or for a pinned prebuilt closure. Tests that ran against
+an unverified imported source are invalid evidence, not a pass or candidate
+failure.
+
 An accepted optimization is not automatically an upstream-ready change. Build
 the review package from a clean candidate commit and hash-bound evidence. Set
 `submission_mode` to `DRAFT_REVIEW` when the immediate objective is early
