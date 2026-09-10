@@ -20,6 +20,34 @@ python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 ```
 
+Start a `PROSPECTIVE_EXACT` ledger when a framework candidate is selected,
+before editing production source, and bind the selection receipt immediately:
+
+```bash
+python3 scripts/kernel_opt.py community-timing mark \
+  --ledger work-cycle.json --kind FIRST_CANDIDATE_PROPOSED \
+  --evidence candidate-value-decision.json
+```
+
+Record GitHub transitions atomically with their stable URL, observed event time
+and immutable event receipt:
+
+```bash
+python3 scripts/kernel_opt.py community-timing record-pr-stage \
+  --ledger work-cycle.json --stage DRAFT \
+  --url https://github.com/owner/repository/pull/123 \
+  --evidence github-pr-draft-event.json
+python3 scripts/kernel_opt.py community-timing record-pr-stage \
+  --ledger work-cycle.json --stage READY \
+  --url https://github.com/owner/repository/pull/123 \
+  --evidence github-pr-ready-event.json
+```
+
+`READY` requires an observed Draft milestone and `MERGED` requires an observed
+Ready milestone. Do not backfill missing timestamps from memory or filesystem
+mtimes; such a cycle remains `LEGACY_MILESTONE_BOUNDS` and is excluded from
+exact candidate-to-Draft and Draft-to-Ready timing.
+
 The ledger uses non-overlapping primary wall-clock spans for community research,
 bottleneck diagnosis, implementation, compile/measurement, correctness,
 performance, whole-model validation, upstream packaging, environment setup,

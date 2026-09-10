@@ -40,6 +40,11 @@ MILESTONES = (
     "PR_READY_FOR_REVIEW",
     "PR_MERGED",
 )
+PR_STAGE_MILESTONES = {
+    "DRAFT": "PR_DRAFT_OPENED",
+    "READY": "PR_READY_FOR_REVIEW",
+    "MERGED": "PR_MERGED",
+}
 
 
 def root() -> Path:
@@ -443,6 +448,34 @@ def mark(args: argparse.Namespace) -> dict:
     return ledger
 
 
+def record_pr_stage(args: argparse.Namespace) -> dict:
+    """Atomically bind a PR URL and one observed GitHub delivery stage."""
+    ledger = validate_ledger(args.ledger)
+    kind = PR_STAGE_MILESTONES[args.stage]
+    milestones = {item["kind"] for item in ledger["milestones"]}
+    if kind in milestones:
+        raise ValueError(f"duplicate milestone: {kind}")
+    existing_url = ledger["outcome"]["pull_request_url"]
+    if existing_url is not None and existing_url != args.url:
+        raise ValueError("pull request URL changed within one work cycle")
+    if args.stage == "READY" and "PR_DRAFT_OPENED" not in milestones:
+        raise ValueError("READY requires an observed PR_DRAFT_OPENED milestone")
+    if args.stage == "MERGED" and "PR_READY_FOR_REVIEW" not in milestones:
+        raise ValueError("MERGED requires an observed PR_READY_FOR_REVIEW milestone")
+    ledger["outcome"]["pull_request_url"] = args.url
+    if args.stage == "MERGED":
+        ledger["outcome"]["merged"] = True
+    ledger["milestones"].append(
+        {
+            "kind": kind,
+            "at": timestamp(args.at),
+            "evidence": [evidence_identity(path) for path in args.evidence],
+        }
+    )
+    write_ledger(args.ledger, ledger)
+    return ledger
+
+
 def record_outcome(args: argparse.Namespace) -> dict:
     ledger = validate_ledger(args.ledger)
     ledger["outcome"] = {
@@ -493,6 +526,12 @@ def parse_args() -> argparse.Namespace:
     milestone.add_argument("--kind", choices=MILESTONES, required=True)
     milestone.add_argument("--at")
     milestone.add_argument("--evidence", type=Path, action="append", required=True)
+    pr_stage = commands.add_parser("record-pr-stage")
+    pr_stage.add_argument("--ledger", type=Path, required=True)
+    pr_stage.add_argument("--stage", choices=tuple(PR_STAGE_MILESTONES), required=True)
+    pr_stage.add_argument("--url", required=True)
+    pr_stage.add_argument("--at")
+    pr_stage.add_argument("--evidence", type=Path, action="append", required=True)
     outcome = commands.add_parser("record-outcome")
     outcome.add_argument("--ledger", type=Path, required=True)
     outcome.add_argument(
@@ -524,6 +563,8 @@ def main() -> int:
         result = end_phase(args)
     elif args.operation == "mark":
         result = mark(args)
+    elif args.operation == "record-pr-stage":
+        result = record_pr_stage(args)
     elif args.operation == "record-outcome":
         result = record_outcome(args)
     elif args.operation == "validate":

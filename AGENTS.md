@@ -26,6 +26,16 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+For every selected framework candidate, start a `PROSPECTIVE_EXACT` community
+timing ledger and record `FIRST_CANDIDATE_PROPOSED` before the first production
+source edit. Bind the selection decision as milestone evidence. When GitHub
+opens the Draft, marks it Ready or merges it, use `community-timing
+record-pr-stage` with the observed event time, PR URL and an immutable event
+receipt. Never reconstruct these timestamps later from memory or filesystem
+mtimes. If the ledger did not exist before implementation, classify that cycle
+as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
+Agent-repository maintenance PRs are never entered in a framework lane ledger.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot
