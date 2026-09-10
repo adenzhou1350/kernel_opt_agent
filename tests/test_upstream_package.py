@@ -52,7 +52,12 @@ def run_cli(*args: str, expected: int = 0) -> subprocess.CompletedProcess:
         capture_output=True,
         check=False,
     )
-    assert result.returncode == expected, (args, result.stdout, result.stderr)
+    assert result.returncode == expected, (
+        args,
+        result.returncode,
+        result.stdout,
+        result.stderr,
+    )
     return result
 
 
