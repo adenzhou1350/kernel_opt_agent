@@ -79,7 +79,7 @@ def request_template() -> dict:
         "expected_gain": {
             "whole_workload_lower_percent": None,
             "whole_workload_median_percent": None,
-            "whole_workload_upper_percent": 0.0,
+            "whole_workload_upper_percent": None,
         },
         "workload_coverage_fraction": 0.0,
         "maintenance_surface": {
@@ -118,14 +118,23 @@ def evaluate(request: dict) -> dict:
     upper = gain["whole_workload_upper_percent"]
     if (lower is None) != (median is None):
         raise ValueError("expected gain lower and median must both be known or null")
-    if lower is not None and median is not None and not lower <= median <= upper:
+    if upper is None and (lower is not None or median is not None):
+        raise ValueError(
+            "expected gain upper must be known when lower or median is known"
+        )
+    if (
+        upper is not None
+        and lower is not None
+        and median is not None
+        and not lower <= median <= upper
+    ):
         raise ValueError("expected gain interval is not ordered")
-    if median is not None and median > upper:
+    if upper is not None and median is not None and median > upper:
         raise ValueError("expected gain median exceeds its upper bound")
 
     surface = request["maintenance_surface"]
     cost = review_cost_points(surface)
-    density = round(upper / cost, 6)
+    density = round(upper / cost, 6) if upper is not None else None
     policy = request["policy"]
     evidence = request["delivery_evidence"]
     reasons: list[str] = []
@@ -133,6 +142,9 @@ def evaluate(request: dict) -> dict:
     if request["production_path_reachability"] != "CONFIRMED":
         action = "PROVE_REACHABILITY_FIRST"
         reasons.append("production path is not confirmed")
+    elif upper is None:
+        action = "QUANTIFY_WHOLE_WORKLOAD_CEILING"
+        reasons.append("whole-workload gain ceiling is not quantified")
     elif upper < policy["materiality_floor_percent"]:
         action = "STOP_LOW_VALUE_BEFORE_HEAVY_VALIDATION"
         reasons.append("optimistic whole-workload gain is below the materiality floor")

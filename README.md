@@ -447,7 +447,9 @@ protocol/API changes at Draft even when their focused tests pass.  Its review
 cost formula is explicit and policy thresholds are supplied by the run; it is
 a routing decision, not performance proof.  This keeps expensive target-
 hardware qualification focused on candidates whose possible production value
-can justify their permanent review and maintenance cost.
+can justify their permanent review and maintenance cost.  A confirmed path
+with an unknown ceiling returns `QUANTIFY_WHOLE_WORKLOAD_CEILING`; callers do
+not have to invent zero or favorable gain estimates merely to pass the schema.
 
 An accepted optimization is not automatically an upstream-ready change. Build
 the review package from a clean candidate commit and hash-bound evidence. Set
