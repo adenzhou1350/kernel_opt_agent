@@ -68,6 +68,12 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "report-validate": Command("validate_human_review_report.py", "validate review-report semantics"),
         "report-render": Command("render_human_review_report.py", "render the validated Chinese HTML report"),
     },
+    "upstream delivery": {
+        "upstream-review-state": Command(
+            "upstream_review_state.py",
+            "separate GitHub Draft, CI, reviewer and qualification gates",
+        ),
+    },
 }
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
 

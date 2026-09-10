@@ -205,6 +205,9 @@ def main():
 
     cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"])
     assert "new-run" in cli_help.stdout and "experiment-execute" in cli_help.stdout
+    assert "upstream-review-state" in cli_help.stdout
+    review_state = run([sys.executable, str(ROOT / "tests/test_upstream_review_state.py")])
+    assert "upstream review-state test: PASS" in review_state.stdout
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([
