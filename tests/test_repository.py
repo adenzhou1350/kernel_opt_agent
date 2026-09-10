@@ -831,8 +831,59 @@ def main():
 
         paired = root / "paired.csv"
         paired.write_text("pair,candidate,duration_us\n1,a,10\n1,b,9\n2,b,8\n2,a,10\n3,a,11\n3,b,9\n")
+        parity_contract = root / "parity-contract.json"
+        parity_contract.write_bytes(b"paired contract")
+        parity_observations = root / "parity-observations.json"
+        parity_observations.write_text(
+            json.dumps(
+                {
+                    "schema_version": "deterministic-output-observations-v1",
+                    "contract": {
+                        "path": parity_contract.name,
+                        "sha256": hashlib.sha256(b"paired contract").hexdigest(),
+                    },
+                    "baseline_arm": "a",
+                    "candidate_arm": "b",
+                    "case_ids": ["case"],
+                    "repeat_count": 1,
+                    "observations": [
+                        {
+                            "arm": arm,
+                            "repeat_index": 0,
+                            "case_id": "case",
+                            "output_sha256": hashlib.sha256(b"same output").hexdigest(),
+                        }
+                        for arm in ("a", "b")
+                    ],
+                }
+            )
+        )
+        parity_result = root / "parity-result.json"
+        run([
+            sys.executable,
+            str(ROOT / "scripts/deterministic_output_parity.py"),
+            "--input",
+            str(parity_observations),
+            "--output",
+            str(parity_result),
+        ])
         paired_out = root / "paired.json"
-        run([sys.executable, str(ROOT / "scripts/compare_paired.py"), "--input", str(paired), "--baseline", "a", "--candidate", "b", "--correctness", "pass", "--bootstrap", "200", "--output", str(paired_out)])
+        run([
+            sys.executable,
+            str(ROOT / "scripts/compare_paired.py"),
+            "--input",
+            str(paired),
+            "--baseline",
+            "a",
+            "--candidate",
+            "b",
+            "--parity-result",
+            str(parity_result),
+            "--bootstrap",
+            "200",
+            "--output",
+            str(paired_out),
+        ])
         assert json.loads(paired_out.read_text())["decision"] == "ACCEPT"
 
     with tempfile.TemporaryDirectory() as temporary:

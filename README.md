@@ -175,6 +175,14 @@ closed unless the worker explicitly supports identity-preserving switching.
 Startup, per-request and shutdown timeouts remain separate, and receipts/logs
 are immutable: reruns use a new output path.
 
+Deterministic workloads must pass `output-parity` before `paired-compare` can
+read timing samples. The parity input freezes both arm names, every case, the
+repeat count and one output SHA-256 per arm/repeat/case. Missing, duplicate or
+unexpected observations, baseline self-drift and baseline/candidate mismatch
+all produce a reproducible `FAIL`; `paired-compare` requires the hash-bound
+`PASS` result and rejects a stale or edited result before opening the timing
+CSV. A caller-supplied `--correctness pass` assertion is not accepted.
+
 Every newly registered candidate must first bind a machine-generated
 `candidate-execution-plan-v1`. `candidate plan-execution` reads hash-bound phase
 timing, compares fixed setup/compile/warmup cost with steady-state work, and

@@ -73,6 +73,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "persistent-run": Command("persistent_session_runner.py", "run bounded requests through one persistent worker"),
         "service-curve-fit": Command("fit_service_curve.py", "fit latency and throughput service curves"),
         "service-policy": Command("derive_serving_policy.py", "derive a guarded batch-aware serving policy"),
+        "output-parity": Command("deterministic_output_parity.py", "verify exact outputs before timing comparison"),
         "paired-compare": Command("compare_paired.py", "compare interleaved baseline/candidate samples"),
     },
     "experiment": {
