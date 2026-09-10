@@ -34,7 +34,7 @@ def relative_identity(path: Path, base: Path) -> dict:
     return {"path": path.relative_to(base).as_posix(), "sha256": sha256_file(path)}
 
 
-def assessment(arm: str, repository: str, repeat: int) -> dict:
+def assessment(arm: str, repository: str, repeat: int, task_id: str) -> dict:
     null_identity = {"path": "not-resolved-by-this-layer.json", "sha256": "0" * 64}
     return {
         "schema_version": "community-trial-assessment-v1",
@@ -43,7 +43,7 @@ def assessment(arm: str, repository: str, repeat: int) -> dict:
         "trial_identity": null_identity,
         "result_identity": null_identity,
         "suite_id": SUITE_ID,
-        "task_id": f"{repository.replace('/', '-')}-task",
+        "task_id": task_id,
         "repeat_index": repeat,
         "arm": arm,
         "success_thresholds": {"minimum_material_speedup": 1.02},
@@ -69,12 +69,12 @@ def assessment(arm: str, repository: str, repeat: int) -> dict:
     }
 
 
-def ledger(repository: str, repeat: int, arm: str, evidence: Path) -> dict:
+def ledger(repository: str, repeat: int, arm: str, evidence: Path, task_id: str) -> dict:
     evidence_identity = relative_identity(evidence, evidence.parent)
     return {
         "schema_version": "community-work-cycle-v1",
         "cycle_id": f"{repository.replace('/', '-')}-{arm}-{repeat}",
-        "task_id": f"{repository.replace('/', '-')}-task",
+        "task_id": task_id,
         "started_at": "2026-09-09T00:00:00Z",
         "observation_mode": "PROSPECTIVE_EXACT",
         "claim_boundary": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY",
@@ -130,24 +130,30 @@ def ledger(repository: str, repeat: int, arm: str, evidence: Path) -> dict:
 
 
 def build_framework(
-    base: Path, repository: str, pr_number: int, suite_path: Path
+    base: Path,
+    repository: str,
+    pr_number: int,
+    suite_path: Path,
+    task_id: str,
 ) -> dict:
     directory = base / repository.replace("/", "-")
     directory.mkdir(parents=True, exist_ok=True)
     source_evidence = directory / "synthetic-evidence.json"
     source_evidence.write_text('{"synthetic": true}\n', encoding="utf-8")
     suite_id = SUITE_ID
-    task_id = f"{repository.replace('/', '-')}-task"
     pairs = []
     observations = {"control": [], "community_augmented": []}
     for repeat in (1, 2):
         assessment_paths = {}
         for arm, key in (("CONTROL", "control"), ("COMMUNITY_AUGMENTED", "community")):
             path = directory / f"assessment-{key}-r{repeat}.json"
-            atomic_json(path, assessment(arm, repository, repeat))
+            atomic_json(path, assessment(arm, repository, repeat, task_id))
             assessment_paths[key] = path
             ledger_path = directory / f"ledger-{key}-r{repeat}.json"
-            atomic_json(ledger_path, ledger(repository, repeat, key, source_evidence))
+            atomic_json(
+                ledger_path,
+                ledger(repository, repeat, key, source_evidence, task_id),
+            )
             observation_path = directory / f"observation-{key}-r{repeat}.json"
             is_community = key == "community"
             atomic_json(
@@ -405,8 +411,8 @@ def build_report(base: Path) -> dict:
         "cohort_identity": relative_identity(cohort_path, base),
         "evidence_root_label": "synthetic-test-evidence",
         "framework_results": [
-            build_framework(base, repository, pr_number, suite_path)
-            for repository, pr_number, _ in primary
+            build_framework(base, repository, pr_number, suite_path, task_id)
+            for repository, pr_number, task_id in primary
         ],
         "aggregate_gate": {
             "compared_frameworks": repositories,
@@ -501,7 +507,41 @@ def test_final_report_rejects_substituted_cohort_or_suite() -> None:
             raise AssertionError("framework results must not use different suite identities")
 
 
+def test_final_report_maps_cohort_task_id_to_suite_by_repository_and_pr() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        report_path = base / "report.json"
+        report = build_report(base)
+
+        # The real Cycle 1 suite uses a descriptive executor task id while the
+        # frozen cohort and observations use the stable PR-scoped id.  The
+        # repository+PR pair is the explicit bridge; the cohort id remains the
+        # observation identity.
+        suite_path = base / report["framework_results"][0]["suite_identity"]["path"]
+        suite = json.loads(suite_path.read_text(encoding="utf-8"))
+        suite["tasks"][0]["task_id"] = "sglang-38565-tp-sampling-consistency"
+        atomic_json(suite_path, suite)
+        suite_identity = relative_identity(suite_path, base)
+        for framework in report["framework_results"]:
+            framework["suite_identity"] = suite_identity
+        atomic_json(report_path, report)
+        assert validate_report(report_path, base)["framework_results"][0][
+            "task_id"
+        ] == "sglang-38565"
+
+        broken = copy.deepcopy(report)
+        broken["framework_results"][0]["task_id"] = "foreign-task"
+        atomic_json(report_path, broken)
+        try:
+            validate_report(report_path, base)
+        except ValueError as error:
+            assert "repository/task" in str(error)
+        else:
+            raise AssertionError("framework task id must remain bound to the cohort")
+
+
 if __name__ == "__main__":
     test_final_report_and_fail_closed_recomputation()
     test_observation_rejects_unreconciled_regression_rate()
     test_final_report_rejects_substituted_cohort_or_suite()
+    test_final_report_maps_cohort_task_id_to_suite_by_repository_and_pr()

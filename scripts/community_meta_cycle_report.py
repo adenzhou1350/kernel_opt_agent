@@ -68,7 +68,7 @@ def validate_cohort(
     random_seed: int,
     repeats: int,
     expected_repositories: set[str],
-) -> dict[str, int]:
+) -> dict[str, dict[str, int | str]]:
     if cohort.get("schema_version") != "meta-cycle-cross-framework-cohort-freeze-v1":
         raise ValueError("unsupported cohort freeze schema")
     frozen = cohort.get("frozen_protocol", {})
@@ -90,12 +90,15 @@ def validate_cohort(
         raise ValueError("cohort primary tasks require stable task ids")
     if len(task_ids) != len(set(task_ids)):
         raise ValueError("cohort primary task ids must be unique")
-    result: dict[str, int] = {}
+    result: dict[str, dict[str, int | str]] = {}
     for task in primary:
         pr_number = task.get("pr_number")
         if not isinstance(pr_number, int) or pr_number < 1:
             raise ValueError("cohort primary tasks require positive PR numbers")
-        result[task["repository"]] = pr_number
+        result[task["repository"]] = {
+            "pr_number": pr_number,
+            "task_id": task["task_id"],
+        }
     schedule = cohort.get("randomized_schedule", {}).get("entries")
     expected_entries = len(primary) * repeats * 2
     if not isinstance(schedule, list) or len(schedule) != expected_entries:
@@ -582,8 +585,12 @@ def validate_report(
             suite_path.parent, suite["preselection_anchor"], "suite preselection anchor"
         )
         anchor_result = validate_preselection_anchor(anchor_path, root)
+        cohort_task = cohort_prs[framework["repository"]]
         matching_tasks = [
-            task for task in suite["tasks"] if task["task_id"] == framework["task_id"]
+            task
+            for task in suite["tasks"]
+            if task["repository"] == framework["repository"]
+            and task.get("pr_number") == cohort_task["pr_number"]
         ]
         suite_protocol = suite["protocol"]
         frozen_suite_fields = {
@@ -607,9 +614,10 @@ def validate_report(
                 suite_protocol.get(key) != value
                 for key, value in frozen_suite_fields.items()
             )
+            or framework["task_id"] != cohort_task["task_id"]
             or len(matching_tasks) != 1
             or matching_tasks[0]["repository"] != framework["repository"]
-            or matching_tasks[0].get("pr_number") != cohort_prs[framework["repository"]]
+            or matching_tasks[0].get("pr_number") != cohort_task["pr_number"]
             or parse_time(matching_tasks[0]["available_at"]) <= parse_time(protocol["cutoff_at"])
         ):
             raise ValueError("evaluation suite does not bind the declared protocol repository/task")
