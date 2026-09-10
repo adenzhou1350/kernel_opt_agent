@@ -57,6 +57,12 @@ def validator_binding() -> dict[str, str]:
         / "scripts"
         / "community_execution_authorization_v2.py",
         "dispatcher_sha256": ROOT / "scripts" / "community_atomic_dispatcher.py",
+        "resource_amendment_schema_sha256": ROOT
+        / "schemas"
+        / "community_resource_amendment.schema.json",
+        "resource_amendment_validator_sha256": ROOT
+        / "scripts"
+        / "community_resource_amendment.py",
     }
     return {
         "repository_commit": "1" * 40,
@@ -468,3 +474,38 @@ def test_runtime_authorization_rejects_missing_treatment_marker() -> None:
         resign_profile_and_authorization(path, root, bundle, "CONTROL", profile)
         with pytest.raises(ValueError, match="does not realize treatment marker"):
             validate_authorization(path, root, require_live_store_host=False)
+
+
+def test_materialized_resource_view_rejects_old_root_and_accepts_overlay() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary).resolve()
+        old_root = root / "old"
+        effective_root = root / "resource-amendment-v2" / "effective"
+        execution_root = effective_root / "execution-root-v1"
+        relative = Path("execution-amendment-v1/task/server-contract-v1.json")
+        old_file = old_root / relative
+        effective_file = effective_root / relative
+        execution_file = execution_root / relative
+        for path, payload in (
+            (old_file, {"gpu": "GPU-old"}),
+            (effective_file, {"gpu": "GPU-new"}),
+            (execution_file, {"gpu": "GPU-new"}),
+        ):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            write_json(path, payload)
+        closure = {
+            "effective_root": effective_root,
+            "logical_files": {relative.as_posix(): sha256_file(effective_file)},
+        }
+        with pytest.raises(ValueError, match="effective working directory"):
+            runtime_module.validate_materialized_resource_view(
+                old_root, closure, "task-a"
+            )
+        runtime_module.validate_materialized_resource_view(
+            execution_root, closure, "task-a"
+        )
+        write_json(execution_file, {"gpu": "GPU-old"})
+        with pytest.raises(ValueError, match="materialized resource closure changed"):
+            runtime_module.validate_materialized_resource_view(
+                execution_root, closure, "task-a"
+            )

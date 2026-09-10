@@ -14,7 +14,12 @@
     "remaining_blockers", "hidden_oracle_exposed"
   ],
   "properties": {
-    "schema_version": {"const": "community-combined-execution-authorization-v4"},
+    "schema_version": {
+      "enum": [
+        "community-combined-execution-authorization-v4",
+        "community-combined-execution-authorization-v5"
+      ]
+    },
     "generated_at": {"type": "string", "format": "date-time"},
     "claim_boundary": {
       "const": "P_AND_E_AND_A_AND_STORE_AND_RUNTIME_RECOMPUTED_READY_FOR_ATOMIC_CLAIM_NOT_DISPATCH"
@@ -37,7 +42,9 @@
         "validator_sha256": {"$ref": "#/$defs/sha256"},
         "base_authorization_schema_sha256": {"$ref": "#/$defs/sha256"},
         "base_validator_sha256": {"$ref": "#/$defs/sha256"},
-        "dispatcher_sha256": {"$ref": "#/$defs/sha256"}
+        "dispatcher_sha256": {"$ref": "#/$defs/sha256"},
+        "resource_amendment_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "resource_amendment_validator_sha256": {"$ref": "#/$defs/sha256"}
       }
     },
     "base_combined_authorization": {"$ref": "#/$defs/identity"},
@@ -91,6 +98,27 @@
     },
     "hidden_oracle_exposed": {"const": false}
   },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "schema_version": {
+            "const": "community-combined-execution-authorization-v5"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "validator_binding": {
+            "required": [
+              "resource_amendment_schema_sha256",
+              "resource_amendment_validator_sha256"
+            ]
+          }
+        }
+      }
+    }
+  ],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "identity": {

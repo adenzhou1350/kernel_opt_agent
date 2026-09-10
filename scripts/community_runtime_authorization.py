@@ -16,6 +16,7 @@ from community_execution_authorization_v2 import (
     validate_authorization as validate_base_authorization,
     validate_identity,
 )
+from community_resource_amendment import validate_amendment
 from schema_utils import validate_json_file
 
 
@@ -26,6 +27,8 @@ BASE_SCHEMA = "community_combined_execution_authorization_v2.schema.json"
 VALIDATOR_PATH = "scripts/community_runtime_authorization.py"
 BASE_VALIDATOR_PATH = "scripts/community_execution_authorization_v2.py"
 DISPATCHER_PATH = "scripts/community_atomic_dispatcher.py"
+RESOURCE_AMENDMENT_SCHEMA = "community_resource_amendment.schema.json"
+RESOURCE_AMENDMENT_VALIDATOR_PATH = "scripts/community_resource_amendment.py"
 
 
 def repository_root() -> Path:
@@ -83,7 +86,7 @@ def git_blob_sha256(commit: str, relative_path: str) -> str:
     return hashlib.sha256(result.stdout).hexdigest()
 
 
-def validate_validator_binding(binding: dict) -> None:
+def validate_validator_binding(binding: dict, *, resource_closure_required: bool) -> None:
     require_commit(binding["repository_commit"])
     paths = {
         "authorization_schema_sha256": f"schemas/{AUTHORIZATION_SCHEMA}",
@@ -94,6 +97,17 @@ def validate_validator_binding(binding: dict) -> None:
         "base_validator_sha256": BASE_VALIDATOR_PATH,
         "dispatcher_sha256": DISPATCHER_PATH,
     }
+    if resource_closure_required:
+        paths.update(
+            {
+                "resource_amendment_schema_sha256": (
+                    f"schemas/{RESOURCE_AMENDMENT_SCHEMA}"
+                ),
+                "resource_amendment_validator_sha256": (
+                    RESOURCE_AMENDMENT_VALIDATOR_PATH
+                ),
+            }
+        )
     root = repository_root()
     for field, relative in paths.items():
         expected = git_blob_sha256(binding["repository_commit"], relative)
@@ -101,6 +115,82 @@ def validate_validator_binding(binding: dict) -> None:
             raise ValueError(f"declared commit binding changed: {field}")
         if binding[field] != sha256_file(root / relative):
             raise ValueError(f"worktree binding changed: {field}")
+
+
+def resource_execution_closure(request: dict, artifact_root: Path) -> dict | None:
+    """Return the effective resource overlay required by the pre-GPU gate.
+
+    A resource amendment is intentionally stored as a sparse overlay.  Runtime
+    profiles may point at a materialized execution view below that overlay, but
+    every amended logical path must resolve there with the effective bytes.
+    """
+    pre_identity = request.get("pre_gpu_gate")
+    if not isinstance(pre_identity, dict):
+        return None
+    pre_path = validate_identity(artifact_root, pre_identity, "pre-GPU readiness")
+    readiness = read_object(pre_path)
+    candidates: list[tuple[Path, dict]] = []
+    for label, identity in readiness.get("supplemental_audits", {}).items():
+        if "resource_amendment" not in label:
+            continue
+        receipt_path = validate_identity(
+            pre_path.parent, identity, f"resource amendment receipt {label}"
+        )
+        receipt = read_object(receipt_path)
+        amendment_identity = receipt.get("amendment")
+        if not isinstance(amendment_identity, dict):
+            raise ValueError("resource amendment receipt has no amendment identity")
+        amendment_path = validate_identity(
+            receipt_path.parent, amendment_identity, "resource amendment"
+        )
+        candidates.append(
+            (amendment_path, validate_amendment(amendment_path, artifact_root))
+        )
+    if not candidates:
+        return None
+    if len(candidates) != 1:
+        raise ValueError("pre-GPU readiness must bind one effective resource amendment")
+    amendment_path, _validation = candidates[0]
+    amendment = read_object(amendment_path)
+    effective_root = (artifact_root / amendment["effective_artifact_root"]).resolve()
+    require_inside(effective_root, artifact_root, "effective resource root")
+    if not effective_root.is_dir():
+        raise ValueError("effective resource root is unavailable")
+    logical_files: dict[str, str] = {}
+    effective_relative = Path(amendment["effective_artifact_root"])
+    for item in amendment["closure"]:
+        effective = item["effective"]
+        try:
+            logical = Path(effective["path"]).relative_to(effective_relative)
+        except ValueError as error:
+            raise ValueError(
+                f"effective closure path is outside resource overlay: {item['label']}"
+            ) from error
+        logical_files[logical.as_posix()] = effective["sha256"]
+    return {
+        "effective_root": effective_root,
+        "logical_files": logical_files,
+    }
+
+
+def validate_materialized_resource_view(
+    working_directory: Path, closure: dict | None, task_key: str
+) -> None:
+    if closure is None:
+        return
+    effective_root = closure["effective_root"]
+    require_inside(
+        working_directory, effective_root, f"{task_key} effective working directory"
+    )
+    for relative, expected_hash in closure["logical_files"].items():
+        materialized = (working_directory / relative).resolve()
+        require_inside(
+            materialized, working_directory, f"{task_key} materialized resource file"
+        )
+        if not materialized.is_file() or sha256_file(materialized) != expected_hash:
+            raise ValueError(
+                f"{task_key} materialized resource closure changed: {relative}"
+            )
 
 
 def require_absolute(path_text: str, label: str) -> Path:
@@ -123,6 +213,7 @@ def validate_profile(
     task: dict,
     task_key: str,
     arm: str,
+    resource_closure: dict | None = None,
 ) -> dict:
     profile = validate_schema(profile_path, PROFILE_SCHEMA, f"{task_key} profile")
     require_self_id(profile, "execution_profile_id", f"{task_key} profile")
@@ -188,6 +279,9 @@ def validate_profile(
     require_inside(working_directory, artifact_root, f"{task_key} working directory")
     if not working_directory.is_dir():
         raise ValueError(f"{task_key} working directory is unavailable")
+    validate_materialized_resource_view(
+        working_directory, resource_closure, task_key
+    )
 
     command = require_absolute(
         profile["command_executable"]["path"], f"{task_key} command executable"
@@ -252,7 +346,13 @@ def validate_authorization(
     require_self_id(
         authorization, "combined_authorization_id", "runtime-bound authorization"
     )
-    validate_validator_binding(authorization["validator_binding"])
+    resource_closure_required = (
+        authorization["schema_version"] == "community-combined-execution-authorization-v5"
+    )
+    validate_validator_binding(
+        authorization["validator_binding"],
+        resource_closure_required=resource_closure_required,
+    )
     base_path = validate_identity(
         artifact_root,
         authorization["base_combined_authorization"],
@@ -274,6 +374,11 @@ def validate_authorization(
         raise ValueError("runtime authorization execution schedule differs from base")
 
     request = base["request"]
+    resource_closure = resource_execution_closure(request, artifact_root)
+    if resource_closure is not None and not resource_closure_required:
+        raise ValueError(
+            "resource-amended execution requires runtime authorization v5"
+        )
     if set(authorization["task_arm_execution_profiles"]) != set(request["tasks"]):
         raise ValueError("runtime profile task set differs from request")
     profiles: dict[tuple[str, str], dict] = {}
@@ -286,7 +391,12 @@ def validate_authorization(
                 f"{task_key} {arm} execution profile",
             )
             profiles[(task_key, arm)] = validate_profile(
-                profile_path, artifact_root, task, task_key, arm
+                profile_path,
+                artifact_root,
+                task,
+                task_key,
+                arm,
+                resource_closure,
             )
         control = profiles[(task_key, "CONTROL")]
         challenger = profiles[(task_key, "COMMUNITY_AUGMENTED")]
