@@ -91,6 +91,8 @@
             "PERFORMANCE_VALIDATION",
             "WHOLE_MODEL_VALIDATION",
             "UPSTREAM_PACKAGING",
+            "ENVIRONMENT_SETUP",
+            "GOVERNANCE_VALIDATION",
             "EXTERNAL_WAIT",
             "UNATTRIBUTED_LEGACY_WORK"
           ]

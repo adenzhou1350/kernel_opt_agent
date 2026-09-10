@@ -112,6 +112,16 @@ def test_work_cycle_summary_and_guards() -> None:
         assert report["buckets"]["research_seconds"] == 60
         assert report["buckets"]["compute_seconds"] == 120
         assert report["buckets"]["validation_seconds"] == 60
+        assert report["buckets"]["environment_seconds"] == 0
+        assert report["buckets"]["governance_seconds"] == 0
+        assert (
+            report["phase_coverage"]["environment_governance_measurement_status"]
+            == "NOT_SEPARATELY_RECORDED"
+        )
+        assert (
+            report["ratios"]["environment_governance_share_of_attributed_active"]
+            is None
+        )
         assert report["wall_clock"]["observed_seconds"] == 240
         assert report["wall_clock"]["unaccounted_seconds"] == 0
         assert report["time_to_milestone_seconds"]["FIRST_QUALIFIED_RESULT"] == 240
@@ -121,6 +131,14 @@ def test_work_cycle_summary_and_guards() -> None:
             )
         )
         assert not validate_instance(report, schema)
+        legacy_report = json.loads(json.dumps(report))
+        legacy_report["phase_seconds"].pop("ENVIRONMENT_SETUP")
+        legacy_report["phase_seconds"].pop("GOVERNANCE_VALIDATION")
+        legacy_report["buckets"].pop("environment_seconds")
+        legacy_report["buckets"].pop("governance_seconds")
+        legacy_report.pop("phase_coverage")
+        legacy_report.pop("ratios")
+        assert not validate_instance(legacy_report, schema)
 
         broken = ledger(evidence)
         broken["spans"][1]["started_at"] = "2026-09-07T04:00:30Z"
@@ -144,6 +162,30 @@ def test_work_cycle_summary_and_guards() -> None:
             raise AssertionError("sub-threshold improvement must fail")
 
 
+def test_environment_and_governance_overhead_reporting() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = base / "cycle.json"
+        value = ledger(evidence)
+        value["spans"][0]["phase"] = "ENVIRONMENT_SETUP"
+        value["spans"][1]["phase"] = "GOVERNANCE_VALIDATION"
+        atomic_json(cycle, value)
+        report = summarize(cycle)
+        assert report["buckets"]["environment_seconds"] == 60
+        assert report["buckets"]["governance_seconds"] == 120
+        assert (
+            report["phase_coverage"]["environment_governance_measurement_status"]
+            == "MEASURED"
+        )
+        assert (
+            report["ratios"]["environment_governance_share_of_attributed_active"]
+            == 0.75
+        )
+        assert report["ratios"]["environment_governance_share_of_accounted"] == 0.75
+
+
 def test_pair_baseline_reads_bound_assessments() -> None:
     pair = (
         ROOT.parent
@@ -164,4 +206,5 @@ def test_pair_baseline_reads_bound_assessments() -> None:
 
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
+    test_environment_and_governance_overhead_reporting()
     test_pair_baseline_reads_bound_assessments()
