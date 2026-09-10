@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "candidate_value_gate.schema.json",
+  "title": "Pre-implementation candidate value gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "production_path_reachability",
+    "expected_gain",
+    "workload_coverage_fraction",
+    "maintenance_surface",
+    "delivery_evidence",
+    "policy"
+  ],
+  "properties": {
+    "schema_version": {"const": "candidate-value-gate-v1"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "production_path_reachability": {
+      "enum": ["CONFIRMED", "INFERRED", "UNPROVEN"]
+    },
+    "expected_gain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "whole_workload_lower_percent",
+        "whole_workload_median_percent",
+        "whole_workload_upper_percent"
+      ],
+      "properties": {
+        "whole_workload_lower_percent": {"type": ["number", "null"]},
+        "whole_workload_median_percent": {"type": ["number", "null"]},
+        "whole_workload_upper_percent": {"type": "number", "minimum": 0}
+      }
+    },
+    "workload_coverage_fraction": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "maintenance_surface": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "production_files_changed",
+        "production_lines_changed",
+        "adds_protocol_variant",
+        "adds_public_api"
+      ],
+      "properties": {
+        "production_files_changed": {"type": "integer", "minimum": 0},
+        "production_lines_changed": {"type": "integer", "minimum": 0},
+        "adds_protocol_variant": {"type": "boolean"},
+        "adds_public_api": {"type": "boolean"}
+      }
+    },
+    "delivery_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "focused_correctness_pass",
+        "clean_commit",
+        "reproduction_command_present",
+        "real_workload_pass",
+        "target_hardware_pass",
+        "no_regression_pass"
+      ],
+      "properties": {
+        "focused_correctness_pass": {"type": "boolean"},
+        "clean_commit": {"type": "boolean"},
+        "reproduction_command_present": {"type": "boolean"},
+        "real_workload_pass": {"type": "boolean"},
+        "target_hardware_pass": {"type": "boolean"},
+        "no_regression_pass": {"type": "boolean"}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "materiality_floor_percent",
+        "narrow_scope_fraction",
+        "minimum_gain_density_percent_per_point"
+      ],
+      "properties": {
+        "materiality_floor_percent": {"type": "number", "minimum": 0},
+        "narrow_scope_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+        "minimum_gain_density_percent_per_point": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    }
+  }
+}
