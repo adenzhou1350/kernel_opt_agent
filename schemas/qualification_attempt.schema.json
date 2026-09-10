@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_attempt.schema.json",
+  "title": "Qualification attempt failure classifier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "candidate_id",
+    "execution_route",
+    "workflow_requires_native_build",
+    "native_build_authorized",
+    "failure_stage",
+    "environment_failure",
+    "tests_collected",
+    "tests_executed",
+    "candidate_assertion_failures",
+    "exact_source_import_verified",
+    "technical_repair_attempts",
+    "technical_repair_budget"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-attempt-v1"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "execution_route": {
+      "enum": ["OFFICIAL_WORKFLOW", "PREBUILT_CLOSURE", "LOCAL_ADAPTED"]
+    },
+    "workflow_requires_native_build": {"type": "boolean"},
+    "native_build_authorized": {"type": "boolean"},
+    "failure_stage": {
+      "enum": [
+        "NOT_STARTED",
+        "IMAGE_MATERIALIZATION",
+        "TOOLCHAIN_SETUP",
+        "NATIVE_BUILD",
+        "IMPORT",
+        "TEST_COLLECTION",
+        "TEST_BODY",
+        "LINT",
+        "COMPLETE"
+      ]
+    },
+    "environment_failure": {
+      "enum": [
+        "NONE",
+        "IMAGE_UNAVAILABLE",
+        "DEPENDENCY_MISSING",
+        "TOOLCHAIN_TIMEOUT",
+        "ISA_INCOMPATIBLE",
+        "IMPORT_SOURCE_MISMATCH",
+        "PLATFORM_UNSUPPORTED",
+        "CACHE_PATH_UNWRITABLE",
+        "OTHER"
+      ]
+    },
+    "tests_collected": {"type": "integer", "minimum": 0},
+    "tests_executed": {"type": "integer", "minimum": 0},
+    "candidate_assertion_failures": {"type": "integer", "minimum": 0},
+    "exact_source_import_verified": {"type": "boolean"},
+    "technical_repair_attempts": {"type": "integer", "minimum": 0},
+    "technical_repair_budget": {"type": "integer", "minimum": 0}
+  }
+}
