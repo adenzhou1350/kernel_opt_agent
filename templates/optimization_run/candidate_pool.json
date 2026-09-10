@@ -4,9 +4,9 @@
   "created_at": null,
   "discovery_started_at": null,
   "policy": {
-    "min_candidates": 6,
-    "max_candidates": 12,
-    "min_families": 4,
+    "min_candidates": 2,
+    "max_candidates": 6,
+    "min_families": 2,
     "max_promotions": 2,
     "max_technical_attempts_per_candidate": 8,
     "max_candidate_wall_clock_minutes": 20.0,
