@@ -414,7 +414,10 @@ PRs as framework optimization results.
 ## Upstream delivery package
 
 An accepted optimization is not automatically an upstream-ready change. Build
-the review package from a clean candidate commit and hash-bound evidence:
+the review package from a clean candidate commit and hash-bound evidence. Set
+`submission_mode` to `DRAFT_REVIEW` when the immediate objective is early
+maintainer review or upstream CI; omit it (or use `QUALIFICATION`) for the full
+release gate:
 
 ```bash
 python3 scripts/kernel_opt.py upstream-package build \
@@ -426,13 +429,14 @@ python3 scripts/kernel_opt.py upstream-package build \
 
 The command independently materializes `base_commit..candidate_commit` as
 `changes.patch`, verifies that `HEAD` is the declared candidate and the worktree
-is clean, recomputes every benchmark speedup, and rejects stale evidence,
-failed tests, failed gates or missing whole-model evidence. A package with any
-pending gate is labeled `DRAFT_PENDING_QUALIFICATION` and explicitly forbids an
-upstream-ready or portable-performance claim. Only five PASS gates—correctness,
-source review, whole-model performance, upstream checks and cross-hardware
-replication—produce `UPSTREAM_READY`. Existing output directories are never
-overwritten.
+is clean, and rejects stale evidence or known failed gates. `DRAFT_REVIEW`
+requires focused correctness and source review plus reproducible evidence, but
+permits empty benchmark claims and pending whole-model, upstream-CI and
+cross-hardware gates. It is always labeled `DRAFT_PENDING_QUALIFICATION` and
+explicitly forbids upstream-ready or portable-performance claims. Full
+`QUALIFICATION` mode still recomputes every benchmark speedup, requires
+whole-model evidence, and only produces `UPSTREAM_READY` when all five gates
+pass. Existing output directories are never overwritten.
 
 ## Seeded hardware evidence
 

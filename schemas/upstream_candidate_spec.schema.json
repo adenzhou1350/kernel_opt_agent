@@ -19,6 +19,7 @@
   ],
   "properties": {
     "schema_version": {"const": "upstream-candidate-spec-v1"},
+    "submission_mode": {"enum": ["DRAFT_REVIEW", "QUALIFICATION"]},
     "package_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
     "repository": {
       "type": "object",
@@ -52,12 +53,12 @@
     },
     "benchmark_claims": {
       "type": "array",
-      "minItems": 1,
+      "minItems": 0,
       "items": {"$ref": "#/$defs/benchmark_claim"}
     },
     "evidence": {
       "type": "array",
-      "minItems": 3,
+      "minItems": 2,
       "items": {"$ref": "#/$defs/evidence"}
     },
     "boundaries": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}},

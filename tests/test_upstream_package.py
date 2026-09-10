@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import os
@@ -245,6 +246,50 @@ def main() -> None:
             str(draft_output),
             expected=1,
         )
+
+        early_spec = copy.deepcopy(spec)
+        early_spec["submission_mode"] = "DRAFT_REVIEW"
+        early_spec["tests"] = [early_spec["tests"][0]]
+        early_spec["benchmark_claims"] = []
+        early_spec["evidence"] = [correctness_receipt, reproduction_receipt]
+        for gate in early_spec["gates"]:
+            if gate["name"] not in {"correctness", "source_review"}:
+                gate["status"] = "PENDING"
+                gate["rationale"] = "Pending upstream qualification."
+        write(spec_path, early_spec)
+        early_output = workspace / "early-draft-package"
+        early = run_cli(
+            "build",
+            "--spec",
+            str(spec_path),
+            "--evidence-root",
+            str(evidence),
+            "--repository",
+            str(repository),
+            "--output",
+            str(early_output),
+        )
+        assert json.loads(early.stdout)["status"] == "DRAFT_PENDING_QUALIFICATION"
+        assert "makes no performance claim" in (early_output / "PR.md").read_text(
+            encoding="utf-8"
+        )
+
+        early_spec["submission_mode"] = "QUALIFICATION"
+        write(spec_path, early_spec)
+        run_cli(
+            "build",
+            "--spec",
+            str(spec_path),
+            "--evidence-root",
+            str(evidence),
+            "--repository",
+            str(repository),
+            "--output",
+            str(workspace / "invalid-early-ready-package"),
+            expected=1,
+        )
+
+        write(spec_path, spec)
 
         spec["evidence"].append(
             receipt("CROSS_HARDWARE", "sm120-receipt.json", "sm120.json")
