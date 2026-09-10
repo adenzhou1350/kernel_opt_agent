@@ -1,0 +1,284 @@
+#!/usr/bin/env python3
+"""Reject low-value candidates before expensive qualification work."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import tempfile
+from datetime import UTC, datetime
+from pathlib import Path
+
+from schema_utils import validate_instance
+
+
+REQUEST_VERSION = "candidate-value-gate-v1"
+RESULT_VERSION = "candidate-value-decision-v1"
+
+
+def root() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def read_object(path: Path) -> dict:
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def now() -> str:
+    return datetime.now(UTC).isoformat().replace("+00:00", "Z")
+
+
+def atomic_json(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(value, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, path)
+    except BaseException:
+        try:
+            os.unlink(temporary_name)
+        except FileNotFoundError:
+            pass
+        raise
+
+
+def review_cost_points(surface: dict) -> float:
+    """Estimate permanent review cost without pretending it is runtime cost."""
+
+    return round(
+        1.0
+        + max(surface["production_files_changed"] - 1, 0) * 0.5
+        + surface["production_lines_changed"] / 100.0
+        + 2.0 * int(surface["adds_protocol_variant"])
+        + 3.0 * int(surface["adds_public_api"]),
+        6,
+    )
+
+
+def request_template() -> dict:
+    return {
+        "schema_version": REQUEST_VERSION,
+        "candidate_id": "replace-me",
+        "production_path_reachability": "UNPROVEN",
+        "expected_gain": {
+            "whole_workload_lower_percent": None,
+            "whole_workload_median_percent": None,
+            "whole_workload_upper_percent": None,
+        },
+        "workload_coverage_fraction": 0.0,
+        "maintenance_surface": {
+            "production_files_changed": 0,
+            "production_lines_changed": 0,
+            "adds_protocol_variant": False,
+            "adds_public_api": False,
+        },
+        "delivery_evidence": {
+            "focused_correctness_pass": False,
+            "clean_commit": False,
+            "reproduction_command_present": False,
+            "real_workload_pass": False,
+            "target_hardware_pass": False,
+            "no_regression_pass": False,
+        },
+        "evidence": {
+            "production_path": None,
+            "expected_gain": None,
+            "delivery": None,
+        },
+        "policy": {
+            "materiality_floor_percent": 2.0,
+            "narrow_scope_fraction": 0.1,
+            "minimum_gain_density_percent_per_point": 0.75,
+        },
+    }
+
+
+def verify_evidence(request: dict, evidence_root: Path | None = None) -> None:
+    root_path = (evidence_root or Path.cwd()).resolve()
+    for label, identity in request["evidence"].items():
+        if identity is None:
+            continue
+        path = Path(identity["path"])
+        if not path.is_absolute():
+            path = root_path / path
+        path = path.resolve()
+        if not path.is_file():
+            raise ValueError(f"{label} evidence does not exist: {path}")
+        if sha256_file(path) != identity["sha256"]:
+            raise ValueError(f"{label} evidence hash mismatch: {path}")
+
+
+def evaluate(request: dict, evidence_root: Path | None = None) -> dict:
+    schema = read_object(root() / "schemas/candidate_value_gate.schema.json")
+    errors = validate_instance(request, schema)
+    if errors:
+        raise ValueError("invalid candidate value request: " + "; ".join(errors))
+    if request["schema_version"] != REQUEST_VERSION:
+        raise ValueError("unsupported candidate value request")
+
+    gain = request["expected_gain"]
+    lower = gain["whole_workload_lower_percent"]
+    median = gain["whole_workload_median_percent"]
+    upper = gain["whole_workload_upper_percent"]
+    if (lower is None) != (median is None):
+        raise ValueError("expected gain lower and median must both be known or null")
+    if upper is None and (lower is not None or median is not None):
+        raise ValueError(
+            "expected gain upper must be known when lower or median is known"
+        )
+    if (
+        upper is not None
+        and lower is not None
+        and median is not None
+        and not lower <= median <= upper
+    ):
+        raise ValueError("expected gain interval is not ordered")
+    if upper is not None and median is not None and median > upper:
+        raise ValueError("expected gain median exceeds its upper bound")
+
+    surface = request["maintenance_surface"]
+    cost = review_cost_points(surface)
+    density = round(upper / cost, 6) if upper is not None else None
+    policy = request["policy"]
+    evidence = request["delivery_evidence"]
+    reachability = request["production_path_reachability"]
+    evidence_refs = request["evidence"]
+    verify_evidence(request, evidence_root)
+    if (
+        reachability in {"CONFIRMED", "DISPROVEN"}
+        and not evidence_refs["production_path"]
+    ):
+        raise ValueError("confirmed or disproven reachability requires evidence")
+    if (
+        any(value is not None for value in (lower, median, upper))
+        and not evidence_refs["expected_gain"]
+    ):
+        raise ValueError("a numeric whole-workload interval requires evidence")
+    if any(evidence.values()) and not evidence_refs["delivery"]:
+        raise ValueError("positive delivery evidence requires a bound artifact")
+    draft_minimum_passes = all(
+        (
+            evidence["focused_correctness_pass"],
+            evidence["clean_commit"],
+            evidence["reproduction_command_present"],
+        )
+    )
+    reasons: list[str] = []
+
+    if reachability == "DISPROVEN":
+        if (lower, median, upper) != (0, 0, 0):
+            raise ValueError(
+                "a disproven production path requires a zero whole-workload interval"
+            )
+        if request["workload_coverage_fraction"] != 0:
+            raise ValueError(
+                "a disproven production path requires zero workload coverage"
+            )
+        action = "STOP_UNREACHABLE_PRODUCTION_PATH"
+        reasons.append("the candidate cannot affect the frozen production workload")
+    elif reachability != "CONFIRMED":
+        action = "PROVE_REACHABILITY_FIRST"
+        reasons.append("production path is not confirmed")
+    elif upper is None:
+        if draft_minimum_passes and not (
+            surface["adds_protocol_variant"] or surface["adds_public_api"]
+        ):
+            action = "OPEN_OR_KEEP_DRAFT_AND_QUANTIFY_WHOLE_WORKLOAD_CEILING"
+            reasons.append(
+                "draft minimum passes for a low-maintenance-surface change, but the "
+                "whole-workload gain ceiling is not quantified"
+            )
+        else:
+            action = "QUANTIFY_WHOLE_WORKLOAD_CEILING"
+            reasons.append("whole-workload gain ceiling is not quantified")
+    elif upper < policy["materiality_floor_percent"]:
+        action = "STOP_LOW_VALUE_BEFORE_HEAVY_VALIDATION"
+        reasons.append("optimistic whole-workload gain is below the materiality floor")
+    elif not draft_minimum_passes:
+        action = "COMPLETE_DRAFT_MINIMUM"
+        reasons.append("focused correctness, clean commit, or reproduction is missing")
+    elif (
+        request["workload_coverage_fraction"] < policy["narrow_scope_fraction"]
+        and (surface["adds_protocol_variant"] or surface["adds_public_api"])
+        and density < policy["minimum_gain_density_percent_per_point"]
+    ):
+        action = "HOLD_AT_DRAFT_LOW_VALUE_DENSITY"
+        reasons.append(
+            "narrow workload coverage does not justify permanent interface cost"
+        )
+    elif not all(
+        (
+            evidence["real_workload_pass"],
+            evidence["target_hardware_pass"],
+            evidence["no_regression_pass"],
+        )
+    ):
+        action = "OPEN_OR_KEEP_DRAFT_PENDING_QUALIFICATION"
+        reasons.append(
+            "draft minimum passes but production qualification is incomplete"
+        )
+    elif lower is None or lower < policy["materiality_floor_percent"]:
+        action = "KEEP_DRAFT_MATERIALITY_UNCERTAIN"
+        reasons.append("qualified lower bound does not clear the materiality floor")
+    else:
+        action = "READY_FOR_REVIEW"
+        reasons.append("value, correctness, and production qualification gates pass")
+
+    return {
+        "schema_version": RESULT_VERSION,
+        "generated_at": now(),
+        "candidate_id": request["candidate_id"],
+        "recommended_action": action,
+        "review_cost_points": cost,
+        "optimistic_gain_density_percent_per_point": density,
+        "reasons": reasons,
+        "claim_boundary": (
+            "PRE_IMPLEMENTATION_VALUE_AND_DELIVERY_ROUTING_NOT_PERFORMANCE_PROOF"
+        ),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--request", type=Path)
+    source.add_argument("--print-template", action="store_true")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+
+    if args.print_template:
+        if args.output:
+            parser.error("--output requires --request")
+        print(json.dumps(request_template(), indent=2, sort_keys=True))
+        return 0
+
+    request_path = args.request.resolve()
+    result = evaluate(read_object(request_path), request_path.parent)
+    result["request_identity"] = {
+        "path": request_path.as_posix(),
+        "sha256": sha256_file(request_path),
+    }
+    if args.output:
+        atomic_json(args.output.resolve(), result)
+    print(json.dumps(result, indent=2, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

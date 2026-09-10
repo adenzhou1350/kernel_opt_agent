@@ -149,6 +149,35 @@ artifacts occur in a trusted reproduction receipt.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
+## Candidate value gate
+
+Before expanding qualification, combine the whole-workload gain ceiling with
+the permanent maintenance surface and real workload coverage:
+
+```bash
+python3 scripts/kernel_opt.py candidate-value --print-template \
+  > candidate-value-request.json
+python3 scripts/kernel_opt.py candidate-value \
+  --request candidate-value-request.json \
+  --output candidate-value-decision.json
+```
+
+The value gate stops a path proven unreachable for the frozen production
+workload, stops an optimistic ceiling below the materiality floor, asks for
+reachability before timing an unproven path, and holds narrow low-density
+protocol/API changes at Draft even when their focused tests pass. A
+`DISPROVEN` path must carry a zero gain interval and zero workload coverage, so
+it cannot be used as a shortcut around an unknown ceiling. Its review
+cost formula is explicit and policy thresholds are supplied by the run; it is
+a routing decision, not performance proof. A confirmed path with an unknown
+ceiling requests `QUANTIFY_WHOLE_WORKLOAD_CEILING`; when the Draft minimum is
+already complete and no permanent API or protocol variant is added, it may
+instead recommend opening an honestly scoped Draft while that ceiling is
+quantified. Callers never have to invent zero or a favorable estimate merely
+to pass the schema. Confirmed/disproven reachability, numeric gain intervals
+and positive delivery claims must bind existing evidence files by path and
+SHA-256; the CLI recomputes each hash before issuing a decision.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.

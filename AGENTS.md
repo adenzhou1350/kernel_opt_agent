@@ -26,6 +26,14 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+Before expanding environment, accelerator or whole-workload qualification for
+a surviving candidate, run `scripts/kernel_opt.py candidate-value`. Keep an
+unknown whole-workload ceiling explicit and quantify it next; never replace it
+with zero or a favorable guess. Stop candidates whose frozen production path
+is proven unreachable or whose gain ceiling is below the materiality floor,
+and reserve expensive qualification for candidates whose possible value
+justifies their permanent review and maintenance surface.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

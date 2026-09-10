@@ -25,6 +25,9 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "advance": Command("advance_run.py", "validate and advance one phase gate"),
         "audit": Command("audit_repository.py", "verify reusable-zone purity"),
     },
+    "candidate value": {
+        "candidate-value": Command("candidate_value_gate.py", "stop low-value candidates before expensive qualification"),
+    },
     "hardware": {
         "hardware-discover": Command("discover_hardware.py", "query the target device and software stack"),
         "hardware-init": Command("init_hardware_evidence.py", "initialize the official-evidence manifest"),
