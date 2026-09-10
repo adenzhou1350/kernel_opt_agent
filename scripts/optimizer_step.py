@@ -165,7 +165,7 @@ def discovery_action(run: Path, scripts: Path) -> dict | None:
             "BUILD_OPPORTUNITY_MAP",
             "the baseline is valid, but no quantified map connects model terms to globally material rewrites",
             [[sys.executable, str(scripts / "kernel_opt.py"), "opportunity", "init", "--run", str(run)]],
-            [{"required": "derive conditional gain ceilings from the work ledger and schedule, then add 4-12 opportunities"}],
+            [{"required": "derive the theory-to-kernel dependency spine and conditional gain ceilings, then add 2-6 opportunities"}],
         )
     opportunities = read_object(opportunity_path)
     if opportunities.get("schema_version") != "opportunity-map-v1":

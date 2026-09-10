@@ -20,9 +20,9 @@ profile 或设计微基准之前，先把当前模型中可能带来收益的改
 
 ## 2. 原架构的问题
 
-原发现循环已经具备以下正确方向：一次生成 6--12 个候选、覆盖至少四个
-架构族、技术错误允许修复、只把少量 survivor 送入严格资格验证，并设置
-候选与总墙钟预算。
+原发现循环已经具备多候选、技术错误允许修复、只把少量 survivor 送入严格
+资格验证和总墙钟预算等正确方向。但固定要求先铺开 6--12 个候选、覆盖至少
+四个架构族，也会延迟第一个可审阅实现，并诱导表面多样、实际低价值的假设。
 
 但候选之前缺少一个机器可读的“为什么值得实现”层：
 
@@ -44,10 +44,10 @@ profile 或设计微基准之前，先把当前模型中可能带来收益的改
 ```mermaid
 flowchart LR
     A[冻结算子/负载/硬件] --> B[正确生产基线]
-    B --> C[构造 4--12 个全局机会]
-    C --> D[校验作用域、收益上界和证据哈希]
-    D --> E[按全局收益/置信度/实现成本排序]
-    E --> F[实现 6--12 个生产候选]
+    B --> C[公式/递推到依赖 DAG]
+    C --> D[绑定真实 workload 与目标硬件]
+    D --> E[构造并排序 2--6 个全局机会]
+    E --> F[先实现 2 个聚焦生产候选]
     F --> G[编译、正确性、anchor/edge smoke]
     G --> H[回写预测残差]
     H --> I[最多两个 survivor]
@@ -64,11 +64,14 @@ flowchart LR
 
 变为：
 
-`baseline → quantified opportunity portfolio → ranked implementation portfolio
+`baseline → theory-to-kernel dependency spine → quantified opportunity portfolio → ranked implementation portfolio
 → cheap screening → finalist-only measurement/model closure`
 
 核心变化是把“思考优化方向”从隐含在 Agent 上下文中的自然语言过程，变成
-可以校验、排序、追踪和复算的运行时对象。
+可以校验、排序、追踪和复算的运行时对象。先从公式或伪代码推导等价 chunk/
+block 形式、跨块状态和块内依赖，再结合真实 shape 与微架构决定融合、重计算、
+物化或 ownership；社区方法只在这之后作先验。首批候选失败、低于物质性门槛
+或仍不确定时才扩展组合宽度。
 
 ## 4. 具体代码修改
 

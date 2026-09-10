@@ -9,10 +9,12 @@ rerun without `--check-only` only after every finding is resolved.  Do not edit
 At every step run `scripts/kernel_opt.py next --run <run>`. Its action order is:
 
 1. capture a correct production discovery baseline;
-2. derive and rank 4--12 quantified global opportunities across at least four
+2. derive the exact theory-to-kernel dependency spine, then rank 2--6 quantified
+   global opportunities across at least two
    rewrite families;
-3. bind 6--12 production candidates to at least three ranked opportunities and
-   cover at least four architecture families;
+3. bind 2--6 production candidates, beginning with the top one or two
+   opportunities and at least two architecture families; expand only after the
+   focused candidates fail or remain ambiguous;
 4. repair compilation/correctness failures and cheaply screen anchor/edge cases;
 5. promote at most 2--4 survivors;
 6. close exact official hardware evidence and finalist-binary resource mapping;
@@ -48,8 +50,8 @@ sample identities.
 
 ## Hypothesis gate
 
-Before constructing the qualification hypothesis, build a discovery portfolio
-of 6--12 candidates across at least four architecture families. A compiler,
+Before constructing the qualification hypothesis, build a focused discovery
+portfolio of 2--6 candidates across at least two architecture families. A compiler,
 import, layout/type, harness or missing-artifact failure is technical and stays
 repairable within its separate budget. It is not evidence against the
 performance hypothesis. Use successive halving so every family receives a

@@ -6,7 +6,7 @@ Those remain owned by supervised qualification and certification.
 
 ## Portfolio before polishing
 
-After a correct production baseline exists, first create 4--12 opportunity
+After a correct production baseline exists, first create 2--6 opportunity
 records with `kernel_opt.py opportunity add`, then rank them. Each record must
 name the source model term, whether it is decomposition-conditional,
 current-schedule or empirical, its current objective contribution, optimistic
@@ -30,8 +30,16 @@ particular, work required by the current four-stage decomposition may disappear
 under legal fusion. The `ABSOLUTE_GLOBAL_OPTIMUM` scope is therefore forbidden
 for opportunity records.
 
-After ranking, generate 6--12 candidates across
-at least four materially different architecture families. Vary mathematical
+Before consulting reusable methods, derive the operator's theory-to-kernel
+spine. For recurrences, write the exact chunk/block equation, the carried state,
+the intra-chunk dependency relation and the final state update. Then bind the
+real workload shapes and map the resulting operations and dependencies to the
+target architecture. Reject a technique at this point when its source of
+parallelism or recomputation does not match the frozen workload. Do not let a
+lexical method match replace this derivation.
+
+After ranking, generate 2--6 candidates, starting with at least two materially
+different architecture families. Vary mathematical
 decomposition, fusion boundaries, materialization, CTA/warp ownership,
 register/shared-memory dataflow, persistent scheduling, instruction mechanism
 or workload specialization. Parameter variants of the same schedule count as
@@ -39,9 +47,10 @@ one family.
 
 Each candidate must bind to one ranked opportunity, use one of its rewrite
 families and state a predicted global-gain interval below that opportunity's
-ceiling. Cover at least three opportunities by default rather than producing
-many variants of the same hypothesis. Give every family a small implementation budget before
-spending qualification effort on any one family.
+ceiling. Start with the highest-density one or two opportunities. Expand to more
+opportunities or families only when the first implementations fail, fall below
+the materiality floor or remain ambiguous. Give every active family a small
+implementation budget before spending qualification effort on any one family.
 
 Before registration, every candidate must include a hash-bound
 `dependency_contract` with status `PROVEN_LEGAL`. It records the mathematical

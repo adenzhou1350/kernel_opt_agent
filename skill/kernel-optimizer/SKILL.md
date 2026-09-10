@@ -18,14 +18,16 @@ Then execute an evidence-driven loop:
 2. Discover and snapshot hardware/toolchain state, then establish a correct
    production-exact discovery baseline.
 3. Read
-   [references/discovery_loop.md](references/discovery_loop.md), compile 4--12
+   [references/discovery_loop.md](references/discovery_loop.md), derive the
+   operator's exact theory-to-kernel dependency spine, then compile 2--6
    conditional global opportunities from the work/DAG models and rank them by
    expected global gain, confidence and implementation cost with
    `scripts/kernel_opt.py opportunity`. Never present a decomposition-specific
    floor as an absolute global optimum.
-4. Generate 6--12 materially different architecture candidates linked to at
-   least three ranked opportunities and write their run-local production
-   implementations. Use `scripts/kernel_opt.py candidate` to give
+4. Generate 2--6 materially different architecture candidates, starting with
+   the top one or two ranked opportunities, and write their run-local production
+   implementations. Expand toward the upper bound only after the first focused
+   candidates fail or remain ambiguous. Use `scripts/kernel_opt.py candidate` to give
    compiler, import, layout and harness failures a bounded repair loop.
 5. Cheaply screen every valid architecture family on an anchor and edge case.
    Discovery results route work only; they do not accept a candidate or claim a

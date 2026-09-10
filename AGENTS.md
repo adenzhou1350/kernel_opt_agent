@@ -60,6 +60,40 @@ an accessible ModelScope snapshot when it can be content-hash matched to the
 required model identity; a hosting platform name is never a substitute for
 file identities.
 
+## Theory-to-kernel analysis spine
+
+Start from the operator, not from a fashionable kernel or a community match.
+For a stateful or recurrent operator, first rewrite the equations into the
+exact block/chunk form that the target implementation may execute.  Record the
+state carried across chunks, the dependencies that remain inside a chunk, and
+the numerical ordering or precision rules that may not change.  This derivation
+is the primary hypothesis source; a profiler, method card or upstream patch is
+supporting evidence only.
+
+Follow this short spine before expanding a candidate portfolio:
+
+1. Normalize the equations or pseudocode and derive an equivalent dependency
+   DAG.  Separate true mathematical recurrence from serialization introduced by
+   the current schedule.
+2. Bind the real shape distribution, modes, cache state and surrounding layouts.
+   A technique whose recomputation or parallelism model does not match those
+   workloads is rejected here, even if it is successful elsewhere.
+3. Map the surviving work to the exact target architecture: ownership,
+   synchronization, memory movement, tensor/core pipelines, registers and
+   shared memory.  Keep unknown hardware facts explicit.
+4. Rank transformation axes such as algebraic reformulation, fusion,
+   materialization removal, recomputation, chunk ownership and specialization
+   by global gain ceiling divided by implementation and validation cost.
+5. Implement the smallest high-density candidate and run the cheapest test that
+   can disprove its legality or materiality.  Once it has focused correctness,
+   a clean commit and an honest reproduction command, package it for draft
+   review instead of growing an evidence tree first.
+
+Use community knowledge only after this local analysis.  A community method may
+change implementation details or add a guarded alternative, but it may not
+replace the local derivation or route a candidate solely through shared words
+such as "fusion", "launch" or "normalization".
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot
@@ -70,15 +104,17 @@ file identities.
   sources first. If the exact architecture/device is not documented clearly,
   ask the developer for the official document location and stop hardware-model
   construction. Never infer from a neighboring architecture or product.
-- After a correct production baseline exists, create and rank 4--12 quantified
-  global opportunities across at least four rewrite families. Distinguish
+- After a correct production baseline exists, create and rank 2--6 quantified
+  global opportunities across at least two rewrite families. Distinguish
   decomposition-conditional work, current-schedule work and empirical
   bottlenecks; never label one of them an absolute global optimum. Rank by
   expected global gain, confidence and implementation cost before measuring.
 - Bind every discovery candidate to a ranked opportunity and a predicted global
-  gain interval, then write and cheaply screen 6--12 run-local production
-  candidates across at least four materially different architecture families
-  and at least three opportunities. Full resource-model closure is
+  gain interval, then write and cheaply screen 2--6 run-local production
+  candidates across at least two materially different architecture families
+  and at least one opportunity. Start with the top one or two opportunities and
+  expand breadth only after those implementations fail, are immaterial, or
+  remain genuinely ambiguous. Full resource-model closure is
   not required for discovery-only compilation, correctness and anchor/edge
   timing. Read `skill/kernel-optimizer/references/discovery_loop.md`.
 - Promote at most 2--4 discovery survivors into supervised qualification. For

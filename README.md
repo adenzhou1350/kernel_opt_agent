@@ -120,8 +120,8 @@ python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-
 python3 scripts/kernel_opt.py persistent-run --root runs/<run-id> --spec runs/<run-id>/persistent-session.json --output runs/<run-id>/persistent-session-receipt.json
 ```
 
-The default opportunity map requires 4--12 quantified opportunities across at
-least four rewrite families. Each opportunity states the current global
+The default opportunity map requires 2--6 quantified opportunities across at
+least two rewrite families. Each opportunity states the current global
 contribution, a conditional optimistic gain ceiling, a likely gain interval,
 confidence, implementation cost and hash-bound model evidence. New maps also
 require a representative end-to-end `production_impact_gate` against the map's
@@ -132,8 +132,9 @@ even its optimistic ceiling is below the frozen materiality floor. A fast
 microbenchmark alone therefore cannot consume candidate-development budget.
 Absolute-global-optimum labels are
 rejected: a decomposition-specific minimum is not a semantic lower bound.
-Candidates must bind to a ranked opportunity, stay below its gain ceiling and
-cover at least three opportunities by default.
+Candidates must bind to a ranked opportunity and stay below its gain ceiling.
+Start with the highest-density one or two opportunities; broaden the portfolio
+only after those focused implementations fail or remain ambiguous.
 Measured dead ends can be marked `CLOSED` only with hash-bound run-local evidence,
 a global stop reason and explicit reopen conditions. Closed opportunities score
 zero and are excluded from method matching, candidate registration and next-action
@@ -156,7 +157,7 @@ an algorithmic decomposition (dependency, partition, local state, combine,
 finalization, work/span/communication and invariants) so literature retrieval
 can produce structural candidates rather than only launch-parameter hints.
 
-Discovery then requires 6--12 candidates across at least four architecture families
+Discovery then requires 2--6 candidates across at least two architecture families
 by default. The default discovery budget is two hours overall, twenty minutes
 per candidate and eight technical repairs per candidate; expiry stops further
 measurement for plan review. Candidates are ranked by weighted screening gain
