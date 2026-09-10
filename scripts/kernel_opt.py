@@ -111,6 +111,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_review_state.py",
             "separate GitHub Draft, CI, reviewer and qualification gates",
         ),
+        "upstream-review-handoff": Command(
+            "upstream_review_handoff.py",
+            "route prospective reviewer waits and bounded follow-ups",
+        ),
     },
 }
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
