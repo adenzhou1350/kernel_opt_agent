@@ -44,6 +44,7 @@ def base() -> dict:
         "reviewers": {
             "state": "QUEUED_UNTIL_READY",
             "handles": ["merrymercy", "Ying1123"],
+            "early_review_handles": [],
         },
     }
 
@@ -69,6 +70,15 @@ def main() -> None:
     assert sglang["recommended_action"] == "KEEP_DRAFT_CONTINUE_QUALIFICATION"
     assert sglang["test_failure"] is False
 
+    early_review = base()
+    early_review["reviewers"]["early_review_handles"] = [
+        "danghungdo",
+        "hnyls2002",
+    ]
+    decision = run(early_review)["decision"]
+    assert decision["recommended_action"] == "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW"
+    assert decision["external_action_owner"] == "EXECUTION_LANE_AND_REVIEWER"
+
     vllm = base()
     vllm["pull_request"].update(
         {
@@ -80,7 +90,11 @@ def main() -> None:
         }
     )
     vllm["ci"] = {"state": "FAIL", "classification": "MAINTAINER_AUTHORIZATION"}
-    vllm["reviewers"] = {"state": "REQUESTED", "handles": ["ApostaC"]}
+    vllm["reviewers"] = {
+        "state": "REQUESTED",
+        "handles": ["ApostaC"],
+        "early_review_handles": [],
+    }
     decision = run(vllm)["decision"]
     assert decision["github_review_stage"] == "READY"
     assert decision["recommended_action"] == "WAIT_FOR_MAINTAINER_CI_AND_REVIEW"
@@ -96,7 +110,11 @@ def main() -> None:
         }
     )
     mooncake["ci"] = {"state": "PASS", "classification": "PASS"}
-    mooncake["reviewers"] = {"state": "REQUESTED", "handles": ["ShangmingCai"]}
+    mooncake["reviewers"] = {
+        "state": "REQUESTED",
+        "handles": ["ShangmingCai"],
+        "early_review_handles": [],
+    }
     assert run(mooncake)["decision"]["recommended_action"] == "WAIT_FOR_REVIEW"
 
     absent = base()
@@ -104,7 +122,11 @@ def main() -> None:
         {"url": None, "number": None, "state": "ABSENT", "draft": False}
     )
     absent["ci"] = {"state": "NOT_RUN", "classification": "NOT_REQUESTED"}
-    absent["reviewers"] = {"state": "NONE", "handles": []}
+    absent["reviewers"] = {
+        "state": "NONE",
+        "handles": [],
+        "early_review_handles": [],
+    }
     decision = run(absent)["decision"]
     assert decision["github_review_stage"] == "NOT_SUBMITTED"
     assert decision["recommended_action"] == "OPEN_DRAFT"
@@ -128,6 +150,17 @@ def main() -> None:
     result = run(invalid, expected_code=1)
     assert result["status"] == "FAIL"
     assert any("DRAFT_GATE_CASCADE" in error for error in result["errors"])
+
+    invalid_early_review = base()
+    invalid_early_review["pull_request"]["draft"] = False
+    invalid_early_review["ci"] = {"state": "PENDING", "classification": "RUNNING"}
+    invalid_early_review["reviewers"] = {
+        "state": "REQUESTED",
+        "handles": ["owner"],
+        "early_review_handles": ["owner"],
+    }
+    result = run(invalid_early_review, expected_code=1)
+    assert any("early_review_handles" in error for error in result["errors"])
     print("upstream review-state test: PASS")
 
 

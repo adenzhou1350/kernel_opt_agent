@@ -49,10 +49,11 @@
     "reviewers": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["state", "handles"],
+      "required": ["state", "handles", "early_review_handles"],
       "properties": {
         "state": {"enum": ["NONE", "QUEUED_UNTIL_READY", "REQUESTED", "APPROVED", "CHANGES_REQUESTED"]},
-        "handles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+        "handles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "early_review_handles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
       }
     }
   },

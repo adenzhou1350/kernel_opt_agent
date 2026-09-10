@@ -55,6 +55,12 @@ recommends Ready only after every applicable official-correctness,
 production-reachability, materiality, target-workload and known-regression
 gate passes.
 
+Reviewer state records code-owner requests separately from
+`early_review_handles`. This preserves the difference between reviewers that
+GitHub queues until Ready and a small set of relevant maintainers explicitly
+asked to review the Draft's API or overlap direction while qualification
+continues.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
