@@ -24,6 +24,7 @@ REQUIRED_EVIDENCE_ROLES = {
     "WHOLE_MODEL_PERFORMANCE",
     "REPRODUCTION",
 }
+DRAFT_EVIDENCE_ROLES = {"CORRECTNESS", "REPRODUCTION"}
 REQUIRED_GATES = {
     "correctness",
     "source_review",
@@ -100,8 +101,14 @@ def validate_spec(spec_path: Path, root: Path) -> dict:
     if spec.get("schema_version") != SPEC_SCHEMA:
         raise ValueError("unsupported upstream candidate spec schema")
 
+    submission_mode = spec.get("submission_mode", "QUALIFICATION")
     roles = {item["role"] for item in spec["evidence"]}
-    missing_roles = sorted(REQUIRED_EVIDENCE_ROLES - roles)
+    required_roles = (
+        DRAFT_EVIDENCE_ROLES
+        if submission_mode == "DRAFT_REVIEW"
+        else REQUIRED_EVIDENCE_ROLES
+    )
+    missing_roles = sorted(required_roles - roles)
     if missing_roles:
         raise ValueError(f"missing required evidence roles: {missing_roles}")
 
@@ -152,6 +159,18 @@ def validate_spec(spec_path: Path, root: Path) -> dict:
         raise ValueError(
             f"failed qualification gates cannot produce a PR package: {failed}"
         )
+    gate_by_name = {item["name"]: item for item in spec["gates"]}
+    if submission_mode == "DRAFT_REVIEW":
+        draft_blockers = sorted(
+            name
+            for name in ("correctness", "source_review")
+            if gate_by_name[name]["status"] != "PASS"
+        )
+        if draft_blockers:
+            raise ValueError(
+                "draft review requires PASS correctness and source_review gates: "
+                f"{draft_blockers}"
+            )
     failed_tests = [
         item["command"] for item in spec["tests"] if item["status"] != "PASS"
     ]
@@ -167,7 +186,6 @@ def validate_spec(spec_path: Path, root: Path) -> dict:
             raise ValueError(
                 f"test evidence must be CORRECTNESS or UPSTREAM_CHECKS: {test['evidence_path']}"
             )
-    gate_by_name = {item["name"]: item for item in spec["gates"]}
     if (
         gate_by_name["upstream_checks"]["status"] == "PASS"
         and "UPSTREAM_CHECKS" not in roles
@@ -213,7 +231,7 @@ def validate_spec(spec_path: Path, root: Path) -> dict:
                 raise ValueError(
                     "whole-model evidence must show a positive improvement"
                 )
-    if whole_model_claims == 0:
+    if submission_mode != "DRAFT_REVIEW" and whole_model_claims == 0:
         raise ValueError("at least one whole-model benchmark claim is required")
     return spec
 
@@ -281,14 +299,17 @@ def render_markdown(spec: dict, status: str, patch_sha256: str) -> str:
     lines.append("")
     lines.extend(f"- `{item['command']}` — {item['status']}" for item in spec["tests"])
     lines.extend(("", "## Speed Tests and Profiling", ""))
-    lines.append("| Scope | Workload | Metric | Baseline | Candidate | Speedup |")
-    lines.append("|---|---|---|---:|---:|---:|")
-    for claim in spec["benchmark_claims"]:
-        lines.append(
-            f"| {claim['scope']} | {claim['workload']} | {claim['metric']} "
-            f"| {claim['baseline']:.6g} {claim['unit']} "
-            f"| {claim['candidate']:.6g} {claim['unit']} | {claim['speedup']:.4f}x |"
-        )
+    if spec["benchmark_claims"]:
+        lines.append("| Scope | Workload | Metric | Baseline | Candidate | Speedup |")
+        lines.append("|---|---|---|---:|---:|---:|")
+        for claim in spec["benchmark_claims"]:
+            lines.append(
+                f"| {claim['scope']} | {claim['workload']} | {claim['metric']} "
+                f"| {claim['baseline']:.6g} {claim['unit']} "
+                f"| {claim['candidate']:.6g} {claim['unit']} | {claim['speedup']:.4f}x |"
+            )
+    else:
+        lines.append("Not run; this draft makes no performance claim.")
     lines.extend(("", "## Boundaries", ""))
     lines.extend(f"- {item}" for item in spec["boundaries"])
     lines.extend(("", "## Qualification Gates", ""))
@@ -312,7 +333,13 @@ def command_build(args: argparse.Namespace) -> dict:
     pending = sorted(
         item["name"] for item in spec["gates"] if item["status"] == "PENDING"
     )
-    status = "UPSTREAM_READY" if not pending else "DRAFT_PENDING_QUALIFICATION"
+    status = (
+        "DRAFT_PENDING_QUALIFICATION"
+        if spec.get("submission_mode", "QUALIFICATION") == "DRAFT_REVIEW"
+        else "UPSTREAM_READY"
+        if not pending
+        else "DRAFT_PENDING_QUALIFICATION"
+    )
 
     manifest = {
         "schema_version": PACKAGE_SCHEMA,
