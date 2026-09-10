@@ -74,6 +74,18 @@ dashboard waits 24 hours before one targeted reviewer follow-up and 72 hours
 before one project review-channel escalation. Decisions never authorize an
 automatic message.
 
+Drafts use a separate prospective progress clock so a failed value gate or a
+stale external environment does not remain open indefinitely:
+
+```bash
+python3 scripts/kernel_opt.py upstream-draft-progress draft-progress.json
+```
+
+The router sends a passed Draft to Ready, a failed or disproven Draft to
+revision/closure, and a Draft without material progress for the configured
+window to bounded replanning or an external reproducible gate. It never closes
+or marks a pull request Ready automatically.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those

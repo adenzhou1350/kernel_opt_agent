@@ -77,6 +77,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_review_handoff.py",
             "route prospective reviewer waits and bounded follow-ups",
         ),
+        "upstream-draft-progress": Command(
+            "upstream_draft_progress.py",
+            "route stale, failed and completed Draft qualification",
+        ),
     },
 }
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
