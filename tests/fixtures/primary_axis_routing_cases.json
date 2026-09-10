@@ -1,0 +1,80 @@
+{
+  "schema_version": "primary-axis-routing-cases-v1",
+  "frozen_before_routing": true,
+  "cases": [
+    {
+      "case_id": "vllm-offline-admission-batching",
+      "source": {
+        "repository": "vllm-project/vllm",
+        "commit": "c48fb19798728ff5302335fe498ee90cb61f02d4",
+        "path": "vllm/v1/engine/core_client.py",
+        "git_blob": "172e6cc9c625a0d17c8a550e7025d449d6eb781d"
+      },
+      "opportunity": {
+        "opportunity_id": "vllm-offline-admission-batching",
+        "priority_rank": 1,
+        "name": "Batch offline request admission",
+        "source_model_term": "per-request engine admission",
+        "affected_stages": ["offline request admission"],
+        "hypothesis": "Remove repeated host request-admission calls with one bounded batch.",
+        "rewrite_families": ["host-loop-elimination", "operator-fusion"],
+        "primary_transformation_axes": ["host-loop-elimination"]
+      },
+      "community_candidates": [
+        {
+          "relevant": true,
+          "node": {
+            "rewrite_families": ["host-loop-elimination"],
+            "operators": ["request admission"],
+            "subsystems": ["control plane"]
+          }
+        },
+        {
+          "relevant": false,
+          "node": {
+            "rewrite_families": ["operator-fusion"],
+            "operators": ["request admission"],
+            "subsystems": ["control plane"]
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "sglang-radix-insert-match",
+      "source": {
+        "repository": "sgl-project/sglang",
+        "commit": "68002bea5cfa78ae05f9d3bf980a2ea457ebb6d4",
+        "path": "python/sglang/srt/mem_cache/cpp_radix_tree/tree_v2.cpp",
+        "git_blob": "e5f02b5b4db56deab11c1ac2f00e8de1e31349db"
+      },
+      "opportunity": {
+        "opportunity_id": "sglang-radix-insert-match",
+        "priority_rank": 2,
+        "name": "Fuse unfinished radix insert and match",
+        "source_model_term": "duplicate root-to-key traversal",
+        "affected_stages": ["radix insert", "radix match"],
+        "hypothesis": "Return the radix match from insertion and remove a second tree walk.",
+        "rewrite_families": ["producer-consumer-fusion", "materialization-removal"],
+        "primary_transformation_axes": ["producer-consumer-fusion"]
+      },
+      "community_candidates": [
+        {
+          "relevant": true,
+          "node": {
+            "rewrite_families": ["producer-consumer-fusion"],
+            "operators": ["radix insert"],
+            "subsystems": ["prefix cache"]
+          }
+        },
+        {
+          "relevant": false,
+          "node": {
+            "rewrite_families": ["materialization-removal"],
+            "operators": ["radix insert"],
+            "subsystems": ["prefix cache"]
+          }
+        }
+      ]
+    }
+  ]
+}

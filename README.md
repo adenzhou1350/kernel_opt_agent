@@ -135,6 +135,12 @@ rejected: a decomposition-specific minimum is not a semantic lower bound.
 Candidates must bind to a ranked opportunity and stay below its gain ceiling.
 Start with the highest-density one or two opportunities; broaden the portfolio
 only after those focused implementations fail or remain ambiguous.
+New maps must also name one or more `primary_transformation_axes`. These axes
+are frozen from the local source and bottleneck analysis before method or
+community retrieval. They are a subset of the broader rewrite-family inventory:
+secondary families and generic words in historical evidence may score a match,
+but cannot make it eligible. Routing always preserves the local opportunity
+rank first, then uses method cards and community events only as bounded priors.
 Measured dead ends can be marked `CLOSED` only with hash-bound run-local evidence,
 a global stop reason and explicit reopen conditions. Closed opportunities score
 zero and are excluded from method matching, candidate registration and next-action

@@ -51,6 +51,7 @@ def opportunity_spec(identifier: str, family: str, gain: tuple[float, float], ce
         "likely_gain_interval_us": {"lower": gain[0], "upper": gain[1]},
         "confidence": "HIGH",
         "rewrite_families": [family],
+        "primary_transformation_axes": [family],
         "implementation_budget_minutes": cost,
         "hypothesis": "remove globally visible scheduled work",
         "derivation": "measured stage contribution times removable work fraction",
@@ -122,6 +123,15 @@ def main() -> None:
             "opportunity", run, "init", "--min-opportunities", "2", "--max-opportunities", "4",
             "--min-rewrite-families", "2", "--min-candidate-opportunities", "2",
         )
+        initialized_map = json.loads((run / "models/opportunity_map.json").read_text(encoding="utf-8"))
+        assert initialized_map["policy"]["require_primary_transformation_axes"]
+        missing_axes = opportunity_spec(
+            "missing-primary-axis", "host-loop-elimination", (1.0, 2.0), 3.0, 5.0, evidence_sha256,
+        )
+        missing_axes.pop("primary_transformation_axes")
+        missing_axes_path = run / "models/missing-primary-axis.json"
+        write(missing_axes_path, missing_axes)
+        cli("opportunity", run, "add", "--spec", str(missing_axes_path), expected=1)
         immaterial = opportunity_spec(
             "fast-but-tiny", "host-loop-elimination", (0.001, 0.01), 0.02,
             5.0, evidence_sha256,

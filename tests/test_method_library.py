@@ -14,7 +14,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
-from method_library import build_snapshot, load_card_revisions
+from method_library import build_snapshot, load_card_revisions, match_card
 from optimizer_step import discovery_action
 
 
@@ -45,6 +45,7 @@ def opportunity(identifier: str, families: list[str], evidence_sha256: str) -> d
         "likely_gain_interval_us": {"lower": 1.0, "upper": 3.0},
         "confidence": "MEDIUM",
         "rewrite_families": families,
+        "primary_transformation_axes": [families[0]],
         "implementation_budget_minutes": 10.0,
         "hypothesis": "remove globally visible work with a different architecture",
         "derivation": "baseline contribution multiplied by a bounded removable fraction",
@@ -100,6 +101,19 @@ def main() -> None:
         card["source"]["available_at"] <= "2026-08-31T23:59:59Z"
         for card in cutoff_snapshot["cards"]
     )
+    row_reduction = json.loads((ROOT / "knowledge/methods/triton-row-reduction-fusion.json").read_text(encoding="utf-8"))
+    typed_opportunity = {
+        "name": "remove scheduler launch overhead",
+        "source_model_term": "scheduler",
+        "affected_stages": ["scheduler"],
+        "hypothesis": "Eliminate launches without changing the persistent schedule.",
+        "rewrite_families": ["persistent-grid", "row-reduction"],
+        "primary_transformation_axes": ["persistent-grid"],
+    }
+    assert match_card(row_reduction, typed_opportunity, "", "vendor nvidia") is None
+    legacy_opportunity = dict(typed_opportunity)
+    legacy_opportunity.pop("primary_transformation_axes")
+    assert match_card(row_reduction, legacy_opportunity, "", "vendor nvidia")
     current_snapshot = build_snapshot("2026-09-06T08:40:00Z", ROOT)
     primitive_ids = {
         card["method_id"]

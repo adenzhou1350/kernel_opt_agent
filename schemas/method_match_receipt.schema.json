@@ -19,11 +19,13 @@
     },
     "policy": {
       "type": "object", "additionalProperties": false,
-      "required": ["max_matches_per_opportunity", "hardware_requirement_policy", "literature_claim_policy", "score_formula"],
+      "required": ["max_matches_per_opportunity", "hardware_requirement_policy", "literature_claim_policy", "routing_order", "eligibility_policy", "score_formula"],
       "properties": {
         "max_matches_per_opportunity": {"type": "integer", "minimum": 1},
         "hardware_requirement_policy": {"const": "FAIL_CLOSED"},
         "literature_claim_policy": {"const": "HYPOTHESIS_NOT_PERFORMANCE_EVIDENCE"},
+        "routing_order": {"const": "LOCAL_OPPORTUNITY_RANK_FIRST_THEN_METHOD_PRIOR"},
+        "eligibility_policy": {"const": "PRIMARY_TRANSFORMATION_AXIS_WHEN_PRESENT"},
         "score_formula": {"type": "string", "minLength": 1}
       }
     },

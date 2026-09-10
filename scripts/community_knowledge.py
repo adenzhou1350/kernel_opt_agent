@@ -1917,19 +1917,37 @@ def term_matches_text(term: str, text: str) -> bool:
 
 def opportunity_routing_text(opportunity: dict) -> str:
     """Exclude historical observations that can mention unrelated bottlenecks."""
+    families = opportunity.get("primary_transformation_axes")
+    if not families:
+        families = opportunity.get("rewrite_families", [])
     return scalar_text(
         {
-            key: opportunity.get(key)
-            for key in (
-                "opportunity_id",
-                "name",
-                "hypothesis",
-                "rewrite_families",
-                "affected_stages",
-                "source_model_term",
-            )
+            "opportunity_id": opportunity.get("opportunity_id"),
+            "name": opportunity.get("name"),
+            "hypothesis": opportunity.get("hypothesis"),
+            "routing_families": families,
+            "affected_stages": opportunity.get("affected_stages"),
+            "source_model_term": opportunity.get("source_model_term"),
         }
     )
+
+
+def community_routing_signal(node: dict, opportunity: dict) -> dict:
+    """Compute eligibility without letting secondary prose select a method."""
+    primary_axes = opportunity.get("primary_transformation_axes")
+    typed_routing = bool(primary_axes)
+    opportunity_families = set(primary_axes or opportunity.get("rewrite_families", []))
+    family_hits = sorted(opportunity_families & set(node.get("rewrite_families", [])))
+    routing_terms = sorted(set(node.get("operators", []) + node.get("subsystems", [])))
+    opportunity_text = opportunity_routing_text(opportunity)
+    opportunity_hits = [term for term in routing_terms if term_matches_text(term, opportunity_text)]
+    return {
+        "eligible": bool(family_hits) if typed_routing else bool(family_hits or opportunity_hits),
+        "routing_mode": "PRIMARY_TRANSFORMATION_AXIS" if typed_routing else "LEGACY_FAMILY_OR_TEXT",
+        "family_hits": family_hits,
+        "routing_terms": routing_terms,
+        "opportunity_hits": opportunity_hits,
+    }
 
 
 def explicit_parallel_width(value: object) -> int | None:
@@ -2117,21 +2135,16 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
             continue
         rows = []
         screened_out = []
-        opportunity_families = set(opportunity["rewrite_families"])
-        opportunity_text = opportunity_routing_text(opportunity)
         for node in graph["nodes"]:
-            family_hits = sorted(opportunity_families & set(node["rewrite_families"]))
-            routing_terms = sorted(set(node["operators"] + node["subsystems"]))
+            routing_signal = community_routing_signal(node, opportunity)
+            family_hits = routing_signal["family_hits"]
+            routing_terms = routing_signal["routing_terms"]
             context_terms = sorted(set(routing_terms + node["dtypes"]))
-            opportunity_hits = [
-                term
-                for term in routing_terms
-                if term_matches_text(term, opportunity_text)
-            ]
+            opportunity_hits = routing_signal["opportunity_hits"]
             context_hits = [
                 term for term in context_terms if term_matches_text(term, context)
             ]
-            if not family_hits and not opportunity_hits:
+            if not routing_signal["eligible"]:
                 continue
             lifecycle_state = node.get("lifecycle_observation")
             if lifecycle_state and lifecycle_state["status"] != "CURRENT":
@@ -2235,6 +2248,8 @@ def build_match_receipt(run: Path, limit: int = 3, root: Path | None = None) -> 
         "policy": {
             "max_matches_per_opportunity": limit,
             "community_claim_policy": "SOURCE_PRIOR_NOT_TARGET_PROOF",
+            "routing_order": "LOCAL_OPPORTUNITY_RANK_FIRST_THEN_COMMUNITY",
+            "eligibility_policy": "PRIMARY_TRANSFORMATION_AXIS_WHEN_PRESENT",
             "score_formula": (
                 "12*family_hits + min(8,4*opportunity_hits) + "
                 "min(2,context_hits) + 2*merged + 1*reviewed - 2*open"

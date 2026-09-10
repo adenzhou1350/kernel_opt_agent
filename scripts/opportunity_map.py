@@ -83,6 +83,7 @@ def default_map(args: argparse.Namespace) -> dict:
             "score_formula": "midpoint(likely_gain_interval_us) * confidence_weight / implementation_budget_minutes",
             "forbidden_claim_scope": "ABSOLUTE_GLOBAL_OPTIMUM",
             "require_production_impact_gate": True,
+            "require_primary_transformation_axes": True,
             "material_speedup_floor": 1.01,
         },
         "opportunities": [],
@@ -136,6 +137,11 @@ def validate_map(data: dict, *, require_ready: bool = False, run: Path | None = 
     )
     if not isinstance(require_production_impact_gate, bool):
         raise ValueError("require_production_impact_gate must be boolean")
+    require_primary_transformation_axes = policy.get(
+        "require_primary_transformation_axes", False
+    )
+    if not isinstance(require_primary_transformation_axes, bool):
+        raise ValueError("require_primary_transformation_axes must be boolean")
     material_speedup_floor = policy.get("material_speedup_floor")
     if require_production_impact_gate:
         try:
@@ -151,6 +157,7 @@ def validate_map(data: dict, *, require_ready: bool = False, run: Path | None = 
             item,
             run,
             require_production_impact_gate=require_production_impact_gate,
+            require_primary_transformation_axes=require_primary_transformation_axes,
             material_speedup_floor=material_speedup_floor,
         )
         if item.get("status") not in LIFECYCLE_STATUSES:
@@ -194,6 +201,7 @@ def validate_spec(
     run: Path | None = None,
     *,
     require_production_impact_gate: bool = False,
+    require_primary_transformation_axes: bool = False,
     material_speedup_floor: float | None = None,
 ) -> None:
     required = (
@@ -217,6 +225,16 @@ def validate_spec(
         raise ValueError("rewrite_families must be a non-empty unique array")
     if not all(re.fullmatch(r"[a-z0-9][a-z0-9-]*", str(value)) for value in families):
         raise ValueError("rewrite_families must use lowercase kebab-case")
+    primary_axes = spec.get("primary_transformation_axes")
+    if require_primary_transformation_axes and not primary_axes:
+        raise ValueError("primary_transformation_axes are required before community or method routing")
+    if primary_axes is not None:
+        if not isinstance(primary_axes, list) or not primary_axes or len(primary_axes) != len(set(map(str, primary_axes))):
+            raise ValueError("primary_transformation_axes must be a non-empty unique array")
+        if not all(re.fullmatch(r"[a-z0-9][a-z0-9-]*", str(value)) for value in primary_axes):
+            raise ValueError("primary_transformation_axes must use lowercase kebab-case")
+        if not set(primary_axes) <= set(families):
+            raise ValueError("primary_transformation_axes must be a subset of rewrite_families")
     interval = spec["likely_gain_interval_us"]
     if not isinstance(interval, dict) or set(interval) != {"lower", "upper"}:
         raise ValueError("likely_gain_interval_us must contain exactly lower and upper")
@@ -470,6 +488,9 @@ def command_add(args: argparse.Namespace) -> dict:
         require_production_impact_gate=data["policy"].get(
             "require_production_impact_gate", False
         ),
+        require_primary_transformation_axes=data["policy"].get(
+            "require_primary_transformation_axes", False
+        ),
         material_speedup_floor=data["policy"].get("material_speedup_floor"),
     )
     if data.get("status") == "PAUSED":
@@ -511,6 +532,9 @@ def command_rank(args: argparse.Namespace) -> dict:
             run,
             require_production_impact_gate=policy.get(
                 "require_production_impact_gate", False
+            ),
+            require_primary_transformation_axes=policy.get(
+                "require_primary_transformation_axes", False
             ),
             material_speedup_floor=policy.get("material_speedup_floor"),
         )
@@ -621,6 +645,9 @@ def command_rank_in_place(data: dict, run: Path) -> None:
             run,
             require_production_impact_gate=policy.get(
                 "require_production_impact_gate", False
+            ),
+            require_primary_transformation_axes=policy.get(
+                "require_primary_transformation_axes", False
             ),
             material_speedup_floor=policy.get("material_speedup_floor"),
         )

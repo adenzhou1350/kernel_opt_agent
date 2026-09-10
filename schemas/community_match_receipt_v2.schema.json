@@ -16,10 +16,12 @@
     "policy": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["max_matches_per_opportunity", "community_claim_policy", "score_formula"],
+      "required": ["max_matches_per_opportunity", "community_claim_policy", "routing_order", "eligibility_policy", "score_formula"],
       "properties": {
         "max_matches_per_opportunity": {"type": "integer", "minimum": 1},
         "community_claim_policy": {"const": "SOURCE_PRIOR_NOT_TARGET_PROOF"},
+        "routing_order": {"const": "LOCAL_OPPORTUNITY_RANK_FIRST_THEN_COMMUNITY"},
+        "eligibility_policy": {"const": "PRIMARY_TRANSFORMATION_AXIS_WHEN_PRESENT"},
         "score_formula": {"type": "string", "minLength": 1}
       }
     },

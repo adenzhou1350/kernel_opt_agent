@@ -178,6 +178,17 @@ def scalar_text(value: object) -> str:
     return str(value).lower()
 
 
+def opportunity_routing_text(opportunity: dict) -> str:
+    """Return only the prospective local hypothesis used for method routing."""
+    return scalar_text({
+        "name": opportunity.get("name"),
+        "source_model_term": opportunity.get("source_model_term"),
+        "affected_stages": opportunity.get("affected_stages", []),
+        "hypothesis": opportunity.get("hypothesis"),
+        "primary_transformation_axes": opportunity.get("primary_transformation_axes", []),
+    })
+
+
 def contains_term(text: str, term: str) -> bool:
     pattern = rf"(?<![a-z0-9]){re.escape(term.lower())}(?![a-z0-9])"
     return re.search(pattern, text) is not None
@@ -187,13 +198,18 @@ def match_card(card: dict, opportunity: dict, context: str, hardware_text: str) 
     applicability = card["applicability"]
     vendor = str(read_vendor(hardware_text)).lower()
     allowed_vendors = {str(item).lower() for item in applicability["vendors"]}
-    family_hits = sorted(set(card["opportunity_families"]) & set(opportunity["rewrite_families"]))
-    opportunity_text = scalar_text(opportunity)
+    primary_axes = opportunity.get("primary_transformation_axes")
+    typed_routing = bool(primary_axes)
+    routing_families = set(primary_axes or opportunity["rewrite_families"])
+    family_hits = sorted(set(card["opportunity_families"]) & routing_families)
+    opportunity_text = opportunity_routing_text(opportunity)
     opportunity_signature_hits = sorted(term for term in applicability["problem_signatures"] if contains_term(opportunity_text, term))
     context_signature_hits = sorted(term for term in applicability["problem_signatures"] if contains_term(context, term))
     if card["kind"] == "EVALUATION_GUARD":
         if not family_hits and not context_signature_hits:
             return None
+    elif typed_routing and not family_hits:
+        return None
     elif not family_hits and not opportunity_signature_hits:
         return None
 
@@ -358,6 +374,8 @@ def build_receipt(run: Path, root: Path | None = None, limit: int = 3) -> dict:
             "max_matches_per_opportunity": limit,
             "hardware_requirement_policy": "FAIL_CLOSED",
             "literature_claim_policy": "HYPOTHESIS_NOT_PERFORMANCE_EVIDENCE",
+            "routing_order": "LOCAL_OPPORTUNITY_RANK_FIRST_THEN_METHOD_PRIOR",
+            "eligibility_policy": "PRIMARY_TRANSFORMATION_AXIS_WHEN_PRESENT",
             "score_formula": "12*family_hits + 3*opportunity_signature_hits + min(2,context_signature_hits) + evidence_weight - 4*missing_capabilities - 2*adaptation - 100*incompatible",
         },
         "recommendations": recommendations,

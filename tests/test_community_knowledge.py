@@ -428,6 +428,7 @@ def main() -> None:
                         "opportunity_id": "remove-logits-materialization",
                         "priority_rank": 1,
                         "rewrite_families": ["materialization-removal"],
+                        "primary_transformation_axes": ["materialization-removal"],
                         "hypothesis": "Remove a dense intermediate from logits projection.",
                     }
                 ],
@@ -447,6 +448,19 @@ def main() -> None:
             "example.layout-aware-logits",
         ]
         assert compositions[0]["claim_boundary"] == "UNVALIDATED_COMPOSITION_HYPOTHESIS"
+
+        typed_map_path = run / "models" / "opportunity_map.json"
+        typed_map = read_object(typed_map_path)
+        typed_opportunity = typed_map["opportunities"][0]
+        typed_opportunity["rewrite_families"] = ["persistent-grid", "materialization-removal"]
+        typed_opportunity["primary_transformation_axes"] = ["persistent-grid"]
+        atomic_json(typed_map_path, typed_map)
+        typed_receipt = build_match_receipt(run, root=ROOT)
+        assert typed_receipt["recommendations"][0]["matches"] == []
+        assert typed_receipt["policy"]["routing_order"] == "LOCAL_OPPORTUNITY_RANK_FIRST_THEN_COMMUNITY"
+        typed_opportunity["rewrite_families"] = ["materialization-removal"]
+        typed_opportunity["primary_transformation_axes"] = ["materialization-removal"]
+        atomic_json(typed_map_path, typed_map)
 
         # A later review alone must make the older event review-required even
         # before the PR lifecycle changes.

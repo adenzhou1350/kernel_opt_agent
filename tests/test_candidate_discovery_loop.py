@@ -375,6 +375,7 @@ Path('../smoke.json').write_text(json.dumps(result))
             "likely_gain_interval_us": {"lower": 1.0, "upper": 2.5},
             "confidence": "HIGH",
             "rewrite_families": ["layout-redesign", "persistent-grid"],
+            "primary_transformation_axes": ["layout-redesign"],
             "implementation_budget_minutes": 10,
             "hypothesis": "fusion removes a materialized global-memory boundary",
             "derivation": "stage timing minus the mandatory semantic output store",
