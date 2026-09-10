@@ -137,24 +137,34 @@ def evaluate(request: dict) -> dict:
     density = round(upper / cost, 6) if upper is not None else None
     policy = request["policy"]
     evidence = request["delivery_evidence"]
+    draft_minimum_passes = all(
+        (
+            evidence["focused_correctness_pass"],
+            evidence["clean_commit"],
+            evidence["reproduction_command_present"],
+        )
+    )
     reasons: list[str] = []
 
     if request["production_path_reachability"] != "CONFIRMED":
         action = "PROVE_REACHABILITY_FIRST"
         reasons.append("production path is not confirmed")
     elif upper is None:
-        action = "QUANTIFY_WHOLE_WORKLOAD_CEILING"
-        reasons.append("whole-workload gain ceiling is not quantified")
+        if draft_minimum_passes and not (
+            surface["adds_protocol_variant"] or surface["adds_public_api"]
+        ):
+            action = "OPEN_OR_KEEP_DRAFT_AND_QUANTIFY_WHOLE_WORKLOAD_CEILING"
+            reasons.append(
+                "draft minimum passes for a low-maintenance-surface change, but the "
+                "whole-workload gain ceiling is not quantified"
+            )
+        else:
+            action = "QUANTIFY_WHOLE_WORKLOAD_CEILING"
+            reasons.append("whole-workload gain ceiling is not quantified")
     elif upper < policy["materiality_floor_percent"]:
         action = "STOP_LOW_VALUE_BEFORE_HEAVY_VALIDATION"
         reasons.append("optimistic whole-workload gain is below the materiality floor")
-    elif not all(
-        (
-            evidence["focused_correctness_pass"],
-            evidence["clean_commit"],
-            evidence["reproduction_command_present"],
-        )
-    ):
+    elif not draft_minimum_passes:
         action = "COMPLETE_DRAFT_MINIMUM"
         reasons.append("focused correctness, clean commit, or reproduction is missing")
     elif (

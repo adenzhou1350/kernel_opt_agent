@@ -167,8 +167,11 @@ for reachability before timing an unproven path, and holds narrow low-density
 protocol/API changes at Draft even when their focused tests pass. Its review
 cost formula is explicit and policy thresholds are supplied by the run; it is
 a routing decision, not performance proof. A confirmed path with an unknown
-ceiling returns `QUANTIFY_WHOLE_WORKLOAD_CEILING`; callers do not have to invent
-zero or favorable gain estimates merely to pass the schema.
+ceiling requests `QUANTIFY_WHOLE_WORKLOAD_CEILING`; when the Draft minimum is
+already complete and no permanent API or protocol variant is added, it may
+instead recommend opening an honestly scoped Draft while that ceiling is
+quantified. Callers never have to invent zero or a favorable estimate merely
+to pass the schema.
 
 ## Seeded hardware evidence
 

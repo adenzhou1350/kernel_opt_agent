@@ -70,6 +70,24 @@ def test_confirmed_path_with_unknown_ceiling_requests_quantification() -> None:
     assert result["optimistic_gain_density_percent_per_point"] is None
 
 
+def test_low_surface_draft_can_open_while_ceiling_is_quantified() -> None:
+    value = request()
+    value["expected_gain"] = {
+        "whole_workload_lower_percent": None,
+        "whole_workload_median_percent": None,
+        "whole_workload_upper_percent": None,
+    }
+    result = evaluate(value)
+    assert (
+        result["recommended_action"]
+        == "OPEN_OR_KEEP_DRAFT_AND_QUANTIFY_WHOLE_WORKLOAD_CEILING"
+    )
+    assert result["optimistic_gain_density_percent_per_point"] is None
+
+    value["maintenance_surface"]["adds_protocol_variant"] = True
+    assert evaluate(value)["recommended_action"] == "QUANTIFY_WHOLE_WORKLOAD_CEILING"
+
+
 def test_narrow_protocol_change_is_held_at_draft() -> None:
     value = request()
     value["expected_gain"] = {
