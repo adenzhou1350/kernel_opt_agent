@@ -108,6 +108,21 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
+For an upstream change, keep the repository's internal candidate status
+separate from GitHub's Draft flag and from CI/reviewer handoffs. A red Draft
+gate or maintainer-authorization check is not a test failure. Record the
+current state and obtain a deterministic next owner/action with:
+
+```bash
+python3 scripts/kernel_opt.py upstream-review-state pr-review-state.json
+```
+
+The classifier recommends opening a Draft once the minimal commit,
+focused correctness, lint/format, reproduction and claim boundary pass. It
+recommends Ready only after every applicable official-correctness,
+production-reachability, materiality, target-workload and known-regression
+gate passes.
+
 After a correct discovery baseline is present, quantify several global
 opportunities before managing the production-candidate portfolio:
 

@@ -211,6 +211,9 @@ def main():
             "--run", str(Path(temporary) / "missing-run"),
         ], expected=1)
         assert "candidate pool is missing" in failed_cli.stderr
+    assert "upstream-review-state" in cli_help.stdout
+    review_state = run([sys.executable, str(ROOT / "tests/test_upstream_review_state.py")])
+    assert "upstream review-state test: PASS" in review_state.stdout
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([
