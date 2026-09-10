@@ -155,6 +155,8 @@ Before expanding qualification, combine the whole-workload gain ceiling with
 the permanent maintenance surface and real workload coverage:
 
 ```bash
+python3 scripts/kernel_opt.py candidate-value --print-template \
+  > candidate-value-request.json
 python3 scripts/kernel_opt.py candidate-value \
   --request candidate-value-request.json \
   --output candidate-value-decision.json
