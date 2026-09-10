@@ -418,13 +418,15 @@ python3 scripts/kernel_opt.py community-portfolio \
 ```
 
 The report rejects duplicate ledger or cycle/task identities and keeps
-prospective measurements separate from legacy milestone bounds. Version 2 adds
+prospective measurements separate from legacy milestone bounds. Version 3 adds
 an evidence-backed delivery funnel from candidate proposal through correctness,
-material improvement, qualification, upstream readiness, PR review and merge.
-Its `leading_constraint` gives dashboards a transcript-free answer to where each
-lane is currently losing useful upstream output. This is descriptive accounting;
-it does not establish strategy causality or count this repository's maintenance
-PRs as framework optimization results.
+material improvement, qualification, upstream readiness, PR review and merge,
+plus candidate-to-Draft and Draft-to-Ready timing and conversion metrics. Exact
+delivery timing is computed only from `PROSPECTIVE_EXACT` ledgers; legacy cycles
+are never backfilled into those metrics. `leading_constraint` gives dashboards a
+transcript-free answer to where each lane is currently losing useful upstream
+output. This is descriptive accounting; it does not establish strategy causality
+or count this repository's maintenance PRs as framework optimization results.
 
 ## Upstream delivery package
 
