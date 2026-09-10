@@ -304,6 +304,7 @@ def validate_authorization(
         "request": request,
         "approval": approval_bundle["approval"],
         "deployment": deployment,
+        "dispatcher_path": deployment_bundle["dispatcher_path"],
         "suite": suite,
         "execution_schedule": expected_schedule,
         "authorization_schedule_sha256": authorization_schedule_sha256,

@@ -199,6 +199,7 @@ def build_bundle(root: Path, *, ready: bool = True) -> tuple[Path, dict]:
         },
         "approval": {},
         "deployment": {},
+        "dispatcher_path": (root / "dispatcher.py").resolve(),
         "suite": {},
         "execution_schedule": entries,
         "authorization_schedule_sha256": "5" * 64,
@@ -302,6 +303,7 @@ def test_runtime_authorization_binds_exact_environment_and_executable(
         CURRENT_BASE[root] = bundle["base_bundle"]
         result = validate_authorization(path, root, require_live_store_host=False)
         assert result["ready_for_atomic_claim"] is ready
+        assert result["dispatcher_path"] == (root / "dispatcher.py").resolve()
         assert (
             result["authorization"]["combined_authorization_id"]
             != result["base_authorization"]["combined_authorization_id"]

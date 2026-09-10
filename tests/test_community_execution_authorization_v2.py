@@ -195,7 +195,11 @@ def canonical_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
 
     def deployment(path: Path, root: Path, *, require_live_host: bool) -> dict:
         value = json.loads(path.read_text(encoding="utf-8"))
-        return {"deployment": value, "ready_for_atomic_claim": True}
+        return {
+            "deployment": value,
+            "dispatcher_path": (root / value["dispatcher_executable"]["path"]).resolve(),
+            "ready_for_atomic_claim": True,
+        }
 
     monkeypatch.setattr(authorization_module, "validate_semantic_approval", semantic)
     monkeypatch.setattr(authorization_module, "validate_deployment", deployment)
@@ -234,6 +238,7 @@ def test_authorization_recomputes_all_gates_without_dispatch(
         assert result["ready_for_atomic_claim"] is ready
         assert result["gpu_dispatch_authorized"] is False
         assert len(result["execution_schedule"]) == 1
+        assert result["dispatcher_path"] == (root / "dispatcher.py").resolve()
 
 
 def test_invocation_set_resolves_exact_schedule_entry() -> None:
