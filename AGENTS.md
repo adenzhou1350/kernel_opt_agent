@@ -47,6 +47,14 @@ taken:
 Keep at most one qualification candidate and one cheap discovery candidate per
 execution lane.  When a candidate is selected, prioritize a clean commit,
 focused tests and a draft-ready package before expanding the search frontier.
+After confirming that the production path is reachable and before expanding
+environment, accelerator or whole-workload qualification, run
+`scripts/kernel_opt.py candidate-value`.  An unknown whole-workload ceiling
+must stay explicit and be quantified next; never replace it with zero or a
+favorable guess.  Stop candidates below the materiality floor, open an honest
+Draft once its minimum evidence is complete, and reserve expensive
+qualification for candidates whose possible value justifies their permanent
+review and maintenance surface.
 End each bounded cycle with one of: a code/test/PR-state change, a measured
 decision, or an explicit rejection.  Do not create another schema, receipt or
 validator merely to restate an already-enforced boundary; add one only after a

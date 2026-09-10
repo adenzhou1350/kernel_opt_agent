@@ -31,7 +31,11 @@ Then execute an evidence-driven loop:
    compiler, import, layout and harness failures a bounded repair loop.
 5. Cheaply screen every valid architecture family on an anchor and edge case.
    Discovery results route work only; they do not accept a candidate or claim a
-   hardware fact. Promote at most 2--4 survivors.
+   hardware fact. Before expanding environment or accelerator qualification,
+   run `scripts/kernel_opt.py candidate-value` on each survivor. Quantify an
+   unknown whole-workload ceiling rather than guessing it, stop candidates
+   below the materiality floor, and account for permanent review/API/protocol
+   cost. Promote at most 2--4 survivors.
 6. For qualification finalists, build `hardware_evidence.json` from exact
    vendor-official documents and official target-device queries. Archive URL,
    command, version, section, artifact and SHA-256. Do not record an inferred
