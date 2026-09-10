@@ -126,6 +126,15 @@ def valid_result(result_path: Path, manifest: dict) -> tuple[bool, list[str]]:
         return path
 
     if manifest.get("frontier_contract") is not None:
+        contract = None
+        contract_path = checked_identity(
+            manifest.get("frontier_contract"), "frontier_contract"
+        )
+        if contract_path is not None:
+            try:
+                contract = json.loads(contract_path.read_text(encoding="utf-8"))
+            except json.JSONDecodeError:
+                errors.append("invalid_frontier_contract_json")
         closure_path = checked_identity(result.get("frontier_closure"), "frontier")
         if closure_path is not None:
             try:
@@ -148,16 +157,33 @@ def valid_result(result_path: Path, manifest: dict) -> tuple[bool, list[str]]:
                             errors.append("ranking_created_after_elapsed")
                 for row in closure.get("architectures", []):
                     bound = row.get("current_upper_bound", {})
-                    if (row.get("status") == "DOMINATED"
-                            and bound.get("kind") != "QUANTIFIED"):
+                    if (
+                        row.get("status") == "DOMINATED"
+                        and bound.get("kind") != "QUANTIFIED"
+                    ):
                         errors.append(
                             f"unquantified_domination:{row.get('architecture_id')}"
+                        )
+                    if (
+                        contract is not None
+                        and row.get("status") == "DEADLINE_UNTESTED"
+                        and result.get("completion_status") != "BUDGET_EXHAUSTED"
+                        and elapsed
+                        < float(manifest["budget"]["wall_clock_seconds"])
+                        * float(contract["policy"]["deadline_fraction"])
+                    ):
+                        errors.append(
+                            "deadline_untested_before_search_cutoff:"
+                            f"{row.get('architecture_id')}"
                         )
                 selected_id = closure.get("selected_candidate_id")
                 if selected_id is not None:
                     selected = next(
-                        (item for item in result.get("candidates", [])
-                         if item.get("candidate_id") == selected_id),
+                        (
+                            item
+                            for item in result.get("candidates", [])
+                            if item.get("candidate_id") == selected_id
+                        ),
                         None,
                     )
                     if (
@@ -258,12 +284,10 @@ def compact_finalizer_context(
                 and item.get("status") == "completed"
             ):
                 for change in item.get("changes") or []:
-                    changed_path = str(change.get("path", "")).replace(
-                        "\\", "/"
-                    ).lower()
-                    if "/source/" in changed_path or changed_path.startswith(
-                        "source/"
-                    ):
+                    changed_path = (
+                        str(change.get("path", "")).replace("\\", "/").lower()
+                    )
+                    if "/source/" in changed_path or changed_path.startswith("source/"):
                         execution_summary["source_change_count"] += 1
             if (
                 event.get("type") == "item.completed"
@@ -435,9 +459,7 @@ def main() -> int:
         frontier_contract = json.loads(
             frontier_contract_path.read_text(encoding="utf-8")
         )
-        search_stop_fraction = float(
-            frontier_contract["policy"]["deadline_fraction"]
-        )
+        search_stop_fraction = float(frontier_contract["policy"]["deadline_fraction"])
     primary_fraction = min(search_stop_fraction + 0.15, 0.9)
     if not 0 < search_stop_fraction < primary_fraction < 1:
         raise ValueError(
@@ -450,12 +472,8 @@ def main() -> int:
     command = command_for(codex, trial, args.model, args.reasoning_effort)
     started_at = datetime.now(timezone.utc)
     monotonic_started = time.monotonic()
-    search_stop_at = started_at + timedelta(
-        seconds=wall_budget * search_stop_fraction
-    )
-    primary_due_at = started_at + timedelta(
-        seconds=wall_budget * primary_fraction
-    )
+    search_stop_at = started_at + timedelta(seconds=wall_budget * search_stop_fraction)
+    primary_due_at = started_at + timedelta(seconds=wall_budget * primary_fraction)
     result_due_at = started_at + timedelta(seconds=wall_budget)
     prompt = executor_path.read_text(encoding="utf-8")
     prompt += (
@@ -503,9 +521,7 @@ def main() -> int:
             "type": "runner.finalization_started",
             "started_at": phase_started_at.isoformat(),
             "reason": (
-                "PRIMARY_DEADLINE"
-                if primary_timed_out
-                else "PRIMARY_RESULT_INVALID"
+                "PRIMARY_DEADLINE" if primary_timed_out else "PRIMARY_RESULT_INVALID"
             ),
             "search_transcript_sha256": sha256(search_transcript),
             "search_stderr_sha256": sha256(search_stderr),

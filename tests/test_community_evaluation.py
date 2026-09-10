@@ -1693,6 +1693,35 @@ def main() -> None:
         assert valid, preflight_errors
         write_result(community_dir, rows, elapsed)
 
+        # The runner's preflight must be at least as strict as the later
+        # frontier assessment.  Otherwise it can accept an early
+        # DEADLINE_UNTESTED result and skip the bounded finalizer, only for the
+        # assessment to reject the same artifact afterward.
+        early_result = json.loads(
+            (community_dir / "result.json").read_text(encoding="utf-8")
+        )
+        early_closure_path = community_dir / "evidence" / "frontier-closure.json"
+        early_closure = json.loads(early_closure_path.read_text(encoding="utf-8"))
+        early_result["completion_status"] = "BLOCKED"
+        early_result["elapsed_seconds"] = 100
+        early_closure["generated_at_seconds"] = 100
+        early_closure["architectures"][1]["status"] = "DEADLINE_UNTESTED"
+        atomic_json(early_closure_path, early_closure)
+        early_result["frontier_closure"] = identity(
+            early_closure_path, community_dir
+        )
+        atomic_json(community_dir / "result.json", early_result)
+        valid, preflight_errors = valid_result(
+            community_dir / "result.json",
+            json.loads((community_dir / "trial.json").read_text(encoding="utf-8")),
+        )
+        assert not valid
+        assert any(
+            error.startswith("deadline_untested_before_search_cutoff:")
+            for error in preflight_errors
+        )
+        write_result(community_dir, rows, elapsed)
+
         timestamp_mismatch = json.loads(
             (community_dir / "result.json").read_text(encoding="utf-8")
         )
