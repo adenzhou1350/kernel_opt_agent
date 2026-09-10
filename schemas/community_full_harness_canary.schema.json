@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_full_harness_canary.schema.json",
+  "title": "Non-formal full-harness canary required before community dispatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "cycle_id",
+    "task_id",
+    "claim_boundary",
+    "execution_bindings",
+    "runs",
+    "formal_claim_created",
+    "formal_observation_created",
+    "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-full-harness-canary-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "task_id": {"type": "string", "minLength": 1},
+    "claim_boundary": {"const": "FULL_HARNESS_DRY_RUN_NOT_FORMAL_CLAIM_OR_PERFORMANCE_EVIDENCE"},
+    "execution_bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["harness_manifest", "workload", "runner", "sealed_argv", "output_schema"],
+      "properties": {
+        "harness_manifest": {"$ref": "#/$defs/identity"},
+        "workload": {"$ref": "#/$defs/identity"},
+        "runner": {"$ref": "#/$defs/identity"},
+        "sealed_argv": {"$ref": "#/$defs/identity"},
+        "output_schema": {"$ref": "#/$defs/identity"}
+      }
+    },
+    "runs": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {"$ref": "#/$defs/run"}
+    },
+    "formal_claim_created": {"const": false},
+    "formal_observation_created": {"const": false},
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "arm",
+        "process_exit_code",
+        "result",
+        "required_rank_count",
+        "rank_sidecars",
+        "request_count",
+        "output_schema_valid",
+        "all_contract_checks_passed"
+      ],
+      "properties": {
+        "arm": {"enum": ["CONTROL", "COMMUNITY_AUGMENTED"]},
+        "process_exit_code": {"const": 0},
+        "result": {"$ref": "#/$defs/identity"},
+        "required_rank_count": {"type": "integer", "minimum": 0},
+        "rank_sidecars": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity"}
+        },
+        "request_count": {"type": "integer", "minimum": 1},
+        "output_schema_valid": {"const": true},
+        "all_contract_checks_passed": {"const": true}
+      }
+    }
+  }
+}

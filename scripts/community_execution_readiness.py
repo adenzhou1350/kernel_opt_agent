@@ -8,6 +8,7 @@ import json
 import subprocess
 from pathlib import Path
 
+from community_full_harness_canary import validate_canary
 from community_knowledge import read_object, sha256_file
 from schema_utils import validate_json_file
 
@@ -25,7 +26,9 @@ def resolve_inside(base: Path, relative: str) -> Path:
     try:
         path.relative_to(base)
     except ValueError as error:
-        raise ValueError(f"identity path escapes the artifact root: {relative}") from error
+        raise ValueError(
+            f"identity path escapes the artifact root: {relative}"
+        ) from error
     return path
 
 
@@ -103,7 +106,16 @@ def validate_execution_readiness(gate_path: Path, artifact_root: Path) -> dict:
             evidence = check(result["evidence"], f"{key} {capability} evidence")
             if result["status"] == "PASS":
                 if evidence is None:
-                    raise ValueError(f"PASS capability lacks bound evidence: {key}/{capability}")
+                    raise ValueError(
+                        f"PASS capability lacks bound evidence: {key}/{capability}"
+                    )
+                if capability == "FULL_HARNESS_DRY_RUN":
+                    validate_canary(
+                        evidence,
+                        artifact_root,
+                        expected_task=task,
+                        expected_cycle_id=gate["cycle_id"],
+                    )
                 passed += 1
             else:
                 blocked += 1

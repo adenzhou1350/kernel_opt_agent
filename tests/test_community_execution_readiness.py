@@ -60,8 +60,14 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
             "output_schema": identity(files["output-schema"], base),
             "required_capabilities": ["CASE_COVERAGE", "METRIC_OUTPUTS"],
             "capability_checks": {
-                "CASE_COVERAGE": {"status": "PASS", "evidence": identity(evidence, base)},
-                "METRIC_OUTPUTS": {"status": "PASS", "evidence": identity(evidence, base)},
+                "CASE_COVERAGE": {
+                    "status": "PASS",
+                    "evidence": identity(evidence, base),
+                },
+                "METRIC_OUTPUTS": {
+                    "status": "PASS",
+                    "evidence": identity(evidence, base),
+                },
             },
         }
     gate = {
@@ -103,11 +109,31 @@ def build_fixture(base: Path) -> tuple[Path, dict]:
         "eligible_by_this_gate": True,
         "gpu_dispatch_authorized": False,
         "hidden_oracle_exposed": False,
-        "execution": {"compile_started": False, "gpu_started": False, "gpu_seconds": 0.0},
+        "execution": {
+            "compile_started": False,
+            "gpu_started": False,
+            "gpu_seconds": 0.0,
+        },
     }
     gate_path = base / "gate.json"
     write_json(gate_path, gate)
     return gate_path, gate
+
+
+def test_execution_readiness_requires_semantic_full_harness_canary() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        base = Path(temp)
+        gate_path, ready = build_fixture(base)
+        ready["tasks"]["task-a"]["required_capabilities"].append("FULL_HARNESS_DRY_RUN")
+        ready["tasks"]["task-a"]["capability_checks"]["FULL_HARNESS_DRY_RUN"] = {
+            "status": "PASS",
+            "evidence": ready["tasks"]["task-a"]["capability_checks"]["CASE_COVERAGE"][
+                "evidence"
+            ],
+        }
+        write_json(gate_path, ready)
+        with pytest.raises(ValueError, match="invalid full-harness canary schema"):
+            validate_execution_readiness(gate_path, base)
 
 
 def test_execution_readiness_is_hash_bound_and_fail_closed() -> None:

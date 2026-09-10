@@ -144,7 +144,11 @@ cards against the frozen operator, workload, hardware and opportunity map. The
 receipt is hash-bound to all four inputs and the card library. Literature and
 vendor guidance remain discovery priors only: they cannot increase a gain
 estimate, prove a hardware capability, accept a candidate or support a limit
-claim. Unverified hard capabilities fail closed.
+claim. Unverified hard capabilities fail closed. A community task that declares
+`FULL_HARNESS_DRY_RUN` must bind a two-arm, output-schema-validated canary with
+all output contract checks true and every required rank sidecar mutually
+consistent. Health checks and successful HTTP requests alone never satisfy
+this dispatch prerequisite.
 Every method source has a machine-readable availability timestamp. Temporal
 evaluations use `method export-snapshot` so cards published or accessed after
 the frozen cutoff never enter the augmented arm. Cards may additionally encode
