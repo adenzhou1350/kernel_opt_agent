@@ -149,6 +149,23 @@ artifacts occur in a trusted reproduction receipt.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
+## Candidate value gate
+
+Before expanding qualification, combine the whole-workload gain ceiling with
+the permanent maintenance surface and real workload coverage:
+
+```bash
+python3 scripts/kernel_opt.py candidate-value \
+  --request candidate-value-request.json \
+  --output candidate-value-decision.json
+```
+
+The value gate stops an optimistic ceiling below the materiality floor, asks
+for reachability before timing an unproven path, and holds narrow low-density
+protocol/API changes at Draft even when their focused tests pass. Its review
+cost formula is explicit and policy thresholds are supplied by the run; it is
+a routing decision, not performance proof.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
