@@ -138,6 +138,8 @@ guessing from chat text or unrelated receipts:
 
 ```bash
 python3 scripts/kernel_opt.py upstream-delivery-inbox delivery-inbox.json
+python3 scripts/kernel_opt.py upstream-readiness-discover /path/to/execution-evidence \
+  --manifest delivery-inbox.json
 ```
 
 Each manifest entry supplies a stable candidate/lane identity and the path and
@@ -151,6 +153,18 @@ but whose PR is absent becomes an explicit
 `OPEN_DRAFT` inbox item instead of silently remaining in an experiment folder.
 Repository-maintenance candidates use a separate manifest so they cannot
 inflate framework delivery metrics.
+
+`upstream-readiness-discover` is the bounded pre-inbox radar. It scans only the
+configured evidence root and depth for explicitly named upstream-delivery
+readiness JSON files, accepts only
+`READY_TO_CREATE_*_PENDING_ACTION_CONFIRMATION` signals with repository,
+branch and commit identities, hash-binds the newest artifact per candidate,
+and reports source aliases. A timezone-aware `recorded_at` is used directly;
+legacy naive or missing timestamps are retained only as discovery signals,
+marked `FILE_MTIME_FALLBACK`, and ordered by artifact mtime. The control plane
+must still review value and overlap, create a standard review-state and
+register it in the delivery inbox before any author action is routed. It never
+opens a PR or counts a readiness signal as an upstream result.
 
 Use `upstream-delivery-inbox-v2` once a queue contains open Ready PRs. Each
 Ready entry must additionally hash-bind an `upstream-review-handoff-v1`

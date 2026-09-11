@@ -89,6 +89,12 @@ For live queues containing an open Ready PR, use
 `upstream-delivery-inbox-v2` and hash-bind its prospective reviewer-handoff
 clock. This prevents a normal reviewer wait from hiding a due bounded
 follow-up. The inbox only routes the action; it never authorizes a message.
+Before concluding that the inbox is empty or complete, run
+`upstream-readiness-discover` over the execution evidence roots. It may expose
+only explicit `READY_TO_CREATE_*_PENDING_ACTION_CONFIRMATION` artifacts and
+must label them as discovery-only until the control plane reviews and
+hash-binds a standard review-state. A discovered signal never authorizes a PR
+or counts as an upstream result.
 For pending candidates, consume the inbox's Draft-minimum and Ready-gate
 progress rather than treating equal action labels as equal priority. Within
 one action class, prefer the candidate with more completed immutable gates;

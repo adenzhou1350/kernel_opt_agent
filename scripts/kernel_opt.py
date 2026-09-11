@@ -139,6 +139,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_delivery_inbox.py",
             "aggregate evidence-bound candidate delivery actions",
         ),
+        "upstream-readiness-discover": Command(
+            "upstream_readiness_discovery.py",
+            "find explicit delivery-ready artifacts missing from the inbox",
+        ),
         "upstream-draft-progress": Command(
             "upstream_draft_progress.py",
             "route stale, failed and completed Draft qualification",
