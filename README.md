@@ -272,6 +272,10 @@ The same attestation records `nvcc`, C/C++ compilers, Ninja, Git, CMake and
 Make as exact resolved path/version/SHA identities (or explicit nulls). Plans
 that need a source fetch or native build can therefore reject an incompatible
 worker before consuming a long materialization budget.
+For a preprovisioned worker, set `runtime_worker.required_toolchain` in the
+materialization plan to the exact attested identities needed by that plan. The
+approval gate rejects a missing or drifted required tool before issuing an
+approval; plans without this optional field keep their existing behavior.
 
 The recorded GPU process list is a historical observation. A shared service
 may be running when a later CPU-only preparation starts. Capture live process

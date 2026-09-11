@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from qualification_environment_materialization import (  # noqa: E402
     issue_approval,
     validate_approval,
+    validate_plan_bundle,
 )
 
 
@@ -232,7 +233,19 @@ def test_validation_rejects_expiry_and_changed_artifact(tmp_path: Path) -> None:
 def test_preprovisioned_worker_plan_binds_attestation(tmp_path: Path) -> None:
     plan_path, request_path, job_path, _ = fixture(tmp_path)
     attestation_path = tmp_path / "evidence" / "worker.json"
-    write(attestation_path, {"worker_id": "worker-shared-sm120"})
+    cmake = {
+        "path": "/usr/bin/cmake",
+        "version": "cmake version 4.1.0",
+        "sha256": "7" * 64,
+    }
+    write(
+        attestation_path,
+        {
+            "worker_id": "worker-shared-sm120",
+            "host_id": "shared-8x-sm120-32g",
+            "runtime": {"toolchain": {"cmake": cmake, "git": None}},
+        },
+    )
     runtime = {
         "kind": "ATTESTED_PREPROVISIONED_WORKER",
         "identity_sha256": digest(attestation_path),
@@ -249,10 +262,12 @@ def test_preprovisioned_worker_plan_binds_attestation(tmp_path: Path) -> None:
     plan.pop("runtime_image")
     plan["runtime_worker"] = {
         "worker_id": "worker-shared-sm120",
+        "host_id": "shared-8x-sm120-32g",
         "attestation": {
             "path": "evidence/worker.json",
             "sha256": digest(attestation_path),
         },
+        "required_toolchain": {"cmake": dict(cmake)},
     }
     plan["bound_inputs"]["superseding_environment_request"]["sha256"] = digest(
         request_path
@@ -289,3 +304,74 @@ def test_preprovisioned_worker_plan_binds_attestation(tmp_path: Path) -> None:
             max_wall_seconds=3600,
             network_policy="DEPENDENCY_MATERIALIZATION_ONLY",
         )
+
+
+@pytest.mark.parametrize(
+    "mutation, message",
+    [
+        (
+            lambda plan, attestation: attestation["runtime"]["toolchain"].__setitem__(
+                "cmake", None
+            ),
+            "required worker tool is unavailable: cmake",
+        ),
+        (
+            lambda plan, attestation: attestation["runtime"]["toolchain"][
+                "cmake"
+            ].__setitem__("version", "cmake version 3.0.0"),
+            "required worker tool identity differs: cmake",
+        ),
+        (
+            lambda plan, attestation: attestation.__setitem__(
+                "host_id", "another-host"
+            ),
+            "worker attestation host_id differs from plan",
+        ),
+    ],
+)
+def test_preprovisioned_worker_plan_rejects_missing_or_drifted_required_tool(
+    tmp_path: Path, mutation, message: str
+) -> None:
+    plan_path, request_path, job_path, _ = fixture(tmp_path)
+    attestation_path = tmp_path / "evidence" / "worker.json"
+    cmake = {
+        "path": "/usr/bin/cmake",
+        "version": "cmake version 4.1.0",
+        "sha256": "7" * 64,
+    }
+    attestation = {
+        "worker_id": "worker-shared-sm120",
+        "host_id": "shared-8x-sm120-32g",
+        "runtime": {"toolchain": {"cmake": cmake}},
+    }
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan.pop("runtime_image")
+    plan["runtime_worker"] = {
+        "worker_id": "worker-shared-sm120",
+        "host_id": "shared-8x-sm120-32g",
+        "attestation": {"path": "evidence/worker.json", "sha256": ""},
+        "required_toolchain": {"cmake": dict(cmake)},
+    }
+    mutation(plan, attestation)
+    write(attestation_path, attestation)
+    plan["runtime_worker"]["attestation"]["sha256"] = digest(attestation_path)
+
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["execution"]["image_digest"] = None
+    request["execution"]["runtime_provenance"] = {
+        "kind": "ATTESTED_PREPROVISIONED_WORKER",
+        "identity_sha256": digest(attestation_path),
+        "worker_id": "worker-shared-sm120",
+    }
+    write(request_path, request)
+    job = json.loads(job_path.read_text(encoding="utf-8"))
+    job["environment_request"] = request
+    write(job_path, job)
+    plan["bound_inputs"]["superseding_environment_request"]["sha256"] = digest(
+        request_path
+    )
+    plan["bound_inputs"]["superseding_resource_job"]["sha256"] = digest(job_path)
+    write(plan_path, plan)
+
+    with pytest.raises(ValueError, match=message):
+        validate_plan_bundle(plan_path, request_path, job_path, tmp_path)

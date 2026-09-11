@@ -110,6 +110,33 @@ def same_identity(left: dict, right: dict) -> bool:
     )
 
 
+def validate_required_toolchain(runtime_worker: dict, attestation_path: Path) -> None:
+    required = runtime_worker.get("required_toolchain")
+    if required is None:
+        return
+    if not isinstance(required, dict) or not required:
+        raise ValueError("required worker toolchain must be a non-empty object")
+    attestation = read_object(attestation_path)
+    if attestation.get("worker_id") != runtime_worker.get("worker_id"):
+        raise ValueError("worker attestation worker_id differs from plan")
+    expected_host = runtime_worker.get("host_id")
+    if expected_host is not None and attestation.get("host_id") != expected_host:
+        raise ValueError("worker attestation host_id differs from plan")
+    observed = attestation.get("runtime", {}).get("toolchain")
+    if not isinstance(observed, dict):
+        raise ValueError("worker attestation has no toolchain identities")
+    for name, expected in sorted(required.items()):
+        if not isinstance(name, str) or not name:
+            raise ValueError("required worker tool name must be non-empty")
+        if not isinstance(expected, dict):
+            raise ValueError(f"required worker tool identity is invalid: {name}")
+        actual = observed.get(name)
+        if actual is None:
+            raise ValueError(f"required worker tool is unavailable: {name}")
+        if actual != expected:
+            raise ValueError(f"required worker tool identity differs: {name}")
+
+
 def validate_plan_bundle(
     plan_path: Path,
     request_path: Path,
@@ -178,13 +205,14 @@ def validate_plan_bundle(
         attestation = runtime_worker.get("attestation")
         if not isinstance(attestation, dict):
             raise ValueError("preprovisioned worker plan is missing attestation")
-        validate_identity(
+        attestation_path = validate_identity(
             artifact_root,
             attestation,
             "preprovisioned worker attestation",
         )
         if attestation["sha256"] != request_runtime["identity_sha256"]:
             raise ValueError("plan worker attestation differs from environment request")
+        validate_required_toolchain(runtime_worker, attestation_path)
         if request["execution"]["image_digest"] is not None:
             raise ValueError(
                 "preprovisioned worker request must not bind an image digest"
