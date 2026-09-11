@@ -110,6 +110,64 @@ def main() -> None:
             "OPEN_DRAFT",
             "WAIT_FOR_REVIEW",
         ]
+        assert inbox["items"][0]["draft_minimum_progress"] == {
+            "failed": [],
+            "passed": [
+                "claim_boundary",
+                "clean_minimal_commit",
+                "focused_correctness",
+                "lint_format",
+                "reproduction",
+            ],
+            "passed_count": 5,
+            "pending": [],
+            "total_count": 5,
+        }
+        assert inbox["items"][0]["ready_gate_progress"]["pending"] == [
+            "materiality",
+            "official_correctness",
+            "production_reachability",
+            "target_workload",
+        ]
+        assert inbox["items"][0]["internal_candidate_status"] == "FOCUSED_PASS"
+
+        less_ready_path = root / "less-ready.json"
+        less_ready = review_state("sgl-project/sglang")
+        less_ready["draft_minimum"]["clean_minimal_commit"] = "PENDING"
+        less_ready_sha = write_json(less_ready_path, less_ready)
+        more_ready_path = root / "more-ready.json"
+        more_ready = copy.deepcopy(less_ready)
+        more_ready["ready_gates"]["production_reachability"] = "PASS"
+        more_ready_sha = write_json(more_ready_path, more_ready)
+        progress_manifest = copy.deepcopy(base)
+        progress_manifest["candidates"] = [
+            {
+                "candidate_id": "less-ready",
+                "lane_id": "sglang",
+                "review_state": {
+                    "path": less_ready_path.name,
+                    "sha256": less_ready_sha,
+                },
+            },
+            {
+                "candidate_id": "more-ready",
+                "lane_id": "sglang",
+                "review_state": {
+                    "path": more_ready_path.name,
+                    "sha256": more_ready_sha,
+                },
+            },
+        ]
+        write_json(manifest, progress_manifest)
+        progress = run(manifest)["inbox"]["items"]
+        assert [item["candidate_id"] for item in progress] == [
+            "more-ready",
+            "less-ready",
+        ]
+        assert progress[0]["draft_minimum_progress"]["pending"] == [
+            "clean_minimal_commit"
+        ]
+        assert progress[0]["ready_gate_progress"]["passed_count"] == 2
 
         bad_sha = copy.deepcopy(base)
         bad_sha["candidates"][0]["review_state"]["sha256"] = "0" * 64

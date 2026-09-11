@@ -61,6 +61,19 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def check_progress(checks: dict[str, str], complete_values: set[str]) -> dict:
+    passed = sorted(key for key, value in checks.items() if value in complete_values)
+    pending = sorted(key for key, value in checks.items() if value == "PENDING")
+    failed = sorted(key for key, value in checks.items() if value == "FAIL")
+    return {
+        "passed": passed,
+        "pending": pending,
+        "failed": failed,
+        "passed_count": len(passed),
+        "total_count": len(checks),
+    }
+
+
 def validate_manifest(record: object) -> list[str]:
     errors: list[str] = []
     root = exact_keys(record, ROOT_KEYS, "root", errors)
@@ -152,6 +165,10 @@ def build(
                 continue
             pull_identities[pull_identity] = candidate["candidate_id"]
         decision = classify(review_state)
+        draft_progress = check_progress(review_state["draft_minimum"], {"PASS"})
+        ready_progress = check_progress(
+            review_state["ready_gates"], {"PASS", "NOT_APPLICABLE"}
+        )
         items.append(
             {
                 "candidate_id": candidate["candidate_id"],
@@ -164,11 +181,20 @@ def build(
                 "candidate_quality": decision["candidate_quality"],
                 "recommended_action": decision["recommended_action"],
                 "external_action_owner": decision["external_action_owner"],
+                "internal_candidate_status": pull["internal_candidate_status"],
+                "draft_minimum_progress": draft_progress,
+                "ready_gate_progress": ready_progress,
                 "priority": PRIORITY[decision["recommended_action"]],
             }
         )
     items.sort(
-        key=lambda item: (item["priority"], item["lane_id"], item["candidate_id"])
+        key=lambda item: (
+            item["priority"],
+            -item["draft_minimum_progress"]["passed_count"],
+            -item["ready_gate_progress"]["passed_count"],
+            item["lane_id"],
+            item["candidate_id"],
+        )
     )
     counts = Counter(item["recommended_action"] for item in items)
     result = {

@@ -65,8 +65,11 @@ python3 scripts/kernel_opt.py upstream-delivery-inbox delivery-inbox.json
 Each manifest entry supplies a stable candidate/lane identity and the path and
 SHA-256 of one `upstream-review-state-v1` record.  The command revalidates every
 nested record, rejects hash drift, duplicate candidate identities and duplicate
-PR bindings, then sorts the resulting actions.  In particular, a candidate
-whose Draft minimum is complete but whose PR is absent becomes an explicit
+PR bindings, then sorts the resulting actions. Each item retains the internal
+candidate status and lists the passed, pending and failed Draft-minimum and
+Ready gates, so equal action labels are ordered by evidence progress instead of
+candidate name. In particular, a candidate whose Draft minimum is complete
+but whose PR is absent becomes an explicit
 `OPEN_DRAFT` inbox item instead of silently remaining in an experiment folder.
 Repository-maintenance candidates use a separate manifest so they cannot
 inflate framework delivery metrics.
