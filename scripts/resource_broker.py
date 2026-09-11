@@ -211,6 +211,60 @@ class ResourceBroker:
             raise ValueError("job_id already names a different request") from error
         return self.job(job["job_id"])
 
+    def bind_dispatch_gate(self, job: dict) -> dict:
+        """Atomically bind a READY gate to an otherwise immutable blocked job.
+
+        The broker does not validate the supervisor's authorization semantics;
+        it only prevents a later gate identity from changing the frozen job.
+        """
+        validate_job(job)
+        if job["origin"]["thread_id"] != job["callback"]["thread_id"]:
+            raise ValueError("callback must return to the originating task")
+        gate = job["dispatch_gate"]
+        if gate["state"] != "READY" or gate["identity_sha256"] is None:
+            raise ValueError("dispatch-gate binding requires one READY identity")
+
+        request_sha256 = digest(job)
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.connection.execute(
+                "SELECT request_sha256, request_json, state FROM jobs WHERE job_id = ?",
+                (job["job_id"],),
+            ).fetchone()
+            if row is None:
+                raise ValueError("unknown job_id")
+            if row["state"] == "QUEUED" and row["request_sha256"] == request_sha256:
+                self.connection.execute("COMMIT")
+                return self.job(job["job_id"])
+            if row["state"] != "BLOCKED_AUTHORIZATION":
+                raise ValueError("only a blocked authorization job can bind a gate")
+
+            blocked = json.loads(row["request_json"])
+            blocked_gate = blocked["dispatch_gate"]
+            if blocked_gate != {"state": "BLOCKED", "identity_sha256": None}:
+                raise ValueError("stored blocked dispatch gate is not canonical")
+            blocked_body = {
+                key: value for key, value in blocked.items() if key != "dispatch_gate"
+            }
+            ready_body = {
+                key: value for key, value in job.items() if key != "dispatch_gate"
+            }
+            if ready_body != blocked_body:
+                raise ValueError(
+                    "dispatch-gate binding cannot change the frozen job request"
+                )
+
+            self.connection.execute(
+                "UPDATE jobs SET request_sha256 = ?, request_json = ?, "
+                "state = 'QUEUED' WHERE job_id = ?",
+                (request_sha256, canonical_json(job), job["job_id"]),
+            )
+            self.connection.execute("COMMIT")
+            return self.job(job["job_id"])
+        except BaseException:
+            self.connection.execute("ROLLBACK")
+            raise
+
     def job(self, job_id: str) -> dict:
         row = self.connection.execute(
             "SELECT * FROM jobs WHERE job_id = ?", (job_id,)
@@ -653,6 +707,8 @@ def main() -> int:
     commands = parser.add_subparsers(dest="action", required=True)
     submit = commands.add_parser("submit")
     submit.add_argument("--job", required=True, type=Path)
+    bind_gate = commands.add_parser("bind-gate")
+    bind_gate.add_argument("--job", required=True, type=Path)
     acquire = commands.add_parser("acquire")
     acquire.add_argument("--inventory", required=True, type=Path)
     acquire.add_argument("--ttl-seconds", type=int, default=900)
@@ -674,6 +730,8 @@ def main() -> int:
     try:
         if args.action == "submit":
             result = broker.submit(read_object(args.job))
+        elif args.action == "bind-gate":
+            result = broker.bind_dispatch_gate(read_object(args.job))
         elif args.action == "acquire":
             result = broker.acquire(
                 read_object(args.inventory), ttl_seconds=args.ttl_seconds

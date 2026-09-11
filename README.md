@@ -599,6 +599,8 @@ work independently from the task that discovered it:
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
   submit --job job.json
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  bind-gate --job same-job-with-ready-gate.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
   acquire --inventory inventory.json
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
   plan --inventory inventory.json
@@ -614,6 +616,12 @@ and atomic dispatcher remain mandatory before starting a process. A missed
 heartbeat keeps its GPUs reserved in `STALE_REQUIRES_RECONCILIATION` until a
 hash-bound terminal result releases them, so a possibly running job is never
 made available by timeout alone.
+`bind-gate` lets the controller atomically move an existing
+`BLOCKED_AUTHORIZATION` job into the queue after an external supervisor gate is
+available. It accepts only the same complete job with a READY gate identity;
+any workload, source, environment, resource, budget, priority, origin or
+callback drift is rejected. The broker binds that identity but does not certify
+its authorization semantics or launch work.
 The read-only `plan` view classifies every queued item as immediately
 reservable, waiting for GPUs, requiring environment preparation, or having no
 compatible resource. It is suitable for a dashboard but is not a reservation.

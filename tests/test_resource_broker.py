@@ -19,7 +19,7 @@ from qualification_environment import (  # noqa: E402
     closure_template,
     request_template,
 )
-from resource_broker import ResourceBroker, validate_inventory  # noqa: E402
+from resource_broker import ResourceBroker, digest, validate_inventory  # noqa: E402
 
 
 NOW = datetime(2026, 9, 11, 7, 0, tzinfo=UTC)
@@ -186,6 +186,63 @@ def test_blocked_authorization_never_receives_a_resource(
     assert broker.acquire(inventory(), now=NOW) is None
 
 
+def test_blocked_job_can_only_bind_a_gate_without_request_drift(
+    broker: ResourceBroker,
+) -> None:
+    blocked = job("gated", ready=False)
+    submitted = broker.submit(blocked, now=NOW)
+    ready = copy.deepcopy(blocked)
+    ready["dispatch_gate"] = {"state": "READY", "identity_sha256": "e" * 64}
+
+    bound = broker.bind_dispatch_gate(ready)
+    assert bound["state"] == "QUEUED"
+    assert bound["submitted_at"] == submitted["submitted_at"]
+    assert bound["request_sha256"] == digest(ready)
+    assert broker.bind_dispatch_gate(ready) == bound
+    lease = broker.acquire(inventory(), now=NOW)
+    assert lease["dispatch_gate_identity_sha256"] == "e" * 64
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda value: value["origin"].__setitem__("candidate_id", "other"),
+        lambda value: value["resource"].__setitem__("gpu_count", 2),
+        lambda value: value["environment_request"]["candidate_source"].__setitem__(
+            "tree_sha", "f" * 40
+        ),
+        lambda value: value["budget"].__setitem__("max_gpu_seconds", 1200),
+        lambda value: value.__setitem__("priority_score", 999),
+    ],
+)
+def test_dispatch_gate_binding_rejects_frozen_request_drift(
+    broker: ResourceBroker, mutate
+) -> None:
+    blocked = job("gate-drift", ready=False)
+    broker.submit(blocked, now=NOW)
+    ready = copy.deepcopy(blocked)
+    ready["dispatch_gate"] = {"state": "READY", "identity_sha256": "e" * 64}
+    mutate(ready)
+    with pytest.raises(ValueError, match="cannot change the frozen job"):
+        broker.bind_dispatch_gate(ready)
+    assert broker.job("gate-drift")["state"] == "BLOCKED_AUTHORIZATION"
+
+
+def test_dispatch_gate_binding_rejects_missing_or_late_binding(
+    broker: ResourceBroker,
+) -> None:
+    blocked = job("missing-gate", ready=False)
+    broker.submit(blocked, now=NOW)
+    with pytest.raises(ValueError, match="requires one READY identity"):
+        broker.bind_dispatch_gate(blocked)
+
+    broker.submit(job("already-ready"), now=NOW)
+    changed_gate = job("already-ready")
+    changed_gate["dispatch_gate"]["identity_sha256"] = "f" * 64
+    with pytest.raises(ValueError, match="only a blocked authorization job"):
+        broker.bind_dispatch_gate(changed_gate)
+
+
 def test_environment_mismatch_does_not_hold_gpus(
     broker: ResourceBroker,
 ) -> None:
@@ -233,14 +290,18 @@ def test_plan_explains_resource_and_environment_blockers(
     broker.submit(impossible, now=NOW)
     broker.submit(job("blocked", ready=False), now=NOW)
 
-    planned = {item["job_id"]: item for item in broker.plan(inventory(2))["jobs"]}
+    planned = {
+        item["job_id"]: item for item in broker.plan(inventory(2), now=NOW)["jobs"]
+    }
     assert planned["ready"]["plan_state"] == "READY_FOR_RESOURCE_RESERVATION"
     assert planned["prepare"]["plan_state"] == "ENVIRONMENT_PREPARATION_REQUIRED"
     assert planned["impossible"]["plan_state"] == "NO_COMPATIBLE_RESOURCE"
     assert planned["blocked"]["plan_state"] == "BLOCKED_AUTHORIZATION"
 
     broker.acquire(inventory(2), now=NOW)
-    planned = {item["job_id"]: item for item in broker.plan(inventory(2))["jobs"]}
+    planned = {
+        item["job_id"]: item for item in broker.plan(inventory(2), now=NOW)["jobs"]
+    }
     assert planned["ready"]["broker_state"] == "LEASED"
 
 
