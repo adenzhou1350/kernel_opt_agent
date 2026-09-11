@@ -777,6 +777,12 @@ explicitly forbids upstream-ready or portable-performance claims. Full
 whole-model evidence, and only produces `UPSTREAM_READY` when all five gates
 pass. Existing output directories are never overwritten.
 
+CPU isolation may intentionally make `torch.cuda.get_arch_list()` empty. The
+worker attestation therefore falls back to the non-device-initializing
+`torch._C._cuda_getArchFlags()` metadata while still binding the Torch module,
+build configuration and native libraries. Materializers should consume that
+attested value rather than exposing a GPU to rediscover compiled targets.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.

@@ -42,6 +42,15 @@ def run(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, capture_output=True, check=False, text=True)
 
 
+def compiled_arches(torch_module: object) -> list[str]:
+    """Read compiled CUDA targets without assuming a visible CUDA device."""
+    arches = sorted(torch_module.cuda.get_arch_list())
+    if arches:
+        return arches
+    arch_flags = getattr(torch_module._C, "_cuda_getArchFlags", lambda: "")()
+    return sorted(flag for flag in arch_flags.split() if flag)
+
+
 def tool_identity(name: str) -> dict | None:
     command = shutil.which(name)
     if not command and name == "nvcc":
@@ -120,10 +129,7 @@ def collect(worker_id: str, host_id: str, storage_root: Path) -> dict:
         else []
     )
     python_path = Path(sys.executable).resolve()
-    compiled_arches = sorted(torch.cuda.get_arch_list())
-    if not compiled_arches:
-        arch_flags = getattr(torch._C, "_cuda_getArchFlags", lambda: "")()
-        compiled_arches = sorted(flag for flag in arch_flags.split() if flag)
+    torch_compiled_arches = compiled_arches(torch)
     build_config = torch.__config__.show()
     return {
         "schema_version": VERSION,
@@ -156,7 +162,7 @@ def collect(worker_id: str, host_id: str, storage_root: Path) -> dict:
                 "build_config_sha256": hashlib.sha256(
                     build_config.encode("utf-8")
                 ).hexdigest(),
-                "compiled_arches": compiled_arches,
+                "compiled_arches": torch_compiled_arches,
                 "nccl_available": torch.distributed.is_nccl_available(),
                 "native_libraries": [
                     {"path": path.as_posix(), "sha256": sha256_file(path)}
