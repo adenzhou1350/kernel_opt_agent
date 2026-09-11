@@ -206,6 +206,17 @@ artifacts occur in a trusted reproduction receipt.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
+## CPU-only qualification environment preparation
+
+When a new qualification closure must be built, the controller can issue a
+short-lived approval with `qualification-environment-authorize --issue` after
+reviewing the exact materialization plan, environment request and still-blocked
+broker job. The approval requires every preparation step to declare
+`gpu=false` and forbids GPU devices, workloads, service mutation, broker
+submission, gate binding and acquisition. It may allow network access only for
+dependency materialization; it never authorizes the later GPU test or turns the
+prepared closure into correctness evidence.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
