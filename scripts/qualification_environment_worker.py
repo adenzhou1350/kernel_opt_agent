@@ -63,10 +63,17 @@ def parse_final_json_object(stdout: str) -> dict:
     lines = [line.strip() for line in stdout.splitlines() if line.strip()]
     if not lines:
         raise ValueError("probe stdout has no non-empty final line")
-    try:
-        value = json.loads(lines[-1])
-    except json.JSONDecodeError as exc:
-        raise ValueError("probe final line is not valid JSON") from exc
+    parsed: list[tuple[int, object]] = []
+    for index, line in enumerate(lines):
+        try:
+            parsed.append((index, json.loads(line)))
+        except json.JSONDecodeError:
+            continue
+    if len(parsed) != 1 or parsed[0][0] != len(lines) - 1:
+        raise ValueError(
+            "probe stdout must contain exactly one JSON value on its final line"
+        )
+    value = parsed[0][1]
     if not isinstance(value, dict):
         raise ValueError("probe final JSON value must be an object")
     return value

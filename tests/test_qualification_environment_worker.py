@@ -117,6 +117,7 @@ def test_final_json_probe_allows_framework_logs_before_object() -> None:
     "stdout",
     [
         "",
+        '{"phase": "log"}\n{"cuda": false}\n',
         '{"cuda": false}\ntrailing diagnostic\n',
         "[1, 2, 3]\n",
     ],
