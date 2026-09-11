@@ -4,8 +4,7 @@ These instructions apply to every agent working inside this repository.
 
 ## Mandatory intake gate
 
-At the start of every new optimization task, show the user a concise reminder
-that three inputs are required and ask for any missing fields:
+Every optimization task still requires three frozen inputs:
 
 1. Operator computation: equations or pseudocode, inputs/outputs/state,
    shapes/strides/dtypes, numerical contract, aliasing and legal rewrites.
@@ -15,16 +14,48 @@ that three inputs are required and ask for any missing fields:
    stack, power/clock policy, allowed programming models and architecture-
    specific features.
 
-Do this even when historical defaults exist.  Historical input may be reused
-only after the user names a run or explicitly confirms reuse.  Read-only
-inspection may continue while fields are missing, but do not compile, tune,
-benchmark or change production code before the intake gate is complete.
+Resolve these inputs from the active Goal, current run, repository state and
+live resource inventory before asking the user.  Do not ask again for a field
+that is already hash-bound by the active run or by a still-valid user decision.
+Historical measurements are evidence, not permission to reuse an input.  A
+standing user authorization to auto-discover a named resource class permits
+the control plane to freeze a newly attested idle device from that class
+without another generic confirmation; it does not permit preemption, service
+interruption or a different workload.  Ask only when a missing choice would
+change semantics, target workload, costly execution scope or an external
+mutation.  Read-only inspection, candidate discovery, normal source edits and
+focused CPU tests may continue while an expensive execution input is missing.
 
 Once the three inputs are complete and the requested optimization scope is
 authorized, create the run and begin baseline/model construction immediately.
 Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
+
+## Autonomous lanes and pull-based control
+
+An execution lane owns one persistent optimization Goal and keeps progressing
+inside that scope.  A blocked GPU, environment, reviewer or credential gate
+does not stop cheap source analysis, focused correctness work, candidate
+ranking or Draft preparation.  Do not create timers or periodic chat prompts
+to keep a lane alive; continue from the Goal until a real terminal condition.
+
+The portfolio controller is the only cross-lane coordinator, shared-policy
+writer and resource allocator.  It pulls task state and immutable artifacts;
+lanes must not routinely message the controller or one another.  Emit a
+control-plane event only when at least one of these materially changes:
+
+- the selected candidate or its accept/reject decision;
+- Draft/Ready/merged state or a maintainer/CI response needing action;
+- the terminal result of an approved expensive build, GPU or service window;
+- a new correctness, security or provenance defect that invalidates evidence;
+- a user-owned decision that cannot be resolved from standing authority.
+
+Do not relay acknowledgements, unchanged status, successive hash lists or
+ordinary bounded-cycle narration.  Persist those details in the run and keep
+working.  A material event should state the changed decision, the smallest
+authoritative evidence identity and the next action; the controller decides
+whether another lane needs the information.
 
 ## Delivery-first operating model
 
@@ -113,6 +144,18 @@ before downloading or rebuilding another closure. Reuse only the layers it
 marks compatible: dependency/toolchain state, source binding and a source-bound
 native extension are separate identities. A reuse decision is advisory and
 never authorizes a build, test, GPU run or result claim.
+
+An environment repair is a bounded implementation activity, not a reason to
+mint an unlimited sequence of plans.  Route every terminal attempt through
+`qualification-route` before creating a successor.  Create a new version only
+when an executable byte, bound identity or reviewed scope changes; a wording,
+timestamp or filename correction alone must not become another attempt.  Keep
+one current plan and mark all predecessors terminal.  When the frozen repair
+budget is exhausted, stop that environment route and continue a different
+cheap candidate or Draft/review task until the controller explicitly opens a
+new scope and budget.  Prefer the shared approval, worker attestation and
+single-use dispatcher receipts over run-specific controller scripts or new
+schemas that restate the same boundary.
 
 Execute an approved CPU-only preparation only through
 `qualification-environment-dispatch`. The approval must bind the exact
