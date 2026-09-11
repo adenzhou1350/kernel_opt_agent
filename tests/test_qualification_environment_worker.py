@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from qualification_environment_worker import (  # noqa: E402
     compiled_arches,
+    cpu_only_cache_environment,
     validate,
     validate_cpu_only_process_transition,
 )
@@ -128,6 +129,26 @@ def test_cpu_only_transition_rejects_process_identity_changes(
 ) -> None:
     with pytest.raises(ValueError, match="GPU process identities changed"):
         validate_cpu_only_process_transition([], before, after)
+
+
+def test_cpu_only_cache_environment_is_confined_to_closure() -> None:
+    closure = "/workspace/kernel-opt/closures/run-v1"
+
+    result = cpu_only_cache_environment(closure)
+
+    assert result["TRITON_CACHE_DIR"] == f"{closure}/cache/triton-autotune"
+    assert result["XDG_CACHE_HOME"] == f"{closure}/cache/xdg"
+    assert result["TMPDIR"] == f"{closure}/tmp"
+    assert all(value.startswith(f"{closure}/") for value in result.values())
+
+
+@pytest.mark.parametrize(
+    "closure",
+    ["relative/closure", "/workspace", "/root/closure", "/workspaces/escape"],
+)
+def test_cpu_only_cache_environment_rejects_unconfined_roots(closure: str) -> None:
+    with pytest.raises(ValueError):
+        cpu_only_cache_environment(closure)
 
 
 @pytest.mark.parametrize(

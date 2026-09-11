@@ -48,6 +48,14 @@ afterward. Do not compare live process rows to the historical attestation or
 fail on memory-accounting drift alone, and never stop a protected process to
 make the old snapshot match.
 
+Before dependency installation or the first framework import on a managed
+worker, call `cpu_only_cache_environment` with the exact closure root and bind
+the returned environment. Framework imports can write caches even with CUDA
+hidden; XDG, Hugging Face, Torch, TorchInductor, Triton, CUDA, SGLang,
+FlashInfer and temporary paths must stay inside the writable closure. Do not
+fall back to `/root`, `$HOME` or another image-owned filesystem, and do not
+repair a full image filesystem by deleting unrelated caches.
+
 When a shared qualification resource broker is available, submit the sealed
 validation job and continue bounded discovery or review work instead of waiting
 on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker

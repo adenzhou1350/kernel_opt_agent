@@ -256,6 +256,14 @@ replaced GPU process. This avoids treating a protected service as a reason to
 rebuild the runtime while still proving that preparation did not mutate GPU
 occupancy.
 
+Framework imports are not necessarily read-only: DeepSpeed, SGLang, Triton,
+Torch and model tooling can create caches before any test or GPU call. Use
+`cpu_only_cache_environment` to derive XDG, model, compiler and temporary cache
+paths under the exact closure root, create those directories before the first
+import, and bind the resulting environment in the execution plan. This keeps
+worker image filesystems immutable and prevents unrelated `/root` capacity
+from deciding whether an otherwise reusable environment can materialize.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
