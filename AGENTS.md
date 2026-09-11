@@ -26,6 +26,12 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+After an environment or toolchain failure, run `qualification-environment`
+before downloading or rebuilding another closure. Reuse only the layers it
+marks compatible: dependency/toolchain state, source binding and a source-bound
+native extension are separate identities. A reuse decision is advisory and
+never authorizes a build, test, GPU run or result claim.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot
