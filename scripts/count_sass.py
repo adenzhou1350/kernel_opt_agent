@@ -105,7 +105,7 @@ def main() -> int:
 
     functions: dict[str, collections.Counter] = {}
     current = None
-    for line in args.input.read_text(errors="replace").splitlines():
+    for line in args.input.read_text(encoding="utf-8", errors="replace").splitlines():
         match = FUNCTION.match(line)
         if match:
             current = match.group(1)
