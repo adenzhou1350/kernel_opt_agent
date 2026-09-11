@@ -33,13 +33,13 @@ def main() -> int:
     if run not in evidence.parents or not evidence.is_file():
         raise ValueError("review evidence must be an existing file inside the run")
     queue_path = run / "models/experiment_queue.json"
-    queue = json.loads(queue_path.read_text())
+    queue = json.loads(queue_path.read_text(encoding="utf-8"))
     request = next((item for item in queue.get("requests", []) if item.get("request_id") == args.request_id), None)
     if request is None or request.get("status") not in {"RUNNING", "BLOCKED"}:
         raise ValueError("only a RUNNING or technically BLOCKED completed execution can be revised")
     experiment_dir = run / "experiments" / args.request_id
     receipt_path = experiment_dir / "execution_receipt.json"
-    receipt = json.loads(receipt_path.read_text())
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     receipt_status = receipt.get("status")
     if receipt_status not in {"PASS", "FAIL"} or receipt.get("request_id") != args.request_id:
         raise ValueError("revision requires a completed PASS or FAIL execution receipt")
@@ -109,7 +109,7 @@ def main() -> int:
         "status": next_status,
     }
     experiment_path = experiment_dir / "experiment.json"
-    experiment = json.loads(experiment_path.read_text())
+    experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
     experiment["status"] = next_status
     experiment.setdefault("revision_history", []).append({
         "attempt": attempt_number,

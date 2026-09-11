@@ -68,7 +68,7 @@ def read_object(path: Path, errors: list[str]) -> dict:
         errors.append(f"missing artifact: {path}")
         return {}
     try:
-        data = json.loads(path.read_text())
+        data = json.loads(path.read_text(encoding="utf-8"))
     except Exception as error:
         errors.append(f"invalid JSON {path}: {error}")
         return {}
@@ -123,7 +123,7 @@ def case_ids(workload: dict) -> set[str]:
 
 def evidence_closed_contract(run: Path) -> bool:
     try:
-        state = json.loads((run / "run_state.json").read_text())
+        state = json.loads((run / "run_state.json").read_text(encoding="utf-8"))
     except Exception:
         return False
     return state.get("framework_contract_version") == "evidence-closed-v2"
