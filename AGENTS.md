@@ -109,6 +109,13 @@ marks compatible: dependency/toolchain state, source binding and a source-bound
 native extension are separate identities. A reuse decision is advisory and
 never authorizes a build, test, GPU run or result claim.
 
+Before a cache-bound model download, JIT compile or native build, bind every
+framework/compiler cache root explicitly and run `environment-cache-preflight`.
+Require the intended environment-variable mapping, a writable directory and a
+workload-sized free-space floor. A blocked preflight is an environment result,
+not a candidate failure; move to a reviewed cache root or stop the bounded
+repair instead of retrying against an implicit home-directory default.
+
 When a shared qualification resource broker is available, submit the sealed
 validation job and continue bounded discovery or review work instead of waiting
 on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker

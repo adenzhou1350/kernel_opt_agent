@@ -610,6 +610,24 @@ hit. The result is advisory reuse routing only: it never authorizes a build,
 test, GPU run, correctness claim or performance claim. Templates are available
 with `--print-closure-template` and `--print-request-template`.
 
+Before a model download, JIT compile or native build, fail fast on implicit or
+unusable framework caches:
+
+```bash
+python3 scripts/kernel_opt.py environment-cache-preflight --print-template \
+  > cache-preflight-request.json
+python3 scripts/kernel_opt.py environment-cache-preflight \
+  --request cache-preflight-request.json \
+  --output cache-preflight-result.json
+```
+
+The request binds every intended cache path, its environment variable, a
+workload-sized free-space floor and whether a temporary write probe is allowed.
+The result distinguishes path drift, missing or non-directory roots,
+writeability and insufficient space before an expensive command starts. It is
+only an environment preflight and never authorizes download, build, execution,
+correctness or performance claims.
+
 When a new closure really must be built, the controller can issue a separate,
 short-lived CPU-only materialization approval after reviewing the exact plan,
 environment request and still-blocked broker job:

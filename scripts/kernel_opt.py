@@ -62,6 +62,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_environment.py",
             "reuse a compatible materialized qualification environment",
         ),
+        "environment-cache-preflight": Command(
+            "environment_cache_preflight.py",
+            "fail closed before cache-bound downloads, JIT compilation, or builds",
+        ),
         "qualification-environment-authorize": Command(
             "qualification_environment_materialization.py",
             "approve CPU-only qualification-environment materialization",
