@@ -71,6 +71,12 @@ def validate(value: dict, schema_name: str, label: str) -> None:
 
 def validate_job(job: dict) -> None:
     validate(job, "resource_broker_job.schema.json", "broker job")
+    required_gpu_uuids = job["resource"].get("required_gpu_uuids")
+    if (
+        required_gpu_uuids is not None
+        and len(required_gpu_uuids) != job["resource"]["gpu_count"]
+    ):
+        raise ValueError("required_gpu_uuids must contain exactly gpu_count identities")
     validate_environment_object(
         job["environment_request"],
         "qualification_environment_request.schema.json",
@@ -318,13 +324,17 @@ class ResourceBroker:
     @staticmethod
     def _host_static_resource_match(job: dict, host: dict) -> bool:
         resource = job["resource"]
+        required_gpu_uuids = set(resource.get("required_gpu_uuids", []))
+        compatible_gpu_uuids = {
+            gpu["uuid"]
+            for gpu in host["gpus"]
+            if gpu["memory_gib"] >= resource["min_memory_gib"]
+        }
         return (
             host["architecture"] in resource["architectures"]
             and set(resource["required_capabilities"]).issubset(host["capabilities"])
-            and sum(
-                gpu["memory_gib"] >= resource["min_memory_gib"] for gpu in host["gpus"]
-            )
-            >= resource["gpu_count"]
+            and required_gpu_uuids.issubset(compatible_gpu_uuids)
+            and len(compatible_gpu_uuids) >= resource["gpu_count"]
         )
 
     @staticmethod
@@ -354,6 +364,12 @@ class ResourceBroker:
             and gpu["memory_gib"] >= resource["min_memory_gib"]
             and gpu["uuid"] not in occupied
         )
+        required_gpu_uuids = resource.get("required_gpu_uuids")
+        if required_gpu_uuids is not None:
+            required = sorted(required_gpu_uuids)
+            if not set(required).issubset(free):
+                return None
+            free = required
         if len(free) < resource["gpu_count"]:
             return None
         return {

@@ -144,6 +144,49 @@ def test_gang_allocations_are_atomic_and_disjoint(broker: ResourceBroker) -> Non
     assert broker.acquire(inventory(), now=NOW) is None
 
 
+def test_exact_gpu_gang_is_selected_by_uuid(broker: ResourceBroker) -> None:
+    request = job("exact-gang", gpu_count=2)
+    request["resource"]["required_gpu_uuids"] = ["GPU-3", "GPU-1"]
+    broker.submit(request, now=NOW)
+    lease = broker.acquire(inventory(), now=NOW)
+    assert lease["gpu_uuids"] == ["GPU-1", "GPU-3"]
+
+
+def test_exact_gpu_gang_waits_when_one_required_uuid_is_unavailable(
+    broker: ResourceBroker,
+) -> None:
+    request = job("exact-gang-busy", gpu_count=2)
+    request["resource"]["required_gpu_uuids"] = ["GPU-1", "GPU-3"]
+    broker.submit(request, now=NOW)
+    pool = inventory()
+    pool["hosts"][0]["gpus"][3]["state"] = "RESERVED_SERVICE"
+    assert broker.acquire(pool, now=NOW) is None
+    planned = {item["job_id"]: item for item in broker.plan(pool, now=NOW)["jobs"]}
+    assert planned["exact-gang-busy"]["plan_state"] == "WAITING_FOR_GPU"
+
+
+def test_exact_gpu_gang_rejects_wrong_cardinality(
+    broker: ResourceBroker,
+) -> None:
+    request = job("exact-gang-size", gpu_count=2)
+    request["resource"]["required_gpu_uuids"] = ["GPU-1"]
+    with pytest.raises(ValueError, match="exactly gpu_count"):
+        broker.submit(request, now=NOW)
+
+
+def test_exact_gpu_gang_rejects_an_under_memory_required_uuid(
+    broker: ResourceBroker,
+) -> None:
+    request = job("exact-gang-memory", gpu_count=2)
+    request["resource"]["required_gpu_uuids"] = ["GPU-1", "GPU-3"]
+    broker.submit(request, now=NOW)
+    pool = inventory()
+    pool["hosts"][0]["gpus"][3]["memory_gib"] = 16
+    assert broker.acquire(pool, now=NOW) is None
+    planned = {item["job_id"]: item for item in broker.plan(pool, now=NOW)["jobs"]}
+    assert planned["exact-gang-memory"]["plan_state"] == "NO_COMPATIBLE_RESOURCE"
+
+
 def test_small_job_backfills_when_high_priority_gang_cannot_fit(
     broker: ResourceBroker,
 ) -> None:
