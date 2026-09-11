@@ -49,6 +49,12 @@ python3 scripts/kernel_opt.py community-timing run-phase \
   --phase ENVIRONMENT_SETUP --actor CPU --timeout-seconds 600 \
   --receipt environment-command-receipt.json -- \
   python3 -m pip check
+python3 scripts/kernel_opt.py community-timing import-phase-receipt \
+  --ledger work-cycle.json --span-id remote-env-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU --resource-id worker-sm120 \
+  --receipt worker-terminal.json --started-at-field started_at \
+  --ended-at-field finished_at --duration-field elapsed_seconds \
+  --status INTERRUPTED
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 ```
@@ -64,6 +70,11 @@ exact argv without a shell, writes an immutable command receipt and closes the
 span as `COMPLETE` or `INTERRUPTED` on success, non-zero exit, launch failure or
 timeout. Its receipt proves command wall time and exit status only; it never
 turns a passing command into correctness or performance evidence.
+When a governed worker already produced an immutable terminal receipt, use
+`import-phase-receipt` to bind its exact start/end timestamps instead of
+reconstructing wall time. The prospective ledger must already predate the
+receipt; optional duration-field reconciliation rejects inconsistent receipts.
+Importing timing does not validate the worker result or change its outcome.
 The summary reports their seconds and their share of attributed active work. If
 neither phase was recorded, that ratio is `null` with
 `NOT_SEPARATELY_RECORDED` rather than a misleading zero. Do not retroactively

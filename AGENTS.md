@@ -74,6 +74,11 @@ instead of separate start/end writes so success, non-zero exit, timeout, and
 launch failure all close the phase with an immutable command receipt. The
 receipt measures command wall time and exit status; it is not correctness or
 performance evidence.
+If a governed worker executes the command and returns an immutable receipt, use
+`community-timing import-phase-receipt` against a ledger that existed before the
+worker run. Bind the receipt's explicit start/end fields and reconcile its
+duration field when available; never infer these times from file mtimes or
+retrofit them into a legacy cycle.
 
 Every selected framework candidate must also maintain one current
 `upstream-review-state-v1` record.  Update it when the minimal Draft evidence,
