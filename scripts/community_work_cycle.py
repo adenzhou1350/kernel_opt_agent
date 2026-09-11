@@ -375,6 +375,46 @@ def pair_baseline(paths: list[Path]) -> dict:
     return report
 
 
+def classify_invalid_ledger(raw: dict, path: Path, error: Exception) -> dict:
+    """Route invalid canonical ledgers without rewriting historical evidence."""
+
+    error_text = str(error)
+    canonical_keys = {
+        "cycle_id",
+        "task_id",
+        "started_at",
+        "observation_mode",
+        "claim_boundary",
+        "minimum_material_speedup",
+        "spans",
+        "milestones",
+        "outcome",
+    }
+    missing_core = sorted(canonical_keys - set(raw))
+    if raw.get("schema_version") == LEDGER_SCHEMA and len(missing_core) >= 3:
+        issue_class = "CANONICAL_SCHEMA_COLLISION"
+        recommended_action = (
+            "RENAME_NONCANONICAL_ARTIFACT_OR_CREATE_LEGACY_MILESTONE_LEDGER"
+        )
+    elif "evidence changed:" in error_text:
+        issue_class = "EVIDENCE_IDENTITY_FAILURE"
+        recommended_action = "RESTORE_BOUND_EVIDENCE_OR_SEAL_A_NEW_LEDGER_VERSION"
+    elif error_text.startswith("invalid work-cycle ledger:"):
+        issue_class = "CANONICAL_SCHEMA_DRIFT"
+        recommended_action = "CREATE_WITH_PUBLIC_CLI_DO_NOT_EDIT_IN_PLACE"
+    else:
+        issue_class = "TEMPORAL_OR_LINEAGE_INVARIANT_FAILURE"
+        recommended_action = "PRESERVE_FAILURE_AND_CREATE_A_NEW_VALID_LEDGER_VERSION"
+    return {
+        "path": path.as_posix(),
+        "error": error_text,
+        "issue_class": issue_class,
+        "recommended_action": recommended_action,
+        "safe_automatic_repair": False,
+        "missing_core_fields": missing_core,
+    }
+
+
 def audit_roots(
     roots: list[Path], at: str | None = None, max_active_phase_seconds: float = 21600
 ) -> dict:
@@ -415,7 +455,7 @@ def audit_roots(
             try:
                 ledger = validate_ledger_object(raw, path)
             except (OSError, ValueError) as error:
-                invalid.append({"path": path.as_posix(), "error": str(error)})
+                invalid.append(classify_invalid_ledger(raw, path, error))
                 continue
             if ledger["observation_mode"] != "PROSPECTIVE_EXACT":
                 continue
@@ -491,6 +531,10 @@ def audit_roots(
         overhead_status = "PARTIAL"
     else:
         overhead_status = "MEASURED"
+    invalid_by_issue: dict[str, int] = {}
+    for row in invalid:
+        issue_class = row["issue_class"]
+        invalid_by_issue[issue_class] = invalid_by_issue.get(issue_class, 0) + 1
     return {
         "status": status,
         "environment_governance_measurement_status": overhead_status,
@@ -503,6 +547,7 @@ def audit_roots(
         "environment_governance_measurement_debt_count": len(rows) - overhead_observed,
         "attention_cycle_count": sum(bool(row["alerts"]) for row in rows),
         "invalid_ledger_count": len(invalid),
+        "invalid_ledger_count_by_issue": dict(sorted(invalid_by_issue.items())),
         "invalid_ledgers": invalid,
         "cycles": rows,
     }

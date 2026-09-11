@@ -95,7 +95,12 @@ exact phase attribution, no primary phase, or an overlong active phase. It
 separately reports environment/governance measurement debt; a normally closed
 bounded cycle is not mistaken for an abandoned active cycle. The audit is
 read-only and intentionally does not create another evidence schema or infer
-historical timing.
+historical timing. Invalid ledgers are grouped into machine-readable issue
+classes with a conservative recommended action. A file that claims the public
+schema name while using an ad-hoc shape is reported as a schema collision;
+identity drift and canonical-schema drift remain distinct. Every class sets
+`safe_automatic_repair=false`: migrate by creating a new ledger version or a
+legacy-milestone record, never by rewriting historical evidence.
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.

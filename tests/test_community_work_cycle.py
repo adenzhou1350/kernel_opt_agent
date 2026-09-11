@@ -545,6 +545,34 @@ def test_audit_roots_reports_invalid_ledgers_without_hiding_valid_ones() -> None
         assert report["prospective_cycle_count"] == 1
         assert report["invalid_ledger_count"] == 1
         assert report["invalid_ledgers"][0]["path"].endswith("invalid.json")
+        assert report["invalid_ledgers"][0]["issue_class"] == (
+            "EVIDENCE_IDENTITY_FAILURE"
+        )
+        assert report["invalid_ledgers"][0]["safe_automatic_repair"] is False
+        assert report["invalid_ledger_count_by_issue"] == {
+            "EVIDENCE_IDENTITY_FAILURE": 1
+        }
+
+        collision_path = base / "ad-hoc-collision.json"
+        atomic_json(
+            collision_path,
+            {
+                "schema_version": "community-work-cycle-v1",
+                "status": "PASS",
+                "stages": [],
+            },
+        )
+        report = audit_roots([base], at="2026-09-07T05:00:00Z")
+        collisions = [
+            row
+            for row in report["invalid_ledgers"]
+            if row["path"].endswith("ad-hoc-collision.json")
+        ]
+        assert len(collisions) == 1
+        assert collisions[0]["issue_class"] == "CANONICAL_SCHEMA_COLLISION"
+        assert collisions[0]["recommended_action"] == (
+            "RENAME_NONCANONICAL_ARTIFACT_OR_CREATE_LEGACY_MILESTONE_LEDGER"
+        )
 
 
 if __name__ == "__main__":
