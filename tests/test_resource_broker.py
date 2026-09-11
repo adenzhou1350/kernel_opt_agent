@@ -229,6 +229,31 @@ def test_blocked_authorization_never_receives_a_resource(
     assert broker.acquire(inventory(), now=NOW) is None
 
 
+@pytest.mark.parametrize("ready", [False, True])
+def test_unleased_job_can_be_withdrawn_without_deleting_history(
+    broker: ResourceBroker, ready: bool
+) -> None:
+    broker.submit(job("withdrawn", ready=ready), now=NOW)
+    terminal = broker.withdraw(
+        "withdrawn",
+        {"path": "decisions/supersession.json", "sha256": "a" * 64},
+        now=NOW + timedelta(seconds=1),
+    )
+    assert terminal["outcome"] == "WITHDRAWN"
+    assert broker.job("withdrawn")["state"] == "WITHDRAWN"
+    assert broker.job("withdrawn")["terminal"] == terminal
+    assert broker.acquire(inventory(), now=NOW + timedelta(seconds=2)) is None
+
+
+def test_withdrawal_rejects_leased_or_unbound_jobs(broker: ResourceBroker) -> None:
+    broker.submit(job("leased"), now=NOW)
+    broker.acquire(inventory(), now=NOW)
+    with pytest.raises(ValueError, match="unleased"):
+        broker.withdraw("leased", {"path": "reason.json", "sha256": "a" * 64}, now=NOW)
+    with pytest.raises(ValueError, match="full digest"):
+        broker.withdraw("missing", {"path": "reason.json", "sha256": "short"}, now=NOW)
+
+
 def test_blocked_job_can_only_bind_a_gate_without_request_drift(
     broker: ResourceBroker,
 ) -> None:
