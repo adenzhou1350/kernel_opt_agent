@@ -15,11 +15,13 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
+    audit_roots,
     import_phase_receipt,
     init_ledger,
     pair_baseline,
     record_pr_stage,
     run_phase_command,
+    start_phase,
     summarize,
     validate_ledger,
     write_ledger,
@@ -464,6 +466,87 @@ def test_pair_baseline_reads_bound_assessments() -> None:
     )
 
 
+def test_audit_roots_reports_live_timing_blind_spots() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        tracked_path = base / "tracked.json"
+        init_ledger(
+            SimpleNamespace(
+                output=tracked_path,
+                cycle_id="tracked-cycle",
+                task_id="lane-a",
+                started_at="2026-09-07T04:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                initial_phase="ENVIRONMENT_SETUP",
+                initial_span_id="environment",
+                initial_actor="CPU",
+                initial_resource_id=None,
+            )
+        )
+        tracked = start_phase(
+            SimpleNamespace(
+                ledger=tracked_path,
+                span_id="environment",
+                phase="ENVIRONMENT_SETUP",
+                actor="CPU",
+                resource_id=None,
+                at="2026-09-07T04:00:00Z",
+            )
+        )
+        assert tracked["spans"]
+
+        blind_path = base / "blind.json"
+        blind = init_ledger(
+            SimpleNamespace(
+                output=blind_path,
+                cycle_id="blind-cycle",
+                task_id="lane-b",
+                started_at="2026-09-07T04:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                initial_phase=None,
+                initial_span_id="initial",
+                initial_actor="AGENT",
+                initial_resource_id=None,
+            )
+        )
+        blind["spans"] = []
+        atomic_json(blind_path, blind)
+
+        report = audit_roots(
+            [base], at="2026-09-07T12:00:01Z", max_active_phase_seconds=3600
+        )
+        assert report["status"] == "PARTIAL"
+        assert report["prospective_cycle_count"] == 2
+        assert report["exact_phase_tracked_count"] == 1
+        assert report["explicit_environment_governance_count"] == 1
+        assert report["environment_governance_measurement_status"] == "PARTIAL"
+        rows = {row["cycle_id"]: row for row in report["cycles"]}
+        assert rows["tracked-cycle"]["active_phase"] == "ENVIRONMENT_SETUP"
+        assert "ACTIVE_PHASE_OVER_THRESHOLD" in rows["tracked-cycle"]["alerts"]
+        assert "NO_EXACT_PHASE_ATTRIBUTION" in rows["blind-cycle"]["alerts"]
+        assert "NO_PRIMARY_PHASE" in rows["blind-cycle"]["alerts"]
+
+
+def test_audit_roots_reports_invalid_ledgers_without_hiding_valid_ones() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        valid_path = base / "valid.json"
+        atomic_json(valid_path, ledger(evidence))
+        invalid_path = base / "invalid.json"
+        invalid = ledger(evidence)
+        invalid["spans"][0]["evidence"][0]["sha256"] = "0" * 64
+        atomic_json(invalid_path, invalid)
+
+        report = audit_roots([base], at="2026-09-07T05:00:00Z")
+        assert report["prospective_cycle_count"] == 1
+        assert report["invalid_ledger_count"] == 1
+        assert report["invalid_ledgers"][0]["path"].endswith("invalid.json")
+
+
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_environment_and_governance_overhead_reporting()
@@ -472,3 +555,5 @@ if __name__ == "__main__":
     test_import_phase_receipt_rejects_backfill_and_duration_drift()
     test_pr_stage_is_atomic_and_fail_closed()
     test_pair_baseline_reads_bound_assessments()
+    test_audit_roots_reports_live_timing_blind_spots()
+    test_audit_roots_reports_invalid_ledgers_without_hiding_valid_ones()

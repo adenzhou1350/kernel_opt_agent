@@ -57,6 +57,9 @@ python3 scripts/kernel_opt.py community-timing import-phase-receipt \
   --status INTERRUPTED
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
+python3 scripts/kernel_opt.py community-timing audit-root \
+  --root /path/to/framework-evidence \
+  --max-active-phase-seconds 21600
 ```
 
 The ledger uses non-overlapping primary wall-clock spans for community research,
@@ -85,6 +88,14 @@ ready-for-review PR and merge. Legacy trials may retain milestone bounds but
 must leave unavailable phase attribution under `UNATTRIBUTED_LEGACY_WORK`.
 This prevents a fast kernel result from hiding days spent packaging or waiting
 for external review.
+
+Controllers can run `audit-root` across lane evidence directories without
+messaging the execution lanes. It reports prospective ledgers that have no
+exact phase attribution, no primary phase, or an overlong active phase. It
+separately reports environment/governance measurement debt; a normally closed
+bounded cycle is not mistaken for an abandoned active cycle. The audit is
+read-only and intentionally does not create another evidence schema or infer
+historical timing.
 
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
