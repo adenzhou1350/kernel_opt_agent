@@ -263,6 +263,17 @@ paths under the exact closure root, create those directories before the first
 import, and bind the resulting environment in the execution plan. This keeps
 worker image filesystems immutable and prevents unrelated `/root` capacity
 from deciding whether an otherwise reusable environment can materialize.
+The same contract is available to shell-oriented executors without importing
+the module:
+
+```bash
+python scripts/qualification_environment_worker.py \
+  --cache-environment /workspace/kernel-opt/closures/<closure-id>
+```
+
+The command emits one JSON object containing the complete environment mapping;
+consumers must create and bind every emitted path before the first framework
+import rather than partially reconstructing the mapping.
 
 Framework imports may also write informational logs to stdout before a probe
 prints its machine result. Use `parse_final_json_object` to require the final
