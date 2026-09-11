@@ -205,6 +205,15 @@ def main():
 
     cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"])
     assert "new-run" in cli_help.stdout and "experiment-execute" in cli_help.stdout
+    child_help = run([
+        sys.executable,
+        str(ROOT / "scripts/kernel_opt.py"),
+        "community-timing",
+        "run-phase",
+        "--help",
+    ])
+    assert "--timeout-seconds" in child_help.stdout
+    assert "--receipt" in child_help.stdout
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([

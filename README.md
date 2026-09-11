@@ -17,6 +17,11 @@ python3 scripts/kernel_opt.py community-timing switch-phase \
 python3 scripts/kernel_opt.py community-timing end-phase \
   --ledger work-cycle.json --span-id environment-1 \
   --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing run-phase \
+  --ledger work-cycle.json --span-id governance-1 \
+  --phase GOVERNANCE_VALIDATION --actor CPU --timeout-seconds 600 \
+  --receipt governance-command-receipt.json -- \
+  python3 -m pip check
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 python3 scripts/kernel_opt.py community-timing audit-root \
@@ -67,6 +72,10 @@ reports their seconds and their share of attributed active work. If neither
 phase was recorded, that ratio is `null` with
 `NOT_SEPARATELY_RECORDED` rather than a misleading zero. Do not retroactively
 reclassify legacy spans.
+For a bounded command, prefer `run-phase`: it runs the exact argv without a
+shell, writes an immutable wall-time/exit-status receipt, and closes the span
+on success, non-zero exit, launch failure, or timeout. A passing command receipt
+is not correctness or performance evidence.
 Hash-bound milestones report time to the first candidate, correct result,
 material improvement, qualified result, upstream-ready package, draft PR,
 ready-for-review PR and merge. Legacy trials may retain milestone bounds but

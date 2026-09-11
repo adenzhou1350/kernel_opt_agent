@@ -20,6 +20,7 @@ from community_work_cycle import (  # noqa: E402
     init_ledger,
     pair_baseline,
     record_pr_stage,
+    run_phase_command,
     summarize,
     switch_phase,
     validate_ledger,
@@ -247,6 +248,86 @@ def test_prospective_init_and_atomic_phase_switch() -> None:
         )
 
 
+def test_run_phase_closes_success_failure_timeout_and_launch_error() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        cycle = base / "cycle.json"
+        init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="phase-runner",
+                task_id="task",
+                started_at=None,
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                initial_phase=None,
+                initial_span_id="initial",
+                initial_actor="AGENT",
+                initial_resource_id=None,
+            )
+        )
+        evidence = base / "initial.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="initial",
+                status="COMPLETE",
+                at=None,
+                evidence=[evidence],
+            )
+        )
+
+        def run(span_id: str, code: str, timeout: float = 5) -> tuple[dict, int]:
+            return run_phase_command(
+                SimpleNamespace(
+                    ledger=cycle,
+                    span_id=span_id,
+                    phase="ENVIRONMENT_SETUP",
+                    actor="CPU",
+                    resource_id=None,
+                    cwd=base,
+                    timeout_seconds=timeout,
+                    receipt=base / f"{span_id}.json",
+                    command=[sys.executable, "-c", code],
+                )
+            )
+
+        passed, passed_code = run("pass", "raise SystemExit(0)")
+        failed, failed_code = run("fail", "raise SystemExit(7)")
+        timed_out, timeout_code = run("timeout", "import time; time.sleep(1)", 0.05)
+        launch_failed, launch_code = run_phase_command(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="launch-fail",
+                phase="ENVIRONMENT_SETUP",
+                actor="CPU",
+                resource_id=None,
+                cwd=base,
+                timeout_seconds=5,
+                receipt=base / "launch-fail.json",
+                command=[str(base / "missing-executable")],
+            )
+        )
+        assert passed_code == 0
+        assert passed["outcome"]["status"] == "PASS"
+        assert failed_code == 7
+        assert failed["outcome"]["status"] == "COMMAND_FAILED"
+        assert timeout_code == 124
+        assert timed_out["outcome"]["status"] == "TIMED_OUT"
+        assert launch_code == 127
+        assert launch_failed["outcome"]["status"] == "LAUNCH_FAILED"
+        recorded = validate_ledger(cycle)
+        assert [span["status"] for span in recorded["spans"]] == [
+            "COMPLETE",
+            "COMPLETE",
+            "INTERRUPTED",
+            "INTERRUPTED",
+            "INTERRUPTED",
+        ]
+        assert all(len(span["evidence"]) == 1 for span in recorded["spans"])
+
+
 def test_pr_stage_is_atomic_and_fail_closed() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -422,6 +503,7 @@ if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_environment_and_governance_overhead_reporting()
     test_prospective_init_and_atomic_phase_switch()
+    test_run_phase_closes_success_failure_timeout_and_launch_error()
     test_pr_stage_is_atomic_and_fail_closed()
     test_pair_baseline_reads_bound_assessments()
     test_audit_roots_reports_live_timing_blind_spots()
