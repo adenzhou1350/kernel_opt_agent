@@ -27,6 +27,7 @@ ALLOWED_TOP_LEVEL = {
     ".git",
     ".gitattributes",
     ".gitignore",
+    "pytest.ini",
     "AGENTS.md",
     "README.md",
     "REVIEW.md",
