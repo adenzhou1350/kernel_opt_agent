@@ -56,6 +56,13 @@ FlashInfer and temporary paths must stay inside the writable closure. Do not
 fall back to `/root`, `$HOME` or another image-owned filesystem, and do not
 repair a full image filesystem by deleting unrelated caches.
 
+Before a cache-bound model download, JIT compile or native build, bind every
+framework/compiler cache root explicitly and run `environment-cache-preflight`.
+Require the intended environment-variable mapping, a writable directory and a
+workload-sized free-space floor. A blocked preflight is an environment result,
+not a candidate failure; move to a reviewed cache root or stop the bounded
+repair instead of retrying against an implicit home-directory default.
+
 When a shared qualification resource broker is available, submit the sealed
 validation job and continue bounded discovery or review work instead of waiting
 on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker
