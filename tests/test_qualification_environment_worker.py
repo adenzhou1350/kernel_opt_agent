@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from qualification_environment_worker import (  # noqa: E402
     compiled_arches,
     cpu_only_cache_environment,
+    main,
     parse_final_json_object,
     validate,
     validate_cpu_only_process_transition,
@@ -161,6 +162,26 @@ def test_cpu_only_cache_environment_is_confined_to_closure() -> None:
     assert result["XDG_CACHE_HOME"] == f"{closure}/cache/xdg"
     assert result["TMPDIR"] == f"{closure}/tmp"
     assert all(value.startswith(f"{closure}/") for value in result.values())
+
+
+def test_cache_environment_cli_emits_machine_readable_contract(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    closure = "/workspace/kernel-opt/closures/run-v1"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["qualification_environment_worker.py", "--cache-environment", closure],
+    )
+
+    assert main() == 0
+    result = json.loads(capsys.readouterr().out)
+    assert result == {
+        "status": "PASS",
+        "closure_root": closure,
+        "environment": cpu_only_cache_environment(closure),
+        "gpu_authorized": False,
+    }
 
 
 @pytest.mark.parametrize(

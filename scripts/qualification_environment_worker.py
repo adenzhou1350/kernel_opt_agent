@@ -305,11 +305,35 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--collect", action="store_true")
     mode.add_argument("--attestation", type=Path)
+    mode.add_argument(
+        "--cache-environment",
+        metavar="CLOSURE_ROOT",
+        help="emit writable CPU-only cache paths confined to /workspace",
+    )
     parser.add_argument("--worker-id")
     parser.add_argument("--host-id")
     parser.add_argument("--storage-root", type=Path)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
+    if args.cache_environment is not None:
+        if any(
+            value is not None
+            for value in (args.worker_id, args.host_id, args.storage_root, args.output)
+        ):
+            parser.error("--cache-environment does not accept collection arguments")
+        print(
+            json.dumps(
+                {
+                    "status": "PASS",
+                    "closure_root": args.cache_environment,
+                    "environment": cpu_only_cache_environment(args.cache_environment),
+                    "gpu_authorized": False,
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0
     if args.collect:
         missing = [
             flag
