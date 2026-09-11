@@ -13,7 +13,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from qualification_environment_worker import compiled_arches, validate  # noqa: E402
+from qualification_environment_worker import (  # noqa: E402
+    compiled_arches,
+    validate,
+    validate_cpu_only_process_transition,
+)
 
 
 def attestation() -> dict:
@@ -99,6 +103,31 @@ def test_compiled_arches_falls_back_when_cuda_is_hidden() -> None:
         _C = FakeC()
 
     assert compiled_arches(FakeTorch()) == ["sm_100", "sm_120", "sm_90"]
+
+
+def test_cpu_only_transition_accepts_stable_post_attestation_processes() -> None:
+    before = ["GPU-a, 42, VLLM::Worker_PP0, 18454 MiB"]
+    after = ["GPU-a, 42, VLLM::Worker_PP0, 18512 MiB"]
+
+    result = validate_cpu_only_process_transition([], before, after)
+
+    assert result["attestation_snapshot_changed_before_execution"] is True
+    assert result["stable_process_identities"] == [["GPU-a", "42", "VLLM::Worker_PP0"]]
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        ([], ["GPU-a, 42, worker, 1 MiB"]),
+        (["GPU-a, 42, worker, 1 MiB"], []),
+        (["GPU-a, 42, worker, 1 MiB"], ["GPU-a, 43, worker, 1 MiB"]),
+    ],
+)
+def test_cpu_only_transition_rejects_process_identity_changes(
+    before: list[str], after: list[str]
+) -> None:
+    with pytest.raises(ValueError, match="GPU process identities changed"):
+        validate_cpu_only_process_transition([], before, after)
 
 
 @pytest.mark.parametrize(
