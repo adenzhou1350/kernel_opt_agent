@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "resource_broker_job.schema.json",
+  "title": "Non-launching shared qualification resource request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "job_id",
+    "origin",
+    "priority_score",
+    "dispatch_gate",
+    "resource",
+    "environment_request",
+    "budget",
+    "callback"
+  ],
+  "properties": {
+    "schema_version": {"const": "resource-broker-job-v1"},
+    "job_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thread_id", "lane_id", "repository", "candidate_id"],
+      "properties": {
+        "thread_id": {"type": "string", "minLength": 1},
+        "lane_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+        "repository": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$"},
+        "candidate_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "priority_score": {"type": "integer", "minimum": 0, "maximum": 1000},
+    "dispatch_gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "identity_sha256"],
+      "properties": {
+        "state": {"enum": ["READY", "BLOCKED"]},
+        "identity_sha256": {
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gpu_count",
+        "min_memory_gib",
+        "architectures",
+        "required_capabilities",
+        "exclusive_host"
+      ],
+      "properties": {
+        "gpu_count": {"type": "integer", "minimum": 1, "maximum": 64},
+        "min_memory_gib": {"type": "number", "exclusiveMinimum": 0},
+        "architectures": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "required_capabilities": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Z0-9_]+$"}
+        },
+        "exclusive_host": {"type": "boolean"}
+      }
+    },
+    "environment_request": {"type": "object"},
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_wall_seconds", "max_gpu_seconds"],
+      "properties": {
+        "max_wall_seconds": {"type": "integer", "minimum": 1},
+        "max_gpu_seconds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "callback": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["thread_id"],
+      "properties": {"thread_id": {"type": "string", "minLength": 1}}
+    }
+  }
+}
