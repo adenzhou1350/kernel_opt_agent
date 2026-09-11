@@ -26,6 +26,13 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+Before concluding that an upstream delivery inbox is empty, run
+`scripts/kernel_opt.py upstream-readiness-discover` over the configured
+execution-evidence roots. Treat every result as discovery-only until the
+control plane has reviewed value and overlap and registered a standard
+delivery record. A discovered readiness signal never authorizes a pull request
+or counts as an upstream result.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

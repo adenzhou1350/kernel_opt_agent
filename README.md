@@ -40,6 +40,20 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
+To discover explicit upstream-ready artifacts that have not yet reached a
+control-plane inbox, run:
+
+```bash
+python3 scripts/kernel_opt.py upstream-readiness-discover /path/to/execution-evidence \
+  --manifest delivery-inbox.json
+```
+
+The radar performs a bounded scan, accepts only explicit
+`READY_TO_CREATE_*_PENDING_ACTION_CONFIRMATION` signals with repository,
+branch, and commit identities, and hash-binds the newest artifact per
+candidate. Its result is discovery-only: the control plane must still review
+value and overlap, register the candidate, and authorize any external action.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
