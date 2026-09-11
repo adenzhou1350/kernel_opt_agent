@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from qualification_environment_worker import (  # noqa: E402
     compiled_arches,
     cpu_only_cache_environment,
+    parse_final_json_object,
     validate,
     validate_cpu_only_process_transition,
 )
@@ -104,6 +105,25 @@ def test_compiled_arches_falls_back_when_cuda_is_hidden() -> None:
         _C = FakeC()
 
     assert compiled_arches(FakeTorch()) == ["sm_100", "sm_120", "sm_90"]
+
+
+def test_final_json_probe_allows_framework_logs_before_object() -> None:
+    stdout = '[INFO] DeepSpeed accelerator initialized\n{"cuda": false}\n'
+
+    assert parse_final_json_object(stdout) == {"cuda": False}
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        "",
+        '{"cuda": false}\ntrailing diagnostic\n',
+        "[1, 2, 3]\n",
+    ],
+)
+def test_final_json_probe_rejects_missing_or_ambiguous_result(stdout: str) -> None:
+    with pytest.raises(ValueError):
+        parse_final_json_object(stdout)
 
 
 def test_cpu_only_transition_accepts_stable_post_attestation_processes() -> None:
