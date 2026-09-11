@@ -32,6 +32,13 @@ marks compatible: dependency/toolchain state, source binding and a source-bound
 native extension are separate identities. A reuse decision is advisory and
 never authorizes a build, test, GPU run or result claim.
 
+On a CPU-only preprovisioned worker, `CUDA_VISIBLE_DEVICES=-1` can make
+`torch.cuda.get_arch_list()` return an empty list even when the installed Torch
+binary contains the required architecture. Reuse the worker attestation logic:
+fall back to `torch._C._cuda_getArchFlags()` and hash-bind the Torch binary and
+build configuration. Do not relax or skip the architecture check, and do not
+make CUDA visible merely to query compiled targets.
+
 When a shared qualification resource broker is available, submit the sealed
 validation job and continue bounded discovery or review work instead of waiting
 on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker

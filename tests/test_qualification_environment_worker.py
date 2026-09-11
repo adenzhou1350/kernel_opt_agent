@@ -13,7 +13,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from qualification_environment_worker import validate  # noqa: E402
+from qualification_environment_worker import compiled_arches, validate  # noqa: E402
 
 
 def attestation() -> dict:
@@ -81,6 +81,24 @@ def test_valid_attestation_allows_premounted_devices_but_no_visible_cuda(
     path = tmp_path / "worker.json"
     write(path, attestation())
     validate(path)
+
+
+def test_compiled_arches_falls_back_when_cuda_is_hidden() -> None:
+    class FakeCuda:
+        @staticmethod
+        def get_arch_list() -> list[str]:
+            return []
+
+    class FakeC:
+        @staticmethod
+        def _cuda_getArchFlags() -> str:
+            return "sm_90 sm_120 sm_100"
+
+    class FakeTorch:
+        cuda = FakeCuda()
+        _C = FakeC()
+
+    assert compiled_arches(FakeTorch()) == ["sm_100", "sm_120", "sm_90"]
 
 
 @pytest.mark.parametrize(

@@ -241,6 +241,12 @@ digest. Reuse fails closed on worker or runtime drift. Pre-mounted device nodes
 are recorded honestly while Torch must see no CUDA device during collection;
 the receipt is not a lease or workload authorization.
 
+CPU isolation may intentionally make `torch.cuda.get_arch_list()` empty. The
+worker attestation therefore falls back to the non-device-initializing
+`torch._C._cuda_getArchFlags()` metadata while still binding the Torch module,
+build configuration and native libraries. Materializers should consume that
+attested value rather than exposing a GPU to rediscover compiled targets.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
