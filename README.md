@@ -268,6 +268,10 @@ worker attestation therefore falls back to the non-device-initializing
 `torch._C._cuda_getArchFlags()` metadata while still binding the Torch module,
 build configuration and native libraries. Materializers should consume that
 attested value rather than exposing a GPU to rediscover compiled targets.
+The same attestation records `nvcc`, C/C++ compilers, Ninja, Git, CMake and
+Make as exact resolved path/version/SHA identities (or explicit nulls). Plans
+that need a source fetch or native build can therefore reject an incompatible
+worker before consuming a long materialization budget.
 
 The recorded GPU process list is a historical observation. A shared service
 may be running when a later CPU-only preparation starts. Capture live process

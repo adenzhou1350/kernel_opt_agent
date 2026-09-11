@@ -35,6 +35,15 @@ CACHE_ENVIRONMENT_KEYS = (
     "FLASHINFER_WORKSPACE_BASE",
     "TMPDIR",
 )
+DEFAULT_TOOLCHAIN_NAMES = (
+    "nvcc",
+    "gcc",
+    "g++",
+    "ninja",
+    "git",
+    "cmake",
+    "make",
+)
 
 
 def repository_root() -> Path:
@@ -280,7 +289,7 @@ def collect(worker_id: str, host_id: str, storage_root: Path) -> dict:
                 ],
             },
             "toolchain": {
-                name: tool_identity(name) for name in ("nvcc", "gcc", "g++", "ninja")
+                name: tool_identity(name) for name in DEFAULT_TOOLCHAIN_NAMES
             },
         },
         "isolation": {

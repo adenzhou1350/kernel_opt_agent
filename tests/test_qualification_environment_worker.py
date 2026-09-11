@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -14,13 +15,17 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from qualification_environment_worker import (  # noqa: E402
+    DEFAULT_TOOLCHAIN_NAMES,
     compiled_arches,
     cpu_only_cache_environment,
     main,
     parse_final_json_object,
+    tool_identity,
     validate,
     validate_cpu_only_process_transition,
 )
+
+import qualification_environment_worker as worker_module  # noqa: E402
 
 
 def attestation() -> dict:
@@ -106,6 +111,33 @@ def test_compiled_arches_falls_back_when_cuda_is_hidden() -> None:
         _C = FakeC()
 
     assert compiled_arches(FakeTorch()) == ["sm_100", "sm_120", "sm_90"]
+
+
+def test_default_toolchain_covers_late_worker_build_failures() -> None:
+    assert {"git", "cmake", "make"} <= set(DEFAULT_TOOLCHAIN_NAMES)
+
+
+def test_tool_identity_binds_resolved_bytes_and_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    executable = tmp_path / "cmake"
+    executable.write_bytes(b"synthetic executable\n")
+    monkeypatch.setattr(worker_module.shutil, "which", lambda name: str(executable))
+    monkeypatch.setattr(
+        worker_module,
+        "run",
+        lambda argv: subprocess.CompletedProcess(
+            argv, 0, stdout="cmake version 4.1.0\n", stderr=""
+        ),
+    )
+
+    identity = tool_identity("cmake")
+
+    assert identity == {
+        "path": executable.resolve().as_posix(),
+        "sha256": worker_module.sha256_file(executable),
+        "version": "cmake version 4.1.0",
+    }
 
 
 def test_final_json_probe_allows_framework_logs_before_object() -> None:
