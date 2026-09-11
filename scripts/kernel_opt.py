@@ -62,6 +62,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_environment.py",
             "reuse a compatible materialized qualification environment",
         ),
+        "qualification-environment-authorize": Command(
+            "qualification_environment_materialization.py",
+            "approve CPU-only qualification-environment materialization",
+        ),
         "resource-broker": Command(
             "resource_broker.py",
             "queue jobs and reserve compatible multi-GPU worker resources",

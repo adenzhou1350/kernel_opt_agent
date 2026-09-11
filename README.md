@@ -592,6 +592,28 @@ hit. The result is advisory reuse routing only: it never authorizes a build,
 test, GPU run, correctness claim or performance claim. Templates are available
 with `--print-closure-template` and `--print-request-template`.
 
+When a new closure really must be built, the controller can issue a separate,
+short-lived CPU-only materialization approval after reviewing the exact plan,
+environment request and still-blocked broker job:
+
+```bash
+python3 scripts/kernel_opt.py qualification-environment-authorize --issue \
+  --artifact-root /path/to/run \
+  --plan /path/to/run/experiments/materialization-plan.json \
+  --request /path/to/run/experiments/environment-request.json \
+  --job /path/to/run/experiments/resource-job.json \
+  --supervisor-id controller --approval-id closure-prep-v1 \
+  --ttl-seconds 7200 --max-wall-seconds 3600 \
+  --output /path/to/run/experiments/materialization-approval.json
+```
+
+The approval is deliberately narrower than a broker gate: all preparation
+steps must declare `gpu=false`, the job must remain blocked, and the approval
+forbids GPU devices, workloads, service mutation and every broker transition.
+It may permit network access only for dependency materialization. Revalidate
+the approval immediately before preparation; it never authorizes the later
+GPU test or turns the prepared closure into correctness evidence.
+
 For several autonomous lanes sharing multiple GPU machines, queue validation
 work independently from the task that discovered it:
 
