@@ -44,6 +44,11 @@ python3 scripts/kernel_opt.py community-timing start-phase \
 python3 scripts/kernel_opt.py community-timing end-phase \
   --ledger work-cycle.json --span-id research-1 \
   --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing run-phase \
+  --ledger work-cycle.json --span-id env-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU --timeout-seconds 600 \
+  --receipt environment-command-receipt.json -- \
+  python3 -m pip check
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 ```
@@ -53,9 +58,14 @@ bottleneck diagnosis, implementation, compile/measurement, correctness,
 performance, whole-model validation, upstream packaging, environment setup,
 governance validation and external wait. Use `ENVIRONMENT_SETUP` only for
 dependency/toolchain/runtime repair, and `GOVERNANCE_VALIDATION` only for
-contracts, authorization, evidence closure and policy checks. The summary
-reports their seconds and their share of attributed active work. If neither
-phase was recorded, that ratio is `null` with
+contracts, authorization, evidence closure and policy checks. The `run-phase`
+form is preferred for bounded commands: it opens the span, runs the
+exact argv without a shell, writes an immutable command receipt and closes the
+span as `COMPLETE` or `INTERRUPTED` on success, non-zero exit, launch failure or
+timeout. Its receipt proves command wall time and exit status only; it never
+turns a passing command into correctness or performance evidence.
+The summary reports their seconds and their share of attributed active work. If
+neither phase was recorded, that ratio is `null` with
 `NOT_SEPARATELY_RECORDED` rather than a misleading zero. Do not retroactively
 reclassify legacy spans.
 Hash-bound milestones report time to the first candidate, correct result,

@@ -5,6 +5,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import subprocess
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from statistics import median
@@ -490,6 +492,100 @@ def record_outcome(args: argparse.Namespace) -> dict:
     return ledger
 
 
+def run_phase_command(args: argparse.Namespace) -> tuple[dict, int]:
+    """Run one command inside a phase and close the span on every bounded outcome."""
+
+    command = list(args.command)
+    if command and command[0] == "--":
+        command = command[1:]
+    if not command:
+        raise ValueError("run-phase requires a command after --")
+    if args.timeout_seconds is not None and args.timeout_seconds <= 0:
+        raise ValueError("timeout-seconds must be positive")
+    receipt_path = args.receipt.resolve()
+    if receipt_path.exists():
+        raise FileExistsError(receipt_path)
+    cwd = args.cwd.resolve()
+    if not cwd.is_dir():
+        raise NotADirectoryError(cwd)
+
+    ledger = validate_ledger(args.ledger)
+    started_at = timestamp(None)
+    start_phase(
+        argparse.Namespace(
+            ledger=args.ledger,
+            span_id=args.span_id,
+            phase=args.phase,
+            actor=args.actor,
+            resource_id=args.resource_id,
+            at=started_at,
+        )
+    )
+    monotonic_started = time.monotonic()
+    exit_code: int | None = None
+    error: str | None = None
+    outcome = "PASS"
+    try:
+        process = subprocess.run(
+            command,
+            cwd=cwd,
+            timeout=args.timeout_seconds,
+            check=False,
+        )
+        exit_code = process.returncode
+        if exit_code != 0:
+            outcome = "COMMAND_FAILED"
+    except subprocess.TimeoutExpired:
+        outcome = "TIMED_OUT"
+        exit_code = 124
+        error = f"command exceeded {args.timeout_seconds} seconds"
+    except OSError as launch_error:
+        outcome = "LAUNCH_FAILED"
+        exit_code = 127
+        error = f"{type(launch_error).__name__}: {launch_error}"
+    ended_at = timestamp(None)
+    span_status = "COMPLETE" if outcome == "PASS" else "INTERRUPTED"
+    receipt = {
+        "schema_version": "community-phase-command-receipt-v1",
+        "claim_boundary": "COMMAND_WALL_TIME_AND_EXIT_STATUS_NOT_RESULT_CORRECTNESS",
+        "cycle_id": ledger["cycle_id"],
+        "task_id": ledger["task_id"],
+        "span_id": args.span_id,
+        "phase": args.phase,
+        "actor": args.actor,
+        "resource_id": args.resource_id,
+        "started_at": started_at,
+        "ended_at": ended_at,
+        "duration_seconds": max(0.0, time.monotonic() - monotonic_started),
+        "working_directory": cwd.as_posix(),
+        "command": command,
+        "timeout_seconds": args.timeout_seconds,
+        "outcome": {
+            "status": outcome,
+            "exit_code": exit_code,
+            "span_status": span_status,
+            "error": error,
+        },
+    }
+    errors = validate_instance(
+        receipt,
+        read_object(root() / "schemas/community_phase_command_receipt.schema.json"),
+    )
+    if errors:
+        raise ValueError("invalid phase command receipt: " + "; ".join(errors))
+    atomic_json(receipt_path, receipt)
+    end_phase(
+        argparse.Namespace(
+            ledger=args.ledger,
+            span_id=args.span_id,
+            at=ended_at,
+            status=span_status,
+            evidence=[receipt_path],
+        )
+    )
+    return receipt, int(exit_code)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="operation", required=True)
@@ -521,6 +617,18 @@ def parse_args() -> argparse.Namespace:
     )
     end.add_argument("--at")
     end.add_argument("--evidence", type=Path, action="append", required=True)
+    run = commands.add_parser("run-phase")
+    run.add_argument("--ledger", type=Path, required=True)
+    run.add_argument("--span-id", required=True)
+    run.add_argument("--phase", choices=PHASES, required=True)
+    run.add_argument(
+        "--actor", choices=("AGENT", "CPU", "GPU", "EXTERNAL"), required=True
+    )
+    run.add_argument("--resource-id")
+    run.add_argument("--cwd", type=Path, default=Path.cwd())
+    run.add_argument("--timeout-seconds", type=float)
+    run.add_argument("--receipt", type=Path, required=True)
+    run.add_argument("command", nargs=argparse.REMAINDER)
     milestone = commands.add_parser("mark")
     milestone.add_argument("--ledger", type=Path, required=True)
     milestone.add_argument("--kind", choices=MILESTONES, required=True)
@@ -555,12 +663,15 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    exit_code = 0
     if args.operation == "init":
         result = init_ledger(args)
     elif args.operation == "start-phase":
         result = start_phase(args)
     elif args.operation == "end-phase":
         result = end_phase(args)
+    elif args.operation == "run-phase":
+        result, exit_code = run_phase_command(args)
     elif args.operation == "mark":
         result = mark(args)
     elif args.operation == "record-pr-stage":
@@ -577,7 +688,7 @@ def main() -> int:
         result = pair_baseline(args.pair)
         atomic_json(args.output.resolve(), result)
     print(json.dumps(result, indent=2, sort_keys=True))
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":
