@@ -443,6 +443,20 @@ selected process model and bind the plan in its reachability evidence. Use
 repeat `--persistent-session-spec` once per planned session when persistence
 was selected.
 
+To discover explicit upstream-ready artifacts that have not yet reached a
+control-plane inbox, run:
+
+```bash
+python3 scripts/kernel_opt.py upstream-readiness-discover /path/to/execution-evidence \
+  --manifest delivery-inbox.json
+```
+
+The radar performs a bounded scan, accepts only explicit
+`READY_TO_CREATE_*_PENDING_ACTION_CONFIRMATION` signals with repository,
+branch, and commit identities, and hash-binds the newest artifact per
+candidate. Its result is discovery-only: the control plane must still review
+value and overlap, register the candidate, and authorize any external action.
+
 Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those

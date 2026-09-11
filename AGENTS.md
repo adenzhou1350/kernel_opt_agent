@@ -292,6 +292,12 @@ Use community knowledge only after this local analysis.  A community method may
 change implementation details or add a guarded alternative, but it may not
 replace the local derivation or route a candidate solely through shared words
 such as "fusion", "launch" or "normalization".
+Before concluding that an upstream delivery inbox is empty, run
+`scripts/kernel_opt.py upstream-readiness-discover` over the configured
+execution-evidence roots. Treat every result as discovery-only until the
+control plane has reviewed value and overlap and registered a standard
+delivery record. A discovered readiness signal never authorizes a pull request
+or counts as an upstream result.
 
 ## Optimization invariants
 

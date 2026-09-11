@@ -192,6 +192,12 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "route stale, failed and completed Draft qualification",
         ),
     },
+    "upstream delivery": {
+        "upstream-readiness-discover": Command(
+            "upstream_readiness_discovery.py",
+            "find explicit delivery-ready artifacts missing from a control inbox",
+        ),
+    },
 }
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
 
