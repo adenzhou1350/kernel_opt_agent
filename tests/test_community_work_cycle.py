@@ -15,9 +15,12 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from artifact_io import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
+    end_phase,
+    init_ledger,
     pair_baseline,
     record_pr_stage,
     summarize,
+    switch_phase,
     validate_ledger,
     write_ledger,
 )
@@ -188,6 +191,61 @@ def test_environment_and_governance_overhead_reporting() -> None:
         assert report["ratios"]["environment_governance_share_of_accounted"] == 0.75
 
 
+def test_prospective_init_and_atomic_phase_switch() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "evidence.json"
+        evidence.write_text('{"ok": true}\n', encoding="utf-8")
+        cycle = base / "cycle.json"
+        created = init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="cycle-atomic-start",
+                task_id="task-1",
+                started_at="2026-09-07T04:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                initial_phase=None,
+                initial_span_id="diagnose",
+                initial_actor="AGENT",
+                initial_resource_id=None,
+            )
+        )
+        assert created["spans"][0]["phase"] == "BOTTLENECK_DIAGNOSIS"
+        assert created["spans"][0]["status"] == "ACTIVE"
+
+        switched = switch_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="environment",
+                phase="ENVIRONMENT_SETUP",
+                actor="CPU",
+                resource_id="worker-1",
+                status="COMPLETE",
+                at="2026-09-07T04:01:00Z",
+                evidence=[evidence],
+            )
+        )
+        assert switched["spans"][0]["ended_at"] == switched["spans"][1]["started_at"]
+        assert switched["spans"][1]["status"] == "ACTIVE"
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="environment",
+                status="COMPLETE",
+                at="2026-09-07T04:03:00Z",
+                evidence=[evidence],
+            )
+        )
+        report = summarize(cycle)
+        assert report["wall_clock"]["unaccounted_seconds"] == 0
+        assert report["buckets"]["environment_seconds"] == 120
+        assert (
+            report["phase_coverage"]["environment_governance_measurement_status"]
+            == "MEASURED"
+        )
+
+
 def test_pr_stage_is_atomic_and_fail_closed() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -291,5 +349,6 @@ def test_pair_baseline_reads_bound_assessments() -> None:
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_environment_and_governance_overhead_reporting()
+    test_prospective_init_and_atomic_phase_switch()
     test_pr_stage_is_atomic_and_fail_closed()
     test_pair_baseline_reads_bound_assessments()

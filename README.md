@@ -10,18 +10,24 @@ Record the complete delivery cycle separately from performance metrics:
 python3 scripts/kernel_opt.py community-timing init \
   --cycle-id <cycle-id> --task-id <task-id> \
   --minimum-material-speedup 1.02 --output work-cycle.json
-python3 scripts/kernel_opt.py community-timing start-phase \
-  --ledger work-cycle.json --span-id research-1 \
-  --phase COMMUNITY_RESEARCH --actor AGENT
+python3 scripts/kernel_opt.py community-timing switch-phase \
+  --ledger work-cycle.json --span-id environment-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU \
+  --evidence discovery-receipt.json
 python3 scripts/kernel_opt.py community-timing end-phase \
-  --ledger work-cycle.json --span-id research-1 \
+  --ledger work-cycle.json --span-id environment-1 \
   --evidence discovery-receipt.json
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 ```
 
 Start a `PROSPECTIVE_EXACT` ledger when a framework candidate is selected,
-before editing production source, and bind the selection receipt immediately:
+before editing production source. `init` atomically opens an active
+`BOTTLENECK_DIAGNOSIS` span by default, so timing cannot silently start after
+the work. Override it with `--initial-phase` when the first activity is already
+known. Use `switch-phase` to close the current span and open its successor at
+one timestamp; this avoids gaps between separate end/start commands. Bind the
+selection receipt immediately:
 
 ```bash
 python3 scripts/kernel_opt.py community-timing mark \

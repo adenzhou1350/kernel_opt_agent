@@ -28,7 +28,11 @@ mutation requires new authority.
 
 For every selected framework candidate, start a `PROSPECTIVE_EXACT` community
 timing ledger and record `FIRST_CANDIDATE_PROPOSED` before the first production
-source edit. Bind the selection decision as milestone evidence. When GitHub
+source edit. The init command opens the first phase atomically; use
+`switch-phase` whenever work changes between diagnosis, implementation,
+environment repair, governance, validation and packaging so the efficiency
+metrics do not become an unclassified prospective ledger. Bind the selection
+decision as milestone evidence. When GitHub
 opens the Draft, marks it Ready or merges it, use `community-timing
 record-pr-stage` with the observed event time, PR URL and an immutable event
 receipt. Never reconstruct these timestamps later from memory or filesystem
