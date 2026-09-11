@@ -58,6 +58,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_route.py",
             "separate candidate failures from bounded environment repair",
         ),
+        "qualification-environment": Command(
+            "qualification_environment.py",
+            "reuse a compatible materialized qualification environment",
+        ),
     },
     "hardware": {
         "hardware-discover": Command("discover_hardware.py", "query the target device and software stack"),

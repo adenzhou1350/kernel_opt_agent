@@ -555,6 +555,24 @@ build to be authorized or for a pinned prebuilt closure. Tests that ran against
 an unverified imported source are invalid evidence, not a pass or candidate
 failure.
 
+Before rebuilding an environment after that routing decision, compare the
+requested workflow with an already materialized closure:
+
+```bash
+python3 scripts/kernel_opt.py qualification-environment \
+  --closure cached-environment.json \
+  --request candidate-environment-request.json \
+  --output environment-reuse.json
+```
+
+The comparison separates reusable dependency/toolchain state from a source-
+bound native extension and the actual imported module. It permits a cheap
+source rebind or bounded extension rebuild without treating an image, ISA,
+workflow, test-contract, dependency-lock or GPU-visibility mismatch as a cache
+hit. The result is advisory reuse routing only: it never authorizes a build,
+test, GPU run, correctness claim or performance claim. Templates are available
+with `--print-closure-template` and `--print-request-template`.
+
 An accepted optimization is not automatically an upstream-ready change. Build
 the review package from a clean candidate commit and hash-bound evidence. Set
 `submission_mode` to `DRAFT_REVIEW` when the immediate objective is early

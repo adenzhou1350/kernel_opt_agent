@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_closure.schema.json",
+  "title": "Reusable qualification environment closure",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "closure_id",
+    "materialized",
+    "platform",
+    "execution",
+    "source_binding"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-closure-v1"},
+    "closure_id": {"type": "string", "minLength": 1},
+    "materialized": {"type": "boolean"},
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "available_cpu_features", "gpu_visible"],
+      "properties": {
+        "os": {"enum": ["linux", "windows", "macos"]},
+        "architecture": {"type": "string", "minLength": 1},
+        "available_cpu_features": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "gpu_visible": {"type": "boolean"}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_sha256",
+        "test_contract_sha256",
+        "image_digest",
+        "dependency_lock_sha256",
+        "toolchain_lock_sha256",
+        "native_extension"
+      ],
+      "properties": {
+        "workflow_sha256": {"$ref": "#/$defs/sha256"},
+        "test_contract_sha256": {"$ref": "#/$defs/sha256"},
+        "image_digest": {
+          "type": ["string", "null"],
+          "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "dependency_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "toolchain_lock_sha256": {"$ref": "#/$defs/sha256"},
+        "native_extension": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["required", "artifact_sha256", "source_tree_sha"],
+          "properties": {
+            "required": {"type": "boolean"},
+            "artifact_sha256": {
+              "type": ["string", "null"],
+              "pattern": "^[0-9a-f]{64}$"
+            },
+            "source_tree_sha": {"$ref": "#/$defs/git_sha_or_null"}
+          }
+        }
+      }
+    },
+    "source_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tree_sha", "module_sha256"],
+      "properties": {
+        "tree_sha": {"$ref": "#/$defs/git_sha"},
+        "module_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "git_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "git_sha_or_null": {
+      "type": ["string", "null"],
+      "pattern": "^[0-9a-f]{40,64}$"
+    }
+  }
+}
