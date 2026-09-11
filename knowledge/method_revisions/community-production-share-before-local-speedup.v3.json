@@ -1,0 +1,192 @@
+{
+  "schema_version": "optimization-method-v1",
+  "method_id": "community-production-share-before-local-speedup",
+  "revision": 3,
+  "supersedes": {
+    "revision": 2,
+    "path": "knowledge/method_revisions/community-production-share-before-local-speedup.v2.json",
+    "sha256": "6c641d5905989fc28950e827d12cd2f55162dab1fcf79cb5eeb5503e31dc5924"
+  },
+  "title": "Prove the realized production baseline before optimizing or materializing a local alternative",
+  "kind": "EVALUATION_GUARD",
+  "source": {
+    "title": "Qwen3-Omni TP4 SM120 tuned Triton versus production-selected FlashInfer reproduction",
+    "url": "https://github.com/vllm-project/vllm/commit/dc07f1638f73814b95776832b85df1cc92850416",
+    "version": "backend-cycle-v6-outcome-72daaacd6718",
+    "available_at": "2026-09-12T03:43:42+08:00",
+    "evidence_tier": "INTERNAL_REPRODUCTION",
+    "claim_scope": "On one RTX 5090 and the frozen unquantized Qwen3-Omni TP4 MoE shape portfolio, targeted Triton reached only 0.66736x geomean of the production-selected FlashInfer CUTLASS control; this rejects that routing/config candidate and is not portable performance evidence."
+  },
+  "community_provenance": {
+    "source_event_ids": [
+      "vllm.pr-55469.vectorized-causal-conv-metadata",
+      "sglang.pr-37926.blackwell-unified-memory-decode-gap"
+    ],
+    "experiment_refs": [
+      {
+        "suite_id": "vllm-qwen3-omni-sm120-backend-cycle-v6",
+        "task_id": "qwen3-omni-tp4-triton-vs-production-flashinfer",
+        "repeat_index": 1,
+        "arm": "CONTROL",
+        "available_at": "2026-09-12T03:43:42+08:00",
+        "artifact_sha256": "72daaacd67188e1c8c3ab5643d15bab4de00e16748edc9babb72291c88ff6ce5",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      },
+      {
+        "suite_id": "vllm-qwen3-omni-sm120-backend-cycle-v6",
+        "task_id": "qwen3-omni-tp4-triton-vs-production-flashinfer",
+        "repeat_index": 1,
+        "arm": "COMMUNITY_AUGMENTED",
+        "available_at": "2026-09-12T03:43:42+08:00",
+        "artifact_sha256": "72daaacd67188e1c8c3ab5643d15bab4de00e16748edc9babb72291c88ff6ce5",
+        "claim_boundary": "SEALED_SINGLE_TASK_EXPERIMENT"
+      }
+    ],
+    "derivation": "CURATED_TRANSFER_PRIMITIVE",
+    "entity_boundary": "DO_NOT_TREAT_AS_TARGET_PERFORMANCE_EVIDENCE"
+  },
+  "opportunity_families": [
+    "production-impact-gating",
+    "amdahl-screening",
+    "branch-reachability",
+    "backend-realization",
+    "staged-ablation",
+    "end-to-end-attribution"
+  ],
+  "applicability": {
+    "vendors": [
+      "any"
+    ],
+    "architecture_affinity": [],
+    "required_capabilities": [],
+    "dtypes": [],
+    "problem_signatures": [
+      "microbenchmark speedup",
+      "alternative backend",
+      "backend routing",
+      "model materialization",
+      "host helper",
+      "launch overhead",
+      "fast path",
+      "small latency share",
+      "end-to-end regression",
+      "Amdahl ceiling",
+      "candidate prioritization",
+      "staged ablation"
+    ]
+  },
+  "implementation_recipe": [
+    "Resolve and record the backend, implementation and fallback that the frozen production workload actually selects before choosing a control or downloading workload assets.",
+    "Compare a proposed alternative first against that realized production control, not only against the nearest generic implementation that the candidate improves.",
+    "Trace the exact production branch and count how often the proposed helper or fused path is reached under the frozen workload.",
+    "Measure target component self-time, CPU dispatch time, GPU active time and end-to-end time before implementing.",
+    "Compute an optimistic removable-work or Amdahl ceiling and compare it with the frozen materiality floor.",
+    "When several changes form a path, stage them independently and preserve zero-effect ablations instead of crediting the whole patch uniformly.",
+    "Use an interleaved stable control in the same session and treat effects inside measured run-order drift as no measurable gain.",
+    "Cancel model downloads, builds and whole-workload qualification when a cheap realized-backend comparison already makes the candidate unable to pass the frozen gate."
+  ],
+  "validation_recipe": [
+    "Assert the realized backend and implementation identity for every arm before timing; configuration presence alone is not realization evidence.",
+    "Run an anchor-and-edge shape portfolio against the production-selected control before materializing large model assets.",
+    "Instrument eligible, ineligible and fallback branches and verify the measured workload actually executes the changed path.",
+    "Record launch count, component self-time, GPU active time, end-to-end latency and output identity in the same interleaved run.",
+    "Report each commit-stage delta and the deletion upper bound rather than only final-patch versus baseline.",
+    "Match capacity, concurrency, cache state and request shape before comparing alternative pools or backends.",
+    "Reject attribution when the control drifts by an amount comparable to the claimed change."
+  ],
+  "expected_bottleneck_shifts": [
+    "A production-selected vendor or framework backend may dominate a locally tuned alternative even when that alternative beats its generic baseline.",
+    "An immaterial local helper should redirect search toward a larger adjacent path or orchestration boundary.",
+    "Making a previously unreachable fused path active can expose address ownership, padding and state-lifetime contracts.",
+    "After host launch chains are removed, GPU work, scheduler overhead or another stage may become dominant."
+  ],
+  "failure_modes": [
+    "A tuned alternative is compared only with its untuned sibling while the production workload selects a faster third backend.",
+    "Large model weights are downloaded before a cheap realized-backend portfolio can disprove the routing opportunity.",
+    "A configuration file or environment flag is mistaken for proof that the target implementation executed.",
+    "A fast microbenchmark is measured on a branch the production workload never reaches.",
+    "A multi-commit patch credits every local change even when staged ablation shows one has zero pooled effect.",
+    "Inclusive profiler time or launch count is mistaken for removable critical-path time.",
+    "Control and treatment run in separate drifting sessions or use different capacity/concurrency settings.",
+    "A source-reported relative gap without absolute samples is converted into a fabricated speedup ratio.",
+    "A microsecond-scale change is credited for a larger end-to-end fluctuation than its optimistic bound permits."
+  ],
+  "scope_limits": [
+    "The Qwen3-Omni result applies only to its frozen SM120, TP4, dtype, shape and backend identities; architecture, quantization or workload changes require a new control.",
+    "A zero-effect stage in one workload does not prove the helper is universally immaterial.",
+    "Architecture, backend and execution-mode changes require a new production-share and reachability trace.",
+    "Community staged results route hypotheses but cannot replace target-hardware reproduction."
+  ],
+  "algorithmic_decomposition": {
+    "baseline_dependency": "End-to-end value is relative to the implementation production actually selects, and a proposed local change contributes only on branches reached by the frozen workload.",
+    "partition_axis": "realized production backend versus proposed alternative, then reachable component critical-path time versus unaffected end-to-end latency",
+    "local_state": [
+      "realized backend and fallback identity",
+      "branch execution count",
+      "baseline end-to-end and component times",
+      "CPU launch and GPU active intervals",
+      "per-stage treatment deltas",
+      "materialization cost",
+      "materiality floor and control drift"
+    ],
+    "combine_rule": "First compare the alternative with the realized production backend; only surviving alternatives may combine reachable stage bounds with unchanged residual latency.",
+    "finalization": "Admit implementation, asset materialization or further qualification only when the alternative beats the realized control and its optimistic global interval clears materiality after drift and capacity controls.",
+    "work_complexity": "One backend-realization probe and anchor/edge comparison, followed only for survivors by branch trace and representative attribution.",
+    "span_complexity": "The gate precedes large downloads, expensive builds and whole-workload qualification and closes dominated or unreachable candidates early.",
+    "communication_cost": "Adds temporary realization assertions and staged measurements but no permanent production data movement.",
+    "invariants": [
+      "the control is the backend selected by the frozen production path",
+      "backend identity is observed rather than inferred from configuration",
+      "branch counts correspond to the frozen production workload",
+      "component critical-path time does not exceed end-to-end time",
+      "each staged attribution uses the same control and capacity contract",
+      "claimed global gain does not exceed reachable removable work",
+      "effects inside control drift remain inconclusive"
+    ],
+    "anti_patterns": [
+      "compare only against the candidate's generic sibling",
+      "download model assets before resolving the production backend",
+      "infer realization from a config file",
+      "rank by local speedup or launch count alone",
+      "measure an unreachable fast path",
+      "credit a final bundle without staged ablation",
+      "compare different sessions, capacities or execution modes",
+      "keep optimizing below the materiality floor"
+    ]
+  },
+  "candidate_archetypes": [
+    {
+      "family": "realized-production-baseline-gate",
+      "name": "production-selected backend comparison before materialization",
+      "change_axes": [
+        "backend realization",
+        "control selection",
+        "asset materialization",
+        "early rejection"
+      ],
+      "template": "Assert the production-selected backend, compare the proposed alternative on anchor and edge shapes, and cancel large asset materialization when the alternative is already dominated."
+    },
+    {
+      "family": "production-impact-gate",
+      "name": "reachable production attribution before implementation",
+      "change_axes": [
+        "branch reachability",
+        "critical-path share",
+        "search ordering",
+        "global gain ceiling"
+      ],
+      "template": "Trace the changed branch, measure its production share, derive the optimistic global ceiling, and admit implementation only if it clears materiality."
+    },
+    {
+      "family": "staged-ablation-gate",
+      "name": "same-session component attribution",
+      "change_axes": [
+        "patch stage",
+        "stable control",
+        "capacity contract",
+        "drift interval"
+      ],
+      "template": "Apply one coherent patch stage at a time against an interleaved stable control, retaining zero-effect results and assigning gain only where observed bounds permit."
+    }
+  ]
+}

@@ -82,6 +82,7 @@ def main() -> None:
     assert [card.get("revision", 1) for card in production_share_revisions] == [
         1,
         2,
+        3,
     ]
     cutoff_snapshot = build_snapshot("2026-08-31T23:59:59Z", ROOT)
     assert "cuda-hierarchical-scan-decomposition" in cutoff_snapshot["included_method_ids"]
@@ -200,6 +201,23 @@ def main() -> None:
     assert (
         "sglang.pr-37926.blackwell-unified-memory-decode-gap"
         in revised_production_share["community_provenance"]["source_event_ids"]
+    )
+    after_realized_backend_counterexample = build_snapshot(
+        "2026-09-12T03:45:00+08:00", ROOT
+    )
+    backend_guard = next(
+        card
+        for card in after_realized_backend_counterexample["cards"]
+        if card["method_id"] == "community-production-share-before-local-speedup"
+    )
+    assert backend_guard["revision"] == 3
+    assert "backend-realization" in backend_guard["opportunity_families"]
+    assert {
+        ref["arm"] for ref in backend_guard["community_provenance"]["experiment_refs"]
+    } == {"CONTROL", "COMMUNITY_AUGMENTED"}
+    assert any(
+        archetype["family"] == "realized-production-baseline-gate"
+        for archetype in backend_guard["candidate_archetypes"]
     )
     after_rtx5090_counterexample = build_snapshot("2026-09-08T19:25:00Z", ROOT)
     revised_claim_narrowing = next(
