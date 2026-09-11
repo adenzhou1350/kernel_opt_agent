@@ -142,6 +142,14 @@ but whose PR is absent becomes an explicit
 Repository-maintenance candidates use a separate manifest so they cannot
 inflate framework delivery metrics.
 
+Use `upstream-delivery-inbox-v2` once a queue contains open Ready PRs. Each
+Ready entry must additionally hash-bind an `upstream-review-handoff-v1`
+record observed at the same instant as the inbox. The resulting v2 queue
+promotes missing reviewers, one due targeted follow-up, one due review-channel
+escalation, or author feedback above an otherwise generic reviewer wait. It
+retains the underlying review-state action and never authorizes an automatic
+message. Version 1 remains accepted unchanged for historical replay.
+
 Reviewer state records code-owner requests separately from
 `early_review_handles`. This preserves the difference between reviewers that
 GitHub queues until Ready and a small set of relevant maintainers explicitly

@@ -80,6 +80,10 @@ receipts.  An `OPEN_DRAFT`, `MARK_READY_AND_REQUEST_REVIEW` or
 `RESPOND_TO_REVIEW` inbox item is a delivery action, not another research
 prompt.  Agent-repository maintenance stays in a separate inbox and never
 counts as a framework optimization success.
+For live queues containing an open Ready PR, use
+`upstream-delivery-inbox-v2` and hash-bind its prospective reviewer-handoff
+clock. This prevents a normal reviewer wait from hiding a due bounded
+follow-up. The inbox only routes the action; it never authorizes a message.
 For pending candidates, consume the inbox's Draft-minimum and Ready-gate
 progress rather than treating equal action labels as equal priority. Within
 one action class, prefer the candidate with more completed immutable gates;
