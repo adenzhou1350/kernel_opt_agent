@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_source_bundle.schema.json",
+  "title": "Qualification source bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source", "archive", "entries"],
+  "properties": {
+    "schema_version": {"const": "qualification-source-bundle-v1"},
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["commit", "git_tree", "repository"],
+      "properties": {
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "git_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "repository": {"type": "string", "minLength": 1}
+      }
+    },
+    "archive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes", "construction", "prefix", "sha256"],
+      "properties": {
+        "bytes": {"type": "integer", "minimum": 1},
+        "construction": {"type": "string", "minLength": 1},
+        "prefix": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$"},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "path", "type"],
+            "properties": {
+              "mode": {"type": "integer", "minimum": 0, "maximum": 4095},
+              "path": {"type": "string", "minLength": 1},
+              "type": {"const": "directory"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "path", "type", "size", "sha256"],
+            "properties": {
+              "mode": {"type": "integer", "minimum": 0, "maximum": 4095},
+              "path": {"type": "string", "minLength": 1},
+              "type": {"const": "file"},
+              "size": {"type": "integer", "minimum": 0},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["mode", "path", "type", "target"],
+            "properties": {
+              "mode": {"type": "integer", "minimum": 0, "maximum": 4095},
+              "path": {"type": "string", "minLength": 1},
+              "type": {"const": "symlink"},
+              "target": {"type": "string", "minLength": 1}
+            }
+          }
+        ]
+      }
+    }
+  }
+}

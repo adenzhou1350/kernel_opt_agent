@@ -58,6 +58,28 @@ hit. The result is advisory reuse routing only: it never authorizes a build,
 test, GPU run, correctness claim or performance claim. Templates are available
 with `--print-closure-template` and `--print-request-template`.
 
+When the worker cannot clone source, create a deterministic transport directly
+from committed Git blobs. The builder never reads tracked files from the
+working tree, so dirty files, checkout line-ending conversion and export rules
+cannot change the payload:
+
+```bash
+python3 scripts/kernel_opt.py qualification-source-bundle --build \
+  --repo /path/to/framework --commit <full-commit> \
+  --repository-url https://github.com/org/framework.git \
+  --archive framework-source.tar.gz --manifest framework-source.manifest.json
+python3 scripts/kernel_opt.py qualification-source-bundle --verify \
+  --archive framework-source.tar.gz --manifest framework-source.manifest.json \
+  --extract-root /immutable/new/source-root
+```
+
+The manifest binds the repository identity, commit, tree, archive digest and
+every file, executable mode and safe relative symlink. Verification rejects
+tampering, duplicate or special entries, traversal, escaping symlinks and an
+existing extraction target. This is source transport only: it does not approve
+materialization, install dependencies, build native code, launch a workload or
+authorize GPU use.
+
 For several autonomous lanes sharing multiple GPU machines, queue validation
 work independently from the task that discovered it:
 
