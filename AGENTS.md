@@ -44,6 +44,11 @@ instead of separate start/end writes so success, non-zero exit, timeout, and
 launch failure all close the phase with an immutable command receipt. The
 receipt measures command wall time and exit status; it is not correctness or
 performance evidence.
+If a governed worker executes the command and returns an immutable receipt, use
+`community-timing import-phase-receipt` against a ledger that existed before the
+worker run. Bind the receipt's explicit start/end fields and reconcile its
+duration field when available; never infer these times from file mtimes or
+retrofit them into a legacy cycle.
 The control plane may run `community-timing audit-root` over lane evidence
 directories to find missing or stale prospective instrumentation. This is a
 pull-only audit: use its output in the dashboard and do not interrupt a live

@@ -22,6 +22,12 @@ python3 scripts/kernel_opt.py community-timing run-phase \
   --phase GOVERNANCE_VALIDATION --actor CPU --timeout-seconds 600 \
   --receipt governance-command-receipt.json -- \
   python3 -m pip check
+python3 scripts/kernel_opt.py community-timing import-phase-receipt \
+  --ledger work-cycle.json --span-id remote-env-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU --resource-id worker-sm120 \
+  --receipt worker-terminal.json --started-at-field started_at \
+  --ended-at-field finished_at --duration-field elapsed_seconds \
+  --status INTERRUPTED
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 python3 scripts/kernel_opt.py community-timing audit-root \
@@ -76,6 +82,11 @@ For a bounded command, prefer `run-phase`: it runs the exact argv without a
 shell, writes an immutable wall-time/exit-status receipt, and closes the span
 on success, non-zero exit, launch failure, or timeout. A passing command receipt
 is not correctness or performance evidence.
+When a governed worker already produced an immutable terminal receipt, use
+`import-phase-receipt` to bind its exact start/end timestamps instead of
+reconstructing wall time. The prospective ledger must already predate the
+receipt; optional duration-field reconciliation rejects inconsistent receipts.
+Importing timing does not validate the worker result or change its outcome.
 Hash-bound milestones report time to the first candidate, correct result,
 material improvement, qualified result, upstream-ready package, draft PR,
 ready-for-review PR and merge. Legacy trials may retain milestone bounds but

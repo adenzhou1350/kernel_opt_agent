@@ -17,6 +17,7 @@ from artifact_io import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
     audit_roots,
     end_phase,
+    import_phase_receipt,
     init_ledger,
     pair_baseline,
     record_pr_stage,
@@ -328,6 +329,145 @@ def test_run_phase_closes_success_failure_timeout_and_launch_error() -> None:
         assert all(len(span["evidence"]) == 1 for span in recorded["spans"])
 
 
+def test_import_phase_receipt_records_existing_machine_wall_time() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        cycle = base / "cycle.json"
+        initial = base / "initial.json"
+        initial.write_text('{"ok": true}\n', encoding="utf-8")
+        init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="receipt-import",
+                task_id="task",
+                started_at="2026-09-07T04:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                initial_phase=None,
+                initial_span_id="initial",
+                initial_actor="AGENT",
+                initial_resource_id=None,
+            )
+        )
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="initial",
+                status="COMPLETE",
+                at="2026-09-07T04:00:00Z",
+                evidence=[initial],
+            )
+        )
+        receipt = base / "worker-receipt.json"
+        atomic_json(
+            receipt,
+            {
+                "started_at": "2026-09-07T04:01:00Z",
+                "finished_at": "2026-09-07T04:03:00Z",
+                "elapsed_seconds": 120.25,
+                "status": "FAILED_TERMINAL",
+            },
+        )
+        imported = import_phase_receipt(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="environment-1",
+                phase="ENVIRONMENT_SETUP",
+                actor="CPU",
+                resource_id="worker-1",
+                receipt=receipt,
+                started_at_field="started_at",
+                ended_at_field="finished_at",
+                duration_field="elapsed_seconds",
+                status="INTERRUPTED",
+            )
+        )
+        span = imported["spans"][1]
+        assert span["started_at"] == "2026-09-07T04:01:00Z"
+        assert span["ended_at"] == "2026-09-07T04:03:00Z"
+        assert span["status"] == "INTERRUPTED"
+        assert span["evidence"] == [identity(receipt)]
+        assert summarize(cycle)["buckets"]["environment_seconds"] == 120
+
+        receipt.write_text('{"changed": true}\n', encoding="utf-8")
+        try:
+            validate_ledger(cycle)
+        except ValueError as error:
+            assert "evidence changed" in str(error)
+        else:
+            raise AssertionError("imported receipt drift must fail closed")
+
+
+def test_import_phase_receipt_rejects_backfill_and_duration_drift() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        cycle = base / "cycle.json"
+        initial = base / "initial.json"
+        initial.write_text('{"ok": true}\n', encoding="utf-8")
+        init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="receipt-import-negative",
+                task_id="task",
+                started_at="2026-09-07T04:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                initial_phase=None,
+                initial_span_id="initial",
+                initial_actor="AGENT",
+                initial_resource_id=None,
+            )
+        )
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="initial",
+                status="COMPLETE",
+                at="2026-09-07T04:00:00Z",
+                evidence=[initial],
+            )
+        )
+
+        def attempt(receipt_value: dict) -> str:
+            receipt = base / "worker-receipt.json"
+            atomic_json(receipt, receipt_value)
+            before = cycle.read_bytes()
+            try:
+                import_phase_receipt(
+                    SimpleNamespace(
+                        ledger=cycle,
+                        span_id="environment-1",
+                        phase="ENVIRONMENT_SETUP",
+                        actor="CPU",
+                        resource_id=None,
+                        receipt=receipt,
+                        started_at_field="started_at",
+                        ended_at_field="finished_at",
+                        duration_field="elapsed_seconds",
+                        status="INTERRUPTED",
+                    )
+                )
+            except ValueError as error:
+                assert cycle.read_bytes() == before
+                return str(error)
+            raise AssertionError("invalid receipt import must fail")
+
+        assert "duration conflicts" in attempt(
+            {
+                "started_at": "2026-09-07T04:01:00Z",
+                "finished_at": "2026-09-07T04:03:00Z",
+                "elapsed_seconds": 1,
+            }
+        )
+        assert "span starts before cycle" in attempt(
+            {
+                "started_at": "2026-09-07T03:59:00Z",
+                "finished_at": "2026-09-07T04:00:00Z",
+                "elapsed_seconds": 60,
+            }
+        )
+
+
 def test_pr_stage_is_atomic_and_fail_closed() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -504,6 +644,8 @@ if __name__ == "__main__":
     test_environment_and_governance_overhead_reporting()
     test_prospective_init_and_atomic_phase_switch()
     test_run_phase_closes_success_failure_timeout_and_launch_error()
+    test_import_phase_receipt_records_existing_machine_wall_time()
+    test_import_phase_receipt_rejects_backfill_and_duration_drift()
     test_pr_stage_is_atomic_and_fail_closed()
     test_pair_baseline_reads_bound_assessments()
     test_audit_roots_reports_live_timing_blind_spots()

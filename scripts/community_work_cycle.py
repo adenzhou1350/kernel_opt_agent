@@ -587,6 +587,64 @@ def end_phase(args: argparse.Namespace) -> dict:
     return ledger
 
 
+def receipt_field(receipt: dict, name: str, label: str):
+    """Read one top-level field from a machine receipt without guessing aliases."""
+
+    if name not in receipt:
+        raise ValueError(f"receipt lacks {label} field: {name}")
+    return receipt[name]
+
+
+def import_phase_receipt(args: argparse.Namespace) -> dict:
+    """Import exact wall time from an immutable, already-produced machine receipt."""
+
+    ledger_path = args.ledger.resolve()
+    ledger = validate_ledger(ledger_path)
+    if ledger["observation_mode"] != "PROSPECTIVE_EXACT":
+        raise ValueError("receipt import requires a PROSPECTIVE_EXACT ledger")
+    if any(span["status"] == "ACTIVE" for span in ledger["spans"]):
+        raise ValueError("another primary phase is already active")
+    if any(span["span_id"] == args.span_id for span in ledger["spans"]):
+        raise ValueError(f"duplicate span_id: {args.span_id}")
+
+    receipt_path = args.receipt.resolve()
+    receipt = read_object(receipt_path)
+    started_value = receipt_field(receipt, args.started_at_field, "start timestamp")
+    ended_value = receipt_field(receipt, args.ended_at_field, "end timestamp")
+    if not isinstance(started_value, str) or not isinstance(ended_value, str):
+        raise ValueError("receipt timestamps must be strings")
+    started = parse_time(started_value, args.started_at_field)
+    ended = parse_time(ended_value, args.ended_at_field)
+    if ended < started:
+        raise ValueError("receipt end timestamp precedes start timestamp")
+
+    measured_seconds = (ended - started).total_seconds()
+    if args.duration_field is not None:
+        duration = receipt_field(receipt, args.duration_field, "duration")
+        if isinstance(duration, bool) or not isinstance(duration, (int, float)):
+            raise ValueError("receipt duration must be a number")
+        if duration < 0:
+            raise ValueError("receipt duration must be non-negative")
+        tolerance = max(1.0, measured_seconds * 0.01)
+        if abs(float(duration) - measured_seconds) > tolerance:
+            raise ValueError("receipt duration conflicts with its timestamps")
+
+    ledger["spans"].append(
+        {
+            "span_id": args.span_id,
+            "phase": args.phase,
+            "actor": args.actor,
+            "resource_id": args.resource_id,
+            "started_at": started_value,
+            "ended_at": ended_value,
+            "status": args.status,
+            "evidence": [evidence_identity(receipt_path)],
+        }
+    )
+    write_ledger(ledger_path, ledger)
+    return ledger
+
+
 def switch_phase(args: argparse.Namespace) -> dict:
     """Close the active phase and start its successor at one shared timestamp."""
     ledger = validate_ledger(args.ledger)
@@ -833,6 +891,21 @@ def parse_args() -> argparse.Namespace:
     run.add_argument("--timeout-seconds", type=float)
     run.add_argument("--receipt", type=Path, required=True)
     run.add_argument("command", nargs=argparse.REMAINDER)
+    imported = commands.add_parser("import-phase-receipt")
+    imported.add_argument("--ledger", type=Path, required=True)
+    imported.add_argument("--span-id", required=True)
+    imported.add_argument("--phase", choices=PHASES, required=True)
+    imported.add_argument(
+        "--actor", choices=("AGENT", "CPU", "GPU", "EXTERNAL"), required=True
+    )
+    imported.add_argument("--resource-id")
+    imported.add_argument("--receipt", type=Path, required=True)
+    imported.add_argument("--started-at-field", default="started_at")
+    imported.add_argument("--ended-at-field", default="finished_at")
+    imported.add_argument("--duration-field")
+    imported.add_argument(
+        "--status", choices=("COMPLETE", "INTERRUPTED"), required=True
+    )
     milestone = commands.add_parser("mark")
     milestone.add_argument("--ledger", type=Path, required=True)
     milestone.add_argument("--kind", choices=MILESTONES, required=True)
@@ -883,6 +956,8 @@ def main() -> int:
         result = switch_phase(args)
     elif args.operation == "run-phase":
         result, exit_code = run_phase_command(args)
+    elif args.operation == "import-phase-receipt":
+        result = import_phase_receipt(args)
     elif args.operation == "mark":
         result = mark(args)
     elif args.operation == "record-pr-stage":
