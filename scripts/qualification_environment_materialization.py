@@ -168,7 +168,28 @@ def validate_plan_bundle(
         != request["candidate_source"]["tree_sha"]
     ):
         raise ValueError("plan Git tree differs from environment request")
-    if (
+    request_runtime = request["execution"].get("runtime_provenance")
+    if request_runtime and request_runtime["kind"] == "ATTESTED_PREPROVISIONED_WORKER":
+        runtime_worker = plan.get("runtime_worker")
+        if not isinstance(runtime_worker, dict):
+            raise ValueError("preprovisioned worker plan is missing runtime_worker")
+        if runtime_worker.get("worker_id") != request_runtime["worker_id"]:
+            raise ValueError("plan worker differs from environment request")
+        attestation = runtime_worker.get("attestation")
+        if not isinstance(attestation, dict):
+            raise ValueError("preprovisioned worker plan is missing attestation")
+        validate_identity(
+            artifact_root,
+            attestation,
+            "preprovisioned worker attestation",
+        )
+        if attestation["sha256"] != request_runtime["identity_sha256"]:
+            raise ValueError("plan worker attestation differs from environment request")
+        if request["execution"]["image_digest"] is not None:
+            raise ValueError(
+                "preprovisioned worker request must not bind an image digest"
+            )
+    elif (
         plan.get("runtime_image", {}).get("platform_manifest_digest")
         != request["execution"]["image_digest"]
     ):

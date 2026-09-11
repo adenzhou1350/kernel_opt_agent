@@ -614,6 +614,28 @@ It may permit network access only for dependency materialization. Revalidate
 the approval immediately before preparation; it never authorizes the later
 GPU test or turns the prepared closure into correctness evidence.
 
+Some registered workers already run inside a managed GPU container and cannot
+launch the requested image again. Attest that preprovisioned runtime and its
+writable closure filesystem before writing a plan for it:
+
+```bash
+CUDA_VISIBLE_DEVICES=-1 python3 scripts/kernel_opt.py \
+  qualification-environment-worker --collect \
+  --worker-id worker-shared-sm120 --host-id shared-8x-sm120-32g \
+  --storage-root /workspace \
+  --output worker-runtime-attestation.json
+```
+
+The attestation records the exact Python and Torch bytes, compiled CUDA arches,
+toolchain, mount capacity, pre-mounted device nodes, nested container-runtime
+availability, and current GPU process snapshot. It requires Torch to see no
+CUDA device during collection, but it does not pretend that a managed worker
+has no device nodes. A request may bind this identity with
+`runtime_provenance.kind=ATTESTED_PREPROVISIONED_WORKER`, a null image digest,
+and the exact worker id. Reuse then fails closed on either the worker id or
+attestation hash. This is still preparation evidence, never a GPU lease or
+workload authorization.
+
 For several autonomous lanes sharing multiple GPU machines, queue validation
 work independently from the task that discovered it:
 

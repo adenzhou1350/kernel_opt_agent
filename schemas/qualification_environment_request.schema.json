@@ -50,7 +50,8 @@
         },
         "dependency_lock_sha256": {"$ref": "#/$defs/sha256"},
         "toolchain_lock_sha256": {"$ref": "#/$defs/sha256"},
-        "native_extension_required": {"type": "boolean"}
+        "native_extension_required": {"type": "boolean"},
+        "runtime_provenance": {"$ref": "#/$defs/runtime_provenance"}
       }
     },
     "candidate_source": {
@@ -66,6 +67,21 @@
   },
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
-    "git_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"}
+    "git_sha": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "runtime_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity_sha256", "worker_id"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "IMMUTABLE_CONTAINER_IMAGE",
+            "ATTESTED_PREPROVISIONED_WORKER"
+          ]
+        },
+        "identity_sha256": {"$ref": "#/$defs/sha256"},
+        "worker_id": {"type": ["string", "null"], "minLength": 1}
+      }
+    }
   }
 }

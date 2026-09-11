@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_worker_attestation.schema.json",
+  "title": "Qualification environment preprovisioned worker attestation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observed_at",
+    "worker_id",
+    "host_id",
+    "platform",
+    "storage",
+    "runtime",
+    "isolation",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-worker-attestation-v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "worker_id": {"type": "string", "minLength": 1},
+    "host_id": {"type": "string", "minLength": 1},
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["os", "architecture", "hostname"],
+      "properties": {
+        "os": {"type": "string", "minLength": 1},
+        "architecture": {"type": "string", "minLength": 1},
+        "hostname": {"type": "string", "minLength": 1}
+      }
+    },
+    "storage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requested_root", "resolved_root", "free_bytes", "total_bytes", "mount"],
+      "properties": {
+        "requested_root": {"type": "string", "minLength": 1},
+        "resolved_root": {"type": "string", "minLength": 1},
+        "free_bytes": {"type": "integer", "minimum": 0},
+        "total_bytes": {"type": "integer", "minimum": 1},
+        "mount": {"type": "object"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["python", "torch", "toolchain"],
+      "properties": {
+        "python": {"$ref": "#/$defs/component"},
+        "torch": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["version", "cuda_version", "module_path", "module_sha256", "build_config_sha256", "compiled_arches", "nccl_available", "native_libraries"],
+          "properties": {
+            "version": {"type": "string", "minLength": 1},
+            "cuda_version": {"type": ["string", "null"]},
+            "module_path": {"type": "string", "minLength": 1},
+            "module_sha256": {"$ref": "#/$defs/sha256"},
+            "build_config_sha256": {"$ref": "#/$defs/sha256"},
+            "compiled_arches": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+            "nccl_available": {"type": "boolean"},
+            "native_libraries": {
+              "type": "array",
+              "items": {"$ref": "#/$defs/file_identity"},
+              "minItems": 1
+            }
+          }
+        },
+        "toolchain": {
+          "type": "object",
+          "additionalProperties": {"$ref": "#/$defs/tool"}
+        }
+      }
+    },
+    "isolation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["cuda_visible_devices", "torch_cuda_available", "gpu_device_nodes", "nested_container_runtimes", "gpu_processes"],
+      "properties": {
+        "cuda_visible_devices": {"const": "-1"},
+        "torch_cuda_available": {"const": false},
+        "gpu_device_nodes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "nested_container_runtimes": {"type": "array", "items": {"type": "string"}, "uniqueItems": true},
+        "gpu_processes": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "claim_boundary": {
+      "const": "READ_ONLY_WORKER_RUNTIME_AND_STORAGE_ATTESTATION_NOT_ENVIRONMENT_MATERIALIZATION_GPU_OR_WORKLOAD_AUTHORIZATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "component": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "path", "sha256"],
+      "properties": {
+        "version": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "file_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "tool": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["path", "sha256", "version"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "version": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}
