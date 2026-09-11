@@ -80,6 +80,11 @@ receipts.  An `OPEN_DRAFT`, `MARK_READY_AND_REQUEST_REVIEW` or
 `RESPOND_TO_REVIEW` inbox item is a delivery action, not another research
 prompt.  Agent-repository maintenance stays in a separate inbox and never
 counts as a framework optimization success.
+For pending candidates, consume the inbox's Draft-minimum and Ready-gate
+progress rather than treating equal action labels as equal priority. Within
+one action class, prefer the candidate with more completed immutable gates;
+do not keep several same-lane candidates active merely because all say
+`COMPLETE_DRAFT_MINIMUM`.
 
 Normal local source edits, CPU-only builds and focused tests are implementation
 work and do not require repeated user authorization.  Expensive compilation,
