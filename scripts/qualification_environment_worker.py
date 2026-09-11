@@ -53,6 +53,25 @@ def run(argv: list[str]) -> subprocess.CompletedProcess[str]:
     return subprocess.run(argv, capture_output=True, check=False, text=True)
 
 
+def parse_final_json_object(stdout: str) -> dict:
+    """Parse a machine-readable final line while preserving framework logs.
+
+    Framework imports may emit informational lines before a probe prints its
+    result. Requiring the final non-empty line to be one JSON object permits
+    those logs without accepting truncated output or trailing diagnostics.
+    """
+    lines = [line.strip() for line in stdout.splitlines() if line.strip()]
+    if not lines:
+        raise ValueError("probe stdout has no non-empty final line")
+    try:
+        value = json.loads(lines[-1])
+    except json.JSONDecodeError as exc:
+        raise ValueError("probe final line is not valid JSON") from exc
+    if not isinstance(value, dict):
+        raise ValueError("probe final JSON value must be an object")
+    return value
+
+
 def compiled_arches(torch_module: object) -> list[str]:
     """Read compiled CUDA targets without assuming a visible CUDA device."""
     arches = sorted(torch_module.cuda.get_arch_list())

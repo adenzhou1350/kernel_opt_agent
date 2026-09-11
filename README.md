@@ -264,6 +264,11 @@ import, and bind the resulting environment in the execution plan. This keeps
 worker image filesystems immutable and prevents unrelated `/root` capacity
 from deciding whether an otherwise reusable environment can materialize.
 
+Framework imports may also write informational logs to stdout before a probe
+prints its machine result. Use `parse_final_json_object` to require the final
+non-empty line to be one JSON object. Earlier logs remain permitted, while a
+missing result, trailing diagnostic or non-object JSON still fails closed.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
