@@ -227,3 +227,65 @@ def test_validation_rejects_expiry_and_changed_artifact(tmp_path: Path) -> None:
     write(request_path, request)
     with pytest.raises(ValueError, match="hash changed"):
         validate_approval(approval_path, tmp_path, now=NOW)
+
+
+def test_preprovisioned_worker_plan_binds_attestation(tmp_path: Path) -> None:
+    plan_path, request_path, job_path, _ = fixture(tmp_path)
+    attestation_path = tmp_path / "evidence" / "worker.json"
+    write(attestation_path, {"worker_id": "worker-shared-sm120"})
+    runtime = {
+        "kind": "ATTESTED_PREPROVISIONED_WORKER",
+        "identity_sha256": digest(attestation_path),
+        "worker_id": "worker-shared-sm120",
+    }
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["execution"]["image_digest"] = None
+    request["execution"]["runtime_provenance"] = runtime
+    write(request_path, request)
+    job = json.loads(job_path.read_text(encoding="utf-8"))
+    job["environment_request"] = request
+    write(job_path, job)
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan.pop("runtime_image")
+    plan["runtime_worker"] = {
+        "worker_id": "worker-shared-sm120",
+        "attestation": {
+            "path": "evidence/worker.json",
+            "sha256": digest(attestation_path),
+        },
+    }
+    plan["bound_inputs"]["superseding_environment_request"]["sha256"] = digest(
+        request_path
+    )
+    plan["bound_inputs"]["superseding_resource_job"]["sha256"] = digest(job_path)
+    write(plan_path, plan)
+
+    approval = issue_approval(
+        plan_path=plan_path,
+        request_path=request_path,
+        job_path=job_path,
+        artifact_root=tmp_path,
+        supervisor_id="root-controller",
+        approval_id="worker-cpu-materialization-v1",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        max_wall_seconds=3600,
+        network_policy="DEPENDENCY_MATERIALIZATION_ONLY",
+    )
+    assert approval["decision"] == "APPROVED"
+
+    plan["runtime_worker"]["attestation"]["sha256"] = "8" * 64
+    write(plan_path, plan)
+    with pytest.raises((FileNotFoundError, ValueError), match="attestation"):
+        issue_approval(
+            plan_path=plan_path,
+            request_path=request_path,
+            job_path=job_path,
+            artifact_root=tmp_path,
+            supervisor_id="root-controller",
+            approval_id="worker-cpu-materialization-v1",
+            issued_at=NOW,
+            expires_at=NOW + timedelta(hours=1),
+            max_wall_seconds=3600,
+            network_policy="DEPENDENCY_MATERIALIZATION_ONLY",
+        )

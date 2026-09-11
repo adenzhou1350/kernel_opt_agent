@@ -224,6 +224,23 @@ submission, gate binding and acquisition. It may allow network access only for
 dependency materialization; it never authorizes the later GPU test or turns the
 prepared closure into correctness evidence.
 
+Managed workers may already run inside a GPU container and have no nested
+container runtime. Collect a read-only worker attestation before planning an
+environment directly on such a worker:
+
+```bash
+CUDA_VISIBLE_DEVICES=-1 python3 scripts/kernel_opt.py \
+  qualification-environment-worker --collect \
+  --worker-id worker-shared-sm120 --host-id shared-8x-sm120-32g \
+  --storage-root /workspace --output worker-runtime-attestation.json
+```
+
+The request binds that exact worker and attestation with
+`runtime_provenance.kind=ATTESTED_PREPROVISIONED_WORKER` and a null image
+digest. Reuse fails closed on worker or runtime drift. Pre-mounted device nodes
+are recorded honestly while Torch must see no CUDA device during collection;
+the receipt is not a lease or workload authorization.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.

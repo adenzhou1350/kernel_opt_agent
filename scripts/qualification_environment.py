@@ -90,6 +90,45 @@ def validate_semantics(closure: dict, request: dict) -> None:
         raise ValueError(
             "a closure without a native extension cannot claim extension identities"
         )
+    request_runtime = request["execution"].get("runtime_provenance")
+    closure_runtime = closure["execution"].get("runtime_provenance")
+    if request_runtime is not None:
+        validate_runtime_provenance(
+            request_runtime,
+            request["execution"]["image_digest"],
+            "environment request",
+        )
+    if closure_runtime is not None:
+        validate_runtime_provenance(
+            closure_runtime,
+            closure["execution"]["image_digest"],
+            "environment closure",
+        )
+
+
+def validate_runtime_provenance(
+    runtime: dict, image_digest: str | None, label: str
+) -> None:
+    kind = runtime["kind"]
+    worker_id = runtime["worker_id"]
+    if kind == "IMMUTABLE_CONTAINER_IMAGE":
+        if image_digest is None:
+            raise ValueError(
+                f"{label} immutable container runtime requires image_digest"
+            )
+        if worker_id is not None:
+            raise ValueError(
+                f"{label} immutable container runtime cannot bind worker_id"
+            )
+    elif kind == "ATTESTED_PREPROVISIONED_WORKER":
+        if image_digest is not None:
+            raise ValueError(
+                f"{label} preprovisioned worker runtime requires image_digest=null"
+            )
+        if not worker_id:
+            raise ValueError(
+                f"{label} preprovisioned worker runtime requires worker_id"
+            )
 
 
 def mismatch(path: str, expected: object, observed: object) -> dict:
@@ -142,6 +181,18 @@ def evaluate(closure: dict, request: dict) -> dict:
                 "execution.image_digest",
                 expected_image,
                 closure_execution["image_digest"],
+            )
+        )
+    request_runtime = request_execution.get("runtime_provenance")
+    if (
+        request_runtime is not None
+        and closure_execution.get("runtime_provenance") != request_runtime
+    ):
+        hard_mismatches.append(
+            mismatch(
+                "execution.runtime_provenance",
+                request_runtime,
+                closure_execution.get("runtime_provenance"),
             )
         )
     if not closure["materialized"]:

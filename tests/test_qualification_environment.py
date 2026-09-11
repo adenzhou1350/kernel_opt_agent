@@ -138,6 +138,51 @@ def test_native_extension_identity_is_fail_closed() -> None:
     with pytest.raises(ValueError, match="needs artifact and source identities"):
         evaluate(closure, request)
 
+
+def test_attested_preprovisioned_worker_is_reusable_only_by_exact_identity() -> None:
+    closure, request = matched()
+    runtime = {
+        "kind": "ATTESTED_PREPROVISIONED_WORKER",
+        "identity_sha256": "7" * 64,
+        "worker_id": "worker-shared-sm120",
+    }
+    request["execution"]["image_digest"] = None
+    closure["execution"]["image_digest"] = None
+    request["execution"]["runtime_provenance"] = runtime
+    closure["execution"]["runtime_provenance"] = copy.deepcopy(runtime)
+    assert evaluate(closure, request)["decision"] == "REUSE_FULL_CLOSURE"
+
+    closure["execution"]["runtime_provenance"]["identity_sha256"] = "8" * 64
+    result = evaluate(closure, request)
+    assert result["decision"] == "MATERIALIZE_NEW_CLOSURE"
+    assert result["hard_mismatches"][0]["field"] == ("execution.runtime_provenance")
+
+
+def test_runtime_provenance_kind_and_image_semantics_fail_closed() -> None:
+    closure, request = matched()
+    runtime = {
+        "kind": "ATTESTED_PREPROVISIONED_WORKER",
+        "identity_sha256": "7" * 64,
+        "worker_id": "worker-shared-sm120",
+    }
+    request["execution"]["runtime_provenance"] = runtime
+    closure["execution"]["runtime_provenance"] = copy.deepcopy(runtime)
+    with pytest.raises(ValueError, match="requires image_digest=null"):
+        evaluate(closure, request)
+
+    closure, request = matched()
+    immutable = {
+        "kind": "IMMUTABLE_CONTAINER_IMAGE",
+        "identity_sha256": "7" * 64,
+        "worker_id": None,
+    }
+    request["execution"]["image_digest"] = None
+    closure["execution"]["image_digest"] = None
+    request["execution"]["runtime_provenance"] = immutable
+    closure["execution"]["runtime_provenance"] = copy.deepcopy(immutable)
+    with pytest.raises(ValueError, match="requires image_digest"):
+        evaluate(closure, request)
+
     closure, request = matched()
     closure["execution"]["native_extension"]["artifact_sha256"] = "f" * 64
     with pytest.raises(ValueError, match="cannot claim extension identities"):

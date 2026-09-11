@@ -63,7 +63,8 @@
             },
             "source_tree_sha": {"$ref": "#/$defs/git_sha_or_null"}
           }
-        }
+        },
+        "runtime_provenance": {"$ref": "#/$defs/runtime_provenance"}
       }
     },
     "source_binding": {
@@ -82,6 +83,21 @@
     "git_sha_or_null": {
       "type": ["string", "null"],
       "pattern": "^[0-9a-f]{40,64}$"
+    },
+    "runtime_provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "identity_sha256", "worker_id"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "IMMUTABLE_CONTAINER_IMAGE",
+            "ATTESTED_PREPROVISIONED_WORKER"
+          ]
+        },
+        "identity_sha256": {"$ref": "#/$defs/sha256"},
+        "worker_id": {"type": ["string", "null"], "minLength": 1}
+      }
     }
   }
 }
