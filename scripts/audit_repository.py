@@ -26,6 +26,7 @@ from evidence_utils import validate_hardware_spec, validate_identity
 ALLOWED_TOP_LEVEL = {
     ".git",
     ".gitignore",
+    "pytest.ini",
     "AGENTS.md",
     "README.md",
     "REVIEW.md",
