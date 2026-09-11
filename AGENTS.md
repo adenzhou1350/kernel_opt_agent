@@ -56,6 +56,13 @@ FlashInfer and temporary paths must stay inside the writable closure. Do not
 fall back to `/root`, `$HOME` or another image-owned filesystem, and do not
 repair a full image filesystem by deleting unrelated caches.
 
+Execute an approved CPU-only preparation only through
+`qualification-environment-dispatch`. The approval must bind the exact
+dispatcher, contain one sealed argv and be atomically consumed once. A failed,
+timed-out or ambiguous claim is terminal and must not be retried in place.
+The dispatcher receipt is process evidence only; accept the environment only
+from the separately validated materializer terminal receipt.
+
 Before a cache-bound model download, JIT compile or native build, bind every
 framework/compiler cache root explicitly and run `environment-cache-preflight`.
 Require the intended environment-variable mapping, a writable directory and a

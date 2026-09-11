@@ -264,6 +264,30 @@ submission, gate binding and acquisition. It may allow network access only for
 dependency materialization; it never authorizes the later GPU test or turns the
 prepared closure into correctness evidence.
 
+Add `--dispatcher-bound` when the approval will be consumed by the shared
+worker-local dispatcher. Omitting it preserves the legacy v1 approval format
+for existing run-local audit and materializer flows.
+
+Run an approved standard plan through the worker-local dispatcher instead of
+calling its materializer directly:
+
+```bash
+python3 scripts/kernel_opt.py qualification-environment-dispatch \
+  --artifact-root /path/to/run \
+  --approval /path/to/run/experiments/materialization-approval.json \
+  --approval-sha256 <controller-reviewed-sha256>
+```
+
+New approvals bind the exact dispatcher bytes and are single-use. The
+dispatcher revalidates the approval, plan, still-blocked job, executor and
+deadline, atomically claims the approval, forces CUDA visibility off and runs
+the one sealed argv without a shell. A crash or nonzero exit consumes the
+claim and requires a fresh versioned plan and approval; it is never retried
+automatically. Its terminal receipt proves only the executor process outcome.
+The materializer's own evidence still decides whether the closure succeeded,
+and neither receipt authorizes a GPU, workload, service or broker transition.
+Legacy v1 approvals remain validatable for audit but cannot be dispatched.
+
 Managed workers may already run inside a GPU container and have no nested
 container runtime. Collect a read-only worker attestation before planning an
 environment directly on such a worker:
