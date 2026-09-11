@@ -195,7 +195,7 @@ def main() -> None:
             "required for an open Ready PR" in error for error in failure["errors"]
         )
 
-        mismatched_handoff = json.loads(handoff_path.read_text())
+        mismatched_handoff = json.loads(handoff_path.read_text(encoding="utf-8"))
         mismatched_handoff["pull_request"]["number"] = 999
         mismatched_handoff["pull_request"]["url"] = (
             "https://github.com/vllm-project/vllm/pull/999"

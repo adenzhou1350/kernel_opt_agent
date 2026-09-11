@@ -94,7 +94,7 @@ def main() -> None:
         })
         infeasible = discovery_action(run, ROOT / "scripts")
         assert infeasible and infeasible["action"] == "STOP_OR_REFRAME_INFEASIBLE_TARGET", infeasible
-        authorized_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        authorized_gate = json.loads((run / "models" / "feasibility_gate.json").read_text(encoding="utf-8"))
         authorized_gate["residual_search_policy"] = {
             "status": "AUTHORIZED",
             "objective_mode": "BEST_FEASIBLE_WITHIN_FROZEN_CONTRACT",
@@ -106,12 +106,12 @@ def main() -> None:
         write(run / "models" / "feasibility_gate.json", authorized_gate)
         residual = discovery_action(run, ROOT / "scripts")
         assert residual and residual["action"] == "BUILD_OPPORTUNITY_MAP", residual
-        malformed_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        malformed_gate = json.loads((run / "models" / "feasibility_gate.json").read_text(encoding="utf-8"))
         malformed_gate["residual_search_policy"]["minimum_likely_gain_us"] = 0
         write(run / "models" / "feasibility_gate.json", malformed_gate)
         malformed = discovery_action(run, ROOT / "scripts")
         assert malformed and malformed["action"] == "BLOCK_INVALID_FEASIBILITY_GATE", malformed
-        invalid_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        invalid_gate = json.loads((run / "models" / "feasibility_gate.json").read_text(encoding="utf-8"))
         invalid_gate.pop("residual_search_policy")
         invalid_gate["bound"]["maximum_speedup"] = 2.1
         write(run / "models" / "feasibility_gate.json", invalid_gate)
@@ -284,10 +284,10 @@ def main() -> None:
         })
         materiality_stop = discovery_action(run, ROOT / "scripts")
         assert materiality_stop and materiality_stop["action"] == "STOP_RESIDUAL_SEARCH_AT_MATERIALITY_FLOOR", materiality_stop
-        timed_gate = json.loads((run / "models" / "feasibility_gate.json").read_text())
+        timed_gate = json.loads((run / "models" / "feasibility_gate.json").read_text(encoding="utf-8"))
         timed_gate["residual_search_policy"]["minimum_likely_gain_us"] = 1.0
         write(run / "models" / "feasibility_gate.json", timed_gate)
-        timed_pool = json.loads((run / "models" / "candidate_pool.json").read_text())
+        timed_pool = json.loads((run / "models" / "candidate_pool.json").read_text(encoding="utf-8"))
         timed_pool["discovery_started_at"] = "2000-01-01T00:00:00+00:00"
         write(run / "models" / "candidate_pool.json", timed_pool)
         time_stop = discovery_action(run, ROOT / "scripts")

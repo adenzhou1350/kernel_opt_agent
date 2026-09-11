@@ -780,7 +780,7 @@ def main() -> None:
         ).stdout.strip()
 
         captured_at = datetime.fromisoformat(
-            json.loads(Path(captured["manifest"]).read_text())["captured_at"]
+            json.loads(Path(captured["manifest"]).read_text(encoding="utf-8"))["captured_at"]
         )
         cutoff = captured_at + timedelta(hours=1)
         atomic_json(methods_path, build_snapshot(cutoff.isoformat(), ROOT))

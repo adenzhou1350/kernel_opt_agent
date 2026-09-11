@@ -72,7 +72,7 @@ import os
 from pathlib import Path
 run = Path(os.environ["KERNEL_OPT_RUN"])
 plan_path = run / "models/candidate-execution/c1.json"
-plan = json.loads(plan_path.read_text())
+plan = json.loads(plan_path.read_text(encoding="utf-8"))
 plan_hash = hashlib.sha256(plan_path.read_bytes()).hexdigest()
 receipt_paths = [Path(value) for value in json.loads(os.environ["KERNEL_OPT_PERSISTENT_RECEIPTS"])]
 session_receipts = [
@@ -439,7 +439,7 @@ Path('../smoke.json').write_text(json.dumps(result))
                 / "candidates/c1/attempts/attempt-02"
                 / f"persistent-session-{index:02d}.json"
             )
-            assert json.loads(receipt.read_text())["engine_init_count"] == 1
+            assert json.loads(receipt.read_text(encoding="utf-8"))["engine_init_count"] == 1
         opportunity_map = json.loads((run / "models/opportunity_map.json").read_text(encoding="utf-8"))
         observation = opportunity_map["opportunities"][0]["observations"][0]
         assert observation["observed_global_gain_us"] == 2.0

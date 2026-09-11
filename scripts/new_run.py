@@ -27,7 +27,7 @@ Historical values are never reused silently; name a prior run and confirm reuse 
 
 
 def read_json(path: Path) -> dict:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data

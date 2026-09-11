@@ -32,8 +32,8 @@ def main() -> int:
         print(validation.stdout, end="")
         print(validation.stderr, end="", file=sys.stderr)
         return validation.returncode
-    report = json.loads(args.report.read_text())
-    template = args.template.read_text()
+    report = json.loads(args.report.read_text(encoding="utf-8"))
+    template = args.template.read_text(encoding="utf-8")
     if "__REPORT_DATA__" not in template or "__REPORT_TITLE__" not in template:
         raise SystemExit("template is missing a required placeholder")
     payload = json.dumps(report, ensure_ascii=False).replace("</", "<\\/")
@@ -41,7 +41,7 @@ def main() -> int:
         "__REPORT_DATA__", payload
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(rendered)
+    args.output.write_text(rendered, encoding="utf-8")
     print(json.dumps({"status": "PASS", "output": str(args.output)}, ensure_ascii=False))
     return 0
 

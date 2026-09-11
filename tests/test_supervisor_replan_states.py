@@ -42,10 +42,10 @@ def exercise(receipt_status: str, request_status: str, expected: str) -> None:
         ], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert completed.returncode == 0, (completed.stdout, completed.stderr)
         assert json.loads(completed.stdout)["status"] == expected
-        queue = json.loads((run / "models/experiment_queue.json").read_text())
+        queue = json.loads((run / "models/experiment_queue.json").read_text(encoding="utf-8"))
         request = queue["requests"][0]
         assert request["status"] == expected and "supervisor_approval" not in request
-        assert json.loads((experiment / "experiment.json").read_text())["status"] == expected
+        assert json.loads((experiment / "experiment.json").read_text(encoding="utf-8"))["status"] == expected
 
 
 def main() -> None:

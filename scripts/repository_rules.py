@@ -128,7 +128,7 @@ FORBIDDEN_NAMES = {
 
 
 def read_object(path: Path) -> dict:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data

@@ -159,13 +159,13 @@ def main() -> None:
             sys.executable, str(ROOT / "scripts/rank_experiments.py"), "--run", str(run),
         ], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert completed.returncode == 0, (completed.stdout, completed.stderr)
-        ranked = json.loads(queue_path.read_text())
+        ranked = json.loads(queue_path.read_text(encoding="utf-8"))
         assert ranked["ranking_policy"]["formula"] == "NO_PERFORMANCE_RANKING_SINGLE_STATIC_GATE"
         assert "sensitivity" not in ranked["requests"][0]
 
         # A fully reconciled PASS-only gate is terminal and must not require a
         # fictitious replacement gate merely to satisfy ranking/queue shape.
-        closed = json.loads(queue_path.read_text())
+        closed = json.loads(queue_path.read_text(encoding="utf-8"))
         closed_request = closed["requests"][0]
         closed_request["status"] = "RESOLVED"
         closed_request["catalog_resolution"].update({
@@ -189,7 +189,7 @@ def main() -> None:
             sys.executable, str(ROOT / "scripts/rank_experiments.py"), "--run", str(run),
         ], text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         assert completed.returncode == 0, (completed.stdout, completed.stderr)
-        closed_ranked = json.loads(queue_path.read_text())
+        closed_ranked = json.loads(queue_path.read_text(encoding="utf-8"))
         assert closed_ranked["ranking_policy"]["formula"] == "NO_PERFORMANCE_RANKING_RESOLVED_STATIC_GATE"
         assert closed_ranked["requests"][0]["status"] == "RESOLVED"
         closed_ranking_errors: list[str] = []
@@ -203,7 +203,7 @@ def main() -> None:
             "commands": {phase: [["python", phase]] for phase in ("clean_build", "static_audit", "correctness", "warmup", "measure", "analyze")},
             "execution_budget": {"samples_per_configuration": 1, "process_launches": 6, "max_wall_clock_minutes": 5},
         }
-        assert validate_admissibility_budget(experiment, json.loads(contract_path.read_text()), run) == []
+        assert validate_admissibility_budget(experiment, json.loads(contract_path.read_text(encoding="utf-8")), run) == []
 
         static_result = run / "static_result.json"
         timed_result = run / "timed_result.json"

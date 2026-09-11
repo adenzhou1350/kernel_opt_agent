@@ -84,7 +84,7 @@ def main() -> int:
     parser.add_argument("report", type=Path)
     args = parser.parse_args()
     try:
-        report = json.loads(args.report.read_text())
+        report = json.loads(args.report.read_text(encoding="utf-8"))
     except Exception as error:
         print(json.dumps({"status": "FAIL", "errors": [str(error)]}, ensure_ascii=False, indent=2))
         return 1

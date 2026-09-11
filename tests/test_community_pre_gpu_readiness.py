@@ -206,9 +206,9 @@ def test_pre_gpu_readiness_fail_closed_and_resource_bound() -> None:
         alternate_environment = base / "alternate-environment.json"
         write_json(
             alternate_environment,
-            json.loads((base / "environment.json").read_text()),
+            json.loads((base / "environment.json").read_text(encoding="utf-8")),
         )
-        suite = json.loads((base / "suite.json").read_text())
+        suite = json.loads((base / "suite.json").read_text(encoding="utf-8"))
         suite["protocol"]["environment_identity"] = identity(
             alternate_environment, base
         )
