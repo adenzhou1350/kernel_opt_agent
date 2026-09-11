@@ -58,6 +58,32 @@ hit. The result is advisory reuse routing only: it never authorizes a build,
 test, GPU run, correctness claim or performance claim. Templates are available
 with `--print-closure-template` and `--print-request-template`.
 
+For several autonomous lanes sharing multiple GPU machines, queue validation
+work independently from the task that discovered it:
+
+```bash
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  submit --job job.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  acquire --inventory inventory.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  plan --inventory inventory.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite snapshot
+```
+
+The resource broker atomically reserves an exact GPU gang on one compatible
+worker, prefers a reusable environment closure, and backfills a smaller
+runnable job when a larger high-priority gang cannot currently fit. It is
+deliberately non-launching: the returned lease identifies only the worker, GPU
+UUIDs, environment, budget, and callback task. The task-specific authorization
+and atomic dispatcher remain mandatory before starting a process. A missed
+heartbeat keeps its GPUs reserved in `STALE_REQUIRES_RECONCILIATION` until a
+hash-bound terminal result releases them, so a possibly running job is never
+made available by timeout alone. The read-only `plan` view classifies every
+queued item as immediately reservable, waiting for GPUs, requiring environment
+preparation, or having no compatible resource. It is suitable for a dashboard
+but is not a reservation.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those

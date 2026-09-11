@@ -32,6 +32,14 @@ marks compatible: dependency/toolchain state, source binding and a source-bound
 native extension are separate identities. A reuse decision is advisory and
 never authorizes a build, test, GPU run or result claim.
 
+When a shared qualification resource broker is available, submit the sealed
+validation job and continue bounded discovery or review work instead of waiting
+on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker
+lease is only a resource reservation; the lane's normal authorization and
+atomic dispatcher must still validate before launch. Treat a stale lease as
+possibly running until the worker reconciles it, and route its immutable
+terminal result only to the originating task recorded in the job.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

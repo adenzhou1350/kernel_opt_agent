@@ -30,6 +30,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_environment.py",
             "reuse a compatible materialized qualification environment",
         ),
+        "resource-broker": Command(
+            "resource_broker.py",
+            "queue jobs and reserve compatible multi-GPU worker resources",
+        ),
     },
     "hardware": {
         "hardware-discover": Command("discover_hardware.py", "query the target device and software stack"),
