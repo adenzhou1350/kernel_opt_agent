@@ -1,0 +1,93 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_materialization_approval_v2.schema.json",
+  "title": "Single-use CPU-only qualification environment materialization approval",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "approval_id",
+    "issued_at",
+    "expires_at",
+    "issued_by",
+    "action",
+    "materialization_plan",
+    "environment_request",
+    "resource_job",
+    "approved_budget",
+    "network_policy",
+    "constraints",
+    "decision",
+    "dispatcher_sha256",
+    "single_use",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-materialization-approval-v2"},
+    "approval_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "issued_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "supervisor_id"],
+      "properties": {
+        "role": {"const": "GLOBAL_SUPERVISOR"},
+        "supervisor_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "action": {"const": "CPU_ONLY_ENVIRONMENT_MATERIALIZATION"},
+    "materialization_plan": {"$ref": "#/$defs/identity"},
+    "environment_request": {"$ref": "#/$defs/identity"},
+    "resource_job": {"$ref": "#/$defs/identity"},
+    "approved_budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_wall_seconds"],
+      "properties": {
+        "max_wall_seconds": {"type": "integer", "minimum": 1}
+      }
+    },
+    "network_policy": {"enum": ["NONE", "DEPENDENCY_MATERIALIZATION_ONLY"]},
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "gpu_device_mount",
+        "gpu_workload",
+        "workload_launch",
+        "service_mutation",
+        "broker_submit",
+        "broker_bind_gate",
+        "broker_acquire"
+      ],
+      "properties": {
+        "gpu_device_mount": {"const": false},
+        "gpu_workload": {"const": false},
+        "workload_launch": {"const": false},
+        "service_mutation": {"const": false},
+        "broker_submit": {"const": false},
+        "broker_bind_gate": {"const": false},
+        "broker_acquire": {"const": false}
+      }
+    },
+    "decision": {"const": "APPROVED"},
+    "dispatcher_sha256": {"$ref": "#/$defs/sha256"},
+    "single_use": {"const": true},
+    "claim_boundary": {
+      "const": "CPU_ONLY_ENVIRONMENT_MATERIALIZATION_NOT_GPU_OR_WORKLOAD_AUTHORIZATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

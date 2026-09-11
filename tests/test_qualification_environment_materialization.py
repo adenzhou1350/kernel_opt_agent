@@ -6,8 +6,10 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 
@@ -18,6 +20,9 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from qualification_environment_materialization import (  # noqa: E402
     issue_approval,
     validate_approval,
+)
+from qualification_environment_materialization_dispatch import (  # noqa: E402
+    dispatch,
 )
 
 
@@ -137,6 +142,47 @@ def issue(tmp_path: Path) -> tuple[dict, Path]:
     return approval, approval_path
 
 
+def dispatchable_fixture(
+    tmp_path: Path,
+    *,
+    executor_source: str = "raise SystemExit(0)\n",
+    timeout_seconds: int = 30,
+) -> tuple[Path, Path]:
+    plan_path, request_path, job_path, approval_path = fixture(tmp_path)
+    executor_path = tmp_path / "tools" / "executor.py"
+    executor_path.parent.mkdir(parents=True, exist_ok=True)
+    executor_path.write_text(executor_source, encoding="utf-8")
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan["executor"] = {
+        "path": "tools/executor.py",
+        "sha256": digest(executor_path),
+    }
+    plan["budget"] = {"executor_hard_timeout_seconds": timeout_seconds}
+    plan["materialization_steps"] = [
+        {
+            "id": "prepare",
+            "gpu": False,
+            "argv": [sys.executable, str(executor_path)],
+        }
+    ]
+    write(plan_path, plan)
+    approval = issue_approval(
+        plan_path=plan_path,
+        request_path=request_path,
+        job_path=job_path,
+        artifact_root=tmp_path,
+        supervisor_id="root-controller",
+        approval_id="dispatchable-cpu-materialization-v2",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        max_wall_seconds=60,
+        network_policy="NONE",
+        dispatcher_bound=True,
+    )
+    write(approval_path, approval)
+    return approval_path, executor_path
+
+
 def test_issue_and_validate_preserves_non_gpu_boundary(tmp_path: Path) -> None:
     approval, approval_path = issue(tmp_path)
     result = validate_approval(approval_path, tmp_path, now=NOW)
@@ -145,6 +191,196 @@ def test_issue_and_validate_preserves_non_gpu_boundary(tmp_path: Path) -> None:
     assert result["workload_authorized"] is False
     assert result["broker_submission_authorized"] is False
     assert set(approval["constraints"].values()) == {False}
+    assert "single_use" not in approval
+    assert result["dispatcher_bound"] is False
+
+
+def test_dispatch_consumes_approval_once_and_hides_cuda(tmp_path: Path) -> None:
+    result_path = tmp_path / "executor-environment.json"
+    approval_path, _ = dispatchable_fixture(
+        tmp_path,
+        executor_source=(
+            "import json, os, pathlib\n"
+            f"pathlib.Path({str(result_path)!r}).write_text(json.dumps({{"
+            "'cuda': os.environ.get('CUDA_VISIBLE_DEVICES'), "
+            "'nvidia': os.environ.get('NVIDIA_VISIBLE_DEVICES')}))\n"
+        ),
+    )
+    result = dispatch(
+        artifact_root=tmp_path,
+        approval_path=approval_path,
+        expected_approval_sha256=digest(approval_path),
+        now=NOW,
+    )
+    assert result["state"] == "EXECUTOR_COMPLETED"
+    assert result["gpu_authorized"] is False
+    observed = json.loads(result_path.read_text(encoding="utf-8"))
+    assert observed == {"cuda": "-1", "nvidia": "void"}
+    receipt_path = Path(result["receipt_path"])
+    assert receipt_path.is_file()
+    with pytest.raises(FileExistsError, match="already"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=digest(approval_path),
+            now=NOW,
+        )
+
+
+def test_dispatch_failure_is_terminal_and_not_retryable(tmp_path: Path) -> None:
+    approval_path, _ = dispatchable_fixture(
+        tmp_path, executor_source="raise SystemExit(7)\n"
+    )
+    approval_sha256 = digest(approval_path)
+    result = dispatch(
+        artifact_root=tmp_path,
+        approval_path=approval_path,
+        expected_approval_sha256=approval_sha256,
+        now=NOW,
+    )
+    assert result["state"] == "EXECUTOR_FAILED"
+    assert result["exit_code"] == 7
+    with pytest.raises(FileExistsError, match="already"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=approval_sha256,
+            now=NOW,
+        )
+
+
+def test_dispatch_timeout_is_terminal_and_not_retryable(tmp_path: Path) -> None:
+    approval_path, _ = dispatchable_fixture(
+        tmp_path,
+        executor_source="import time\ntime.sleep(10)\n",
+        timeout_seconds=1,
+    )
+    approval_sha256 = digest(approval_path)
+    result = dispatch(
+        artifact_root=tmp_path,
+        approval_path=approval_path,
+        expected_approval_sha256=approval_sha256,
+        now=NOW,
+    )
+    assert result["state"] == "EXECUTOR_TIMED_OUT"
+    assert result["timed_out"] is True
+    with pytest.raises(FileExistsError, match="already"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=approval_sha256,
+            now=NOW,
+        )
+
+
+def test_dispatch_rejects_executor_drift_before_claim(tmp_path: Path) -> None:
+    approval_path, executor_path = dispatchable_fixture(tmp_path)
+    executor_path.write_text("raise SystemExit(1)\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="executor hash changed"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=digest(approval_path),
+            now=NOW,
+        )
+    claim_root = tmp_path / ".kernel-opt" / "materialization-claims"
+    assert not claim_root.exists()
+
+
+def test_dispatch_rejects_approval_that_cannot_cover_deadline(
+    tmp_path: Path,
+) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    approval["expires_at"] = (
+        (NOW + timedelta(seconds=20)).isoformat().replace("+00:00", "Z")
+    )
+    write(approval_path, approval)
+    with pytest.raises(ValueError, match="expires before"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=digest(approval_path),
+            now=NOW,
+        )
+
+
+def test_dispatch_rejects_legacy_unbound_approval(tmp_path: Path) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    approval["schema_version"] = "qualification-environment-materialization-approval-v1"
+    approval.pop("dispatcher_sha256")
+    approval.pop("single_use")
+    write(approval_path, approval)
+    with pytest.raises(ValueError, match="approval v2"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=digest(approval_path),
+            now=NOW,
+        )
+
+
+def test_dispatch_rejects_controller_hash_mismatch_before_claim(
+    tmp_path: Path,
+) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    with pytest.raises(ValueError, match="controller input"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256="0" * 64,
+            now=NOW,
+        )
+    assert not (tmp_path / ".kernel-opt").exists()
+
+
+def test_dispatch_claim_is_atomic_under_race(tmp_path: Path) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    approval_sha256 = digest(approval_path)
+
+    def attempt() -> str:
+        try:
+            return dispatch(
+                artifact_root=tmp_path,
+                approval_path=approval_path,
+                expected_approval_sha256=approval_sha256,
+                now=NOW,
+            )["state"]
+        except FileExistsError:
+            return "ALREADY_CLAIMED"
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        outcomes = list(pool.map(lambda _: attempt(), range(2)))
+    assert sorted(outcomes) == ["ALREADY_CLAIMED", "EXECUTOR_COMPLETED"]
+
+
+def test_dispatch_crash_leaves_consumed_ambiguous_claim(tmp_path: Path) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    approval_sha256 = digest(approval_path)
+    with patch(
+        "qualification_environment_materialization_dispatch.subprocess.run",
+        side_effect=OSError("synthetic launcher crash"),
+    ):
+        with pytest.raises(OSError, match="launcher crash"):
+            dispatch(
+                artifact_root=tmp_path,
+                approval_path=approval_path,
+                expected_approval_sha256=approval_sha256,
+                now=NOW,
+            )
+    claims = list(
+        (tmp_path / ".kernel-opt" / "materialization-claims").glob("*.claim.json")
+    )
+    assert len(claims) == 1
+    assert not list(claims[0].parent.glob("*.receipt.json"))
+    with pytest.raises(FileExistsError, match="already"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=approval_sha256,
+            now=NOW,
+        )
 
 
 @pytest.mark.parametrize(

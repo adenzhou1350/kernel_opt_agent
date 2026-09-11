@@ -14,10 +14,12 @@ from pathlib import Path
 from schema_utils import validate_instance, validate_json_file
 
 
-APPROVAL_SCHEMA = "qualification_environment_materialization_approval.schema.json"
+APPROVAL_SCHEMA_V1 = "qualification_environment_materialization_approval.schema.json"
+APPROVAL_SCHEMA_V2 = "qualification_environment_materialization_approval_v2.schema.json"
 REQUEST_SCHEMA = "qualification_environment_request.schema.json"
 JOB_SCHEMA = "resource_broker_job.schema.json"
-APPROVAL_VERSION = "qualification-environment-materialization-approval-v1"
+APPROVAL_VERSION_V1 = "qualification-environment-materialization-approval-v1"
+APPROVAL_VERSION_V2 = "qualification-environment-materialization-approval-v2"
 CLAIM_BOUNDARY = (
     "CPU_ONLY_ENVIRONMENT_MATERIALIZATION_NOT_GPU_OR_WORKLOAD_AUTHORIZATION"
 )
@@ -25,6 +27,12 @@ CLAIM_BOUNDARY = (
 
 def repository_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def dispatcher_path() -> Path:
+    return Path(__file__).with_name(
+        "qualification_environment_materialization_dispatch.py"
+    )
 
 
 def read_object(path: Path) -> dict:
@@ -227,6 +235,7 @@ def issue_approval(
     expires_at: datetime,
     max_wall_seconds: int,
     network_policy: str,
+    dispatcher_bound: bool = False,
 ) -> dict:
     validate_plan_bundle(plan_path, request_path, job_path, artifact_root)
     if expires_at <= issued_at:
@@ -234,7 +243,9 @@ def issue_approval(
     if max_wall_seconds <= 0:
         raise ValueError("materialization approval budget must be positive")
     approval = {
-        "schema_version": APPROVAL_VERSION,
+        "schema_version": (
+            APPROVAL_VERSION_V2 if dispatcher_bound else APPROVAL_VERSION_V1
+        ),
         "approval_id": approval_id,
         "issued_at": issued_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
         "expires_at": expires_at.astimezone(UTC).isoformat().replace("+00:00", "Z"),
@@ -260,7 +271,11 @@ def issue_approval(
         "decision": "APPROVED",
         "claim_boundary": CLAIM_BOUNDARY,
     }
-    schema = read_object(repository_root() / "schemas" / APPROVAL_SCHEMA)
+    if dispatcher_bound:
+        approval["dispatcher_sha256"] = sha256_file(dispatcher_path())
+        approval["single_use"] = True
+    schema_name = APPROVAL_SCHEMA_V2 if dispatcher_bound else APPROVAL_SCHEMA_V1
+    schema = read_object(repository_root() / "schemas" / schema_name)
     errors = validate_instance(approval, schema)
     if errors:
         raise ValueError(
@@ -272,8 +287,16 @@ def issue_approval(
 def validate_approval(
     approval_path: Path, artifact_root: Path, *, now: datetime | None = None
 ) -> dict:
+    unvalidated = read_object(approval_path)
+    version = unvalidated.get("schema_version")
+    if version == APPROVAL_VERSION_V1:
+        schema_name = APPROVAL_SCHEMA_V1
+    elif version == APPROVAL_VERSION_V2:
+        schema_name = APPROVAL_SCHEMA_V2
+    else:
+        raise ValueError(f"unsupported materialization approval version: {version}")
     approval = validate_schema(
-        approval_path, APPROVAL_SCHEMA, "environment materialization approval"
+        approval_path, schema_name, "environment materialization approval"
     )
     plan_path = validate_identity(
         artifact_root, approval["materialization_plan"], "materialization plan"
@@ -300,6 +323,8 @@ def validate_approval(
         "gpu_authorized": False,
         "workload_authorized": False,
         "broker_submission_authorized": False,
+        "dispatcher_bound": version == APPROVAL_VERSION_V2,
+        "single_use": approval.get("single_use") is True,
     }
 
 
@@ -316,6 +341,11 @@ def main() -> int:
     parser.add_argument("--approval-id")
     parser.add_argument("--ttl-seconds", type=int, default=3600)
     parser.add_argument("--max-wall-seconds", type=int)
+    parser.add_argument(
+        "--dispatcher-bound",
+        action="store_true",
+        help="issue a v2 approval bound to the single-use worker dispatcher",
+    )
     parser.add_argument(
         "--network-policy",
         choices=("NONE", "DEPENDENCY_MATERIALIZATION_ONLY"),
@@ -349,6 +379,7 @@ def main() -> int:
             expires_at=issued_at + timedelta(seconds=args.ttl_seconds),
             max_wall_seconds=args.max_wall_seconds,
             network_policy=args.network_policy,
+            dispatcher_bound=args.dispatcher_bound,
         )
         atomic_json(args.output.resolve(), approval)
         result = validate_approval(args.output.resolve(), artifact_root, now=issued_at)
