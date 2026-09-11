@@ -88,6 +88,10 @@ available. It accepts only the same complete job with a READY gate identity;
 any workload, source, environment, resource, budget, priority, origin or
 callback drift is rejected. The broker binds that identity but does not certify
 its authorization semantics or launch work.
+Jobs that require a particular topology or must avoid service GPUs can bind an
+exact gang through optional `resource.required_gpu_uuids`. Its cardinality must
+equal `gpu_count`; the broker waits unless every named UUID is simultaneously
+free on one compatible host, and records that exact sorted set in the lease.
 The read-only `plan` view classifies every
 queued item as immediately reservable, waiting for GPUs, requiring environment
 preparation, or having no compatible resource. It is suitable for a dashboard
