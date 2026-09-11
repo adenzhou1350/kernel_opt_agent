@@ -78,6 +78,12 @@ an accessible ModelScope snapshot when it can be content-hash matched to the
 required model identity; a hosting platform name is never a substitute for
 file identities.
 
+After an environment or toolchain failure, run `qualification-environment`
+before downloading or rebuilding another closure. Reuse only the layers it
+marks compatible: dependency/toolchain state, source binding and a source-bound
+native extension are separate identities. A reuse decision is advisory and
+never authorizes a build, test, GPU run or result claim.
+
 ## Theory-to-kernel analysis spine
 
 Start from the operator, not from a fashionable kernel or a community match.
