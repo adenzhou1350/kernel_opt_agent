@@ -69,6 +69,11 @@ receipt. Never reconstruct these timestamps later from memory or filesystem
 mtimes. If the ledger did not exist before implementation, classify that cycle
 as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
 Agent-repository maintenance PRs are never entered in a framework lane ledger.
+For bounded environment or governance commands, use `community-timing run-phase`
+instead of separate start/end writes so success, non-zero exit, timeout, and
+launch failure all close the phase with an immutable command receipt. The
+receipt measures command wall time and exit status; it is not correctness or
+performance evidence.
 
 Every selected framework candidate must also maintain one current
 `upstream-review-state-v1` record.  Update it when the minimal Draft evidence,
