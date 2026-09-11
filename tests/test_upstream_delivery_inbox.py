@@ -57,6 +57,28 @@ def write_json(path: Path, value: dict) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
+def review_handoff(ready: dict, observed_at: str, ready_since: str) -> dict:
+    pull = ready["pull_request"]
+    return {
+        "schema_version": "upstream-review-handoff-v1",
+        "pull_request": {
+            key: pull[key] for key in ("url", "repository", "number", "state", "draft")
+        },
+        "observation": {
+            "ready_since": ready_since,
+            "observed_at": observed_at,
+            "source": "DASHBOARD_FIRST_OBSERVED_READY",
+            "prospective_lower_bound_only": True,
+        },
+        "reviewers": {
+            "state": ready["reviewers"]["state"],
+            "handles": ready["reviewers"]["handles"],
+            "feedback_state": "NONE",
+        },
+        "policy": {"follow_up_after_hours": 24, "escalate_after_hours": 72},
+    }
+
+
 def run(manifest: Path, expected_code: int = 0) -> dict:
     completed = subprocess.run(
         [sys.executable, str(SCRIPT), str(manifest)],
@@ -130,6 +152,62 @@ def main() -> None:
             "target_workload",
         ]
         assert inbox["items"][0]["internal_candidate_status"] == "FOCUSED_PASS"
+
+        handoff_path = root / "handoff.json"
+        handoff_sha = write_json(
+            handoff_path,
+            review_handoff(
+                ready,
+                observed_at="2026-09-11T08:00:00Z",
+                ready_since="2026-09-10T07:00:00Z",
+            ),
+        )
+        v2 = copy.deepcopy(base)
+        v2["schema_version"] = "upstream-delivery-inbox-v2"
+        for candidate in v2["candidates"]:
+            candidate["review_handoff"] = None
+        v2["candidates"][1]["review_handoff"] = {
+            "path": handoff_path.name,
+            "sha256": handoff_sha,
+        }
+        write_json(manifest, v2)
+        v2_inbox = run(manifest)["inbox"]
+        assert v2_inbox["schema_version"] == "upstream-delivery-inbox-result-v2"
+        assert v2_inbox["actionable_count"] == 2
+        follow_up_item = next(
+            item
+            for item in v2_inbox["items"]
+            if item["candidate_id"] == "vllm-packed-lm-head"
+        )
+        assert follow_up_item["review_state_action"] == "WAIT_FOR_REVIEW"
+        assert follow_up_item["recommended_action"] == (
+            "ONE_TARGETED_REVIEWER_FOLLOW_UP"
+        )
+        assert follow_up_item["external_action_owner"] == "AUTHOR"
+        assert follow_up_item["review_handoff"]["observed_ready_age_hours"] == 25
+        assert follow_up_item["review_handoff"]["automatic_message_authorized"] is False
+
+        missing_handoff = copy.deepcopy(v2)
+        missing_handoff["candidates"][1]["review_handoff"] = None
+        write_json(manifest, missing_handoff)
+        failure = run(manifest, expected_code=1)
+        assert any(
+            "required for an open Ready PR" in error for error in failure["errors"]
+        )
+
+        mismatched_handoff = json.loads(handoff_path.read_text())
+        mismatched_handoff["pull_request"]["number"] = 999
+        mismatched_handoff["pull_request"]["url"] = (
+            "https://github.com/vllm-project/vllm/pull/999"
+        )
+        v2["candidates"][1]["review_handoff"]["sha256"] = write_json(
+            handoff_path, mismatched_handoff
+        )
+        write_json(manifest, v2)
+        failure = run(manifest, expected_code=1)
+        assert any(
+            "does not match review_state" in error for error in failure["errors"]
+        )
 
         less_ready_path = root / "less-ready.json"
         less_ready = review_state("sgl-project/sglang")

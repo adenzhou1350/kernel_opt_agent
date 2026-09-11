@@ -10,24 +10,43 @@ from collections import Counter
 from datetime import datetime
 from pathlib import Path
 
+from upstream_review_handoff import (
+    classify as classify_review_handoff,
+    validate as validate_review_handoff,
+)
 from upstream_review_state import classify, validate as validate_review_state
 
 
 ROOT_KEYS = {"schema_version", "observed_at", "candidates"}
-CANDIDATE_KEYS = {"candidate_id", "lane_id", "review_state"}
+CANDIDATE_KEYS_V1 = {"candidate_id", "lane_id", "review_state"}
+CANDIDATE_KEYS_V2 = CANDIDATE_KEYS_V1 | {"review_handoff"}
 SOURCE_KEYS = {"path", "sha256"}
+VERSIONS = {"upstream-delivery-inbox-v1", "upstream-delivery-inbox-v2"}
 PRIORITY = {
     "CLOSE_OR_REVISE_FAILED_CANDIDATE": 0,
     "RESPOND_TO_REVIEW": 1,
     "OPEN_DRAFT": 2,
     "MARK_READY_AND_REQUEST_REVIEW": 3,
+    "REQUEST_TOPIC_REVIEWERS": 3,
+    "ONE_TARGETED_REVIEWER_FOLLOW_UP": 3,
+    "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION": 3,
     "COMPLETE_DRAFT_MINIMUM": 4,
     "KEEP_DRAFT_CONTINUE_QUALIFICATION": 5,
     "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW": 5,
     "WAIT_FOR_MAINTAINER_CI_AND_REVIEW": 6,
     "WAIT_FOR_REVIEW": 7,
+    "WAIT_FOR_CI_OR_MERGE": 7,
+    "WAIT": 7,
     "NO_ACTION_CLOSED": 8,
     "NO_ACTION_MERGED": 9,
+}
+ACTIONABLE = {
+    "OPEN_DRAFT",
+    "MARK_READY_AND_REQUEST_REVIEW",
+    "RESPOND_TO_REVIEW",
+    "REQUEST_TOPIC_REVIEWERS",
+    "ONE_TARGETED_REVIEWER_FOLLOW_UP",
+    "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION",
 }
 
 
@@ -77,8 +96,9 @@ def check_progress(checks: dict[str, str], complete_values: set[str]) -> dict:
 def validate_manifest(record: object) -> list[str]:
     errors: list[str] = []
     root = exact_keys(record, ROOT_KEYS, "root", errors)
-    if root.get("schema_version") != "upstream-delivery-inbox-v1":
-        errors.append("schema_version must be upstream-delivery-inbox-v1")
+    version = root.get("schema_version")
+    if version not in VERSIONS:
+        errors.append(f"schema_version must be one of {sorted(VERSIONS)}")
     parse_timestamp(root.get("observed_at"), "observed_at", errors)
     candidates = root.get("candidates")
     if not isinstance(candidates, list):
@@ -86,7 +106,12 @@ def validate_manifest(record: object) -> list[str]:
         return errors
     identities: set[str] = set()
     for index, value in enumerate(candidates):
-        candidate = exact_keys(value, CANDIDATE_KEYS, f"candidates[{index}]", errors)
+        expected_keys = (
+            CANDIDATE_KEYS_V2
+            if version == "upstream-delivery-inbox-v2"
+            else CANDIDATE_KEYS_V1
+        )
+        candidate = exact_keys(value, expected_keys, f"candidates[{index}]", errors)
         candidate_id = candidate.get("candidate_id")
         lane_id = candidate.get("lane_id")
         if not isinstance(candidate_id, str) or not candidate_id:
@@ -114,6 +139,28 @@ def validate_manifest(record: object) -> list[str]:
             errors.append(
                 f"candidates[{index}].review_state.sha256: must be lowercase SHA-256"
             )
+        if version == "upstream-delivery-inbox-v2":
+            handoff = candidate.get("review_handoff")
+            if handoff is not None:
+                source = exact_keys(
+                    handoff,
+                    SOURCE_KEYS,
+                    f"candidates[{index}].review_handoff",
+                    errors,
+                )
+                if not isinstance(source.get("path"), str) or not source.get("path"):
+                    errors.append(
+                        f"candidates[{index}].review_handoff.path: must be non-empty"
+                    )
+                digest = source.get("sha256")
+                if (
+                    not isinstance(digest, str)
+                    or len(digest) != 64
+                    or any(char not in "0123456789abcdef" for char in digest)
+                ):
+                    errors.append(
+                        f"candidates[{index}].review_handoff.sha256: must be lowercase SHA-256"
+                    )
     return errors
 
 
@@ -165,28 +212,93 @@ def build(
                 continue
             pull_identities[pull_identity] = candidate["candidate_id"]
         decision = classify(review_state)
+        handoff_result = None
+        effective_action = decision["recommended_action"]
+        effective_owner = decision["external_action_owner"]
+        if manifest["schema_version"] == "upstream-delivery-inbox-v2":
+            handoff_source = candidate["review_handoff"]
+            ready_pull = pull["state"] == "OPEN" and pull["draft"] is False
+            if ready_pull and handoff_source is None:
+                errors.append(
+                    f"candidates[{index}].review_handoff: required for an open Ready PR"
+                )
+                continue
+            if handoff_source is not None:
+                handoff_path = resolve_source(manifest_path, handoff_source["path"])
+                try:
+                    handoff_raw = handoff_path.read_bytes()
+                except OSError as error:
+                    errors.append(f"candidates[{index}].review_handoff.path: {error}")
+                    continue
+                handoff_sha = sha256_bytes(handoff_raw)
+                if handoff_sha != handoff_source["sha256"]:
+                    errors.append(
+                        f"candidates[{index}].review_handoff.sha256: expected "
+                        f"{handoff_source['sha256']}, got {handoff_sha}"
+                    )
+                    continue
+                try:
+                    handoff = json.loads(handoff_raw)
+                except Exception as error:
+                    errors.append(f"candidates[{index}].review_handoff.path: {error}")
+                    continue
+                nested_errors = validate_review_handoff(handoff)
+                if nested_errors:
+                    errors.extend(
+                        f"candidates[{index}].review_handoff: {error}"
+                        for error in nested_errors
+                    )
+                    continue
+                handoff_pull = handoff["pull_request"]
+                for field in ("url", "repository", "number", "state", "draft"):
+                    if handoff_pull[field] != pull[field]:
+                        errors.append(
+                            f"candidates[{index}].review_handoff.pull_request.{field}: "
+                            "does not match review_state"
+                        )
+                if handoff["observation"]["observed_at"] != manifest["observed_at"]:
+                    errors.append(
+                        f"candidates[{index}].review_handoff.observation.observed_at: "
+                        "must match inbox observed_at"
+                    )
+                if errors:
+                    continue
+                handoff_decision = classify_review_handoff(handoff)
+                handoff_result = {
+                    "path": handoff_source["path"],
+                    "sha256": handoff_sha,
+                    **handoff_decision,
+                }
+                if handoff_decision["recommended_action"] not in {
+                    "WAIT",
+                    "NO_ACTION",
+                }:
+                    effective_action = handoff_decision["recommended_action"]
+                    effective_owner = handoff_decision["external_action_owner"]
         draft_progress = check_progress(review_state["draft_minimum"], {"PASS"})
         ready_progress = check_progress(
             review_state["ready_gates"], {"PASS", "NOT_APPLICABLE"}
         )
-        items.append(
-            {
-                "candidate_id": candidate["candidate_id"],
-                "lane_id": candidate["lane_id"],
-                "review_state": {"path": source["path"], "sha256": actual_sha},
-                "repository": pull["repository"],
-                "pull_request_number": pull["number"],
-                "pull_request_url": pull["url"],
-                "github_review_stage": decision["github_review_stage"],
-                "candidate_quality": decision["candidate_quality"],
-                "recommended_action": decision["recommended_action"],
-                "external_action_owner": decision["external_action_owner"],
-                "internal_candidate_status": pull["internal_candidate_status"],
-                "draft_minimum_progress": draft_progress,
-                "ready_gate_progress": ready_progress,
-                "priority": PRIORITY[decision["recommended_action"]],
-            }
-        )
+        item = {
+            "candidate_id": candidate["candidate_id"],
+            "lane_id": candidate["lane_id"],
+            "review_state": {"path": source["path"], "sha256": actual_sha},
+            "repository": pull["repository"],
+            "pull_request_number": pull["number"],
+            "pull_request_url": pull["url"],
+            "github_review_stage": decision["github_review_stage"],
+            "candidate_quality": decision["candidate_quality"],
+            "recommended_action": effective_action,
+            "external_action_owner": effective_owner,
+            "internal_candidate_status": pull["internal_candidate_status"],
+            "draft_minimum_progress": draft_progress,
+            "ready_gate_progress": ready_progress,
+            "priority": PRIORITY[effective_action],
+        }
+        if manifest["schema_version"] == "upstream-delivery-inbox-v2":
+            item["review_state_action"] = decision["recommended_action"]
+            item["review_handoff"] = handoff_result
+        items.append(item)
     items.sort(
         key=lambda item: (
             item["priority"],
@@ -198,14 +310,16 @@ def build(
     )
     counts = Counter(item["recommended_action"] for item in items)
     result = {
-        "schema_version": "upstream-delivery-inbox-result-v1",
+        "schema_version": (
+            "upstream-delivery-inbox-result-v2"
+            if manifest["schema_version"] == "upstream-delivery-inbox-v2"
+            else "upstream-delivery-inbox-result-v1"
+        ),
         "manifest_sha256": sha256_bytes(manifest_bytes),
         "observed_at": manifest["observed_at"],
         "candidate_count": len(items),
         "actionable_count": sum(
-            item["recommended_action"]
-            in {"OPEN_DRAFT", "MARK_READY_AND_REQUEST_REVIEW", "RESPOND_TO_REVIEW"}
-            for item in items
+            item["recommended_action"] in ACTIONABLE for item in items
         ),
         "action_counts": dict(sorted(counts.items())),
         "items": items,
