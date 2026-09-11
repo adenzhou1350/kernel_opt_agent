@@ -45,6 +45,7 @@ PR_STAGE_MILESTONES = {
     "READY": "PR_READY_FOR_REVIEW",
     "MERGED": "PR_MERGED",
 }
+AUDIT_EXCLUDED_DIRS = {".git", ".venv", "__pycache__", "node_modules"}
 
 
 def root() -> Path:
@@ -372,6 +373,139 @@ def pair_baseline(paths: list[Path]) -> dict:
     return report
 
 
+def audit_roots(
+    roots: list[Path], at: str | None = None, max_active_phase_seconds: float = 21600
+) -> dict:
+    """Find prospective ledgers whose timing instrumentation needs attention.
+
+    This is deliberately a read-only operational audit rather than another
+    evidence artifact schema.  It lets a controller inspect existing lanes
+    without asking each lane to restate its status.
+    """
+    if max_active_phase_seconds <= 0:
+        raise ValueError("max_active_phase_seconds must be positive")
+    observed_at = parse_time(timestamp(at), "at")
+    rows = []
+    invalid = []
+    seen: set[Path] = set()
+    for configured_root in roots:
+        configured_root = configured_root.resolve()
+        candidates = (
+            [configured_root]
+            if configured_root.is_file()
+            else configured_root.rglob("*.json")
+            if configured_root.is_dir()
+            else []
+        )
+        for path in candidates:
+            path = path.resolve()
+            if path in seen or any(part in AUDIT_EXCLUDED_DIRS for part in path.parts):
+                continue
+            seen.add(path)
+            try:
+                if path.stat().st_size > 2 * 1024 * 1024:
+                    continue
+                raw = read_object(path)
+            except (OSError, ValueError, TypeError, json.JSONDecodeError):
+                continue
+            if raw.get("schema_version") != LEDGER_SCHEMA:
+                continue
+            try:
+                ledger = validate_ledger_object(raw, path)
+            except (OSError, ValueError) as error:
+                invalid.append({"path": path.as_posix(), "error": str(error)})
+                continue
+            if ledger["observation_mode"] != "PROSPECTIVE_EXACT":
+                continue
+            active = [span for span in ledger["spans"] if span["status"] == "ACTIVE"]
+            closed = [span for span in ledger["spans"] if span["status"] != "ACTIVE"]
+            explicitly_attributed = [
+                span
+                for span in ledger["spans"]
+                if span["phase"] != "UNATTRIBUTED_LEGACY_WORK"
+            ]
+            overhead = [
+                span
+                for span in ledger["spans"]
+                if span["phase"] in {"ENVIRONMENT_SETUP", "GOVERNANCE_VALIDATION"}
+            ]
+            active_seconds = None
+            if active:
+                active_seconds = (
+                    observed_at
+                    - parse_time(active[0]["started_at"], "active.started_at")
+                ).total_seconds()
+                if active_seconds < 0:
+                    raise ValueError(f"audit time precedes active phase: {path}")
+            milestone_kinds = {item["kind"] for item in ledger["milestones"]}
+            alerts = []
+            if not explicitly_attributed:
+                alerts.append("NO_EXACT_PHASE_ATTRIBUTION")
+            if not ledger["spans"]:
+                alerts.append("NO_PRIMARY_PHASE")
+            if active_seconds is not None and active_seconds > max_active_phase_seconds:
+                alerts.append("ACTIVE_PHASE_OVER_THRESHOLD")
+            if "PR_MERGED" in milestone_kinds:
+                delivery_stage = "MERGED"
+            elif "PR_READY_FOR_REVIEW" in milestone_kinds:
+                delivery_stage = "READY"
+            elif "PR_DRAFT_OPENED" in milestone_kinds:
+                delivery_stage = "DRAFT"
+            else:
+                delivery_stage = "PRE_PR"
+            rows.append(
+                {
+                    "cycle_id": ledger["cycle_id"],
+                    "task_id": ledger["task_id"],
+                    "ledger_path": path.as_posix(),
+                    "active_phase": active[0]["phase"] if active else None,
+                    "active_phase_seconds": active_seconds,
+                    "closed_span_count": len(closed),
+                    "phases_observed": sorted(
+                        {span["phase"] for span in ledger["spans"]}
+                    ),
+                    "exact_phase_attribution": bool(explicitly_attributed),
+                    "explicit_environment_governance": bool(overhead),
+                    "delivery_stage": delivery_stage,
+                    "alerts": alerts,
+                }
+            )
+    rows.sort(key=lambda row: (row["task_id"], row["cycle_id"]))
+    tracked = sum(row["exact_phase_attribution"] for row in rows)
+    overhead_observed = sum(row["explicit_environment_governance"] for row in rows)
+    if not rows:
+        status = "NO_PROSPECTIVE_CYCLES"
+    elif not tracked:
+        status = "BLIND"
+    elif tracked < len(rows):
+        status = "PARTIAL"
+    else:
+        status = "TRACKED"
+    if not rows:
+        overhead_status = "NO_PROSPECTIVE_CYCLES"
+    elif not overhead_observed:
+        overhead_status = "BLIND"
+    elif overhead_observed < len(rows):
+        overhead_status = "PARTIAL"
+    else:
+        overhead_status = "MEASURED"
+    return {
+        "status": status,
+        "environment_governance_measurement_status": overhead_status,
+        "claim_boundary": "READ_ONLY_CURRENT_LEDGER_OPERABILITY_NOT_PERFORMANCE_CAUSALITY",
+        "observed_at": observed_at.isoformat(),
+        "max_active_phase_seconds": max_active_phase_seconds,
+        "prospective_cycle_count": len(rows),
+        "exact_phase_tracked_count": tracked,
+        "explicit_environment_governance_count": overhead_observed,
+        "environment_governance_measurement_debt_count": len(rows) - overhead_observed,
+        "attention_cycle_count": sum(bool(row["alerts"]) for row in rows),
+        "invalid_ledger_count": len(invalid),
+        "invalid_ledgers": invalid,
+        "cycles": rows,
+    }
+
+
 def init_ledger(args: argparse.Namespace) -> dict:
     if args.output.exists():
         raise FileExistsError(args.output)
@@ -620,6 +754,11 @@ def parse_args() -> argparse.Namespace:
     pairs = commands.add_parser("summarize-pairs")
     pairs.add_argument("--pair", type=Path, action="append", required=True)
     pairs.add_argument("--output", type=Path, required=True)
+    audit = commands.add_parser("audit-root")
+    audit.add_argument("--root", type=Path, action="append", required=True)
+    audit.add_argument("--at")
+    audit.add_argument("--max-active-phase-seconds", type=float, default=21600)
+    audit.add_argument("--output", type=Path)
     return parser.parse_args()
 
 
@@ -645,9 +784,13 @@ def main() -> int:
     elif args.operation == "summarize":
         result = summarize(args.ledger)
         atomic_json(args.output.resolve(), result)
-    else:
+    elif args.operation == "summarize-pairs":
         result = pair_baseline(args.pair)
         atomic_json(args.output.resolve(), result)
+    else:
+        result = audit_roots(args.root, args.at, args.max_active_phase_seconds)
+        if args.output:
+            atomic_json(args.output.resolve(), result)
     print(json.dumps(result, indent=2, sort_keys=True))
     return 0
 
