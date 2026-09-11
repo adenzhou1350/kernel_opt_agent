@@ -40,6 +40,24 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
+Before rebuilding a test environment, compare the requested workflow with an
+already materialized closure:
+
+```bash
+python3 scripts/kernel_opt.py qualification-environment \
+  --closure cached-environment.json \
+  --request candidate-environment-request.json \
+  --output environment-reuse.json
+```
+
+The comparison separates reusable dependency/toolchain state from a source-
+bound native extension and the actual imported module. It permits a cheap
+source rebind or bounded extension rebuild without treating an image, ISA,
+workflow, test-contract, dependency-lock or GPU-visibility mismatch as a cache
+hit. The result is advisory reuse routing only: it never authorizes a build,
+test, GPU run, correctness claim or performance claim. Templates are available
+with `--print-closure-template` and `--print-request-template`.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
