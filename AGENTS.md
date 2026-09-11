@@ -135,6 +135,15 @@ fall back to `torch._C._cuda_getArchFlags()` and hash-bind the Torch binary and
 build configuration. Do not relax or skip the architecture check, and do not
 make CUDA visible merely to query compiled targets.
 
+Treat the GPU process list in a worker attestation as a time-stamped
+observation, not a permanent empty-worker promise. Immediately around each
+CPU-only preparation step, capture the same `nvidia-smi` process fields and
+use `validate_cpu_only_process_transition`: pre-existing protected workloads
+may remain, but the normalized GPU UUID/PID/process-name set must be unchanged
+afterward. Do not compare live process rows to the historical attestation or
+fail on memory-accounting drift alone, and never stop a protected process to
+make the old snapshot match.
+
 When a shared qualification resource broker is available, submit the sealed
 validation job and continue bounded discovery or review work instead of waiting
 on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker

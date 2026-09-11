@@ -51,6 +51,45 @@ def compiled_arches(torch_module: object) -> list[str]:
     return sorted(flag for flag in arch_flags.split() if flag)
 
 
+def gpu_process_identities(snapshot: list[str]) -> set[tuple[str, str, str]]:
+    """Normalize dynamic GPU process rows without treating memory as identity."""
+    identities: set[tuple[str, str, str]] = set()
+    for row in snapshot:
+        fields = [field.strip() for field in row.split(",", 3)]
+        if len(fields) != 4 or not all(fields[:3]):
+            raise ValueError(f"invalid GPU process snapshot row: {row!r}")
+        identities.add((fields[0], fields[1], fields[2]))
+    return identities
+
+
+def validate_cpu_only_process_transition(
+    attested_snapshot: list[str],
+    before_snapshot: list[str],
+    after_snapshot: list[str],
+) -> dict:
+    """Prove a CPU-only step did not change shared-worker GPU processes.
+
+    The attestation is a historical observation, so protected workloads may
+    legitimately exist by dispatch time. The execution boundary is the live
+    before/after pair. Memory accounting is diagnostic and may drift while a
+    stable external process continues running.
+    """
+    attested = gpu_process_identities(attested_snapshot)
+    before = gpu_process_identities(before_snapshot)
+    after = gpu_process_identities(after_snapshot)
+    if before != after:
+        added = sorted(after - before)
+        removed = sorted(before - after)
+        raise ValueError(
+            "GPU process identities changed during CPU-only execution: "
+            f"added={added}, removed={removed}"
+        )
+    return {
+        "attestation_snapshot_changed_before_execution": before != attested,
+        "stable_process_identities": [list(identity) for identity in sorted(before)],
+    }
+
+
 def tool_identity(name: str) -> dict | None:
     command = shutil.which(name)
     if not command and name == "nvcc":

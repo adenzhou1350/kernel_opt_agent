@@ -783,6 +783,15 @@ worker attestation therefore falls back to the non-device-initializing
 build configuration and native libraries. Materializers should consume that
 attested value rather than exposing a GPU to rediscover compiled targets.
 
+The recorded GPU process list is a historical observation. A shared service
+may be running when a later CPU-only preparation starts. Capture live process
+rows immediately before and after and call
+`validate_cpu_only_process_transition`: it accepts stable pre-existing process
+identities (and memory-use drift) but fails closed on any added, removed or
+replaced GPU process. This avoids treating a protected service as a reason to
+rebuild the runtime while still proving that preparation did not mutate GPU
+occupancy.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
