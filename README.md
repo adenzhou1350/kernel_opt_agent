@@ -67,6 +67,9 @@ python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
   bind-gate --job same-job-with-ready-gate.json
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  withdraw --job-id stale-job --reason-path decisions/supersession.json \
+  --reason-sha256 <sha256>
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
   acquire --inventory inventory.json
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
   plan --inventory inventory.json
@@ -88,6 +91,10 @@ available. It accepts only the same complete job with a READY gate identity;
 any workload, source, environment, resource, budget, priority, origin or
 callback drift is rejected. The broker binds that identity but does not certify
 its authorization semantics or launch work.
+An unleased blocked or queued job whose immutable body is superseded can be
+withdrawn with a hash-bound reason. Withdrawal preserves the terminal audit
+record and is forbidden once any lease exists; it never counts as an
+experimental result.
 Jobs that require a particular topology or must avoid service GPUs can bind an
 exact gang through optional `resource.required_gpu_uuids`. Its cardinality must
 equal `gpu_count`; the broker waits unless every named UUID is simultaneously

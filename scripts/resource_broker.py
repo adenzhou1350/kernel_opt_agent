@@ -23,6 +23,7 @@ from schema_utils import validate_instance
 
 LEASE_VERSION = "resource-broker-lease-v1"
 TERMINAL_VERSION = "resource-broker-terminal-v1"
+WITHDRAWAL_VERSION = "resource-broker-withdrawal-v1"
 ENVIRONMENT_DECISION_RANK = {
     "REUSE_FULL_CLOSURE": 0,
     "REUSE_DEPENDENCIES_REBIND_SOURCE": 1,
@@ -287,6 +288,65 @@ class ResourceBroker:
                 json.loads(row["terminal_json"]) if row["terminal_json"] else None
             ),
         }
+
+    def withdraw(
+        self,
+        job_id: str,
+        reason_identity: dict,
+        *,
+        now: datetime | None = None,
+    ) -> dict:
+        """Withdraw an unleased job without deleting its audit history."""
+        if (
+            set(reason_identity) != {"path", "sha256"}
+            or not isinstance(reason_identity["path"], str)
+            or not reason_identity["path"]
+        ):
+            raise ValueError("withdrawal reason identity must contain path and sha256")
+        reason_sha256 = reason_identity["sha256"]
+        if (
+            not isinstance(reason_sha256, str)
+            or len(reason_sha256) != 64
+            or any(character not in "0123456789abcdef" for character in reason_sha256)
+        ):
+            raise ValueError("withdrawal reason sha256 must be a full digest")
+        now = now or datetime.now(UTC)
+        self.connection.execute("BEGIN IMMEDIATE")
+        try:
+            row = self.connection.execute(
+                "SELECT state FROM jobs WHERE job_id = ?", (job_id,)
+            ).fetchone()
+            if row is None:
+                raise ValueError("unknown job_id")
+            if row["state"] not in {"BLOCKED_AUTHORIZATION", "QUEUED"}:
+                raise ValueError(
+                    "only an unleased blocked or queued job can be withdrawn"
+                )
+            lease = self.connection.execute(
+                "SELECT 1 FROM leases WHERE job_id = ?", (job_id,)
+            ).fetchone()
+            if lease is not None:
+                raise ValueError("a job with lease history cannot be withdrawn")
+            terminal = {
+                "schema_version": WITHDRAWAL_VERSION,
+                "job_id": job_id,
+                "outcome": "WITHDRAWN",
+                "completed_at": timestamp(now),
+                "reason_identity": reason_identity,
+                "claim_boundary": (
+                    "UNLEASED_QUEUE_WITHDRAWAL_ONLY_NOT_RESULT_OR_EXECUTION_EVIDENCE"
+                ),
+            }
+            self.connection.execute(
+                "UPDATE jobs SET state = 'WITHDRAWN', terminal_json = ? "
+                "WHERE job_id = ?",
+                (canonical_json(terminal), job_id),
+            )
+            self.connection.execute("COMMIT")
+            return terminal
+        except BaseException:
+            self.connection.execute("ROLLBACK")
+            raise
 
     def _mark_stale(self, now: datetime) -> None:
         rows = self.connection.execute(
@@ -738,6 +798,10 @@ def main() -> int:
     )
     complete.add_argument("--result-path", required=True)
     complete.add_argument("--result-sha256", required=True)
+    withdraw = commands.add_parser("withdraw")
+    withdraw.add_argument("--job-id", required=True)
+    withdraw.add_argument("--reason-path", required=True)
+    withdraw.add_argument("--reason-sha256", required=True)
     plan = commands.add_parser("plan")
     plan.add_argument("--inventory", required=True, type=Path)
     commands.add_parser("snapshot")
@@ -759,6 +823,11 @@ def main() -> int:
                 args.lease_id,
                 args.outcome,
                 {"path": args.result_path, "sha256": args.result_sha256},
+            )
+        elif args.action == "withdraw":
+            result = broker.withdraw(
+                args.job_id,
+                {"path": args.reason_path, "sha256": args.reason_sha256},
             )
         elif args.action == "plan":
             result = broker.plan(read_object(args.inventory))
