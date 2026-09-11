@@ -144,6 +144,28 @@ recommends Ready only after every applicable official-correctness,
 production-reachability, materiality, target-workload and known-regression
 gate passes.
 
+When the worker cannot clone source, create a deterministic transport directly
+from committed Git blobs. The builder never reads tracked files from the
+working tree, so dirty files, checkout line-ending conversion and export rules
+cannot change the payload:
+
+```bash
+python3 scripts/kernel_opt.py qualification-source-bundle --build \
+  --repo /path/to/framework --commit <full-commit> \
+  --repository-url https://github.com/org/framework.git \
+  --archive framework-source.tar.gz --manifest framework-source.manifest.json
+python3 scripts/kernel_opt.py qualification-source-bundle --verify \
+  --archive framework-source.tar.gz --manifest framework-source.manifest.json \
+  --extract-root /immutable/new/source-root
+```
+
+The manifest binds the repository identity, commit, tree, archive digest and
+every file, executable mode and safe relative symlink. Verification rejects
+tampering, duplicate or special entries, traversal, escaping symlinks and an
+existing extraction target. This is source transport only: it does not approve
+materialization, install dependencies, build native code, launch a workload or
+authorize GPU use.
+
 The control plane can aggregate several immutable review-state records without
 guessing from chat text or unrelated receipts:
 

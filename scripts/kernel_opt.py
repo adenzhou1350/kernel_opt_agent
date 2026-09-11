@@ -78,6 +78,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_environment_worker.py",
             "attest a preprovisioned qualification worker runtime",
         ),
+        "qualification-source-bundle": Command(
+            "qualification_source_bundle.py",
+            "build or verify deterministic Git-object source transport",
+        ),
         "resource-broker": Command(
             "resource_broker.py",
             "queue jobs and reserve compatible multi-GPU worker resources",
