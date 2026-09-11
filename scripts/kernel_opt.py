@@ -123,6 +123,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_review_handoff.py",
             "route prospective reviewer waits and bounded follow-ups",
         ),
+        "upstream-delivery-inbox": Command(
+            "upstream_delivery_inbox.py",
+            "aggregate evidence-bound candidate delivery actions",
+        ),
         "upstream-draft-progress": Command(
             "upstream_draft_progress.py",
             "route stale, failed and completed Draft qualification",

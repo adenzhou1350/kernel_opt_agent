@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""Aggregate hash-bound review states into one deterministic delivery queue."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from collections import Counter
+from datetime import datetime
+from pathlib import Path
+
+from upstream_review_state import classify, validate as validate_review_state
+
+
+ROOT_KEYS = {"schema_version", "observed_at", "candidates"}
+CANDIDATE_KEYS = {"candidate_id", "lane_id", "review_state"}
+SOURCE_KEYS = {"path", "sha256"}
+PRIORITY = {
+    "CLOSE_OR_REVISE_FAILED_CANDIDATE": 0,
+    "RESPOND_TO_REVIEW": 1,
+    "OPEN_DRAFT": 2,
+    "MARK_READY_AND_REQUEST_REVIEW": 3,
+    "COMPLETE_DRAFT_MINIMUM": 4,
+    "KEEP_DRAFT_CONTINUE_QUALIFICATION": 5,
+    "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW": 5,
+    "WAIT_FOR_MAINTAINER_CI_AND_REVIEW": 6,
+    "WAIT_FOR_REVIEW": 7,
+    "NO_ACTION_CLOSED": 8,
+    "NO_ACTION_MERGED": 9,
+}
+
+
+def exact_keys(value: object, expected: set[str], path: str, errors: list[str]) -> dict:
+    if not isinstance(value, dict):
+        errors.append(f"{path}: must be an object")
+        return {}
+    missing = sorted(expected - set(value))
+    extra = sorted(set(value) - expected)
+    if missing:
+        errors.append(f"{path}: missing keys {missing}")
+    if extra:
+        errors.append(f"{path}: unexpected keys {extra}")
+    return value
+
+
+def parse_timestamp(value: object, path: str, errors: list[str]) -> None:
+    if not isinstance(value, str):
+        errors.append(f"{path}: must be an RFC3339 string")
+        return
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        errors.append(f"{path}: invalid RFC3339 timestamp")
+        return
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        errors.append(f"{path}: timezone is required")
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def validate_manifest(record: object) -> list[str]:
+    errors: list[str] = []
+    root = exact_keys(record, ROOT_KEYS, "root", errors)
+    if root.get("schema_version") != "upstream-delivery-inbox-v1":
+        errors.append("schema_version must be upstream-delivery-inbox-v1")
+    parse_timestamp(root.get("observed_at"), "observed_at", errors)
+    candidates = root.get("candidates")
+    if not isinstance(candidates, list):
+        errors.append("candidates: must be an array")
+        return errors
+    identities: set[str] = set()
+    for index, value in enumerate(candidates):
+        candidate = exact_keys(value, CANDIDATE_KEYS, f"candidates[{index}]", errors)
+        candidate_id = candidate.get("candidate_id")
+        lane_id = candidate.get("lane_id")
+        if not isinstance(candidate_id, str) or not candidate_id:
+            errors.append(f"candidates[{index}].candidate_id: must be non-empty")
+        elif candidate_id in identities:
+            errors.append(f"candidates[{index}].candidate_id: duplicate identity")
+        else:
+            identities.add(candidate_id)
+        if not isinstance(lane_id, str) or not lane_id:
+            errors.append(f"candidates[{index}].lane_id: must be non-empty")
+        source = exact_keys(
+            candidate.get("review_state"),
+            SOURCE_KEYS,
+            f"candidates[{index}].review_state",
+            errors,
+        )
+        if not isinstance(source.get("path"), str) or not source.get("path"):
+            errors.append(f"candidates[{index}].review_state.path: must be non-empty")
+        digest = source.get("sha256")
+        if (
+            not isinstance(digest, str)
+            or len(digest) != 64
+            or any(char not in "0123456789abcdef" for char in digest)
+        ):
+            errors.append(
+                f"candidates[{index}].review_state.sha256: must be lowercase SHA-256"
+            )
+    return errors
+
+
+def resolve_source(manifest_path: Path, value: str) -> Path:
+    path = Path(value)
+    return path if path.is_absolute() else manifest_path.parent / path
+
+
+def build(
+    manifest_path: Path, manifest: dict, manifest_bytes: bytes
+) -> tuple[dict, list[str]]:
+    errors: list[str] = []
+    items: list[dict] = []
+    pull_identities: dict[tuple[str, int], str] = {}
+    for index, candidate in enumerate(manifest["candidates"]):
+        source = candidate["review_state"]
+        path = resolve_source(manifest_path, source["path"])
+        try:
+            raw = path.read_bytes()
+        except OSError as error:
+            errors.append(f"candidates[{index}].review_state.path: {error}")
+            continue
+        actual_sha = sha256_bytes(raw)
+        if actual_sha != source["sha256"]:
+            errors.append(
+                f"candidates[{index}].review_state.sha256: expected {source['sha256']}, got {actual_sha}"
+            )
+            continue
+        try:
+            review_state = json.loads(raw)
+        except Exception as error:
+            errors.append(f"candidates[{index}].review_state.path: {error}")
+            continue
+        nested_errors = validate_review_state(review_state)
+        if nested_errors:
+            errors.extend(
+                f"candidates[{index}].review_state: {error}" for error in nested_errors
+            )
+            continue
+        pull = review_state["pull_request"]
+        if pull["number"] is not None:
+            pull_identity = (pull["repository"], pull["number"])
+            previous = pull_identities.get(pull_identity)
+            if previous is not None:
+                errors.append(
+                    f"candidates[{index}]: pull request {pull_identity[0]}#{pull_identity[1]} "
+                    f"is already bound to {previous}"
+                )
+                continue
+            pull_identities[pull_identity] = candidate["candidate_id"]
+        decision = classify(review_state)
+        items.append(
+            {
+                "candidate_id": candidate["candidate_id"],
+                "lane_id": candidate["lane_id"],
+                "review_state": {"path": source["path"], "sha256": actual_sha},
+                "repository": pull["repository"],
+                "pull_request_number": pull["number"],
+                "pull_request_url": pull["url"],
+                "github_review_stage": decision["github_review_stage"],
+                "candidate_quality": decision["candidate_quality"],
+                "recommended_action": decision["recommended_action"],
+                "external_action_owner": decision["external_action_owner"],
+                "priority": PRIORITY[decision["recommended_action"]],
+            }
+        )
+    items.sort(
+        key=lambda item: (item["priority"], item["lane_id"], item["candidate_id"])
+    )
+    counts = Counter(item["recommended_action"] for item in items)
+    result = {
+        "schema_version": "upstream-delivery-inbox-result-v1",
+        "manifest_sha256": sha256_bytes(manifest_bytes),
+        "observed_at": manifest["observed_at"],
+        "candidate_count": len(items),
+        "actionable_count": sum(
+            item["recommended_action"]
+            in {"OPEN_DRAFT", "MARK_READY_AND_REQUEST_REVIEW", "RESPOND_TO_REVIEW"}
+            for item in items
+        ),
+        "action_counts": dict(sorted(counts.items())),
+        "items": items,
+    }
+    return result, errors
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("input", type=Path)
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args()
+    try:
+        raw = args.input.read_bytes()
+        manifest = json.loads(raw)
+    except Exception as error:
+        print(json.dumps({"status": "FAIL", "errors": [str(error)]}, indent=2))
+        return 1
+    errors = validate_manifest(manifest)
+    result = None
+    if not errors:
+        result, errors = build(args.input, manifest, raw)
+    if errors:
+        print(json.dumps({"status": "FAIL", "errors": errors}, indent=2))
+        return 1
+    output = {"status": "PASS", "errors": [], "inbox": result}
+    rendered = json.dumps(output, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(rendered, encoding="utf-8")
+    print(rendered, end="")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
