@@ -26,6 +26,17 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+Every selected framework candidate must also maintain one current
+`upstream-review-state-v1` record.  Update it when the minimal Draft evidence,
+GitHub Draft state, Ready gates, CI classification or reviewer state changes.
+The control plane must hash-bind those records in an
+`upstream-delivery-inbox-v1` manifest and run `upstream-delivery-inbox`; do not
+reconstruct delivery readiness from chat summaries or arbitrary experiment
+receipts.  An `OPEN_DRAFT`, `MARK_READY_AND_REQUEST_REVIEW` or
+`RESPOND_TO_REVIEW` inbox item is a delivery action, not another research
+prompt.  Agent-repository maintenance stays in a separate inbox and never
+counts as a framework optimization success.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

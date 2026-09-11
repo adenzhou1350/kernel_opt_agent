@@ -55,6 +55,22 @@ recommends Ready only after every applicable official-correctness,
 production-reachability, materiality, target-workload and known-regression
 gate passes.
 
+The control plane can aggregate several immutable review-state records without
+guessing from chat text or unrelated receipts:
+
+```bash
+python3 scripts/kernel_opt.py upstream-delivery-inbox delivery-inbox.json
+```
+
+Each manifest entry supplies a stable candidate/lane identity and the path and
+SHA-256 of one `upstream-review-state-v1` record.  The command revalidates every
+nested record, rejects hash drift, duplicate candidate identities and duplicate
+PR bindings, then sorts the resulting actions.  In particular, a candidate
+whose Draft minimum is complete but whose PR is absent becomes an explicit
+`OPEN_DRAFT` inbox item instead of silently remaining in an experiment folder.
+Repository-maintenance candidates use a separate manifest so they cannot
+inflate framework delivery metrics.
+
 Reviewer state records code-owner requests separately from
 `early_review_handles`. This preserves the difference between reviewers that
 GitHub queues until Ready and a small set of relevant maintainers explicitly
