@@ -27,7 +27,13 @@ def validate_manifest(manifest: Any) -> list[str]:
         f"unexpected manifest field: {key}"
         for key in sorted(set(manifest) - allowed_keys)
     ]
-    if version not in {"upstream-delivery-inbox-v1", "upstream-delivery-inbox-v2"}:
+    version_prefix = "upstream-delivery-inbox-v"
+    version_suffix = (
+        version.removeprefix(version_prefix)
+        if isinstance(version, str) and version.startswith(version_prefix)
+        else ""
+    )
+    if not version_suffix.isdigit() or int(version_suffix) < 1:
         errors.append("unsupported delivery inbox schema_version")
     try:
         parse_timestamp(manifest.get("observed_at"))
@@ -43,13 +49,8 @@ def validate_manifest(manifest: Any) -> list[str]:
             errors.append(f"{prefix} must be an object")
             continue
         required = {"candidate_id", "lane_id", "review_state"}
-        allowed = required | (
-            {"review_handoff"} if version == "upstream-delivery-inbox-v2" else set()
-        )
         for key in sorted(required - set(candidate)):
             errors.append(f"{prefix} missing {key}")
-        for key in sorted(set(candidate) - allowed):
-            errors.append(f"{prefix} unexpected field: {key}")
         candidate_id = candidate.get("candidate_id")
         if not isinstance(candidate_id, str) or not candidate_id:
             errors.append(f"{prefix}.candidate_id must be a non-empty string")

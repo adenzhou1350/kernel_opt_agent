@@ -71,7 +71,7 @@ def main() -> None:
         write_json(
             manifest_path,
             {
-                "schema_version": "upstream-delivery-inbox-v1",
+                "schema_version": "upstream-delivery-inbox-v5",
                 "observed_at": "2026-09-11T09:30:00Z",
                 "candidates": [
                     {
@@ -81,6 +81,12 @@ def main() -> None:
                             "path": "review.json",
                             "sha256": "0" * 64,
                         },
+                        "review_handoff": {
+                            "path": "handoff.json",
+                            "sha256": "1" * 64,
+                        },
+                        "draft_materials": None,
+                        "future_discovery_metadata": {"ignored": True},
                     }
                 ],
             },
@@ -130,7 +136,7 @@ def main() -> None:
         )
 
         invalid_manifest = json.loads(manifest_path.read_text())
-        invalid_manifest["unexpected"] = True
+        invalid_manifest["schema_version"] = "upstream-delivery-inbox-beta"
         write_json(manifest_path, invalid_manifest)
         failure = run(str(root), "--manifest", str(manifest_path), expected_code=1)
         assert any(
