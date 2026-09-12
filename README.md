@@ -169,6 +169,21 @@ python3 scripts/kernel_opt.py community-action-attest \
   --evidence current-result.json --output current-action.json
 ```
 
+Register a new prospective candidate ledger without hand-editing manifest
+path/hash fields:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio-register \
+  --manifest /path/to/current-portfolio-manifest.json \
+  --register SGLANG_OPTIMIZATION=/path/to/new-community-work-cycle.json \
+  --output /path/to/superseding-portfolio-manifest.json
+```
+
+The command validates the old manifest, the complete new ledger evidence
+closure, the prospective accounting boundary and duplicate cycle/task
+identities. Lane selection stays explicit; filenames and task prose are never
+used to guess ownership.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
