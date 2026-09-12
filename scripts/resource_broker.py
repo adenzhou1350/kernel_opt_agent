@@ -444,6 +444,7 @@ class ResourceBroker:
         *,
         ttl_seconds: int = 900,
         now: datetime | None = None,
+        job_id: str | None = None,
     ) -> dict | None:
         validate_inventory(inventory)
         if ttl_seconds <= 0:
@@ -453,10 +454,18 @@ class ResourceBroker:
         try:
             self._mark_stale(now)
             occupied, occupied_hosts, exclusive_hosts = self._occupied()
-            rows = self.connection.execute(
-                "SELECT * FROM jobs WHERE state = 'QUEUED' "
-                "ORDER BY priority_score DESC, submitted_at ASC, job_id ASC"
-            ).fetchall()
+            if job_id is not None and (not isinstance(job_id, str) or not job_id):
+                raise ValueError("job_id must be a non-empty string when provided")
+            if job_id is None:
+                rows = self.connection.execute(
+                    "SELECT * FROM jobs WHERE state = 'QUEUED' "
+                    "ORDER BY priority_score DESC, submitted_at ASC, job_id ASC"
+                ).fetchall()
+            else:
+                rows = self.connection.execute(
+                    "SELECT * FROM jobs WHERE state = 'QUEUED' AND job_id = ?",
+                    (job_id,),
+                ).fetchall()
             for row in rows:
                 job = json.loads(row["request_json"])
                 matches = []
@@ -788,6 +797,10 @@ def main() -> int:
     acquire = commands.add_parser("acquire")
     acquire.add_argument("--inventory", required=True, type=Path)
     acquire.add_argument("--ttl-seconds", type=int, default=900)
+    acquire.add_argument(
+        "--job-id",
+        help="atomically acquire only this queued job; omit for normal scheduling",
+    )
     heartbeat = commands.add_parser("heartbeat")
     heartbeat.add_argument("--lease-id", required=True)
     heartbeat.add_argument("--ttl-seconds", type=int, default=900)
@@ -814,7 +827,9 @@ def main() -> int:
             result = broker.bind_dispatch_gate(read_object(args.job))
         elif args.action == "acquire":
             result = broker.acquire(
-                read_object(args.inventory), ttl_seconds=args.ttl_seconds
+                read_object(args.inventory),
+                ttl_seconds=args.ttl_seconds,
+                job_id=args.job_id,
             )
         elif args.action == "heartbeat":
             result = broker.heartbeat(args.lease_id, ttl_seconds=args.ttl_seconds)

@@ -144,6 +144,33 @@ def test_gang_allocations_are_atomic_and_disjoint(broker: ResourceBroker) -> Non
     assert broker.acquire(inventory(), now=NOW) is None
 
 
+def test_exact_job_acquire_does_not_reserve_higher_priority_peer(
+    broker: ResourceBroker,
+) -> None:
+    broker.submit(job("higher", priority=900), now=NOW)
+    broker.submit(job("target", priority=100), now=NOW + timedelta(seconds=1))
+    lease = broker.acquire(inventory(), now=NOW, job_id="target")
+    assert lease and lease["job_id"] == "target"
+    snapshot = broker.snapshot(now=NOW)
+    states = {row["job_id"]: row["state"] for row in snapshot["jobs"]}
+    assert states == {"higher": "QUEUED", "target": "LEASED"}
+
+
+def test_exact_job_acquire_returns_none_without_mutating_other_jobs(
+    broker: ResourceBroker,
+) -> None:
+    broker.submit(job("peer"), now=NOW)
+    assert broker.acquire(inventory(), now=NOW, job_id="missing") is None
+    snapshot = broker.snapshot(now=NOW)
+    assert snapshot["allocations"] == []
+    assert snapshot["jobs"][0]["state"] == "QUEUED"
+
+
+def test_exact_job_acquire_rejects_empty_identifier(broker: ResourceBroker) -> None:
+    with pytest.raises(ValueError, match="non-empty"):
+        broker.acquire(inventory(), now=NOW, job_id="")
+
+
 def test_exact_gpu_gang_is_selected_by_uuid(broker: ResourceBroker) -> None:
     request = job("exact-gang", gpu_count=2)
     request["resource"]["required_gpu_uuids"] = ["GPU-3", "GPU-1"]
