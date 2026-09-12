@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
-from artifact_io import read_object, sha256_file
+from artifact_io import read_object, sha256_file, sha256_tracked_text
 from schema_utils import validate_instance
 
 
@@ -42,7 +42,7 @@ def validate_topology(path: Path) -> dict:
         raise ValueError("superseded governance path must be repository-relative")
     if (root() / declared_path).resolve() != expected_path.resolve():
         raise ValueError("lane topology must supersede meta_governance.v2.json")
-    if sha256_file(expected_path) != supersedes["sha256"]:
+    if sha256_tracked_text(root(), expected_path) != supersedes["sha256"]:
         raise ValueError("superseded governance identity changed")
 
     lane_ids = [lane["lane_id"] for lane in topology["execution_lanes"]]
