@@ -21,8 +21,8 @@ from community_work_cycle import (  # noqa: E402
     pair_baseline,
     record_pr_stage,
     run_phase_command,
-    start_phase,
     summarize,
+    switch_phase,
     validate_ledger,
     write_ledger,
 )
@@ -212,6 +212,18 @@ def test_init_atomically_binds_first_candidate_evidence() -> None:
         )
 
         assert result["started_at"] == "2026-09-12T01:00:00Z"
+        assert result["spans"] == [
+            {
+                "span_id": "initial",
+                "phase": "BOTTLENECK_DIAGNOSIS",
+                "actor": "AGENT",
+                "resource_id": None,
+                "started_at": "2026-09-12T01:00:00Z",
+                "ended_at": None,
+                "status": "ACTIVE",
+                "evidence": [],
+            }
+        ]
         assert result["milestones"] == [
             {
                 "kind": "FIRST_CANDIDATE_PROPOSED",
@@ -220,6 +232,46 @@ def test_init_atomically_binds_first_candidate_evidence() -> None:
             }
         ]
         assert validate_ledger(cycle)["milestones"] == result["milestones"]
+
+
+def test_init_accepts_real_initial_phase_and_switches_without_a_gap() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "candidate.json"
+        evidence.write_text('{"status": "PASS"}\n', encoding="utf-8")
+        cycle = base / "cycle.json"
+        created = init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="draft-ready-candidate",
+                task_id="lane-task",
+                started_at="2026-09-12T01:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                candidate_evidence=[evidence],
+                initial_phase="UPSTREAM_PACKAGING",
+                initial_span_id="package",
+                initial_actor="AGENT",
+                initial_resource_id=None,
+            )
+        )
+        assert created["spans"][0]["phase"] == "UPSTREAM_PACKAGING"
+
+        switched = switch_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="external-wait",
+                phase="EXTERNAL_WAIT",
+                actor="EXTERNAL",
+                resource_id="github",
+                status="COMPLETE",
+                at="2026-09-12T01:01:00Z",
+                evidence=[evidence],
+            )
+        )
+        assert switched["spans"][0]["ended_at"] == "2026-09-12T01:01:00Z"
+        assert switched["spans"][1]["started_at"] == "2026-09-12T01:01:00Z"
+        assert switched["spans"][1]["status"] == "ACTIVE"
 
 
 def test_candidate_evidence_bootstrap_fails_without_partial_ledger() -> None:
@@ -534,7 +586,7 @@ def test_audit_roots_reports_live_timing_blind_spots() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
         tracked_path = base / "tracked.json"
-        init_ledger(
+        tracked = init_ledger(
             SimpleNamespace(
                 output=tracked_path,
                 cycle_id="tracked-cycle",
@@ -546,16 +598,6 @@ def test_audit_roots_reports_live_timing_blind_spots() -> None:
                 initial_span_id="environment",
                 initial_actor="CPU",
                 initial_resource_id=None,
-            )
-        )
-        tracked = start_phase(
-            SimpleNamespace(
-                ledger=tracked_path,
-                span_id="environment",
-                phase="ENVIRONMENT_SETUP",
-                actor="CPU",
-                resource_id=None,
-                at="2026-09-07T04:00:00Z",
             )
         )
         assert tracked["spans"]

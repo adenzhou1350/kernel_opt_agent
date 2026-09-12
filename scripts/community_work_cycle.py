@@ -563,6 +563,27 @@ def init_ledger(args: argparse.Namespace) -> dict:
         )
     started_at = timestamp(args.started_at)
     candidate_identities = [evidence_identity(path) for path in candidate_evidence]
+    initial_phase = getattr(args, "initial_phase", None)
+    if (
+        candidate_identities
+        and args.observation_mode == "PROSPECTIVE_EXACT"
+        and initial_phase is None
+    ):
+        initial_phase = "BOTTLENECK_DIAGNOSIS"
+    spans = []
+    if initial_phase is not None:
+        spans.append(
+            {
+                "span_id": getattr(args, "initial_span_id", "initial"),
+                "phase": initial_phase,
+                "actor": getattr(args, "initial_actor", "AGENT"),
+                "resource_id": getattr(args, "initial_resource_id", None),
+                "started_at": started_at,
+                "ended_at": None,
+                "status": "ACTIVE",
+                "evidence": [],
+            }
+        )
     ledger = {
         "schema_version": LEDGER_SCHEMA,
         "cycle_id": args.cycle_id,
@@ -571,7 +592,7 @@ def init_ledger(args: argparse.Namespace) -> dict:
         "observation_mode": args.observation_mode,
         "claim_boundary": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY",
         "minimum_material_speedup": args.minimum_material_speedup,
-        "spans": [],
+        "spans": spans,
         "milestones": (
             [
                 {
@@ -627,6 +648,38 @@ def end_phase(args: argparse.Namespace) -> dict:
     span["ended_at"] = timestamp(args.at)
     span["status"] = args.status
     span["evidence"] = [evidence_identity(path) for path in args.evidence]
+    write_ledger(args.ledger, ledger)
+    return ledger
+
+
+def switch_phase(args: argparse.Namespace) -> dict:
+    """Close the active phase and start its successor at one shared timestamp."""
+    ledger = validate_ledger(args.ledger)
+    active = [span for span in ledger["spans"] if span["status"] == "ACTIVE"]
+    if len(active) != 1:
+        raise ValueError("exactly one primary phase must be active")
+    if any(span["span_id"] == args.span_id for span in ledger["spans"]):
+        raise ValueError(f"duplicate span_id: {args.span_id}")
+    transition_at = timestamp(args.at)
+    if parse_time(transition_at, "transition_at") < parse_time(
+        active[0]["started_at"], "active.started_at"
+    ):
+        raise ValueError("phase transition precedes active phase")
+    active[0]["ended_at"] = transition_at
+    active[0]["status"] = args.status
+    active[0]["evidence"] = [evidence_identity(path) for path in args.evidence]
+    ledger["spans"].append(
+        {
+            "span_id": args.span_id,
+            "phase": args.phase,
+            "actor": args.actor,
+            "resource_id": args.resource_id,
+            "started_at": transition_at,
+            "ended_at": None,
+            "status": "ACTIVE",
+            "evidence": [],
+        }
+    )
     write_ledger(args.ledger, ledger)
     return ledger
 
@@ -862,6 +915,14 @@ def parse_args() -> argparse.Namespace:
             "FIRST_CANDIDATE_PROPOSED"
         ),
     )
+    init.add_argument("--initial-phase", choices=PHASES)
+    init.add_argument("--initial-span-id", default="initial")
+    init.add_argument(
+        "--initial-actor",
+        choices=("AGENT", "CPU", "GPU", "EXTERNAL"),
+        default="AGENT",
+    )
+    init.add_argument("--initial-resource-id")
     init.add_argument("--output", type=Path, required=True)
     start = commands.add_parser("start-phase")
     start.add_argument("--ledger", type=Path, required=True)
@@ -880,6 +941,19 @@ def parse_args() -> argparse.Namespace:
     )
     end.add_argument("--at")
     end.add_argument("--evidence", type=Path, action="append", required=True)
+    switch = commands.add_parser("switch-phase")
+    switch.add_argument("--ledger", type=Path, required=True)
+    switch.add_argument("--span-id", required=True)
+    switch.add_argument("--phase", choices=PHASES, required=True)
+    switch.add_argument(
+        "--actor", choices=("AGENT", "CPU", "GPU", "EXTERNAL"), required=True
+    )
+    switch.add_argument("--resource-id")
+    switch.add_argument(
+        "--status", choices=("COMPLETE", "INTERRUPTED"), default="COMPLETE"
+    )
+    switch.add_argument("--at")
+    switch.add_argument("--evidence", type=Path, action="append", required=True)
     run = commands.add_parser("run-phase")
     run.add_argument("--ledger", type=Path, required=True)
     run.add_argument("--span-id", required=True)
@@ -953,6 +1027,8 @@ def main() -> int:
         result = start_phase(args)
     elif args.operation == "end-phase":
         result = end_phase(args)
+    elif args.operation == "switch-phase":
+        result = switch_phase(args)
     elif args.operation == "run-phase":
         result, exit_code = run_phase_command(args)
     elif args.operation == "import-phase-receipt":

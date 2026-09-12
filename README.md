@@ -37,12 +37,13 @@ Record the complete delivery cycle separately from performance metrics:
 ```bash
 python3 scripts/kernel_opt.py community-timing init \
   --cycle-id <cycle-id> --task-id <task-id> \
-  --minimum-material-speedup 1.02 --output work-cycle.json
-python3 scripts/kernel_opt.py community-timing start-phase \
-  --ledger work-cycle.json --span-id research-1 \
-  --phase COMMUNITY_RESEARCH --actor AGENT
-python3 scripts/kernel_opt.py community-timing end-phase \
-  --ledger work-cycle.json --span-id research-1 \
+  --minimum-material-speedup 1.02 \
+  --initial-phase COMMUNITY_RESEARCH \
+  --candidate-evidence candidate-value-decision.json \
+  --output work-cycle.json
+python3 scripts/kernel_opt.py community-timing switch-phase \
+  --ledger work-cycle.json --span-id environment-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU \
   --evidence discovery-receipt.json
 python3 scripts/kernel_opt.py community-timing run-phase \
   --ledger work-cycle.json --span-id env-1 \
@@ -574,15 +575,19 @@ source, and bind the selection receipt immediately:
 python3 scripts/kernel_opt.py community-timing init \
   --cycle-id framework-candidate-v1 --task-id lane-task-id \
   --observation-mode PROSPECTIVE_EXACT \
+  --initial-phase UPSTREAM_PACKAGING \
   --candidate-evidence candidate-value-decision.json \
   --output community-work-cycle.json
 ```
 
 `--candidate-evidence` validates the immutable selection decision before one
 atomic write creates the ledger and `FIRST_CANDIDATE_PROPOSED` milestone at the
-same timestamp. Missing evidence, an existing output, or a legacy observation
-mode leaves no partial ledger. The separate `mark` operation remains available
-for later milestones.
+same timestamp. It also opens `BOTTLENECK_DIAGNOSIS` by default; use
+`--initial-phase` when selection occurs later in a truthful phase. Missing
+evidence, an existing output, or a legacy observation mode leaves no partial
+ledger. Use `switch-phase` to close the current phase and open its successor at
+one timestamp. The separate `mark` operation remains available for later
+milestones.
 
 PR transitions are recorded atomically with their stable URL and immutable
 GitHub event receipt. `READY` requires an observed Draft milestone, and
