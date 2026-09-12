@@ -55,6 +55,10 @@ REUSABLE_ZONES = (
 GLOBAL_CACHE_NAMES = {".DS_Store", ".mypy_cache", ".pytest_cache", "__pycache__"}
 
 
+def relative_posix(path: Path, parent: Path) -> str:
+    return path.relative_to(parent).as_posix()
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -106,7 +110,7 @@ def main() -> int:
         manifest_paths = set()
         for manifest_path in manifests:
             package = manifest_path.parent
-            relative_package = package.relative_to(root / "microbench").as_posix()
+            relative_package = relative_posix(package, root / "microbench")
             manifest_paths.add(relative_package)
             try:
                 definition = read_object(manifest_path)
