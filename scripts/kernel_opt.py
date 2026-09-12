@@ -37,6 +37,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-observation": Command("community_work_cycle_observation.py", "validate one unified prospective arm observation"),
         "community-lanes": Command("community_lane_topology.py", "validate the four autonomous execution lanes and control-plane boundary"),
         "community-portfolio": Command("community_portfolio.py", "aggregate explicit work-cycle timing and PR-yield metrics across four lanes"),
+        "community-action-attest": Command(
+            "community_action_attestation.py",
+            "create a current evidence-bound state for one active work span",
+        ),
         "community-funnel": Command("community_discovery_funnel.py", "measure discovery yield and retain routing feedback"),
         "community-resource-amendment": Command("community_resource_amendment.py", "validate a resource-only frozen-cohort amendment"),
         "community-model-source-amendment": Command(

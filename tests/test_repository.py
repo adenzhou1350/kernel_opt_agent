@@ -221,6 +221,7 @@ def main():
         ], expected=1)
         assert "candidate pool is missing" in failed_cli.stderr
     assert "upstream-review-state" in cli_help.stdout
+    assert "community-action-attest" in cli_help.stdout
     assert "upstream-author-review-packet" in cli_help.stdout
     assert "upstream-review-handoff" in cli_help.stdout
     assert "upstream-draft-progress" in cli_help.stdout

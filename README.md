@@ -648,6 +648,18 @@ credential to the user. Bind one or more attestations explicitly when they are
 available:
 
 ```bash
+python3 scripts/kernel_opt.py community-action-attest \
+  --ledger /path/to/work-cycle.json --span-id active-span \
+  --state ACTIVE --action-owner AGENT --valid-for-seconds 1800 \
+  --evidence /path/to/current-result.json --output current-action.json
+```
+
+The command derives the cycle, resource and ledger identity from the validated
+active span, requires current evidence, and creates the attestation once. Use
+`RESOLVED` or `SUPERSEDED` with owner `NONE` and no validity window to retire a
+stale declared action without rewriting its historical ledger.
+
+```bash
 python3 scripts/kernel_opt.py community-portfolio \
   --manifest /path/to/four-lane-portfolio-manifest.json \
   --action-attestation /path/to/current-action.json \
