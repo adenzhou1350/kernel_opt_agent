@@ -101,10 +101,21 @@ def atomic_publish_json(path: Path, value: dict) -> None:
 def claims_root(artifact_root: Path) -> Path:
     root = artifact_root.resolve()
     path = (root / ".kernel-opt" / "materialization-claims").resolve()
+    root_text = os.path.normcase(os.path.abspath(root))
+    path_text = os.path.normcase(os.path.abspath(path))
+    if os.name == "nt":
+        # Path.resolve() may start returning the Win32 extended-path prefix
+        # after another thread creates the directory.  Normalize both sides
+        # before the containment check so an atomic-claim race cannot turn a
+        # safe child path into a false escape result.
+        root_text = root_text.removeprefix("\\\\?\\")
+        path_text = path_text.removeprefix("\\\\?\\")
     try:
-        path.relative_to(root)
-    except ValueError as error:
-        raise ValueError("materialization claim path escapes artifact root") from error
+        contained = os.path.commonpath((root_text, path_text)) == root_text
+    except ValueError:
+        contained = False
+    if not contained:
+        raise ValueError("materialization claim path escapes artifact root")
     return path
 
 
