@@ -662,6 +662,85 @@ def test_pr_stage_is_atomic_and_fail_closed() -> None:
             raise AssertionError("READY must not invent a missing Draft event")
 
 
+def test_pr_stage_atomically_closes_only_an_external_wait() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "github-event.json"
+        evidence.write_text('{"state": "draft"}\n', encoding="utf-8")
+        cycle = base / "cycle.json"
+        value = ledger(evidence)
+        value["spans"].append(
+            {
+                "span_id": "publish-wait",
+                "phase": "EXTERNAL_WAIT",
+                "actor": "EXTERNAL",
+                "resource_id": "USER_BROWSER_CONFIRMATION",
+                "started_at": "2026-09-07T04:04:00Z",
+                "ended_at": None,
+                "status": "ACTIVE",
+                "evidence": [],
+            }
+        )
+        atomic_json(cycle, value)
+
+        before = cycle.read_bytes()
+        try:
+            record_pr_stage(
+                SimpleNamespace(
+                    ledger=cycle,
+                    stage="DRAFT",
+                    url="https://github.com/example/project/pull/7",
+                    at="2026-09-07T04:03:59Z",
+                    evidence=[evidence],
+                )
+            )
+        except ValueError as error:
+            assert "precedes the active external wait" in str(error)
+            assert cycle.read_bytes() == before
+        else:
+            raise AssertionError("PR event cannot precede its external wait")
+
+        recorded = record_pr_stage(
+            SimpleNamespace(
+                ledger=cycle,
+                stage="DRAFT",
+                url="https://github.com/example/project/pull/7",
+                at="2026-09-07T04:05:00Z",
+                evidence=[evidence],
+            )
+        )
+        wait = recorded["spans"][-1]
+        assert wait["status"] == "COMPLETE"
+        assert wait["ended_at"] == "2026-09-07T04:05:00Z"
+        assert wait["evidence"] == [identity(evidence)]
+
+        active_cycle = base / "active-work.json"
+        active_value = ledger(evidence)
+        active_value["spans"].append(
+            {
+                "span_id": "qualification",
+                "phase": "PERFORMANCE_VALIDATION",
+                "actor": "GPU",
+                "resource_id": "worker-1",
+                "started_at": "2026-09-07T04:04:00Z",
+                "ended_at": None,
+                "status": "ACTIVE",
+                "evidence": [],
+            }
+        )
+        atomic_json(active_cycle, active_value)
+        recorded = record_pr_stage(
+            SimpleNamespace(
+                ledger=active_cycle,
+                stage="DRAFT",
+                url="https://github.com/example/project/pull/8",
+                at="2026-09-07T04:05:00Z",
+                evidence=[evidence],
+            )
+        )
+        assert recorded["spans"][-1]["status"] == "ACTIVE"
+
+
 def test_pair_baseline_reads_bound_assessments() -> None:
     pair = (
         ROOT.parent
@@ -760,6 +839,7 @@ if __name__ == "__main__":
     test_import_phase_receipt_atomically_closes_active_phase()
     test_import_phase_receipt_rejects_backfill_and_duration_drift()
     test_pr_stage_is_atomic_and_fail_closed()
+    test_pr_stage_atomically_closes_only_an_external_wait()
     test_pair_baseline_reads_bound_assessments()
     test_audit_roots_reports_live_timing_blind_spots()
     test_audit_roots_reports_invalid_ledgers_without_hiding_valid_ones()

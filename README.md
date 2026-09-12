@@ -63,7 +63,10 @@ python3 scripts/kernel_opt.py community-timing record-pr-stage \
 ```
 
 `READY` requires an observed Draft milestone and `MERGED` requires an observed
-Ready milestone. Do not backfill missing timestamps from memory or filesystem
+Ready milestone. When the cycle is actively in `EXTERNAL_WAIT`, the same
+transaction closes that wait at the observed PR event time; unrelated
+environment, validation, and implementation phases remain active. Do not
+backfill missing timestamps from memory or filesystem
 mtimes; such a cycle remains `LEGACY_MILESTONE_BOUNDS` and is excluded from
 exact candidate-to-Draft and Draft-to-Ready timing.
 
