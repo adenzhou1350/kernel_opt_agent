@@ -564,11 +564,7 @@ def init_ledger(args: argparse.Namespace) -> dict:
     started_at = timestamp(args.started_at)
     candidate_identities = [evidence_identity(path) for path in candidate_evidence]
     initial_phase = getattr(args, "initial_phase", None)
-    if (
-        candidate_identities
-        and args.observation_mode == "PROSPECTIVE_EXACT"
-        and initial_phase is None
-    ):
+    if args.observation_mode == "PROSPECTIVE_EXACT" and initial_phase is None:
         initial_phase = "BOTTLENECK_DIAGNOSIS"
     spans = []
     if initial_phase is not None:

@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from community_knowledge import atomic_json, sha256_file  # noqa: E402
 from community_work_cycle import (  # noqa: E402
     audit_roots,
+    end_phase,
     import_phase_receipt,
     init_ledger,
     pair_baseline,
@@ -323,6 +324,17 @@ def test_run_phase_closes_success_failure_and_timeout() -> None:
                 minimum_material_speedup=1.02,
             )
         )
+        initial = base / "initial.json"
+        initial.write_text('{"status": "PASS"}\n', encoding="utf-8")
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="initial",
+                status="COMPLETE",
+                at=None,
+                evidence=[initial],
+            )
+        )
 
         def run(span_id: str, code: str, timeout: float = 5) -> tuple[dict, int]:
             return run_phase_command(
@@ -366,6 +378,7 @@ def test_run_phase_closes_success_failure_and_timeout() -> None:
         recorded = validate_ledger(cycle)
         assert [span["status"] for span in recorded["spans"]] == [
             "COMPLETE",
+            "COMPLETE",
             "INTERRUPTED",
             "INTERRUPTED",
             "INTERRUPTED",
@@ -385,6 +398,17 @@ def test_import_phase_receipt_records_existing_machine_wall_time() -> None:
                 started_at="2026-09-07T04:00:00Z",
                 observation_mode="PROSPECTIVE_EXACT",
                 minimum_material_speedup=1.02,
+            )
+        )
+        initial = base / "initial.json"
+        initial.write_text('{"status": "PASS"}\n', encoding="utf-8")
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="initial",
+                status="COMPLETE",
+                at="2026-09-07T04:00:00Z",
+                evidence=[initial],
             )
         )
         receipt = base / "worker-receipt.json"
@@ -411,7 +435,7 @@ def test_import_phase_receipt_records_existing_machine_wall_time() -> None:
                 status="INTERRUPTED",
             )
         )
-        span = imported["spans"][0]
+        span = imported["spans"][-1]
         assert span["started_at"] == "2026-09-07T04:01:00Z"
         assert span["ended_at"] == "2026-09-07T04:03:00Z"
         assert span["status"] == "INTERRUPTED"
@@ -439,6 +463,17 @@ def test_import_phase_receipt_rejects_backfill_and_duration_drift() -> None:
                 started_at="2026-09-07T04:00:00Z",
                 observation_mode="PROSPECTIVE_EXACT",
                 minimum_material_speedup=1.02,
+            )
+        )
+        initial = base / "initial.json"
+        initial.write_text('{"status": "PASS"}\n', encoding="utf-8")
+        end_phase(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="initial",
+                status="COMPLETE",
+                at="2026-09-07T04:00:00Z",
+                evidence=[initial],
             )
         )
 
