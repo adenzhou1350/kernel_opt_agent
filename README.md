@@ -147,7 +147,8 @@ but is not a reservation.
 For a fresh `upstream-delivery-inbox-v5` candidate routed to
 `COMPLETE_AUTHOR_ACCOUNTABILITY`, automation may gather the exact commit,
 evidence, pending gates, proposed PR body and fail-closed attestation command
-into one create-once packet:
+into one create-once packet. Missing human accountability remains visible after
+an AI-assisted Draft opens; `KEEP_DRAFT_CONTINUE_QUALIFICATION` cannot hide it:
 
 ```bash
 python3 scripts/kernel_opt.py upstream-author-review-packet delivery-inbox.json \
