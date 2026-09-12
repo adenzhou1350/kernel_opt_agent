@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_portfolio_report_v5.schema.json",
+  "title": "Four-lane delivery portfolio with selected prospective phase time",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "manifest_identity",
+    "lanes",
+    "totals",
+    "active_delivery_queue",
+    "attention_summary",
+    "prospective_phase_time"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-portfolio-report-v5"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DESCRIPTIVE_PORTFOLIO_AND_DELIVERY_FUNNEL_NOT_STRATEGY_CAUSALITY"},
+    "manifest_identity": {"type": "object"},
+    "lanes": {"type": "array"},
+    "totals": {"type": "object"},
+    "active_delivery_queue": {"type": "array"},
+    "attention_summary": {"type": "object"},
+    "prospective_phase_time": {"$ref": "#/$defs/prospectivePhaseTime"}
+  },
+  "$defs": {
+    "nullableRate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "phaseSeconds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "COMMUNITY_RESEARCH",
+        "BOTTLENECK_DIAGNOSIS",
+        "CANDIDATE_IMPLEMENTATION",
+        "COMPILE_AND_MEASURE",
+        "CORRECTNESS_VALIDATION",
+        "PERFORMANCE_VALIDATION",
+        "WHOLE_MODEL_VALIDATION",
+        "UPSTREAM_PACKAGING",
+        "ENVIRONMENT_SETUP",
+        "GOVERNANCE_VALIDATION",
+        "EXTERNAL_WAIT",
+        "UNATTRIBUTED_LEGACY_WORK"
+      ],
+      "properties": {
+        "COMMUNITY_RESEARCH": {"type": "number", "minimum": 0},
+        "BOTTLENECK_DIAGNOSIS": {"type": "number", "minimum": 0},
+        "CANDIDATE_IMPLEMENTATION": {"type": "number", "minimum": 0},
+        "COMPILE_AND_MEASURE": {"type": "number", "minimum": 0},
+        "CORRECTNESS_VALIDATION": {"type": "number", "minimum": 0},
+        "PERFORMANCE_VALIDATION": {"type": "number", "minimum": 0},
+        "WHOLE_MODEL_VALIDATION": {"type": "number", "minimum": 0},
+        "UPSTREAM_PACKAGING": {"type": "number", "minimum": 0},
+        "ENVIRONMENT_SETUP": {"type": "number", "minimum": 0},
+        "GOVERNANCE_VALIDATION": {"type": "number", "minimum": 0},
+        "EXTERNAL_WAIT": {"type": "number", "minimum": 0},
+        "UNATTRIBUTED_LEGACY_WORK": {"type": "number", "minimum": 0}
+      }
+    },
+    "prospectivePhaseTime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ledger_count",
+        "active_span_count",
+        "accounted_phase_seconds",
+        "attributed_active_seconds",
+        "phase_seconds",
+        "environment_seconds",
+        "governance_seconds",
+        "environment_governance_seconds",
+        "environment_governance_share_of_attributed_active",
+        "external_wait_seconds",
+        "external_wait_share_of_accounted_phase_time",
+        "productive_seconds",
+        "productive_share_of_attributed_active",
+        "unattributed_legacy_seconds",
+        "parallel_overlap_semantics",
+        "claim_boundary"
+      ],
+      "properties": {
+        "ledger_count": {"type": "integer", "minimum": 0},
+        "active_span_count": {"type": "integer", "minimum": 0},
+        "accounted_phase_seconds": {"type": "number", "minimum": 0},
+        "attributed_active_seconds": {"type": "number", "minimum": 0},
+        "phase_seconds": {"$ref": "#/$defs/phaseSeconds"},
+        "environment_seconds": {"type": "number", "minimum": 0},
+        "governance_seconds": {"type": "number", "minimum": 0},
+        "environment_governance_seconds": {"type": "number", "minimum": 0},
+        "environment_governance_share_of_attributed_active": {"$ref": "#/$defs/nullableRate"},
+        "external_wait_seconds": {"type": "number", "minimum": 0},
+        "external_wait_share_of_accounted_phase_time": {"$ref": "#/$defs/nullableRate"},
+        "productive_seconds": {"type": "number", "minimum": 0},
+        "productive_share_of_attributed_active": {"$ref": "#/$defs/nullableRate"},
+        "unattributed_legacy_seconds": {"type": "number", "minimum": 0},
+        "parallel_overlap_semantics": {"const": "SUM_OF_LEDGER_PHASE_SPANS_PARALLEL_CANDIDATES_MAY_OVERLAP"},
+        "claim_boundary": {"const": "SELECTED_HASH_BOUND_PROSPECTIVE_LEDGER_PHASE_TIME_NOT_WALL_CLOCK_OR_LABOR_TIME"}
+      }
+    }
+  }
+}

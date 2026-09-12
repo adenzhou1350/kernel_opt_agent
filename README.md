@@ -621,6 +621,14 @@ continues research on another candidate. This is descriptive accounting; it
 does not establish strategy causality or count this repository's maintenance
 PRs as framework optimization results.
 
+Version 5 adds `prospective_phase_time` for the explicitly selected,
+hash-bound `PROSPECTIVE_EXACT` ledgers. It includes active spans at one shared
+`generated_at`, separates environment/governance overhead from external waits,
+and reports the overhead share only against attributed active phase time. The
+aggregation sums ledger spans, so parallel candidates may overlap; it is not a
+wall-clock or labor-time measure. Historical root-wide instrumentation debt
+remains a separate audit and is never hidden by this selected-portfolio view.
+
 Start timing when a framework candidate is selected, before editing production
 source, and bind the selection receipt immediately:
 
