@@ -219,6 +219,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_delivery_inbox.py",
             "aggregate evidence-bound candidate delivery actions",
         ),
+        "upstream-draft-freshness": Command(
+            "upstream_draft_freshness.py",
+            "recompute short-lived Draft freshness from exact Git refs",
+        ),
         "upstream-author-accountability": Command(
             "upstream_author_accountability.py",
             "issue an explicit exact-commit human Draft attestation",

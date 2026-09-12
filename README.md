@@ -144,11 +144,57 @@ queued item as immediately reservable, waiting for GPUs, requiring environment
 preparation, or having no compatible resource. It is suitable for a dashboard
 but is not a reservation.
 
-For a fresh `upstream-delivery-inbox-v5` candidate routed to
-`COMPLETE_AUTHOR_ACCOUNTABILITY`, automation may gather the exact commit,
-evidence, pending gates, proposed PR body and fail-closed attestation command
-into one create-once packet. Missing human accountability remains visible after
-an AI-assisted Draft opens; `KEEP_DRAFT_CONTINUE_QUALIFICATION` cannot hide it:
+Use `upstream-delivery-inbox-v2` once a queue contains open Ready PRs. Each
+Ready entry must additionally hash-bind an `upstream-review-handoff-v1`
+record observed at the same instant as the inbox. The resulting v2 queue
+promotes missing reviewers, one due targeted follow-up, one due review-channel
+escalation, or author feedback above an otherwise generic reviewer wait. It
+retains the underlying review-state action and never authorizes an automatic
+message. Version 1 remains accepted unchanged for historical replay.
+
+Use `upstream-delivery-inbox-v3` when `OPEN_DRAFT` is actionable. It requires a
+hash-bound UTF-8 PR body, freshness evidence containing the exact candidate
+commit, and the intended repository/branch/compare URL. This validates the
+public Draft materials but does not authorize publishing them. Versions 1 and
+2 remain accepted unchanged for historical replay. An otherwise Draft-ready
+candidate without these materials is routed to `COMPLETE_DRAFT_MATERIALS`; it
+does not fail unrelated inbox entries or expose a public action prematurely.
+
+Use `upstream-delivery-inbox-v4` for a live publication queue. Its
+`upstream-delivery-freshness-v1` evidence is short-lived (at most six hours)
+and binds the exact candidate, repository, branch, fork ref, observed upstream
+main, touched-path drift result, merge result, exact-head PR count and explicit
+Draft eligibility. Expired, mismatched or non-standard freshness does not fail
+the whole portfolio; that candidate becomes `REFRESH_DRAFT_FRESHNESS`, owned by
+its execution lane, and is removed from external publication actions until a
+fresh closure is supplied. Hash or byte drift in the referenced body or
+freshness file remains a hard validation failure.
+
+Generate that closure with `python scripts/kernel_opt.py
+upstream-draft-freshness`. The command resolves the exact candidate, upstream
+and fork refs, compares every candidate-touched path between the merge-base and
+current upstream, and runs Git's merge-tree conflict check before writing one
+immutable freshness record. The exact-head PR count remains an explicitly
+observed public input (`--exact-head-pull-request-count`); the command does not
+query GitHub or authorize publication. This removes repeated ad-hoc drift and
+merge scripts while keeping public state and human submission outside the
+local Git claim.
+
+Use `upstream-delivery-inbox-v5` before an AI-assisted Draft is exposed as a
+publication action. In addition to v4 freshness, it accepts a hash-bound
+`upstream-delivery-author-accountability-v1` record for the exact candidate
+commit. Until the named human submitter attests that every changed line was
+reviewed, relevant tests were rerun, the change can be defended, AI assistance
+is disclosed, and the repository's commit-attribution rule is satisfied or not
+applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY`. This
+also remains true after an AI-assisted Draft has already been opened: a Draft
+must not make the missing human review disappear behind
+`KEEP_DRAFT_CONTINUE_QUALIFICATION`. The attestation is a responsibility
+boundary, not a substitute for correctness or performance evidence.
+
+Before the human review, automation may assemble the exact commit, evidence,
+pending gates, proposed body and fail-closed attestation command into one
+create-once review packet:
 
 ```bash
 python3 scripts/kernel_opt.py upstream-author-review-packet delivery-inbox.json \
