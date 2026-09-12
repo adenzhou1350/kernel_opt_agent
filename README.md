@@ -190,7 +190,24 @@ measurement for plan review. Candidates are ranked by weighted screening gain
 and at most two are promoted by default. Its timing is a routing signal, not
 production acceptance evidence.
 
-Strict qualification is intentionally blocked until `hardware_evidence.json` archives exact
+When a rebase, DCO amendment or other commit-metadata update changes the commit
+ID after validation, compare the committed trees before repeating expensive
+source qualification:
+
+```bash
+python3 scripts/kernel_opt.py source-supersession \
+  --repo /path/to/repository \
+  --validated-ref <validated-commit> \
+  --replacement-ref <new-commit> \
+  --output source-supersession.json
+```
+
+An identical tree permits reuse only of source-tree-scoped evidence. Runtime,
+build artifact, workload and hardware identities still have to be rebound or
+revalidated. Any tree change fails closed and lists the paths that require
+source requalification.
+
+The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
 official documents, the developer must provide its location; inferred hardware

@@ -25,6 +25,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "next": Command("optimizer_step.py", "select the next evidence-driven action"),
         "advance": Command("advance_run.py", "validate and advance one phase gate"),
         "audit": Command("audit_repository.py", "verify reusable-zone purity"),
+        "source-supersession": Command(
+            "source_tree_supersession.py",
+            "distinguish metadata-only commit changes from source-tree drift",
+        ),
     },
     "candidate discovery": {
         "candidate": Command("candidate_discovery.py", "manage fast production-candidate discovery and repair"),
