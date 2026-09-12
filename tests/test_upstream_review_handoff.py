@@ -40,6 +40,19 @@ def base() -> dict:
     }
 
 
+def base_v2() -> dict:
+    record = base()
+    record["schema_version"] = "upstream-review-handoff-v2"
+    record["follow_up"] = {
+        "state": "NONE",
+        "sent_at": None,
+        "target_handle": None,
+        "comment_url": None,
+        "receipt_sha256": None,
+    }
+    return record
+
+
 def run(record: dict, expected_code: int = 0) -> dict:
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "input.json"
@@ -66,6 +79,45 @@ def main() -> None:
     decision = run(follow_up)["decision"]
     assert decision["state"] == "TARGETED_FOLLOW_UP_DUE"
     assert decision["recommended_action"] == "ONE_TARGETED_REVIEWER_FOLLOW_UP"
+
+    sent = base_v2()
+    sent["observation"]["observed_at"] = "2026-09-11T21:00:00Z"
+    sent["follow_up"] = {
+        "state": "SENT",
+        "sent_at": "2026-09-11T20:30:00Z",
+        "target_handle": "mgoin",
+        "comment_url": (
+            "https://github.com/vllm-project/vllm/pull/56308#issuecomment-5649092664"
+        ),
+        "receipt_sha256": "a" * 64,
+    }
+    decision = run(sent)["decision"]
+    assert decision["state"] == "TARGETED_FOLLOW_UP_SENT_WAIT_FOR_RESPONSE"
+    assert decision["recommended_action"] == "WAIT"
+    assert decision["external_action_owner"] == "REVIEWER"
+    assert decision["follow_up_recorded"] is True
+
+    sent_escalation = copy.deepcopy(sent)
+    sent_escalation["observation"]["observed_at"] = "2026-09-13T21:00:00Z"
+    decision = run(sent_escalation)["decision"]
+    assert decision["state"] == "REVIEW_CHANNEL_ESCALATION_DUE"
+
+    wrong_reviewer = copy.deepcopy(sent)
+    wrong_reviewer["follow_up"]["target_handle"] = "not-requested"
+    result = run(wrong_reviewer, expected_code=1)
+    assert any("requested reviewer" in error for error in result["errors"])
+
+    wrong_comment = copy.deepcopy(sent)
+    wrong_comment["follow_up"]["comment_url"] = (
+        "https://github.com/vllm-project/vllm/pull/1#issuecomment-5649092664"
+    )
+    result = run(wrong_comment, expected_code=1)
+    assert any("comment on the pull request" in error for error in result["errors"])
+
+    future_follow_up = copy.deepcopy(sent)
+    future_follow_up["follow_up"]["sent_at"] = "2026-09-11T22:00:00Z"
+    result = run(future_follow_up, expected_code=1)
+    assert any("exceeds observed_at" in error for error in result["errors"])
 
     escalation = base()
     escalation["observation"]["observed_at"] = "2026-09-13T21:00:00Z"

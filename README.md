@@ -331,6 +331,14 @@ dashboard waits 24 hours before one targeted reviewer follow-up and 72 hours
 before one project review-channel escalation. Decisions never authorize an
 automatic message.
 
+After the targeted follow-up is actually posted, switch the record to
+`upstream-review-handoff-v2` and bind its timestamp, requested reviewer,
+pull-request comment URL and immutable receipt SHA-256 in `follow_up`.  The
+router then returns `TARGETED_FOLLOW_UP_SENT_WAIT_FOR_RESPONSE` instead of
+recommending the same message again.  A later topic-channel escalation remains
+possible at the separately frozen escalation age; the receipt never authorizes
+either external action.
+
 Drafts use a separate prospective progress clock so a failed value gate or a
 stale external environment does not remain open indefinitely:
 
