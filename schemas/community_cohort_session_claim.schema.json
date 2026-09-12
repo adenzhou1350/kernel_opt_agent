@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_cohort_session_claim.schema.json",
+  "title": "Single-use claim for one frozen community cohort session",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "claim_boundary", "session_claim_id", "session_id", "claim_state",
+    "request_id", "cycle_id", "suite_id", "authorization_request_sha256",
+    "semantic_approval_sha256", "combined_authorization_sha256",
+    "single_use_token", "authorization_schedule_sha256",
+    "execution_schedule_sha256", "formal_resource_id", "dispatcher_sha256",
+    "claim_store_identity_sha256", "claim_store_epoch_sha256",
+    "expires_at", "max_dispatches", "initial_order_index", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-cohort-session-claim-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "COHORT_TOKEN_CONSUMED_SESSION_CREATED_NO_PROCESS_LAUNCHED"},
+    "session_claim_id": {"$ref": "#/$defs/sha256"},
+    "session_id": {"$ref": "#/$defs/sha256"},
+    "claim_state": {"const": "SESSION_CLAIMED"},
+    "request_id": {"type": "string", "minLength": 1},
+    "cycle_id": {"type": "string", "minLength": 1},
+    "suite_id": {"type": "string", "minLength": 1},
+    "authorization_request_sha256": {"$ref": "#/$defs/sha256"},
+    "semantic_approval_sha256": {"$ref": "#/$defs/sha256"},
+    "combined_authorization_sha256": {"$ref": "#/$defs/sha256"},
+    "single_use_token": {"$ref": "#/$defs/sha256"},
+    "authorization_schedule_sha256": {"$ref": "#/$defs/sha256"},
+    "execution_schedule_sha256": {"$ref": "#/$defs/sha256"},
+    "formal_resource_id": {"type": "string", "minLength": 1},
+    "dispatcher_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_store_identity_sha256": {"$ref": "#/$defs/sha256"},
+    "claim_store_epoch_sha256": {"$ref": "#/$defs/sha256"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "max_dispatches": {"type": "integer", "minimum": 1},
+    "initial_order_index": {"const": 1},
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}
