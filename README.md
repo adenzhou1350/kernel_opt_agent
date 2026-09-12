@@ -609,17 +609,13 @@ plus candidate-to-Draft and Draft-to-Ready timing and conversion metrics. Exact
 delivery timing is computed only from `PROSPECTIVE_EXACT` ledgers; legacy cycles
 are never backfilled into those metrics. `leading_constraint` gives dashboards a
 transcript-free answer to where each lane is currently losing useful upstream
-output. `active_delivery_queue` and `attention_summary` derive action ownership,
-resource identity, and live wait duration from canonical active spans. A
-pull-based dashboard can therefore separate user confirmations, credentials,
-environment work, governance, GPU work, and normal agent work without asking
-autonomous lanes for status messages. Only a resource explicitly named with a
-`USER_` prefix contributes to `needs_user_action_count`; an unowned credential
-gate remains visible but is not silently assigned to the user. An active ledger
-describes an unfinished candidate cycle, which can remain open while its lane
-continues research on another candidate. This is descriptive accounting; it
-does not establish strategy causality or count this repository's maintenance
-PRs as framework optimization results.
+output. A pull-based dashboard can therefore separate user confirmations,
+credentials, environment work, governance, GPU work, and normal agent work
+without asking autonomous lanes for status messages. An active ledger describes
+an unfinished candidate cycle, which can remain open while its lane continues
+research on another candidate. This is descriptive accounting; it does not
+establish strategy causality or count this repository's maintenance PRs as
+framework optimization results.
 
 Version 5 adds `prospective_phase_time` for the explicitly selected,
 hash-bound `PROSPECTIVE_EXACT` ledgers. It includes active spans at one shared
@@ -628,6 +624,22 @@ and reports the overhead share only against attributed active phase time. The
 aggregation sums ledger spans, so parallel candidates may overlap; it is not a
 wall-clock or labor-time measure. Historical root-wide instrumentation debt
 remains a separate audit and is never hidden by this selected-portfolio view.
+
+Version 6 stops treating an immutable ledger's `ACTIVE` span as proof that work
+is still current. `active_delivery_queue` and `needs_user_action_count` now
+contain only spans backed by a valid, unexpired
+`community-action-attestation-v1` with an explicit owner. Missing, expired,
+resolved and superseded attestations remain visible in
+`delivery_action_inventory` but cannot create current work or silently assign a
+credential to the user. Bind one or more attestations explicitly when they are
+available:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio \
+  --manifest /path/to/four-lane-portfolio-manifest.json \
+  --action-attestation /path/to/current-action.json \
+  --output /path/to/four-lane-portfolio-report.json
+```
 
 Start timing when a framework candidate is selected, before editing production
 source, and bind the selection receipt immediately:
