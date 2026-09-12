@@ -84,6 +84,17 @@ selects the next model-driven action; `--apply-safe` may perform deterministic
 ranking and planning steps but never executes an unmaterialized experiment or
 silently applies an arbitrary numeric result to the global model.
 
+For every prospective candidate cycle, open a `community-timing` ledger before
+the first research, environment, implementation or measurement action. Run
+bounded local commands with `community-timing run-phase`; import an immutable
+worker or dispatcher receipt with `community-timing import-phase-receipt`.
+Close or interrupt the current span before beginning another repair attempt,
+and summarize the ledger when the cycle reaches an external wait or terminal
+decision. A result package without explicit environment/governance spans is
+measurement debt: it may preserve correctness evidence, but it cannot support
+claims about iteration speed or where agent time was spent. Never reconstruct
+precise historical spans from file timestamps or prose.
+
 For plan construction and resource mapping, read
 [references/microarchitecture_planning.md](references/microarchitecture_planning.md),
 then use [references/modeling.md](references/modeling.md) for lower bounds.  For
