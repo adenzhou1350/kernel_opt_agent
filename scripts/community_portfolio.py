@@ -10,12 +10,12 @@ from statistics import median
 
 from artifact_io import atomic_json, now, read_object, sha256_file
 from community_lane_topology import LANE_IDS, validate_topology
-from community_work_cycle import parse_time, summarize, validate_ledger
+from community_work_cycle import PHASES, parse_time, summarize, validate_ledger
 from schema_utils import validate_instance
 
 
 MANIFEST_VERSION = "community-portfolio-manifest-v1"
-REPORT_VERSION = "community-portfolio-report-v4"
+REPORT_VERSION = "community-portfolio-report-v5"
 
 
 def root() -> Path:
@@ -308,6 +308,99 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
     }
 
 
+def prospective_phase_time(ledgers: list[tuple[Path, dict]], observed_at: str) -> dict:
+    """Sum selected prospective phase spans without implying wall-clock labor."""
+
+    observed = parse_time(observed_at, "observed_at")
+    phase_seconds = {phase: 0.0 for phase in PHASES}
+    ledger_count = 0
+    active_span_count = 0
+    for _path, ledger in ledgers:
+        if ledger["observation_mode"] != "PROSPECTIVE_EXACT":
+            continue
+        ledger_count += 1
+        for span in ledger["spans"]:
+            started = parse_time(span["started_at"], "span.started_at")
+            if span["status"] == "ACTIVE":
+                ended = observed
+                active_span_count += 1
+            else:
+                ended = parse_time(span["ended_at"], "span.ended_at")
+            if ended < started:
+                raise ValueError(
+                    f"portfolio observation precedes span start: {span['span_id']}"
+                )
+            phase_seconds[span["phase"]] += (ended - started).total_seconds()
+
+    environment = phase_seconds["ENVIRONMENT_SETUP"]
+    governance = phase_seconds["GOVERNANCE_VALIDATION"]
+    overhead = environment + governance
+    external_wait = phase_seconds["EXTERNAL_WAIT"]
+    unattributed = phase_seconds["UNATTRIBUTED_LEGACY_WORK"]
+    productive = sum(
+        value
+        for phase, value in phase_seconds.items()
+        if phase
+        not in {
+            "ENVIRONMENT_SETUP",
+            "GOVERNANCE_VALIDATION",
+            "EXTERNAL_WAIT",
+            "UNATTRIBUTED_LEGACY_WORK",
+        }
+    )
+    attributed_active = overhead + productive
+    accounted = attributed_active + external_wait + unattributed
+    return {
+        "ledger_count": ledger_count,
+        "active_span_count": active_span_count,
+        "accounted_phase_seconds": accounted,
+        "attributed_active_seconds": attributed_active,
+        "phase_seconds": phase_seconds,
+        "environment_seconds": environment,
+        "governance_seconds": governance,
+        "environment_governance_seconds": overhead,
+        "environment_governance_share_of_attributed_active": (
+            overhead / attributed_active if attributed_active > 0 else None
+        ),
+        "external_wait_seconds": external_wait,
+        "external_wait_share_of_accounted_phase_time": (
+            external_wait / accounted if accounted > 0 else None
+        ),
+        "productive_seconds": productive,
+        "productive_share_of_attributed_active": (
+            productive / attributed_active if attributed_active > 0 else None
+        ),
+        "unattributed_legacy_seconds": unattributed,
+        "parallel_overlap_semantics": (
+            "SUM_OF_LEDGER_PHASE_SPANS_PARALLEL_CANDIDATES_MAY_OVERLAP"
+        ),
+        "claim_boundary": (
+            "SELECTED_HASH_BOUND_PROSPECTIVE_LEDGER_PHASE_TIME_NOT_WALL_CLOCK_"
+            "OR_LABOR_TIME"
+        ),
+    }
+
+
+def validate_report(report: dict) -> list[str]:
+    """Validate the strict v4 core plus the versioned v5 phase-time extension."""
+
+    legacy_projection = {
+        key: value for key, value in report.items() if key != "prospective_phase_time"
+    }
+    legacy_projection["schema_version"] = "community-portfolio-report-v4"
+    errors = validate_instance(
+        legacy_projection,
+        read_object(root() / "schemas/community_portfolio_report_v4.schema.json"),
+    )
+    errors.extend(
+        validate_instance(
+            report,
+            read_object(root() / "schemas/community_portfolio_report_v5.schema.json"),
+        )
+    )
+    return errors
+
+
 def build_report(manifest_path: Path) -> dict:
     manifest_path = manifest_path.resolve()
     manifest = read_object(manifest_path)
@@ -362,8 +455,8 @@ def build_report(manifest_path: Path) -> dict:
         lane_reports.append(row)
         lane_ledgers.append((lane["lane_id"], lane["thread_id"], ledgers))
 
-    totals = metrics(all_ledgers)
     generated_at = now()
+    totals = metrics(all_ledgers)
     queue, attention = active_delivery_queue(lane_ledgers, generated_at)
     report = {
         "schema_version": REPORT_VERSION,
@@ -379,11 +472,9 @@ def build_report(manifest_path: Path) -> dict:
         "totals": totals,
         "active_delivery_queue": queue,
         "attention_summary": attention,
+        "prospective_phase_time": prospective_phase_time(all_ledgers, generated_at),
     }
-    errors = validate_instance(
-        report,
-        read_object(root() / "schemas/community_portfolio_report_v4.schema.json"),
-    )
+    errors = validate_report(report)
     if errors:
         raise ValueError("invalid community portfolio report: " + "; ".join(errors))
     return report

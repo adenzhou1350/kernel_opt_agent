@@ -129,13 +129,49 @@ def test_portfolio_aggregates_four_explicit_lanes(tmp_path: Path) -> None:
     assert report["totals"]["median_time_to_first_correct_seconds"] == 30.0
     assert report["totals"]["median_time_to_first_improvement_seconds"] == 120.0
     assert report["totals"]["qualified_results_per_gpu_hour"] == 120.0
-    assert report["schema_version"] == "community-portfolio-report-v4"
+    assert report["schema_version"] == "community-portfolio-report-v5"
     assert report["active_delivery_queue"] == []
     assert report["attention_summary"]["active_count"] == 0
     assert report["attention_summary"]["lane_without_active_phase_count"] == 4
     assert report["totals"]["median_candidate_to_draft_seconds"] is None
     assert report["totals"]["median_draft_to_ready_seconds"] is None
     assert report["totals"]["prospective_draft_to_ready_conversion_rate"] is None
+    assert report["prospective_phase_time"] == {
+        "ledger_count": 4,
+        "active_span_count": 0,
+        "accounted_phase_seconds": 120.0,
+        "attributed_active_seconds": 120.0,
+        "phase_seconds": {
+            "COMMUNITY_RESEARCH": 0.0,
+            "BOTTLENECK_DIAGNOSIS": 0.0,
+            "CANDIDATE_IMPLEMENTATION": 0.0,
+            "COMPILE_AND_MEASURE": 0.0,
+            "CORRECTNESS_VALIDATION": 0.0,
+            "PERFORMANCE_VALIDATION": 120.0,
+            "WHOLE_MODEL_VALIDATION": 0.0,
+            "UPSTREAM_PACKAGING": 0.0,
+            "ENVIRONMENT_SETUP": 0.0,
+            "GOVERNANCE_VALIDATION": 0.0,
+            "EXTERNAL_WAIT": 0.0,
+            "UNATTRIBUTED_LEGACY_WORK": 0.0,
+        },
+        "environment_seconds": 0.0,
+        "governance_seconds": 0.0,
+        "environment_governance_seconds": 0.0,
+        "environment_governance_share_of_attributed_active": 0.0,
+        "external_wait_seconds": 0.0,
+        "external_wait_share_of_accounted_phase_time": 0.0,
+        "productive_seconds": 120.0,
+        "productive_share_of_attributed_active": 1.0,
+        "unattributed_legacy_seconds": 0.0,
+        "parallel_overlap_semantics": (
+            "SUM_OF_LEDGER_PHASE_SPANS_PARALLEL_CANDIDATES_MAY_OVERLAP"
+        ),
+        "claim_boundary": (
+            "SELECTED_HASH_BOUND_PROSPECTIVE_LEDGER_PHASE_TIME_NOT_WALL_CLOCK_"
+            "OR_LABOR_TIME"
+        ),
+    }
     assert report["totals"]["delivery_funnel"] == {
         "candidate_proposed": 4,
         "screen_correct": 4,
@@ -348,3 +384,65 @@ def test_active_queue_exposes_user_and_environment_owners(tmp_path: Path) -> Non
             "ACTIVE_WORK": 0,
         },
     }
+
+
+def test_phase_time_separates_overhead_external_wait_and_productive_work(
+    tmp_path: Path,
+) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    evidence = cycle["milestones"][0]["evidence"]
+    cycle["spans"].extend(
+        [
+            {
+                "span_id": "environment",
+                "phase": "ENVIRONMENT_SETUP",
+                "actor": "AGENT",
+                "resource_id": None,
+                "started_at": "2026-01-01T00:00:00Z",
+                "ended_at": "2026-01-01T00:00:10Z",
+                "status": "COMPLETE",
+                "evidence": evidence,
+            },
+            {
+                "span_id": "governance",
+                "phase": "GOVERNANCE_VALIDATION",
+                "actor": "AGENT",
+                "resource_id": None,
+                "started_at": "2026-01-01T00:00:10Z",
+                "ended_at": "2026-01-01T00:00:20Z",
+                "status": "COMPLETE",
+                "evidence": evidence,
+            },
+            {
+                "span_id": "external",
+                "phase": "EXTERNAL_WAIT",
+                "actor": "EXTERNAL",
+                "resource_id": "MAINTAINER_REVIEW",
+                "started_at": "2026-01-01T00:00:20Z",
+                "ended_at": "2026-01-01T00:00:50Z",
+                "status": "COMPLETE",
+                "evidence": evidence,
+            },
+        ]
+    )
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+
+    phase_time = build_report(path)["prospective_phase_time"]
+    assert phase_time["accounted_phase_seconds"] == 170.0
+    assert phase_time["attributed_active_seconds"] == 140.0
+    assert phase_time["environment_governance_seconds"] == 20.0
+    assert phase_time[
+        "environment_governance_share_of_attributed_active"
+    ] == pytest.approx(1 / 7)
+    assert phase_time["external_wait_seconds"] == 30.0
+    assert phase_time["external_wait_share_of_accounted_phase_time"] == pytest.approx(
+        3 / 17
+    )
+    assert phase_time["productive_seconds"] == 120.0
+    assert phase_time["productive_share_of_attributed_active"] == pytest.approx(6 / 7)
