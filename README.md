@@ -614,6 +614,21 @@ python3 scripts/kernel_opt.py community-portfolio \
   --output /path/to/four-lane-portfolio-report.json
 ```
 
+Add a newly selected prospective cycle without hand-editing path/hash fields:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio-register \
+  --manifest /path/to/current-portfolio-manifest.json \
+  --register SGLANG_OPTIMIZATION=/path/to/new-community-work-cycle.json \
+  --output /path/to/superseding-portfolio-manifest.json
+```
+
+Registration is explicit rather than a recursive evidence scan. It validates the
+complete prior manifest, the new ledger and its evidence closure, rejects legacy
+or pre-accounting cycles and duplicate cycle/task identities, and creates the
+superseding manifest once. This keeps candidate accounting current without
+guessing lane ownership from filenames or free-form task prose.
+
 The report rejects duplicate ledger or cycle/task identities and keeps
 prospective measurements separate from legacy milestone bounds. Version 4 adds
 an evidence-backed delivery funnel from candidate proposal through correctness,
