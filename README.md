@@ -629,6 +629,22 @@ or pre-accounting cycles and duplicate cycle/task identities, and creates the
 superseding manifest once. This keeps candidate accounting current without
 guessing lane ownership from filenames or free-form task prose.
 
+When an already-selected prospective ledger advances in place (for example, a
+Draft PR event closes an earlier active wait), refresh only that exact lane/path
+identity instead of hand-editing its hash:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio-register \
+  --manifest /path/to/current-portfolio-manifest.json \
+  --refresh VLLM_OPTIMIZATION=/path/to/advanced-community-work-cycle.json \
+  --output /path/to/superseding-portfolio-manifest.json
+```
+
+Refresh never scans for ledgers and cannot change the selected path or lane. It
+permits the named old hash to be stale, then validates the advanced ledger and
+the complete superseding selection. Registration and refresh are deliberately
+separate operations so a stale identity cannot weaken new-cycle admission.
+
 The report rejects duplicate ledger or cycle/task identities and keeps
 prospective measurements separate from legacy milestone bounds. Version 4 adds
 an evidence-backed delivery funnel from candidate proposal through correctness,

@@ -39,7 +39,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "community-portfolio": Command("community_portfolio.py", "aggregate explicit work-cycle timing and PR-yield metrics across four lanes"),
         "community-portfolio-register": Command(
             "community_portfolio_register.py",
-            "register explicit prospective ledgers without hand-editing manifest hashes",
+            "register or refresh explicit prospective ledger identities",
         ),
         "community-action-attest": Command(
             "community_action_attestation.py",
