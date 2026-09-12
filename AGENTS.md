@@ -91,6 +91,13 @@ an accessible ModelScope snapshot when it can be content-hash matched to the
 required model identity; a hosting platform name is never a substitute for
 file identities.
 
+Before expanding environment, accelerator or whole-workload qualification for
+a surviving candidate, run `scripts/kernel_opt.py candidate-value`. Keep an
+unknown whole-workload ceiling explicit and quantify it next; never replace it
+with zero or a favorable guess. Stop candidates below the materiality floor,
+and reserve expensive qualification for candidates whose possible value
+justifies their permanent review and maintenance surface.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

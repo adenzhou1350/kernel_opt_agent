@@ -43,6 +43,12 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "aggregate selected work-cycle ledgers across autonomous lanes",
         ),
     },
+    "candidate value": {
+        "candidate-value": Command(
+            "candidate_value_gate.py",
+            "stop low-value candidates before expensive qualification",
+        ),
+    },
     "hardware": {
         "hardware-discover": Command(
             "discover_hardware.py", "query the target device and software stack"

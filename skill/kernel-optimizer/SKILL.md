@@ -40,7 +40,11 @@ Then execute an evidence-driven loop:
 8. Bind and freeze the 2--4 promoted architecture-level candidates. Compute each
    candidate's resource-constrained objective interval.  Register only the one
    unresolved quantity whose uncertainty can change the top-two ordering; an
-   `UNKNOWN` resource is not by itself permission to measure.
+   `UNKNOWN` resource is not by itself permission to measure. Before expanding
+   environment or accelerator qualification, run
+   `scripts/kernel_opt.py candidate-value`; quantify an unknown whole-workload
+   ceiling instead of guessing it, and stop candidates below the materiality
+   floor or with unjustified permanent review/API/protocol cost.
 9. Have a separate microarchitecture analyst map that abstract quantity to an
    observable.  If an atomic probe cannot identify it with the precision
    required by the decision boundary, use candidate A/B or stop; do not expand
