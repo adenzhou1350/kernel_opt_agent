@@ -107,6 +107,32 @@ def draft_freshness(
     }
 
 
+def author_accountability(
+    *,
+    candidate_id: str,
+    repository: str,
+    branch: str,
+    commit: str,
+) -> dict:
+    return {
+        "schema_version": "upstream-delivery-author-accountability-v1",
+        "attested_at": "2026-09-11T07:45:00Z",
+        "candidate_id": candidate_id,
+        "repository": repository,
+        "branch": branch,
+        "candidate_commit": commit,
+        "submitter_identity": "human@example.com",
+        "checks": {
+            "changed_lines_reviewed": True,
+            "relevant_tests_rerun": True,
+            "can_defend_change": True,
+            "ai_assistance_disclosed": True,
+            "commit_attribution": "PASS",
+        },
+        "claim_boundary": "HUMAN_ATTESTATION_FOR_THIS_EXACT_DRAFT_COMMIT",
+    }
+
+
 def run(manifest: Path, expected_code: int = 0) -> dict:
     completed = subprocess.run(
         [sys.executable, str(SCRIPT), str(manifest)],
@@ -288,6 +314,104 @@ def main() -> None:
             "status": "PASS",
             "errors": [],
         }
+
+        v5 = copy.deepcopy(v4)
+        v5["schema_version"] = "upstream-delivery-inbox-v5"
+        v5["candidates"][0]["draft_materials"]["author_accountability"] = None
+        write_json(manifest, v5)
+        pending_accountability_inbox = run(manifest)["inbox"]
+        pending_accountability_item = next(
+            item
+            for item in pending_accountability_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert pending_accountability_inbox["schema_version"] == (
+            "upstream-delivery-inbox-result-v5"
+        )
+        assert pending_accountability_item["recommended_action"] == (
+            "COMPLETE_AUTHOR_ACCOUNTABILITY"
+        )
+        assert pending_accountability_item["external_action_owner"] == "AUTHOR"
+        assert pending_accountability_item["draft_materials"][
+            "author_accountability"
+        ] == {
+            "source": None,
+            "status": "PENDING",
+            "errors": ["author accountability has not been attested"],
+        }
+
+        accountability_path = root / "author-accountability.json"
+        accountability = author_accountability(
+            candidate_id="mooncake-lazy-group-cache",
+            repository="vllm-project/vllm",
+            branch="perf/mooncake-lazy-group-cache",
+            commit=candidate_commit,
+        )
+        accountability_sha = write_json(accountability_path, accountability)
+        v5["candidates"][0]["draft_materials"]["author_accountability"] = {
+            "path": accountability_path.name,
+            "sha256": accountability_sha,
+        }
+        write_json(manifest, v5)
+        accountable_inbox = run(manifest)["inbox"]
+        accountable_item = next(
+            item
+            for item in accountable_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert accountable_item["recommended_action"] == "OPEN_DRAFT", accountable_item
+        assert accountable_item["draft_materials"]["author_accountability"] == {
+            "source": {
+                "path": accountability_path.name,
+                "sha256": accountability_sha,
+            },
+            "status": "PASS",
+            "errors": [],
+        }
+
+        wrong_accountability = copy.deepcopy(accountability)
+        wrong_accountability["candidate_commit"] = "c" * 40
+        v5["candidates"][0]["draft_materials"]["author_accountability"]["sha256"] = (
+            write_json(accountability_path, wrong_accountability)
+        )
+        write_json(manifest, v5)
+        wrong_accountability_inbox = run(manifest)["inbox"]
+        wrong_accountability_item = next(
+            item
+            for item in wrong_accountability_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert wrong_accountability_item["recommended_action"] == (
+            "COMPLETE_AUTHOR_ACCOUNTABILITY"
+        )
+        assert any(
+            "candidate_commit" in error
+            for error in wrong_accountability_item["draft_materials"][
+                "author_accountability"
+            ]["errors"]
+        )
+
+        hidden_accountability = copy.deepcopy(accountability)
+        hidden_accountability["hidden_oracle"] = True
+        v5["candidates"][0]["draft_materials"]["author_accountability"]["sha256"] = (
+            write_json(accountability_path, hidden_accountability)
+        )
+        write_json(manifest, v5)
+        hidden_accountability_inbox = run(manifest)["inbox"]
+        hidden_accountability_item = next(
+            item
+            for item in hidden_accountability_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert hidden_accountability_item["recommended_action"] == (
+            "COMPLETE_AUTHOR_ACCOUNTABILITY"
+        )
+        assert any(
+            "unexpected keys" in error
+            for error in hidden_accountability_item["draft_materials"][
+                "author_accountability"
+            ]["errors"]
+        )
 
         stale_v4 = copy.deepcopy(v4)
         stale_freshness = copy.deepcopy(standard_freshness)

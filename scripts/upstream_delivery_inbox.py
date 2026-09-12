@@ -22,6 +22,7 @@ CANDIDATE_KEYS_V1 = {"candidate_id", "lane_id", "review_state"}
 CANDIDATE_KEYS_V2 = CANDIDATE_KEYS_V1 | {"review_handoff"}
 CANDIDATE_KEYS_V3 = CANDIDATE_KEYS_V2 | {"draft_materials"}
 CANDIDATE_KEYS_V4 = CANDIDATE_KEYS_V3
+CANDIDATE_KEYS_V5 = CANDIDATE_KEYS_V4
 SOURCE_KEYS = {"path", "sha256"}
 DRAFT_MATERIAL_KEYS = {
     "title",
@@ -33,11 +34,13 @@ DRAFT_MATERIAL_KEYS = {
     "body",
     "freshness_evidence",
 }
+DRAFT_MATERIAL_KEYS_V5 = DRAFT_MATERIAL_KEYS | {"author_accountability"}
 VERSIONS = {
     "upstream-delivery-inbox-v1",
     "upstream-delivery-inbox-v2",
     "upstream-delivery-inbox-v3",
     "upstream-delivery-inbox-v4",
+    "upstream-delivery-inbox-v5",
 }
 FRESHNESS_KEYS = {
     "schema_version",
@@ -59,6 +62,24 @@ FRESHNESS_CHECK_KEYS = {
     "exact_head_pull_request_count",
     "draft_submission_eligible",
 }
+ACCOUNTABILITY_KEYS = {
+    "schema_version",
+    "attested_at",
+    "candidate_id",
+    "repository",
+    "branch",
+    "candidate_commit",
+    "submitter_identity",
+    "checks",
+    "claim_boundary",
+}
+ACCOUNTABILITY_CHECK_KEYS = {
+    "changed_lines_reviewed",
+    "relevant_tests_rerun",
+    "can_defend_change",
+    "ai_assistance_disclosed",
+    "commit_attribution",
+}
 MAX_FRESHNESS_SECONDS = 6 * 60 * 60
 PRIORITY = {
     "CLOSE_OR_REVISE_FAILED_CANDIDATE": 0,
@@ -71,6 +92,7 @@ PRIORITY = {
     "COMPLETE_DRAFT_MINIMUM": 4,
     "COMPLETE_DRAFT_MATERIALS": 4,
     "REFRESH_DRAFT_FRESHNESS": 4,
+    "COMPLETE_AUTHOR_ACCOUNTABILITY": 4,
     "KEEP_DRAFT_CONTINUE_QUALIFICATION": 5,
     "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW": 5,
     "WAIT_FOR_MAINTAINER_CI_AND_REVIEW": 6,
@@ -87,6 +109,7 @@ ACTIONABLE = {
     "REQUEST_TOPIC_REVIEWERS",
     "ONE_TARGETED_REVIEWER_FOLLOW_UP",
     "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION",
+    "COMPLETE_AUTHOR_ACCOUNTABILITY",
 }
 
 
@@ -228,6 +251,70 @@ def validate_draft_freshness(
     return errors
 
 
+def validate_author_accountability(
+    value: object,
+    *,
+    candidate_id: str,
+    repository: str,
+    branch: str,
+    commit: str,
+    inbox_observed_at: str,
+) -> list[str]:
+    """Validate a human submitter's exact candidate accountability record."""
+
+    errors: list[str] = []
+    record = exact_keys(value, ACCOUNTABILITY_KEYS, "accountability", errors)
+    if record.get("schema_version") != "upstream-delivery-author-accountability-v1":
+        errors.append(
+            "accountability.schema_version: must be "
+            "upstream-delivery-author-accountability-v1"
+        )
+    attested = parse_timestamp(
+        record.get("attested_at"), "accountability.attested_at", errors
+    )
+    observed = parse_timestamp(
+        inbox_observed_at, "accountability.inbox_observed_at", errors
+    )
+    if attested is not None and observed is not None and attested > observed:
+        errors.append("accountability.attested_at: cannot be after inbox observed_at")
+    expected = {
+        "candidate_id": candidate_id,
+        "repository": repository,
+        "branch": branch,
+        "candidate_commit": commit,
+    }
+    for field, expected_value in expected.items():
+        if record.get(field) != expected_value:
+            errors.append(
+                f"accountability.{field}: expected {expected_value!r}, "
+                f"got {record.get(field)!r}"
+            )
+    if not isinstance(record.get("submitter_identity"), str) or not record.get(
+        "submitter_identity"
+    ):
+        errors.append("accountability.submitter_identity: must be non-empty")
+    if not isinstance(record.get("claim_boundary"), str) or not record.get(
+        "claim_boundary"
+    ):
+        errors.append("accountability.claim_boundary: must be non-empty")
+    checks = exact_keys(
+        record.get("checks"), ACCOUNTABILITY_CHECK_KEYS, "accountability.checks", errors
+    )
+    for field in (
+        "changed_lines_reviewed",
+        "relevant_tests_rerun",
+        "can_defend_change",
+        "ai_assistance_disclosed",
+    ):
+        if checks.get(field) is not True:
+            errors.append(f"accountability.checks.{field}: must be true")
+    if checks.get("commit_attribution") not in {"PASS", "NOT_REQUIRED"}:
+        errors.append(
+            "accountability.checks.commit_attribution: must be PASS or NOT_REQUIRED"
+        )
+    return errors
+
+
 def check_progress(checks: dict[str, str], complete_values: set[str]) -> dict:
     passed = sorted(key for key, value in checks.items() if value in complete_values)
     pending = sorted(key for key, value in checks.items() if value == "PENDING")
@@ -259,6 +346,7 @@ def validate_manifest(record: object) -> list[str]:
             "upstream-delivery-inbox-v2": CANDIDATE_KEYS_V2,
             "upstream-delivery-inbox-v3": CANDIDATE_KEYS_V3,
             "upstream-delivery-inbox-v4": CANDIDATE_KEYS_V4,
+            "upstream-delivery-inbox-v5": CANDIDATE_KEYS_V5,
         }.get(version, CANDIDATE_KEYS_V1)
         candidate = exact_keys(value, expected_keys, f"candidates[{index}]", errors)
         candidate_id = candidate.get("candidate_id")
@@ -280,6 +368,7 @@ def validate_manifest(record: object) -> list[str]:
             "upstream-delivery-inbox-v2",
             "upstream-delivery-inbox-v3",
             "upstream-delivery-inbox-v4",
+            "upstream-delivery-inbox-v5",
         }:
             handoff = candidate.get("review_handoff")
             if handoff is not None:
@@ -288,12 +377,20 @@ def validate_manifest(record: object) -> list[str]:
                     f"candidates[{index}].review_handoff",
                     errors,
                 )
-        if version in {"upstream-delivery-inbox-v3", "upstream-delivery-inbox-v4"}:
+        if version in {
+            "upstream-delivery-inbox-v3",
+            "upstream-delivery-inbox-v4",
+            "upstream-delivery-inbox-v5",
+        }:
             materials = candidate.get("draft_materials")
             if materials is not None:
                 materials = exact_keys(
                     materials,
-                    DRAFT_MATERIAL_KEYS,
+                    (
+                        DRAFT_MATERIAL_KEYS_V5
+                        if version == "upstream-delivery-inbox-v5"
+                        else DRAFT_MATERIAL_KEYS
+                    ),
                     f"candidates[{index}].draft_materials",
                     errors,
                 )
@@ -319,7 +416,13 @@ def validate_manifest(record: object) -> list[str]:
                         f"candidates[{index}].draft_materials.commit: "
                         "must be a lowercase 40-character Git commit"
                     )
-                for field in ("body", "freshness_evidence"):
+                material_fields = ["body", "freshness_evidence"]
+                if (
+                    version == "upstream-delivery-inbox-v5"
+                    and materials.get("author_accountability") is not None
+                ):
+                    material_fields.append("author_accountability")
+                for field in material_fields:
                     validate_source(
                         materials.get(field),
                         f"candidates[{index}].draft_materials.{field}",
@@ -383,6 +486,7 @@ def build(
             "upstream-delivery-inbox-v2",
             "upstream-delivery-inbox-v3",
             "upstream-delivery-inbox-v4",
+            "upstream-delivery-inbox-v5",
         }:
             handoff_source = candidate["review_handoff"]
             ready_pull = pull["state"] == "OPEN" and pull["draft"] is False
@@ -447,6 +551,7 @@ def build(
         if manifest["schema_version"] in {
             "upstream-delivery-inbox-v3",
             "upstream-delivery-inbox-v4",
+            "upstream-delivery-inbox-v5",
         }:
             materials = candidate["draft_materials"]
             if effective_action == "OPEN_DRAFT" and materials is None:
@@ -470,7 +575,13 @@ def build(
                     continue
                 material_bytes: dict[str, bytes] = {}
                 material_failed = False
-                for field in ("body", "freshness_evidence"):
+                material_fields = ["body", "freshness_evidence"]
+                if (
+                    manifest["schema_version"] == "upstream-delivery-inbox-v5"
+                    and materials["author_accountability"] is not None
+                ):
+                    material_fields.append("author_accountability")
+                for field in material_fields:
                     material_source = materials[field]
                     material_path = resolve_source(
                         manifest_path, material_source["path"]
@@ -518,7 +629,10 @@ def build(
                     continue
                 freshness_errors = []
                 freshness_status = "PASS"
-                if manifest["schema_version"] == "upstream-delivery-inbox-v4":
+                if manifest["schema_version"] in {
+                    "upstream-delivery-inbox-v4",
+                    "upstream-delivery-inbox-v5",
+                }:
                     freshness_errors = validate_draft_freshness(
                         freshness,
                         candidate_id=candidate["candidate_id"],
@@ -538,6 +652,43 @@ def build(
                         "does not bind the candidate commit"
                     )
                     continue
+                accountability_result = None
+                if manifest["schema_version"] == "upstream-delivery-inbox-v5":
+                    accountability_source = materials["author_accountability"]
+                    accountability_errors = []
+                    accountability_status = "PASS"
+                    if accountability_source is None:
+                        accountability_status = "PENDING"
+                        accountability_errors = [
+                            "author accountability has not been attested"
+                        ]
+                    else:
+                        try:
+                            accountability = json.loads(
+                                material_bytes["author_accountability"]
+                            )
+                        except Exception as error:
+                            accountability_status = "REVIEW_REQUIRED"
+                            accountability_errors = [f"invalid JSON: {error}"]
+                        else:
+                            accountability_errors = validate_author_accountability(
+                                accountability,
+                                candidate_id=candidate["candidate_id"],
+                                repository=materials["repository"],
+                                branch=materials["branch"],
+                                commit=materials["commit"],
+                                inbox_observed_at=manifest["observed_at"],
+                            )
+                            if accountability_errors:
+                                accountability_status = "REVIEW_REQUIRED"
+                    if accountability_errors and effective_action == "OPEN_DRAFT":
+                        effective_action = "COMPLETE_AUTHOR_ACCOUNTABILITY"
+                        effective_owner = "AUTHOR"
+                    accountability_result = {
+                        "source": accountability_source,
+                        "status": accountability_status,
+                        "errors": accountability_errors,
+                    }
                 draft_material_result = {
                     key: materials[key]
                     for key in (
@@ -563,6 +714,10 @@ def build(
                         },
                     }
                 )
+                if accountability_result is not None:
+                    draft_material_result["author_accountability"] = (
+                        accountability_result
+                    )
         draft_progress = check_progress(review_state["draft_minimum"], {"PASS"})
         ready_progress = check_progress(
             review_state["ready_gates"], {"PASS", "NOT_APPLICABLE"}
@@ -587,12 +742,14 @@ def build(
             "upstream-delivery-inbox-v2",
             "upstream-delivery-inbox-v3",
             "upstream-delivery-inbox-v4",
+            "upstream-delivery-inbox-v5",
         }:
             item["review_state_action"] = decision["recommended_action"]
             item["review_handoff"] = handoff_result
         if manifest["schema_version"] in {
             "upstream-delivery-inbox-v3",
             "upstream-delivery-inbox-v4",
+            "upstream-delivery-inbox-v5",
         }:
             item["draft_materials"] = draft_material_result
         items.append(item)
@@ -612,6 +769,7 @@ def build(
             "upstream-delivery-inbox-v2": "upstream-delivery-inbox-result-v2",
             "upstream-delivery-inbox-v3": "upstream-delivery-inbox-result-v3",
             "upstream-delivery-inbox-v4": "upstream-delivery-inbox-result-v4",
+            "upstream-delivery-inbox-v5": "upstream-delivery-inbox-result-v5",
         }[manifest["schema_version"]],
         "manifest_sha256": sha256_bytes(manifest_bytes),
         "observed_at": manifest["observed_at"],

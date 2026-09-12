@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_delivery_author_accountability_v1.schema.json",
+  "title": "Human author accountability for an AI-assisted upstream Draft",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "attested_at",
+    "candidate_id",
+    "repository",
+    "branch",
+    "candidate_commit",
+    "submitter_identity",
+    "checks",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "upstream-delivery-author-accountability-v1"},
+    "attested_at": {"type": "string", "format": "date-time"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "repository": {"type": "string", "minLength": 1},
+    "branch": {"type": "string", "minLength": 1},
+    "candidate_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "submitter_identity": {"type": "string", "minLength": 1},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "changed_lines_reviewed",
+        "relevant_tests_rerun",
+        "can_defend_change",
+        "ai_assistance_disclosed",
+        "commit_attribution"
+      ],
+      "properties": {
+        "changed_lines_reviewed": {"const": true},
+        "relevant_tests_rerun": {"const": true},
+        "can_defend_change": {"const": true},
+        "ai_assistance_disclosed": {"const": true},
+        "commit_attribution": {"enum": ["PASS", "NOT_REQUIRED"]}
+      }
+    },
+    "claim_boundary": {"type": "string", "minLength": 1}
+  }
+}
