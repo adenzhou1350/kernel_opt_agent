@@ -58,8 +58,6 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_route.py",
             "separate candidate failures from bounded environment repair",
         ),
-    },
-    "qualification": {
         "qualification-environment": Command(
             "qualification_environment.py",
             "reuse a compatible materialized qualification environment",

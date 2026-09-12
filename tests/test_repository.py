@@ -221,6 +221,8 @@ def main():
     assert "--timeout-seconds" in child_help.stdout
     assert "--receipt" in child_help.stdout
     assert "upstream-review-state" in cli_help.stdout
+    assert "qualification-route" in cli_help.stdout
+    assert "qualification-environment-dispatch" in cli_help.stdout
     assert "upstream-review-handoff" in cli_help.stdout
     assert "upstream-draft-progress" in cli_help.stdout
     assert "upstream-delivery-inbox" in cli_help.stdout
