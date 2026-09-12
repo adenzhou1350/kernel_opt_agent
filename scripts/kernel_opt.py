@@ -49,6 +49,12 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "stop low-value candidates before expensive qualification",
         ),
     },
+    "qualification": {
+        "qualification-route": Command(
+            "qualification_route.py",
+            "separate candidate failures from bounded environment repair",
+        ),
+    },
     "hardware": {
         "hardware-discover": Command(
             "discover_hardware.py", "query the target device and software stack"

@@ -377,6 +377,28 @@ instead recommend opening an honestly scoped Draft while that ceiling is
 quantified. Callers never have to invent zero or a favorable estimate merely
 to pass the schema.
 
+## Qualification failure routing
+
+Classify a stopped qualification attempt before rejecting its candidate:
+
+```bash
+python3 scripts/kernel_opt.py qualification-route --print-template \
+  > qualification-attempt.json
+python3 scripts/kernel_opt.py qualification-route \
+  --attempt qualification-attempt.json \
+  --output qualification-route.json
+```
+
+The route distinguishes an exact-source candidate assertion failure from
+image, toolchain, dependency, ISA, import-identity and platform failures.
+Environment failures retain the candidate and consume a frozen technical-
+repair budget. Exhausting that budget stops dependency chasing without
+turning the event into a correctness rejection. An official workflow that
+intrinsically builds native code cannot run under a no-build contract: either
+authorize that build or use a pinned prebuilt closure. Tests against an
+unverified imported source are invalid evidence, not a pass or candidate
+failure.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.
