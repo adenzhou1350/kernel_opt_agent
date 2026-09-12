@@ -46,6 +46,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "community_portfolio.py",
             "aggregate selected work-cycle ledgers across autonomous lanes",
         ),
+        "community-action-attest": Command(
+            "community_action_attestation.py",
+            "create a current evidence-bound state for one active work span",
+        ),
     },
     "candidate value": {
         "candidate-value": Command(

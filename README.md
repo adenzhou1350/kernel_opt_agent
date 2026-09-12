@@ -157,6 +157,18 @@ python3 scripts/kernel_opt.py upstream-author-review-packet delivery-inbox.json 
 The packet is machine-prepared convenience only. It cannot attest human review
 or authorize publishing.
 
+Use `community-action-attest` to create a short-lived, create-once current-state
+record for one validated ACTIVE work-cycle span. The command derives its cycle,
+resource and ledger identities and requires evidence; `RESOLVED` and
+`SUPERSEDED` retire stale declared work without rewriting history:
+
+```bash
+python3 scripts/kernel_opt.py community-action-attest \
+  --ledger work-cycle.json --span-id active-span --state ACTIVE \
+  --action-owner AGENT --valid-for-seconds 1800 \
+  --evidence current-result.json --output current-action.json
+```
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
