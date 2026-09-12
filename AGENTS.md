@@ -209,6 +209,16 @@ workload-sized free-space floor. A blocked preflight is an environment result,
 not a candidate failure; move to a reviewed cache root or stop the bounded
 repair instead of retrying against an implicit home-directory default.
 
+Before a Python candidate starts a GPU process or service when source,
+site-packages, generated interfaces or native extensions may differ, run
+`runtime-import-preflight` in the exact interpreter and environment. Bind each
+production entry module to its resolved file and SHA-256, bind important
+attribute origins, and forbid unrelated optional backend prefixes for light
+registry/config imports. A missing generated interface, wrong imported tree or
+eager optional backend is a pre-launch environment/source blocker; do not spend
+GPU time discovering it during server startup. A passing import receipt is not
+native-build, service, correctness, performance or execution authorization.
+
 On a CPU-only preprovisioned worker, `CUDA_VISIBLE_DEVICES=-1` can make
 `torch.cuda.get_arch_list()` return an empty list even when the installed Torch
 binary contains the required architecture. Reuse the worker attestation logic:

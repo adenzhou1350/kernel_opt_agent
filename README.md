@@ -904,6 +904,26 @@ writeability and insufficient space before an expensive command starts. It is
 only an environment preflight and never authorizes download, build, execution,
 correctness or performance claims.
 
+Before a candidate starts a GPU process or service, verify that the selected
+interpreter imports the intended source bytes and does not eagerly load an
+unrelated optional backend:
+
+```bash
+python3 scripts/kernel_opt.py runtime-import-preflight --print-template \
+  > runtime-import-preflight-request.json
+python3 scripts/kernel_opt.py runtime-import-preflight \
+  --request runtime-import-preflight-request.json \
+  --output runtime-import-preflight-result.json
+```
+
+Each import runs in a fresh CPU subprocess. The result binds the interpreter,
+module file and SHA-256, optional attribute origin, effective environment, and
+forbidden transitive module prefixes. This catches a workspace/site-packages
+mismatch, a missing generated Python/native interface, or an eager optional
+backend import before an expensive server or GPU qualification. It is only a
+read-only import preflight and never authorizes a build, service, GPU workload,
+correctness claim, or performance claim.
+
 When a new closure really must be built, the controller can issue a separate,
 short-lived CPU-only materialization approval after reviewing the exact plan,
 environment request and still-blocked broker job:

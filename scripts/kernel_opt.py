@@ -82,6 +82,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "environment_cache_preflight.py",
             "fail closed before cache-bound downloads, JIT compilation, or builds",
         ),
+        "runtime-import-preflight": Command(
+            "runtime_import_preflight.py",
+            "verify exact Python imports before GPU or service startup",
+        ),
         "qualification-environment-authorize": Command(
             "qualification_environment_materialization.py",
             "approve CPU-only qualification-environment materialization",

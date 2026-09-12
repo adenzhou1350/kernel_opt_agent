@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "runtime_import_preflight_result.schema.json",
+  "title": "Runtime import preflight result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "candidate_id",
+    "request_identity",
+    "decision",
+    "interpreter",
+    "working_directory",
+    "python_paths",
+    "effective_environment_sha256",
+    "imports",
+    "blockers",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "runtime-import-preflight-result-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "request_identity": {"$ref": "#/$defs/file_identity"},
+    "decision": {"enum": ["READY_FOR_NEXT_PREFLIGHT", "BLOCKED_RUNTIME_IMPORT"]},
+    "interpreter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+      }
+    },
+    "working_directory": {"type": "string", "minLength": 1},
+    "python_paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "effective_environment_sha256": {"$ref": "#/$defs/sha256"},
+    "imports": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "import_id",
+          "module",
+          "attribute",
+          "status",
+          "module_file",
+          "module_sha256",
+          "attribute_module",
+          "forbidden_loaded_modules",
+          "error_type",
+          "error",
+          "blockers"
+        ],
+        "properties": {
+          "import_id": {"type": "string", "minLength": 1},
+          "module": {"type": "string", "minLength": 1},
+          "attribute": {"type": ["string", "null"]},
+          "status": {"enum": ["PASS", "BLOCKED"]},
+          "module_file": {"type": ["string", "null"]},
+          "module_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]},
+          "attribute_module": {"type": ["string", "null"]},
+          "forbidden_loaded_modules": {"type": "array", "items": {"type": "string"}},
+          "error_type": {"type": ["string", "null"]},
+          "error": {"type": ["string", "null"]},
+          "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+        }
+      }
+    },
+    "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+    "claim_boundary": {"const": "CPU_PROCESS_IMPORT_PATH_AND_TRANSITIVE_MODULE_PREFLIGHT_ONLY_NOT_NATIVE_BUILD_GPU_SERVICE_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "file_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
