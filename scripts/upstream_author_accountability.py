@@ -4,12 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
+import os
 import re
 from datetime import datetime, timezone
 from pathlib import Path
 
-from artifact_io import atomic_json, sha256_file
 from upstream_delivery_inbox import validate_author_accountability
 
 
@@ -86,19 +87,35 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def write_once(path: Path, value: dict) -> str:
+    """Create one immutable receipt without a check-then-overwrite race."""
+
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    try:
+        descriptor = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError as error:
+        raise FileExistsError(
+            f"refusing to replace existing attestation: {path}"
+        ) from error
+    with os.fdopen(descriptor, "wb") as output:
+        output.write(payload)
+        output.flush()
+        os.fsync(output.fileno())
+    return hashlib.sha256(payload).hexdigest()
+
+
 def main() -> int:
     args = parse_args()
     output = args.output.resolve()
-    if output.exists():
-        raise FileExistsError(f"refusing to replace existing attestation: {output}")
     record = build(args)
-    atomic_json(output, record)
+    digest = write_once(output, record)
     print(
         json.dumps(
             {
                 "status": "PASS",
                 "path": output.as_posix(),
-                "sha256": sha256_file(output),
+                "sha256": digest,
                 "candidate_id": record["candidate_id"],
                 "candidate_commit": record["candidate_commit"],
                 "claim_boundary": record["claim_boundary"],
