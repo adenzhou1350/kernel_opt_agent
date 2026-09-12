@@ -40,6 +40,23 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
+Seal a committed candidate directly from Git objects before qualification or
+upstream packaging. This records the exact commits, commit trees, stable
+patch-id, binary diff digest and per-path blob identities without reading
+checkout bytes, so line-ending settings cannot change the identity:
+
+```bash
+python3 scripts/kernel_opt.py candidate-source seal \
+  --repository ../project --repository-id owner/project \
+  --base origin/main --candidate HEAD --output candidate-source.json
+python3 scripts/kernel_opt.py candidate-source verify \
+  --repository ../project --receipt candidate-source.json
+```
+
+Sealing requires a clean worktree and refuses an empty or non-descendant
+candidate. Verification re-derives the receipt from immutable Git objects and
+therefore works from another clone containing the same objects.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those

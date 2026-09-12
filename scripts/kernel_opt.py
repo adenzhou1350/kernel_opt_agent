@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "next": Command("optimizer_step.py", "select the next evidence-driven action"),
         "advance": Command("advance_run.py", "validate and advance one phase gate"),
         "audit": Command("audit_repository.py", "verify reusable-zone purity"),
+        "candidate-source": Command("candidate_source.py", "seal or verify immutable Git candidate identity"),
     },
     "hardware": {
         "hardware-discover": Command("discover_hardware.py", "query the target device and software stack"),
@@ -92,6 +94,10 @@ def main() -> int:
     # modules import shared helpers from scripts/; disable bytecode generation
     # before exec so normal framework use never creates scripts/__pycache__.
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+    if os.name == "nt":
+        # os.execv does not replace the current process reliably on Windows.
+        # Wait for the child so callers receive its output and exit status.
+        return subprocess.call([sys.executable, str(target), *forwarded])
     os.execv(sys.executable, [sys.executable, str(target), *forwarded])
     return 127
 
