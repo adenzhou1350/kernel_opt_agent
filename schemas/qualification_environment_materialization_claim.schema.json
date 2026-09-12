@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_materialization_claim.schema.json",
+  "title": "Immutable CPU-only materialization approval claim",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_id",
+    "claimed_at",
+    "approval",
+    "materialization_plan",
+    "dispatcher_sha256",
+    "argv_sha256",
+    "single_use",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-materialization-claim-v1"},
+    "claim_id": {"$ref": "#/$defs/sha256"},
+    "claimed_at": {"type": "string", "format": "date-time"},
+    "approval": {"$ref": "#/$defs/identity"},
+    "materialization_plan": {"$ref": "#/$defs/identity"},
+    "dispatcher_sha256": {"$ref": "#/$defs/sha256"},
+    "argv_sha256": {"$ref": "#/$defs/sha256"},
+    "single_use": {"const": true},
+    "claim_boundary": {
+      "const": "ATOMIC_SINGLE_USE_CPU_ONLY_MATERIALIZATION_CLAIM_NOT_ENVIRONMENT_SUCCESS_GPU_OR_WORKLOAD_AUTHORIZATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

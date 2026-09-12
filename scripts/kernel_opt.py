@@ -59,6 +59,36 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "separate candidate failures from bounded environment repair",
         ),
     },
+    "qualification": {
+        "qualification-environment": Command(
+            "qualification_environment.py",
+            "reuse a compatible materialized qualification environment",
+        ),
+        "environment-cache-preflight": Command(
+            "environment_cache_preflight.py",
+            "fail closed before cache-bound downloads, JIT compilation, or builds",
+        ),
+        "qualification-environment-authorize": Command(
+            "qualification_environment_materialization.py",
+            "approve CPU-only qualification-environment materialization",
+        ),
+        "qualification-environment-dispatch": Command(
+            "qualification_environment_materialization_dispatch.py",
+            "consume one CPU-only materialization approval on its bound worker",
+        ),
+        "qualification-environment-worker": Command(
+            "qualification_environment_worker.py",
+            "attest a preprovisioned qualification worker runtime",
+        ),
+        "qualification-source-bundle": Command(
+            "qualification_source_bundle.py",
+            "build or verify deterministic Git-object source transport",
+        ),
+        "resource-broker": Command(
+            "resource_broker.py",
+            "queue jobs and reserve compatible multi-GPU worker resources",
+        ),
+    },
     "hardware": {
         "hardware-discover": Command(
             "discover_hardware.py", "query the target device and software stack"

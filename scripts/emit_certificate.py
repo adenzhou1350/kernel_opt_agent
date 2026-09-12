@@ -23,7 +23,7 @@ LOWER_KINDS = {
 
 
 def load(path: Path) -> dict:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain an object")
     return data

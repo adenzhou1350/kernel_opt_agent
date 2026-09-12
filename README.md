@@ -4,145 +4,12 @@ For a human review of the framework boundary, execution flow, directory
 ownership and contract map, start with [REVIEW.md](REVIEW.md). This README is
 the operator quick start; `AGENTS.md` contains mandatory agent policy.
 
-Record the complete delivery cycle separately from performance metrics:
-
-```bash
-python3 scripts/kernel_opt.py community-timing init \
-  --cycle-id <cycle-id> --task-id <task-id> \
-  --minimum-material-speedup 1.02 \
-  --candidate-evidence candidate-value-decision.json \
-  --output work-cycle.json
-python3 scripts/kernel_opt.py community-timing switch-phase \
-  --ledger work-cycle.json --span-id environment-1 \
-  --phase ENVIRONMENT_SETUP --actor CPU \
-  --evidence discovery-receipt.json
-python3 scripts/kernel_opt.py community-timing end-phase \
-  --ledger work-cycle.json --span-id environment-1 \
-  --evidence discovery-receipt.json
-python3 scripts/kernel_opt.py community-timing run-phase \
-  --ledger work-cycle.json --span-id governance-1 \
-  --phase GOVERNANCE_VALIDATION --actor CPU --timeout-seconds 600 \
-  --receipt governance-command-receipt.json -- \
-  python3 -m pip check
-python3 scripts/kernel_opt.py community-timing import-phase-receipt \
-  --ledger work-cycle.json --span-id remote-env-1 \
-  --phase ENVIRONMENT_SETUP --actor CPU --resource-id worker-sm120 \
-  --receipt worker-terminal.json --started-at-field started_at \
-  --ended-at-field finished_at --duration-field elapsed_seconds \
-  --status INTERRUPTED
-python3 scripts/kernel_opt.py community-timing summarize \
-  --ledger work-cycle.json --output work-cycle-summary.json
-python3 scripts/kernel_opt.py community-timing audit-root \
-  --root /path/to/framework-evidence \
-  --max-active-phase-seconds 21600
-```
-
-Start a `PROSPECTIVE_EXACT` ledger when a framework candidate is selected,
-before editing production source. `init` atomically opens an active
-`BOTTLENECK_DIAGNOSIS` span by default, so timing cannot silently start after
-the work. Override it with `--initial-phase` when the first activity is already
-known. `--candidate-evidence` validates the immutable selection decision before
-the same atomic write creates `FIRST_CANDIDATE_PROPOSED`; missing evidence or a
-legacy observation mode leaves no partial ledger. Use `switch-phase` to close
-the current span and open its successor at one timestamp, avoiding gaps between
-separate end/start commands. The separate `mark` operation remains available
-for later milestones.
-
-Record GitHub transitions atomically with their stable URL, observed event time
-and immutable event receipt:
-
-```bash
-python3 scripts/kernel_opt.py community-timing record-pr-stage \
-  --ledger work-cycle.json --stage DRAFT \
-  --url https://github.com/owner/repository/pull/123 \
-  --evidence github-pr-draft-event.json
-python3 scripts/kernel_opt.py community-timing record-pr-stage \
-  --ledger work-cycle.json --stage READY \
-  --url https://github.com/owner/repository/pull/123 \
-  --evidence github-pr-ready-event.json
-```
-
-`READY` requires an observed Draft milestone and `MERGED` requires an observed
-Ready milestone. When the cycle is actively in `EXTERNAL_WAIT`, the same
-transaction closes that wait at the observed PR event time; unrelated
-environment, validation, and implementation phases remain active. Do not
-backfill missing timestamps from memory or filesystem
-mtimes; such a cycle remains `LEGACY_MILESTONE_BOUNDS` and is excluded from
-exact candidate-to-Draft and Draft-to-Ready timing.
-
-The ledger uses non-overlapping primary wall-clock spans for community research,
-bottleneck diagnosis, implementation, compile/measurement, correctness,
-performance, whole-model validation, upstream packaging, environment setup,
-governance validation and external wait. Use `ENVIRONMENT_SETUP` only for
-dependency/toolchain/runtime repair, and `GOVERNANCE_VALIDATION` only for
-contracts, authorization, evidence closure and policy checks. The summary
-reports their seconds and their share of attributed active work. If neither
-phase was recorded, that ratio is `null` with
-`NOT_SEPARATELY_RECORDED` rather than a misleading zero. Do not retroactively
-reclassify legacy spans.
-
-Select canonical ledgers across the autonomous lanes without scanning or
-guessing from chat transcripts:
-
-```bash
-python3 scripts/kernel_opt.py community-lanes validate \
-  --topology knowledge/community/lane_topology.v3.json
-python3 scripts/kernel_opt.py community-portfolio \
-  --manifest /path/to/portfolio-manifest.json \
-  --output /path/to/portfolio-report.json
-```
-
-Portfolio report v6 exposes the delivery funnel, freshness-attested action
-ownership and phase-time totals for only the explicitly selected, hash-bound
-`PROSPECTIVE_EXACT` ledgers. Active spans share one observation time.
-Environment/governance overhead is kept separate from external wait, and the
-report states that parallel candidate spans may overlap: it is not a wall-clock
-or labor-time measure. Root-wide historical instrumentation debt remains a
-separate audit and is never backfilled or hidden by the selected portfolio.
-
-An immutable ledger's `ACTIVE` span is historical state, not proof that work is
-still current. Only a valid, unexpired `community-action-attestation-v1` with
-an explicit owner enters `active_delivery_queue` or
-`needs_user_action_count`. Missing, expired, resolved and superseded states stay
-visible in `delivery_action_inventory` without creating current work. Pass each
-current attestation with `--action-attestation /path/to/action.json`.
-
-For a bounded command, prefer `run-phase`: it runs the exact argv without a
-shell, writes an immutable wall-time/exit-status receipt, and closes the span
-on success, non-zero exit, launch failure, or timeout. A passing command receipt
-is not correctness or performance evidence.
-When a governed worker already produced an immutable terminal receipt, use
-`import-phase-receipt` to bind its exact start/end timestamps instead of
-reconstructing wall time. The prospective ledger must already predate the
-receipt; optional duration-field reconciliation rejects inconsistent receipts.
-Importing timing does not validate the worker result or change its outcome.
-Hash-bound milestones report time to the first candidate, correct result,
-material improvement, qualified result, upstream-ready package, draft PR,
-ready-for-review PR and merge. Legacy trials may retain milestone bounds but
-must leave unavailable phase attribution under `UNATTRIBUTED_LEGACY_WORK`.
-This prevents a fast kernel result from hiding days spent packaging or waiting
-for external review.
-
-Controllers can run `audit-root` across lane evidence directories without
-messaging the execution lanes. It reports prospective ledgers that have no
-exact phase attribution, no primary phase, or an overlong active phase. It
-separately reports environment/governance measurement debt; a normally closed
-bounded cycle is not mistaken for an abandoned active cycle. The audit is
-read-only and intentionally does not create another evidence schema or infer
-historical timing.
-
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
 
 It deliberately contains no application-specific algorithm, workload or
 performance result.  Hardware facts are separated from empirical measurements;
 measurements are keyed by device and software environment.
-
-The workflow has two lanes. Fast discovery writes and repairs a diverse set of
-run-local production candidates, then uses cheap anchor/edge screening and
-successive halving. Only survivors enter the existing evidence-closed
-qualification and limit-certification lane. A technical build failure never
-counts as a causal performance rejection.
 
 ## Start a run
 
@@ -173,164 +40,115 @@ python3 scripts/kernel_opt.py new-run --operator operator.json --workload worklo
 python3 scripts/kernel_opt.py next --run runs/<run-id>
 ```
 
-After a correct discovery baseline is present, manage the production-candidate
-portfolio with:
+Before rebuilding a test environment, compare the requested workflow with an
+already materialized closure:
 
 ```bash
-python3 scripts/kernel_opt.py candidate init --run runs/<run-id> --if-missing
-python3 scripts/kernel_opt.py candidate add --run runs/<run-id> --spec candidate-spec.json
-python3 scripts/kernel_opt.py candidate run --run runs/<run-id> --candidate-id <id>
-python3 scripts/kernel_opt.py candidate promote --run runs/<run-id> --candidate-id <id>
+python3 scripts/kernel_opt.py qualification-environment \
+  --closure cached-environment.json \
+  --request candidate-environment-request.json \
+  --output environment-reuse.json
 ```
 
-Discovery requires 6--12 candidates across at least four architecture families
-by default. The default discovery budget is two hours overall, twenty minutes
-per candidate and eight technical repairs per candidate; expiry stops further
-measurement for plan review. Candidates are ranked by weighted screening gain
-and at most two are promoted by default. Its timing is a routing signal, not
-production acceptance evidence.
+The comparison separates reusable dependency/toolchain state from a source-
+bound native extension and the actual imported module. It permits a cheap
+source rebind or bounded extension rebuild without treating an image, ISA,
+workflow, test-contract, dependency-lock or GPU-visibility mismatch as a cache
+hit. The result is advisory reuse routing only: it never authorizes a build,
+test, GPU run, correctness claim or performance claim. Templates are available
+with `--print-closure-template` and `--print-request-template`.
 
-When a rebase, DCO amendment or other commit-metadata update changes the commit
-ID after validation, compare the committed trees before repeating expensive
-source qualification:
+Before a model download, JIT compile or native build, fail fast on implicit or
+unusable framework caches:
 
 ```bash
-python3 scripts/kernel_opt.py source-supersession \
-  --repo /path/to/repository \
-  --validated-ref <validated-commit> \
-  --replacement-ref <new-commit> \
-  --output source-supersession.json
+python3 scripts/kernel_opt.py environment-cache-preflight --print-template \
+  > cache-preflight-request.json
+python3 scripts/kernel_opt.py environment-cache-preflight \
+  --request cache-preflight-request.json \
+  --output cache-preflight-result.json
 ```
 
-An identical tree permits reuse only of source-tree-scoped evidence. Runtime,
-build artifact, workload and hardware identities still have to be rebound or
-revalidated. Any tree change fails closed and lists the paths that require
-source requalification.
+The request binds every intended cache path, its environment variable, a
+workload-sized free-space floor and whether a temporary write probe is allowed.
+The result distinguishes path drift, missing or non-directory roots,
+writeability and insufficient space before an expensive command starts. It is
+only an environment preflight and never authorizes download, build, execution,
+correctness or performance claims.
 
-For an upstream change, keep the repository's internal candidate status
-separate from GitHub's Draft flag and from CI/reviewer handoffs. A red Draft
-gate or maintainer-authorization check is not a test failure. Record the
-current state and obtain a deterministic next owner/action with:
+When the worker cannot clone source, create a deterministic transport directly
+from committed Git blobs. The builder never reads tracked files from the
+working tree, so dirty files, checkout line-ending conversion and export rules
+cannot change the payload:
 
 ```bash
-python3 scripts/kernel_opt.py upstream-review-state pr-review-state.json
+python3 scripts/kernel_opt.py qualification-source-bundle --build \
+  --repo /path/to/framework --commit <full-commit> \
+  --repository-url https://github.com/org/framework.git \
+  --archive framework-source.tar.gz --manifest framework-source.manifest.json
+python3 scripts/kernel_opt.py qualification-source-bundle --verify \
+  --archive framework-source.tar.gz --manifest framework-source.manifest.json \
+  --extract-root /immutable/new/source-root
 ```
 
-The classifier recommends opening a Draft once the minimal commit,
-focused correctness, lint/format, reproduction and claim boundary pass. It
-recommends Ready only after every applicable official-correctness,
-production-reachability, materiality, target-workload and known-regression
-gate passes.
+The manifest binds the repository identity, commit, tree, archive digest and
+every file, executable mode and safe relative symlink. Verification rejects
+tampering, duplicate or special entries, traversal, escaping symlinks and an
+existing extraction target. This is source transport only: it does not approve
+materialization, install dependencies, build native code, launch a workload or
+authorize GPU use.
 
-The control plane can aggregate several immutable review-state records without
-guessing from chat text or unrelated receipts:
+For several autonomous lanes sharing multiple GPU machines, queue validation
+work independently from the task that discovered it:
 
 ```bash
-python3 scripts/kernel_opt.py upstream-delivery-inbox delivery-inbox.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  submit --job job.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  bind-gate --job same-job-with-ready-gate.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  withdraw --job-id stale-job --reason-path decisions/supersession.json \
+  --reason-sha256 <sha256>
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  acquire --inventory inventory.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  plan --inventory inventory.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite snapshot
 ```
 
-Each manifest entry supplies a stable candidate/lane identity and the path and
-SHA-256 of one `upstream-review-state-v1` record.  The command revalidates every
-nested record, rejects hash drift, duplicate candidate identities and duplicate
-PR bindings, then sorts the resulting actions. Each item retains the internal
-candidate status and lists the passed, pending and failed Draft-minimum and
-Ready gates, so equal action labels are ordered by evidence progress instead of
-candidate name. In particular, a candidate whose Draft minimum is complete
-but whose PR is absent becomes an explicit
-`OPEN_DRAFT` inbox item instead of silently remaining in an experiment folder.
-Repository-maintenance candidates use a separate manifest so they cannot
-inflate framework delivery metrics.
-
-Use `upstream-delivery-inbox-v2` once a queue contains open Ready PRs. Each
-Ready entry must additionally hash-bind an `upstream-review-handoff-v1`
-record observed at the same instant as the inbox. The resulting v2 queue
-promotes missing reviewers, one due targeted follow-up, one due review-channel
-escalation, or author feedback above an otherwise generic reviewer wait. It
-retains the underlying review-state action and never authorizes an automatic
-message. Version 1 remains accepted unchanged for historical replay.
-
-Use `upstream-delivery-inbox-v3` when `OPEN_DRAFT` is actionable. It requires a
-hash-bound UTF-8 PR body, freshness evidence containing the exact candidate
-commit, and the intended repository/branch/compare URL. This validates the
-public Draft materials but does not authorize publishing them. Versions 1 and
-2 remain accepted unchanged for historical replay. An otherwise Draft-ready
-candidate without these materials is routed to `COMPLETE_DRAFT_MATERIALS`; it
-does not fail unrelated inbox entries or expose a public action prematurely.
-
-Use `upstream-delivery-inbox-v4` for a live publication queue. Its
-`upstream-delivery-freshness-v1` evidence is short-lived (at most six hours)
-and binds the exact candidate, repository, branch, fork ref, observed upstream
-main, touched-path drift result, merge result, exact-head PR count and explicit
-Draft eligibility. Expired, mismatched or non-standard freshness does not fail
-the whole portfolio; that candidate becomes `REFRESH_DRAFT_FRESHNESS`, owned by
-its execution lane, and is removed from external publication actions until a
-fresh closure is supplied. Hash or byte drift in the referenced body or
-freshness file remains a hard validation failure.
-
-Use `upstream-delivery-inbox-v5` before an AI-assisted Draft is exposed as a
-publication action. In addition to v4 freshness, it accepts a hash-bound
-`upstream-delivery-author-accountability-v1` record for the exact candidate
-commit. Until the named human submitter attests that every changed line was
-reviewed, relevant tests were rerun, the change can be defended, AI assistance
-is disclosed, and the repository's commit-attribution rule is satisfied or not
-applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY` instead
-of `OPEN_DRAFT`. The attestation is a responsibility boundary, not a substitute
-for correctness or performance evidence.
-
-After doing that work personally, the submitter can create the immutable record
-without hand-writing JSON:
-
-```bash
-python3 scripts/kernel_opt.py upstream-author-accountability \
-  --candidate-id NAME --repository OWNER/REPO --branch BRANCH \
-  --commit 40_HEX_COMMIT --submitter-identity NAME_OR_EMAIL \
-  --commit-attribution PASS --output author-accountability.json \
-  --attest-changed-lines-reviewed --attest-relevant-tests-rerun \
-  --attest-can-defend-change --attest-ai-assistance-disclosed
-```
-
-Every attestation flag is mandatory and the output is create-once. Automation
-must not invoke this command from prior agent receipts or infer human review;
-it may run only after the named submitter explicitly confirms all four facts.
-
-Reviewer state records code-owner requests separately from
-`early_review_handles`. This preserves the difference between reviewers that
-GitHub queues until Ready and a small set of relevant maintainers explicitly
-asked to review the Draft's API or overlap direction while qualification
-continues.
-
-After a PR becomes Ready, record only the time at which the system first
-observed that state and route reviewer waits with:
-
-```bash
-python3 scripts/kernel_opt.py upstream-review-handoff pr-review-handoff.json
-```
-
-The handoff clock is prospective and lower-bound-only: it never invents a
-review-request time before observation. The default policy used by the control
-dashboard waits 24 hours before one targeted reviewer follow-up and 72 hours
-before one project review-channel escalation. Decisions never authorize an
-automatic message.
-
-Drafts use a separate prospective progress clock so a failed value gate or a
-stale external environment does not remain open indefinitely:
-
-```bash
-python3 scripts/kernel_opt.py upstream-draft-progress draft-progress.json
-```
-
-The router sends a passed Draft to Ready, a failed or disproven Draft to
-revision/closure, and a Draft without material progress for the configured
-window to bounded replanning or an external reproducible gate. It never closes
-or marks a pull request Ready automatically.
+The resource broker atomically reserves an exact GPU gang on one compatible
+worker, prefers a reusable environment closure, and backfills a smaller
+runnable job when a larger high-priority gang cannot currently fit. It is
+deliberately non-launching: the returned lease identifies only the worker, GPU
+UUIDs, environment, budget, and callback task. The task-specific authorization
+and atomic dispatcher remain mandatory before starting a process. A missed
+heartbeat keeps its GPUs reserved in `STALE_REQUIRES_RECONCILIATION` until a
+hash-bound terminal result releases them, so a possibly running job is never
+made available by timeout alone.
+`bind-gate` lets the controller atomically move an existing
+`BLOCKED_AUTHORIZATION` job into the queue after an external supervisor gate is
+available. It accepts only the same complete job with a READY gate identity;
+any workload, source, environment, resource, budget, priority, origin or
+callback drift is rejected. The broker binds that identity but does not certify
+its authorization semantics or launch work.
+An unleased blocked or queued job whose immutable body is superseded can be
+withdrawn with a hash-bound reason. Withdrawal preserves the terminal audit
+record and is forbidden once any lease exists; it never counts as an
+experimental result.
+Jobs that require a particular topology or must avoid service GPUs can bind an
+exact gang through optional `resource.required_gpu_uuids`. Its cardinality must
+equal `gpu_count`; the broker waits unless every named UUID is simultaneously
+free on one compatible host, and records that exact sorted set in the lease.
+The read-only `plan` view classifies every
+queued item as immediately reservable, waiting for GPUs, requiring environment
+preparation, or having no compatible resource. It is suitable for a dashboard
+but is not a reservation.
 
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
 official documents, the developer must provide its location; inferred hardware
-facts and neighboring-device values are forbidden. Discovery-only production
-implementation and cheap screening may proceed after a correct baseline; those
-results cannot support a production acceptance or limit claim.
+facts and neighboring-device values are forbidden.
 
 After the exact launched binary is archived inside the run, disassemble it with
 a hash-bound tool/architecture receipt, classify every static instruction site,
@@ -425,31 +243,6 @@ outputs and stale pre-existing artifacts, then binds logs and fresh outputs to
 its own identity. Promotion accepts PASS check results only when those exact
 artifacts occur in a trusted reproduction receipt.
 
-## Atomic cohort claims
-
-`scripts/community_atomic_claim.py` is a non-launching transactional primitive
-for consuming a frozen cohort schedule once and in order. It records session,
-entry, dispatch-identity and terminal receipts in SQLite, preserves ambiguous
-crash windows without automatic retry, and validates stored receipt lineage on
-every transition. Pure identities and schedule validation live separately in
-`scripts/community_claim_contracts.py`.
-
-This primitive does not authorize or start a process. A dispatcher must still
-validate canonical pre-GPU, execution-contract and semantic-approval artifacts,
-obtain a durable no-rollback store epoch, attest the live process and GPU lease,
-make the final expiry decision immediately before child creation, and bind a
-successful terminal state to validated correctness and observation evidence.
-Reusing an epoch after restoring or replacing the database is outside SQLite's
-trust boundary and must be prevented by the external epoch issuer.
-
-Before an atomic claim store can be consumed, validate a versioned deployment
-with `scripts/community_claim_store_deployment.py`. The deployment binds one
-canonical database path, host boot identity, dispatcher executable and an
-externally issued no-rollback epoch. Epoch replacement must form an explicit
-predecessor chain, and both the declared Git commit and current worktree bytes
-for the schemas, validator and claim implementation must match. Passing this
-gate means only `ready_for_atomic_claim=true`; it never grants GPU dispatch.
-
 ## Evidence classes
 
 - `FACT`: queried or statically verified.
@@ -460,78 +253,110 @@ gate means only `ready_for_atomic_claim=true`; it never grants GPU dispatch.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
-## Upstream delivery package
+## CPU-only qualification environment preparation
 
-An accepted optimization is not automatically an upstream-ready change. Build
-the review package from a clean candidate commit and hash-bound evidence. Set
-`submission_mode` to `DRAFT_REVIEW` when the immediate objective is early
-maintainer review or upstream CI; omit it (or use `QUALIFICATION`) for the full
-release gate:
+When a new qualification closure must be built, the controller can issue a
+short-lived approval with `qualification-environment-authorize --issue` after
+reviewing the exact materialization plan, environment request and still-blocked
+broker job. The approval requires every preparation step to declare
+`gpu=false` and forbids GPU devices, workloads, service mutation, broker
+submission, gate binding and acquisition. It may allow network access only for
+dependency materialization; it never authorizes the later GPU test or turns the
+prepared closure into correctness evidence.
 
-```bash
-python3 scripts/kernel_opt.py upstream-package build \
-  --spec upstream-candidate-spec.json \
-  --evidence-root evidence \
-  --repository /path/to/candidate-worktree \
-  --output upstream-package
-```
+Add `--dispatcher-bound` when the approval will be consumed by the shared
+worker-local dispatcher. Omitting it preserves the legacy v1 approval format
+for existing run-local audit and materializer flows.
 
-The command independently materializes `base_commit..candidate_commit` as
-`changes.patch`, verifies that `HEAD` is the declared candidate and the worktree
-is clean, and rejects stale evidence or known failed gates. `DRAFT_REVIEW`
-requires focused correctness and source review plus reproducible evidence, but
-permits empty benchmark claims and pending whole-model, upstream-CI and
-cross-hardware gates. It is always labeled `DRAFT_PENDING_QUALIFICATION` and
-explicitly forbids upstream-ready or portable-performance claims. Full
-`QUALIFICATION` mode still recomputes every benchmark speedup, requires
-whole-model evidence, and only produces `UPSTREAM_READY` when all five gates
-pass. Existing output directories are never overwritten.
-
-## Candidate value gate
-
-Before expanding qualification, combine the whole-workload gain ceiling with
-the permanent maintenance surface and real workload coverage:
+Run an approved standard plan through the worker-local dispatcher instead of
+calling its materializer directly:
 
 ```bash
-python3 scripts/kernel_opt.py candidate-value --print-template \
-  > candidate-value-request.json
-python3 scripts/kernel_opt.py candidate-value \
-  --request candidate-value-request.json \
-  --output candidate-value-decision.json
+python3 scripts/kernel_opt.py qualification-environment-dispatch \
+  --artifact-root /path/to/run \
+  --approval /path/to/run/experiments/materialization-approval.json \
+  --approval-sha256 <controller-reviewed-sha256>
 ```
 
-The value gate stops an optimistic ceiling below the materiality floor, asks
-for reachability before timing an unproven path, and holds narrow low-density
-protocol/API changes at Draft even when their focused tests pass. Its review
-cost formula is explicit and policy thresholds are supplied by the run; it is
-a routing decision, not performance proof. A confirmed path with an unknown
-ceiling requests `QUANTIFY_WHOLE_WORKLOAD_CEILING`; when the Draft minimum is
-already complete and no permanent API or protocol variant is added, it may
-instead recommend opening an honestly scoped Draft while that ceiling is
-quantified. Callers never have to invent zero or a favorable estimate merely
-to pass the schema.
+New approvals bind the exact dispatcher bytes and are single-use. The
+dispatcher revalidates the approval, plan, still-blocked job, executor and
+deadline, atomically claims the approval, forces CUDA visibility off and runs
+the one sealed argv without a shell. A crash or nonzero exit consumes the
+claim and requires a fresh versioned plan and approval; it is never retried
+automatically. Its terminal receipt proves only the executor process outcome.
+The materializer's own evidence still decides whether the closure succeeded,
+and neither receipt authorizes a GPU, workload, service or broker transition.
+Legacy v1 approvals remain validatable for audit but cannot be dispatched.
 
-## Qualification failure routing
+The versioned dispatcher receipt includes exact process `started_at`,
+`completed_at` and monotonic `duration_seconds` so a controller can account for
+environment wall time without inferring it from file timestamps. These timing
+fields remain process evidence only; they do not accept the resulting closure
+or change correctness, performance, GPU or workload state.
 
-Classify a stopped qualification attempt before rejecting its candidate:
+Managed workers may already run inside a GPU container and have no nested
+container runtime. Collect a read-only worker attestation before planning an
+environment directly on such a worker:
 
 ```bash
-python3 scripts/kernel_opt.py qualification-route --print-template \
-  > qualification-attempt.json
-python3 scripts/kernel_opt.py qualification-route \
-  --attempt qualification-attempt.json \
-  --output qualification-route.json
+CUDA_VISIBLE_DEVICES=-1 python3 scripts/kernel_opt.py \
+  qualification-environment-worker --collect \
+  --worker-id worker-shared-sm120 --host-id shared-8x-sm120-32g \
+  --storage-root /workspace --output worker-runtime-attestation.json
 ```
 
-The route distinguishes an exact-source candidate assertion failure from
-image, toolchain, dependency, ISA, import-identity and platform failures.
-Environment failures retain the candidate and consume a frozen technical-
-repair budget. Exhausting that budget stops dependency chasing without
-turning the event into a correctness rejection. An official workflow that
-intrinsically builds native code cannot run under a no-build contract: either
-authorize that build or use a pinned prebuilt closure. Tests against an
-unverified imported source are invalid evidence, not a pass or candidate
-failure.
+The request binds that exact worker and attestation with
+`runtime_provenance.kind=ATTESTED_PREPROVISIONED_WORKER` and a null image
+digest. Reuse fails closed on worker or runtime drift. Pre-mounted device nodes
+are recorded honestly while Torch must see no CUDA device during collection;
+the receipt is not a lease or workload authorization.
+
+CPU isolation may intentionally make `torch.cuda.get_arch_list()` empty. The
+worker attestation therefore falls back to the non-device-initializing
+`torch._C._cuda_getArchFlags()` metadata while still binding the Torch module,
+build configuration and native libraries. Materializers should consume that
+attested value rather than exposing a GPU to rediscover compiled targets.
+The same attestation records `nvcc`, C/C++ compilers, Ninja, Git, CMake and
+Make as exact resolved path/version/SHA identities (or explicit nulls). Plans
+that need a source fetch or native build can therefore reject an incompatible
+worker before consuming a long materialization budget.
+For a preprovisioned worker, set `runtime_worker.required_toolchain` in the
+materialization plan to the exact attested identities needed by that plan. The
+approval gate rejects a missing or drifted required tool before issuing an
+approval; plans without this optional field keep their existing behavior.
+
+The recorded GPU process list is a historical observation. A shared service
+may be running when a later CPU-only preparation starts. Capture live process
+rows immediately before and after and call
+`validate_cpu_only_process_transition`: it accepts stable pre-existing process
+identities (and memory-use drift) but fails closed on any added, removed or
+replaced GPU process. This avoids treating a protected service as a reason to
+rebuild the runtime while still proving that preparation did not mutate GPU
+occupancy.
+
+Framework imports are not necessarily read-only: DeepSpeed, SGLang, Triton,
+Torch and model tooling can create caches before any test or GPU call. Use
+`cpu_only_cache_environment` to derive XDG, model, compiler and temporary cache
+paths under the exact closure root, create those directories before the first
+import, and bind the resulting environment in the execution plan. This keeps
+worker image filesystems immutable and prevents unrelated `/root` capacity
+from deciding whether an otherwise reusable environment can materialize.
+The same contract is available to shell-oriented executors without importing
+the module:
+
+```bash
+python scripts/qualification_environment_worker.py \
+  --cache-environment /workspace/kernel-opt/closures/<closure-id>
+```
+
+The command emits one JSON object containing the complete environment mapping;
+consumers must create and bind every emitted path before the first framework
+import rather than partially reconstructing the mapping.
+
+Framework imports may also write informational logs to stdout before a probe
+prints its machine result. Use `parse_final_json_object` to require the final
+non-empty line to be one JSON object. Earlier logs remain permitted, while a
+missing result, trailing diagnostic or non-object JSON still fails closed.
 
 ## Seeded hardware evidence
 

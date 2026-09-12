@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "environment_cache_preflight_result.schema.json",
+  "title": "Environment cache preflight result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "candidate_id",
+    "request_identity",
+    "decision",
+    "cache_roots",
+    "blockers",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "environment-cache-preflight-result-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "request_identity": {"$ref": "#/$defs/identity"},
+    "decision": {"enum": ["READY_FOR_CACHE_BOUND_COMMAND", "BLOCKED_ENVIRONMENT_CACHE"]},
+    "cache_roots": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cache_id",
+          "path",
+          "environment_variable",
+          "environment_binding_matches",
+          "exists",
+          "is_directory",
+          "writable",
+          "write_probe_performed",
+          "write_probe_passed",
+          "free_bytes",
+          "minimum_free_bytes",
+          "ready",
+          "blockers"
+        ],
+        "properties": {
+          "cache_id": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1},
+          "environment_variable": {"type": ["string", "null"]},
+          "environment_binding_matches": {"type": ["boolean", "null"]},
+          "exists": {"type": "boolean"},
+          "is_directory": {"type": "boolean"},
+          "writable": {"type": "boolean"},
+          "write_probe_performed": {"type": "boolean"},
+          "write_probe_passed": {"type": ["boolean", "null"]},
+          "free_bytes": {"type": ["integer", "null"], "minimum": 0},
+          "minimum_free_bytes": {"type": "integer", "minimum": 0},
+          "ready": {"type": "boolean"},
+          "blockers": {
+            "type": "array",
+            "items": {"type": "string", "minLength": 1},
+            "uniqueItems": true
+          }
+        }
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "uniqueItems": true
+    },
+    "claim_boundary": {
+      "const": "CACHE_PATH_BINDING_SPACE_AND_WRITEABILITY_PREFLIGHT_ONLY_NOT_BUILD_DOWNLOAD_EXECUTION_CORRECTNESS_OR_PERFORMANCE_AUTHORIZATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

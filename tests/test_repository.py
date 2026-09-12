@@ -196,12 +196,12 @@ def main():
             }],
         }))
         run([sys.executable, str(ROOT / "scripts/rank_experiments.py"), "--run", str(ranking_run)])
-        ranked = json.loads((ranking_run / "models/experiment_queue.json").read_text())["requests"][0]["sensitivity"]
+        ranked = json.loads((ranking_run / "models/experiment_queue.json").read_text(encoding="utf-8"))["requests"][0]["sensitivity"]
         assert ranked["critical_path_probability"] == 0.8
         assert ranked["ranking_score"] == 8.0
 
     for path in ROOT.rglob("*.json"):
-        json.loads(path.read_text())
+        json.loads(path.read_text(encoding="utf-8"))
 
     cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"])
     assert "new-run" in cli_help.stdout and "experiment-execute" in cli_help.stdout
@@ -248,7 +248,7 @@ def main():
             str(rendered),
         ])
         assert rendered.exists()
-        text = rendered.read_text()
+        text = rendered.read_text(encoding="utf-8")
         assert "示例算子人工审核报告" in text
         assert "__REPORT_DATA__" not in text
 
@@ -301,7 +301,7 @@ def main():
         assert "optimization_plan.status" in unready.stdout
 
         plan_path = root / "runs/self-test/models/optimization_plan.json"
-        plan = json.loads(plan_path.read_text())
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
         plan.update({
             "status": "EXECUTABLE",
             "objective": "minimize weighted GPU-active latency",
@@ -324,12 +324,12 @@ def main():
         })
         plan_path.write_text(json.dumps(plan))
         architecture_path = root / "runs/self-test/models/microarchitecture_model.json"
-        architecture = json.loads(architecture_path.read_text())
+        architecture = json.loads(architecture_path.read_text(encoding="utf-8"))
         architecture["target_identity"] = {"device": "synthetic-device"}
         architecture["scope"] = ["SIMT", "LSU", "memory hierarchy"]
         architecture_path.write_text(json.dumps(architecture))
         microbench_path = root / "runs/self-test/models/microbenchmark_plan.json"
-        microbench = json.loads(microbench_path.read_text())
+        microbench = json.loads(microbench_path.read_text(encoding="utf-8"))
         microbench["target_questions"] = ["matched load/store service"]
         microbench_path.write_text(json.dumps(microbench))
         missing_global = run([
@@ -339,7 +339,7 @@ def main():
         assert "global_schedule_state.status must be PLANNED" in missing_global.stdout
 
         global_path = root / "runs/self-test/models/global_schedule_state.json"
-        global_state = json.loads(global_path.read_text())
+        global_state = json.loads(global_path.read_text(encoding="utf-8"))
         global_state.update({
             "status": "PLANNED",
             "owner": {
@@ -361,7 +361,7 @@ def main():
         })
         global_path.write_text(json.dumps(global_state))
         queue_path = root / "runs/self-test/models/experiment_queue.json"
-        queue = json.loads(queue_path.read_text())
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
         queue.update({
             "status": "EXECUTABLE",
             "catalog_snapshot": {"sha256": "4" * 64},
@@ -369,7 +369,7 @@ def main():
         })
         queue_path.write_text(json.dumps(queue))
         balance_path = root / "runs/self-test/models/resource_balance.json"
-        balance = json.loads(balance_path.read_text())
+        balance = json.loads(balance_path.read_text(encoding="utf-8"))
         balance.update({
             "status": "INITIALIZED",
             "cases": [
@@ -388,7 +388,7 @@ def main():
         })
         balance_path.write_text(json.dumps(balance))
         frontier_path = root / "runs/self-test/models/tradeoff_frontier.json"
-        frontier = json.loads(frontier_path.read_text())
+        frontier = json.loads(frontier_path.read_text(encoding="utf-8"))
         frontier.update({
             "status": "INITIALIZED",
             "objective": {"metric": "weighted_gpu_active_us"},
@@ -414,11 +414,11 @@ def main():
             "--run", str(root / "runs/self-test"), "--to", "BASELINE",
         ])
         assert json.loads(advanced.stdout)["advanced"] is True
-        assert json.loads((root / "runs/self-test/run_state.json").read_text())["current_phase"] == "BASELINE"
+        assert json.loads((root / "runs/self-test/run_state.json").read_text(encoding="utf-8"))["current_phase"] == "BASELINE"
 
         run_dir = root / "runs/self-test"
         baseline_path = run_dir / "models/baseline.json"
-        baseline = json.loads(baseline_path.read_text())
+        baseline = json.loads(baseline_path.read_text(encoding="utf-8"))
         baseline.update({
             "status": "VALID",
             "correctness": {"status": "PASS", "evidence": ["raw/reference.json"]},
@@ -453,7 +453,7 @@ def main():
             "--run", str(run_dir), "--to", "MODELING",
         ])
 
-        architecture = json.loads(architecture_path.read_text())
+        architecture = json.loads(architecture_path.read_text(encoding="utf-8"))
         architecture.update({
             "status": "INITIALIZED",
             "resource_nodes": [{"id": "lsu"}, {"id": "memory"}],
@@ -462,7 +462,7 @@ def main():
         })
         architecture_path.write_text(json.dumps(architecture))
         ledger_path = run_dir / "models/work_ledger.json"
-        ledger = json.loads(ledger_path.read_text())
+        ledger = json.loads(ledger_path.read_text(encoding="utf-8"))
         ledger["cases"] = [
             {
                 "case_id": case_id,
@@ -475,13 +475,13 @@ def main():
         ]
         ledger_path.write_text(json.dumps(ledger))
         dag_path = run_dir / "models/dag.json"
-        dag = json.loads(dag_path.read_text())
+        dag = json.loads(dag_path.read_text(encoding="utf-8"))
         dag["nodes"] = [{"id": "load"}, {"id": "compute"}, {"id": "store"}]
         dag["mathematical_edges"] = [["load", "compute"], ["compute", "store"]]
         dag["critical_paths"] = [["load", "compute", "store"]]
         dag_path.write_text(json.dumps(dag))
         schedule_path = run_dir / "models/schedule_model.json"
-        schedule = json.loads(schedule_path.read_text())
+        schedule = json.loads(schedule_path.read_text(encoding="utf-8"))
         schedule.update({
             "status": "INITIALIZED",
             "binary_identity": {"sha256": "3" * 64},
@@ -492,7 +492,7 @@ def main():
             "evidence": [{"kind": "SASS"}],
         })
         schedule_path.write_text(json.dumps(schedule))
-        microbench = json.loads(microbench_path.read_text())
+        microbench = json.loads(microbench_path.read_text(encoding="utf-8"))
         microbench.update({
             "status": "EXECUTABLE",
             "coupling_tests": [{"a": "lsu", "b": "simt", "controls": ["A", "B", "AB"]}],
@@ -500,15 +500,15 @@ def main():
         })
         microbench["levels"]["P0"].update({"status": "PASS", "experiments": ["timer control"]})
         microbench_path.write_text(json.dumps(microbench))
-        global_state = json.loads(global_path.read_text())
+        global_state = json.loads(global_path.read_text(encoding="utf-8"))
         global_state["status"] = "MODEL_READY"
         global_state["revision_history"].append({"revision": 2, "reason": "resource rows and requests mapped"})
         global_path.write_text(json.dumps(global_state))
-        queue = json.loads(queue_path.read_text())
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
         queue["status"] = "ACTIVE"
         queue["requests"] = [experiment_request("DISPATCHED")]
         queue_path.write_text(json.dumps(queue))
-        balance = json.loads(balance_path.read_text())
+        balance = json.loads(balance_path.read_text(encoding="utf-8"))
         balance["cases"][0]["resource_rows"][0]["unresolved_request_ids"] = []
         balance_path.write_text(json.dumps(balance))
         unbound_unknown = run([
@@ -523,7 +523,7 @@ def main():
             "--run", str(run_dir), "--to", "EXPERIMENT",
         ])
 
-        architecture = json.loads(architecture_path.read_text())
+        architecture = json.loads(architecture_path.read_text(encoding="utf-8"))
         architecture.update({
             "status": "CALIBRATED",
             "allocation_constraints": [{"resource": "registers"}],
@@ -532,12 +532,12 @@ def main():
             "overlap_constraints": [{"a": "lsu", "b": "simt"}],
         })
         architecture_path.write_text(json.dumps(architecture))
-        microbench = json.loads(microbench_path.read_text())
+        microbench = json.loads(microbench_path.read_text(encoding="utf-8"))
         for level in ("P0", "P1", "P2", "P3"):
             microbench["levels"][level].update({"status": "PASS", "experiments": [f"{level} evidence"]})
         microbench_path.write_text(json.dumps(microbench))
         validation_path = run_dir / "models/model_validation.json"
-        validation = json.loads(validation_path.read_text())
+        validation = json.loads(validation_path.read_text(encoding="utf-8"))
         validation.update({
             "measurement_system": {"status": "PASS", "evidence": ["P0"]},
             "component_predictions": [{
@@ -550,7 +550,7 @@ def main():
             }],
         })
         validation_path.write_text(json.dumps(validation))
-        schedule = json.loads(schedule_path.read_text())
+        schedule = json.loads(schedule_path.read_text(encoding="utf-8"))
         schedule["status"] = "CALIBRATED"
         schedule["workload_cases"] = [
             {
@@ -569,7 +569,7 @@ def main():
         ]
         schedule_path.write_text(json.dumps(schedule))
         instruction_path = run_dir / "static/instruction_audit.json"
-        instruction = json.loads(instruction_path.read_text())
+        instruction = json.loads(instruction_path.read_text(encoding="utf-8"))
         instruction.update({
             "candidate_id": "candidate-1",
             "source_identity": {"sha256": "1" * 64},
@@ -587,7 +587,7 @@ def main():
             "verdict": "MATCH",
         })
         instruction_path.write_text(json.dumps(instruction))
-        balance = json.loads(balance_path.read_text())
+        balance = json.loads(balance_path.read_text(encoding="utf-8"))
         balance["status"] = "CALIBRATED"
         for case in balance["cases"]:
             case["resource_rows"] = [
@@ -599,10 +599,10 @@ def main():
             case["model_residual"] = {"status": "BOUNDED", "us": 0.5}
         balance["evidence"] = ["fixture measurements"]
         balance_path.write_text(json.dumps(balance))
-        queue = json.loads(queue_path.read_text())
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
         queue["requests"] = [experiment_request("RESOLVED")]
         queue_path.write_text(json.dumps(queue))
-        frontier = json.loads(frontier_path.read_text())
+        frontier = json.loads(frontier_path.read_text(encoding="utf-8"))
         frontier["status"] = "CALIBRATED"
         for case in frontier["cases"]:
             case["current_schedule"] = schedule_point("current", "REJECT")
@@ -616,7 +616,7 @@ def main():
         }
         frontier["evidence"] = ["fixture A/B"]
         frontier_path.write_text(json.dumps(frontier))
-        global_state = json.loads(global_path.read_text())
+        global_state = json.loads(global_path.read_text(encoding="utf-8"))
         global_state["status"] = "CANDIDATE_SELECTED"
         global_state["revision_history"].append({"revision": 3, "reason": "candidate selected"})
         global_path.write_text(json.dumps(global_state))
@@ -652,20 +652,20 @@ def main():
             "--run", str(run_dir), "--to", "PRODUCTION_VALIDATION",
         ])
 
-        architecture = json.loads(architecture_path.read_text())
+        architecture = json.loads(architecture_path.read_text(encoding="utf-8"))
         architecture["status"] = "VALIDATED"
         architecture_path.write_text(json.dumps(architecture))
-        plan = json.loads(plan_path.read_text())
+        plan = json.loads(plan_path.read_text(encoding="utf-8"))
         plan["status"] = "COMPLETE"
         plan_path.write_text(json.dumps(plan))
-        microbench = json.loads(microbench_path.read_text())
+        microbench = json.loads(microbench_path.read_text(encoding="utf-8"))
         microbench["status"] = "COMPLETE"
         microbench["levels"]["P4"].update({"status": "PASS", "experiments": ["production exact"]})
         microbench_path.write_text(json.dumps(microbench))
-        schedule = json.loads(schedule_path.read_text())
+        schedule = json.loads(schedule_path.read_text(encoding="utf-8"))
         schedule["status"] = "VALIDATED"
         schedule_path.write_text(json.dumps(schedule))
-        validation = json.loads(validation_path.read_text())
+        validation = json.loads(validation_path.read_text(encoding="utf-8"))
         validation.update({
             "status": "PASS",
             "production_predictions": [{
@@ -679,7 +679,7 @@ def main():
         })
         validation_path.write_text(json.dumps(validation))
         production_path = run_dir / "models/production_validation.json"
-        production = json.loads(production_path.read_text())
+        production = json.loads(production_path.read_text(encoding="utf-8"))
         production.update({
             "status": "PASS",
             "correctness": {"status": "PASS", "evidence": ["reference"]},
@@ -704,25 +704,25 @@ def main():
             ],
         })
         production_path.write_text(json.dumps(production))
-        global_state = json.loads(global_path.read_text())
+        global_state = json.loads(global_path.read_text(encoding="utf-8"))
         global_state["status"] = "VALIDATED"
         global_state["human_report_gate"]["status"] = "READY"
         global_state["revision_history"].append({"revision": 4, "reason": "production validation"})
         global_path.write_text(json.dumps(global_state))
-        balance = json.loads(balance_path.read_text())
+        balance = json.loads(balance_path.read_text(encoding="utf-8"))
         balance["status"] = "VALIDATED"
         balance_path.write_text(json.dumps(balance))
-        frontier = json.loads(frontier_path.read_text())
+        frontier = json.loads(frontier_path.read_text(encoding="utf-8"))
         frontier["status"] = "VALIDATED"
         frontier_path.write_text(json.dumps(frontier))
-        queue = json.loads(queue_path.read_text())
+        queue = json.loads(queue_path.read_text(encoding="utf-8"))
         queue["status"] = "CLOSED"
         queue_path.write_text(json.dumps(queue))
         run([
             sys.executable, str(ROOT / "scripts/advance_run.py"),
             "--run", str(run_dir), "--to", "CERTIFICATION",
         ])
-        assert json.loads((run_dir / "run_state.json").read_text())["current_phase"] == "CERTIFICATION"
+        assert json.loads((run_dir / "run_state.json").read_text(encoding="utf-8"))["current_phase"] == "CERTIFICATION"
 
         (root / "microbench").mkdir()
         for reusable_zone in (
@@ -826,19 +826,19 @@ def main():
             sys.executable, str(ROOT / "scripts/advance_run.py"),
             "--run", str(run_dir), "--to", "COMPLETE",
         ])
-        assert json.loads((run_dir / "run_state.json").read_text())["terminal"] is True
+        assert json.loads((run_dir / "run_state.json").read_text(encoding="utf-8"))["terminal"] is True
 
         csv_path = root / "curve.csv"
         csv_path.write_text("repeat,gpu_us\n0,1\n0,1.1\n1,3\n1,3.1\n2,5\n2,5.1\n")
         fit_path = root / "fit.json"
         run([sys.executable, str(ROOT / "scripts/fit_service_curve.py"), "--input", str(csv_path), "--output", str(fit_path), "--bootstrap", "200"])
-        assert abs(json.loads(fit_path.read_text())["fit"]["beta"] - 2.0) < 1e-9
+        assert abs(json.loads(fit_path.read_text(encoding="utf-8"))["fit"]["beta"] - 2.0) < 1e-9
 
         paired = root / "paired.csv"
         paired.write_text("pair,candidate,duration_us\n1,a,10\n1,b,9\n2,b,8\n2,a,10\n3,a,11\n3,b,9\n")
         paired_out = root / "paired.json"
         run([sys.executable, str(ROOT / "scripts/compare_paired.py"), "--input", str(paired), "--baseline", "a", "--candidate", "b", "--correctness", "pass", "--bootstrap", "200", "--output", str(paired_out)])
-        assert json.loads(paired_out.read_text())["decision"] == "ACCEPT"
+        assert json.loads(paired_out.read_text(encoding="utf-8"))["decision"] == "ACCEPT"
 
     with tempfile.TemporaryDirectory() as temporary:
         run_dir = Path(temporary) / "runs/scaffold"
@@ -1009,10 +1009,10 @@ def main():
         assert any(item.get("status") == "PUBLISHED" for item in harvest["results"])
         assert harvest["results"][-1]["status"] == "REPOSITORY_AUDIT_PASS"
         published = root / "microbench/nvidia/demo_probe/benchmark.json"
-        assert json.loads(published.read_text())["status"] == "PUBLISHED"
-        assert json.loads((root / "microbench/catalog.json").read_text())["benchmarks"][0]["id"] == definition["id"]
+        assert json.loads(published.read_text(encoding="utf-8"))["status"] == "PUBLISHED"
+        assert json.loads((root / "microbench/catalog.json").read_text(encoding="utf-8"))["benchmarks"][0]["id"] == definition["id"]
 
-        device_definition = json.loads((candidate / "benchmark.json").read_text())
+        device_definition = json.loads((candidate / "benchmark.json").read_text(encoding="utf-8"))
         device_definition["qualification"] = {
             "highest_status": "DEVICE_CALIBRATED", "levels": ["P0", "P1", "P2"],
             "static_validation": "PASS", "mechanism_validation": "PASS",
@@ -1113,7 +1113,7 @@ def main():
     assert json.loads(validated_hardware.stdout)["status"] == "PASS"
     with tempfile.TemporaryDirectory() as temporary:
         temporary = Path(temporary)
-        invalid_manifest = json.loads(official_fixture.read_text())
+        invalid_manifest = json.loads(official_fixture.read_text(encoding="utf-8"))
         invalid_manifest["sources"][0]["url"] = "https://untrusted.example/programming-model"
         invalid_path = temporary / "invalid-hardware-evidence.json"
         invalid_path.write_text(json.dumps(invalid_manifest))
@@ -1122,7 +1122,7 @@ def main():
             str(invalid_path),
         ], expected=1)
         assert "not on the declared vendor-official domains" in invalid.stdout
-        self_declared = json.loads(official_fixture.read_text())
+        self_declared = json.loads(official_fixture.read_text(encoding="utf-8"))
         self_declared["official_source_policy"]["allowed_official_domains"] = ["untrusted.example"]
         for source in self_declared["sources"]:
             source["url"] = "https://untrusted.example/document"
@@ -1180,7 +1180,7 @@ def main():
             "--output", str(unknown_summary),
         ], expected=1)
         assert json.loads(unknown_result.stdout)["status"] == "BLOCKED"
-        assert "UNDOCUMENTEDOP" in json.loads(unknown_summary.read_text())["unclassified_mnemonics"]
+        assert "UNDOCUMENTEDOP" in json.loads(unknown_summary.read_text(encoding="utf-8"))["unclassified_mnemonics"]
         discovery_path = temporary / "resource-discovery.json"
         discovered = run([
             sys.executable, str(ROOT / "scripts/discover_resources.py"),
@@ -1189,7 +1189,7 @@ def main():
             "--output", str(discovery_path),
         ])
         assert json.loads(discovered.stdout)["status"] == "READY"
-        resource_ids = set(json.loads(discovery_path.read_text())["required_resource_ids"])
+        resource_ids = set(json.loads(discovery_path.read_text(encoding="utf-8"))["required_resource_ids"])
         assert {"tensor_compute", "load_store_request", "l2_boundary", "device_memory_boundary", "synchronization"} <= resource_ids
 
         receipt_path = temporary / "catalog-receipt.json"
@@ -1204,7 +1204,7 @@ def main():
         ])
         assert json.loads(query.stdout)["selected_package_id"] == "nvidia.cuda-core-service-curves.v1"
 
-        mismatched_hardware = json.loads((ROOT / "tests/fixtures/hardware.json").read_text())
+        mismatched_hardware = json.loads((ROOT / "tests/fixtures/hardware.json").read_text(encoding="utf-8"))
         mismatched_hardware["target"]["device_name"] = "different-device"
         mismatched_hardware_path = temporary / "mismatched-hardware.json"
         mismatched_hardware_path.write_text(json.dumps(mismatched_hardware))
@@ -1228,7 +1228,7 @@ def main():
             "--hardware-evidence", str(official_fixture),
         ])
         strict_run = Path(json.loads(strict.stdout)["run_dir"])
-        strict_state = json.loads((strict_run / "run_state.json").read_text())
+        strict_state = json.loads((strict_run / "run_state.json").read_text(encoding="utf-8"))
         assert strict_state["framework_contract_version"] == "evidence-closed-v2"
         strict_state_path = strict_run / "run_state.json"
         malformed_state = dict(strict_state)
@@ -1251,7 +1251,7 @@ def main():
             "--run", str(strict_run), "--to", "BASELINE", "--check-only",
         ], expected=1)
         assert "resource discovery must be READY" in strict_gate.stdout
-        broken_contract = json.loads(strict_state_path.read_text())
+        broken_contract = json.loads(strict_state_path.read_text(encoding="utf-8"))
         broken_contract.pop("framework_contract_version")
         strict_state_path.write_text(json.dumps(broken_contract))
         blocked_contract = run([

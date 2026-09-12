@@ -7,10 +7,24 @@ metadata:
 
 # Kernel optimizer
 
-Begin every new run with the mandatory intake gate.  Ask the user to provide or
-confirm operator computation, target workload and target hardware.  Do not tune
-until all three are frozen.  Read [references/intake.md](references/intake.md)
-when fields are missing or a historical run may be reused.
+Begin every new run with the mandatory intake gate.  Freeze operator
+computation, target workload and target hardware.  First resolve them from the
+active Goal, current run, repository and live resource inventory; ask only for
+a missing choice that changes semantics, expensive execution scope or an
+external mutation.  A standing authorization to auto-discover a named resource
+class allows the controller to freeze a freshly attested idle device from that
+class, but never to preempt a service.  Read
+[references/intake.md](references/intake.md) when fields remain unresolved or
+a historical run may be reused.
+
+In a multi-lane portfolio, keep each lane autonomous and the controller
+pull-based.  Do not send acknowledgements, unchanged status, successive hash
+lists or ordinary cycle narration to another lane.  Persist them in the run
+and continue the Goal.  Notify the controller only for a changed candidate
+decision, Draft/Ready/merged or maintainer action, terminal approved expensive
+execution, evidence-invalidating defect, or genuinely user-owned decision.
+Blocked accelerator, environment or review gates leave cheap discovery,
+focused correctness and Draft preparation available.
 
 Then execute an evidence-driven loop:
 
@@ -136,4 +150,8 @@ hardware evidence; do not place build products or production imports there.
 After intake is complete, start the authorized baseline and modeling work
 without asking for another generic confirmation.  Pause only for a missing
 mathematical choice, correctness relaxation, costly experiment or external
-mutation that exceeds the user's authority.
+mutation that exceeds the user's authority.  Environment repair is bounded:
+route every terminal attempt through `qualification-route`, create a successor
+only for changed executable bytes, identities or reviewed scope, and stop that
+route when its frozen repair budget is exhausted.  Continue another cheap
+candidate or delivery task instead of producing more plan/receipt versions.

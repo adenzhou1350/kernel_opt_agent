@@ -28,7 +28,7 @@ def main() -> int:
     args = parser.parse_args()
     run = args.run.resolve()
     queue_path = run / "models/experiment_queue.json"
-    queue = json.loads(queue_path.read_text())
+    queue = json.loads(queue_path.read_text(encoding="utf-8"))
     request = next((item for item in queue.get("requests", []) if item.get("request_id") == args.request_id), None)
     if request is None or request.get("status") != "DISPATCHED":
         raise ValueError("only a DISPATCHED request can be withdrawn before execution")
@@ -49,7 +49,7 @@ def main() -> int:
     })
     request["status"] = "AWAITING_SUPERVISOR_REVIEW"
     request.pop("supervisor_approval", None)
-    experiment = json.loads(experiment_path.read_text())
+    experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
     experiment["status"] = "AWAITING_SUPERVISOR_REVIEW"
     experiment.setdefault("revision_history", []).append({
         "status": "WITHDRAWN_BEFORE_EXECUTION", "reason": args.reason,

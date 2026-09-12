@@ -51,7 +51,7 @@ def main() -> None:
             "cases": [{"id": "c", "parameters": {}, "weight": 1.0}],
             "objective": {"metric": "gpu_active_us", "statistic": "median", "direction": "minimize"},
         })
-        write(run_dir / "hardware.json", json.loads((ROOT / "tests/fixtures/hardware.json").read_text()))
+        write(run_dir / "hardware.json", json.loads((ROOT / "tests/fixtures/hardware.json").read_text(encoding="utf-8")))
         resource_row = {
             "resource_id": "s.kernel_dispatch",
             "matched_saturation": {"status": "UNKNOWN"},
@@ -70,7 +70,7 @@ def main() -> None:
         frontier_path = run_dir / "models/tradeoff_frontier.json"
         write(frontier_path, {"schema_version": "tradeoff-frontier-v1", "revision": 0})
         frontier_snapshot = run_dir / "models/decisions/launch-frontier-snapshot.json"
-        write(frontier_snapshot, json.loads(frontier_path.read_text()))
+        write(frontier_snapshot, json.loads(frontier_path.read_text(encoding="utf-8")))
         write(run_dir / "models/global_schedule_state.json", {
             "schema_version": "global-schedule-state-v2",
             "owner": {"role": "GLOBAL_SCHEDULER", "owner_id": "scheduler", "exclusive_authority": ["ACCEPT_GLOBAL_CANDIDATE"]},
@@ -160,7 +160,7 @@ def main() -> None:
         )
         assert planned["status"] == "PLANNED" and planned["catalog_decision"] == "REUSE"
         experiment_path = run_dir / "experiments/req-launch/experiment.json"
-        experiment = json.loads(experiment_path.read_text())
+        experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
         experiment["status"] = "MATERIALIZED"
         experiment["model_update_contract"]["summary_fields"] = ["median_us"]
         writer = ROOT / "tests/fixtures/write_synthetic_experiment.py"
@@ -182,7 +182,7 @@ def main() -> None:
         write(experiment_path, experiment)
         rejected = run_failure(str(ROOT / "scripts/dispatch_experiment.py"), "--run", str(run_dir), "--request-id", "req-launch")
         assert rejected["status"] == "FAIL" and any("supervisor approval is missing" in item for item in rejected["errors"])
-        over_budget = json.loads(experiment_path.read_text())
+        over_budget = json.loads(experiment_path.read_text(encoding="utf-8"))
         over_budget["execution_budget"]["samples_per_configuration"] = 10
         write(experiment_path, over_budget)
         rejected_budget = run_failure(
@@ -196,7 +196,7 @@ def main() -> None:
             "--supervisor-id", "supervisor", "--rationale", "candidate ordering can flip and the screening budget is bounded",
         )
         assert approved["status"] == "APPROVED"
-        stale = json.loads(experiment_path.read_text())
+        stale = json.loads(experiment_path.read_text(encoding="utf-8"))
         stale["question"] = "mutated after supervisor review"
         write(experiment_path, stale)
         rejected_stale = run_failure(str(ROOT / "scripts/dispatch_experiment.py"), "--run", str(run_dir), "--request-id", "req-launch")
@@ -250,7 +250,7 @@ def main() -> None:
             "--model-update-receipt", str(semantic_receipt),
         )
         assert reconciled["status"] == "APPLIED"
-        queue = json.loads((run_dir / "models/experiment_queue.json").read_text())
+        queue = json.loads((run_dir / "models/experiment_queue.json").read_text(encoding="utf-8"))
         assert queue["requests"][0]["result_binding"]["model_reconciliation"]["status"] == "APPLIED"
     print("evidence-closed workflow test: PASS")
 
