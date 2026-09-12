@@ -228,6 +228,81 @@ def test_dispatch_consumes_approval_once_and_hides_cuda(tmp_path: Path) -> None:
         )
 
 
+def test_dispatch_allows_declarative_steps_around_one_executable(
+    tmp_path: Path,
+) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    plan_path = tmp_path / approval["materialization_plan"]["path"]
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    executable = plan["materialization_steps"][0]
+    plan["materialization_steps"] = [
+        {"id": "verify-staged-inputs", "gpu": False},
+        executable,
+        {"id": "verify-terminal-receipt", "gpu": False},
+    ]
+    write(plan_path, plan)
+    approval = issue_approval(
+        plan_path=plan_path,
+        request_path=tmp_path / "experiments" / "request.json",
+        job_path=tmp_path / "experiments" / "job.json",
+        artifact_root=tmp_path,
+        supervisor_id="root-controller",
+        approval_id="multi-step-cpu-materialization-v2",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        max_wall_seconds=60,
+        network_policy="NONE",
+        dispatcher_bound=True,
+    )
+    write(approval_path, approval)
+
+    result = dispatch(
+        artifact_root=tmp_path,
+        approval_path=approval_path,
+        expected_approval_sha256=digest(approval_path),
+        now=NOW,
+    )
+    assert result["state"] == "EXECUTOR_COMPLETED"
+
+
+def test_dispatch_rejects_more_than_one_executable_step(tmp_path: Path) -> None:
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    approval = json.loads(approval_path.read_text(encoding="utf-8"))
+    plan_path = tmp_path / approval["materialization_plan"]["path"]
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan["materialization_steps"].append(
+        {
+            "id": "second-executable",
+            "gpu": False,
+            "argv": list(plan["materialization_steps"][0]["argv"]),
+        }
+    )
+    write(plan_path, plan)
+    approval = issue_approval(
+        plan_path=plan_path,
+        request_path=tmp_path / "experiments" / "request.json",
+        job_path=tmp_path / "experiments" / "job.json",
+        artifact_root=tmp_path,
+        supervisor_id="root-controller",
+        approval_id="ambiguous-cpu-materialization-v2",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        max_wall_seconds=60,
+        network_policy="NONE",
+        dispatcher_bound=True,
+    )
+    write(approval_path, approval)
+
+    with pytest.raises(ValueError, match="exactly one executable"):
+        dispatch(
+            artifact_root=tmp_path,
+            approval_path=approval_path,
+            expected_approval_sha256=digest(approval_path),
+            now=NOW,
+        )
+
+
 def test_dispatch_failure_is_terminal_and_not_retryable(tmp_path: Path) -> None:
     approval_path, _ = dispatchable_fixture(
         tmp_path, executor_source="raise SystemExit(7)\n"

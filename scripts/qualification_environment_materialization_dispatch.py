@@ -140,10 +140,19 @@ def planned_wall_seconds(plan: dict, approved_max: int) -> int:
 
 def sealed_argv(plan: dict, executor_path: Path) -> list[str]:
     steps = plan.get("materialization_steps")
-    if not isinstance(steps, list) or len(steps) != 1:
-        raise ValueError("dispatcher requires exactly one materialization step")
-    step = steps[0]
-    argv = step.get("argv") if isinstance(step, dict) else None
+    if not isinstance(steps, list) or not steps:
+        raise ValueError("dispatcher requires materialization steps")
+    executable_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict) and step.get("argv") is not None
+    ]
+    if len(executable_steps) != 1:
+        raise ValueError(
+            "dispatcher requires exactly one executable materialization step"
+        )
+    step = executable_steps[0]
+    argv = step.get("argv")
     if (
         step.get("gpu") is not False
         or not isinstance(argv, list)
