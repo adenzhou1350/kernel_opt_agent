@@ -191,8 +191,6 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_draft_progress.py",
             "route stale, failed and completed Draft qualification",
         ),
-    },
-    "upstream delivery": {
         "upstream-readiness-discover": Command(
             "upstream_readiness_discovery.py",
             "find explicit delivery-ready artifacts missing from a control inbox",

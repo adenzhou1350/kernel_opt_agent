@@ -226,6 +226,7 @@ def main():
     assert "upstream-review-handoff" in cli_help.stdout
     assert "upstream-draft-progress" in cli_help.stdout
     assert "upstream-delivery-inbox" in cli_help.stdout
+    assert "upstream-readiness-discover" in cli_help.stdout
     review_state = run([sys.executable, str(ROOT / "tests/test_upstream_review_state.py")])
     assert "upstream review-state test: PASS" in review_state.stdout
     review_handoff = run([sys.executable, str(ROOT / "tests/test_upstream_review_handoff.py")])
