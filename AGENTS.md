@@ -186,6 +186,15 @@ new scope and budget.  Prefer the shared approval, worker attestation and
 single-use dispatcher receipts over run-specific controller scripts or new
 schemas that restate the same boundary.
 
+Before writing a second successor plan, run `qualification-churn` over the run
+root and follow its family decision.  `ADVANCE_FROM_ENVIRONMENT` means consume
+the successful closure and start the next gate instead of repairing it again;
+`COLLAPSE_UNEXECUTED_REVISIONS` means choose one current plan and supersede the
+unused drafts; `STOP_REPAIR_SCOPE` forbids another in-scope repair version.
+Only `CONTINUE_BOUNDED` permits another technical successor under the existing
+budget.  A report with `WORKLOAD_REACHED` is historical accounting, not a
+reason to reopen environment work.
+
 Execute an approved CPU-only preparation only through
 `qualification-environment-dispatch`. The approval must bind the exact
 dispatcher, contain one sealed argv and be atomically consumed once. A failed,
