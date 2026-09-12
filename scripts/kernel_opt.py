@@ -26,66 +26,156 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "audit": Command("audit_repository.py", "verify reusable-zone purity"),
     },
     "optimization accounting": {
-        "community-timing": Command("community_work_cycle.py", "record research, compute, validation and upstream-delivery time"),
+        "community-timing": Command(
+            "community_work_cycle.py",
+            "record research, compute, validation and upstream-delivery time",
+        ),
+        "community-lanes": Command(
+            "community_lane_topology.py",
+            "validate autonomous execution lanes and the controller boundary",
+        ),
+        "community-portfolio": Command(
+            "community_portfolio.py",
+            "aggregate selected work-cycle ledgers across autonomous lanes",
+        ),
     },
     "hardware": {
-        "hardware-discover": Command("discover_hardware.py", "query the target device and software stack"),
-        "hardware-init": Command("init_hardware_evidence.py", "initialize the official-evidence manifest"),
-        "hardware-add-source": Command("add_official_hardware_source.py", "archive one official source receipt"),
-        "hardware-add-fact": Command("add_documented_hardware_fact.py", "bind one fact to an official locator"),
-        "hardware-validate": Command("validate_hardware_evidence.py", "validate target identity and official evidence"),
-        "measurement-register": Command("register_measurement.py", "register an immutable hardware measurement"),
-        "ncu-probe": Command("probe_ncu_access.py", "record whether required NCU counters are accessible"),
+        "hardware-discover": Command(
+            "discover_hardware.py", "query the target device and software stack"
+        ),
+        "hardware-init": Command(
+            "init_hardware_evidence.py", "initialize the official-evidence manifest"
+        ),
+        "hardware-add-source": Command(
+            "add_official_hardware_source.py", "archive one official source receipt"
+        ),
+        "hardware-add-fact": Command(
+            "add_documented_hardware_fact.py", "bind one fact to an official locator"
+        ),
+        "hardware-validate": Command(
+            "validate_hardware_evidence.py",
+            "validate target identity and official evidence",
+        ),
+        "measurement-register": Command(
+            "register_measurement.py", "register an immutable hardware measurement"
+        ),
+        "ncu-probe": Command(
+            "probe_ncu_access.py", "record whether required NCU counters are accessible"
+        ),
     },
     "final binary": {
-        "sass-archive": Command("archive_final_binary_sass.py", "hash-bind binary, tools and disassembly"),
-        "sass-count": Command("count_sass.py", "classify all final-binary instruction sites"),
-        "resources-discover": Command("discover_resources.py", "derive the material resource set"),
+        "sass-archive": Command(
+            "archive_final_binary_sass.py", "hash-bind binary, tools and disassembly"
+        ),
+        "sass-count": Command(
+            "count_sass.py", "classify all final-binary instruction sites"
+        ),
+        "resources-discover": Command(
+            "discover_resources.py", "derive the material resource set"
+        ),
     },
     "measurement": {
-        "p0-calibrate": Command("calibrate_p0.py", "qualify timing and launch semantics"),
-        "service-curve-fit": Command("fit_service_curve.py", "fit latency and throughput service curves"),
-        "paired-compare": Command("compare_paired.py", "compare interleaved baseline/candidate samples"),
+        "p0-calibrate": Command(
+            "calibrate_p0.py", "qualify timing and launch semantics"
+        ),
+        "service-curve-fit": Command(
+            "fit_service_curve.py", "fit latency and throughput service curves"
+        ),
+        "paired-compare": Command(
+            "compare_paired.py", "compare interleaved baseline/candidate samples"
+        ),
     },
     "experiment": {
-        "experiment-rank": Command("rank_experiments.py", "rank requests by bounded weighted value"),
-        "experiment-materialize": Command("materialize_experiment.py", "seal source, commands and artifacts"),
-        "experiment-approve": Command("approve_experiment.py", "independently approve a candidate-driven experiment"),
-        "experiment-dispatch": Command("dispatch_experiment.py", "dispatch only a supervisor-approved experiment"),
-        "experiment-withdraw": Command("withdraw_experiment.py", "withdraw and require fresh supervisor review"),
-        "experiment-revise": Command("revise_experiment.py", "archive an attempt and force review or replanning"),
-        "experiment-execute": Command("execute_experiment.py", "execute and hash-bind fresh outputs"),
-        "experiment-bind": Command("bind_experiment_result.py", "bind a result to its execution receipt"),
-        "experiment-apply": Command("apply_model_updates.py", "apply recomputable field-level transforms"),
-        "experiment-reconcile": Command("reconcile_experiment_result.py", "close all affected global models"),
+        "experiment-rank": Command(
+            "rank_experiments.py", "rank requests by bounded weighted value"
+        ),
+        "experiment-materialize": Command(
+            "materialize_experiment.py", "seal source, commands and artifacts"
+        ),
+        "experiment-approve": Command(
+            "approve_experiment.py",
+            "independently approve a candidate-driven experiment",
+        ),
+        "experiment-dispatch": Command(
+            "dispatch_experiment.py", "dispatch only a supervisor-approved experiment"
+        ),
+        "experiment-withdraw": Command(
+            "withdraw_experiment.py", "withdraw and require fresh supervisor review"
+        ),
+        "experiment-revise": Command(
+            "revise_experiment.py", "archive an attempt and force review or replanning"
+        ),
+        "experiment-execute": Command(
+            "execute_experiment.py", "execute and hash-bind fresh outputs"
+        ),
+        "experiment-bind": Command(
+            "bind_experiment_result.py", "bind a result to its execution receipt"
+        ),
+        "experiment-apply": Command(
+            "apply_model_updates.py", "apply recomputable field-level transforms"
+        ),
+        "experiment-reconcile": Command(
+            "reconcile_experiment_result.py", "close all affected global models"
+        ),
     },
     "microbenchmark": {
-        "microbench-query": Command("query_microbench_catalog.py", "find a reusable atomic probe"),
-        "microbench-new": Command("new_microbench_candidate.py", "create a run-local probe candidate"),
-        "microbench-reproduce": Command("execute_microbench_reproduction.py", "run one cold reproduction contract"),
-        "microbench-promote": Command("promote_microbench.py", "promote a qualified generic probe"),
-        "microbench-harvest": Command("harvest_microbenches.py", "process all run-local candidates"),
+        "microbench-query": Command(
+            "query_microbench_catalog.py", "find a reusable atomic probe"
+        ),
+        "microbench-new": Command(
+            "new_microbench_candidate.py", "create a run-local probe candidate"
+        ),
+        "microbench-reproduce": Command(
+            "execute_microbench_reproduction.py", "run one cold reproduction contract"
+        ),
+        "microbench-promote": Command(
+            "promote_microbench.py", "promote a qualified generic probe"
+        ),
+        "microbench-harvest": Command(
+            "harvest_microbenches.py", "process all run-local candidates"
+        ),
     },
     "certification": {
-        "certify": Command("emit_certificate.py", "recompute and emit the limit certificate"),
-        "report-validate": Command("validate_human_review_report.py", "validate review-report semantics"),
-        "report-render": Command("render_human_review_report.py", "render the validated Chinese HTML report"),
+        "certify": Command(
+            "emit_certificate.py", "recompute and emit the limit certificate"
+        ),
+        "report-validate": Command(
+            "validate_human_review_report.py", "validate review-report semantics"
+        ),
+        "report-render": Command(
+            "render_human_review_report.py", "render the validated Chinese HTML report"
+        ),
     },
 }
-COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
+COMMANDS = {
+    name: command
+    for group in COMMAND_GROUPS.values()
+    for name, command in group.items()
+}
 
 
 def epilog() -> str:
     lines = ["commands:"]
     for group, commands in COMMAND_GROUPS.items():
         lines.append(f"  {group}:")
-        lines.extend(f"    {name:<24} {command.summary}" for name, command in commands.items())
-    lines.extend(("", "arguments after COMMAND are forwarded unchanged; use COMMAND --help for details"))
+        lines.extend(
+            f"    {name:<24} {command.summary}" for name, command in commands.items()
+        )
+    lines.extend(
+        (
+            "",
+            "arguments after COMMAND are forwarded unchanged; use COMMAND --help for details",
+        )
+    )
     return "\n".join(lines)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__, epilog=epilog(), formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog=epilog(),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument("command", choices=sorted(COMMANDS))
     # Once a valid command is present, every remaining argument belongs to the
     # child command. In particular, COMMAND --help must show the child's help.

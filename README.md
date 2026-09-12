@@ -80,6 +80,25 @@ reports their seconds and their share of attributed active work. If neither
 phase was recorded, that ratio is `null` with
 `NOT_SEPARATELY_RECORDED` rather than a misleading zero. Do not retroactively
 reclassify legacy spans.
+
+Select canonical ledgers across the autonomous lanes without scanning or
+guessing from chat transcripts:
+
+```bash
+python3 scripts/kernel_opt.py community-lanes validate \
+  --topology knowledge/community/lane_topology.v3.json
+python3 scripts/kernel_opt.py community-portfolio \
+  --manifest /path/to/portfolio-manifest.json \
+  --output /path/to/portfolio-report.json
+```
+
+Portfolio report v5 exposes the delivery funnel, active action ownership and
+phase-time totals for only the explicitly selected, hash-bound
+`PROSPECTIVE_EXACT` ledgers. Active spans share one observation time.
+Environment/governance overhead is kept separate from external wait, and the
+report states that parallel candidate spans may overlap: it is not a wall-clock
+or labor-time measure. Root-wide historical instrumentation debt remains a
+separate audit and is never backfilled or hidden by the selected portfolio.
 For a bounded command, prefer `run-phase`: it runs the exact argv without a
 shell, writes an immutable wall-time/exit-status receipt, and closes the span
 on success, non-zero exit, launch failure, or timeout. A passing command receipt
