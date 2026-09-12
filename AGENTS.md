@@ -57,6 +57,40 @@ directories to find missing or stale prospective instrumentation. This is a
 pull-only audit: use its output in the dashboard and do not interrupt a live
 execution lane merely to request a status restatement.
 
+## Delivery-first operating model
+
+The objective is a correct, reviewable upstream improvement, not the largest
+possible evidence tree.  Apply evidence in proportion to the action being
+taken:
+
+- Exploration may use cheap static checks, focused CPU tests and bounded
+  micro-attribution.  It must preserve unknowns, but it does not need the full
+  qualification or dispatch protocol.
+- A draft pull request may be prepared once a clean, minimal commit has focused
+  correctness evidence, a reproduction command and an explicit claim
+  boundary.  Whole-model, cross-hardware and production-workload evidence may
+  remain pending and must be shown as pending.  Draft review and upstream CI are
+  useful evidence sources, not rewards reserved for already-complete work.
+- A non-draft or performance-qualified pull request still requires the full
+  applicable correctness, production-workload, regression and provenance
+  gates.  Never relax a publication claim merely to ship sooner.
+
+Keep at most one qualification candidate and one cheap discovery candidate per
+execution lane.  When a candidate is selected, prioritize a clean commit,
+focused tests and a draft-ready package before expanding the search frontier.
+End each bounded cycle with one of: a code/test/PR-state change, a measured
+decision, or an explicit rejection.  Do not create another schema, receipt or
+validator merely to restate an already-enforced boundary; add one only after a
+reproduced gap could authorize an incorrect external or irreversible action.
+
+Normal local source edits, CPU-only builds and focused tests are implementation
+work and do not require repeated user authorization.  Expensive compilation,
+GPU execution, service interruption, credential use and external publication
+retain their explicit authority boundaries.  For model materialization, prefer
+an accessible ModelScope snapshot when it can be content-hash matched to the
+required model identity; a hosting platform name is never a substitute for
+file identities.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

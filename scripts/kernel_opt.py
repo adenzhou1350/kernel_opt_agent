@@ -149,6 +149,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "report-render": Command(
             "render_human_review_report.py", "render the validated Chinese HTML report"
         ),
+        "upstream-package": Command(
+            "upstream_package.py",
+            "build a hash-bound fail-closed pull-request package",
+        ),
     },
 }
 COMMANDS = {
@@ -197,7 +201,11 @@ def main() -> int:
     # modules import shared helpers from scripts/; disable bytecode generation
     # before exec so normal framework use never creates scripts/__pycache__.
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
-    return subprocess.call([sys.executable, str(target), *forwarded])
+    completed = subprocess.run(
+        [sys.executable, str(target), *forwarded],
+        check=False,
+    )
+    return completed.returncode
 
 
 if __name__ == "__main__":
