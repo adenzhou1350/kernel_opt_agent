@@ -238,6 +238,19 @@ applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY` instead
 of `OPEN_DRAFT`. The attestation is a responsibility boundary, not a substitute
 for correctness or performance evidence.
 
+Before the human review, automation may assemble the exact commit, evidence,
+pending gates, proposed body and fail-closed attestation command into one
+create-once review packet:
+
+```bash
+python3 scripts/kernel_opt.py upstream-author-review-packet delivery-inbox.json \
+  --candidate-id NAME --output author-review-packet.md
+```
+
+The packet is machine-prepared convenience only. It cannot attest review or
+authorize publishing, and it is emitted only for a fresh v5 inbox item already
+routed to `COMPLETE_AUTHOR_ACCOUNTABILITY`.
+
 After doing that work personally, the submitter can create the immutable record
 without hand-writing JSON:
 

@@ -151,6 +151,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "upstream_author_accountability.py",
             "issue an explicit exact-commit human Draft attestation",
         ),
+        "upstream-author-review-packet": Command(
+            "upstream_author_review_packet.py",
+            "gather exact-commit Draft evidence for one human review",
+        ),
         "upstream-draft-progress": Command(
             "upstream_draft_progress.py",
             "route stale, failed and completed Draft qualification",
