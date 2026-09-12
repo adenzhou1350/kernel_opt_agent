@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import subprocess
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -22,6 +23,30 @@ def canonical_json(value: Any) -> bytes:
 
 def sha256_file(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def sha256_tracked_text(repository: Path, path: Path, revision: str = "HEAD") -> str:
+    """Hash committed text bytes while accepting Git's CRLF checkout filter only."""
+    repository = repository.resolve()
+    path = path.resolve()
+    try:
+        relative = path.relative_to(repository).as_posix()
+    except ValueError as error:
+        raise ValueError("tracked text path must stay inside the repository") from error
+    completed = subprocess.run(
+        ["git", "-C", str(repository), "show", f"{revision}:{relative}"],
+        check=False,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    )
+    if completed.returncode != 0:
+        detail = completed.stderr.decode(errors="replace").strip()
+        raise ValueError(f"cannot read tracked text from Git: {detail}")
+    committed = completed.stdout
+    worktree = path.read_bytes()
+    if worktree != committed and worktree.replace(b"\r\n", b"\n") != committed:
+        raise ValueError("tracked text worktree content changed")
+    return hashlib.sha256(committed).hexdigest()
 
 
 def read_object(path: Path) -> dict:
