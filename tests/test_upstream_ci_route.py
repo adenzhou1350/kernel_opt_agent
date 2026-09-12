@@ -43,6 +43,7 @@ def snapshot(checks: list[dict], *, draft: bool = True) -> dict:
         "draft": draft,
         "observed_at": "2026-09-12T10:00:00+00:00",
         "source": "GITHUB_PUBLIC_UI",
+        "observed_check_count": len(checks),
         "checks": checks,
     }
 
@@ -153,6 +154,15 @@ def test_candidate_marker_beats_policy_marker() -> None:
     assert classify_check(mixed) == "CANDIDATE_FAILURE"
 
 
+def test_registered_test_without_ci_registry_is_candidate_failure() -> None:
+    failed_registration = check(
+        "lint",
+        "FAILURE",
+        "Files in test/registered/ missing CI registry call",
+    )
+    assert classify_check(failed_registration) == "CANDIDATE_FAILURE"
+
+
 def test_snapshot_rejects_duplicate_or_incoherent_checks(tmp_path: Path) -> None:
     duplicate = snapshot([check("same", "SUCCESS"), check("same", "SUCCESS")])
     with pytest.raises(ValueError, match="check_id values must be unique"):
@@ -161,6 +171,11 @@ def test_snapshot_rejects_duplicate_or_incoherent_checks(tmp_path: Path) -> None
     incoherent = snapshot([check("live", "FAILURE", status="IN_PROGRESS")])
     with pytest.raises(ValueError, match="live checks require null"):
         validate_snapshot(write_snapshot(tmp_path, incoherent), ROOT / "schemas")
+
+    incomplete = snapshot([check("lint", "SUCCESS")])
+    incomplete["observed_check_count"] = 2
+    with pytest.raises(ValueError, match="complete checks array length"):
+        validate_snapshot(write_snapshot(tmp_path, incomplete), ROOT / "schemas")
 
 
 def test_output_schema_rejects_untracked_authorization(tmp_path: Path) -> None:
