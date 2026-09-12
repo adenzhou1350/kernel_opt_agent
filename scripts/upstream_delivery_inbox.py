@@ -46,6 +46,7 @@ PRIORITY = {
     "ONE_TARGETED_REVIEWER_FOLLOW_UP": 3,
     "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION": 3,
     "COMPLETE_DRAFT_MINIMUM": 4,
+    "COMPLETE_DRAFT_MATERIALS": 4,
     "KEEP_DRAFT_CONTINUE_QUALIFICATION": 5,
     "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW": 5,
     "WAIT_FOR_MAINTAINER_CI_AND_REVIEW": 6,
@@ -335,10 +336,8 @@ def build(
         if manifest["schema_version"] == "upstream-delivery-inbox-v3":
             materials = candidate["draft_materials"]
             if effective_action == "OPEN_DRAFT" and materials is None:
-                errors.append(
-                    f"candidates[{index}].draft_materials: required for OPEN_DRAFT"
-                )
-                continue
+                effective_action = "COMPLETE_DRAFT_MATERIALS"
+                effective_owner = "EXECUTION_LANE"
             if materials is not None:
                 if materials["repository"] != pull["repository"]:
                     errors.append(

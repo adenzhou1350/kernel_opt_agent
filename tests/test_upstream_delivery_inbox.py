@@ -238,8 +238,16 @@ def main() -> None:
         missing_materials = copy.deepcopy(v3)
         missing_materials["candidates"][0]["draft_materials"] = None
         write_json(manifest, missing_materials)
-        failure = run(manifest, expected_code=1)
-        assert any("required for OPEN_DRAFT" in error for error in failure["errors"])
+        missing_materials_inbox = run(manifest)["inbox"]
+        missing_item = next(
+            item
+            for item in missing_materials_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert missing_item["review_state_action"] == "OPEN_DRAFT"
+        assert missing_item["recommended_action"] == "COMPLETE_DRAFT_MATERIALS"
+        assert missing_item["external_action_owner"] == "EXECUTION_LANE"
+        assert missing_item["draft_materials"] is None
 
         body_drift = copy.deepcopy(v3)
         body_drift["candidates"][0]["draft_materials"]["body"]["sha256"] = "0" * 64
