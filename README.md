@@ -11,6 +11,26 @@ It deliberately contains no application-specific algorithm, workload or
 performance result.  Hardware facts are separated from empirical measurements;
 measurements are keyed by device and software environment.
 
+## Route upstream CI without mistaking policy gates for regressions
+
+An upstream check matrix may render red because a Draft is intentionally
+blocked or a maintainer-only `run-ci` label is absent. Do not restart
+qualification from the aggregate color. Capture the exact public head SHA,
+check conclusions, detail URLs and the small evidence lines that explain each
+failure, then run:
+
+```bash
+python3 scripts/kernel_opt.py upstream-ci-route \
+  --snapshot /path/to/upstream-ci-snapshot.json \
+  --output /path/to/upstream-ci-route-decision.json
+```
+
+The classifier recognizes only a narrow set of explicit policy-gate and
+infrastructure markers. An opaque red check remains `UNKNOWN_FAILURE`; a
+candidate-test marker takes precedence even when the same check also mentions
+a Draft gate. The output can route the control-plane Dashboard, but it never
+authorizes a CI rerun, public comment, Draft-to-Ready transition or merge.
+
 ## Start a run
 
 An agent launched with this directory as its working tree is governed by

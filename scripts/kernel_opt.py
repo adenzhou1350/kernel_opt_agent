@@ -44,6 +44,12 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "service-curve-fit": Command("fit_service_curve.py", "fit latency and throughput service curves"),
         "paired-compare": Command("compare_paired.py", "compare interleaved baseline/candidate samples"),
     },
+    "upstream delivery": {
+        "upstream-ci-route": Command(
+            "upstream_ci_route.py",
+            "separate candidate failures from upstream policy gates",
+        ),
+    },
     "experiment": {
         "experiment-rank": Command("rank_experiments.py", "rank requests by bounded weighted value"),
         "experiment-materialize": Command("materialize_experiment.py", "seal source, commands and artifacts"),
