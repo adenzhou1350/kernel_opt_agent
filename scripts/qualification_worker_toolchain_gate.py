@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
+import os
 import re
+import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from artifact_io import atomic_json, read_object, sha256_file
 from qualification_environment_worker import validate as validate_attestation
 from schema_utils import validate_instance
 
@@ -23,6 +26,41 @@ TOOL_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9+_.-]*$")
 
 def repository_root() -> Path:
     return Path(__file__).resolve().parents[1]
+
+
+def read_object(path: Path) -> dict:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict):
+        raise ValueError(f"expected a JSON object: {path}")
+    return value
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def atomic_json(path: Path, value: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, temporary_name = tempfile.mkstemp(
+        dir=path.parent, prefix=f".{path.name}.", suffix=".tmp"
+    )
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="\n") as handle:
+            json.dump(value, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary_name, path)
+    except BaseException:
+        try:
+            os.unlink(temporary_name)
+        except FileNotFoundError:
+            pass
+        raise
 
 
 def parse_time(value: str) -> datetime:
