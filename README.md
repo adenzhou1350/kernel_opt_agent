@@ -689,13 +689,18 @@ python3 scripts/kernel_opt.py community-timing init \
   --cycle-id framework-candidate-v1 --task-id lane-task-id \
   --observation-mode PROSPECTIVE_EXACT \
   --initial-phase UPSTREAM_PACKAGING \
-  --candidate-evidence candidate-value-decision.json \
+  --candidate-value-decision candidate-value-decision.json \
   --output community-work-cycle.json
 ```
 
-`--candidate-evidence` validates the immutable selection decision before one
-atomic write creates the ledger and `FIRST_CANDIDATE_PROPOSED` milestone at the
-same timestamp. It also opens `BOTTLENECK_DIAGNOSIS` by default; use
+`--candidate-value-decision` re-hashes its request and recomputes the complete
+decision before one atomic write creates the ledger and
+`FIRST_CANDIDATE_PROPOSED` milestone. A modified decision, stale request hash,
+ambiguous generic evidence or ledger timestamp before the decision fails before
+the ledger is written. This is the strict candidate-to-Draft timing origin;
+`--candidate-evidence` remains available for explicitly non-strict historical
+or late-entry accounting and must not be presented as the same KPI. The strict
+entry also opens `BOTTLENECK_DIAGNOSIS` by default; use
 `--initial-phase` when selection occurs later in a truthful phase. Missing
 evidence, an existing output, or a legacy observation mode leaves no partial
 ledger. Use `switch-phase` to close the current phase and open its successor at

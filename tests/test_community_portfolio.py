@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from artifact_io import sha256_file  # noqa: E402
+from candidate_value_gate import evaluate, request_template  # noqa: E402
 from community_portfolio import build_report  # noqa: E402
 
 
@@ -118,11 +119,41 @@ def manifest(tmp_path: Path, duplicate: bool = False) -> Path:
     return write_json(tmp_path / "manifest.json", value)
 
 
+def bind_strict_candidate_start(tmp_path: Path, selected: Path) -> None:
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    request = request_template()
+    request["candidate_id"] = cycle["cycle_id"]
+    request_path = write_json(
+        tmp_path / f"{cycle['cycle_id']}-candidate-value-request.json", request
+    )
+    decision = evaluate(request)
+    decision["generated_at"] = cycle["started_at"]
+    decision["request_identity"] = {
+        "path": request_path.name,
+        "sha256": sha256_file(request_path),
+    }
+    decision_path = write_json(
+        tmp_path / f"{cycle['cycle_id']}-candidate-value-decision.json", decision
+    )
+    start = next(
+        item
+        for item in cycle["milestones"]
+        if item["kind"] == "FIRST_CANDIDATE_PROPOSED"
+    )
+    start["at"] = cycle["started_at"]
+    start["evidence"] = [
+        {"path": decision_path.name, "sha256": sha256_file(decision_path)}
+    ]
+    write_json(selected, cycle)
+
+
 def test_portfolio_aggregates_four_explicit_lanes(tmp_path: Path) -> None:
     report = build_report(manifest(tmp_path))
     assert len(report["lanes"]) == 4
     assert report["totals"]["ledger_count"] == 4
     assert report["totals"]["prospective_count"] == 4
+    assert report["totals"]["strict_candidate_start_count"] == 0
+    assert report["totals"]["non_strict_candidate_start_count"] == 4
     assert report["totals"]["correctness_pass_count"] == 4
     assert report["totals"]["material_improvement_count"] == 4
     assert report["totals"]["gpu_seconds"] == 120.0
@@ -304,13 +335,17 @@ def test_delivery_speed_and_conversion_use_only_prospective_exact_cycles(
         if lane_index == 1:
             cycle["observation_mode"] = "LEGACY_MILESTONE_BOUNDS"
         write_json(selected, cycle)
+        if lane_index == 0:
+            bind_strict_candidate_start(tmp_path, selected)
         identity["sha256"] = sha256_file(selected)
     write_json(path, value)
 
     totals = build_report(path)["totals"]
     assert totals["prospective_draft_opened_count"] == 1
     assert totals["prospective_pr_ready_count"] == 1
-    assert totals["median_candidate_to_draft_seconds"] == 240.0
+    assert totals["strict_candidate_start_count"] == 1
+    assert totals["non_strict_candidate_start_count"] == 2
+    assert totals["median_candidate_to_draft_seconds"] == 250.0
     assert totals["median_draft_to_ready_seconds"] == 360.0
     assert totals["prospective_draft_to_ready_conversion_rate"] == 1.0
 

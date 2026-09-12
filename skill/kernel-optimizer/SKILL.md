@@ -46,7 +46,11 @@ Then execute an evidence-driven loop:
 5. Cheaply screen every valid architecture family on an anchor and edge case.
    Discovery results route work only; they do not accept a candidate or claim a
    hardware fact. Before expanding environment or accelerator qualification,
-   run `scripts/kernel_opt.py candidate-value` on each survivor. Quantify an
+   run `scripts/kernel_opt.py candidate-value` on each survivor, then immediately
+   start its prospective ledger with `community-timing init
+   --candidate-value-decision`. The strict start re-hashes the request and
+   recomputes the decision; a generic evidence file is not an exact
+   candidate-to-Draft origin. Quantify an
    unknown whole-workload ceiling rather than guessing it, stop candidates
    below the materiality floor, and account for permanent review/API/protocol
    cost. Promote at most 2--4 survivors.

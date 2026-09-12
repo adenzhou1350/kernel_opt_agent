@@ -10,7 +10,14 @@ from statistics import median
 
 from artifact_io import atomic_json, now, read_object, sha256_file
 from community_lane_topology import LANE_IDS, validate_topology
-from community_work_cycle import PHASES, parse_time, summarize, validate_ledger
+from community_work_cycle import (
+    PHASES,
+    evidence_path,
+    parse_time,
+    summarize,
+    validate_candidate_value_decision,
+    validate_ledger,
+)
 from schema_utils import validate_instance
 
 
@@ -40,6 +47,29 @@ def seconds(start: str, end: str) -> float:
 
 def nullable_median(values: list[float]) -> float | None:
     return median(values) if values else None
+
+
+def has_strict_candidate_start(path: Path, ledger: dict) -> bool:
+    """Accept timing origin only when the candidate-value decision recomputes."""
+
+    starts = [
+        milestone
+        for milestone in ledger["milestones"]
+        if milestone["kind"] == "FIRST_CANDIDATE_PROPOSED"
+    ]
+    if len(starts) != 1 or len(starts[0]["evidence"]) != 1:
+        return False
+    milestone = starts[0]
+    if milestone["at"] != ledger["started_at"]:
+        return False
+    decision_path = evidence_path(milestone["evidence"][0], path)
+    try:
+        decision = validate_candidate_value_decision(decision_path)
+    except (FileNotFoundError, KeyError, TypeError, ValueError):
+        return False
+    return parse_time(
+        decision["generated_at"], "candidate-value decision generated_at"
+    ) <= parse_time(milestone["at"], "FIRST_CANDIDATE_PROPOSED.at")
 
 
 def action_class(span: dict) -> str:
@@ -354,6 +384,8 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
         "merged_count": 0,
         "prospective_draft_opened_count": 0,
         "prospective_pr_ready_count": 0,
+        "strict_candidate_start_count": 0,
+        "non_strict_candidate_start_count": 0,
     }
     for path, ledger in ledgers:
         mode_key = (
@@ -379,6 +411,11 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
         )
         qualified += int("FIRST_QUALIFIED_RESULT" in milestone_kinds)
         if ledger["observation_mode"] == "PROSPECTIVE_EXACT":
+            strict_candidate_start = has_strict_candidate_start(path, ledger)
+            counts["strict_candidate_start_count"] += int(strict_candidate_start)
+            counts["non_strict_candidate_start_count"] += int(
+                not strict_candidate_start
+            )
             milestone_times = {
                 item["kind"]: item["at"] for item in ledger["milestones"]
             }
@@ -387,7 +424,11 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
             candidate_at = milestone_times.get("FIRST_CANDIDATE_PROPOSED")
             counts["prospective_draft_opened_count"] += int(draft_at is not None)
             counts["prospective_pr_ready_count"] += int(ready_at is not None)
-            if candidate_at is not None and draft_at is not None:
+            if (
+                strict_candidate_start
+                and candidate_at is not None
+                and draft_at is not None
+            ):
                 candidate_to_draft.append(seconds(candidate_at, draft_at))
             if draft_at is not None and ready_at is not None:
                 draft_to_ready.append(seconds(draft_at, ready_at))
@@ -498,11 +539,24 @@ def prospective_phase_time(ledgers: list[tuple[Path, dict]], observed_at: str) -
 def validate_report(report: dict) -> list[str]:
     """Validate strict legacy cores plus versioned phase/action extensions."""
 
+    timing_origin_fields = {
+        "strict_candidate_start_count",
+        "non_strict_candidate_start_count",
+    }
     v5_projection = {
         key: value
         for key, value in report.items()
         if key not in {"action_attestation_identities", "delivery_action_inventory"}
     }
+    v5_projection["totals"] = {
+        key: value
+        for key, value in report["totals"].items()
+        if key not in timing_origin_fields
+    }
+    v5_projection["lanes"] = [
+        {key: value for key, value in lane.items() if key not in timing_origin_fields}
+        for lane in report["lanes"]
+    ]
     v5_projection["schema_version"] = "community-portfolio-report-v5"
     v5_projection["active_delivery_queue"] = [
         {
