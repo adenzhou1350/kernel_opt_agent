@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_portfolio_report_v4.schema.json",
+  "title": "Four-lane delivery portfolio with an active action queue",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "claim_boundary", "manifest_identity", "lanes", "totals", "active_delivery_queue", "attention_summary"],
+  "properties": {
+    "schema_version": {"const": "community-portfolio-report-v4"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DESCRIPTIVE_PORTFOLIO_AND_DELIVERY_FUNNEL_NOT_STRATEGY_CAUSALITY"},
+    "manifest_identity": {"$ref": "#/$defs/identity"},
+    "lanes": {"type": "array", "minItems": 4, "maxItems": 4, "items": {"$ref": "#/$defs/laneReport"}},
+    "totals": {"$ref": "#/$defs/metrics"},
+    "active_delivery_queue": {"type": "array", "items": {"$ref": "#/$defs/actionRow"}},
+    "attention_summary": {"$ref": "#/$defs/attentionSummary"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nullableSeconds": {"type": ["number", "null"], "minimum": 0},
+    "nullableRate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "deliveryFunnel": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidate_proposed", "screen_correct", "material_improvement", "qualified_result", "upstream_ready", "pr_opened", "pr_ready_for_review", "merged", "leading_constraint"],
+      "properties": {
+        "candidate_proposed": {"type": "integer", "minimum": 0},
+        "screen_correct": {"type": "integer", "minimum": 0},
+        "material_improvement": {"type": "integer", "minimum": 0},
+        "qualified_result": {"type": "integer", "minimum": 0},
+        "upstream_ready": {"type": "integer", "minimum": 0},
+        "pr_opened": {"type": "integer", "minimum": 0},
+        "pr_ready_for_review": {"type": "integer", "minimum": 0},
+        "merged": {"type": "integer", "minimum": 0},
+        "leading_constraint": {"$ref": "#/$defs/leadingConstraint"}
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ledger_count", "prospective_count", "legacy_count", "gpu_seconds", "correctness_pass_count", "correctness_fail_count", "material_improvement_count", "upstream_ready_count", "draft_or_ready_pr_count", "merged_count", "prospective_draft_opened_count", "prospective_pr_ready_count", "median_time_to_first_correct_seconds", "median_time_to_first_improvement_seconds", "median_candidate_to_draft_seconds", "median_draft_to_ready_seconds", "prospective_draft_to_ready_conversion_rate", "qualified_results_per_gpu_hour", "delivery_funnel"],
+      "properties": {
+        "ledger_count": {"type": "integer", "minimum": 0},
+        "prospective_count": {"type": "integer", "minimum": 0},
+        "legacy_count": {"type": "integer", "minimum": 0},
+        "gpu_seconds": {"type": "number", "minimum": 0},
+        "correctness_pass_count": {"type": "integer", "minimum": 0},
+        "correctness_fail_count": {"type": "integer", "minimum": 0},
+        "material_improvement_count": {"type": "integer", "minimum": 0},
+        "upstream_ready_count": {"type": "integer", "minimum": 0},
+        "draft_or_ready_pr_count": {"type": "integer", "minimum": 0},
+        "merged_count": {"type": "integer", "minimum": 0},
+        "prospective_draft_opened_count": {"type": "integer", "minimum": 0},
+        "prospective_pr_ready_count": {"type": "integer", "minimum": 0},
+        "median_time_to_first_correct_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_time_to_first_improvement_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_candidate_to_draft_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_draft_to_ready_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "prospective_draft_to_ready_conversion_rate": {"$ref": "#/$defs/nullableRate"},
+        "qualified_results_per_gpu_hour": {"type": ["number", "null"], "minimum": 0},
+        "delivery_funnel": {"$ref": "#/$defs/deliveryFunnel"}
+      }
+    },
+    "laneReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane_id", "thread_id", "ledger_identities", "ledger_count", "prospective_count", "legacy_count", "gpu_seconds", "correctness_pass_count", "correctness_fail_count", "material_improvement_count", "upstream_ready_count", "draft_or_ready_pr_count", "merged_count", "prospective_draft_opened_count", "prospective_pr_ready_count", "median_time_to_first_correct_seconds", "median_time_to_first_improvement_seconds", "median_candidate_to_draft_seconds", "median_draft_to_ready_seconds", "prospective_draft_to_ready_conversion_rate", "qualified_results_per_gpu_hour", "delivery_funnel"],
+      "properties": {
+        "lane_id": {"enum": ["VLLM_OPTIMIZATION", "VLLM_A800_ADAPTATION", "MOONCAKE_OPTIMIZATION", "SGLANG_OPTIMIZATION"]},
+        "thread_id": {"type": "string", "pattern": "^[0-9a-f-]{36}$"},
+        "ledger_identities": {"type": "array", "items": {"$ref": "#/$defs/identity"}},
+        "ledger_count": {"type": "integer", "minimum": 0},
+        "prospective_count": {"type": "integer", "minimum": 0},
+        "legacy_count": {"type": "integer", "minimum": 0},
+        "gpu_seconds": {"type": "number", "minimum": 0},
+        "correctness_pass_count": {"type": "integer", "minimum": 0},
+        "correctness_fail_count": {"type": "integer", "minimum": 0},
+        "material_improvement_count": {"type": "integer", "minimum": 0},
+        "upstream_ready_count": {"type": "integer", "minimum": 0},
+        "draft_or_ready_pr_count": {"type": "integer", "minimum": 0},
+        "merged_count": {"type": "integer", "minimum": 0},
+        "prospective_draft_opened_count": {"type": "integer", "minimum": 0},
+        "prospective_pr_ready_count": {"type": "integer", "minimum": 0},
+        "median_time_to_first_correct_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_time_to_first_improvement_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_candidate_to_draft_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_draft_to_ready_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "prospective_draft_to_ready_conversion_rate": {"$ref": "#/$defs/nullableRate"},
+        "qualified_results_per_gpu_hour": {"type": ["number", "null"], "minimum": 0},
+        "delivery_funnel": {"$ref": "#/$defs/deliveryFunnel"}
+      }
+    },
+    "actionClass": {
+      "enum": ["USER_CONFIRMATION", "CREDENTIAL", "ENVIRONMENT", "GOVERNANCE", "GPU_EXECUTION", "EXTERNAL_DEPENDENCY", "ACTIVE_WORK"]
+    },
+    "leadingConstraint": {
+      "enum": ["NO_EVIDENCE", "CANDIDATE_DISCOVERY", "CORRECTNESS", "MATERIAL_IMPROVEMENT", "QUALIFIED_RESULT", "UPSTREAM_READINESS", "PR_CREATION", "PR_REVIEW_READINESS", "UPSTREAM_REVIEW", "COMPLETE"]
+    },
+    "actionRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane_id", "thread_id", "cycle_id", "ledger_path", "span_id", "phase", "actor", "resource_id", "active_since", "active_seconds", "action_class", "needs_user_action", "leading_constraint"],
+      "properties": {
+        "lane_id": {"enum": ["VLLM_OPTIMIZATION", "VLLM_A800_ADAPTATION", "MOONCAKE_OPTIMIZATION", "SGLANG_OPTIMIZATION"]},
+        "thread_id": {"type": "string", "pattern": "^[0-9a-f-]{36}$"},
+        "cycle_id": {"type": "string", "minLength": 1},
+        "ledger_path": {"type": "string", "minLength": 1},
+        "span_id": {"type": "string", "minLength": 1},
+        "phase": {"enum": ["COMMUNITY_RESEARCH", "BOTTLENECK_DIAGNOSIS", "CANDIDATE_IMPLEMENTATION", "COMPILE_AND_MEASURE", "CORRECTNESS_VALIDATION", "PERFORMANCE_VALIDATION", "WHOLE_MODEL_VALIDATION", "UPSTREAM_PACKAGING", "ENVIRONMENT_SETUP", "GOVERNANCE_VALIDATION", "EXTERNAL_WAIT", "UNATTRIBUTED_LEGACY_WORK"]},
+        "actor": {"enum": ["AGENT", "CPU", "GPU", "EXTERNAL"]},
+        "resource_id": {"type": ["string", "null"], "minLength": 1},
+        "active_since": {"type": "string", "format": "date-time"},
+        "active_seconds": {"type": "number", "minimum": 0},
+        "action_class": {"$ref": "#/$defs/actionClass"},
+        "needs_user_action": {"type": "boolean"},
+        "leading_constraint": {"$ref": "#/$defs/leadingConstraint"}
+      }
+    },
+    "attentionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["active_count", "needs_user_action_count", "lane_without_active_phase_count", "oldest_active_seconds", "counts_by_action_class"],
+      "properties": {
+        "active_count": {"type": "integer", "minimum": 0},
+        "needs_user_action_count": {"type": "integer", "minimum": 0},
+        "lane_without_active_phase_count": {"type": "integer", "minimum": 0, "maximum": 4},
+        "oldest_active_seconds": {"type": ["number", "null"], "minimum": 0},
+        "counts_by_action_class": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["USER_CONFIRMATION", "CREDENTIAL", "ENVIRONMENT", "GOVERNANCE", "GPU_EXECUTION", "EXTERNAL_DEPENDENCY", "ACTIVE_WORK"],
+          "properties": {
+            "USER_CONFIRMATION": {"type": "integer", "minimum": 0},
+            "CREDENTIAL": {"type": "integer", "minimum": 0},
+            "ENVIRONMENT": {"type": "integer", "minimum": 0},
+            "GOVERNANCE": {"type": "integer", "minimum": 0},
+            "GPU_EXECUTION": {"type": "integer", "minimum": 0},
+            "EXTERNAL_DEPENDENCY": {"type": "integer", "minimum": 0},
+            "ACTIVE_WORK": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    }
+  }
+}
