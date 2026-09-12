@@ -9,6 +9,7 @@ import json
 import os
 import subprocess
 import tempfile
+import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -27,7 +28,7 @@ from schema_utils import validate_instance
 APPROVAL_VERSION = "qualification-environment-materialization-approval-v2"
 CLAIM_SCHEMA = "qualification_environment_materialization_claim.schema.json"
 RECEIPT_SCHEMA = (
-    "qualification_environment_materialization_dispatch_receipt.schema.json"
+    "qualification_environment_materialization_dispatch_receipt_v2.schema.json"
 )
 CLAIM_BOUNDARY = (
     "ATOMIC_SINGLE_USE_CPU_ONLY_MATERIALIZATION_CLAIM_NOT_ENVIRONMENT_SUCCESS_"
@@ -252,6 +253,8 @@ def dispatch(
     environment["CUDA_VISIBLE_DEVICES"] = "-1"
     environment["NVIDIA_VISIBLE_DEVICES"] = "void"
     environment["PYTHONDONTWRITEBYTECODE"] = "1"
+    process_started_at = datetime.now(UTC)
+    monotonic_started = time.monotonic()
     timed_out = False
     exit_code: int | None
     try:
@@ -275,12 +278,16 @@ def dispatch(
         stderr = error.stderr or b""
         state = "EXECUTOR_TIMED_OUT"
 
+    process_completed_at = datetime.now(UTC)
+    duration_seconds = max(0.0, time.monotonic() - monotonic_started)
     receipt = self_identified(
         {
             "schema_version": (
-                "qualification-environment-materialization-dispatch-receipt-v1"
+                "qualification-environment-materialization-dispatch-receipt-v2"
             ),
-            "completed_at": timestamp(datetime.now(UTC)),
+            "started_at": timestamp(process_started_at),
+            "completed_at": timestamp(process_completed_at),
+            "duration_seconds": duration_seconds,
             "claim": identity(claim_path, artifact_root),
             "state": state,
             "exit_code": exit_code,

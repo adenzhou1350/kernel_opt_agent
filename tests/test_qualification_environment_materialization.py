@@ -214,6 +214,11 @@ def test_dispatch_consumes_approval_once_and_hides_cuda(tmp_path: Path) -> None:
         now=NOW,
     )
     assert result["state"] == "EXECUTOR_COMPLETED"
+    assert result["schema_version"] == (
+        "qualification-environment-materialization-dispatch-receipt-v2"
+    )
+    assert result["started_at"] <= result["completed_at"]
+    assert result["duration_seconds"] >= 0
     assert result["gpu_authorized"] is False
     observed = json.loads(result_path.read_text(encoding="utf-8"))
     assert observed == {"cuda": "-1", "nvidia": "void"}

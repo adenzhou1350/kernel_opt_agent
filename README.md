@@ -288,6 +288,12 @@ The materializer's own evidence still decides whether the closure succeeded,
 and neither receipt authorizes a GPU, workload, service or broker transition.
 Legacy v1 approvals remain validatable for audit but cannot be dispatched.
 
+The versioned dispatcher receipt includes exact process `started_at`,
+`completed_at` and monotonic `duration_seconds` so a controller can account for
+environment wall time without inferring it from file timestamps. These timing
+fields remain process evidence only; they do not accept the resulting closure
+or change correctness, performance, GPU or workload state.
+
 Managed workers may already run inside a GPU container and have no nested
 container runtime. Collect a read-only worker attestation before planning an
 environment directly on such a worker:
