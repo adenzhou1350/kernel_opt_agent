@@ -46,6 +46,21 @@ tuning guide and device specification. If the agent cannot find one of those
 official documents, the developer must provide its location; inferred hardware
 facts and neighboring-device values are forbidden.
 
+Before creating a second successor for an environment materialization plan,
+audit the run's actual plan/terminal history:
+
+```bash
+python3 scripts/kernel_opt.py qualification-churn \
+  --run runs/<run-id> \
+  --output runs/<run-id>/experiments/qualification-churn-v1.json
+```
+
+The report hash-binds terminal receipts back to exact plan bytes and routes the
+family to continue, collapse unused revisions, stop an exhausted repair scope,
+advance from a successful environment, or acknowledge that workload execution
+has already started. It is planning evidence only; it does not authorize a
+build, GPU run or workload.
+
 After the exact launched binary is archived inside the run, disassemble it with
 a hash-bound tool/architecture receipt, classify every static instruction site,
 and build the conservative resource set. Unknown or multiply classified SASS

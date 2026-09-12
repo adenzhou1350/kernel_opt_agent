@@ -26,6 +26,13 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+Environment repair is bounded implementation work, not a license to mint plan
+versions. Before writing a second successor materialization plan, run
+`qualification-churn` over the run root. Follow its decision: advance from a
+successful closure, collapse unused revisions, or stop an exhausted repair
+scope. Only `CONTINUE_BOUNDED` permits another successor under the existing
+budget; `WORKLOAD_REACHED` is historical accounting and never reopens repair.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot
