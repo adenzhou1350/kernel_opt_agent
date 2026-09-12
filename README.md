@@ -344,6 +344,14 @@ transport never submits or acquires a broker job and never authorizes GPU
 visibility, workload launch, service mutation, environment correctness, or
 performance claims.
 
+Plans that deliberately separate their immutable run root from a fresh worker
+staging directory can add explicit `staging_copies` to the transport plan.
+Every source must already belong to the approved task closure, every target
+must be below a staging root declared by a non-executable materialization
+step, and every plan-declared staged filename/hash pair must be covered. This
+lets the shared dispatcher consume both run-root and two-phase staging layouts
+without rewriting a frozen plan or permitting an arbitrary remote write.
+
 The versioned dispatcher receipt includes exact process `started_at`,
 `completed_at` and monotonic `duration_seconds` so a controller can account for
 environment wall time without inferring it from file timestamps. These timing

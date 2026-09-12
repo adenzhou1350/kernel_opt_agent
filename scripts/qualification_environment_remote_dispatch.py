@@ -141,6 +141,145 @@ def posix_join(root: str, relative: str) -> str:
     return joined.as_posix()
 
 
+def canonical_posix_path(value: str, label: str) -> PurePosixPath:
+    path = PurePosixPath(value)
+    if not path.is_absolute() or ".." in path.parts or path.as_posix() != value:
+        raise ValueError(f"{label} is not a canonical absolute path: {value}")
+    return path
+
+
+def declared_staging_roots(materialization_plan: dict) -> set[PurePosixPath]:
+    roots: set[PurePosixPath] = set()
+    for step in materialization_plan.get("materialization_steps", []):
+        if not isinstance(step, dict) or step.get("argv") is not None:
+            continue
+        destination = step.get("destination")
+        if isinstance(destination, str):
+            roots.add(canonical_posix_path(destination, "staging destination"))
+    stage_root = materialization_plan.get("paths", {}).get("stage_root")
+    if isinstance(stage_root, str):
+        roots.add(canonical_posix_path(stage_root, "plan stage root"))
+    return roots
+
+
+def declared_staged_inputs(value: object) -> list[tuple[str, str]]:
+    result: list[tuple[str, str]] = []
+    if isinstance(value, dict):
+        filename = value.get("filename")
+        sha256 = value.get("sha256")
+        if (
+            isinstance(filename, str)
+            and filename
+            and PurePosixPath(filename).name == filename
+            and isinstance(sha256, str)
+            and len(sha256) == 64
+        ):
+            result.append((filename, sha256))
+        for child in value.values():
+            result.extend(declared_staged_inputs(child))
+    elif isinstance(value, list):
+        for child in value:
+            result.extend(declared_staged_inputs(child))
+    return result
+
+
+def absolute_posix_paths(value: object) -> set[str]:
+    result: set[str] = set()
+    if isinstance(value, str) and value.startswith("/"):
+        try:
+            result.add(canonical_posix_path(value, "declared path").as_posix())
+        except ValueError:
+            pass
+    elif isinstance(value, dict):
+        for child in value.values():
+            result.update(absolute_posix_paths(child))
+    elif isinstance(value, list):
+        for child in value:
+            result.update(absolute_posix_paths(child))
+    return result
+
+
+def referenced_staging_inputs(
+    materialization_plan: dict, roots: set[PurePosixPath]
+) -> set[str]:
+    outputs = absolute_posix_paths(materialization_plan.get("required_outputs"))
+    result: set[str] = set()
+    for step in materialization_plan.get("materialization_steps", []):
+        if not isinstance(step, dict) or not isinstance(step.get("argv"), list):
+            continue
+        for token in step["argv"]:
+            if not isinstance(token, str) or not token.startswith("/"):
+                continue
+            path = canonical_posix_path(token, "sealed argv path")
+            if path in roots or path.as_posix() in outputs:
+                continue
+            if any(root in path.parents for root in roots):
+                result.add(path.as_posix())
+    return result
+
+
+def validate_staging_copies(
+    *,
+    artifact_root: Path,
+    approval: dict,
+    approval_identity: dict,
+    transport_plan: dict,
+    materialization_plan: dict,
+) -> None:
+    copies = transport_plan.get("staging_copies", [])
+    if not isinstance(copies, list):
+        raise ValueError("remote staging copies must be a list")
+    roots = declared_staging_roots(materialization_plan)
+    task_files = {item["path"]: item for item in transport_plan["task_files"]}
+    allowed_sources = dict(task_files)
+    allowed_sources[approval["materialization_plan"]["path"]] = approval[
+        "materialization_plan"
+    ]
+    allowed_sources[approval["environment_request"]["path"]] = approval[
+        "environment_request"
+    ]
+    allowed_sources[approval["resource_job"]["path"]] = approval["resource_job"]
+    allowed_sources[approval_identity["path"]] = approval_identity
+    destinations: dict[str, str] = {}
+    observed_pairs: set[tuple[str, str]] = set()
+    for copy in copies:
+        source = copy["source"]
+        if allowed_sources.get(source["path"]) != source:
+            raise ValueError("remote staging copy source is outside the task closure")
+        validate_identity(artifact_root, source, "remote staging copy source")
+        destination = canonical_posix_path(
+            copy["destination"], "remote staging copy destination"
+        )
+        containing_roots = [root for root in roots if root in destination.parents]
+        if not containing_roots:
+            raise ValueError(
+                "remote staging copy destination is outside declared staging roots"
+            )
+        prior = destinations.get(destination.as_posix())
+        if prior is not None and prior != source["sha256"]:
+            raise ValueError("two source identities target one staging destination")
+        destinations[destination.as_posix()] = source["sha256"]
+        observed_pairs.add((destination.name, source["sha256"]))
+
+    required_pairs = set(
+        declared_staged_inputs(materialization_plan.get("staged_inputs"))
+    )
+    missing = sorted(required_pairs - observed_pairs)
+    if missing:
+        raise ValueError(
+            "remote staging copies omit declared staged inputs: "
+            + ", ".join(filename for filename, _ in missing)
+        )
+    missing_destinations = sorted(
+        referenced_staging_inputs(materialization_plan, roots) - set(destinations)
+    )
+    if missing_destinations:
+        raise ValueError(
+            "remote staging copies omit sealed argv inputs: "
+            + ", ".join(missing_destinations)
+        )
+
+
 def required_task_paths(plan: dict, artifact_root: Path) -> set[str]:
     required: set[str] = set()
 
@@ -212,7 +351,7 @@ def validate_transport_bundle(
     if runtime_worker.get("host_id") != worker["host_id"]:
         raise ValueError("transport host differs from materialization plan")
     planned_root = materialization_plan.get("paths", {}).get("artifact_root")
-    if planned_root != plan["remote_artifact_root"]:
+    if planned_root is not None and planned_root != plan["remote_artifact_root"]:
         raise ValueError("transport artifact root differs from materialization plan")
     posix_join(plan["remote_artifact_root"], ".")
     python_path = PurePosixPath(worker["python"])
@@ -237,6 +376,13 @@ def validate_transport_bundle(
         )
     for item in plan["task_files"]:
         validate_identity(artifact_root, item, "remote transport task file")
+    validate_staging_copies(
+        artifact_root=artifact_root,
+        approval=approval,
+        approval_identity=identity(approval_path, artifact_root),
+        transport_plan=plan,
+        materialization_plan=materialization_plan,
+    )
 
     for label in ("ssh", "scp", "known_hosts", "identity_file"):
         external_path(plan["controller"][label], f"controller {label}")
@@ -569,6 +715,11 @@ def dispatch(
             transfers.append(
                 (source, posix_join(remote_root, item["path"]), item["sha256"])
             )
+        for copy in plan.get("staging_copies", []):
+            source = validate_identity(
+                artifact_root, copy["source"], "remote staging copy source"
+            )
+            transfers.append((source, copy["destination"], copy["source"]["sha256"]))
         transfers.append(
             (
                 approval_path,

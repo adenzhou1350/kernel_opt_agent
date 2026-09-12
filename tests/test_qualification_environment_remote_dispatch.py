@@ -253,6 +253,93 @@ def fixture(tmp_path: Path) -> dict[str, Path]:
     }
 
 
+def staged_fixture(tmp_path: Path) -> dict[str, Path]:
+    paths = fixture(tmp_path)
+    plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
+    stage_root = "/workspace/kernel-opt/staging/test-run-v2"
+    plan["paths"] = {"stage_root": stage_root}
+    plan["staged_inputs"] = {
+        "executor": {
+            "filename": "executor.py",
+            "sha256": digest(paths["executor"]),
+        },
+        "workflow": {
+            "filename": "workflow.py",
+            "sha256": digest(tmp_path / "workflow.py"),
+        },
+    }
+    plan["materialization_steps"] = [
+        {
+            "id": "stage-exact-inputs",
+            "gpu": False,
+            "destination": stage_root,
+        },
+        {
+            "id": "prepare",
+            "gpu": False,
+            "argv": [
+                "/usr/bin/python3",
+                f"{stage_root}/executor.py",
+                "--workflow",
+                f"{stage_root}/workflow.py",
+                "--plan",
+                f"{stage_root}/plan.json",
+                "--approval",
+                f"{stage_root}/approval.json",
+            ],
+        },
+    ]
+    write(paths["plan"], plan)
+    request_path = tmp_path / "experiments" / "request.json"
+    job_path = tmp_path / "experiments" / "job.json"
+    approval = issue_approval(
+        plan_path=paths["plan"],
+        request_path=request_path,
+        job_path=job_path,
+        artifact_root=tmp_path,
+        supervisor_id="root-controller",
+        approval_id="candidate-staged-cpu-materialization-v2",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        max_wall_seconds=120,
+        network_policy="NONE",
+        dispatcher_bound=True,
+    )
+    write(paths["approval"], approval)
+
+    transport = json.loads(paths["transport"].read_text(encoding="utf-8"))
+    transport["task_files"] = [
+        artifact(paths["plan"], tmp_path)
+        if item["path"] == "experiments/plan.json"
+        else item
+        for item in transport["task_files"]
+    ]
+    transport["staging_copies"] = [
+        {
+            "source": artifact(source, tmp_path),
+            "destination": f"{stage_root}/{destination}",
+        }
+        for source, destination in (
+            (paths["executor"], "executor.py"),
+            (tmp_path / "workflow.py", "workflow.py"),
+            (paths["plan"], "plan.json"),
+            (paths["approval"], "approval.json"),
+        )
+    ]
+    write(paths["transport"], transport)
+    authorization = issue_authorization(
+        artifact_root=tmp_path,
+        approval_path=paths["approval"],
+        transport_plan_path=paths["transport"],
+        supervisor_id="root-controller",
+        authorization_id="test-staged-remote-transport-v1",
+        issued_at=NOW,
+        expires_at=NOW + timedelta(minutes=10),
+    )
+    write(paths["authorization"], authorization)
+    return paths
+
+
 class FakeTransport:
     def __init__(
         self,
@@ -408,6 +495,91 @@ def test_dispatch_retrieves_worker_terminal_and_consumes_once(tmp_path: Path) ->
             expected_authorization_sha256=digest(paths["authorization"]),
             now=NOW,
             runner=fake,
+        )
+
+
+def test_explicit_staging_layout_runs_without_rewriting_frozen_plan(
+    tmp_path: Path,
+) -> None:
+    paths = staged_fixture(tmp_path)
+    fake = FakeTransport(paths)
+    result = dispatch(
+        artifact_root=tmp_path,
+        authorization_path=paths["authorization"],
+        expected_authorization_sha256=digest(paths["authorization"]),
+        now=NOW,
+        runner=fake,
+    )
+    assert result["state"] == "WORKER_TERMINAL_RETRIEVED"
+    transferred = [call[-1] for call in fake.calls if Path(call[0]) == paths["scp"]]
+    assert any(
+        "/workspace/kernel-opt/staging/test-run-v2/executor.py" in row
+        for row in transferred
+    )
+    assert any(
+        "/workspace/kernel-opt/staging/test-run-v2/approval.json" in row
+        for row in transferred
+    )
+
+
+def test_staging_layout_requires_every_declared_input(tmp_path: Path) -> None:
+    paths = staged_fixture(tmp_path)
+    transport = json.loads(paths["transport"].read_text(encoding="utf-8"))
+    transport["staging_copies"] = [
+        row
+        for row in transport["staging_copies"]
+        if not row["destination"].endswith("/workflow.py")
+    ]
+    write(paths["transport"], transport)
+    with pytest.raises(ValueError, match="omit declared staged inputs: workflow.py"):
+        issue_authorization(
+            artifact_root=tmp_path,
+            approval_path=paths["approval"],
+            transport_plan_path=paths["transport"],
+            supervisor_id="root-controller",
+            authorization_id="missing-staged-input",
+            issued_at=NOW,
+            expires_at=NOW + timedelta(minutes=10),
+        )
+
+
+def test_staging_layout_requires_plan_and_approval_argv_inputs(tmp_path: Path) -> None:
+    paths = staged_fixture(tmp_path)
+    transport = json.loads(paths["transport"].read_text(encoding="utf-8"))
+    transport["staging_copies"] = [
+        row
+        for row in transport["staging_copies"]
+        if not row["destination"].endswith("/approval.json")
+    ]
+    write(paths["transport"], transport)
+    with pytest.raises(ValueError, match="omit sealed argv inputs: .*approval.json"):
+        issue_authorization(
+            artifact_root=tmp_path,
+            approval_path=paths["approval"],
+            transport_plan_path=paths["transport"],
+            supervisor_id="root-controller",
+            authorization_id="missing-approval-copy",
+            issued_at=NOW,
+            expires_at=NOW + timedelta(minutes=10),
+        )
+
+
+def test_staging_layout_rejects_destination_outside_declared_root(
+    tmp_path: Path,
+) -> None:
+    paths = staged_fixture(tmp_path)
+    transport = json.loads(paths["transport"].read_text(encoding="utf-8"))
+    transport["staging_copies"][0]["destination"] = "/tmp/executor.py"
+    write(paths["transport"], transport)
+    with pytest.raises(ValueError, match="outside declared staging roots"):
+        issue_authorization(
+            artifact_root=tmp_path,
+            approval_path=paths["approval"],
+            transport_plan_path=paths["transport"],
+            supervisor_id="root-controller",
+            authorization_id="escaped-staging-input",
+            issued_at=NOW,
+            expires_at=NOW + timedelta(minutes=10),
         )
 
 

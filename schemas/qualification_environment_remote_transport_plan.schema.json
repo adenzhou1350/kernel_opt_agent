@@ -50,6 +50,22 @@
       "uniqueItems": true,
       "items": {"$ref": "#/$defs/identity"}
     },
+    "staging_copies": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "destination"],
+        "properties": {
+          "source": {"$ref": "#/$defs/identity"},
+          "destination": {
+            "type": "string",
+            "pattern": "^/[A-Za-z0-9_./+-]+$"
+          }
+        }
+      }
+    },
     "budget": {
       "type": "object",
       "additionalProperties": false,
