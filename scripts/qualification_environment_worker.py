@@ -37,6 +37,11 @@ CACHE_ENVIRONMENT_KEYS = (
 )
 DEFAULT_TOOLCHAIN_NAMES = (
     "nvcc",
+    "ptxas",
+    "cuobjdump",
+    "nvidia-smi",
+    "nsys",
+    "ncu",
     "gcc",
     "g++",
     "ninja",

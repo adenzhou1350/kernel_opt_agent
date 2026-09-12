@@ -1033,6 +1033,25 @@ The read-only `plan` view classifies every queued item as immediately
 reservable, waiting for GPUs, requiring environment preparation, or having no
 compatible resource. It is suitable for a dashboard but is not a reservation.
 
+Profile, compiler and disassembly tools must be present before a GPU lease is
+created. Collect a fresh worker attestation, then bind the exact execution plan
+as the consumer of a pre-lease toolchain gate:
+
+```bash
+python3 scripts/kernel_opt.py qualification-worker-toolchain \
+  --attestation worker-runtime-attestation.json \
+  --consumer sealed-gpu-execution-plan.json \
+  --worker-id worker-shared-sm120 --host-id shared-8x-sm120-32g \
+  --require-tool nsys --require-tool cuobjdump \
+  --max-age-seconds 300 --output prelease-toolchain-gate.json
+```
+
+The worker attestation records common compiler, profiler and binary-inspection
+tools even when they are absent. The gate returns `BLOCKED_PRELEASE` for a
+missing tool or stale attestation, before a broker lease consumes GPU capacity.
+`READY_FOR_PRELEASE_BINDING` proves only fresh tool availability; it does not
+authorize a lease, process, GPU workload, correctness or performance claim.
+
 An accepted optimization is not automatically an upstream-ready change. Build
 the review package from a clean candidate commit and hash-bound evidence. Set
 `submission_mode` to `DRAFT_REVIEW` when the immediate objective is early

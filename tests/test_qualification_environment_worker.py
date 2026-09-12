@@ -114,7 +114,16 @@ def test_compiled_arches_falls_back_when_cuda_is_hidden() -> None:
 
 
 def test_default_toolchain_covers_late_worker_build_failures() -> None:
-    assert {"git", "cmake", "make"} <= set(DEFAULT_TOOLCHAIN_NAMES)
+    assert {
+        "git",
+        "cmake",
+        "make",
+        "nsys",
+        "ncu",
+        "cuobjdump",
+        "ptxas",
+        "nvidia-smi",
+    } <= set(DEFAULT_TOOLCHAIN_NAMES)
 
 
 def test_tool_identity_binds_resolved_bytes_and_version(
