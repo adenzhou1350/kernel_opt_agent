@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import copy
+import json
 import sys
 import tempfile
 import threading
@@ -19,7 +20,13 @@ from qualification_environment import (  # noqa: E402
     closure_template,
     request_template,
 )
-from resource_broker import ResourceBroker, digest, validate_inventory  # noqa: E402
+from qualification_worker_toolchain_gate import evaluate as evaluate_toolchain  # noqa: E402
+from resource_broker import (  # noqa: E402
+    ResourceBroker,
+    digest,
+    sha256_file,
+    validate_inventory,
+)
 
 
 NOW = datetime(2026, 9, 11, 7, 0, tzinfo=UTC)
@@ -122,6 +129,82 @@ def job(
     }
 
 
+def prelease_gate(
+    tmp_path: Path, request: dict, *, observed_at: datetime = NOW
+) -> dict:
+    identity = "a" * 64
+    attestation_path = tmp_path / "worker.json"
+    consumer_path = tmp_path / "sealed-plan.json"
+    attestation = {
+        "schema_version": "qualification-environment-worker-attestation-v1",
+        "observed_at": observed_at.isoformat().replace("+00:00", "Z"),
+        "worker_id": "worker-sm120-a",
+        "host_id": "sm120-a",
+        "platform": {
+            "os": "linux",
+            "architecture": "x86_64",
+            "hostname": "worker",
+        },
+        "storage": {
+            "requested_root": "/workspace",
+            "resolved_root": "/workspace",
+            "free_bytes": 100,
+            "total_bytes": 200,
+            "mount": {},
+        },
+        "runtime": {
+            "python": {
+                "version": "3.12",
+                "path": "/usr/bin/python3",
+                "sha256": identity,
+            },
+            "torch": {
+                "version": "2.11.0+cu130",
+                "cuda_version": "13.0",
+                "module_path": "/opt/torch/__init__.py",
+                "module_sha256": identity,
+                "build_config_sha256": identity,
+                "compiled_arches": ["sm_120"],
+                "nccl_available": True,
+                "native_libraries": [{"path": "/opt/torch/_C.so", "sha256": identity}],
+            },
+            "toolchain": {
+                "nsys": {
+                    "path": "/usr/local/bin/nsys",
+                    "sha256": identity,
+                    "version": "NVIDIA Nsight Systems version 2026.1",
+                }
+            },
+        },
+        "isolation": {
+            "cuda_visible_devices": "-1",
+            "torch_cuda_available": False,
+            "gpu_device_nodes": [],
+            "nested_container_runtimes": [],
+            "gpu_processes": [],
+        },
+        "claim_boundary": "READ_ONLY_WORKER_RUNTIME_AND_STORAGE_ATTESTATION_NOT_ENVIRONMENT_MATERIALIZATION_GPU_OR_WORKLOAD_AUTHORIZATION",
+    }
+    attestation_path.write_text(json.dumps(attestation) + "\n", encoding="utf-8")
+    consumer_path.write_text('{"sealed": true}\n', encoding="utf-8")
+    request["prelease_toolchain"] = {
+        "required_tools": ["nsys"],
+        "consumer": {
+            "path": consumer_path.resolve().as_posix(),
+            "sha256": sha256_file(consumer_path),
+        },
+    }
+    return evaluate_toolchain(
+        attestation_path=attestation_path,
+        consumer_path=consumer_path,
+        worker_id="worker-sm120-a",
+        host_id="sm120-a",
+        required_tools=["nsys"],
+        max_age_seconds=300,
+        observed_at=NOW,
+    )
+
+
 @pytest.fixture
 def broker():
     with tempfile.TemporaryDirectory() as temporary:
@@ -169,6 +252,109 @@ def test_exact_job_acquire_returns_none_without_mutating_other_jobs(
 def test_exact_job_acquire_rejects_empty_identifier(broker: ResourceBroker) -> None:
     with pytest.raises(ValueError, match="non-empty"):
         broker.acquire(inventory(), now=NOW, job_id="")
+
+
+def test_required_prelease_toolchain_gate_blocks_before_lease(
+    broker: ResourceBroker, tmp_path: Path
+) -> None:
+    request = job("tool-gated")
+    prelease_gate(tmp_path, request)
+    broker.submit(request, now=NOW)
+
+    planned = broker.plan(inventory(), now=NOW)["jobs"][0]
+    assert planned["plan_state"] == "PRELEASE_TOOLCHAIN_GATE_REQUIRED"
+    assert broker.acquire(inventory(), now=NOW) is None
+    with pytest.raises(ValueError, match="requires a fresh prelease"):
+        broker.acquire(inventory(), now=NOW, job_id="tool-gated")
+    assert broker.snapshot(now=NOW)["allocations"] == []
+    assert broker.job("tool-gated")["state"] == "QUEUED"
+
+
+def test_fresh_prelease_toolchain_gate_is_bound_into_lease(
+    broker: ResourceBroker, tmp_path: Path
+) -> None:
+    request = job("tool-ready")
+    gate = prelease_gate(tmp_path, request)
+    broker.submit(request, now=NOW)
+
+    lease = broker.acquire(
+        inventory(),
+        now=NOW,
+        job_id="tool-ready",
+        prelease_toolchain_gate=gate,
+    )
+
+    assert lease["prelease_toolchain"] == {
+        "gate_sha256": digest(gate),
+        "attestation": gate["attestation"],
+        "consumer": gate["consumer"],
+        "required_tools": ["nsys"],
+    }
+    assert lease["claim_boundary"].startswith("RESOURCE_RESERVATION_ONLY")
+
+
+def test_prelease_gate_is_revalidated_at_acquire_time(
+    broker: ResourceBroker, tmp_path: Path
+) -> None:
+    request = job("tool-stale")
+    gate = prelease_gate(tmp_path, request)
+    broker.submit(request, now=NOW)
+
+    with pytest.raises(ValueError, match="no longer fresh"):
+        broker.acquire(
+            inventory(),
+            now=NOW + timedelta(seconds=301),
+            job_id="tool-stale",
+            prelease_toolchain_gate=gate,
+        )
+    assert broker.job("tool-stale")["state"] == "QUEUED"
+    assert broker.snapshot(now=NOW)["allocations"] == []
+
+
+def test_prelease_gate_rejects_changed_evidence_before_lease(
+    broker: ResourceBroker, tmp_path: Path
+) -> None:
+    request = job("tool-tampered")
+    gate = prelease_gate(tmp_path, request)
+    broker.submit(request, now=NOW)
+    Path(gate["attestation"]["path"]).write_text("{}\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="attestation bytes changed"):
+        broker.acquire(
+            inventory(),
+            now=NOW,
+            job_id="tool-tampered",
+            prelease_toolchain_gate=gate,
+        )
+    assert broker.snapshot(now=NOW)["allocations"] == []
+
+
+def test_prelease_gate_requires_exact_job_selection(
+    tmp_path: Path, broker: ResourceBroker
+) -> None:
+    request = job("tool-exact")
+    gate = prelease_gate(tmp_path, request)
+    broker.submit(request, now=NOW)
+
+    with pytest.raises(ValueError, match="requires an exact job_id"):
+        broker.acquire(inventory(), now=NOW, prelease_toolchain_gate=gate)
+
+
+def test_prelease_gate_cannot_be_attached_to_an_undeclared_job(
+    tmp_path: Path, broker: ResourceBroker
+) -> None:
+    gate_request = job("gate-source")
+    gate = prelease_gate(tmp_path, gate_request)
+    broker.submit(job("plain"), now=NOW)
+
+    with pytest.raises(ValueError, match="does not declare"):
+        broker.acquire(
+            inventory(),
+            now=NOW,
+            job_id="plain",
+            prelease_toolchain_gate=gate,
+        )
+    assert broker.snapshot(now=NOW)["allocations"] == []
 
 
 def test_exact_gpu_gang_is_selected_by_uuid(broker: ResourceBroker) -> None:

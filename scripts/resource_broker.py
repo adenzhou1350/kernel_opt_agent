@@ -18,6 +18,7 @@ from pathlib import Path
 
 from qualification_environment import evaluate as evaluate_environment
 from qualification_environment import validate as validate_environment_object
+from qualification_environment_worker import validate as validate_worker_attestation
 from schema_utils import validate_instance
 
 
@@ -61,6 +62,14 @@ def read_object(path: Path) -> dict:
     if not isinstance(value, dict):
         raise ValueError(f"expected an object: {path}")
     return value
+
+
+def sha256_file(path: Path) -> str:
+    value = hashlib.sha256()
+    with path.open("rb") as handle:
+        for block in iter(lambda: handle.read(1024 * 1024), b""):
+            value.update(block)
+    return value.hexdigest()
 
 
 def validate(value: dict, schema_name: str, label: str) -> None:
@@ -116,6 +125,67 @@ def validate_inventory(inventory: dict) -> None:
             if gpu["uuid"] in gpu_uuids:
                 raise ValueError("GPU UUID appears on more than one host")
             gpu_uuids.add(gpu["uuid"])
+
+
+def validate_prelease_toolchain_gate(
+    job: dict,
+    match: dict,
+    gate: dict,
+    *,
+    now: datetime,
+) -> dict:
+    """Revalidate a fresh worker-tool gate before mutating broker state."""
+    requirement = job.get("prelease_toolchain")
+    if requirement is None:
+        raise ValueError("job does not declare a prelease toolchain requirement")
+    validate(
+        gate,
+        "qualification_worker_toolchain_gate.schema.json",
+        "prelease worker toolchain gate",
+    )
+    if gate["status"] != "READY_FOR_PRELEASE_BINDING" or gate["blockers"]:
+        raise ValueError("prelease worker toolchain gate is not ready")
+    if gate["worker_id"] != match["host"]["worker_id"]:
+        raise ValueError("prelease worker toolchain gate targets another worker")
+    if gate["host_id"] != match["host"]["host_id"]:
+        raise ValueError("prelease worker toolchain gate targets another host")
+    if gate["consumer"] != requirement["consumer"]:
+        raise ValueError("prelease worker toolchain gate consumer differs from job")
+    expected_tools = requirement["required_tools"]
+    if [item["name"] for item in gate["tools"]] != expected_tools:
+        raise ValueError("prelease worker toolchain gate tools differ from job")
+    if any(item["state"] != "PRESENT" for item in gate["tools"]):
+        raise ValueError("prelease worker toolchain gate contains a missing tool")
+
+    attestation_path = Path(gate["attestation"]["path"]).resolve(strict=True)
+    if sha256_file(attestation_path) != gate["attestation"]["sha256"]:
+        raise ValueError("prelease worker attestation bytes changed")
+    validate_worker_attestation(attestation_path)
+    attestation = read_object(attestation_path)
+    if attestation["worker_id"] != gate["worker_id"]:
+        raise ValueError("prelease worker attestation worker_id changed")
+    if attestation["host_id"] != gate["host_id"]:
+        raise ValueError("prelease worker attestation host_id changed")
+    attested_at = parse_timestamp(attestation["observed_at"])
+    if attested_at != parse_timestamp(gate["attestation_observed_at"]):
+        raise ValueError("prelease worker attestation timestamp changed")
+    age_seconds = (now.astimezone(UTC) - attested_at).total_seconds()
+    if age_seconds < 0 or age_seconds > gate["max_age_seconds"]:
+        raise ValueError("prelease worker attestation is no longer fresh")
+
+    consumer_path = Path(gate["consumer"]["path"]).resolve(strict=True)
+    if sha256_file(consumer_path) != gate["consumer"]["sha256"]:
+        raise ValueError("prelease toolchain consumer bytes changed")
+    toolchain = attestation["runtime"]["toolchain"]
+    for item in gate["tools"]:
+        if toolchain.get(item["name"]) != item["identity"]:
+            raise ValueError(f"prelease worker tool identity changed: {item['name']}")
+    return {
+        "gate_sha256": digest(gate),
+        "attestation": gate["attestation"],
+        "consumer": gate["consumer"],
+        "required_tools": expected_tools,
+    }
 
 
 def environment_decision(host: dict, request: dict) -> dict | None:
@@ -445,11 +515,20 @@ class ResourceBroker:
         ttl_seconds: int = 900,
         now: datetime | None = None,
         job_id: str | None = None,
+        prelease_toolchain_gate: dict | None = None,
     ) -> dict | None:
         validate_inventory(inventory)
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be positive")
         now = now or datetime.now(UTC)
+        if prelease_toolchain_gate is not None and job_id is None:
+            raise ValueError("a prelease toolchain gate requires an exact job_id")
+        if prelease_toolchain_gate is not None:
+            validate(
+                prelease_toolchain_gate,
+                "qualification_worker_toolchain_gate.schema.json",
+                "prelease worker toolchain gate",
+            )
         self.connection.execute("BEGIN IMMEDIATE")
         try:
             self._mark_stale(now)
@@ -481,6 +560,19 @@ class ResourceBroker:
                         matches.append(match)
                 if not matches:
                     continue
+                if prelease_toolchain_gate is not None:
+                    matches = [
+                        match
+                        for match in matches
+                        if match["host"]["host_id"]
+                        == prelease_toolchain_gate["host_id"]
+                        and match["host"]["worker_id"]
+                        == prelease_toolchain_gate["worker_id"]
+                    ]
+                    if not matches:
+                        raise ValueError(
+                            "prelease worker toolchain gate has no compatible host"
+                        )
                 match = min(
                     matches,
                     key=lambda item: (
@@ -488,6 +580,24 @@ class ResourceBroker:
                         item["host"]["host_id"],
                     ),
                 )
+                prelease_toolchain = None
+                if job.get("prelease_toolchain") is not None:
+                    if prelease_toolchain_gate is None:
+                        if job_id is not None:
+                            raise ValueError(
+                                "job requires a fresh prelease worker toolchain gate"
+                            )
+                        continue
+                    prelease_toolchain = validate_prelease_toolchain_gate(
+                        job,
+                        match,
+                        prelease_toolchain_gate,
+                        now=now,
+                    )
+                elif prelease_toolchain_gate is not None:
+                    raise ValueError(
+                        "job does not declare a prelease toolchain requirement"
+                    )
                 acquired_at = timestamp(now)
                 expires_at = timestamp(now + timedelta(seconds=ttl_seconds))
                 lease_id = uuid.uuid4().hex
@@ -525,6 +635,8 @@ class ResourceBroker:
                         "EXECUTION_AUTHORIZATION"
                     ),
                 }
+                if prelease_toolchain is not None:
+                    lease["prelease_toolchain"] = prelease_toolchain
                 self.connection.execute(
                     "INSERT INTO leases VALUES (?, ?, ?, ?, ?, 'ACTIVE', ?, ?, ?)",
                     (
@@ -712,7 +824,11 @@ class ResourceBroker:
                     is not None
                 ]
                 if ready_hosts:
-                    plan_state = "READY_FOR_RESOURCE_RESERVATION"
+                    plan_state = (
+                        "PRELEASE_TOOLCHAIN_GATE_REQUIRED"
+                        if job.get("prelease_toolchain") is not None
+                        else "READY_FOR_RESOURCE_RESERVATION"
+                    )
                     compatible_hosts = ready_hosts
                 elif environment_hosts:
                     plan_state = "WAITING_FOR_GPU"
@@ -801,6 +917,14 @@ def main() -> int:
         "--job-id",
         help="atomically acquire only this queued job; omit for normal scheduling",
     )
+    acquire.add_argument(
+        "--prelease-toolchain-gate",
+        type=Path,
+        help=(
+            "fresh qualification-worker-toolchain result for the exact job; "
+            "required when the job declares prelease_toolchain"
+        ),
+    )
     heartbeat = commands.add_parser("heartbeat")
     heartbeat.add_argument("--lease-id", required=True)
     heartbeat.add_argument("--ttl-seconds", type=int, default=900)
@@ -830,6 +954,11 @@ def main() -> int:
                 read_object(args.inventory),
                 ttl_seconds=args.ttl_seconds,
                 job_id=args.job_id,
+                prelease_toolchain_gate=(
+                    read_object(args.prelease_toolchain_gate)
+                    if args.prelease_toolchain_gate
+                    else None
+                ),
             )
         elif args.action == "heartbeat":
             result = broker.heartbeat(args.lease_id, ttl_seconds=args.ttl_seconds)

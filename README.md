@@ -116,6 +116,28 @@ python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
 python3 scripts/kernel_opt.py resource-broker --database broker.sqlite snapshot
 ```
 
+Jobs that need a profiler, compiler, disassembler, or runtime utility should
+freeze `prelease_toolchain.required_tools` and the exact execution-plan
+consumer in the job. Generate a fresh gate for the selected worker, then make
+an exact acquisition; the broker revalidates the attestation, consumer bytes,
+tool identities, host, worker, and freshness before it writes a lease:
+
+```bash
+python3 scripts/kernel_opt.py qualification-worker-toolchain \
+  --attestation worker-attestation.json \
+  --consumer sealed-execution-plan.json \
+  --worker-id worker-sm120-a --host-id sm120-a \
+  --require-tool nsys --require-tool cuobjdump \
+  --max-age-seconds 300 --output prelease-toolchain-gate.json
+python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
+  acquire --inventory inventory.json --job-id qualification-job \
+  --prelease-toolchain-gate prelease-toolchain-gate.json
+```
+
+Normal scheduling skips jobs with a pre-lease tool requirement until an exact
+gated acquisition is requested. A passing toolchain gate remains availability
+evidence only; it does not authorize process launch or GPU execution.
+
 The resource broker atomically reserves an exact GPU gang on one compatible
 worker, prefers a reusable environment closure, and backfills a smaller
 runnable job when a larger high-priority gang cannot currently fit. It is

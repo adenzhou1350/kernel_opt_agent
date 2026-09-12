@@ -76,6 +76,28 @@
       }
     },
     "environment_request": {"type": "object"},
+    "prelease_toolchain": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_tools", "consumer"],
+      "properties": {
+        "required_tools": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9+_.-]*$"}
+        },
+        "consumer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path", "sha256"],
+          "properties": {
+            "path": {"type": "string", "minLength": 1},
+            "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+          }
+        }
+      }
+    },
     "budget": {
       "type": "object",
       "additionalProperties": false,
