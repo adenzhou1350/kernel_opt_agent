@@ -600,7 +600,10 @@ milestones.
 
 PR transitions are recorded atomically with their stable URL and immutable
 GitHub event receipt. `READY` requires an observed Draft milestone, and
-`MERGED` requires an observed Ready milestone:
+`MERGED` requires an observed Ready milestone. When the cycle is actively in
+`EXTERNAL_WAIT`, the same transaction closes that wait at the observed PR event
+time; unrelated environment, validation, and implementation phases remain
+active:
 
 ```bash
 python3 scripts/kernel_opt.py community-timing record-pr-stage \

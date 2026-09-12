@@ -765,6 +765,9 @@ def mark(args: argparse.Namespace) -> dict:
 def record_pr_stage(args: argparse.Namespace) -> dict:
     """Atomically bind a PR URL and one observed GitHub delivery stage."""
     ledger = validate_ledger(args.ledger)
+    active = [span for span in ledger["spans"] if span["status"] == "ACTIVE"]
+    if len(active) > 1:
+        raise ValueError("more than one primary phase is active")
     kind = PR_STAGE_MILESTONES[args.stage]
     milestones = {item["kind"] for item in ledger["milestones"]}
     if kind in milestones:
@@ -776,14 +779,24 @@ def record_pr_stage(args: argparse.Namespace) -> dict:
         raise ValueError("READY requires an observed PR_DRAFT_OPENED milestone")
     if args.stage == "MERGED" and "PR_READY_FOR_REVIEW" not in milestones:
         raise ValueError("MERGED requires an observed PR_READY_FOR_REVIEW milestone")
+    observed_at = timestamp(args.at)
+    evidence = [evidence_identity(path) for path in args.evidence]
+    if active and active[0]["phase"] == "EXTERNAL_WAIT":
+        if parse_time(observed_at, f"{kind}.at") < parse_time(
+            active[0]["started_at"], "active.started_at"
+        ):
+            raise ValueError("PR stage precedes the active external wait")
+        active[0]["ended_at"] = observed_at
+        active[0]["status"] = "COMPLETE"
+        active[0]["evidence"] = evidence
     ledger["outcome"]["pull_request_url"] = args.url
     if args.stage == "MERGED":
         ledger["outcome"]["merged"] = True
     ledger["milestones"].append(
         {
             "kind": kind,
-            "at": timestamp(args.at),
-            "evidence": [evidence_identity(path) for path in args.evidence],
+            "at": observed_at,
+            "evidence": evidence,
         }
     )
     write_ledger(args.ledger, ledger)
