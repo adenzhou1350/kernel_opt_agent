@@ -56,12 +56,21 @@ python3 scripts/kernel_opt.py community-timing import-phase-receipt \
   --receipt worker-terminal.json --started-at-field started_at \
   --ended-at-field finished_at --duration-field elapsed_seconds \
   --status INTERRUPTED
+python3 scripts/kernel_opt.py community-timing seal-evidence \
+  --source mutable-status.json --store sealed-evidence \
+  --output mutable-status.seal.json
 python3 scripts/kernel_opt.py community-timing summarize \
   --ledger work-cycle.json --output work-cycle-summary.json
 python3 scripts/kernel_opt.py community-timing audit-root \
   --root /path/to/framework-evidence \
   --max-active-phase-seconds 21600
 ```
+
+If evidence is a status document that may be updated later, run
+`seal-evidence` first and bind the returned `sealed` identity in milestones or
+spans. The command publishes bytes under their SHA-256 without overwriting an
+existing object. A later status revision therefore creates a new object instead
+of invalidating an already selected ledger.
 
 The ledger uses non-overlapping primary wall-clock spans for community research,
 bottleneck diagnosis, implementation, compile/measurement, correctness,

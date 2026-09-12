@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import time
 from datetime import datetime, timezone
@@ -77,6 +78,52 @@ def evidence_identity(path: Path) -> dict:
     if not path.is_file():
         raise FileNotFoundError(path)
     return {"path": path.as_posix(), "sha256": sha256_file(path)}
+
+
+def seal_evidence(source: Path, store: Path) -> dict:
+    """Publish one byte-identical, content-addressed evidence snapshot."""
+
+    source = source.resolve(strict=True)
+    if not source.is_file():
+        raise FileNotFoundError(source)
+    digest = sha256_file(source)
+    destination_dir = store.resolve() / digest[:2]
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    destination = destination_dir / f"{digest}{source.suffix}"
+    created = False
+
+    if destination.exists():
+        if not destination.is_file() or sha256_file(destination) != digest:
+            raise ValueError("content-addressed evidence destination is corrupted")
+    else:
+        temporary = destination.with_name(
+            f".{destination.name}.{os.getpid()}.{time.time_ns()}.tmp"
+        )
+        try:
+            with temporary.open("xb") as handle:
+                handle.write(source.read_bytes())
+                handle.flush()
+                os.fsync(handle.fileno())
+            try:
+                os.link(temporary, destination)
+                created = True
+            except FileExistsError:
+                if not destination.is_file() or sha256_file(destination) != digest:
+                    raise ValueError(
+                        "content-addressed evidence destination changed during publish"
+                    )
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    return {
+        "schema_version": "community-sealed-evidence-v1",
+        "source": {"path": source.as_posix(), "sha256": digest},
+        "sealed": {"path": destination.as_posix(), "sha256": digest},
+        "created": created,
+        "claim_boundary": (
+            "BYTE_IDENTICAL_CONTENT_ADDRESSED_SNAPSHOT_NOT_SEMANTIC_VALIDATION"
+        ),
+    }
 
 
 def validate_candidate_value_decision(path: Path) -> dict:
@@ -1064,6 +1111,10 @@ def parse_args() -> argparse.Namespace:
     imported.add_argument(
         "--status", choices=("COMPLETE", "INTERRUPTED"), required=True
     )
+    sealed = commands.add_parser("seal-evidence")
+    sealed.add_argument("--source", type=Path, required=True)
+    sealed.add_argument("--store", type=Path, required=True)
+    sealed.add_argument("--output", type=Path)
     milestone = commands.add_parser("mark")
     milestone.add_argument("--ledger", type=Path, required=True)
     milestone.add_argument("--kind", choices=MILESTONES, required=True)
@@ -1116,6 +1167,10 @@ def main() -> int:
         result, exit_code = run_phase_command(args)
     elif args.operation == "import-phase-receipt":
         result = import_phase_receipt(args)
+    elif args.operation == "seal-evidence":
+        result = seal_evidence(args.source, args.store)
+        if args.output is not None:
+            atomic_json(args.output.resolve(), result)
     elif args.operation == "mark":
         result = mark(args)
     elif args.operation == "record-pr-stage":

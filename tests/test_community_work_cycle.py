@@ -22,6 +22,7 @@ from community_work_cycle import (  # noqa: E402
     pair_baseline,
     record_pr_stage,
     run_phase_command,
+    seal_evidence,
     summarize,
     switch_phase,
     validate_ledger,
@@ -988,6 +989,51 @@ def test_audit_roots_reports_invalid_ledgers_without_hiding_valid_ones() -> None
         )
 
 
+def test_seal_evidence_preserves_content_addressed_history() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        source = base / "status.json"
+        store = base / "sealed"
+        source.write_text('{"state": "draft"}\n', encoding="utf-8")
+
+        first = seal_evidence(source, store)
+        first_path = Path(first["sealed"]["path"])
+        assert first["created"] is True
+        assert first_path.read_bytes() == source.read_bytes()
+        assert first_path.name == f"{first['sealed']['sha256']}.json"
+
+        repeated = seal_evidence(source, store)
+        assert repeated["created"] is False
+        assert repeated["sealed"] == first["sealed"]
+
+        source.write_text('{"state": "ci-complete"}\n', encoding="utf-8")
+        second = seal_evidence(source, store)
+        second_path = Path(second["sealed"]["path"])
+        assert second["created"] is True
+        assert second_path != first_path
+        assert first_path.read_text(encoding="utf-8") == '{"state": "draft"}\n'
+        assert second_path.read_bytes() == source.read_bytes()
+
+
+def test_seal_evidence_rejects_corrupted_content_addressed_target() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        source = base / "receipt.json"
+        store = base / "sealed"
+        source.write_text('{"ok": true}\n', encoding="utf-8")
+        digest = sha256_file(source)
+        target = store / digest[:2] / f"{digest}.json"
+        target.parent.mkdir(parents=True)
+        target.write_text('{"ok": false}\n', encoding="utf-8")
+
+        try:
+            seal_evidence(source, store)
+        except ValueError as error:
+            assert "corrupted" in str(error)
+        else:
+            raise AssertionError("corrupted sealed evidence was accepted")
+
+
 if __name__ == "__main__":
     test_work_cycle_summary_and_guards()
     test_environment_and_governance_overhead_reporting()
@@ -1000,3 +1046,5 @@ if __name__ == "__main__":
     test_pair_baseline_reads_bound_assessments()
     test_audit_roots_reports_live_timing_blind_spots()
     test_audit_roots_reports_invalid_ledgers_without_hiding_valid_ones()
+    test_seal_evidence_preserves_content_addressed_history()
+    test_seal_evidence_rejects_corrupted_content_addressed_target()
