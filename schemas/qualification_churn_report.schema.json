@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_churn_report.schema.json",
+  "title": "Qualification environment plan churn audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "generated_at", "run_root", "policy", "summary", "families", "orphan_terminal_artifacts", "claim_boundary"],
+  "properties": {
+    "schema_version": {"const": "qualification-churn-report-v1"},
+    "generated_at": {"type": "string", "minLength": 1},
+    "run_root": {"type": "string", "minLength": 1},
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["max_plan_versions", "max_failed_attempts", "max_unexecuted_revisions"],
+      "properties": {
+        "max_plan_versions": {"type": "integer", "minimum": 1},
+        "max_failed_attempts": {"type": "integer", "minimum": 1},
+        "max_unexecuted_revisions": {"type": "integer", "minimum": 1}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family_count", "plan_version_count", "terminal_plan_count", "unexecuted_plan_count", "workload_started_plan_count", "terminal_artifact_count", "action_required_family_count"],
+      "properties": {
+        "family_count": {"type": "integer", "minimum": 0},
+        "plan_version_count": {"type": "integer", "minimum": 0},
+        "terminal_plan_count": {"type": "integer", "minimum": 0},
+        "unexecuted_plan_count": {"type": "integer", "minimum": 0},
+        "workload_started_plan_count": {"type": "integer", "minimum": 0},
+        "terminal_artifact_count": {"type": "integer", "minimum": 0},
+        "action_required_family_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["family_id", "plan_version_count", "terminal_plan_count", "failed_terminal_plan_count", "succeeded_terminal_plan_count", "unexecuted_plan_count", "workload_started_plan_count", "decision", "plans"],
+        "properties": {
+          "family_id": {"type": "string", "minLength": 1},
+          "plan_version_count": {"type": "integer", "minimum": 1},
+          "terminal_plan_count": {"type": "integer", "minimum": 0},
+          "failed_terminal_plan_count": {"type": "integer", "minimum": 0},
+          "succeeded_terminal_plan_count": {"type": "integer", "minimum": 0},
+          "unexecuted_plan_count": {"type": "integer", "minimum": 0},
+          "workload_started_plan_count": {"type": "integer", "minimum": 0},
+          "decision": {"enum": ["WORKLOAD_REACHED", "ADVANCE_FROM_ENVIRONMENT", "STOP_REPAIR_SCOPE", "COLLAPSE_UNEXECUTED_REVISIONS", "CONTINUE_BOUNDED"]},
+          "plans": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["version", "path", "sha256", "terminal_statuses", "workload_started", "gpu_used"],
+              "properties": {
+                "version": {"type": "integer", "minimum": 1},
+                "path": {"type": "string", "minLength": 1},
+                "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+                "terminal_statuses": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+                "workload_started": {"type": "boolean"},
+                "gpu_used": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "orphan_terminal_artifacts": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "claim_boundary": {"const": "PLAN_AND_TERMINAL_ARTIFACT_CHURN_ONLY_NOT_EXECUTION_CORRECTNESS_PERFORMANCE_OR_AUTHORIZATION"}
+  }
+}

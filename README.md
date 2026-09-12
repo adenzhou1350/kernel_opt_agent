@@ -790,6 +790,21 @@ python3 scripts/kernel_opt.py qualification-route \
   --output qualification-route.json
 ```
 
+Before issuing another version of an environment materialization plan, audit the
+run's existing plan and terminal receipts:
+
+```bash
+python3 scripts/kernel_opt.py qualification-churn \
+  --run runs/<run-id> \
+  --output runs/<run-id>/experiments/qualification-churn-v1.json
+```
+
+The audit links terminal receipts to exact plan hashes and distinguishes four
+useful states: stop an exhausted repair scope, collapse unexecuted plan
+revisions, advance after an environment closure succeeds, or acknowledge that
+the workload was actually reached. It is a routing signal only and never acts
+as execution, correctness, performance, or authorization evidence.
+
 The route distinguishes an exact-source candidate assertion failure from image,
 toolchain, dependency, ISA, import-identity and platform failures. Environment
 failures retain the candidate and consume a frozen technical-repair budget;
