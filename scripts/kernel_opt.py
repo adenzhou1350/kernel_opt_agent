@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -106,16 +107,21 @@ def epilog() -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, epilog=epilog(), formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("command", choices=sorted(COMMANDS))
-    args, forwarded = parser.parse_known_args()
-    target = Path(__file__).resolve().with_name(COMMANDS[args.command].script)
+    if len(sys.argv) >= 2 and sys.argv[1] in COMMANDS:
+        command_name = sys.argv[1]
+        forwarded = sys.argv[2:]
+    else:
+        args = parser.parse_args()
+        command_name = args.command
+        forwarded = []
+    target = Path(__file__).resolve().with_name(COMMANDS[command_name].script)
     if not target.is_file():
         parser.error(f"command implementation is missing: {target}")
     # The public command must preserve reusable-zone purity.  Child command
     # modules import shared helpers from scripts/; disable bytecode generation
     # before exec so normal framework use never creates scripts/__pycache__.
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
-    os.execv(sys.executable, [sys.executable, str(target), *forwarded])
-    return 127
+    return subprocess.call([sys.executable, str(target), *forwarded])
 
 
 if __name__ == "__main__":
