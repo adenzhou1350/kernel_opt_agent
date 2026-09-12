@@ -70,6 +70,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "report-render": Command("render_human_review_report.py", "render the validated Chinese HTML report"),
     },
     "upstream delivery": {
+        "upstream-prior-work": Command(
+            "upstream_prior_work.py",
+            "route open, merged and historically closed upstream overlaps",
+        ),
         "upstream-review-state": Command(
             "upstream_review_state.py",
             "separate GitHub Draft, CI, reviewer and qualification gates",

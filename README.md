@@ -46,6 +46,24 @@ gate or maintainer-authorization check is not a test failure. Record the
 current state and obtain a deterministic next owner/action with:
 
 ```bash
+python3 scripts/kernel_opt.py upstream-prior-work prior-work.json
+```
+
+Run this bounded prior-work gate before implementation, not at publication
+time. It distinguishes an exact open predecessor, an already merged change, a
+technical rejection, an unknown closure, an inactivity-bot closure, a feature
+overlap and adjacent work. Exact open or merged work blocks a competing Draft.
+An inactive exact predecessor may be revived only after its PR number is
+attributed and coordination is planned or posted; the decision never claims
+the semantic relationship was inferred by code. Those relationship labels are
+human-reviewed inputs bound to the observed GitHub query snapshot. This lets a
+lane reuse or contribute to old work without counting the same core idea as a
+new discovery.
+
+After the prior-work decision, record GitHub state and obtain the next
+owner/action with:
+
+```bash
 python3 scripts/kernel_opt.py upstream-review-state pr-review-state.json
 ```
 
