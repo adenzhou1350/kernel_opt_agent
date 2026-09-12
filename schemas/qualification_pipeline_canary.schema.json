@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_pipeline_canary.schema.json",
+  "title": "Bounded producer-to-consumer compatibility canary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "claim_boundary", "stages"],
+  "properties": {
+    "schema_version": {"const": "qualification-pipeline-canary-v1"},
+    "claim_boundary": {"const": "DRY_RUN_COMPATIBILITY_ONLY_NOT_EXECUTION_AUTHORIZATION_OR_PERFORMANCE_EVIDENCE"},
+    "stages": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "argv", "cwd", "environment", "timeout_seconds", "expected_exit_code", "expected_outputs"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]{0,63}$"},
+          "argv": {
+            "type": "array",
+            "minItems": 1,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "cwd": {"type": "string", "minLength": 1},
+          "environment": {
+            "type": "object",
+            "additionalProperties": {"type": "string"}
+          },
+          "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 900},
+          "expected_exit_code": {"type": "integer"},
+          "expected_outputs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "freshness"],
+              "properties": {
+                "path": {"type": "string", "minLength": 1},
+                "freshness": {"enum": ["PRESENT", "CREATED_OR_CHANGED"]}
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

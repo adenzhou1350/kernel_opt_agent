@@ -41,6 +41,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
     },
     "measurement": {
         "p0-calibrate": Command("calibrate_p0.py", "qualify timing and launch semantics"),
+        "qualification-pipeline-canary": Command(
+            "qualification_pipeline_canary.py",
+            "exercise a producer-to-consumer pipeline before costly execution",
+        ),
         "service-curve-fit": Command("fit_service_curve.py", "fit latency and throughput service curves"),
         "paired-compare": Command("compare_paired.py", "compare interleaved baseline/candidate samples"),
     },

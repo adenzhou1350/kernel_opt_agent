@@ -108,6 +108,25 @@ python3 scripts/kernel_opt.py advance --run runs/<run-id> --to BASELINE
 The enforced order is planning, production-exact baseline, modeling,
 P0--P3 experiments, production/P4 validation, certification and completion.
 
+## Preflight a producer-to-consumer pipeline
+
+Before spending build or GPU budget, exercise the real producer, analyzer and
+decision commands on representative synthetic data:
+
+```bash
+python3 scripts/kernel_opt.py qualification-pipeline-canary \
+  --spec runs/<run-id>/experiments/pipeline-canary.json \
+  --artifact-root runs/<run-id>/raw/pipeline-canary \
+  --output runs/<run-id>/raw/pipeline-canary/receipt.json
+```
+
+Each stage is an argv array with a bounded timeout and explicit fresh outputs.
+The runner executes stages without a shell, stops at the first failed command,
+hashes stdout, stderr and outputs, and writes the terminal receipt once. Use
+`{python}` and `{artifact_root}` placeholders for portable paths. This gate
+catches producer/consumer field, scope and terminal-case mismatches; it does
+not authorize execution or create correctness or performance evidence.
+
 ## Clean asset lifecycle
 
 Each directory has one owner:
