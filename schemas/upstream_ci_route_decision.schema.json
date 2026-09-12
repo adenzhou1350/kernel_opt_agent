@@ -4,7 +4,7 @@
   "title": "Fail-closed upstream CI routing decision",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "generated_at", "snapshot", "repository", "pull_request_number", "head_sha", "draft", "counts", "github_ci_stage", "candidate_test_failure", "only_policy_gate_failures", "recommended_action", "external_action_owner", "classified_checks", "claim_boundary"],
+  "required": ["schema_version", "generated_at", "snapshot", "repository", "pull_request_number", "head_sha", "draft", "counts", "github_ci_stage", "candidate_test_failure", "suspected_unrelated_failure", "only_policy_gate_failures", "recommended_action", "external_action_owner", "classified_checks", "claim_boundary"],
   "properties": {
     "schema_version": {"const": "upstream-ci-route-decision-v1"},
     "generated_at": {"type": "string", "format": "date-time"},
@@ -16,21 +16,23 @@
     "counts": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["success", "skipped", "running", "policy_gate", "candidate_failure", "infrastructure_failure", "unknown_failure"],
+      "required": ["success", "skipped", "running", "policy_gate", "candidate_failure", "suspected_unrelated_failure", "infrastructure_failure", "unknown_failure"],
       "properties": {
         "success": {"type": "integer", "minimum": 0},
         "skipped": {"type": "integer", "minimum": 0},
         "running": {"type": "integer", "minimum": 0},
         "policy_gate": {"type": "integer", "minimum": 0},
         "candidate_failure": {"type": "integer", "minimum": 0},
+        "suspected_unrelated_failure": {"type": "integer", "minimum": 0},
         "infrastructure_failure": {"type": "integer", "minimum": 0},
         "unknown_failure": {"type": "integer", "minimum": 0}
       }
     },
-    "github_ci_stage": {"enum": ["PASS", "RUNNING", "POLICY_GATE", "INFRASTRUCTURE_FAILURE", "UNKNOWN_FAILURE", "CANDIDATE_FAILURE"]},
+    "github_ci_stage": {"enum": ["PASS", "RUNNING", "POLICY_GATE", "SUSPECTED_UNRELATED_FAILURE", "INFRASTRUCTURE_FAILURE", "UNKNOWN_FAILURE", "CANDIDATE_FAILURE"]},
     "candidate_test_failure": {"type": "boolean"},
+    "suspected_unrelated_failure": {"type": "boolean"},
     "only_policy_gate_failures": {"type": "boolean"},
-    "recommended_action": {"enum": ["CI_PASS", "WAIT_FOR_CHECK_COMPLETION", "KEEP_DRAFT_AND_WAIT", "WAIT_FOR_MAINTAINER_CI_AUTHORIZATION", "ROUTE_INFRASTRUCTURE_FAILURE", "INSPECT_FAILED_CHECKS", "RESPOND_TO_CANDIDATE_FAILURE"]},
+    "recommended_action": {"enum": ["CI_PASS", "WAIT_FOR_CHECK_COMPLETION", "KEEP_DRAFT_AND_WAIT", "WAIT_FOR_MAINTAINER_CI_AUTHORIZATION", "REQUEST_TARGETED_RERUN_OR_CONTROL", "ROUTE_INFRASTRUCTURE_FAILURE", "INSPECT_FAILED_CHECKS", "RESPOND_TO_CANDIDATE_FAILURE"]},
     "external_action_owner": {"enum": ["AUTHOR", "MAINTAINER", "CONTROL_PLANE"]},
     "classified_checks": {
       "type": "array",
@@ -42,7 +44,7 @@
         "properties": {
           "check_id": {"type": "string", "minLength": 1},
           "name": {"type": "string", "minLength": 1},
-          "classification": {"enum": ["SUCCESS", "SKIPPED", "RUNNING", "POLICY_GATE", "INFRASTRUCTURE_FAILURE", "UNKNOWN_FAILURE", "CANDIDATE_FAILURE"]},
+          "classification": {"enum": ["SUCCESS", "SKIPPED", "RUNNING", "POLICY_GATE", "SUSPECTED_UNRELATED_FAILURE", "INFRASTRUCTURE_FAILURE", "UNKNOWN_FAILURE", "CANDIDATE_FAILURE"]},
           "details_url": {"type": "string", "minLength": 1}
         }
       }

@@ -144,6 +144,56 @@ def test_infrastructure_failure_is_not_candidate_failure(tmp_path: Path) -> None
     assert decision["recommended_action"] == "ROUTE_INFRASTRUCTURE_FAILURE"
 
 
+def test_disjoint_historical_failure_routes_to_targeted_rerun(tmp_path: Path) -> None:
+    unrelated = check(
+        "ctest",
+        "FAILURE",
+        "MasterServiceSSDSnapshotTest.EvictObject failed",
+    )
+    unrelated["unrelated_failure_evidence"] = {
+        "candidate_changed_paths": [
+            "mooncake-transfer-engine/src/transport/tcp_transport.cpp"
+        ],
+        "failed_component_paths": ["mooncake-store/tests/master_service_ssd_test.cpp"],
+        "historical_same_signature_urls": [
+            "https://github.com/kvcache-ai/Mooncake/pull/3805"
+        ],
+    }
+    path = write_snapshot(tmp_path, snapshot([unrelated]))
+    decision = route(validate_snapshot(path, ROOT / "schemas"), path)
+    assert decision["github_ci_stage"] == "SUSPECTED_UNRELATED_FAILURE"
+    assert decision["recommended_action"] == "REQUEST_TARGETED_RERUN_OR_CONTROL"
+    assert decision["external_action_owner"] == "MAINTAINER"
+    assert decision["candidate_test_failure"] is False
+    assert decision["suspected_unrelated_failure"] is True
+
+
+def test_overlap_or_candidate_marker_cannot_claim_unrelated(tmp_path: Path) -> None:
+    evidence = {
+        "candidate_changed_paths": ["src/transport/tcp.cpp"],
+        "failed_component_paths": ["src/transport"],
+        "historical_same_signature_urls": ["https://github.com/example/project/pull/9"],
+    }
+    overlap = check("opaque", "FAILURE", "command exited with status 1")
+    overlap["unrelated_failure_evidence"] = evidence
+    overlap_path = write_snapshot(tmp_path, snapshot([overlap]))
+    overlap_decision = route(
+        validate_snapshot(overlap_path, ROOT / "schemas"), overlap_path
+    )
+    assert overlap_decision["github_ci_stage"] == "UNKNOWN_FAILURE"
+
+    candidate = check("unit", "FAILURE", "Tests failed: test_tcp_queue")
+    candidate["unrelated_failure_evidence"] = {
+        **evidence,
+        "failed_component_paths": ["mooncake-store/tests/snapshot.cpp"],
+    }
+    candidate_path = write_snapshot(tmp_path, snapshot([candidate]))
+    candidate_decision = route(
+        validate_snapshot(candidate_path, ROOT / "schemas"), candidate_path
+    )
+    assert candidate_decision["github_ci_stage"] == "CANDIDATE_FAILURE"
+
+
 def test_candidate_marker_beats_policy_marker() -> None:
     mixed = check(
         "mixed",

@@ -74,7 +74,27 @@ def classify_check(check: dict) -> str:
         return "INFRASTRUCTURE_FAILURE"
     if any(marker in evidence for marker in POLICY_GATE_MARKERS):
         return "POLICY_GATE"
+    unrelated = check.get("unrelated_failure_evidence")
+    if unrelated and paths_are_disjoint(
+        unrelated["candidate_changed_paths"], unrelated["failed_component_paths"]
+    ):
+        return "SUSPECTED_UNRELATED_FAILURE"
     return "UNKNOWN_FAILURE"
+
+
+def paths_are_disjoint(candidate_paths: list[str], failed_paths: list[str]) -> bool:
+    def normalized(path: str) -> tuple[str, ...]:
+        return tuple(
+            part for part in path.replace("\\", "/").casefold().split("/") if part
+        )
+
+    candidate = [normalized(path) for path in candidate_paths]
+    failed = [normalized(path) for path in failed_paths]
+    return not any(
+        left == right or left[: len(right)] == right or right[: len(left)] == left
+        for left in candidate
+        for right in failed
+    )
 
 
 def validate_snapshot(snapshot_path: Path, schema_root: Path) -> dict:
@@ -119,6 +139,7 @@ def route(snapshot: dict, snapshot_path: Path) -> dict:
             "RUNNING",
             "POLICY_GATE",
             "CANDIDATE_FAILURE",
+            "SUSPECTED_UNRELATED_FAILURE",
             "INFRASTRUCTURE_FAILURE",
             "UNKNOWN_FAILURE",
         )
@@ -132,6 +153,12 @@ def route(snapshot: dict, snapshot_path: Path) -> dict:
         )
     elif counts["UNKNOWN_FAILURE"]:
         stage, action, owner = "UNKNOWN_FAILURE", "INSPECT_FAILED_CHECKS", "AUTHOR"
+    elif counts["SUSPECTED_UNRELATED_FAILURE"]:
+        stage, action, owner = (
+            "SUSPECTED_UNRELATED_FAILURE",
+            "REQUEST_TARGETED_RERUN_OR_CONTROL",
+            "MAINTAINER",
+        )
     elif counts["INFRASTRUCTURE_FAILURE"]:
         stage, action, owner = (
             "INFRASTRUCTURE_FAILURE",
@@ -160,6 +187,7 @@ def route(snapshot: dict, snapshot_path: Path) -> dict:
         for key in (
             "POLICY_GATE",
             "CANDIDATE_FAILURE",
+            "SUSPECTED_UNRELATED_FAILURE",
             "INFRASTRUCTURE_FAILURE",
             "UNKNOWN_FAILURE",
         )
@@ -175,6 +203,7 @@ def route(snapshot: dict, snapshot_path: Path) -> dict:
         "counts": normalized_counts,
         "github_ci_stage": stage,
         "candidate_test_failure": bool(counts["CANDIDATE_FAILURE"]),
+        "suspected_unrelated_failure": bool(counts["SUSPECTED_UNRELATED_FAILURE"]),
         "only_policy_gate_failures": bool(failure_total)
         and failure_total == counts["POLICY_GATE"],
         "recommended_action": action,
