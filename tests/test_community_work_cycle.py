@@ -212,10 +212,18 @@ def test_prospective_init_and_atomic_phase_switch() -> None:
                 initial_span_id="diagnose",
                 initial_actor="AGENT",
                 initial_resource_id=None,
+                candidate_evidence=[evidence],
             )
         )
         assert created["spans"][0]["phase"] == "BOTTLENECK_DIAGNOSIS"
         assert created["spans"][0]["status"] == "ACTIVE"
+        assert created["milestones"] == [
+            {
+                "kind": "FIRST_CANDIDATE_PROPOSED",
+                "at": "2026-09-07T04:00:00Z",
+                "evidence": [identity(evidence)],
+            }
+        ]
 
         switched = switch_phase(
             SimpleNamespace(
@@ -466,6 +474,45 @@ def test_import_phase_receipt_rejects_backfill_and_duration_drift() -> None:
                 "elapsed_seconds": 60,
             }
         )
+
+
+def test_candidate_evidence_bootstrap_fails_without_partial_ledger() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        cycle = base / "cycle.json"
+        missing = base / "missing-decision.json"
+        args = SimpleNamespace(
+            output=cycle,
+            cycle_id="candidate-cycle",
+            task_id="lane-task",
+            started_at=None,
+            observation_mode="PROSPECTIVE_EXACT",
+            minimum_material_speedup=1.02,
+            candidate_evidence=[missing],
+            initial_phase=None,
+            initial_span_id="diagnose",
+            initial_actor="AGENT",
+            initial_resource_id=None,
+        )
+        try:
+            init_ledger(args)
+        except FileNotFoundError:
+            pass
+        else:
+            raise AssertionError("missing candidate evidence must fail")
+        assert not cycle.exists()
+
+        evidence = base / "decision.json"
+        evidence.write_text("{}\n", encoding="utf-8")
+        args.candidate_evidence = [evidence]
+        args.observation_mode = "LEGACY_MILESTONE_BOUNDS"
+        try:
+            init_ledger(args)
+        except ValueError as error:
+            assert "PROSPECTIVE_EXACT" in str(error)
+        else:
+            raise AssertionError("legacy cycles cannot bootstrap exact selection time")
+        assert not cycle.exists()
 
 
 def test_pr_stage_is_atomic_and_fail_closed() -> None:

@@ -49,6 +49,9 @@ If a governed worker executes the command and returns an immutable receipt, use
 worker run. Bind the receipt's explicit start/end fields and reconcile its
 duration field when available; never infer these times from file mtimes or
 retrofit them into a legacy cycle.
+Prefer `community-timing init --candidate-evidence <decision>` so ledger creation
+and the first candidate milestone are one atomic write rather than two manual
+mutations.
 The control plane may run `community-timing audit-root` over lane evidence
 directories to find missing or stale prospective instrumentation. This is a
 pull-only audit: use its output in the dashboard and do not interrupt a live

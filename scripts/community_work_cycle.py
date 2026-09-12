@@ -511,7 +511,13 @@ def audit_roots(
 def init_ledger(args: argparse.Namespace) -> dict:
     if args.output.exists():
         raise FileExistsError(args.output)
+    candidate_evidence = getattr(args, "candidate_evidence", None) or []
+    if candidate_evidence and args.observation_mode != "PROSPECTIVE_EXACT":
+        raise ValueError(
+            "candidate evidence bootstrap requires PROSPECTIVE_EXACT observation"
+        )
     started_at = timestamp(args.started_at)
+    candidate_identities = [evidence_identity(path) for path in candidate_evidence]
     initial_phase = getattr(args, "initial_phase", None)
     if args.observation_mode == "PROSPECTIVE_EXACT" and initial_phase is None:
         initial_phase = "BOTTLENECK_DIAGNOSIS"
@@ -538,7 +544,17 @@ def init_ledger(args: argparse.Namespace) -> dict:
         "claim_boundary": "WORK_CYCLE_TIMING_NOT_PERFORMANCE_CAUSALITY",
         "minimum_material_speedup": args.minimum_material_speedup,
         "spans": spans,
-        "milestones": [],
+        "milestones": (
+            [
+                {
+                    "kind": "FIRST_CANDIDATE_PROPOSED",
+                    "at": started_at,
+                    "evidence": candidate_identities,
+                }
+            ]
+            if candidate_identities
+            else []
+        ),
         "outcome": {
             "correctness": "NOT_RUN",
             "best_speedup": None,
@@ -842,6 +858,15 @@ def parse_args() -> argparse.Namespace:
         default="PROSPECTIVE_EXACT",
     )
     init.add_argument("--minimum-material-speedup", type=float, default=1.02)
+    init.add_argument(
+        "--candidate-evidence",
+        type=Path,
+        action="append",
+        help=(
+            "atomically bind candidate-selection evidence and mark "
+            "FIRST_CANDIDATE_PROPOSED"
+        ),
+    )
     init.add_argument("--initial-phase", choices=PHASES)
     init.add_argument("--initial-span-id", default="initial")
     init.add_argument(

@@ -9,7 +9,9 @@ Record the complete delivery cycle separately from performance metrics:
 ```bash
 python3 scripts/kernel_opt.py community-timing init \
   --cycle-id <cycle-id> --task-id <task-id> \
-  --minimum-material-speedup 1.02 --output work-cycle.json
+  --minimum-material-speedup 1.02 \
+  --candidate-evidence candidate-value-decision.json \
+  --output work-cycle.json
 python3 scripts/kernel_opt.py community-timing switch-phase \
   --ledger work-cycle.json --span-id environment-1 \
   --phase ENVIRONMENT_SETUP --actor CPU \
@@ -39,15 +41,12 @@ Start a `PROSPECTIVE_EXACT` ledger when a framework candidate is selected,
 before editing production source. `init` atomically opens an active
 `BOTTLENECK_DIAGNOSIS` span by default, so timing cannot silently start after
 the work. Override it with `--initial-phase` when the first activity is already
-known. Use `switch-phase` to close the current span and open its successor at
-one timestamp; this avoids gaps between separate end/start commands. Bind the
-selection receipt immediately:
-
-```bash
-python3 scripts/kernel_opt.py community-timing mark \
-  --ledger work-cycle.json --kind FIRST_CANDIDATE_PROPOSED \
-  --evidence candidate-value-decision.json
-```
+known. `--candidate-evidence` validates the immutable selection decision before
+the same atomic write creates `FIRST_CANDIDATE_PROPOSED`; missing evidence or a
+legacy observation mode leaves no partial ledger. Use `switch-phase` to close
+the current span and open its successor at one timestamp, avoiding gaps between
+separate end/start commands. The separate `mark` operation remains available
+for later milestones.
 
 Record GitHub transitions atomically with their stable URL, observed event time
 and immutable event receipt:
