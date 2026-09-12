@@ -310,6 +310,40 @@ The materializer's own evidence still decides whether the closure succeeded,
 and neither receipt authorizes a GPU, workload, service or broker transition.
 Legacy v1 approvals remain validatable for audit but cannot be dispatched.
 
+When the approved preparation must run on an attested preprovisioned worker,
+do not add a run-specific SSH controller.  Freeze a
+`qualification-environment-remote-transport-plan-v1` with the exact worker,
+pinned controller `ssh`/`scp`/known-host/key identities, remote artifact root,
+and the complete task-file closure.  Then issue a separate transport-only
+authorization and consume it once:
+
+```bash
+python3 scripts/kernel_opt.py qualification-environment-remote-dispatch \
+  --issue --artifact-root runs/<run-id> \
+  --approval runs/<run-id>/experiments/materialization-approval.json \
+  --transport-plan runs/<run-id>/experiments/remote-transport-plan.json \
+  --supervisor-id <registered-id> --authorization-id <unique-id> \
+  --ttl-seconds 3600 \
+  --output runs/<run-id>/experiments/remote-transport-authorization.json
+python3 scripts/kernel_opt.py qualification-environment-remote-dispatch \
+  --artifact-root runs/<run-id> \
+  --authorization runs/<run-id>/experiments/remote-transport-authorization.json \
+  --authorization-sha256 <controller-reviewed-sha256>
+```
+
+The controller revalidates the worker-local approval and every task file before
+claiming the transport authorization.  It uses strict host-key checking,
+accepts existing remote inputs only when their bytes already match, publishes
+missing inputs without overwriting, installs the current shared worker-local
+dispatcher runtime by exact hash, and retrieves both the worker claim and
+terminal process receipt.  Pinned connectivity and required remote file tools
+are checked read-only before the claim, so an offline worker does not create
+another authorization revision.  A staging failure or ambiguous post-launch
+state after the claim consumes the authorization and cannot be retried.  The
+transport never submits or acquires a broker job and never authorizes GPU
+visibility, workload launch, service mutation, environment correctness, or
+performance claims.
+
 The versioned dispatcher receipt includes exact process `started_at`,
 `completed_at` and monotonic `duration_seconds` so a controller can account for
 environment wall time without inferring it from file timestamps. These timing

@@ -42,6 +42,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_environment_materialization_dispatch.py",
             "consume one CPU-only materialization approval on its bound worker",
         ),
+        "qualification-environment-remote-dispatch": Command(
+            "qualification_environment_remote_dispatch.py",
+            "transport an approved CPU-only preparation to its pinned worker",
+        ),
         "qualification-environment-worker": Command(
             "qualification_environment_worker.py",
             "attest a preprovisioned qualification worker runtime",

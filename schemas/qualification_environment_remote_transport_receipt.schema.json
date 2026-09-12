@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_remote_transport_receipt.schema.json",
+  "title": "Terminal receipt for remote CPU-only materialization transport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "started_at",
+    "completed_at",
+    "duration_seconds",
+    "authorization",
+    "transport_plan",
+    "worker_runtime_sha256",
+    "worker",
+    "state",
+    "worker_terminal_receipt",
+    "commands",
+    "error",
+    "gpu_authorized",
+    "workload_authorized",
+    "broker_mutated",
+    "retry_authorized",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-remote-transport-receipt-v1"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "duration_seconds": {"type": "number", "minimum": 0},
+    "authorization": {"$ref": "#/$defs/identity"},
+    "transport_plan": {"$ref": "#/$defs/identity"},
+    "worker_runtime_sha256": {"$ref": "#/$defs/sha256"},
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worker_id", "host_id", "address", "port"],
+      "properties": {
+        "worker_id": {"type": "string", "minLength": 1},
+        "host_id": {"type": "string", "minLength": 1},
+        "address": {"type": "string", "minLength": 1},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535}
+      }
+    },
+    "state": {
+      "enum": [
+        "WORKER_TERMINAL_RETRIEVED",
+        "FAILED_PRELAUNCH_CONSUMED",
+        "AMBIGUOUS_POSTLAUNCH_CONSUMED"
+      ]
+    },
+    "worker_terminal_receipt": {
+      "oneOf": [{"type": "null"}, {"$ref": "#/$defs/identity"}]
+    },
+    "commands": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["stage", "exit_code", "stdout_sha256", "stderr_sha256"],
+        "properties": {
+          "stage": {"type": "string", "minLength": 1},
+          "exit_code": {"type": ["integer", "null"]},
+          "stdout_sha256": {"$ref": "#/$defs/sha256"},
+          "stderr_sha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "error": {"type": ["string", "null"]},
+    "gpu_authorized": {"const": false},
+    "workload_authorized": {"const": false},
+    "broker_mutated": {"const": false},
+    "retry_authorized": {"const": false},
+    "claim_boundary": {
+      "const": "REMOTE_PROCESS_TRANSPORT_EVIDENCE_ONLY_NOT_ENVIRONMENT_CORRECTNESS_PERFORMANCE_GPU_WORKLOAD_OR_BROKER_AUTHORIZATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

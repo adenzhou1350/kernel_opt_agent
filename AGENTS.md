@@ -164,6 +164,13 @@ timed-out or ambiguous claim is terminal and must not be retried in place.
 The dispatcher receipt is process evidence only; accept the environment only
 from the separately validated materializer terminal receipt.
 
+If that preparation runs on an attested remote worker, use
+`qualification-environment-remote-dispatch` instead of a run-local SSH
+controller.  Its separate single-use transport authorization must bind the
+worker-local approval, pinned endpoint and controller tools, exact-or-absent
+task-file closure, and shared dispatcher bytes.  The remote transport is still
+CPU-only and non-broker; its receipt is not environment success evidence.
+
 Before a cache-bound model download, JIT compile or native build, bind every
 framework/compiler cache root explicitly and run `environment-cache-preflight`.
 Require the intended environment-variable mapping, a writable directory and a

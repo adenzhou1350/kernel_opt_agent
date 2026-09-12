@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_remote_transport_plan.schema.json",
+  "title": "Pinned controller-to-worker transport for CPU-only materialization",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "plan_id",
+    "state",
+    "worker",
+    "controller",
+    "remote_artifact_root",
+    "task_files",
+    "budget",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-remote-transport-plan-v1"},
+    "plan_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "state": {"const": "READY_FOR_SUPERVISOR_REVIEW_NOT_EXECUTED"},
+    "worker": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["worker_id", "host_id", "address", "port", "user", "python"],
+      "properties": {
+        "worker_id": {"type": "string", "minLength": 1},
+        "host_id": {"type": "string", "minLength": 1},
+        "address": {"type": "string", "pattern": "^[A-Za-z0-9.-]+$"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535},
+        "user": {"type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_-]*$"},
+        "python": {"type": "string", "pattern": "^/[A-Za-z0-9_./+-]+$"}
+      }
+    },
+    "controller": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ssh", "scp", "known_hosts", "identity_file"],
+      "properties": {
+        "ssh": {"$ref": "#/$defs/external_identity"},
+        "scp": {"$ref": "#/$defs/external_identity"},
+        "known_hosts": {"$ref": "#/$defs/external_identity"},
+        "identity_file": {"$ref": "#/$defs/external_identity"}
+      }
+    },
+    "remote_artifact_root": {"type": "string", "pattern": "^/[A-Za-z0-9_./-]+$"},
+    "task_files": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["connect_timeout_seconds", "transfer_timeout_seconds", "total_wall_seconds"],
+      "properties": {
+        "connect_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 300},
+        "transfer_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 3600},
+        "total_wall_seconds": {"type": "integer", "minimum": 1, "maximum": 86400}
+      }
+    },
+    "claim_boundary": {
+      "const": "PINNED_CPU_ONLY_CONTROLLER_TO_WORKER_TRANSPORT_NOT_GPU_BROKER_WORKLOAD_OR_ENVIRONMENT_SUCCESS_AUTHORIZATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^[A-Za-z0-9_.+/-]+$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "external_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

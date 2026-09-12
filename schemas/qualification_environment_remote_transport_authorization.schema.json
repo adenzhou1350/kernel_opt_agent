@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_remote_transport_authorization.schema.json",
+  "title": "Single-use authorization for remote CPU-only materialization transport",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "authorization_id",
+    "issued_at",
+    "expires_at",
+    "issued_by",
+    "action",
+    "materialization_approval",
+    "transport_plan",
+    "remote_dispatcher_sha256",
+    "worker_runtime_sha256",
+    "constraints",
+    "decision",
+    "single_use",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-remote-transport-authorization-v1"},
+    "authorization_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]*$"},
+    "issued_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "issued_by": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "supervisor_id"],
+      "properties": {
+        "role": {"const": "GLOBAL_SUPERVISOR"},
+        "supervisor_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "action": {"const": "REMOTE_CPU_ONLY_ENVIRONMENT_MATERIALIZATION_TRANSPORT"},
+    "materialization_approval": {"$ref": "#/$defs/identity"},
+    "transport_plan": {"$ref": "#/$defs/identity"},
+    "remote_dispatcher_sha256": {"$ref": "#/$defs/sha256"},
+    "worker_runtime_sha256": {"$ref": "#/$defs/sha256"},
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gpu", "workload", "broker", "service_mutation", "retry_after_claim"],
+      "properties": {
+        "gpu": {"const": false},
+        "workload": {"const": false},
+        "broker": {"const": false},
+        "service_mutation": {"const": false},
+        "retry_after_claim": {"const": false}
+      }
+    },
+    "decision": {"const": "APPROVED"},
+    "single_use": {"const": true},
+    "claim_boundary": {
+      "const": "REMOTE_TRANSPORT_ONLY_REQUIRES_SEPARATE_WORKER_TERMINAL_AND_ENVIRONMENT_VALIDATION"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}
