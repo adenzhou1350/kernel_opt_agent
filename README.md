@@ -671,9 +671,11 @@ python3 scripts/kernel_opt.py community-portfolio-pr-audit \
   --output /path/to/pr-stage-audit.json
 ```
 
-The audit fails closed on stale observations and reports Draft/Ready/Merged
-drift as a suggested ledger stage. It never edits the ledger or treats a GitHub
-snapshot as correctness, performance, or merge evidence.
+The audit fails closed on stale observations. A later public stage is reported
+as a suggested append-only ledger milestone; a regression to Draft, closure, or
+missing history remains actionable drift without rewriting historical
+milestones. It never edits the ledger or treats a GitHub snapshot as
+correctness, performance, or merge evidence.
 
 Add a newly selected prospective cycle without hand-editing path/hash fields:
 

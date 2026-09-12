@@ -13,7 +13,12 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from community_portfolio_pr_audit import compare_stage, ledger_stage, parse_binding  # noqa: E402
+from community_portfolio_pr_audit import (  # noqa: E402
+    compare_stage,
+    ledger_stage,
+    parse_binding,
+    requires_reconciliation,
+)
 
 
 def cycle(*milestones: str, url: str | None = None, merged: bool = False) -> dict:
@@ -61,6 +66,22 @@ def test_stage_comparison_is_fail_closed_for_snapshot_regression_and_close() -> 
         )["status"]
         == "EXTERNAL_CLOSED_UNREPRESENTED"
     )
+
+
+def test_every_non_aligned_public_stage_requires_reconciliation() -> None:
+    ready_cycle = cycle("PR_DRAFT_OPENED", "PR_READY_FOR_REVIEW")
+    aligned = compare_stage(
+        "cycle", "https://github.com/o/r/pull/1", ready_cycle, observed("READY")
+    )
+    regressed = compare_stage(
+        "cycle", "https://github.com/o/r/pull/1", ready_cycle, observed("DRAFT")
+    )
+    closed = compare_stage(
+        "cycle", "https://github.com/o/r/pull/1", ready_cycle, observed("CLOSED")
+    )
+    assert requires_reconciliation(aligned) is False
+    assert requires_reconciliation(regressed) is True
+    assert requires_reconciliation(closed) is True
 
 
 def test_binding_requires_an_explicit_github_pull_request() -> None:
