@@ -86,7 +86,12 @@ def render(inbox_path: Path, candidate_id: str, accountability_output: Path) -> 
         or accountability.get("status") != "PENDING"
     ):
         raise ValueError("candidate author accountability is not pending")
-    if materials["freshness_validation"]["status"] != "PASS":
+    freshness_status = materials["freshness_validation"]["status"]
+    already_submitted = item["github_review_stage"] in {
+        "DRAFT",
+        "READY",
+    } and isinstance(item.get("pull_request_url"), str)
+    if freshness_status != "PASS" and not already_submitted:
         raise ValueError("candidate Draft freshness is not valid")
 
     body_path = resolve_source(inbox_path, materials["body"]["path"])
@@ -94,6 +99,7 @@ def render(inbox_path: Path, candidate_id: str, accountability_output: Path) -> 
     draft = item["draft_minimum_progress"]
     ready = item["ready_gate_progress"]
     command = accountability_command(item, accountability_output)
+    pull_request = item.get("pull_request_url") or "(not submitted)"
     return f"""# Author review packet: {materials["title"]}
 
 This packet gathers machine-validated evidence for one exact commit. It is not a
@@ -106,9 +112,11 @@ human attestation and it does not authorize publishing the pull request.
 - Branch: `{materials["branch"]}`
 - Commit: `{materials["commit"]}`
 - Compare: {materials["action_url"]}
+- Pull request: {pull_request}
 - Delivery inbox SHA-256: `{inbox["manifest_sha256"]}`
 - PR body SHA-256: `{materials["body"]["sha256"]}`
 - Freshness evidence SHA-256: `{materials["freshness_evidence"]["sha256"]}`
+- Freshness validation at packet generation: `{freshness_status}`
 
 ## Machine-validated Draft minimum
 

@@ -76,17 +76,34 @@ def freshness(commit: str) -> dict:
     }
 
 
-def inbox(tmp_path: Path, *, action_ready: bool = True) -> Path:
+def inbox(
+    tmp_path: Path,
+    *,
+    action_ready: bool = True,
+    submitted: bool = False,
+    stale_freshness: bool = False,
+) -> Path:
     commit = "a" * 40
     state = review_state()
     if not action_ready:
         state["draft_minimum"]["lint_format"] = "PENDING"
+    if submitted:
+        state["pull_request"] = {
+            "url": "https://github.com/example/project/pull/7",
+            "repository": "example/project",
+            "number": 7,
+            "state": "OPEN",
+            "draft": True,
+            "internal_candidate_status": "DRAFT_PENDING_AUTHOR_REVIEW",
+        }
     state_source = write(tmp_path / "review-state.json", state)
     body_source = write(tmp_path / "body.md", "Summary\n\nTest Plan\n")
     freshness_source = write(tmp_path / "freshness.json", freshness(commit))
     manifest = {
         "schema_version": "upstream-delivery-inbox-v5",
-        "observed_at": "2026-09-12T04:30:00Z",
+        "observed_at": (
+            "2026-09-12T10:00:00Z" if stale_freshness else "2026-09-12T04:30:00Z"
+        ),
         "candidates": [
             {
                 "candidate_id": "candidate",
@@ -155,6 +172,20 @@ def test_packet_requires_exact_pending_author_action(tmp_path: Path) -> None:
     assert completed.returncode != 0
     assert "not awaiting exact-commit" in completed.stderr
     assert not output.exists()
+
+
+def test_packet_allows_stale_publication_freshness_after_draft_opened(
+    tmp_path: Path,
+) -> None:
+    manifest = inbox(tmp_path, submitted=True, stale_freshness=True)
+    output = tmp_path / "AUTHOR_REVIEW.md"
+    completed = subprocess.run(
+        command(manifest, output), capture_output=True, text=True
+    )
+    assert completed.returncode == 0, completed.stderr
+    packet = output.read_text(encoding="utf-8")
+    assert "Freshness validation at packet generation: `REFRESH_REQUIRED`" in packet
+    assert "https://github.com/example/project/pull/7" in packet
 
 
 def test_packet_rejects_unknown_candidate_and_overwrite(tmp_path: Path) -> None:
