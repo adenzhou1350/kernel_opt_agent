@@ -15,7 +15,8 @@ from schema_utils import validate_instance
 
 
 MANIFEST_VERSION = "community-portfolio-manifest-v1"
-REPORT_VERSION = "community-portfolio-report-v5"
+REPORT_VERSION = "community-portfolio-report-v6"
+ACTION_ATTESTATION_VERSION = "community-action-attestation-v1"
 
 
 def root() -> Path:
@@ -60,14 +61,84 @@ def action_class(span: dict) -> str:
     return "ACTIVE_WORK"
 
 
+def load_action_attestations(
+    paths: list[Path], ledgers: list[tuple[Path, dict]]
+) -> tuple[dict[tuple[str, str, str], tuple[dict, dict]], list[dict]]:
+    """Validate explicit current-state claims for selected active ledger spans."""
+
+    active_spans = {
+        (path.resolve().as_posix(), ledger["cycle_id"], span["span_id"]): span
+        for path, ledger in ledgers
+        for span in ledger["spans"]
+        if span["status"] == "ACTIVE"
+    }
+    attestations: dict[tuple[str, str, str], tuple[dict, dict]] = {}
+    identities = []
+    for raw_path in paths:
+        path = raw_path.resolve()
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        attestation = read_object(path)
+        errors = validate_instance(
+            attestation,
+            read_object(root() / "schemas/community_action_attestation.schema.json"),
+        )
+        if errors:
+            raise ValueError("invalid action attestation: " + "; ".join(errors))
+        if attestation["schema_version"] != ACTION_ATTESTATION_VERSION:
+            raise ValueError("unsupported action attestation")
+
+        ledger_path = resolve_identity(
+            path.parent, attestation["ledger_identity"], "attested ledger"
+        )
+        key = (
+            ledger_path.as_posix(),
+            attestation["cycle_id"],
+            attestation["span_id"],
+        )
+        span = active_spans.get(key)
+        if span is None:
+            raise ValueError("action attestation does not select an active ledger span")
+        if key in attestations:
+            raise ValueError("duplicate action attestation for one active span")
+        if attestation["resource_id"] != span.get("resource_id"):
+            raise ValueError("action attestation resource_id changed")
+
+        generated = parse_time(attestation["generated_at"], "generated_at")
+        if generated < parse_time(span["started_at"], "span.started_at"):
+            raise ValueError("action attestation predates its active span")
+        if attestation["state"] == "ACTIVE":
+            if attestation["action_owner"] == "NONE":
+                raise ValueError("active action attestation requires an owner")
+            if attestation["valid_until"] is None:
+                raise ValueError("active action attestation requires valid_until")
+            if parse_time(attestation["valid_until"], "valid_until") <= generated:
+                raise ValueError(
+                    "action attestation validity must extend past generation"
+                )
+        else:
+            if attestation["action_owner"] != "NONE":
+                raise ValueError("inactive action attestation owner must be NONE")
+            if attestation["valid_until"] is not None:
+                raise ValueError("inactive action attestation cannot have valid_until")
+
+        for index, identity in enumerate(attestation["evidence"]):
+            resolve_identity(path.parent, identity, f"action evidence {index}")
+        identity = {"path": path.as_posix(), "sha256": sha256_file(path)}
+        attestations[key] = (attestation, identity)
+        identities.append(identity)
+    return attestations, identities
+
+
 def active_delivery_queue(
     lane_ledgers: list[tuple[str, str, list[tuple[Path, dict]]]],
     observed_at: str,
-) -> tuple[list[dict], dict]:
-    """Expose who owns each live wait directly from canonical active spans."""
+    attestations: dict[tuple[str, str, str], tuple[dict, dict]],
+) -> tuple[list[dict], list[dict], dict]:
+    """Expose only freshness-attested actions while retaining declared history."""
 
     observed = parse_time(observed_at, "observed_at")
-    rows = []
+    inventory = []
     for lane_id, thread_id, ledgers in lane_ledgers:
         constraint = delivery_funnel(ledgers)["leading_constraint"]
         for path, ledger in ledgers:
@@ -76,7 +147,32 @@ def active_delivery_queue(
                     continue
                 started = parse_time(span["started_at"], "started_at")
                 category = action_class(span)
-                rows.append(
+                if observed < started:
+                    raise ValueError("portfolio observation precedes active span")
+                key = (path.resolve().as_posix(), ledger["cycle_id"], span["span_id"])
+                bound = attestations.get(key)
+                if bound is None:
+                    verification_status = "UNVERIFIED"
+                    owner = "NONE"
+                    attestation_identity = None
+                    attested_at = None
+                    valid_until = None
+                else:
+                    attestation, attestation_identity = bound
+                    attested_at = attestation["generated_at"]
+                    valid_until = attestation["valid_until"]
+                    if parse_time(attested_at, "attested_at") > observed:
+                        raise ValueError("action attestation is newer than the report")
+                    owner = attestation["action_owner"]
+                    if attestation["state"] == "ACTIVE":
+                        verification_status = (
+                            "CONFIRMED_ACTIVE"
+                            if observed <= parse_time(valid_until, "valid_until")
+                            else "EXPIRED"
+                        )
+                    else:
+                        verification_status = attestation["state"]
+                inventory.append(
                     {
                         "lane_id": lane_id,
                         "thread_id": thread_id,
@@ -89,13 +185,16 @@ def active_delivery_queue(
                         "active_since": span["started_at"],
                         "active_seconds": (observed - started).total_seconds(),
                         "action_class": category,
-                        # Credentials can be owned by a worker, maintainer, or
-                        # controller.  Only an explicitly USER_-scoped
-                        # resource is safe to place in the user's action count.
-                        "needs_user_action": (span.get("resource_id") or "").startswith(
-                            "USER_"
+                        "needs_user_action": (
+                            verification_status == "CONFIRMED_ACTIVE"
+                            and owner == "USER"
                         ),
                         "leading_constraint": constraint,
+                        "verification_status": verification_status,
+                        "action_owner": owner,
+                        "attestation_identity": attestation_identity,
+                        "attested_at": attested_at,
+                        "valid_until": valid_until,
                     }
                 )
     action_priority = {
@@ -107,7 +206,7 @@ def active_delivery_queue(
         "GPU_EXECUTION": 5,
         "ACTIVE_WORK": 6,
     }
-    rows.sort(
+    inventory.sort(
         key=lambda row: (
             action_priority[row["action_class"]],
             row["active_since"],
@@ -115,6 +214,9 @@ def active_delivery_queue(
             row["cycle_id"],
         )
     )
+    rows = [
+        row for row in inventory if row["verification_status"] == "CONFIRMED_ACTIVE"
+    ]
     counts = {
         category: sum(row["action_class"] == category for row in rows)
         for category in (
@@ -129,6 +231,8 @@ def active_delivery_queue(
     }
     summary = {
         "active_count": len(rows),
+        "declared_active_count": len(inventory),
+        "confirmed_active_count": len(rows),
         "needs_user_action_count": sum(row["needs_user_action"] for row in rows),
         "lane_without_active_phase_count": len(LANE_IDS)
         - len({row["lane_id"] for row in rows}),
@@ -136,8 +240,18 @@ def active_delivery_queue(
             (row["active_seconds"] for row in rows), default=None
         ),
         "counts_by_action_class": counts,
+        "counts_by_verification_status": {
+            status: sum(row["verification_status"] == status for row in inventory)
+            for status in (
+                "CONFIRMED_ACTIVE",
+                "UNVERIFIED",
+                "EXPIRED",
+                "RESOLVED",
+                "SUPERSEDED",
+            )
+        },
     }
-    return rows, summary
+    return rows, inventory, summary
 
 
 def delivery_funnel(ledgers: list[tuple[Path, dict]]) -> dict:
@@ -382,26 +496,67 @@ def prospective_phase_time(ledgers: list[tuple[Path, dict]], observed_at: str) -
 
 
 def validate_report(report: dict) -> list[str]:
-    """Validate the strict v4 core plus the versioned v5 phase-time extension."""
+    """Validate strict legacy cores plus versioned phase/action extensions."""
 
-    legacy_projection = {
-        key: value for key, value in report.items() if key != "prospective_phase_time"
+    v5_projection = {
+        key: value
+        for key, value in report.items()
+        if key not in {"action_attestation_identities", "delivery_action_inventory"}
     }
-    legacy_projection["schema_version"] = "community-portfolio-report-v4"
+    v5_projection["schema_version"] = "community-portfolio-report-v5"
+    v5_projection["active_delivery_queue"] = [
+        {
+            key: value
+            for key, value in row.items()
+            if key
+            not in {
+                "verification_status",
+                "action_owner",
+                "attestation_identity",
+                "attested_at",
+                "valid_until",
+            }
+        }
+        for row in report["active_delivery_queue"]
+    ]
+    v5_projection["attention_summary"] = {
+        key: value
+        for key, value in report["attention_summary"].items()
+        if key
+        not in {
+            "declared_active_count",
+            "confirmed_active_count",
+            "counts_by_verification_status",
+        }
+    }
+    v4_projection = {
+        key: value
+        for key, value in v5_projection.items()
+        if key != "prospective_phase_time"
+    }
+    v4_projection["schema_version"] = "community-portfolio-report-v4"
     errors = validate_instance(
-        legacy_projection,
+        v4_projection,
         read_object(root() / "schemas/community_portfolio_report_v4.schema.json"),
     )
     errors.extend(
         validate_instance(
-            report,
+            v5_projection,
             read_object(root() / "schemas/community_portfolio_report_v5.schema.json"),
+        )
+    )
+    errors.extend(
+        validate_instance(
+            report,
+            read_object(root() / "schemas/community_portfolio_report_v6.schema.json"),
         )
     )
     return errors
 
 
-def build_report(manifest_path: Path) -> dict:
+def build_report(
+    manifest_path: Path, action_attestation_paths: list[Path] | None = None
+) -> dict:
     manifest_path = manifest_path.resolve()
     manifest = read_object(manifest_path)
     errors = validate_instance(
@@ -456,8 +611,13 @@ def build_report(manifest_path: Path) -> dict:
         lane_ledgers.append((lane["lane_id"], lane["thread_id"], ledgers))
 
     generated_at = now()
+    attestations, attestation_identities = load_action_attestations(
+        action_attestation_paths or [], all_ledgers
+    )
     totals = metrics(all_ledgers)
-    queue, attention = active_delivery_queue(lane_ledgers, generated_at)
+    queue, inventory, attention = active_delivery_queue(
+        lane_ledgers, generated_at, attestations
+    )
     report = {
         "schema_version": REPORT_VERSION,
         "generated_at": generated_at,
@@ -468,9 +628,11 @@ def build_report(manifest_path: Path) -> dict:
             "path": manifest_path.as_posix(),
             "sha256": sha256_file(manifest_path),
         },
+        "action_attestation_identities": attestation_identities,
         "lanes": lane_reports,
         "totals": totals,
         "active_delivery_queue": queue,
+        "delivery_action_inventory": inventory,
         "attention_summary": attention,
         "prospective_phase_time": prospective_phase_time(all_ledgers, generated_at),
     }
@@ -483,9 +645,19 @@ def build_report(manifest_path: Path) -> dict:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument(
+        "--action-attestation",
+        type=Path,
+        action="append",
+        default=[],
+        help=(
+            "hash-bind a current ACTIVE/RESOLVED/SUPERSEDED state for one "
+            "selected ledger span; repeat for multiple actions"
+        ),
+    )
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
-    result = build_report(args.manifest)
+    result = build_report(args.manifest, args.action_attestation)
     if args.output:
         atomic_json(args.output.resolve(), result)
     print(json.dumps(result, indent=2, sort_keys=True))

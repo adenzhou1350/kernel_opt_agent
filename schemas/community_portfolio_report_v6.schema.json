@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_portfolio_report_v6.schema.json",
+  "title": "Four-lane delivery portfolio with freshness-attested actions",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "manifest_identity",
+    "action_attestation_identities",
+    "lanes",
+    "totals",
+    "active_delivery_queue",
+    "delivery_action_inventory",
+    "attention_summary",
+    "prospective_phase_time"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-portfolio-report-v6"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "DESCRIPTIVE_PORTFOLIO_AND_DELIVERY_FUNNEL_NOT_STRATEGY_CAUSALITY"},
+    "manifest_identity": {"$ref": "#/$defs/identity"},
+    "action_attestation_identities": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/identity"}
+    },
+    "lanes": {"type": "array"},
+    "totals": {"type": "object"},
+    "active_delivery_queue": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/actionRow"}
+    },
+    "delivery_action_inventory": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/actionRow"}
+    },
+    "attention_summary": {"$ref": "#/$defs/attentionSummary"},
+    "prospective_phase_time": {"type": "object"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nullableIdentity": {
+      "oneOf": [
+        {"type": "null"},
+        {"$ref": "#/$defs/identity"}
+      ]
+    },
+    "verificationStatus": {
+      "enum": [
+        "CONFIRMED_ACTIVE",
+        "UNVERIFIED",
+        "EXPIRED",
+        "RESOLVED",
+        "SUPERSEDED"
+      ]
+    },
+    "actionRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane_id",
+        "thread_id",
+        "cycle_id",
+        "ledger_path",
+        "span_id",
+        "phase",
+        "actor",
+        "resource_id",
+        "active_since",
+        "active_seconds",
+        "action_class",
+        "needs_user_action",
+        "leading_constraint",
+        "verification_status",
+        "action_owner",
+        "attestation_identity",
+        "attested_at",
+        "valid_until"
+      ],
+      "properties": {
+        "lane_id": {"type": "string", "minLength": 1},
+        "thread_id": {"type": "string", "minLength": 1},
+        "cycle_id": {"type": "string", "minLength": 1},
+        "ledger_path": {"type": "string", "minLength": 1},
+        "span_id": {"type": "string", "minLength": 1},
+        "phase": {"type": "string", "minLength": 1},
+        "actor": {"type": "string", "minLength": 1},
+        "resource_id": {"type": ["string", "null"], "minLength": 1},
+        "active_since": {"type": "string", "format": "date-time"},
+        "active_seconds": {"type": "number", "minimum": 0},
+        "action_class": {"type": "string", "minLength": 1},
+        "needs_user_action": {"type": "boolean"},
+        "leading_constraint": {"type": "string", "minLength": 1},
+        "verification_status": {"$ref": "#/$defs/verificationStatus"},
+        "action_owner": {
+          "enum": ["USER", "AGENT", "EXTERNAL", "MAINTAINER", "GPU", "NONE"]
+        },
+        "attestation_identity": {"$ref": "#/$defs/nullableIdentity"},
+        "attested_at": {"type": ["string", "null"], "format": "date-time"},
+        "valid_until": {"type": ["string", "null"], "format": "date-time"}
+      }
+    },
+    "attentionSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active_count",
+        "declared_active_count",
+        "confirmed_active_count",
+        "needs_user_action_count",
+        "lane_without_active_phase_count",
+        "oldest_active_seconds",
+        "counts_by_action_class",
+        "counts_by_verification_status"
+      ],
+      "properties": {
+        "active_count": {"type": "integer", "minimum": 0},
+        "declared_active_count": {"type": "integer", "minimum": 0},
+        "confirmed_active_count": {"type": "integer", "minimum": 0},
+        "needs_user_action_count": {"type": "integer", "minimum": 0},
+        "lane_without_active_phase_count": {"type": "integer", "minimum": 0},
+        "oldest_active_seconds": {"type": ["number", "null"], "minimum": 0},
+        "counts_by_action_class": {"type": "object"},
+        "counts_by_verification_status": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "CONFIRMED_ACTIVE",
+            "UNVERIFIED",
+            "EXPIRED",
+            "RESOLVED",
+            "SUPERSEDED"
+          ],
+          "properties": {
+            "CONFIRMED_ACTIVE": {"type": "integer", "minimum": 0},
+            "UNVERIFIED": {"type": "integer", "minimum": 0},
+            "EXPIRED": {"type": "integer", "minimum": 0},
+            "RESOLVED": {"type": "integer", "minimum": 0},
+            "SUPERSEDED": {"type": "integer", "minimum": 0}
+          }
+        }
+      }
+    }
+  }
+}

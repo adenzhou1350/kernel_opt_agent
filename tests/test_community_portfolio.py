@@ -129,8 +129,10 @@ def test_portfolio_aggregates_four_explicit_lanes(tmp_path: Path) -> None:
     assert report["totals"]["median_time_to_first_correct_seconds"] == 30.0
     assert report["totals"]["median_time_to_first_improvement_seconds"] == 120.0
     assert report["totals"]["qualified_results_per_gpu_hour"] == 120.0
-    assert report["schema_version"] == "community-portfolio-report-v5"
+    assert report["schema_version"] == "community-portfolio-report-v6"
     assert report["active_delivery_queue"] == []
+    assert report["delivery_action_inventory"] == []
+    assert report["action_attestation_identities"] == []
     assert report["attention_summary"]["active_count"] == 0
     assert report["attention_summary"]["lane_without_active_phase_count"] == 4
     assert report["totals"]["median_candidate_to_draft_seconds"] is None
@@ -333,7 +335,9 @@ def test_claimed_work_cycle_version_without_canonical_fields_is_rejected(
         build_report(path)
 
 
-def test_active_queue_exposes_user_and_environment_owners(tmp_path: Path) -> None:
+def test_unattested_active_spans_remain_inventory_not_current_actions(
+    tmp_path: Path,
+) -> None:
     path = manifest(tmp_path)
     value = json.loads(path.read_text(encoding="utf-8"))
     cases = (
@@ -362,28 +366,246 @@ def test_active_queue_exposes_user_and_environment_owners(tmp_path: Path) -> Non
     write_json(path, value)
 
     report = build_report(path)
-    queue = report["active_delivery_queue"]
-    assert [row["action_class"] for row in queue] == [
+    assert report["active_delivery_queue"] == []
+    inventory = report["delivery_action_inventory"]
+    assert [row["action_class"] for row in inventory] == [
         "USER_CONFIRMATION",
         "CREDENTIAL",
         "ENVIRONMENT",
     ]
-    assert [row["needs_user_action"] for row in queue] == [True, False, False]
+    assert {row["verification_status"] for row in inventory} == {"UNVERIFIED"}
+    assert [row["needs_user_action"] for row in inventory] == [False, False, False]
     assert report["attention_summary"] == {
-        "active_count": 3,
-        "needs_user_action_count": 1,
-        "lane_without_active_phase_count": 1,
-        "oldest_active_seconds": queue[0]["active_seconds"],
+        "active_count": 0,
+        "declared_active_count": 3,
+        "confirmed_active_count": 0,
+        "needs_user_action_count": 0,
+        "lane_without_active_phase_count": 4,
+        "oldest_active_seconds": None,
         "counts_by_action_class": {
-            "USER_CONFIRMATION": 1,
-            "CREDENTIAL": 1,
-            "ENVIRONMENT": 1,
+            "USER_CONFIRMATION": 0,
+            "CREDENTIAL": 0,
+            "ENVIRONMENT": 0,
             "GOVERNANCE": 0,
             "GPU_EXECUTION": 0,
             "EXTERNAL_DEPENDENCY": 0,
             "ACTIVE_WORK": 0,
         },
+        "counts_by_verification_status": {
+            "CONFIRMED_ACTIVE": 0,
+            "UNVERIFIED": 3,
+            "EXPIRED": 0,
+            "RESOLVED": 0,
+            "SUPERSEDED": 0,
+        },
     }
+
+
+def action_attestation(
+    tmp_path: Path,
+    manifest_path: Path,
+    *,
+    lane_index: int = 0,
+    state: str = "ACTIVE",
+    owner: str = "USER",
+    valid_until: str | None = "2099-01-01T00:00:00Z",
+) -> Path:
+    manifest_value = json.loads(manifest_path.read_text(encoding="utf-8"))
+    ledger_identity = manifest_value["lanes"][lane_index]["work_cycle_ledgers"][0]
+    ledger_path = tmp_path / ledger_identity["path"]
+    cycle = json.loads(ledger_path.read_text(encoding="utf-8"))
+    active = next(span for span in cycle["spans"] if span["status"] == "ACTIVE")
+    evidence = write_json(tmp_path / f"action-{lane_index}-evidence.json", {"ok": True})
+    return write_json(
+        tmp_path / f"action-{lane_index}-{state.lower()}.json",
+        {
+            "schema_version": "community-action-attestation-v1",
+            "claim_boundary": "CURRENT_ACTION_STATE_ONLY_NOT_LEDGER_MUTATION",
+            "generated_at": "2026-01-01T00:05:00Z",
+            "valid_until": valid_until,
+            "ledger_identity": {
+                "path": ledger_path.name,
+                "sha256": sha256_file(ledger_path),
+            },
+            "cycle_id": cycle["cycle_id"],
+            "span_id": active["span_id"],
+            "state": state,
+            "action_owner": owner,
+            "resource_id": active.get("resource_id"),
+            "evidence": [{"path": evidence.name, "sha256": sha256_file(evidence)}],
+        },
+    )
+
+
+def test_fresh_attestation_is_required_for_current_user_action(
+    tmp_path: Path,
+) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["spans"].append(
+        {
+            "span_id": "user-confirmation",
+            "phase": "EXTERNAL_WAIT",
+            "actor": "EXTERNAL",
+            "resource_id": "USER_BROWSER_CONFIRMATION",
+            "started_at": "2026-01-01T00:04:00Z",
+            "ended_at": None,
+            "status": "ACTIVE",
+            "evidence": [],
+        }
+    )
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+    attestation = action_attestation(tmp_path, path)
+
+    report = build_report(path, [attestation])
+
+    assert len(report["active_delivery_queue"]) == 1
+    row = report["active_delivery_queue"][0]
+    assert row["verification_status"] == "CONFIRMED_ACTIVE"
+    assert row["action_owner"] == "USER"
+    assert row["needs_user_action"] is True
+    assert report["attention_summary"]["needs_user_action_count"] == 1
+    assert report["attention_summary"]["declared_active_count"] == 1
+
+
+@pytest.mark.parametrize(
+    ("state", "owner", "valid_until", "expected"),
+    [
+        ("ACTIVE", "USER", "2026-01-01T00:06:00Z", "EXPIRED"),
+        ("RESOLVED", "NONE", None, "RESOLVED"),
+        ("SUPERSEDED", "NONE", None, "SUPERSEDED"),
+    ],
+)
+def test_noncurrent_attestations_never_create_user_work(
+    tmp_path: Path,
+    state: str,
+    owner: str,
+    valid_until: str | None,
+    expected: str,
+) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["spans"].append(
+        {
+            "span_id": "user-confirmation",
+            "phase": "EXTERNAL_WAIT",
+            "actor": "EXTERNAL",
+            "resource_id": "USER_BROWSER_CONFIRMATION",
+            "started_at": "2026-01-01T00:04:00Z",
+            "ended_at": None,
+            "status": "ACTIVE",
+            "evidence": [],
+        }
+    )
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+    attestation = action_attestation(
+        tmp_path,
+        path,
+        state=state,
+        owner=owner,
+        valid_until=valid_until,
+    )
+
+    report = build_report(path, [attestation])
+
+    assert report["active_delivery_queue"] == []
+    assert report["delivery_action_inventory"][0]["verification_status"] == expected
+    assert report["attention_summary"]["needs_user_action_count"] == 0
+
+
+def test_action_attestation_resource_drift_is_rejected(tmp_path: Path) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["spans"].append(
+        {
+            "span_id": "current",
+            "phase": "EXTERNAL_WAIT",
+            "actor": "EXTERNAL",
+            "resource_id": "USER_REVIEW",
+            "started_at": "2026-01-01T00:04:00Z",
+            "ended_at": None,
+            "status": "ACTIVE",
+            "evidence": [],
+        }
+    )
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+    attestation = action_attestation(tmp_path, path)
+    attestation_value = json.loads(attestation.read_text(encoding="utf-8"))
+    attestation_value["resource_id"] = "USER_DIFFERENT_REVIEW"
+    write_json(attestation, attestation_value)
+
+    with pytest.raises(ValueError, match="resource_id changed"):
+        build_report(path, [attestation])
+
+
+def test_duplicate_action_attestation_is_rejected(tmp_path: Path) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["spans"].append(
+        {
+            "span_id": "current",
+            "phase": "ENVIRONMENT_SETUP",
+            "actor": "AGENT",
+            "resource_id": None,
+            "started_at": "2026-01-01T00:04:00Z",
+            "ended_at": None,
+            "status": "ACTIVE",
+            "evidence": [],
+        }
+    )
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+    attestation = action_attestation(tmp_path, path, owner="AGENT")
+
+    with pytest.raises(ValueError, match="duplicate action attestation"):
+        build_report(path, [attestation, attestation])
+
+
+def test_action_attestation_evidence_drift_is_rejected(tmp_path: Path) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    identity = value["lanes"][0]["work_cycle_ledgers"][0]
+    selected = tmp_path / identity["path"]
+    cycle = json.loads(selected.read_text(encoding="utf-8"))
+    cycle["spans"].append(
+        {
+            "span_id": "current",
+            "phase": "EXTERNAL_WAIT",
+            "actor": "EXTERNAL",
+            "resource_id": "USER_REVIEW",
+            "started_at": "2026-01-01T00:04:00Z",
+            "ended_at": None,
+            "status": "ACTIVE",
+            "evidence": [],
+        }
+    )
+    write_json(selected, cycle)
+    identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+    attestation = action_attestation(tmp_path, path)
+    write_json(tmp_path / "action-0-evidence.json", {"ok": False})
+
+    with pytest.raises(ValueError, match="action evidence 0 identity changed"):
+        build_report(path, [attestation])
 
 
 def test_phase_time_separates_overhead_external_wait_and_productive_work(
