@@ -69,6 +69,10 @@ def compare_stage(cycle_id: str, url: str, ledger: dict, observed: dict) -> dict
     }
 
 
+def requires_reconciliation(row: dict) -> bool:
+    return row["status"] != "ALIGNED"
+
+
 def validate_history(history: dict) -> None:
     if set(history) != {"schema_version", "entries"}:
         raise ValueError("PR stage history has unexpected fields")
@@ -149,7 +153,7 @@ def audit(
             continue
         rows.append(compare_stage(cycle_id, url, ledger, observed))
 
-    actionable = sum(row["status"] == "LEDGER_LAGS_EXTERNAL" for row in rows)
+    actionable = sum(requires_reconciliation(row) for row in rows)
     return {
         "schema_version": SCHEMA_VERSION,
         "generated_at": now(),

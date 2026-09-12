@@ -113,8 +113,10 @@ python3 scripts/kernel_opt.py community-portfolio-pr-audit \
   --output /path/to/pr-stage-audit.json
 ```
 
-The audit fails closed on stale observations and suggests missing
-Draft/Ready/Merged ledger stages. It never treats a GitHub snapshot as
+The audit fails closed on stale observations. A later public stage is reported
+as a suggested append-only ledger milestone; a regression to Draft, closure, or
+missing history remains actionable drift without rewriting historical
+milestones. It never edits the ledger or treats a GitHub snapshot as
 correctness, performance, or merge evidence.
 
 Portfolio report v6 exposes the delivery funnel, freshness-attested action
