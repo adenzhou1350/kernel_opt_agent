@@ -26,6 +26,18 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+## Runtime import identity gate
+
+Before a Python candidate starts a GPU process or service when source,
+site-packages, generated interfaces or native extensions may differ, run
+`runtime-import-preflight` in the exact interpreter and environment. Bind each
+production entry module to its resolved file and SHA-256, bind important
+attribute origins, and forbid unrelated optional backend prefixes for light
+registry/config imports. A missing generated interface, wrong imported tree or
+eager optional backend is a pre-launch environment/source blocker; do not spend
+GPU time discovering it during server startup. A passing import receipt is not
+native-build, service, correctness, performance or execution authorization.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot
