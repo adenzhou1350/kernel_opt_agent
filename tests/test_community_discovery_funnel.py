@@ -19,6 +19,7 @@ from community_discovery_funnel import (  # noqa: E402
     ratio,
     validate_funnel,
 )
+from community_evaluation import validate_preselection_chain_audit  # noqa: E402
 from community_knowledge import atomic_json  # noqa: E402
 from schema_utils import validate_instance  # noqa: E402
 
@@ -36,7 +37,7 @@ def available_audits() -> list[Path]:
     base = (
         ROOT.parent / "community-validation/prospective-heldout-outcome-v3-2026-09-07"
     )
-    return [
+    audits = [
         path
         for path in (
             base / "preselection-chain-audit-postcutoff-033016-v1.json",
@@ -44,6 +45,22 @@ def available_audits() -> list[Path]:
         )
         if path.is_file()
     ]
+    if len(audits) != 2:
+        return audits
+    corpus = ROOT.parent / "community-optimization-corpus"
+    try:
+        for path in audits:
+            validate_preselection_chain_audit(path, corpus, ROOT)
+    except FileNotFoundError:
+        # These are optional integration fixtures in a mutable sibling corpus.
+        # Production validation remains fail-closed; skip only when the frozen
+        # external identity is no longer locally reproducible.
+        return []
+    except ValueError as error:
+        if "corpus index changed" not in str(error):
+            raise
+        return []
+    return audits
 
 
 def test_funnel_build_validate_and_tamper_guard() -> None:
