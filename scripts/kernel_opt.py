@@ -121,12 +121,6 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "output-parity": Command("deterministic_output_parity.py", "verify exact outputs before timing comparison"),
         "paired-compare": Command("compare_paired.py", "compare interleaved baseline/candidate samples"),
     },
-    "upstream delivery": {
-        "upstream-ci-route": Command(
-            "upstream_ci_route.py",
-            "separate candidate failures from upstream policy gates",
-        ),
-    },
     "experiment": {
         "experiment-rank": Command("rank_experiments.py", "rank requests by bounded weighted value"),
         "experiment-materialize": Command("materialize_experiment.py", "seal source, commands and artifacts"),
@@ -153,6 +147,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "upstream-package": Command("upstream_package.py", "build a hash-bound fail-closed pull-request package"),
     },
     "upstream delivery": {
+        "upstream-ci-route": Command(
+            "upstream_ci_route.py",
+            "separate candidate failures from upstream policy gates",
+        ),
         "upstream-review-state": Command(
             "upstream_review_state.py",
             "separate GitHub Draft, CI, reviewer and qualification gates",

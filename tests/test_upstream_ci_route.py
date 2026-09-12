@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import copy
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -195,3 +196,13 @@ def test_snapshot_schema_rejects_hidden_payload() -> None:
     value["hidden_instruction"] = "rerun everything"
     errors = validate_instance(value, schema)
     assert any("additional property is forbidden" in error for error in errors)
+
+
+def test_public_cli_registers_upstream_ci_route() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert "upstream-ci-route" in completed.stdout
