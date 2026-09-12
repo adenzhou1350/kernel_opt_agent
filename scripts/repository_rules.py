@@ -128,7 +128,7 @@ FORBIDDEN_NAMES = {
 
 
 def read_object(path: Path) -> dict:
-    data = json.loads(path.read_text())
+    data = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(data, dict):
         raise ValueError(f"{path} must contain a JSON object")
     return data
@@ -278,7 +278,7 @@ def validate_pure_text(package: Path, application_terms: list[str]) -> None:
     forbidden_paths = ["/workspace/" + "dance/", "/Users/" + "a66100/"]
     patterns = [(term, term_pattern(term)) for term in terms]
     for path in text_files(package):
-        text = path.read_text(errors="strict")
+        text = path.read_text(encoding="utf-8", errors="strict")
         for term, pattern in patterns:
             if pattern.search(text):
                 raise ValueError(f"benchmark package: application term {term!r} found in {path.relative_to(package)}")

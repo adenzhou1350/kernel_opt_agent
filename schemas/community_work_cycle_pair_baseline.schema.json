@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_work_cycle_pair_baseline.schema.json",
+  "title": "Paired trial milestone timing baseline",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "pair_count",
+    "pairs",
+    "arm_medians",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-work-cycle-pair-baseline-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "EXISTING_PAIRED_MILESTONES_NOT_PHASE_ATTRIBUTION"},
+    "pair_count": {"type": "integer", "minimum": 1},
+    "pairs": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/pair"}},
+    "arm_medians": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control", "community_augmented"],
+      "properties": {
+        "control": {"$ref": "#/$defs/arm"},
+        "community_augmented": {"$ref": "#/$defs/arm"}
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string", "minLength": 1}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "arm": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["elapsed_seconds", "time_to_first_correct_seconds", "time_to_first_improvement_seconds", "best_speedup", "upstream_ready_count"],
+      "properties": {
+        "elapsed_seconds": {"type": "number", "minimum": 0},
+        "time_to_first_correct_seconds": {"type": ["number", "null"], "minimum": 0},
+        "time_to_first_improvement_seconds": {"type": ["number", "null"], "minimum": 0},
+        "best_speedup": {"type": ["number", "null"], "exclusiveMinimum": 0},
+        "upstream_ready_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "pair": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pair_identity", "suite_id", "task_id", "repeat_index", "control", "community_augmented"],
+      "properties": {
+        "pair_identity": {"$ref": "#/$defs/identity"},
+        "suite_id": {"type": "string", "minLength": 1},
+        "task_id": {"type": "string", "minLength": 1},
+        "repeat_index": {"type": "integer", "minimum": 1},
+        "control": {"$ref": "#/$defs/arm"},
+        "community_augmented": {"$ref": "#/$defs/arm"}
+      }
+    }
+  }
+}

@@ -4,8 +4,7 @@ These instructions apply to every agent working inside this repository.
 
 ## Mandatory intake gate
 
-At the start of every new optimization task, show the user a concise reminder
-that three inputs are required and ask for any missing fields:
+Every optimization task still requires three frozen inputs:
 
 1. Operator computation: equations or pseudocode, inputs/outputs/state,
    shapes/strides/dtypes, numerical contract, aliasing and legal rewrites.
@@ -15,16 +14,208 @@ that three inputs are required and ask for any missing fields:
    stack, power/clock policy, allowed programming models and architecture-
    specific features.
 
-Do this even when historical defaults exist.  Historical input may be reused
-only after the user names a run or explicitly confirms reuse.  Read-only
-inspection may continue while fields are missing, but do not compile, tune,
-benchmark or change production code before the intake gate is complete.
+Resolve these inputs from the active Goal, current run, repository state and
+live resource inventory before asking the user.  Do not ask again for a field
+that is already hash-bound by the active run or by a still-valid user decision.
+Historical measurements are evidence, not permission to reuse an input.  A
+standing user authorization to auto-discover a named resource class permits
+the control plane to freeze a newly attested idle device from that class
+without another generic confirmation; it does not permit preemption, service
+interruption or a different workload.  Ask only when a missing choice would
+change semantics, target workload, costly execution scope or an external
+mutation.  Read-only inspection, candidate discovery, normal source edits and
+focused CPU tests may continue while an expensive execution input is missing.
 
 Once the three inputs are complete and the requested optimization scope is
 authorized, create the run and begin baseline/model construction immediately.
 Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
+
+## Autonomous lanes and pull-based control
+
+An execution lane owns one persistent optimization Goal and keeps progressing
+inside that scope.  A blocked GPU, environment, reviewer or credential gate
+does not stop cheap source analysis, focused correctness work, candidate
+ranking or Draft preparation.  Do not create timers or periodic chat prompts
+to keep a lane alive; continue from the Goal until a real terminal condition.
+
+The portfolio controller is the only cross-lane coordinator, shared-policy
+writer and resource allocator.  It pulls task state and immutable artifacts;
+lanes must not routinely message the controller or one another.  Emit a
+control-plane event only when at least one of these materially changes:
+
+- the selected candidate or its accept/reject decision;
+- Draft/Ready/merged state or a maintainer/CI response needing action;
+- the terminal result of an approved expensive build, GPU or service window;
+- a new correctness, security or provenance defect that invalidates evidence;
+- a user-owned decision that cannot be resolved from standing authority.
+
+Do not relay acknowledgements, unchanged status, successive hash lists or
+ordinary bounded-cycle narration.  Persist those details in the run and keep
+working.  A material event should state the changed decision, the smallest
+authoritative evidence identity and the next action; the controller decides
+whether another lane needs the information.
+
+## Delivery-first operating model
+
+The objective is a correct, reviewable upstream improvement, not the largest
+possible evidence tree.  Apply evidence in proportion to the action being
+taken:
+
+- Exploration may use cheap static checks, focused CPU tests and bounded
+  micro-attribution.  It must preserve unknowns, but it does not need the full
+  qualification or dispatch protocol.
+- A draft pull request may be prepared once a clean, minimal commit has focused
+  correctness evidence, a reproduction command and an explicit claim
+  boundary.  Whole-model, cross-hardware and production-workload evidence may
+  remain pending and must be shown as pending.  Draft review and upstream CI are
+  useful evidence sources, not rewards reserved for already-complete work.
+- A non-draft or performance-qualified pull request still requires the full
+  applicable correctness, production-workload, regression and provenance
+  gates.  Never relax a publication claim merely to ship sooner.
+
+Keep at most one qualification candidate and one cheap discovery candidate per
+execution lane.  When a candidate is selected, prioritize a clean commit,
+focused tests and a draft-ready package before expanding the search frontier.
+After confirming that the production path is reachable and before expanding
+environment, accelerator or whole-workload qualification, run
+`scripts/kernel_opt.py candidate-value`.  An unknown whole-workload ceiling
+must stay explicit and be quantified next; never replace it with zero or a
+favorable guess.  Stop candidates below the materiality floor, open an honest
+Draft once its minimum evidence is complete, and reserve expensive
+qualification for candidates whose possible value justifies their permanent
+review and maintenance surface.
+End each bounded cycle with one of: a code/test/PR-state change, a measured
+decision, or an explicit rejection.  Do not create another schema, receipt or
+validator merely to restate an already-enforced boundary; add one only after a
+reproduced gap could authorize an incorrect external or irreversible action.
+
+For every selected framework candidate, start a `PROSPECTIVE_EXACT` community
+timing ledger and record `FIRST_CANDIDATE_PROPOSED` before the first production
+source edit. Bind the selection decision as milestone evidence. When GitHub
+opens the Draft, marks it Ready or merges it, use `community-timing
+record-pr-stage` with the observed event time, PR URL and an immutable event
+receipt. Never reconstruct these timestamps later from memory or filesystem
+mtimes. If the ledger did not exist before implementation, classify that cycle
+as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
+Agent-repository maintenance PRs are never entered in a framework lane ledger.
+For bounded environment or governance commands, use `community-timing run-phase`
+instead of separate start/end writes so success, non-zero exit, timeout, and
+launch failure all close the phase with an immutable command receipt. The
+receipt measures command wall time and exit status; it is not correctness or
+performance evidence.
+If a governed worker executes the command and returns an immutable receipt, use
+`community-timing import-phase-receipt` against a ledger that existed before the
+worker run. Bind the receipt's explicit start/end fields and reconcile its
+duration field when available; never infer these times from file mtimes or
+retrofit them into a legacy cycle.
+
+Every selected framework candidate must also maintain one current
+`upstream-review-state-v1` record.  Update it when the minimal Draft evidence,
+GitHub Draft state, Ready gates, CI classification or reviewer state changes.
+The control plane must hash-bind those records in an
+`upstream-delivery-inbox-v1` manifest and run `upstream-delivery-inbox`; do not
+reconstruct delivery readiness from chat summaries or arbitrary experiment
+receipts.  An `OPEN_DRAFT`, `MARK_READY_AND_REQUEST_REVIEW` or
+`RESPOND_TO_REVIEW` inbox item is a delivery action, not another research
+prompt.  Agent-repository maintenance stays in a separate inbox and never
+counts as a framework optimization success.
+For live queues containing an open Ready PR, use
+`upstream-delivery-inbox-v2` and hash-bind its prospective reviewer-handoff
+clock. This prevents a normal reviewer wait from hiding a due bounded
+follow-up. The inbox only routes the action; it never authorizes a message.
+For pending candidates, consume the inbox's Draft-minimum and Ready-gate
+progress rather than treating equal action labels as equal priority. Within
+one action class, prefer the candidate with more completed immutable gates;
+do not keep several same-lane candidates active merely because all say
+`COMPLETE_DRAFT_MINIMUM`.
+
+Normal local source edits, CPU-only builds and focused tests are implementation
+work and do not require repeated user authorization.  Expensive compilation,
+GPU execution, service interruption, credential use and external publication
+retain their explicit authority boundaries.  For model materialization, prefer
+an accessible ModelScope snapshot when it can be content-hash matched to the
+required model identity; a hosting platform name is never a substitute for
+file identities.
+
+After an environment or toolchain failure, run `qualification-environment`
+before downloading or rebuilding another closure. Reuse only the layers it
+marks compatible: dependency/toolchain state, source binding and a source-bound
+native extension are separate identities. A reuse decision is advisory and
+never authorizes a build, test, GPU run or result claim.
+
+An environment repair is a bounded implementation activity, not a reason to
+mint an unlimited sequence of plans.  Route every terminal attempt through
+`qualification-route` before creating a successor.  Create a new version only
+when an executable byte, bound identity or reviewed scope changes; a wording,
+timestamp or filename correction alone must not become another attempt.  Keep
+one current plan and mark all predecessors terminal.  When the frozen repair
+budget is exhausted, stop that environment route and continue a different
+cheap candidate or Draft/review task until the controller explicitly opens a
+new scope and budget.  Prefer the shared approval, worker attestation and
+single-use dispatcher receipts over run-specific controller scripts or new
+schemas that restate the same boundary.
+
+Execute an approved CPU-only preparation only through
+`qualification-environment-dispatch`. The approval must bind the exact
+dispatcher, contain one sealed argv and be atomically consumed once. A failed,
+timed-out or ambiguous claim is terminal and must not be retried in place.
+The dispatcher receipt is process evidence only; accept the environment only
+from the separately validated materializer terminal receipt.
+
+Before a cache-bound model download, JIT compile or native build, bind every
+framework/compiler cache root explicitly and run `environment-cache-preflight`.
+Require the intended environment-variable mapping, a writable directory and a
+workload-sized free-space floor. A blocked preflight is an environment result,
+not a candidate failure; move to a reviewed cache root or stop the bounded
+repair instead of retrying against an implicit home-directory default.
+
+On a CPU-only preprovisioned worker, `CUDA_VISIBLE_DEVICES=-1` can make
+`torch.cuda.get_arch_list()` return an empty list even when the installed Torch
+binary contains the required architecture. Reuse the worker attestation logic:
+fall back to `torch._C._cuda_getArchFlags()` and hash-bind the Torch binary and
+build configuration. Do not relax or skip the architecture check, and do not
+make CUDA visible merely to query compiled targets.
+
+Treat the GPU process list in a worker attestation as a time-stamped
+observation, not a permanent empty-worker promise. Immediately around each
+CPU-only preparation step, capture the same `nvidia-smi` process fields and
+use `validate_cpu_only_process_transition`: pre-existing protected workloads
+may remain, but the normalized GPU UUID/PID/process-name set must be unchanged
+afterward. Do not compare live process rows to the historical attestation or
+fail on memory-accounting drift alone, and never stop a protected process to
+make the old snapshot match.
+
+Before dependency installation or the first framework import on a managed
+worker, call `cpu_only_cache_environment` with the exact closure root and bind
+the returned environment. Framework imports can write caches even with CUDA
+hidden; XDG, Hugging Face, Torch, TorchInductor, Triton, CUDA, SGLang,
+FlashInfer and temporary paths must stay inside the writable closure. Do not
+fall back to `/root`, `$HOME` or another image-owned filesystem, and do not
+repair a full image filesystem by deleting unrelated caches.
+
+Execute an approved CPU-only preparation only through
+`qualification-environment-dispatch`. The approval must bind the exact
+dispatcher, contain one sealed argv and be atomically consumed once. A failed,
+timed-out or ambiguous claim is terminal and must not be retried in place.
+The dispatcher receipt is process evidence only; accept the environment only
+from the separately validated materializer terminal receipt.
+
+Before a cache-bound model download, JIT compile or native build, bind every
+framework/compiler cache root explicitly and run `environment-cache-preflight`.
+Require the intended environment-variable mapping, a writable directory and a
+workload-sized free-space floor. A blocked preflight is an environment result,
+not a candidate failure; move to a reviewed cache root or stop the bounded
+repair instead of retrying against an implicit home-directory default.
+
+When a shared qualification resource broker is available, submit the sealed
+validation job and continue bounded discovery or review work instead of waiting
+on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker
+lease is only a resource reservation; the lane's normal authorization and
+atomic dispatcher must still validate before launch. Treat a stale lease as
+possibly running until the worker reconciles it, and route its immutable
+terminal result only to the originating task recorded in the job.
 
 ## Optimization invariants
 

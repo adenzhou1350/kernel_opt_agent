@@ -33,13 +33,13 @@ def main() -> int:
     if run not in evidence.parents or not evidence.is_file():
         raise ValueError("review evidence must be an existing file inside the run")
     queue_path = run / "models/experiment_queue.json"
-    queue = json.loads(queue_path.read_text())
+    queue = json.loads(queue_path.read_text(encoding="utf-8"))
     request = next((item for item in queue.get("requests", []) if item.get("request_id") == args.request_id), None)
     if request is None or request.get("status") not in {"RUNNING", "BLOCKED"}:
         raise ValueError("only a RUNNING or technically BLOCKED completed execution can be revised")
     experiment_dir = run / "experiments" / args.request_id
     receipt_path = experiment_dir / "execution_receipt.json"
-    receipt = json.loads(receipt_path.read_text())
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
     receipt_status = receipt.get("status")
     if receipt_status not in {"PASS", "FAIL"} or receipt.get("request_id") != args.request_id:
         raise ValueError("revision requires a completed PASS or FAIL execution receipt")
@@ -85,7 +85,7 @@ def main() -> int:
         "archived_at": datetime.now(timezone.utc).isoformat(),
         "reason": args.reason,
         "files": [
-            {"path": str(path.relative_to(run)), "sha256": sha(path)}
+            {"path": path.relative_to(run).as_posix(), "sha256": sha(path)}
             for path in sorted(copied)
         ],
     }
@@ -96,7 +96,7 @@ def main() -> int:
         "attempt": attempt_number,
         "disposition": disposition,
         "reason": args.reason,
-        "archive_manifest": {"path": str(manifest_path.relative_to(run)), "sha256": sha(manifest_path)},
+        "archive_manifest": {"path": manifest_path.relative_to(run).as_posix(), "sha256": sha(manifest_path)},
     })
     next_status = "HALT_AND_REPLAN" if receipt_status == "PASS" else "AWAITING_SUPERVISOR_REVIEW"
     request["status"] = next_status
@@ -109,12 +109,12 @@ def main() -> int:
         "status": next_status,
     }
     experiment_path = experiment_dir / "experiment.json"
-    experiment = json.loads(experiment_path.read_text())
+    experiment = json.loads(experiment_path.read_text(encoding="utf-8"))
     experiment["status"] = next_status
     experiment.setdefault("revision_history", []).append({
         "attempt": attempt_number,
         "reason": args.reason,
-        "review_evidence": {"path": str(review_target.relative_to(run)), "sha256": sha(review_target)},
+        "review_evidence": {"path": review_target.relative_to(run).as_posix(), "sha256": sha(review_target)},
     })
     atomic_json(experiment_path, experiment)
     request["materialized_experiment"]["sha256"] = sha(experiment_path)

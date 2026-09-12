@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_portfolio_report.schema.json",
+  "title": "Descriptive four-lane optimization portfolio report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "manifest_identity",
+    "lanes",
+    "totals"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-portfolio-report-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {
+      "const": "DESCRIPTIVE_PORTFOLIO_ACCOUNTING_NOT_STRATEGY_CAUSALITY"
+    },
+    "manifest_identity": {"$ref": "#/$defs/identity"},
+    "lanes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/laneReport"}
+    },
+    "totals": {"$ref": "#/$defs/metrics"}
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "nullableSeconds": {"type": ["number", "null"], "minimum": 0},
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ledger_count",
+        "prospective_count",
+        "legacy_count",
+        "gpu_seconds",
+        "correctness_pass_count",
+        "correctness_fail_count",
+        "material_improvement_count",
+        "upstream_ready_count",
+        "draft_or_ready_pr_count",
+        "merged_count",
+        "median_time_to_first_correct_seconds",
+        "median_time_to_first_improvement_seconds",
+        "qualified_results_per_gpu_hour"
+      ],
+      "properties": {
+        "ledger_count": {"type": "integer", "minimum": 0},
+        "prospective_count": {"type": "integer", "minimum": 0},
+        "legacy_count": {"type": "integer", "minimum": 0},
+        "gpu_seconds": {"type": "number", "minimum": 0},
+        "correctness_pass_count": {"type": "integer", "minimum": 0},
+        "correctness_fail_count": {"type": "integer", "minimum": 0},
+        "material_improvement_count": {"type": "integer", "minimum": 0},
+        "upstream_ready_count": {"type": "integer", "minimum": 0},
+        "draft_or_ready_pr_count": {"type": "integer", "minimum": 0},
+        "merged_count": {"type": "integer", "minimum": 0},
+        "median_time_to_first_correct_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_time_to_first_improvement_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "qualified_results_per_gpu_hour": {"type": ["number", "null"], "minimum": 0}
+      }
+    },
+    "laneReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "lane_id",
+        "thread_id",
+        "ledger_identities",
+        "ledger_count",
+        "prospective_count",
+        "legacy_count",
+        "gpu_seconds",
+        "correctness_pass_count",
+        "correctness_fail_count",
+        "material_improvement_count",
+        "upstream_ready_count",
+        "draft_or_ready_pr_count",
+        "merged_count",
+        "median_time_to_first_correct_seconds",
+        "median_time_to_first_improvement_seconds",
+        "qualified_results_per_gpu_hour"
+      ],
+      "properties": {
+        "lane_id": {
+          "enum": [
+            "VLLM_OPTIMIZATION",
+            "VLLM_A800_ADAPTATION",
+            "MOONCAKE_OPTIMIZATION",
+            "SGLANG_OPTIMIZATION"
+          ]
+        },
+        "thread_id": {"type": "string", "pattern": "^[0-9a-f-]{36}$"},
+        "ledger_identities": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity"}
+        },
+        "ledger_count": {"type": "integer", "minimum": 0},
+        "prospective_count": {"type": "integer", "minimum": 0},
+        "legacy_count": {"type": "integer", "minimum": 0},
+        "gpu_seconds": {"type": "number", "minimum": 0},
+        "correctness_pass_count": {"type": "integer", "minimum": 0},
+        "correctness_fail_count": {"type": "integer", "minimum": 0},
+        "material_improvement_count": {"type": "integer", "minimum": 0},
+        "upstream_ready_count": {"type": "integer", "minimum": 0},
+        "draft_or_ready_pr_count": {"type": "integer", "minimum": 0},
+        "merged_count": {"type": "integer", "minimum": 0},
+        "median_time_to_first_correct_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "median_time_to_first_improvement_seconds": {"$ref": "#/$defs/nullableSeconds"},
+        "qualified_results_per_gpu_hour": {"type": ["number", "null"], "minimum": 0}
+      }
+    }
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_entry_dispatch_receipt_v2.schema.json",
+  "title": "Process-bound dispatch receipt for one claimed schedule entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "dispatched_at", "claim_boundary", "dispatch_receipt_id",
+    "session_id", "entry_claim_id", "order_index", "schedule_key", "state",
+    "formal_resource_id", "resolved_argv_sha256", "formal_gpu_uuids",
+    "process_identity", "launch_attempt_consumed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-entry-dispatch-receipt-v2"},
+    "dispatched_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "PROCESS_IDENTITY_RECORDED_AFTER_ATOMIC_ENTRY_CLAIM"},
+    "dispatch_receipt_id": {"$ref": "#/$defs/sha256"},
+    "session_id": {"$ref": "#/$defs/sha256"},
+    "entry_claim_id": {"$ref": "#/$defs/sha256"},
+    "order_index": {"type": "integer", "minimum": 1},
+    "schedule_key": {"$ref": "#/$defs/sha256"},
+    "state": {"const": "DISPATCHED"},
+    "formal_resource_id": {"type": "string", "minLength": 1},
+    "resolved_argv_sha256": {"$ref": "#/$defs/sha256"},
+    "formal_gpu_uuids": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^GPU-[0-9A-Za-z-]+$"}
+    },
+    "process_identity": {"$ref": "#/$defs/process_identity"},
+    "launch_attempt_consumed": {"const": true}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "process_identity": {
+      "type": "object", "additionalProperties": false,
+      "required": [
+        "pid", "hostname", "boot_id", "proc_start_ticks", "argv_sha256",
+        "executable_path", "executable_sha256", "gpu_uuids"
+      ],
+      "properties": {
+        "pid": {"type": "integer", "minimum": 1},
+        "hostname": {"type": "string", "minLength": 1},
+        "boot_id": {"type": "string", "minLength": 1},
+        "proc_start_ticks": {"type": "integer", "minimum": 0},
+        "argv_sha256": {"$ref": "#/$defs/sha256"},
+        "executable_path": {"type": "string", "minLength": 1},
+        "executable_sha256": {"$ref": "#/$defs/sha256"},
+        "gpu_uuids": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^GPU-[0-9A-Za-z-]+$"}
+        }
+      }
+    }
+  }
+}

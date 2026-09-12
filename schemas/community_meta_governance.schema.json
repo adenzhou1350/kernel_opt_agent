@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_meta_governance.schema.json",
+  "title": "Single-writer governance for cross-framework optimization learning",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "purpose",
+    "canonical_repository",
+    "roles",
+    "evidence_protocol",
+    "promotion_policy",
+    "cycle_contract"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-meta-governance-v1"},
+    "purpose": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "optimization_objective",
+        "community_knowledge_role",
+        "success_boundary"
+      ],
+      "properties": {
+        "optimization_objective": {
+          "const": "THEORETICAL_LIMIT_TO_PRODUCTION_GAP"
+        },
+        "community_knowledge_role": {
+          "const": "DISCOVERY_PRIOR_NOT_TARGET_EVIDENCE"
+        },
+        "success_boundary": {
+          "const": "CORRECT_PRODUCTION_WORKLOAD_GAIN_AND_UPSTREAM_VALUE"
+        }
+      }
+    },
+    "canonical_repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["upstream", "working_fork", "repository_role", "evidence_role"],
+      "properties": {
+        "upstream": {"type": "string", "format": "uri"},
+        "working_fork": {"type": "string", "format": "uri"},
+        "repository_role": {"const": "SHARED_POLICY_KNOWLEDGE_AND_SCHEMAS"},
+        "evidence_role": {"const": "EXTERNAL_CONTENT_ADDRESSED_RUN_ARTIFACTS"}
+      }
+    },
+    "roles": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["control_plane", "execution_lanes"],
+      "properties": {
+        "control_plane": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["single_writer", "owns"],
+          "properties": {
+            "single_writer": {"const": true},
+            "owns": {
+              "type": "array",
+              "minItems": 3,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "SEARCH_DEFAULTS",
+                  "KNOWLEDGE_STRUCTURE",
+                  "EVALUATION_PROTOCOL",
+                  "CROSS_FRAMEWORK_PROMOTION"
+                ]
+              }
+            }
+          }
+        },
+        "execution_lanes": {
+          "type": "array",
+          "minItems": 4,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["VLLM", "MOONCAKE", "SGLANG", "STRATEGY_EVALUATION"]
+          }
+        }
+      }
+    },
+    "evidence_protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["work_cycle_schema", "paired_trial_schema", "required_metrics"],
+      "properties": {
+        "work_cycle_schema": {"const": "community-work-cycle-v1"},
+        "paired_trial_schema": {"const": "community-ab-report-v1"},
+        "required_metrics": {
+          "type": "array",
+          "uniqueItems": true,
+          "minItems": 10,
+          "items": {
+            "enum": [
+              "CANDIDATE_SOURCE",
+              "SEARCH_POLICY_VERSION",
+              "WALL_CLOCK_SECONDS",
+              "GPU_SECONDS",
+              "FAILURE_STAGE",
+              "CORRECTNESS",
+              "TIME_TO_FIRST_CORRECT",
+              "TIME_TO_FIRST_IMPROVEMENT",
+              "BEST_SPEEDUP",
+              "WHOLE_MODEL_SPEEDUP",
+              "UPSTREAM_READY",
+              "PULL_REQUEST_STATE",
+              "REGRESSION_RATE"
+            ]
+          }
+        }
+      }
+    },
+    "promotion_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "comparison",
+        "minimum_frameworks",
+        "requires_unseen_candidates",
+        "improvement_metrics",
+        "non_regression_metrics",
+        "decisions"
+      ],
+      "properties": {
+        "comparison": {"const": "CHAMPION_VS_CHALLENGER"},
+        "minimum_frameworks": {"const": 2},
+        "requires_unseen_candidates": {"const": true},
+        "improvement_metrics": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "TIME_TO_FIRST_CORRECT",
+              "TIME_TO_FIRST_IMPROVEMENT",
+              "VALIDATION_VALUE_PER_GPU_HOUR",
+              "UPSTREAM_READY_OR_MERGE_RATE"
+            ]
+          }
+        },
+        "non_regression_metrics": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "CORRECTNESS",
+              "REGRESSION_RATE",
+              "WHOLE_MODEL_SPEEDUP",
+              "VALIDATION_COST"
+            ]
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {"enum": ["PROMOTE_DEFAULT", "KEEP_LOCAL", "ROLL_BACK"]}
+        }
+      }
+    },
+    "cycle_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finite_cycles", "stop_condition"],
+      "properties": {
+        "finite_cycles": {"const": true},
+        "stop_condition": {
+          "const": "EVIDENCE_BOUND_CROSS_FRAMEWORK_DECISION_RECORDED"
+        }
+      }
+    }
+  }
+}

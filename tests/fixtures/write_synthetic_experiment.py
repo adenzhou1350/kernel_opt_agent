@@ -55,7 +55,7 @@ def main() -> int:
         })
     elif args.mode == "correctness":
         write(correctness, {"status": "PASS", "checks": [{"name": "live-output", "max_abs": 0.0}]})
-        write(environment, {"target": json.loads((run / "hardware.json").read_text()).get("target", {}), "status": "STABLE"})
+        write(environment, {"target": json.loads((run / "hardware.json").read_text(encoding="utf-8")).get("target", {}), "status": "STABLE"})
     elif args.mode == "warmup":
         write(raw / "warmup.json", {"iterations": 10, "status": "PASS"})
     elif args.mode == "measure":
@@ -86,14 +86,14 @@ def main() -> int:
             "cold_warm": {"separated": True, "cold_us": [1.2, 1.2, 1.2], "warm_us": [1.0] * 9}
         })
     elif args.mode == "analyze":
-        samples = json.loads(samples_path.read_text())["samples"]
+        samples = json.loads(samples_path.read_text(encoding="utf-8"))["samples"]
         write(result_path, {
             "schema_version": "benchmark-result-v2", "request_id": args.request_id,
             "experiment_identity": identity(experiment),
             "hardware_identity": identity(run / "hardware.json"),
             "workload_identity": identity(run / "workload.json"),
             "benchmark": "synthetic.execution-closed.v1", "question": "What is the launch envelope?",
-            "environment": json.loads(environment.read_text()), "source_identity": identity(source),
+            "environment": json.loads(environment.read_text(encoding="utf-8")), "source_identity": identity(source),
             "measurement": {"metric": "gpu_active", "semantics": "kernel active", "unit": "us", "timer": "synthetic native GPU timer"},
             "raw_samples": samples, "raw_samples_identity": identity(samples_path),
             "summary": {"median_us": 1.0, "utilization_percent": 50.0, "revision": 1.0, "resolved_request_ids": []},

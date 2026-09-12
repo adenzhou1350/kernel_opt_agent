@@ -18,7 +18,7 @@ def evidence(run: Path, path: Path) -> dict:
     resolved = path.resolve()
     if run not in resolved.parents or not resolved.is_file():
         raise ValueError(f"evidence must be an existing file inside the run: {resolved}")
-    return {"path": str(resolved.relative_to(run)), "sha256": sha(resolved)}
+    return {"path": resolved.relative_to(run).as_posix(), "sha256": sha(resolved)}
 
 
 def atomic_json(path: Path, data: dict) -> None:
@@ -37,18 +37,18 @@ def main() -> int:
     args = parser.parse_args()
     run = args.run.resolve()
     queue_path = run / "models/experiment_queue.json"
-    queue = json.loads(queue_path.read_text())
+    queue = json.loads(queue_path.read_text(encoding="utf-8"))
     request = next((item for item in queue.get("requests", []) if item.get("request_id") == args.request_id), None)
     if request is None or request.get("status") != "RUNNING":
         raise ValueError("only a RUNNING experiment can be externally blocked")
     blockers = [evidence(run, path) for path in args.blocking_evidence]
     partial = [evidence(run, path) for path in args.partial_result]
     for record in blockers:
-        data = json.loads((run / record["path"]).read_text())
+        data = json.loads((run / record["path"]).read_text(encoding="utf-8"))
         if not str(data.get("status", "")).startswith("BLOCKED"):
             raise ValueError(f"blocking evidence does not declare BLOCKED status: {record['path']}")
     for record in partial:
-        data = json.loads((run / record["path"]).read_text())
+        data = json.loads((run / record["path"]).read_text(encoding="utf-8"))
         if data.get("status") != "PASS":
             raise ValueError(f"partial result is not PASS: {record['path']}")
     request["status"] = "BLOCKED"

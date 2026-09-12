@@ -32,7 +32,7 @@ def main() -> int:
     state_path = args.run.resolve() / "run_state.json"
     if not state_path.exists():
         raise ValueError(f"run state is missing: {state_path}")
-    state = json.loads(state_path.read_text())
+    state = json.loads(state_path.read_text(encoding="utf-8"))
     if state.get("current_phase") not in {"MODELING", "EXPERIMENT"}:
         raise ValueError("microbenchmark candidates may be created only during MODELING or EXPERIMENT")
     destination = candidate_root / slug

@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--sass", type=Path, required=True)
     parser.add_argument("--raw-samples", type=Path, required=True)
     args = parser.parse_args()
-    index = json.loads(args.index.read_text())
+    index = json.loads(args.index.read_text(encoding="utf-8"))
     if index.get("schema_version") != "hardware-measurement-index-v2":
         raise ValueError("measurement index must use v2")
     repository_root = args.index.resolve().parents[2]
@@ -46,7 +46,7 @@ def main():
             raise ValueError(f"{name} must be an archived file inside hardware/measurements")
     if any(record["id"] == args.id for record in index["records"]):
         raise ValueError(f"measurement id already registered: {args.id}")
-    summary = json.loads(args.summary.read_text())
+    summary = json.loads(args.summary.read_text(encoding="utf-8"))
     if summary.get("status") != "VALID":
         raise ValueError("only VALID measurement suites may be registered")
     hardware_errors = validate_hardware_evidence(args.hardware_evidence, args.hardware)
@@ -56,7 +56,7 @@ def main():
     if p0_errors:
         raise ValueError("P0 evidence is invalid: " + "; ".join(p0_errors))
     def relative_identity(path: Path):
-        return {"path": str(path.resolve().relative_to(repository_root)), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+        return {"path": path.resolve().relative_to(repository_root).as_posix(), "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
     index["records"].append({
         "id": args.id,
         "qualification": "EVIDENCE_CLOSED_V2",

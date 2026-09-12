@@ -8,21 +8,29 @@ rerun without `--check-only` only after every finding is resolved.  Do not edit
 
 At every step run `scripts/kernel_opt.py next --run <run>`. Its action order is:
 
-1. close exact official hardware evidence or request developer documentation;
-2. discover final-binary material resources and reject unresolved mappings;
-3. calibrate P0;
-4. build 2--4 candidates and identify the single uncertainty that can flip the
+1. capture a correct production discovery baseline;
+2. build 6--12 candidates across at least four architecture families;
+3. repair compilation/correctness failures and cheaply screen anchor/edge cases;
+4. promote at most 2--4 survivors;
+5. close exact official hardware evidence and finalist-binary resource mapping;
+6. calibrate P0 and identify the single uncertainty that can flip the finalist
    top-two ordering;
-5. map that uncertainty to a defensible observable and choose screening or
+7. map that uncertainty to a defensible observable and choose screening or
    qualification;
-6. materialize the bounded experiment and obtain independent supervisor approval;
-7. execute and bind immutable evidence;
-8. reconcile resource balance, schedule DAG, frontier and queue;
-9. check the next phase gate.
+8. materialize the bounded experiment and obtain independent supervisor approval;
+9. execute and bind immutable evidence;
+10. reconcile resource balance, schedule DAG, frontier and queue;
+11. check the next phase gate.
 
 The controller may safely create manifests and receipts. It must not execute an
 incomplete command contract or interpret an arbitrary result without the global
 scheduler's boundary-aware reconciliation.
+
+The fast discovery lane is cross-cutting rather than a phase transition. After
+a correct baseline exists, it may compile, repair, correctness-check and cheaply
+screen run-local production candidates before full model closure. Every result
+is labeled `DISCOVERY_ONLY`; only promoted finalists enter the enforced sequence
+for supervised qualification and certification.
 
 ## Baseline gate
 
@@ -36,6 +44,13 @@ CPU dispatch, GPU active and end-to-end baseline evidence with source and raw
 sample identities.
 
 ## Hypothesis gate
+
+Before constructing the qualification hypothesis, build a discovery portfolio
+of 6--12 candidates across at least four architecture families. A compiler,
+import, layout/type, harness or missing-artifact failure is technical and stays
+repairable within its separate budget. It is not evidence against the
+performance hypothesis. Use successive halving so every family receives a
+small implementation budget before any finalist receives expensive modeling.
 
 Change one scheduling/resource hypothesis at a time when possible.  State the
 expected observable consequence in latency, instructions, transactions,

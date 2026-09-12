@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_claim_store_deployment.schema.json",
+  "title": "Host-bound deployment identity for one atomic community claim store",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "generated_at", "claim_boundary", "deployment_id",
+    "validator_binding", "formal_resource_id", "host_identity",
+    "canonical_database_path", "store_epoch_receipt",
+    "claim_store_epoch_sha256", "dispatcher_executable",
+    "claim_store_identity_sha256", "hidden_oracle_exposed"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-claim-store-deployment-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "TRUSTED_STORE_DEPLOYMENT_NOT_TOKEN_CONSUMPTION_OR_PROCESS_LAUNCH"},
+    "deployment_id": {"$ref": "#/$defs/sha256"},
+    "validator_binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "repository_commit", "epoch_schema_sha256", "deployment_schema_sha256",
+        "validator_sha256", "claim_contracts_sha256", "atomic_claim_sha256"
+      ],
+      "properties": {
+        "repository_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "epoch_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "deployment_schema_sha256": {"$ref": "#/$defs/sha256"},
+        "validator_sha256": {"$ref": "#/$defs/sha256"},
+        "claim_contracts_sha256": {"$ref": "#/$defs/sha256"},
+        "atomic_claim_sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "formal_resource_id": {"type": "string", "minLength": 1},
+    "host_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hostname", "boot_id"],
+      "properties": {
+        "hostname": {"type": "string", "minLength": 1},
+        "boot_id": {"type": "string", "minLength": 1}
+      }
+    },
+    "canonical_database_path": {"type": "string", "minLength": 1},
+    "store_epoch_receipt": {"$ref": "#/$defs/identity"},
+    "claim_store_epoch_sha256": {"$ref": "#/$defs/sha256"},
+    "dispatcher_executable": {"$ref": "#/$defs/identity"},
+    "claim_store_identity_sha256": {"$ref": "#/$defs/sha256"},
+    "hidden_oracle_exposed": {"const": false}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^(?![A-Za-z]:|/|\\\\|.*\\.\\.).+"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

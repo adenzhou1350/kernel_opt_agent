@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_evidence_receipt.schema.json",
+  "title": "Upstream qualification evidence receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "role", "status", "candidate_commit", "summary", "artifacts"],
+  "properties": {
+    "schema_version": {"const": "upstream-evidence-receipt-v1"},
+    "role": {"enum": ["CORRECTNESS", "OPERATOR_PERFORMANCE", "WHOLE_MODEL_PERFORMANCE", "ENVIRONMENT", "REPRODUCTION", "UPSTREAM_CHECKS", "CROSS_HARDWARE"]},
+    "status": {"enum": ["PASS", "FAIL", "INCONCLUSIVE"]},
+    "candidate_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "summary": {"type": "string", "minLength": 1},
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/identity"}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}

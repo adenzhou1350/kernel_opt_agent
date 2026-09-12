@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "qualification_environment_materialization_dispatch_receipt.schema.json",
+  "title": "CPU-only materialization dispatcher terminal receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "receipt_id",
+    "completed_at",
+    "claim",
+    "state",
+    "exit_code",
+    "timed_out",
+    "stdout",
+    "stderr",
+    "gpu_authorized",
+    "workload_authorized",
+    "broker_mutated",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "qualification-environment-materialization-dispatch-receipt-v1"},
+    "receipt_id": {"$ref": "#/$defs/sha256"},
+    "completed_at": {"type": "string", "format": "date-time"},
+    "claim": {"$ref": "#/$defs/identity"},
+    "state": {"enum": ["EXECUTOR_COMPLETED", "EXECUTOR_FAILED", "EXECUTOR_TIMED_OUT"]},
+    "exit_code": {"type": ["integer", "null"]},
+    "timed_out": {"type": "boolean"},
+    "stdout": {"$ref": "#/$defs/stream"},
+    "stderr": {"$ref": "#/$defs/stream"},
+    "gpu_authorized": {"const": false},
+    "workload_authorized": {"const": false},
+    "broker_mutated": {"const": false},
+    "claim_boundary": {
+      "const": "EXECUTOR_PROCESS_TERMINAL_STATUS_ONLY_NOT_ENVIRONMENT_CORRECTNESS_PERFORMANCE_GPU_OR_WORKLOAD_EVIDENCE"
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "stream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bytes", "sha256"],
+      "properties": {
+        "bytes": {"type": "integer", "minimum": 0},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

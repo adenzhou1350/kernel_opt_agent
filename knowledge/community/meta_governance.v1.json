@@ -1,0 +1,67 @@
+{
+  "schema_version": "community-meta-governance-v1",
+  "purpose": {
+    "optimization_objective": "THEORETICAL_LIMIT_TO_PRODUCTION_GAP",
+    "community_knowledge_role": "DISCOVERY_PRIOR_NOT_TARGET_EVIDENCE",
+    "success_boundary": "CORRECT_PRODUCTION_WORKLOAD_GAIN_AND_UPSTREAM_VALUE"
+  },
+  "canonical_repository": {
+    "upstream": "https://github.com/dasikuzi2/kernel_opt_agent",
+    "working_fork": "https://github.com/adenzhou1350/kernel_opt_agent",
+    "repository_role": "SHARED_POLICY_KNOWLEDGE_AND_SCHEMAS",
+    "evidence_role": "EXTERNAL_CONTENT_ADDRESSED_RUN_ARTIFACTS"
+  },
+  "roles": {
+    "control_plane": {
+      "single_writer": true,
+      "owns": [
+        "SEARCH_DEFAULTS",
+        "KNOWLEDGE_STRUCTURE",
+        "EVALUATION_PROTOCOL",
+        "CROSS_FRAMEWORK_PROMOTION"
+      ]
+    },
+    "execution_lanes": ["VLLM", "MOONCAKE", "SGLANG", "STRATEGY_EVALUATION"]
+  },
+  "evidence_protocol": {
+    "work_cycle_schema": "community-work-cycle-v1",
+    "paired_trial_schema": "community-ab-report-v1",
+    "required_metrics": [
+      "CANDIDATE_SOURCE",
+      "SEARCH_POLICY_VERSION",
+      "WALL_CLOCK_SECONDS",
+      "GPU_SECONDS",
+      "FAILURE_STAGE",
+      "CORRECTNESS",
+      "TIME_TO_FIRST_CORRECT",
+      "TIME_TO_FIRST_IMPROVEMENT",
+      "BEST_SPEEDUP",
+      "WHOLE_MODEL_SPEEDUP",
+      "UPSTREAM_READY",
+      "PULL_REQUEST_STATE",
+      "REGRESSION_RATE"
+    ]
+  },
+  "promotion_policy": {
+    "comparison": "CHAMPION_VS_CHALLENGER",
+    "minimum_frameworks": 2,
+    "requires_unseen_candidates": true,
+    "improvement_metrics": [
+      "TIME_TO_FIRST_CORRECT",
+      "TIME_TO_FIRST_IMPROVEMENT",
+      "VALIDATION_VALUE_PER_GPU_HOUR",
+      "UPSTREAM_READY_OR_MERGE_RATE"
+    ],
+    "non_regression_metrics": [
+      "CORRECTNESS",
+      "REGRESSION_RATE",
+      "WHOLE_MODEL_SPEEDUP",
+      "VALIDATION_COST"
+    ],
+    "decisions": ["PROMOTE_DEFAULT", "KEEP_LOCAL", "ROLL_BACK"]
+  },
+  "cycle_contract": {
+    "finite_cycles": true,
+    "stop_condition": "EVIDENCE_BOUND_CROSS_FRAMEWORK_DECISION_RECORDED"
+  }
+}

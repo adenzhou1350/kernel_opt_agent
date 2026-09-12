@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_delivery_inbox.schema.json",
+  "title": "Evidence-bound upstream delivery inbox",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observed_at", "candidates"],
+  "properties": {
+    "schema_version": {"const": "upstream-delivery-inbox-v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "lane_id", "review_state"],
+        "properties": {
+          "candidate_id": {"type": "string", "minLength": 1},
+          "lane_id": {"type": "string", "minLength": 1},
+          "review_state": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "sha256"],
+            "properties": {
+              "path": {"type": "string", "minLength": 1},
+              "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+            }
+          }
+        }
+      }
+    }
+  }
+}
