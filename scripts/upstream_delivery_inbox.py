@@ -20,8 +20,23 @@ from upstream_review_state import classify, validate as validate_review_state
 ROOT_KEYS = {"schema_version", "observed_at", "candidates"}
 CANDIDATE_KEYS_V1 = {"candidate_id", "lane_id", "review_state"}
 CANDIDATE_KEYS_V2 = CANDIDATE_KEYS_V1 | {"review_handoff"}
+CANDIDATE_KEYS_V3 = CANDIDATE_KEYS_V2 | {"draft_materials"}
 SOURCE_KEYS = {"path", "sha256"}
-VERSIONS = {"upstream-delivery-inbox-v1", "upstream-delivery-inbox-v2"}
+DRAFT_MATERIAL_KEYS = {
+    "title",
+    "submission_type",
+    "repository",
+    "branch",
+    "commit",
+    "action_url",
+    "body",
+    "freshness_evidence",
+}
+VERSIONS = {
+    "upstream-delivery-inbox-v1",
+    "upstream-delivery-inbox-v2",
+    "upstream-delivery-inbox-v3",
+}
 PRIORITY = {
     "CLOSE_OR_REVISE_FAILED_CANDIDATE": 0,
     "RESPOND_TO_REVIEW": 1,
@@ -80,6 +95,33 @@ def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
 
 
+def valid_sha256(value: object) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(char in "0123456789abcdef" for char in value)
+    )
+
+
+def validate_source(value: object, path: str, errors: list[str]) -> dict:
+    source = exact_keys(value, SOURCE_KEYS, path, errors)
+    if not isinstance(source.get("path"), str) or not source.get("path"):
+        errors.append(f"{path}.path: must be non-empty")
+    if not valid_sha256(source.get("sha256")):
+        errors.append(f"{path}.sha256: must be lowercase SHA-256")
+    return source
+
+
+def contains_scalar(value: object, expected: str) -> bool:
+    if value == expected:
+        return True
+    if isinstance(value, list):
+        return any(contains_scalar(item, expected) for item in value)
+    if isinstance(value, dict):
+        return any(contains_scalar(item, expected) for item in value.values())
+    return False
+
+
 def check_progress(checks: dict[str, str], complete_values: set[str]) -> dict:
     passed = sorted(key for key, value in checks.items() if value in complete_values)
     pending = sorted(key for key, value in checks.items() if value == "PENDING")
@@ -106,11 +148,11 @@ def validate_manifest(record: object) -> list[str]:
         return errors
     identities: set[str] = set()
     for index, value in enumerate(candidates):
-        expected_keys = (
-            CANDIDATE_KEYS_V2
-            if version == "upstream-delivery-inbox-v2"
-            else CANDIDATE_KEYS_V1
-        )
+        expected_keys = {
+            "upstream-delivery-inbox-v1": CANDIDATE_KEYS_V1,
+            "upstream-delivery-inbox-v2": CANDIDATE_KEYS_V2,
+            "upstream-delivery-inbox-v3": CANDIDATE_KEYS_V3,
+        }.get(version, CANDIDATE_KEYS_V1)
         candidate = exact_keys(value, expected_keys, f"candidates[{index}]", errors)
         candidate_id = candidate.get("candidate_id")
         lane_id = candidate.get("lane_id")
@@ -122,44 +164,55 @@ def validate_manifest(record: object) -> list[str]:
             identities.add(candidate_id)
         if not isinstance(lane_id, str) or not lane_id:
             errors.append(f"candidates[{index}].lane_id: must be non-empty")
-        source = exact_keys(
+        validate_source(
             candidate.get("review_state"),
-            SOURCE_KEYS,
             f"candidates[{index}].review_state",
             errors,
         )
-        if not isinstance(source.get("path"), str) or not source.get("path"):
-            errors.append(f"candidates[{index}].review_state.path: must be non-empty")
-        digest = source.get("sha256")
-        if (
-            not isinstance(digest, str)
-            or len(digest) != 64
-            or any(char not in "0123456789abcdef" for char in digest)
-        ):
-            errors.append(
-                f"candidates[{index}].review_state.sha256: must be lowercase SHA-256"
-            )
-        if version == "upstream-delivery-inbox-v2":
+        if version in {"upstream-delivery-inbox-v2", "upstream-delivery-inbox-v3"}:
             handoff = candidate.get("review_handoff")
             if handoff is not None:
-                source = exact_keys(
+                validate_source(
                     handoff,
-                    SOURCE_KEYS,
                     f"candidates[{index}].review_handoff",
                     errors,
                 )
-                if not isinstance(source.get("path"), str) or not source.get("path"):
+        if version == "upstream-delivery-inbox-v3":
+            materials = candidate.get("draft_materials")
+            if materials is not None:
+                materials = exact_keys(
+                    materials,
+                    DRAFT_MATERIAL_KEYS,
+                    f"candidates[{index}].draft_materials",
+                    errors,
+                )
+                for field in ("title", "repository", "branch", "action_url"):
+                    if not isinstance(materials.get(field), str) or not materials.get(
+                        field
+                    ):
+                        errors.append(
+                            f"candidates[{index}].draft_materials.{field}: must be non-empty"
+                        )
+                if materials.get("submission_type") != "DRAFT_PULL_REQUEST":
                     errors.append(
-                        f"candidates[{index}].review_handoff.path: must be non-empty"
+                        f"candidates[{index}].draft_materials.submission_type: "
+                        "must be DRAFT_PULL_REQUEST"
                     )
-                digest = source.get("sha256")
+                commit = materials.get("commit")
                 if (
-                    not isinstance(digest, str)
-                    or len(digest) != 64
-                    or any(char not in "0123456789abcdef" for char in digest)
+                    not isinstance(commit, str)
+                    or len(commit) != 40
+                    or any(char not in "0123456789abcdef" for char in commit)
                 ):
                     errors.append(
-                        f"candidates[{index}].review_handoff.sha256: must be lowercase SHA-256"
+                        f"candidates[{index}].draft_materials.commit: "
+                        "must be a lowercase 40-character Git commit"
+                    )
+                for field in ("body", "freshness_evidence"):
+                    validate_source(
+                        materials.get(field),
+                        f"candidates[{index}].draft_materials.{field}",
+                        errors,
                     )
     return errors
 
@@ -215,7 +268,10 @@ def build(
         handoff_result = None
         effective_action = decision["recommended_action"]
         effective_owner = decision["external_action_owner"]
-        if manifest["schema_version"] == "upstream-delivery-inbox-v2":
+        if manifest["schema_version"] in {
+            "upstream-delivery-inbox-v2",
+            "upstream-delivery-inbox-v3",
+        }:
             handoff_source = candidate["review_handoff"]
             ready_pull = pull["state"] == "OPEN" and pull["draft"] is False
             if ready_pull and handoff_source is None:
@@ -275,6 +331,105 @@ def build(
                 }:
                     effective_action = handoff_decision["recommended_action"]
                     effective_owner = handoff_decision["external_action_owner"]
+        draft_material_result = None
+        if manifest["schema_version"] == "upstream-delivery-inbox-v3":
+            materials = candidate["draft_materials"]
+            if effective_action == "OPEN_DRAFT" and materials is None:
+                errors.append(
+                    f"candidates[{index}].draft_materials: required for OPEN_DRAFT"
+                )
+                continue
+            if materials is not None:
+                if materials["repository"] != pull["repository"]:
+                    errors.append(
+                        f"candidates[{index}].draft_materials.repository: "
+                        "does not match review_state"
+                    )
+                    continue
+                compare_prefix = (
+                    f"https://github.com/{materials['repository']}/compare/"
+                )
+                if not materials["action_url"].startswith(compare_prefix):
+                    errors.append(
+                        f"candidates[{index}].draft_materials.action_url: "
+                        "must be a repository compare URL"
+                    )
+                    continue
+                material_bytes: dict[str, bytes] = {}
+                material_failed = False
+                for field in ("body", "freshness_evidence"):
+                    material_source = materials[field]
+                    material_path = resolve_source(
+                        manifest_path, material_source["path"]
+                    )
+                    try:
+                        raw_material = material_path.read_bytes()
+                    except OSError as error:
+                        errors.append(
+                            f"candidates[{index}].draft_materials.{field}.path: {error}"
+                        )
+                        material_failed = True
+                        continue
+                    material_sha = sha256_bytes(raw_material)
+                    if material_sha != material_source["sha256"]:
+                        errors.append(
+                            f"candidates[{index}].draft_materials.{field}.sha256: "
+                            f"expected {material_source['sha256']}, got {material_sha}"
+                        )
+                        material_failed = True
+                        continue
+                    material_bytes[field] = raw_material
+                if material_failed:
+                    continue
+                body_raw = material_bytes["body"]
+                if not body_raw or len(body_raw) > 65_536:
+                    errors.append(
+                        f"candidates[{index}].draft_materials.body: "
+                        "must be 1..65536 bytes"
+                    )
+                    continue
+                try:
+                    body_raw.decode("utf-8")
+                except UnicodeDecodeError:
+                    errors.append(
+                        f"candidates[{index}].draft_materials.body: must be UTF-8"
+                    )
+                    continue
+                try:
+                    freshness = json.loads(material_bytes["freshness_evidence"])
+                except Exception as error:
+                    errors.append(
+                        f"candidates[{index}].draft_materials.freshness_evidence.path: "
+                        f"{error}"
+                    )
+                    continue
+                if not contains_scalar(freshness, materials["commit"]):
+                    errors.append(
+                        f"candidates[{index}].draft_materials.freshness_evidence: "
+                        "does not bind the candidate commit"
+                    )
+                    continue
+                draft_material_result = {
+                    key: materials[key]
+                    for key in (
+                        "title",
+                        "submission_type",
+                        "repository",
+                        "branch",
+                        "commit",
+                        "action_url",
+                    )
+                }
+                draft_material_result.update(
+                    {
+                        "body": {
+                            "path": materials["body"]["path"],
+                            "sha256": materials["body"]["sha256"],
+                            "bytes": len(body_raw),
+                        },
+                        "freshness_evidence": materials["freshness_evidence"],
+                    }
+                )
         draft_progress = check_progress(review_state["draft_minimum"], {"PASS"})
         ready_progress = check_progress(
             review_state["ready_gates"], {"PASS", "NOT_APPLICABLE"}
@@ -295,9 +450,14 @@ def build(
             "ready_gate_progress": ready_progress,
             "priority": PRIORITY[effective_action],
         }
-        if manifest["schema_version"] == "upstream-delivery-inbox-v2":
+        if manifest["schema_version"] in {
+            "upstream-delivery-inbox-v2",
+            "upstream-delivery-inbox-v3",
+        }:
             item["review_state_action"] = decision["recommended_action"]
             item["review_handoff"] = handoff_result
+        if manifest["schema_version"] == "upstream-delivery-inbox-v3":
+            item["draft_materials"] = draft_material_result
         items.append(item)
     items.sort(
         key=lambda item: (
@@ -310,11 +470,11 @@ def build(
     )
     counts = Counter(item["recommended_action"] for item in items)
     result = {
-        "schema_version": (
-            "upstream-delivery-inbox-result-v2"
-            if manifest["schema_version"] == "upstream-delivery-inbox-v2"
-            else "upstream-delivery-inbox-result-v1"
-        ),
+        "schema_version": {
+            "upstream-delivery-inbox-v1": "upstream-delivery-inbox-result-v1",
+            "upstream-delivery-inbox-v2": "upstream-delivery-inbox-result-v2",
+            "upstream-delivery-inbox-v3": "upstream-delivery-inbox-result-v3",
+        }[manifest["schema_version"]],
         "manifest_sha256": sha256_bytes(manifest_bytes),
         "observed_at": manifest["observed_at"],
         "candidate_count": len(items),

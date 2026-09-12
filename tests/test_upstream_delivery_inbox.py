@@ -187,6 +187,114 @@ def main() -> None:
         assert follow_up_item["review_handoff"]["observed_ready_age_hours"] == 25
         assert follow_up_item["review_handoff"]["automatic_message_authorized"] is False
 
+        body_path = root / "draft-body.md"
+        body_raw = b"## Summary\n\nValidated Draft body.\n"
+        body_path.write_bytes(body_raw)
+        body_sha = hashlib.sha256(body_raw).hexdigest()
+        freshness_path = root / "freshness.json"
+        candidate_commit = "a" * 40
+        freshness_sha = write_json(
+            freshness_path,
+            {"candidate": {"commit": candidate_commit}, "status": "PASS"},
+        )
+        draft_materials = {
+            "title": "Reduce redundant Mooncake grouping",
+            "submission_type": "DRAFT_PULL_REQUEST",
+            "repository": "vllm-project/vllm",
+            "branch": "perf/mooncake-lazy-group-cache",
+            "commit": candidate_commit,
+            "action_url": (
+                "https://github.com/vllm-project/vllm/compare/main..."
+                "aden-q/vllm:perf/mooncake-lazy-group-cache?expand=1"
+            ),
+            "body": {"path": body_path.name, "sha256": body_sha},
+            "freshness_evidence": {
+                "path": freshness_path.name,
+                "sha256": freshness_sha,
+            },
+        }
+        v3 = copy.deepcopy(base)
+        v3["schema_version"] = "upstream-delivery-inbox-v3"
+        for candidate in v3["candidates"]:
+            candidate["review_handoff"] = None
+            candidate["draft_materials"] = None
+        v3["candidates"][0]["draft_materials"] = draft_materials
+        v3["candidates"][1]["review_handoff"] = {
+            "path": handoff_path.name,
+            "sha256": handoff_sha,
+        }
+        write_json(manifest, v3)
+        v3_inbox = run(manifest)["inbox"]
+        assert v3_inbox["schema_version"] == "upstream-delivery-inbox-result-v3"
+        draft_item = next(
+            item
+            for item in v3_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert draft_item["recommended_action"] == "OPEN_DRAFT"
+        assert draft_item["draft_materials"]["commit"] == candidate_commit
+        assert draft_item["draft_materials"]["body"]["bytes"] == len(body_raw)
+
+        missing_materials = copy.deepcopy(v3)
+        missing_materials["candidates"][0]["draft_materials"] = None
+        write_json(manifest, missing_materials)
+        failure = run(manifest, expected_code=1)
+        assert any("required for OPEN_DRAFT" in error for error in failure["errors"])
+
+        body_drift = copy.deepcopy(v3)
+        body_drift["candidates"][0]["draft_materials"]["body"]["sha256"] = "0" * 64
+        write_json(manifest, body_drift)
+        failure = run(manifest, expected_code=1)
+        assert any(
+            "draft_materials.body.sha256" in error for error in failure["errors"]
+        )
+
+        freshness_drift = copy.deepcopy(v3)
+        freshness_drift["candidates"][0]["draft_materials"]["freshness_evidence"][
+            "sha256"
+        ] = "0" * 64
+        write_json(manifest, freshness_drift)
+        failure = run(manifest, expected_code=1)
+        assert any(
+            "draft_materials.freshness_evidence.sha256" in error
+            for error in failure["errors"]
+        )
+
+        wrong_repository = copy.deepcopy(v3)
+        wrong_repository["candidates"][0]["draft_materials"]["repository"] = (
+            "sgl-project/sglang"
+        )
+        wrong_repository["candidates"][0]["draft_materials"]["action_url"] = (
+            "https://github.com/sgl-project/sglang/compare/main...branch?expand=1"
+        )
+        write_json(manifest, wrong_repository)
+        failure = run(manifest, expected_code=1)
+        assert any(
+            "does not match review_state" in error for error in failure["errors"]
+        )
+
+        wrong_action_url = copy.deepcopy(v3)
+        wrong_action_url["candidates"][0]["draft_materials"]["action_url"] = (
+            "https://github.com/other/project/compare/main...branch?expand=1"
+        )
+        write_json(manifest, wrong_action_url)
+        failure = run(manifest, expected_code=1)
+        assert any("repository compare URL" in error for error in failure["errors"])
+
+        missing_commit = copy.deepcopy(v3)
+        missing_commit["candidates"][0]["draft_materials"]["commit"] = "b" * 40
+        write_json(manifest, missing_commit)
+        failure = run(manifest, expected_code=1)
+        assert any(
+            "does not bind the candidate commit" in error for error in failure["errors"]
+        )
+
+        hidden_key = copy.deepcopy(v3)
+        hidden_key["candidates"][0]["draft_materials"]["hidden_oracle"] = True
+        write_json(manifest, hidden_key)
+        failure = run(manifest, expected_code=1)
+        assert any("unexpected keys" in error for error in failure["errors"])
+
         missing_handoff = copy.deepcopy(v2)
         missing_handoff["candidates"][1]["review_handoff"] = None
         write_json(manifest, missing_handoff)
