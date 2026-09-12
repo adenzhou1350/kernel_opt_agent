@@ -134,8 +134,12 @@ python3 scripts/kernel_opt.py upstream-ci-route \
 The classifier recognizes only a narrow set of explicit policy-gate and
 infrastructure markers. An opaque red check remains `UNKNOWN_FAILURE`; a
 candidate-test marker takes precedence even when the same check also mentions
-a Draft gate. The output can route the control-plane Dashboard, but it never
-authorizes a CI rerun, public comment, Draft-to-Ready transition or merge.
+a Draft gate. A failed check may be routed as `SUSPECTED_UNRELATED_FAILURE`
+only when the snapshot binds disjoint candidate/failure paths and at least one
+historical same-signature URL. That remains an official CI failure and requests
+a targeted rerun or unchanged control; it is never upgraded to PASS. The output
+can route the control-plane Dashboard, but it never authorizes a CI rerun,
+public comment, Draft-to-Ready transition or merge.
 
 ## Start a run
 
