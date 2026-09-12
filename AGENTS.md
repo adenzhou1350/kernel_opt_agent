@@ -100,6 +100,11 @@ receipt. Never reconstruct these timestamps later from memory or filesystem
 mtimes. If the ledger did not exist before implementation, classify that cycle
 as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
 Agent-repository maintenance PRs are never entered in a framework lane ledger.
+Use `community-timing init --candidate-value-decision <decision>` so the request
+and decision are recomputed before ledger creation, the first candidate
+milestone, and the first active phase become one atomic write. Generic
+`--candidate-evidence` is a non-strict late-entry/history mechanism and must not
+be counted as the exact candidate-to-Draft KPI origin.
 For bounded environment or governance commands, use `community-timing run-phase`
 instead of separate start/end writes so success, non-zero exit, timeout, and
 launch failure all close the phase with an immutable command receipt. The

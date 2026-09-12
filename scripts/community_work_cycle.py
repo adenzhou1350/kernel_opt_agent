@@ -12,6 +12,7 @@ from pathlib import Path
 from statistics import median
 
 from artifact_io import atomic_json, now, read_object, sha256_file
+from candidate_value_gate import evaluate as evaluate_candidate_value
 from schema_utils import validate_instance, validate_json_file
 
 
@@ -76,6 +77,48 @@ def evidence_identity(path: Path) -> dict:
     if not path.is_file():
         raise FileNotFoundError(path)
     return {"path": path.as_posix(), "sha256": sha256_file(path)}
+
+
+def validate_candidate_value_decision(path: Path) -> dict:
+    """Recompute one candidate-value decision before using it as a timing origin."""
+
+    decision_path = path.resolve(strict=True)
+    decision = read_object(decision_path)
+    if decision.get("schema_version") != "candidate-value-decision-v1":
+        raise ValueError("candidate-value decision uses an unsupported schema")
+    required = {
+        "schema_version",
+        "generated_at",
+        "candidate_id",
+        "recommended_action",
+        "review_cost_points",
+        "optimistic_gain_density_percent_per_point",
+        "reasons",
+        "claim_boundary",
+        "request_identity",
+    }
+    if set(decision) != required:
+        raise ValueError(
+            "candidate-value decision fields differ from the exact contract"
+        )
+    parse_time(decision["generated_at"], "candidate-value decision generated_at")
+    identity = decision["request_identity"]
+    if not isinstance(identity, dict) or set(identity) != {"path", "sha256"}:
+        raise ValueError("candidate-value decision request identity is malformed")
+    request_path = Path(identity["path"])
+    if not request_path.is_absolute():
+        request_path = (decision_path.parent / request_path).resolve()
+    else:
+        request_path = request_path.resolve()
+    if not request_path.is_file():
+        raise FileNotFoundError(request_path)
+    if sha256_file(request_path) != identity["sha256"]:
+        raise ValueError("candidate-value request SHA256 mismatch")
+    recomputed = evaluate_candidate_value(read_object(request_path))
+    for key in required - {"generated_at", "request_identity"}:
+        if decision[key] != recomputed[key]:
+            raise ValueError(f"candidate-value decision recomputation mismatch: {key}")
+    return decision
 
 
 def evidence_path(identity: dict, ledger_path: Path) -> Path:
@@ -512,11 +555,25 @@ def init_ledger(args: argparse.Namespace) -> dict:
     if args.output.exists():
         raise FileExistsError(args.output)
     candidate_evidence = getattr(args, "candidate_evidence", None) or []
+    candidate_value_decision = getattr(args, "candidate_value_decision", None)
+    if candidate_value_decision is not None:
+        if candidate_evidence:
+            raise ValueError(
+                "--candidate-value-decision cannot be combined with --candidate-evidence"
+            )
+        decision = validate_candidate_value_decision(candidate_value_decision)
+        candidate_evidence = [candidate_value_decision]
+    else:
+        decision = None
     if candidate_evidence and args.observation_mode != "PROSPECTIVE_EXACT":
         raise ValueError(
             "candidate evidence bootstrap requires PROSPECTIVE_EXACT observation"
         )
     started_at = timestamp(args.started_at)
+    if decision is not None and parse_time(
+        started_at, "ledger started_at"
+    ) < parse_time(decision["generated_at"], "candidate-value decision generated_at"):
+        raise ValueError("ledger cannot start before its candidate-value decision")
     candidate_identities = [evidence_identity(path) for path in candidate_evidence]
     initial_phase = getattr(args, "initial_phase", None)
     if args.observation_mode == "PROSPECTIVE_EXACT" and initial_phase is None:
@@ -887,6 +944,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             "atomically bind candidate-selection evidence and mark "
             "FIRST_CANDIDATE_PROPOSED"
+        ),
+    )
+    init.add_argument(
+        "--candidate-value-decision",
+        type=Path,
+        help=(
+            "recompute and bind one exact candidate-value decision as the strict "
+            "FIRST_CANDIDATE_PROPOSED origin"
         ),
     )
     init.add_argument("--initial-phase", choices=PHASES)

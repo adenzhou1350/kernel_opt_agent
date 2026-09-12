@@ -257,6 +257,86 @@ def test_prospective_init_and_atomic_phase_switch() -> None:
         )
 
 
+def test_init_strictly_recomputes_candidate_value_decision() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        request_path = base / "candidate-value-request.json"
+        request = {
+            "schema_version": "candidate-value-gate-v1",
+            "candidate_id": "strict-candidate",
+            "production_path_reachability": "CONFIRMED",
+            "expected_gain": {
+                "whole_workload_lower_percent": None,
+                "whole_workload_median_percent": None,
+                "whole_workload_upper_percent": 4.0,
+            },
+            "workload_coverage_fraction": 0.5,
+            "maintenance_surface": {
+                "production_files_changed": 1,
+                "production_lines_changed": 20,
+                "adds_protocol_variant": False,
+                "adds_public_api": False,
+            },
+            "delivery_evidence": {
+                "focused_correctness_pass": False,
+                "clean_commit": False,
+                "reproduction_command_present": False,
+                "real_workload_pass": False,
+                "target_hardware_pass": False,
+                "no_regression_pass": False,
+            },
+            "policy": {
+                "materiality_floor_percent": 2.0,
+                "narrow_scope_fraction": 0.1,
+                "minimum_gain_density_percent_per_point": 0.75,
+            },
+        }
+        atomic_json(request_path, request)
+        from candidate_value_gate import evaluate as evaluate_candidate_value
+
+        decision = evaluate_candidate_value(request)
+        decision["generated_at"] = "2026-09-12T01:00:00Z"
+        decision["request_identity"] = identity(request_path)
+        decision_path = base / "candidate-value-decision.json"
+        atomic_json(decision_path, decision)
+
+        result = init_ledger(
+            SimpleNamespace(
+                output=base / "cycle.json",
+                cycle_id="strict-candidate-cycle",
+                task_id="lane-task",
+                started_at="2026-09-12T01:00:01Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                candidate_evidence=[],
+                candidate_value_decision=decision_path,
+            )
+        )
+        assert result["milestones"][0]["evidence"] == [identity(decision_path)]
+
+        tampered = json.loads(decision_path.read_text(encoding="utf-8"))
+        tampered["recommended_action"] = "READY_FOR_REVIEW"
+        tampered_path = base / "tampered-decision.json"
+        atomic_json(tampered_path, tampered)
+        try:
+            init_ledger(
+                SimpleNamespace(
+                    output=base / "must-not-exist.json",
+                    cycle_id="tampered-cycle",
+                    task_id="lane-task",
+                    started_at="2026-09-12T01:00:01Z",
+                    observation_mode="PROSPECTIVE_EXACT",
+                    minimum_material_speedup=1.02,
+                    candidate_evidence=[],
+                    candidate_value_decision=tampered_path,
+                )
+            )
+        except ValueError as error:
+            assert "recomputation mismatch" in str(error)
+        else:
+            raise AssertionError("tampered candidate-value decision passed")
+
+
 def test_run_phase_closes_success_failure_timeout_and_launch_error() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
