@@ -30,6 +30,13 @@ def build(args: argparse.Namespace) -> dict:
     attested_at = timestamp(args.attested_at)
     if re.fullmatch(r"[0-9a-f]{40}", args.commit) is None:
         raise ValueError("candidate_commit must be a lowercase 40-hex Git commit")
+    submitter_identity = args.submitter_identity.strip()
+    if (
+        not submitter_identity
+        or "REPLACE_WITH" in submitter_identity.upper()
+        or submitter_identity.upper() in {"NAME_OR_EMAIL", "YOUR_NAME_OR_EMAIL"}
+    ):
+        raise ValueError("submitter_identity must identify the actual human submitter")
     record = {
         "schema_version": "upstream-delivery-author-accountability-v1",
         "attested_at": attested_at,
@@ -37,7 +44,7 @@ def build(args: argparse.Namespace) -> dict:
         "repository": args.repository,
         "branch": args.branch,
         "candidate_commit": args.commit,
-        "submitter_identity": args.submitter_identity,
+        "submitter_identity": submitter_identity,
         "checks": {
             "changed_lines_reviewed": args.attest_changed_lines_reviewed,
             "relevant_tests_rerun": args.attest_relevant_tests_rerun,

@@ -76,3 +76,15 @@ def test_invalid_commit_fails_before_write(tmp_path: Path) -> None:
     assert completed.returncode != 0
     assert "candidate_commit" in completed.stderr
     assert not output.exists()
+
+
+def test_submitter_placeholder_fails_before_write(tmp_path: Path) -> None:
+    output = tmp_path / "placeholder.json"
+    placeholder = command(output)
+    placeholder[placeholder.index("--submitter-identity") + 1] = (
+        "REPLACE_WITH_YOUR_NAME_OR_EMAIL"
+    )
+    completed = subprocess.run(placeholder, capture_output=True, text=True)
+    assert completed.returncode != 0
+    assert "actual human submitter" in completed.stderr
+    assert not output.exists()
