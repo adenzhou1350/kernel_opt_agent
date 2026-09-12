@@ -41,6 +41,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "community_portfolio_register.py",
             "register or refresh explicit prospective ledger identities",
         ),
+        "community-portfolio-pr-audit": Command(
+            "community_portfolio_pr_audit.py",
+            "detect selected-ledger drift from an explicit GitHub PR stage snapshot",
+        ),
         "community-action-attest": Command(
             "community_action_attestation.py",
             "create a current evidence-bound state for one active work span",

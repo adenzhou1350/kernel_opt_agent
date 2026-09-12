@@ -659,6 +659,22 @@ python3 scripts/kernel_opt.py community-portfolio \
   --output /path/to/four-lane-portfolio-report.json
 ```
 
+Audit public PR-stage drift without scanning task transcripts or mutating a
+ledger. Existing ledger URLs are matched directly; a newly opened PR whose
+ledger has no URL must be bound explicitly:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio-pr-audit \
+  --manifest /path/to/portfolio-manifest.json \
+  --stage-history /path/to/github-pr-stage-history.json \
+  --bind cycle-id=https://github.com/org/repo/pull/123 \
+  --output /path/to/pr-stage-audit.json
+```
+
+The audit fails closed on stale observations and reports Draft/Ready/Merged
+drift as a suggested ledger stage. It never edits the ledger or treats a GitHub
+snapshot as correctness, performance, or merge evidence.
+
 Add a newly selected prospective cycle without hand-editing path/hash fields:
 
 ```bash
