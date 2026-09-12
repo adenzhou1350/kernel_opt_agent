@@ -89,8 +89,12 @@ def active_delivery_queue(
                         "active_since": span["started_at"],
                         "active_seconds": (observed - started).total_seconds(),
                         "action_class": category,
-                        "needs_user_action": category
-                        in {"USER_CONFIRMATION", "CREDENTIAL"},
+                        # Credentials can be owned by a worker, maintainer, or
+                        # controller.  Only an explicitly USER_-scoped
+                        # resource is safe to place in the user's action count.
+                        "needs_user_action": (span.get("resource_id") or "").startswith(
+                            "USER_"
+                        ),
                         "leading_constraint": constraint,
                     }
                 )
