@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_draft_progress.schema.json",
+  "title": "Prospective upstream Draft progress clock",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pull_request", "observation", "qualification", "policy"],
+  "properties": {
+    "schema_version": {"const": "upstream-draft-progress-v1"},
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "repository", "number", "state", "draft"],
+      "properties": {
+        "url": {"type": "string", "pattern": "^https://github\\.com/[^/]+/[^/]+/pull/[1-9][0-9]*$"},
+        "repository": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+        "number": {"type": "integer", "minimum": 1},
+        "state": {"enum": ["OPEN", "CLOSED", "MERGED"]},
+        "draft": {"type": "boolean"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["draft_since", "last_material_progress_at", "observed_at", "source", "prospective_lower_bound_only"],
+      "properties": {
+        "draft_since": {"type": ["string", "null"], "format": "date-time"},
+        "last_material_progress_at": {"type": ["string", "null"], "format": "date-time"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "source": {"const": "DASHBOARD_STAGE_HISTORY"},
+        "prospective_lower_bound_only": {"const": true}
+      }
+    },
+    "qualification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "value_status", "next_gate", "blocker_owner"],
+      "properties": {
+        "status": {"enum": ["ACTIVE", "PASS", "FAILED", "ENVIRONMENT_BLOCKED"]},
+        "value_status": {"enum": ["POSITIVE", "UNPROVEN", "DISPROVEN"]},
+        "next_gate": {"type": "string", "minLength": 1},
+        "blocker_owner": {"enum": ["EXECUTION_LANE", "MAINTAINER", "USER", "EXTERNAL_RESOURCE", "NONE"]}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stale_after_hours"],
+      "properties": {"stale_after_hours": {"type": "number", "exclusiveMinimum": 0}}
+    }
+  }
+}

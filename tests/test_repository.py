@@ -220,6 +220,18 @@ def main():
     ])
     assert "--timeout-seconds" in child_help.stdout
     assert "--receipt" in child_help.stdout
+    assert "upstream-review-state" in cli_help.stdout
+    assert "upstream-review-handoff" in cli_help.stdout
+    assert "upstream-draft-progress" in cli_help.stdout
+    assert "upstream-delivery-inbox" in cli_help.stdout
+    review_state = run([sys.executable, str(ROOT / "tests/test_upstream_review_state.py")])
+    assert "upstream review-state test: PASS" in review_state.stdout
+    review_handoff = run([sys.executable, str(ROOT / "tests/test_upstream_review_handoff.py")])
+    assert "upstream review-handoff test: PASS" in review_handoff.stdout
+    delivery_inbox = run([sys.executable, str(ROOT / "tests/test_upstream_delivery_inbox.py")])
+    assert "upstream delivery inbox test: PASS" in delivery_inbox.stdout
+    draft_progress = run([sys.executable, str(ROOT / "tests/test_upstream_draft_progress.py")])
+    assert "upstream draft-progress test: PASS" in draft_progress.stdout
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([

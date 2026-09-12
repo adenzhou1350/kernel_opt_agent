@@ -207,6 +207,123 @@ build artifact, workload and hardware identities still have to be rebound or
 revalidated. Any tree change fails closed and lists the paths that require
 source requalification.
 
+For an upstream change, keep the repository's internal candidate status
+separate from GitHub's Draft flag and from CI/reviewer handoffs. A red Draft
+gate or maintainer-authorization check is not a test failure. Record the
+current state and obtain a deterministic next owner/action with:
+
+```bash
+python3 scripts/kernel_opt.py upstream-review-state pr-review-state.json
+```
+
+The classifier recommends opening a Draft once the minimal commit,
+focused correctness, lint/format, reproduction and claim boundary pass. It
+recommends Ready only after every applicable official-correctness,
+production-reachability, materiality, target-workload and known-regression
+gate passes.
+
+The control plane can aggregate several immutable review-state records without
+guessing from chat text or unrelated receipts:
+
+```bash
+python3 scripts/kernel_opt.py upstream-delivery-inbox delivery-inbox.json
+```
+
+Each manifest entry supplies a stable candidate/lane identity and the path and
+SHA-256 of one `upstream-review-state-v1` record.  The command revalidates every
+nested record, rejects hash drift, duplicate candidate identities and duplicate
+PR bindings, then sorts the resulting actions. Each item retains the internal
+candidate status and lists the passed, pending and failed Draft-minimum and
+Ready gates, so equal action labels are ordered by evidence progress instead of
+candidate name. In particular, a candidate whose Draft minimum is complete
+but whose PR is absent becomes an explicit
+`OPEN_DRAFT` inbox item instead of silently remaining in an experiment folder.
+Repository-maintenance candidates use a separate manifest so they cannot
+inflate framework delivery metrics.
+
+Use `upstream-delivery-inbox-v2` once a queue contains open Ready PRs. Each
+Ready entry must additionally hash-bind an `upstream-review-handoff-v1`
+record observed at the same instant as the inbox. The resulting v2 queue
+promotes missing reviewers, one due targeted follow-up, one due review-channel
+escalation, or author feedback above an otherwise generic reviewer wait. It
+retains the underlying review-state action and never authorizes an automatic
+message. Version 1 remains accepted unchanged for historical replay.
+
+Use `upstream-delivery-inbox-v3` when `OPEN_DRAFT` is actionable. It requires a
+hash-bound UTF-8 PR body, freshness evidence containing the exact candidate
+commit, and the intended repository/branch/compare URL. This validates the
+public Draft materials but does not authorize publishing them. Versions 1 and
+2 remain accepted unchanged for historical replay. An otherwise Draft-ready
+candidate without these materials is routed to `COMPLETE_DRAFT_MATERIALS`; it
+does not fail unrelated inbox entries or expose a public action prematurely.
+
+Use `upstream-delivery-inbox-v4` for a live publication queue. Its
+`upstream-delivery-freshness-v1` evidence is short-lived (at most six hours)
+and binds the exact candidate, repository, branch, fork ref, observed upstream
+main, touched-path drift result, merge result, exact-head PR count and explicit
+Draft eligibility. Expired, mismatched or non-standard freshness does not fail
+the whole portfolio; that candidate becomes `REFRESH_DRAFT_FRESHNESS`, owned by
+its execution lane, and is removed from external publication actions until a
+fresh closure is supplied. Hash or byte drift in the referenced body or
+freshness file remains a hard validation failure.
+
+Use `upstream-delivery-inbox-v5` before an AI-assisted Draft is exposed as a
+publication action. In addition to v4 freshness, it accepts a hash-bound
+`upstream-delivery-author-accountability-v1` record for the exact candidate
+commit. Until the named human submitter attests that every changed line was
+reviewed, relevant tests were rerun, the change can be defended, AI assistance
+is disclosed, and the repository's commit-attribution rule is satisfied or not
+applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY` instead
+of `OPEN_DRAFT`. The attestation is a responsibility boundary, not a substitute
+for correctness or performance evidence.
+
+After doing that work personally, the submitter can create the immutable record
+without hand-writing JSON:
+
+```bash
+python3 scripts/kernel_opt.py upstream-author-accountability \
+  --candidate-id NAME --repository OWNER/REPO --branch BRANCH \
+  --commit 40_HEX_COMMIT --submitter-identity NAME_OR_EMAIL \
+  --commit-attribution PASS --output author-accountability.json \
+  --attest-changed-lines-reviewed --attest-relevant-tests-rerun \
+  --attest-can-defend-change --attest-ai-assistance-disclosed
+```
+
+Every attestation flag is mandatory and the output is create-once. Automation
+must not invoke this command from prior agent receipts or infer human review;
+it may run only after the named submitter explicitly confirms all four facts.
+
+Reviewer state records code-owner requests separately from
+`early_review_handles`. This preserves the difference between reviewers that
+GitHub queues until Ready and a small set of relevant maintainers explicitly
+asked to review the Draft's API or overlap direction while qualification
+continues.
+
+After a PR becomes Ready, record only the time at which the system first
+observed that state and route reviewer waits with:
+
+```bash
+python3 scripts/kernel_opt.py upstream-review-handoff pr-review-handoff.json
+```
+
+The handoff clock is prospective and lower-bound-only: it never invents a
+review-request time before observation. The default policy used by the control
+dashboard waits 24 hours before one targeted reviewer follow-up and 72 hours
+before one project review-channel escalation. Decisions never authorize an
+automatic message.
+
+Drafts use a separate prospective progress clock so a failed value gate or a
+stale external environment does not remain open indefinitely:
+
+```bash
+python3 scripts/kernel_opt.py upstream-draft-progress draft-progress.json
+```
+
+The router sends a passed Draft to Ready, a failed or disproven Draft to
+revision/closure, and a Draft without material progress for the configured
+window to bounded replanning or an external reproducible gate. It never closes
+or marks a pull request Ready automatically.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those

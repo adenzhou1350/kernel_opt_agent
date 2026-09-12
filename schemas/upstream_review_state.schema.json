@@ -1,0 +1,86 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_review_state.schema.json",
+  "title": "Upstream pull-request review state",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "pull_request",
+    "draft_minimum",
+    "ready_gates",
+    "ci",
+    "reviewers"
+  ],
+  "properties": {
+    "schema_version": {"const": "upstream-review-state-v1"},
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "repository", "number", "state", "draft", "internal_candidate_status"],
+      "properties": {
+        "url": {"type": ["string", "null"]},
+        "repository": {"type": "string", "minLength": 1},
+        "number": {"type": ["integer", "null"], "minimum": 1},
+        "state": {"enum": ["ABSENT", "OPEN", "CLOSED", "MERGED"]},
+        "draft": {"type": "boolean"},
+        "internal_candidate_status": {"type": ["string", "null"]}
+      }
+    },
+    "draft_minimum": {
+      "$ref": "#/$defs/checks",
+      "required": ["clean_minimal_commit", "focused_correctness", "lint_format", "reproduction", "claim_boundary"]
+    },
+    "ready_gates": {
+      "$ref": "#/$defs/readyChecks",
+      "required": ["official_correctness", "production_reachability", "materiality", "target_workload", "known_regression"]
+    },
+    "ci": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "classification"],
+      "properties": {
+        "state": {"enum": ["PASS", "FAIL", "PENDING", "NOT_RUN"]},
+        "classification": {
+          "enum": ["TEST_FAILURE", "MAINTAINER_AUTHORIZATION", "DRAFT_GATE_CASCADE", "RUNNING", "PASS", "NOT_REQUESTED"]
+        }
+      }
+    },
+    "reviewers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "handles", "early_review_handles"],
+      "properties": {
+        "state": {"enum": ["NONE", "QUEUED_UNTIL_READY", "REQUESTED", "APPROVED", "CHANGES_REQUESTED"]},
+        "handles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "early_review_handles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+      }
+    }
+  },
+  "$defs": {
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "clean_minimal_commit": {"$ref": "#/$defs/check"},
+        "focused_correctness": {"$ref": "#/$defs/check"},
+        "lint_format": {"$ref": "#/$defs/check"},
+        "reproduction": {"$ref": "#/$defs/check"},
+        "claim_boundary": {"$ref": "#/$defs/check"}
+      }
+    },
+    "readyChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "official_correctness": {"$ref": "#/$defs/readyCheck"},
+        "production_reachability": {"$ref": "#/$defs/readyCheck"},
+        "materiality": {"$ref": "#/$defs/readyCheck"},
+        "target_workload": {"$ref": "#/$defs/readyCheck"},
+        "known_regression": {"$ref": "#/$defs/readyCheck"}
+      }
+    },
+    "check": {"enum": ["PASS", "FAIL", "PENDING"]},
+    "readyCheck": {"enum": ["PASS", "FAIL", "PENDING", "NOT_APPLICABLE"]}
+  }
+}

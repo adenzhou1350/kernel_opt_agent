@@ -98,6 +98,39 @@ with zero or a favorable guess. Stop candidates below the materiality floor,
 and reserve expensive qualification for candidates whose possible value
 justifies their permanent review and maintenance surface.
 
+Every selected framework candidate must also maintain one current
+`upstream-review-state-v1` record.  Update it when the minimal Draft evidence,
+GitHub Draft state, Ready gates, CI classification or reviewer state changes.
+The control plane must hash-bind those records in an
+`upstream-delivery-inbox-v1` manifest and run `upstream-delivery-inbox`; do not
+reconstruct delivery readiness from chat summaries or arbitrary experiment
+receipts.  An `OPEN_DRAFT`, `MARK_READY_AND_REQUEST_REVIEW` or
+`RESPOND_TO_REVIEW` inbox item is a delivery action, not another research
+prompt.  Agent-repository maintenance stays in a separate inbox and never
+counts as a framework optimization success.
+For live queues containing an open Ready PR, use
+`upstream-delivery-inbox-v2` and hash-bind its prospective reviewer-handoff
+clock. This prevents a normal reviewer wait from hiding a due bounded
+follow-up. The inbox only routes the action; it never authorizes a message.
+For pending candidates, consume the inbox's Draft-minimum and Ready-gate
+progress rather than treating equal action labels as equal priority. Within
+one action class, prefer the candidate with more completed immutable gates;
+do not keep several same-lane candidates active merely because all say
+`COMPLETE_DRAFT_MINIMUM`.
+
+Before exposing an AI-assisted community candidate as `OPEN_DRAFT`, inspect the
+target repository's current contribution and agent instructions. Use
+`upstream-delivery-inbox-v5` when publication requires human accountability.
+Do not let generated prose claim that the human already reviewed or ran work
+that only an agent performed. The exact-commit author attestation must record
+changed-line review, the submitter's relevant test rerun, ability to defend the
+change, AI disclosure, and the repository's commit-attribution requirement.
+Missing accountability routes to the author; it is not another execution-lane
+research cycle and must not block unrelated inbox entries.
+Automation must never invoke `upstream-author-accountability` from agent test
+receipts or infer that a human reviewed the change. Run it only after the named
+submitter explicitly confirms every required attestation for the exact commit.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

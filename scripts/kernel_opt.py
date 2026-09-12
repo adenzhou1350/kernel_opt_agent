@@ -170,6 +170,28 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "build a hash-bound fail-closed pull-request package",
         ),
     },
+    "upstream delivery": {
+        "upstream-review-state": Command(
+            "upstream_review_state.py",
+            "separate GitHub Draft, CI, reviewer and qualification gates",
+        ),
+        "upstream-review-handoff": Command(
+            "upstream_review_handoff.py",
+            "route prospective reviewer waits and bounded follow-ups",
+        ),
+        "upstream-delivery-inbox": Command(
+            "upstream_delivery_inbox.py",
+            "aggregate evidence-bound candidate delivery actions",
+        ),
+        "upstream-author-accountability": Command(
+            "upstream_author_accountability.py",
+            "issue an explicit exact-commit human Draft attestation",
+        ),
+        "upstream-draft-progress": Command(
+            "upstream_draft_progress.py",
+            "route stale, failed and completed Draft qualification",
+        ),
+    },
 }
 COMMANDS = {
     name: command

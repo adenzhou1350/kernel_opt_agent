@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_delivery_freshness_v1.schema.json",
+  "title": "Short-lived exact Draft publication freshness evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "observed_at",
+    "expires_at",
+    "candidate_id",
+    "repository",
+    "branch",
+    "candidate_commit",
+    "upstream_main_commit",
+    "fork_branch_commit",
+    "checks",
+    "claim_boundary"
+  ],
+  "properties": {
+    "schema_version": {"const": "upstream-delivery-freshness-v1"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "expires_at": {"type": "string", "format": "date-time"},
+    "candidate_id": {"type": "string", "minLength": 1},
+    "repository": {"type": "string", "minLength": 1},
+    "branch": {"type": "string", "minLength": 1},
+    "candidate_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "upstream_main_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "fork_branch_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fork_branch_matches_candidate",
+        "touched_paths_unchanged",
+        "merge_conflict",
+        "exact_head_pull_request_count",
+        "draft_submission_eligible"
+      ],
+      "properties": {
+        "fork_branch_matches_candidate": {"const": true},
+        "touched_paths_unchanged": {"const": true},
+        "merge_conflict": {"const": false},
+        "exact_head_pull_request_count": {"const": 0},
+        "draft_submission_eligible": {"const": true}
+      }
+    },
+    "claim_boundary": {"type": "string", "minLength": 1}
+  }
+}
