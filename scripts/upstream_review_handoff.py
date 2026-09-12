@@ -6,11 +6,19 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from datetime import datetime
 from pathlib import Path
 
 
-ROOT_KEYS = {"schema_version", "pull_request", "observation", "reviewers", "policy"}
+ROOT_KEYS_V1 = {
+    "schema_version",
+    "pull_request",
+    "observation",
+    "reviewers",
+    "policy",
+}
+ROOT_KEYS_V2 = ROOT_KEYS_V1 | {"follow_up"}
 PR_KEYS = {"url", "repository", "number", "state", "draft"}
 OBSERVATION_KEYS = {
     "ready_since",
@@ -20,6 +28,13 @@ OBSERVATION_KEYS = {
 }
 REVIEWER_KEYS = {"state", "handles", "feedback_state"}
 POLICY_KEYS = {"follow_up_after_hours", "escalate_after_hours"}
+FOLLOW_UP_KEYS = {
+    "state",
+    "sent_at",
+    "target_handle",
+    "comment_url",
+    "receipt_sha256",
+}
 PR_STATES = {"OPEN", "CLOSED", "MERGED"}
 REVIEWER_STATES = {
     "NONE",
@@ -60,9 +75,20 @@ def parse_timestamp(value: object, path: str, errors: list[str]) -> datetime | N
 
 def validate(record: object) -> list[str]:
     errors: list[str] = []
-    root = exact_keys(record, ROOT_KEYS, "root", errors)
-    if root.get("schema_version") != "upstream-review-handoff-v1":
-        errors.append("schema_version must be upstream-review-handoff-v1")
+    if not isinstance(record, dict):
+        errors.append("root: must be an object")
+        return errors
+    schema_version = record.get("schema_version")
+    if schema_version == "upstream-review-handoff-v1":
+        root = exact_keys(record, ROOT_KEYS_V1, "root", errors)
+    elif schema_version == "upstream-review-handoff-v2":
+        root = exact_keys(record, ROOT_KEYS_V2, "root", errors)
+    else:
+        root = exact_keys(record, ROOT_KEYS_V1, "root", errors)
+        errors.append(
+            "schema_version must be upstream-review-handoff-v1 or "
+            "upstream-review-handoff-v2"
+        )
 
     pull = exact_keys(root.get("pull_request"), PR_KEYS, "pull_request", errors)
     state = pull.get("state")
@@ -157,6 +183,61 @@ def validate(record: object) -> list[str]:
         and escalate <= follow_up
     ):
         errors.append("policy: escalate_after_hours must exceed follow_up_after_hours")
+
+    if schema_version == "upstream-review-handoff-v2":
+        follow_up_record = exact_keys(
+            root.get("follow_up"), FOLLOW_UP_KEYS, "follow_up", errors
+        )
+        follow_up_state = follow_up_record.get("state")
+        if follow_up_state not in {"NONE", "SENT"}:
+            errors.append("follow_up.state: invalid state")
+        nullable_fields = (
+            "sent_at",
+            "target_handle",
+            "comment_url",
+            "receipt_sha256",
+        )
+        if follow_up_state == "NONE":
+            if any(
+                follow_up_record.get(field) is not None for field in nullable_fields
+            ):
+                errors.append("follow_up: NONE requires all evidence fields to be null")
+        elif follow_up_state == "SENT":
+            sent_at = parse_timestamp(
+                follow_up_record.get("sent_at"), "follow_up.sent_at", errors
+            )
+            target = follow_up_record.get("target_handle")
+            if not isinstance(target, str) or not target:
+                errors.append("follow_up.target_handle: must be a non-empty string")
+            elif isinstance(handles, list) and target not in handles:
+                errors.append("follow_up.target_handle: must be a requested reviewer")
+            comment_url = follow_up_record.get("comment_url")
+            expected_prefix = f"{url}#issuecomment-"
+            if (
+                not isinstance(comment_url, str)
+                or not comment_url.startswith(expected_prefix)
+                or not comment_url.removeprefix(expected_prefix).isdigit()
+            ):
+                errors.append(
+                    "follow_up.comment_url: must identify a comment on the pull request"
+                )
+            receipt_sha256 = follow_up_record.get("receipt_sha256")
+            if not isinstance(receipt_sha256, str) or not re.fullmatch(
+                r"[0-9a-f]{64}", receipt_sha256
+            ):
+                errors.append("follow_up.receipt_sha256: must be lowercase SHA-256")
+            if (
+                sent_at is not None
+                and ready_since is not None
+                and sent_at < ready_since
+            ):
+                errors.append("follow_up.sent_at: precedes ready_since")
+            if (
+                sent_at is not None
+                and observed_at is not None
+                and sent_at > observed_at
+            ):
+                errors.append("follow_up.sent_at: exceeds observed_at")
     return errors
 
 
@@ -165,6 +246,7 @@ def classify(record: dict) -> dict:
     observation = record["observation"]
     reviewers = record["reviewers"]
     policy = record["policy"]
+    follow_up = record.get("follow_up", {"state": "NONE"})
     ready_since = observation["ready_since"]
     age_hours = None
     if ready_since is not None:
@@ -189,6 +271,12 @@ def classify(record: dict) -> dict:
             "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION",
             "AUTHOR",
         )
+    elif follow_up["state"] == "SENT":
+        state, action, owner = (
+            "TARGETED_FOLLOW_UP_SENT_WAIT_FOR_RESPONSE",
+            "WAIT",
+            "REVIEWER",
+        )
     elif age_hours is not None and age_hours >= policy["follow_up_after_hours"]:
         state, action, owner = (
             "TARGETED_FOLLOW_UP_DUE",
@@ -198,8 +286,12 @@ def classify(record: dict) -> dict:
     else:
         state, action, owner = "NORMAL_REVIEW_WAIT", "WAIT", "REVIEWER"
 
-    return {
-        "schema_version": "upstream-review-handoff-decision-v1",
+    result = {
+        "schema_version": (
+            "upstream-review-handoff-decision-v2"
+            if record["schema_version"] == "upstream-review-handoff-v2"
+            else "upstream-review-handoff-decision-v1"
+        ),
         "input_sha256": hashlib.sha256(
             (
                 json.dumps(
@@ -217,6 +309,10 @@ def classify(record: dict) -> dict:
         "prospective_lower_bound_only": True,
         "automatic_message_authorized": False,
     }
+    if record["schema_version"] == "upstream-review-handoff-v2":
+        result["follow_up_recorded"] = follow_up["state"] == "SENT"
+        result["follow_up_sent_at"] = follow_up["sent_at"]
+    return result
 
 
 def main() -> int:

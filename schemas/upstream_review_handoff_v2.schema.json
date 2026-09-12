@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_review_handoff_v2.schema.json",
+  "title": "Prospective upstream reviewer handoff clock with follow-up receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "pull_request", "observation", "reviewers", "policy", "follow_up"],
+  "properties": {
+    "schema_version": {"const": "upstream-review-handoff-v2"},
+    "pull_request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "repository", "number", "state", "draft"],
+      "properties": {
+        "url": {"type": "string", "pattern": "^https://github\\.com/[^/]+/[^/]+/pull/[1-9][0-9]*$"},
+        "repository": {"type": "string", "pattern": "^[^/]+/[^/]+$"},
+        "number": {"type": "integer", "minimum": 1},
+        "state": {"enum": ["OPEN", "CLOSED", "MERGED"]},
+        "draft": {"type": "boolean"}
+      }
+    },
+    "observation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ready_since", "observed_at", "source", "prospective_lower_bound_only"],
+      "properties": {
+        "ready_since": {"type": ["string", "null"], "format": "date-time"},
+        "observed_at": {"type": "string", "format": "date-time"},
+        "source": {"const": "DASHBOARD_FIRST_OBSERVED_READY"},
+        "prospective_lower_bound_only": {"const": true}
+      }
+    },
+    "reviewers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "handles", "feedback_state"],
+      "properties": {
+        "state": {"enum": ["NONE", "QUEUED_UNTIL_READY", "REQUESTED", "APPROVED", "CHANGES_REQUESTED"]},
+        "handles": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "feedback_state": {"enum": ["NONE", "AUTHOR_ACTION_REQUIRED"]}
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["follow_up_after_hours", "escalate_after_hours"],
+      "properties": {
+        "follow_up_after_hours": {"type": "number", "exclusiveMinimum": 0},
+        "escalate_after_hours": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "follow_up": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["state", "sent_at", "target_handle", "comment_url", "receipt_sha256"],
+      "properties": {
+        "state": {"enum": ["NONE", "SENT"]},
+        "sent_at": {"type": ["string", "null"], "format": "date-time"},
+        "target_handle": {"type": ["string", "null"], "minLength": 1},
+        "comment_url": {
+          "type": ["string", "null"],
+          "pattern": "^https://github\\.com/[^/]+/[^/]+/pull/[1-9][0-9]*#issuecomment-[1-9][0-9]*$"
+        },
+        "receipt_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"}
+      }
+    }
+  }
+}
