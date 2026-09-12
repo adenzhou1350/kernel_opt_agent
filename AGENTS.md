@@ -46,6 +46,16 @@ one action class, prefer the candidate with more completed immutable gates;
 do not keep several same-lane candidates active merely because all say
 `COMPLETE_DRAFT_MINIMUM`.
 
+Before exposing an AI-assisted community candidate as `OPEN_DRAFT`, inspect the
+target repository's current contribution and agent instructions. Use
+`upstream-delivery-inbox-v5` when publication requires human accountability.
+Do not let generated prose claim that the human already reviewed or ran work
+that only an agent performed. The exact-commit author attestation must record
+changed-line review, the submitter's relevant test rerun, ability to defend the
+change, AI disclosure, and the repository's commit-attribution requirement.
+Missing accountability routes to the author; it is not another execution-lane
+research cycle and must not block unrelated inbox entries.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

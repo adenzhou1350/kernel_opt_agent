@@ -100,6 +100,16 @@ its execution lane, and is removed from external publication actions until a
 fresh closure is supplied. Hash or byte drift in the referenced body or
 freshness file remains a hard validation failure.
 
+Use `upstream-delivery-inbox-v5` before an AI-assisted Draft is exposed as a
+publication action. In addition to v4 freshness, it accepts a hash-bound
+`upstream-delivery-author-accountability-v1` record for the exact candidate
+commit. Until the named human submitter attests that every changed line was
+reviewed, relevant tests were rerun, the change can be defended, AI assistance
+is disclosed, and the repository's commit-attribution rule is satisfied or not
+applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY` instead
+of `OPEN_DRAFT`. The attestation is a responsibility boundary, not a substitute
+for correctness or performance evidence.
+
 Reviewer state records code-owner requests separately from
 `early_review_handles`. This preserves the difference between reviewers that
 GitHub queues until Ready and a small set of relevant maintainers explicitly

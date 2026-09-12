@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "upstream_delivery_inbox_v5.schema.json",
+  "title": "Evidence-bound upstream delivery inbox with author accountability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "observed_at", "candidates"],
+  "properties": {
+    "schema_version": {"const": "upstream-delivery-inbox-v5"},
+    "observed_at": {"type": "string", "format": "date-time"},
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["candidate_id", "lane_id", "review_state", "review_handoff", "draft_materials"],
+        "properties": {
+          "candidate_id": {"type": "string", "minLength": 1},
+          "lane_id": {"type": "string", "minLength": 1},
+          "review_state": {"$ref": "#/$defs/source"},
+          "review_handoff": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/source"}]},
+          "draft_materials": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/draft_materials"}]}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "draft_materials": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "submission_type", "repository", "branch", "commit", "action_url", "body", "freshness_evidence", "author_accountability"],
+      "properties": {
+        "title": {"type": "string", "minLength": 1},
+        "submission_type": {"const": "DRAFT_PULL_REQUEST"},
+        "repository": {"type": "string", "minLength": 1},
+        "branch": {"type": "string", "minLength": 1},
+        "commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "action_url": {"type": "string", "pattern": "^https://github\\.com/[^/]+/[^/]+/compare/.+"},
+        "body": {"$ref": "#/$defs/source"},
+        "freshness_evidence": {"$ref": "#/$defs/source"},
+        "author_accountability": {"oneOf": [{"type": "null"}, {"$ref": "#/$defs/source"}]}
+      }
+    }
+  }
+}
