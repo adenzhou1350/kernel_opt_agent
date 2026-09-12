@@ -92,13 +92,21 @@ python3 scripts/kernel_opt.py community-portfolio \
   --output /path/to/portfolio-report.json
 ```
 
-Portfolio report v5 exposes the delivery funnel, active action ownership and
-phase-time totals for only the explicitly selected, hash-bound
+Portfolio report v6 exposes the delivery funnel, freshness-attested action
+ownership and phase-time totals for only the explicitly selected, hash-bound
 `PROSPECTIVE_EXACT` ledgers. Active spans share one observation time.
 Environment/governance overhead is kept separate from external wait, and the
 report states that parallel candidate spans may overlap: it is not a wall-clock
 or labor-time measure. Root-wide historical instrumentation debt remains a
 separate audit and is never backfilled or hidden by the selected portfolio.
+
+An immutable ledger's `ACTIVE` span is historical state, not proof that work is
+still current. Only a valid, unexpired `community-action-attestation-v1` with
+an explicit owner enters `active_delivery_queue` or
+`needs_user_action_count`. Missing, expired, resolved and superseded states stay
+visible in `delivery_action_inventory` without creating current work. Pass each
+current attestation with `--action-attestation /path/to/action.json`.
+
 For a bounded command, prefer `run-phase`: it runs the exact argv without a
 shell, writes an immutable wall-time/exit-status receipt, and closes the span
 on success, non-zero exit, launch failure, or timeout. A passing command receipt
