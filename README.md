@@ -354,6 +354,22 @@ artifacts occur in a trusted reproduction receipt.
 
 See `skill/kernel-optimizer/references/` for the optimization protocol.
 
+## Qualification repair churn
+
+Before issuing another version of an environment materialization plan, audit
+the run's existing plan and terminal receipts:
+
+```bash
+python3 scripts/kernel_opt.py qualification-churn \
+  --run runs/<run-id> \
+  --output runs/<run-id>/experiments/qualification-churn-v1.json
+```
+
+The audit links terminal receipts to exact plan hashes and routes the run to
+stop an exhausted repair scope, collapse unexecuted revisions, advance after a
+successful environment closure, or acknowledge that the workload was reached.
+It is not execution, correctness, performance, or authorization evidence.
+
 ## CPU-only qualification environment preparation
 
 When a new qualification closure must be built, the controller can issue a
