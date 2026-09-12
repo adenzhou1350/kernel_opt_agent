@@ -723,6 +723,24 @@ The materializer's own evidence still decides whether the closure succeeded,
 and neither receipt authorizes a GPU, workload, service or broker transition.
 Legacy v1 approvals remain validatable for audit but cannot be dispatched.
 
+The versioned dispatcher receipt includes exact process `started_at`,
+`completed_at` and monotonic `duration_seconds`. Import it into a prospective
+work-cycle ledger so environment repair is measured instead of disappearing
+into unaccounted wall time:
+
+```bash
+python3 scripts/kernel_opt.py community-timing import-phase-receipt \
+  --ledger work-cycle.json --span-id worker-materialization \
+  --phase ENVIRONMENT_SETUP --actor CPU --resource-id worker-sm120 \
+  --receipt .kernel-opt/materialization-claims/<approval-sha>.receipt.json \
+  --started-at-field started_at --ended-at-field completed_at \
+  --duration-field duration_seconds --status COMPLETE
+```
+
+Use `INTERRUPTED` for failed or timed-out executor receipts. Importing the
+receipt measures environment wall time only; it does not accept the resulting
+closure or change correctness, performance, GPU or workload state.
+
 Some registered workers already run inside a managed GPU container and cannot
 launch the requested image again. Attest that preprovisioned runtime and its
 writable closure filesystem before writing a plan for it:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sys
+from argparse import Namespace
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -24,6 +25,11 @@ from qualification_environment_materialization import (  # noqa: E402
 )
 from qualification_environment_materialization_dispatch import (  # noqa: E402
     dispatch,
+)
+from community_work_cycle import (  # noqa: E402
+    import_phase_receipt,
+    init_ledger,
+    summarize,
 )
 
 
@@ -214,6 +220,11 @@ def test_dispatch_consumes_approval_once_and_hides_cuda(tmp_path: Path) -> None:
         now=NOW,
     )
     assert result["state"] == "EXECUTOR_COMPLETED"
+    assert result["schema_version"] == (
+        "qualification-environment-materialization-dispatch-receipt-v2"
+    )
+    assert result["started_at"] <= result["completed_at"]
+    assert result["duration_seconds"] >= 0
     assert result["gpu_authorized"] is False
     observed = json.loads(result_path.read_text(encoding="utf-8"))
     assert observed == {"cuda": "-1", "nvidia": "void"}
@@ -226,6 +237,52 @@ def test_dispatch_consumes_approval_once_and_hides_cuda(tmp_path: Path) -> None:
             expected_approval_sha256=digest(approval_path),
             now=NOW,
         )
+
+
+def test_dispatch_receipt_imports_exact_environment_timing(
+    tmp_path: Path,
+) -> None:
+    ledger_path = tmp_path / "work-cycle.json"
+    init_ledger(
+        Namespace(
+            output=ledger_path,
+            cycle_id="candidate-cycle",
+            task_id="lane-task",
+            started_at="2026-09-11T00:00:00Z",
+            observation_mode="PROSPECTIVE_EXACT",
+            minimum_material_speedup=1.02,
+        )
+    )
+    approval_path, _ = dispatchable_fixture(tmp_path)
+    result = dispatch(
+        artifact_root=tmp_path,
+        approval_path=approval_path,
+        expected_approval_sha256=digest(approval_path),
+        now=NOW,
+    )
+    receipt_path = Path(result["receipt_path"])
+
+    import_phase_receipt(
+        Namespace(
+            ledger=ledger_path,
+            span_id="worker-materialization",
+            phase="ENVIRONMENT_SETUP",
+            actor="CPU",
+            resource_id="worker-sm120",
+            receipt=receipt_path,
+            started_at_field="started_at",
+            ended_at_field="completed_at",
+            duration_field="duration_seconds",
+            status="COMPLETE",
+        )
+    )
+
+    report = summarize(ledger_path)
+    assert report["phase_coverage"] == {
+        "explicit_environment_or_governance_spans": 1,
+        "environment_governance_measurement_status": "MEASURED",
+    }
+    assert report["buckets"]["environment_seconds"] >= 0
 
 
 def test_dispatch_allows_declarative_steps_around_one_executable(
