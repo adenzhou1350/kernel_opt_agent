@@ -217,6 +217,14 @@ atomic dispatcher must still validate before launch. Treat a stale lease as
 possibly running until the worker reconciles it, and route its immutable
 terminal result only to the originating task recorded in the job.
 
+Before submitting or acquiring a GPU job that depends on a profiler, compiler,
+disassembler or runtime utility, collect a fresh worker attestation and run
+`qualification-worker-toolchain` against the exact execution plan. Bind every
+required executable by name and the plan bytes as the consumer. A stale
+attestation or missing tool is a pre-lease environment blocker; do not reserve
+GPUs merely to discover it in the worker process. A passing result is tool
+availability evidence only and does not authorize the lease or execution.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

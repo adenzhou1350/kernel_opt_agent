@@ -311,6 +311,25 @@ digest. Reuse fails closed on worker or runtime drift. Pre-mounted device nodes
 are recorded honestly while Torch must see no CUDA device during collection;
 the receipt is not a lease or workload authorization.
 
+Profile, compiler and disassembly tools must be present before a GPU lease is
+created. Collect a fresh worker attestation, then bind the exact execution plan
+as the consumer of a pre-lease toolchain gate:
+
+```bash
+python3 scripts/kernel_opt.py qualification-worker-toolchain \
+  --attestation worker-runtime-attestation.json \
+  --consumer sealed-gpu-execution-plan.json \
+  --worker-id worker-shared-sm120 --host-id shared-8x-sm120-32g \
+  --require-tool nsys --require-tool cuobjdump \
+  --max-age-seconds 300 --output prelease-toolchain-gate.json
+```
+
+The worker attestation records common compiler, profiler and binary-inspection
+tools even when they are absent. The gate returns `BLOCKED_PRELEASE` for a
+missing tool or stale attestation, before a broker lease consumes GPU capacity.
+`READY_FOR_PRELEASE_BINDING` proves only fresh tool availability; it does not
+authorize a lease, process, GPU workload, correctness or performance claim.
+
 CPU isolation may intentionally make `torch.cuda.get_arch_list()` empty. The
 worker attestation therefore falls back to the non-device-initializing
 `torch._C._cuda_getArchFlags()` metadata while still binding the Torch module,

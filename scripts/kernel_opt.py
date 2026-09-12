@@ -46,6 +46,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "qualification_environment_worker.py",
             "attest a preprovisioned qualification worker runtime",
         ),
+        "qualification-worker-toolchain": Command(
+            "qualification_worker_toolchain_gate.py",
+            "reject missing or stale worker tools before a GPU lease",
+        ),
         "qualification-source-bundle": Command(
             "qualification_source_bundle.py",
             "build or verify deterministic Git-object source transport",
