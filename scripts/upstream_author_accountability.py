@@ -1,0 +1,114 @@
+#!/usr/bin/env python3
+"""Issue one explicit human submitter attestation for an exact Draft commit."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import re
+from datetime import datetime, timezone
+from pathlib import Path
+
+from artifact_io import atomic_json, sha256_file
+from upstream_delivery_inbox import validate_author_accountability
+
+
+def timestamp(value: str | None) -> str:
+    if value is None:
+        return datetime.now(timezone.utc).isoformat()
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise ValueError("attested-at must be ISO-8601") from error
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise ValueError("attested-at must include a timezone")
+    return value
+
+
+def build(args: argparse.Namespace) -> dict:
+    attested_at = timestamp(args.attested_at)
+    if re.fullmatch(r"[0-9a-f]{40}", args.commit) is None:
+        raise ValueError("candidate_commit must be a lowercase 40-hex Git commit")
+    record = {
+        "schema_version": "upstream-delivery-author-accountability-v1",
+        "attested_at": attested_at,
+        "candidate_id": args.candidate_id,
+        "repository": args.repository,
+        "branch": args.branch,
+        "candidate_commit": args.commit,
+        "submitter_identity": args.submitter_identity,
+        "checks": {
+            "changed_lines_reviewed": args.attest_changed_lines_reviewed,
+            "relevant_tests_rerun": args.attest_relevant_tests_rerun,
+            "can_defend_change": args.attest_can_defend_change,
+            "ai_assistance_disclosed": args.attest_ai_assistance_disclosed,
+            "commit_attribution": args.commit_attribution,
+        },
+        "claim_boundary": "HUMAN_SUBMITTER_ATTESTED_EXACT_COMMIT",
+    }
+    errors = validate_author_accountability(
+        record,
+        candidate_id=args.candidate_id,
+        repository=args.repository,
+        branch=args.branch,
+        commit=args.commit,
+        inbox_observed_at=attested_at,
+    )
+    if errors:
+        raise ValueError("invalid author accountability: " + "; ".join(errors))
+    return record
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--candidate-id", required=True)
+    parser.add_argument("--repository", required=True)
+    parser.add_argument("--branch", required=True)
+    parser.add_argument("--commit", required=True)
+    parser.add_argument("--submitter-identity", required=True)
+    parser.add_argument(
+        "--commit-attribution", choices=("PASS", "NOT_REQUIRED"), required=True
+    )
+    parser.add_argument("--attested-at")
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument(
+        "--attest-changed-lines-reviewed", action="store_true", required=True
+    )
+    parser.add_argument(
+        "--attest-relevant-tests-rerun", action="store_true", required=True
+    )
+    parser.add_argument(
+        "--attest-can-defend-change", action="store_true", required=True
+    )
+    parser.add_argument(
+        "--attest-ai-assistance-disclosed", action="store_true", required=True
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    args = parse_args()
+    output = args.output.resolve()
+    if output.exists():
+        raise FileExistsError(f"refusing to replace existing attestation: {output}")
+    record = build(args)
+    atomic_json(output, record)
+    print(
+        json.dumps(
+            {
+                "status": "PASS",
+                "path": output.as_posix(),
+                "sha256": sha256_file(output),
+                "candidate_id": record["candidate_id"],
+                "candidate_commit": record["candidate_commit"],
+                "claim_boundary": record["claim_boundary"],
+            },
+            indent=2,
+            sort_keys=True,
+        )
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

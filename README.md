@@ -110,6 +110,22 @@ applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY` instead
 of `OPEN_DRAFT`. The attestation is a responsibility boundary, not a substitute
 for correctness or performance evidence.
 
+After doing that work personally, the submitter can create the immutable record
+without hand-writing JSON:
+
+```bash
+python3 scripts/kernel_opt.py upstream-author-accountability \
+  --candidate-id NAME --repository OWNER/REPO --branch BRANCH \
+  --commit 40_HEX_COMMIT --submitter-identity NAME_OR_EMAIL \
+  --commit-attribution PASS --output author-accountability.json \
+  --attest-changed-lines-reviewed --attest-relevant-tests-rerun \
+  --attest-can-defend-change --attest-ai-assistance-disclosed
+```
+
+Every attestation flag is mandatory and the output is create-once. Automation
+must not invoke this command from prior agent receipts or infer human review;
+it may run only after the named submitter explicitly confirms all four facts.
+
 Reviewer state records code-owner requests separately from
 `early_review_handles`. This preserves the difference between reviewers that
 GitHub queues until Ready and a small set of relevant maintainers explicitly
