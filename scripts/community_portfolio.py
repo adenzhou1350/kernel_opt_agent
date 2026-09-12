@@ -172,6 +172,15 @@ def active_delivery_queue(
                         )
                     else:
                         verification_status = attestation["state"]
+                effective_end = observed
+                if bound is not None:
+                    attestation = bound[0]
+                    if attestation["state"] in {"RESOLVED", "SUPERSEDED"}:
+                        effective_end = parse_time(
+                            attestation["generated_at"], "attested_at"
+                        )
+                    elif verification_status == "EXPIRED":
+                        effective_end = parse_time(valid_until, "valid_until")
                 inventory.append(
                     {
                         "lane_id": lane_id,
@@ -183,7 +192,7 @@ def active_delivery_queue(
                         "actor": span["actor"],
                         "resource_id": span.get("resource_id"),
                         "active_since": span["started_at"],
-                        "active_seconds": (observed - started).total_seconds(),
+                        "active_seconds": (effective_end - started).total_seconds(),
                         "action_class": category,
                         "needs_user_action": (
                             verification_status == "CONFIRMED_ACTIVE"
@@ -422,14 +431,18 @@ def metrics(ledgers: list[tuple[Path, dict]]) -> dict:
     }
 
 
-def prospective_phase_time(ledgers: list[tuple[Path, dict]], observed_at: str) -> dict:
+def prospective_phase_time(
+    ledgers: list[tuple[Path, dict]],
+    observed_at: str,
+    attestations: dict[tuple[str, str, str], tuple[dict, dict]],
+) -> dict:
     """Sum selected prospective phase spans without implying wall-clock labor."""
 
     observed = parse_time(observed_at, "observed_at")
     phase_seconds = {phase: 0.0 for phase in PHASES}
     ledger_count = 0
     active_span_count = 0
-    for _path, ledger in ledgers:
+    for path, ledger in ledgers:
         if ledger["observation_mode"] != "PROSPECTIVE_EXACT":
             continue
         ledger_count += 1
@@ -438,6 +451,24 @@ def prospective_phase_time(ledgers: list[tuple[Path, dict]], observed_at: str) -
             if span["status"] == "ACTIVE":
                 ended = observed
                 active_span_count += 1
+                key = (
+                    path.resolve().as_posix(),
+                    ledger["cycle_id"],
+                    span["span_id"],
+                )
+                bound = attestations.get(key)
+                if bound is not None:
+                    attestation = bound[0]
+                    if attestation["state"] in {"RESOLVED", "SUPERSEDED"}:
+                        ended = parse_time(
+                            attestation["generated_at"], "attestation.generated_at"
+                        )
+                    elif observed > parse_time(
+                        attestation["valid_until"], "attestation.valid_until"
+                    ):
+                        ended = parse_time(
+                            attestation["valid_until"], "attestation.valid_until"
+                        )
             else:
                 ended = parse_time(span["ended_at"], "span.ended_at")
             if ended < started:
@@ -634,7 +665,9 @@ def build_report(
         "active_delivery_queue": queue,
         "delivery_action_inventory": inventory,
         "attention_summary": attention,
-        "prospective_phase_time": prospective_phase_time(all_ledgers, generated_at),
+        "prospective_phase_time": prospective_phase_time(
+            all_ledgers, generated_at, attestations
+        ),
     }
     errors = validate_report(report)
     if errors:

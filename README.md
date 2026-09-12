@@ -114,7 +114,10 @@ still current. Only a valid, unexpired `community-action-attestation-v1` with
 an explicit owner enters `active_delivery_queue` or
 `needs_user_action_count`. Missing, expired, resolved and superseded states stay
 visible in `delivery_action_inventory` without creating current work. Pass each
-current attestation with `--action-attestation /path/to/action.json`.
+current attestation with `--action-attestation /path/to/action.json`. Resolved
+and superseded attestations close phase accounting at their attested time;
+expired active attestations close it at `valid_until`, so stale immutable spans
+cannot inflate later portfolio reports.
 
 For a bounded command, prefer `run-phase`: it runs the exact argv without a
 shell, writes an immutable wall-time/exit-status receipt, and closes the span
