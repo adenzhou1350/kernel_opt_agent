@@ -228,6 +228,16 @@ its execution lane, and is removed from external publication actions until a
 fresh closure is supplied. Hash or byte drift in the referenced body or
 freshness file remains a hard validation failure.
 
+Generate that closure with `python scripts/kernel_opt.py
+upstream-draft-freshness`. The command resolves the exact candidate, upstream
+and fork refs, compares every candidate-touched path between the merge-base and
+current upstream, and runs Git's merge-tree conflict check before writing one
+immutable freshness record. The exact-head PR count remains an explicitly
+observed public input (`--exact-head-pull-request-count`); the command does not
+query GitHub or authorize publication. This removes repeated ad-hoc drift and
+merge scripts while keeping public state and human submission outside the
+local Git claim.
+
 Use `upstream-delivery-inbox-v5` before an AI-assisted Draft is exposed as a
 publication action. In addition to v4 freshness, it accepts a hash-bound
 `upstream-delivery-author-accountability-v1` record for the exact candidate
