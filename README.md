@@ -573,11 +573,16 @@ source, and bind the selection receipt immediately:
 ```bash
 python3 scripts/kernel_opt.py community-timing init \
   --cycle-id framework-candidate-v1 --task-id lane-task-id \
-  --observation-mode PROSPECTIVE_EXACT --output community-work-cycle.json
-python3 scripts/kernel_opt.py community-timing mark \
-  --ledger community-work-cycle.json --kind FIRST_CANDIDATE_PROPOSED \
-  --evidence candidate-value-decision.json
+  --observation-mode PROSPECTIVE_EXACT \
+  --candidate-evidence candidate-value-decision.json \
+  --output community-work-cycle.json
 ```
+
+`--candidate-evidence` validates the immutable selection decision before one
+atomic write creates the ledger and `FIRST_CANDIDATE_PROPOSED` milestone at the
+same timestamp. Missing evidence, an existing output, or a legacy observation
+mode leaves no partial ledger. The separate `mark` operation remains available
+for later milestones.
 
 PR transitions are recorded atomically with their stable URL and immutable
 GitHub event receipt. `READY` requires an observed Draft milestone, and

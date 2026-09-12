@@ -100,6 +100,9 @@ receipt. Never reconstruct these timestamps later from memory or filesystem
 mtimes. If the ledger did not exist before implementation, classify that cycle
 as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
 Agent-repository maintenance PRs are never entered in a framework lane ledger.
+Prefer `community-timing init --candidate-evidence <decision>` so ledger creation
+and the first candidate milestone are one atomic write rather than two manual
+mutations.
 The control plane may run `community-timing audit-root` over lane evidence
 directories to find missing or stale prospective instrumentation. This is a
 pull-only audit: use its output in the dashboard and do not interrupt a live

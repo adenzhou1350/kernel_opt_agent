@@ -193,6 +193,70 @@ def test_environment_and_governance_overhead_reporting() -> None:
         assert report["ratios"]["environment_governance_share_of_accounted"] == 0.75
 
 
+def test_init_atomically_binds_first_candidate_evidence() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        evidence = base / "candidate-value-decision.json"
+        evidence.write_text('{"recommended_action": "IMPLEMENT"}\n', encoding="utf-8")
+        cycle = base / "cycle.json"
+        result = init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="candidate-cycle",
+                task_id="lane-task",
+                started_at="2026-09-12T01:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+                candidate_evidence=[evidence],
+            )
+        )
+
+        assert result["started_at"] == "2026-09-12T01:00:00Z"
+        assert result["milestones"] == [
+            {
+                "kind": "FIRST_CANDIDATE_PROPOSED",
+                "at": "2026-09-12T01:00:00Z",
+                "evidence": [identity(evidence)],
+            }
+        ]
+        assert validate_ledger(cycle)["milestones"] == result["milestones"]
+
+
+def test_candidate_evidence_bootstrap_fails_without_partial_ledger() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        cycle = base / "cycle.json"
+        missing = base / "missing-decision.json"
+        args = SimpleNamespace(
+            output=cycle,
+            cycle_id="candidate-cycle",
+            task_id="lane-task",
+            started_at=None,
+            observation_mode="PROSPECTIVE_EXACT",
+            minimum_material_speedup=1.02,
+            candidate_evidence=[missing],
+        )
+        try:
+            init_ledger(args)
+        except FileNotFoundError:
+            pass
+        else:
+            raise AssertionError("missing candidate evidence must fail")
+        assert not cycle.exists()
+
+        evidence = base / "decision.json"
+        evidence.write_text("{}\n", encoding="utf-8")
+        args.candidate_evidence = [evidence]
+        args.observation_mode = "LEGACY_MILESTONE_BOUNDS"
+        try:
+            init_ledger(args)
+        except ValueError as error:
+            assert "PROSPECTIVE_EXACT" in str(error)
+        else:
+            raise AssertionError("legacy cycles cannot bootstrap exact selection time")
+        assert not cycle.exists()
+
+
 def test_run_phase_closes_success_failure_and_timeout() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
