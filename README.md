@@ -86,7 +86,9 @@ Use `upstream-delivery-inbox-v3` when `OPEN_DRAFT` is actionable. It requires a
 hash-bound UTF-8 PR body, freshness evidence containing the exact candidate
 commit, and the intended repository/branch/compare URL. This validates the
 public Draft materials but does not authorize publishing them. Versions 1 and
-2 remain accepted unchanged for historical replay.
+2 remain accepted unchanged for historical replay. An otherwise Draft-ready
+candidate without these materials is routed to `COMPLETE_DRAFT_MATERIALS`; it
+does not fail unrelated inbox entries or expose a public action prematurely.
 
 Reviewer state records code-owner requests separately from
 `early_review_handles`. This preserves the difference between reviewers that
