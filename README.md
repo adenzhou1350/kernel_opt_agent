@@ -144,6 +144,19 @@ queued item as immediately reservable, waiting for GPUs, requiring environment
 preparation, or having no compatible resource. It is suitable for a dashboard
 but is not a reservation.
 
+For a fresh `upstream-delivery-inbox-v5` candidate routed to
+`COMPLETE_AUTHOR_ACCOUNTABILITY`, automation may gather the exact commit,
+evidence, pending gates, proposed PR body and fail-closed attestation command
+into one create-once packet:
+
+```bash
+python3 scripts/kernel_opt.py upstream-author-review-packet delivery-inbox.json \
+  --candidate-id NAME --output author-review-packet.md
+```
+
+The packet is machine-prepared convenience only. It cannot attest human review
+or authorize publishing.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
