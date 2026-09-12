@@ -332,10 +332,10 @@ def test_active_queue_exposes_user_and_environment_owners(tmp_path: Path) -> Non
         "CREDENTIAL",
         "ENVIRONMENT",
     ]
-    assert [row["needs_user_action"] for row in queue] == [True, True, False]
+    assert [row["needs_user_action"] for row in queue] == [True, False, False]
     assert report["attention_summary"] == {
         "active_count": 3,
-        "needs_user_action_count": 2,
+        "needs_user_action_count": 1,
         "lane_without_active_phase_count": 1,
         "oldest_active_seconds": queue[0]["active_seconds"],
         "counts_by_action_class": {

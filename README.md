@@ -569,9 +569,13 @@ output. `active_delivery_queue` and `attention_summary` derive action ownership,
 resource identity, and live wait duration from canonical active spans. A
 pull-based dashboard can therefore separate user confirmations, credentials,
 environment work, governance, GPU work, and normal agent work without asking
-autonomous lanes for status messages. This is descriptive accounting; it does
-not establish strategy causality or count this repository's maintenance PRs as
-framework optimization results.
+autonomous lanes for status messages. Only a resource explicitly named with a
+`USER_` prefix contributes to `needs_user_action_count`; an unowned credential
+gate remains visible but is not silently assigned to the user. An active ledger
+describes an unfinished candidate cycle, which can remain open while its lane
+continues research on another candidate. This is descriptive accounting; it
+does not establish strategy causality or count this repository's maintenance
+PRs as framework optimization results.
 
 Start timing when a framework candidate is selected, before editing production
 source, and bind the selection receipt immediately:
