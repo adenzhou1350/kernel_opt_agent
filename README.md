@@ -101,6 +101,22 @@ python3 scripts/kernel_opt.py community-portfolio \
   --output /path/to/portfolio-report.json
 ```
 
+Audit public PR-stage drift without scanning task transcripts or mutating a
+ledger. Existing URLs match directly; explicitly bind a newly opened PR whose
+ledger has no URL:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio-pr-audit \
+  --manifest /path/to/portfolio-manifest.json \
+  --stage-history /path/to/github-pr-stage-history.json \
+  --bind cycle-id=https://github.com/org/repo/pull/123 \
+  --output /path/to/pr-stage-audit.json
+```
+
+The audit fails closed on stale observations and suggests missing
+Draft/Ready/Merged ledger stages. It never treats a GitHub snapshot as
+correctness, performance, or merge evidence.
+
 Portfolio report v6 exposes the delivery funnel, freshness-attested action
 ownership and phase-time totals for only the explicitly selected, hash-bound
 `PROSPECTIVE_EXACT` ledgers. Active spans share one observation time.

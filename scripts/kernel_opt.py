@@ -34,6 +34,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "community_lane_topology.py",
             "validate autonomous execution lanes and the controller boundary",
         ),
+        "community-portfolio-pr-audit": Command(
+            "community_portfolio_pr_audit.py",
+            "detect selected-ledger drift from an explicit GitHub PR stage snapshot",
+        ),
         "community-portfolio": Command(
             "community_portfolio.py",
             "aggregate selected work-cycle ledgers across autonomous lanes",

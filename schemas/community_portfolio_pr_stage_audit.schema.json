@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_portfolio_pr_stage_audit.schema.json",
+  "title": "Explicit portfolio versus observed GitHub PR stage audit",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_at",
+    "claim_boundary",
+    "manifest_identity",
+    "stage_history_identity",
+    "binding_count",
+    "selected_pr_count",
+    "actionable_drift_count",
+    "status",
+    "rows"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-portfolio-pr-stage-audit-v1"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "claim_boundary": {"const": "READ_ONLY_EXPLICIT_PR_STAGE_RECONCILIATION_NOT_LEDGER_MUTATION"},
+    "manifest_identity": {"$ref": "#/$defs/identity"},
+    "stage_history_identity": {"$ref": "#/$defs/identity"},
+    "binding_count": {"type": "integer", "minimum": 0},
+    "selected_pr_count": {"type": "integer", "minimum": 0},
+    "actionable_drift_count": {"type": "integer", "minimum": 0},
+    "status": {"enum": ["PASS", "DRIFT"]},
+    "rows": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/row"}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cycle_id",
+        "pull_request_url",
+        "ledger_stage",
+        "observed_stage",
+        "observed_stage_since",
+        "status",
+        "suggested_stage"
+      ],
+      "properties": {
+        "cycle_id": {"type": "string", "minLength": 1},
+        "pull_request_url": {"type": "string", "pattern": "^https://github\\.com/.+/pull/[0-9]+$"},
+        "ledger_stage": {"enum": ["NONE", "DRAFT", "READY", "MERGED"]},
+        "observed_stage": {"type": ["string", "null"], "enum": ["DRAFT", "READY", "MERGED", "CLOSED", null]},
+        "observed_stage_since": {"type": ["string", "null"], "format": "date-time"},
+        "status": {"enum": ["ALIGNED", "LEDGER_LAGS_EXTERNAL", "EXTERNAL_SNAPSHOT_LAGS_LEDGER", "EXTERNAL_CLOSED_UNREPRESENTED", "HISTORY_MISSING"]},
+        "suggested_stage": {"type": ["string", "null"], "enum": ["DRAFT", "READY", "MERGED", null]}
+      }
+    }
+  }
+}
