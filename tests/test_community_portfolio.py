@@ -554,8 +554,14 @@ def test_noncurrent_attestations_never_create_user_work(
     report = build_report(path, [attestation])
 
     assert report["active_delivery_queue"] == []
-    assert report["delivery_action_inventory"][0]["verification_status"] == expected
+    row = report["delivery_action_inventory"][0]
+    assert row["verification_status"] == expected
     assert report["attention_summary"]["needs_user_action_count"] == 0
+    expected_seconds = 120.0 if expected == "EXPIRED" else 60.0
+    assert row["active_seconds"] == expected_seconds
+    assert report["prospective_phase_time"]["external_wait_seconds"] == (
+        expected_seconds
+    )
 
 
 def test_action_attestation_resource_drift_is_rejected(tmp_path: Path) -> None:

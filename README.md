@@ -720,8 +720,10 @@ contain only spans backed by a valid, unexpired
 `community-action-attestation-v1` with an explicit owner. Missing, expired,
 resolved and superseded attestations remain visible in
 `delivery_action_inventory` but cannot create current work or silently assign a
-credential to the user. Bind one or more attestations explicitly when they are
-available:
+credential to the user. Resolved and superseded attestations also close phase
+accounting at their attested time; expired active attestations close it at
+`valid_until`, so immutable stale spans cannot inflate later portfolio reports.
+Bind one or more attestations explicitly when they are available:
 
 ```bash
 python3 scripts/kernel_opt.py community-action-attest \
