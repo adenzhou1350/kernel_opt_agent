@@ -21,6 +21,7 @@ ROOT_KEYS = {"schema_version", "observed_at", "candidates"}
 CANDIDATE_KEYS_V1 = {"candidate_id", "lane_id", "review_state"}
 CANDIDATE_KEYS_V2 = CANDIDATE_KEYS_V1 | {"review_handoff"}
 CANDIDATE_KEYS_V3 = CANDIDATE_KEYS_V2 | {"draft_materials"}
+CANDIDATE_KEYS_V4 = CANDIDATE_KEYS_V3
 SOURCE_KEYS = {"path", "sha256"}
 DRAFT_MATERIAL_KEYS = {
     "title",
@@ -36,7 +37,29 @@ VERSIONS = {
     "upstream-delivery-inbox-v1",
     "upstream-delivery-inbox-v2",
     "upstream-delivery-inbox-v3",
+    "upstream-delivery-inbox-v4",
 }
+FRESHNESS_KEYS = {
+    "schema_version",
+    "observed_at",
+    "expires_at",
+    "candidate_id",
+    "repository",
+    "branch",
+    "candidate_commit",
+    "upstream_main_commit",
+    "fork_branch_commit",
+    "checks",
+    "claim_boundary",
+}
+FRESHNESS_CHECK_KEYS = {
+    "fork_branch_matches_candidate",
+    "touched_paths_unchanged",
+    "merge_conflict",
+    "exact_head_pull_request_count",
+    "draft_submission_eligible",
+}
+MAX_FRESHNESS_SECONDS = 6 * 60 * 60
 PRIORITY = {
     "CLOSE_OR_REVISE_FAILED_CANDIDATE": 0,
     "RESPOND_TO_REVIEW": 1,
@@ -47,6 +70,7 @@ PRIORITY = {
     "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION": 3,
     "COMPLETE_DRAFT_MINIMUM": 4,
     "COMPLETE_DRAFT_MATERIALS": 4,
+    "REFRESH_DRAFT_FRESHNESS": 4,
     "KEEP_DRAFT_CONTINUE_QUALIFICATION": 5,
     "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW": 5,
     "WAIT_FOR_MAINTAINER_CI_AND_REVIEW": 6,
@@ -79,17 +103,19 @@ def exact_keys(value: object, expected: set[str], path: str, errors: list[str]) 
     return value
 
 
-def parse_timestamp(value: object, path: str, errors: list[str]) -> None:
+def parse_timestamp(value: object, path: str, errors: list[str]) -> datetime | None:
     if not isinstance(value, str):
         errors.append(f"{path}: must be an RFC3339 string")
-        return
+        return None
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         errors.append(f"{path}: invalid RFC3339 timestamp")
-        return
+        return None
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         errors.append(f"{path}: timezone is required")
+        return None
+    return parsed
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -123,6 +149,85 @@ def contains_scalar(value: object, expected: str) -> bool:
     return False
 
 
+def validate_draft_freshness(
+    value: object,
+    *,
+    candidate_id: str,
+    repository: str,
+    branch: str,
+    commit: str,
+    inbox_observed_at: str,
+) -> list[str]:
+    """Validate a short-lived, exact Draft publication freshness closure."""
+
+    errors: list[str] = []
+    record = exact_keys(value, FRESHNESS_KEYS, "freshness", errors)
+    if record.get("schema_version") != "upstream-delivery-freshness-v1":
+        errors.append(
+            "freshness.schema_version: must be upstream-delivery-freshness-v1"
+        )
+    observed = parse_timestamp(
+        record.get("observed_at"), "freshness.observed_at", errors
+    )
+    expires = parse_timestamp(record.get("expires_at"), "freshness.expires_at", errors)
+    inbox_observed = parse_timestamp(
+        inbox_observed_at, "freshness.inbox_observed_at", errors
+    )
+    if observed is not None and expires is not None:
+        lifetime = (expires - observed).total_seconds()
+        if lifetime <= 0 or lifetime > MAX_FRESHNESS_SECONDS:
+            errors.append(
+                "freshness.expires_at: validity must be greater than zero and at most "
+                f"{MAX_FRESHNESS_SECONDS} seconds"
+            )
+    if (
+        observed is not None
+        and inbox_observed is not None
+        and inbox_observed < observed
+    ):
+        errors.append("freshness.observed_at: cannot be after inbox observed_at")
+    if expires is not None and inbox_observed is not None and inbox_observed > expires:
+        errors.append(
+            "freshness.expires_at: evidence is stale for this inbox observation"
+        )
+    expected = {
+        "candidate_id": candidate_id,
+        "repository": repository,
+        "branch": branch,
+        "candidate_commit": commit,
+        "fork_branch_commit": commit,
+    }
+    for field, expected_value in expected.items():
+        if record.get(field) != expected_value:
+            errors.append(f"freshness.{field}: does not match Draft materials")
+    main_commit = record.get("upstream_main_commit")
+    if (
+        not isinstance(main_commit, str)
+        or len(main_commit) != 40
+        or any(char not in "0123456789abcdef" for char in main_commit)
+    ):
+        errors.append("freshness.upstream_main_commit: must be a lowercase Git commit")
+    checks = exact_keys(
+        record.get("checks"), FRESHNESS_CHECK_KEYS, "freshness.checks", errors
+    )
+    for field in (
+        "fork_branch_matches_candidate",
+        "touched_paths_unchanged",
+        "draft_submission_eligible",
+    ):
+        if checks.get(field) is not True:
+            errors.append(f"freshness.checks.{field}: must be true")
+    if checks.get("merge_conflict") is not False:
+        errors.append("freshness.checks.merge_conflict: must be false")
+    if checks.get("exact_head_pull_request_count") != 0:
+        errors.append("freshness.checks.exact_head_pull_request_count: must be zero")
+    if not isinstance(record.get("claim_boundary"), str) or not record.get(
+        "claim_boundary"
+    ):
+        errors.append("freshness.claim_boundary: must be non-empty")
+    return errors
+
+
 def check_progress(checks: dict[str, str], complete_values: set[str]) -> dict:
     passed = sorted(key for key, value in checks.items() if value in complete_values)
     pending = sorted(key for key, value in checks.items() if value == "PENDING")
@@ -153,6 +258,7 @@ def validate_manifest(record: object) -> list[str]:
             "upstream-delivery-inbox-v1": CANDIDATE_KEYS_V1,
             "upstream-delivery-inbox-v2": CANDIDATE_KEYS_V2,
             "upstream-delivery-inbox-v3": CANDIDATE_KEYS_V3,
+            "upstream-delivery-inbox-v4": CANDIDATE_KEYS_V4,
         }.get(version, CANDIDATE_KEYS_V1)
         candidate = exact_keys(value, expected_keys, f"candidates[{index}]", errors)
         candidate_id = candidate.get("candidate_id")
@@ -170,7 +276,11 @@ def validate_manifest(record: object) -> list[str]:
             f"candidates[{index}].review_state",
             errors,
         )
-        if version in {"upstream-delivery-inbox-v2", "upstream-delivery-inbox-v3"}:
+        if version in {
+            "upstream-delivery-inbox-v2",
+            "upstream-delivery-inbox-v3",
+            "upstream-delivery-inbox-v4",
+        }:
             handoff = candidate.get("review_handoff")
             if handoff is not None:
                 validate_source(
@@ -178,7 +288,7 @@ def validate_manifest(record: object) -> list[str]:
                     f"candidates[{index}].review_handoff",
                     errors,
                 )
-        if version == "upstream-delivery-inbox-v3":
+        if version in {"upstream-delivery-inbox-v3", "upstream-delivery-inbox-v4"}:
             materials = candidate.get("draft_materials")
             if materials is not None:
                 materials = exact_keys(
@@ -272,6 +382,7 @@ def build(
         if manifest["schema_version"] in {
             "upstream-delivery-inbox-v2",
             "upstream-delivery-inbox-v3",
+            "upstream-delivery-inbox-v4",
         }:
             handoff_source = candidate["review_handoff"]
             ready_pull = pull["state"] == "OPEN" and pull["draft"] is False
@@ -333,7 +444,10 @@ def build(
                     effective_action = handoff_decision["recommended_action"]
                     effective_owner = handoff_decision["external_action_owner"]
         draft_material_result = None
-        if manifest["schema_version"] == "upstream-delivery-inbox-v3":
+        if manifest["schema_version"] in {
+            "upstream-delivery-inbox-v3",
+            "upstream-delivery-inbox-v4",
+        }:
             materials = candidate["draft_materials"]
             if effective_action == "OPEN_DRAFT" and materials is None:
                 effective_action = "COMPLETE_DRAFT_MATERIALS"
@@ -402,7 +516,23 @@ def build(
                         f"{error}"
                     )
                     continue
-                if not contains_scalar(freshness, materials["commit"]):
+                freshness_errors = []
+                freshness_status = "PASS"
+                if manifest["schema_version"] == "upstream-delivery-inbox-v4":
+                    freshness_errors = validate_draft_freshness(
+                        freshness,
+                        candidate_id=candidate["candidate_id"],
+                        repository=materials["repository"],
+                        branch=materials["branch"],
+                        commit=materials["commit"],
+                        inbox_observed_at=manifest["observed_at"],
+                    )
+                    if freshness_errors:
+                        freshness_status = "REFRESH_REQUIRED"
+                        if effective_action == "OPEN_DRAFT":
+                            effective_action = "REFRESH_DRAFT_FRESHNESS"
+                            effective_owner = "EXECUTION_LANE"
+                elif not contains_scalar(freshness, materials["commit"]):
                     errors.append(
                         f"candidates[{index}].draft_materials.freshness_evidence: "
                         "does not bind the candidate commit"
@@ -427,6 +557,10 @@ def build(
                             "bytes": len(body_raw),
                         },
                         "freshness_evidence": materials["freshness_evidence"],
+                        "freshness_validation": {
+                            "status": freshness_status,
+                            "errors": freshness_errors,
+                        },
                     }
                 )
         draft_progress = check_progress(review_state["draft_minimum"], {"PASS"})
@@ -452,10 +586,14 @@ def build(
         if manifest["schema_version"] in {
             "upstream-delivery-inbox-v2",
             "upstream-delivery-inbox-v3",
+            "upstream-delivery-inbox-v4",
         }:
             item["review_state_action"] = decision["recommended_action"]
             item["review_handoff"] = handoff_result
-        if manifest["schema_version"] == "upstream-delivery-inbox-v3":
+        if manifest["schema_version"] in {
+            "upstream-delivery-inbox-v3",
+            "upstream-delivery-inbox-v4",
+        }:
             item["draft_materials"] = draft_material_result
         items.append(item)
     items.sort(
@@ -473,6 +611,7 @@ def build(
             "upstream-delivery-inbox-v1": "upstream-delivery-inbox-result-v1",
             "upstream-delivery-inbox-v2": "upstream-delivery-inbox-result-v2",
             "upstream-delivery-inbox-v3": "upstream-delivery-inbox-result-v3",
+            "upstream-delivery-inbox-v4": "upstream-delivery-inbox-result-v4",
         }[manifest["schema_version"]],
         "manifest_sha256": sha256_bytes(manifest_bytes),
         "observed_at": manifest["observed_at"],

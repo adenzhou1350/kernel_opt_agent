@@ -90,6 +90,16 @@ public Draft materials but does not authorize publishing them. Versions 1 and
 candidate without these materials is routed to `COMPLETE_DRAFT_MATERIALS`; it
 does not fail unrelated inbox entries or expose a public action prematurely.
 
+Use `upstream-delivery-inbox-v4` for a live publication queue. Its
+`upstream-delivery-freshness-v1` evidence is short-lived (at most six hours)
+and binds the exact candidate, repository, branch, fork ref, observed upstream
+main, touched-path drift result, merge result, exact-head PR count and explicit
+Draft eligibility. Expired, mismatched or non-standard freshness does not fail
+the whole portfolio; that candidate becomes `REFRESH_DRAFT_FRESHNESS`, owned by
+its execution lane, and is removed from external publication actions until a
+fresh closure is supplied. Hash or byte drift in the referenced body or
+freshness file remains a hard validation failure.
+
 Reviewer state records code-owner requests separately from
 `early_review_handles`. This preserves the difference between reviewers that
 GitHub queues until Ready and a small set of relevant maintainers explicitly

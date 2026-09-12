@@ -79,6 +79,34 @@ def review_handoff(ready: dict, observed_at: str, ready_since: str) -> dict:
     }
 
 
+def draft_freshness(
+    *,
+    candidate_id: str,
+    repository: str,
+    branch: str,
+    commit: str,
+) -> dict:
+    return {
+        "schema_version": "upstream-delivery-freshness-v1",
+        "observed_at": "2026-09-11T07:30:00Z",
+        "expires_at": "2026-09-11T12:30:00Z",
+        "candidate_id": candidate_id,
+        "repository": repository,
+        "branch": branch,
+        "candidate_commit": commit,
+        "upstream_main_commit": "b" * 40,
+        "fork_branch_commit": commit,
+        "checks": {
+            "fork_branch_matches_candidate": True,
+            "touched_paths_unchanged": True,
+            "merge_conflict": False,
+            "exact_head_pull_request_count": 0,
+            "draft_submission_eligible": True,
+        },
+        "claim_boundary": "LOCAL_REFS_AND_EXACT_HEAD_PR_QUERY_AT_OBSERVED_TIME",
+    }
+
+
 def run(manifest: Path, expected_code: int = 0) -> dict:
     completed = subprocess.run(
         [sys.executable, str(SCRIPT), str(manifest)],
@@ -234,6 +262,109 @@ def main() -> None:
         assert draft_item["recommended_action"] == "OPEN_DRAFT"
         assert draft_item["draft_materials"]["commit"] == candidate_commit
         assert draft_item["draft_materials"]["body"]["bytes"] == len(body_raw)
+
+        standard_freshness = draft_freshness(
+            candidate_id="mooncake-lazy-group-cache",
+            repository="vllm-project/vllm",
+            branch="perf/mooncake-lazy-group-cache",
+            commit=candidate_commit,
+        )
+        freshness_sha = write_json(freshness_path, standard_freshness)
+        v4 = copy.deepcopy(v3)
+        v4["schema_version"] = "upstream-delivery-inbox-v4"
+        v4["candidates"][0]["draft_materials"]["freshness_evidence"]["sha256"] = (
+            freshness_sha
+        )
+        write_json(manifest, v4)
+        v4_inbox = run(manifest)["inbox"]
+        assert v4_inbox["schema_version"] == "upstream-delivery-inbox-result-v4"
+        v4_item = next(
+            item
+            for item in v4_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert v4_item["recommended_action"] == "OPEN_DRAFT"
+        assert v4_item["draft_materials"]["freshness_validation"] == {
+            "status": "PASS",
+            "errors": [],
+        }
+
+        stale_v4 = copy.deepcopy(v4)
+        stale_freshness = copy.deepcopy(standard_freshness)
+        stale_freshness["expires_at"] = "2026-09-11T07:59:59Z"
+        stale_v4["candidates"][0]["draft_materials"]["freshness_evidence"]["sha256"] = (
+            write_json(freshness_path, stale_freshness)
+        )
+        write_json(manifest, stale_v4)
+        stale_inbox = run(manifest)["inbox"]
+        stale_item = next(
+            item
+            for item in stale_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert stale_item["recommended_action"] == "REFRESH_DRAFT_FRESHNESS"
+        assert stale_item["external_action_owner"] == "EXECUTION_LANE"
+        assert stale_item["draft_materials"]["freshness_validation"]["status"] == (
+            "REFRESH_REQUIRED"
+        )
+        assert any(
+            "evidence is stale" in error
+            for error in stale_item["draft_materials"]["freshness_validation"]["errors"]
+        )
+        assert stale_inbox["actionable_count"] == v4_inbox["actionable_count"] - 1
+
+        mismatched_v4 = copy.deepcopy(v4)
+        mismatched_freshness = copy.deepcopy(standard_freshness)
+        mismatched_freshness["candidate_commit"] = "c" * 40
+        mismatched_v4["candidates"][0]["draft_materials"]["freshness_evidence"][
+            "sha256"
+        ] = write_json(freshness_path, mismatched_freshness)
+        write_json(manifest, mismatched_v4)
+        mismatched_inbox = run(manifest)["inbox"]
+        mismatched_item = next(
+            item
+            for item in mismatched_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert mismatched_item["recommended_action"] == "REFRESH_DRAFT_FRESHNESS"
+        assert any(
+            "candidate_commit" in error
+            for error in mismatched_item["draft_materials"]["freshness_validation"][
+                "errors"
+            ]
+        )
+
+        hidden_freshness_v4 = copy.deepcopy(v4)
+        hidden_freshness = copy.deepcopy(standard_freshness)
+        hidden_freshness["hidden_oracle"] = True
+        hidden_freshness_v4["candidates"][0]["draft_materials"]["freshness_evidence"][
+            "sha256"
+        ] = write_json(freshness_path, hidden_freshness)
+        write_json(manifest, hidden_freshness_v4)
+        hidden_freshness_inbox = run(manifest)["inbox"]
+        hidden_freshness_item = next(
+            item
+            for item in hidden_freshness_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert hidden_freshness_item["recommended_action"] == (
+            "REFRESH_DRAFT_FRESHNESS"
+        )
+        assert any(
+            "unexpected keys" in error
+            for error in hidden_freshness_item["draft_materials"][
+                "freshness_validation"
+            ]["errors"]
+        )
+
+        # Restore the v3 fixture used by the compatibility mutation tests below.
+        freshness_sha = write_json(
+            freshness_path,
+            {"candidate": {"commit": candidate_commit}, "status": "PASS"},
+        )
+        v3["candidates"][0]["draft_materials"]["freshness_evidence"]["sha256"] = (
+            freshness_sha
+        )
 
         missing_materials = copy.deepcopy(v3)
         missing_materials["candidates"][0]["draft_materials"] = None
