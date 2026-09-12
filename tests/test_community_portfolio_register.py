@@ -149,3 +149,68 @@ def test_output_is_create_once(tmp_path: Path) -> None:
     write_once(output, {"ok": True})
     with pytest.raises(FileExistsError, match="refusing to replace"):
         write_once(output, {"ok": False})
+
+
+def test_refreshes_changed_selected_ledger_at_same_lane_and_path(
+    tmp_path: Path,
+) -> None:
+    base = manifest(tmp_path)
+    old_manifest = json.loads(base.read_text(encoding="utf-8"))
+    lane = next(
+        row for row in old_manifest["lanes"] if row["lane_id"] == "VLLM_OPTIMIZATION"
+    )
+    selected = Path(lane["work_cycle_ledgers"][0]["path"])
+    previous_hash = lane["work_cycle_ledgers"][0]["sha256"]
+    current = json.loads(selected.read_text(encoding="utf-8"))
+    current["outcome"]["pull_request_url"] = (
+        "https://github.com/vllm-project/vllm/pull/1"
+    )
+    dump(selected, current)
+
+    value, changes = build(base, [], [("VLLM_OPTIMIZATION", selected)])
+
+    refreshed_lane = next(
+        row for row in value["lanes"] if row["lane_id"] == "VLLM_OPTIMIZATION"
+    )
+    assert refreshed_lane["work_cycle_ledgers"][0]["sha256"] == sha256_file(selected)
+    assert refreshed_lane["work_cycle_ledgers"][0]["sha256"] != previous_hash
+    assert changes[0]["operation"] == "REFRESH"
+    assert changes[0]["previous_ledger_identity"]["sha256"] == previous_hash
+
+
+def test_refresh_rejects_path_selected_in_another_lane(tmp_path: Path) -> None:
+    base = manifest(tmp_path)
+    value = json.loads(base.read_text(encoding="utf-8"))
+    selected = Path(value["lanes"][0]["work_cycle_ledgers"][0]["path"])
+    current = json.loads(selected.read_text(encoding="utf-8"))
+    current["outcome"]["pull_request_url"] = "https://github.com/example/repo/pull/1"
+    dump(selected, current)
+
+    with pytest.raises(ValueError, match="declared lane"):
+        build(base, [], [("SGLANG_OPTIMIZATION", selected)])
+
+
+def test_refresh_rejects_unchanged_identity(tmp_path: Path) -> None:
+    base = manifest(tmp_path)
+    value = json.loads(base.read_text(encoding="utf-8"))
+    selected = Path(value["lanes"][0]["work_cycle_ledgers"][0]["path"])
+    with pytest.raises(ValueError, match="did not change"):
+        build(base, [], [("VLLM_OPTIMIZATION", selected)])
+
+
+def test_rejects_combined_register_and_refresh(tmp_path: Path) -> None:
+    base = manifest(tmp_path)
+    value = json.loads(base.read_text(encoding="utf-8"))
+    selected = Path(value["lanes"][0]["work_cycle_ledgers"][0]["path"])
+    candidate = ledger(
+        tmp_path / "candidate.json",
+        "candidate",
+        "candidate-task",
+        "2026-09-12T02:00:00Z",
+    )
+    with pytest.raises(ValueError, match="cannot be combined"):
+        build(
+            base,
+            [("SGLANG_OPTIMIZATION", candidate)],
+            [("VLLM_OPTIMIZATION", selected)],
+        )

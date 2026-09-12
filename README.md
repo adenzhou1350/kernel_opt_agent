@@ -184,6 +184,20 @@ closure, the prospective accounting boundary and duplicate cycle/task
 identities. Lane selection stays explicit; filenames and task prose are never
 used to guess ownership.
 
+When an already-selected prospective ledger advances in place, refresh only
+that exact lane/path identity instead of hand-editing its hash:
+
+```bash
+python3 scripts/kernel_opt.py community-portfolio-register \
+  --manifest /path/to/current-portfolio-manifest.json \
+  --refresh VLLM_OPTIMIZATION=/path/to/advanced-community-work-cycle.json \
+  --output /path/to/superseding-portfolio-manifest.json
+```
+
+Refresh permits only the named old hash to be stale, then validates the
+advanced ledger and complete superseding selection. It cannot change the path
+or lane and cannot be combined with registration.
+
 The run is intentionally blocked until `hardware_evidence.json` archives exact
 vendor-official documents for the programming model, ISA, target-architecture
 tuning guide and device specification. If the agent cannot find one of those
