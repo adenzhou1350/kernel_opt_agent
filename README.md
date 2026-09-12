@@ -558,15 +558,20 @@ python3 scripts/kernel_opt.py community-portfolio \
 ```
 
 The report rejects duplicate ledger or cycle/task identities and keeps
-prospective measurements separate from legacy milestone bounds. Version 3 adds
+prospective measurements separate from legacy milestone bounds. Version 4 adds
 an evidence-backed delivery funnel from candidate proposal through correctness,
 material improvement, qualification, upstream readiness, PR review and merge,
 plus candidate-to-Draft and Draft-to-Ready timing and conversion metrics. Exact
 delivery timing is computed only from `PROSPECTIVE_EXACT` ledgers; legacy cycles
 are never backfilled into those metrics. `leading_constraint` gives dashboards a
 transcript-free answer to where each lane is currently losing useful upstream
-output. This is descriptive accounting; it does not establish strategy causality
-or count this repository's maintenance PRs as framework optimization results.
+output. `active_delivery_queue` and `attention_summary` derive action ownership,
+resource identity, and live wait duration from canonical active spans. A
+pull-based dashboard can therefore separate user confirmations, credentials,
+environment work, governance, GPU work, and normal agent work without asking
+autonomous lanes for status messages. This is descriptive accounting; it does
+not establish strategy causality or count this repository's maintenance PRs as
+framework optimization results.
 
 Start timing when a framework candidate is selected, before editing production
 source, and bind the selection receipt immediately:

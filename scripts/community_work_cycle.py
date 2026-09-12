@@ -695,8 +695,9 @@ def import_phase_receipt(args: argparse.Namespace) -> dict:
     ledger = validate_ledger(ledger_path)
     if ledger["observation_mode"] != "PROSPECTIVE_EXACT":
         raise ValueError("receipt import requires a PROSPECTIVE_EXACT ledger")
-    if any(span["status"] == "ACTIVE" for span in ledger["spans"]):
-        raise ValueError("another primary phase is already active")
+    active = [span for span in ledger["spans"] if span["status"] == "ACTIVE"]
+    if len(active) > 1:
+        raise ValueError("more than one primary phase is active")
     if any(span["span_id"] == args.span_id for span in ledger["spans"]):
         raise ValueError(f"duplicate span_id: {args.span_id}")
 
@@ -722,6 +723,14 @@ def import_phase_receipt(args: argparse.Namespace) -> dict:
         if abs(float(duration) - measured_seconds) > tolerance:
             raise ValueError("receipt duration conflicts with its timestamps")
 
+    receipt_identity = evidence_identity(receipt_path)
+    if active:
+        if started < parse_time(active[0]["started_at"], "active.started_at"):
+            raise ValueError("receipt starts before the active phase")
+        active[0]["ended_at"] = started_value
+        active[0]["status"] = "COMPLETE"
+        active[0]["evidence"] = [receipt_identity]
+
     ledger["spans"].append(
         {
             "span_id": args.span_id,
@@ -731,7 +740,7 @@ def import_phase_receipt(args: argparse.Namespace) -> dict:
             "started_at": started_value,
             "ended_at": ended_value,
             "status": args.status,
-            "evidence": [evidence_identity(receipt_path)],
+            "evidence": [receipt_identity],
         }
     )
     write_ledger(ledger_path, ledger)

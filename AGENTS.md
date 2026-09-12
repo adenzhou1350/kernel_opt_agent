@@ -57,6 +57,10 @@ working.  A material event should state the changed decision, the smallest
 authoritative evidence identity and the next action; the controller decides
 whether another lane needs the information.
 
+The controller should prefer the portfolio `active_delivery_queue` for routine
+attention routing.  Do not interrupt autonomous lanes merely to ask who owns an
+active wait when its canonical work-cycle span already records that answer.
+
 ## Delivery-first operating model
 
 The objective is a correct, reviewable upstream improvement, not the largest

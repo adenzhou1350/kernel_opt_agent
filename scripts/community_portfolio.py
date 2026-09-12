@@ -15,7 +15,7 @@ from schema_utils import validate_instance
 
 
 MANIFEST_VERSION = "community-portfolio-manifest-v1"
-REPORT_VERSION = "community-portfolio-report-v3"
+REPORT_VERSION = "community-portfolio-report-v4"
 
 
 def root() -> Path:
@@ -39,6 +39,101 @@ def seconds(start: str, end: str) -> float:
 
 def nullable_median(values: list[float]) -> float | None:
     return median(values) if values else None
+
+
+def action_class(span: dict) -> str:
+    """Classify an active phase without guessing from free-form task prose."""
+
+    resource_id = span.get("resource_id") or ""
+    if resource_id.startswith("USER_"):
+        return "USER_CONFIRMATION"
+    if resource_id.endswith("_AUTH") or resource_id.endswith("_CREDENTIAL"):
+        return "CREDENTIAL"
+    if span["phase"] == "ENVIRONMENT_SETUP":
+        return "ENVIRONMENT"
+    if span["phase"] == "GOVERNANCE_VALIDATION":
+        return "GOVERNANCE"
+    if span["actor"] == "GPU":
+        return "GPU_EXECUTION"
+    if span["actor"] == "EXTERNAL":
+        return "EXTERNAL_DEPENDENCY"
+    return "ACTIVE_WORK"
+
+
+def active_delivery_queue(
+    lane_ledgers: list[tuple[str, str, list[tuple[Path, dict]]]],
+    observed_at: str,
+) -> tuple[list[dict], dict]:
+    """Expose who owns each live wait directly from canonical active spans."""
+
+    observed = parse_time(observed_at, "observed_at")
+    rows = []
+    for lane_id, thread_id, ledgers in lane_ledgers:
+        constraint = delivery_funnel(ledgers)["leading_constraint"]
+        for path, ledger in ledgers:
+            for span in ledger["spans"]:
+                if span["status"] != "ACTIVE":
+                    continue
+                started = parse_time(span["started_at"], "started_at")
+                category = action_class(span)
+                rows.append(
+                    {
+                        "lane_id": lane_id,
+                        "thread_id": thread_id,
+                        "cycle_id": ledger["cycle_id"],
+                        "ledger_path": path.as_posix(),
+                        "span_id": span["span_id"],
+                        "phase": span["phase"],
+                        "actor": span["actor"],
+                        "resource_id": span.get("resource_id"),
+                        "active_since": span["started_at"],
+                        "active_seconds": (observed - started).total_seconds(),
+                        "action_class": category,
+                        "needs_user_action": category
+                        in {"USER_CONFIRMATION", "CREDENTIAL"},
+                        "leading_constraint": constraint,
+                    }
+                )
+    action_priority = {
+        "USER_CONFIRMATION": 0,
+        "CREDENTIAL": 1,
+        "EXTERNAL_DEPENDENCY": 2,
+        "GOVERNANCE": 3,
+        "ENVIRONMENT": 4,
+        "GPU_EXECUTION": 5,
+        "ACTIVE_WORK": 6,
+    }
+    rows.sort(
+        key=lambda row: (
+            action_priority[row["action_class"]],
+            row["active_since"],
+            row["lane_id"],
+            row["cycle_id"],
+        )
+    )
+    counts = {
+        category: sum(row["action_class"] == category for row in rows)
+        for category in (
+            "USER_CONFIRMATION",
+            "CREDENTIAL",
+            "ENVIRONMENT",
+            "GOVERNANCE",
+            "GPU_EXECUTION",
+            "EXTERNAL_DEPENDENCY",
+            "ACTIVE_WORK",
+        )
+    }
+    summary = {
+        "active_count": len(rows),
+        "needs_user_action_count": sum(row["needs_user_action"] for row in rows),
+        "lane_without_active_phase_count": len(LANE_IDS)
+        - len({row["lane_id"] for row in rows}),
+        "oldest_active_seconds": max(
+            (row["active_seconds"] for row in rows), default=None
+        ),
+        "counts_by_action_class": counts,
+    }
+    return rows, summary
 
 
 def delivery_funnel(ledgers: list[tuple[Path, dict]]) -> dict:
@@ -232,6 +327,7 @@ def build_report(manifest_path: Path) -> dict:
     seen_hashes: set[str] = set()
     seen_cycles: set[tuple[str, str]] = set()
     lane_reports = []
+    lane_ledgers = []
     all_ledgers: list[tuple[Path, dict]] = []
     for lane in manifest["lanes"]:
         ledgers = []
@@ -260,11 +356,14 @@ def build_report(manifest_path: Path) -> dict:
             **metrics(ledgers),
         }
         lane_reports.append(row)
+        lane_ledgers.append((lane["lane_id"], lane["thread_id"], ledgers))
 
     totals = metrics(all_ledgers)
+    generated_at = now()
+    queue, attention = active_delivery_queue(lane_ledgers, generated_at)
     report = {
         "schema_version": REPORT_VERSION,
-        "generated_at": now(),
+        "generated_at": generated_at,
         "claim_boundary": (
             "DESCRIPTIVE_PORTFOLIO_AND_DELIVERY_FUNNEL_NOT_STRATEGY_CAUSALITY"
         ),
@@ -274,10 +373,12 @@ def build_report(manifest_path: Path) -> dict:
         },
         "lanes": lane_reports,
         "totals": totals,
+        "active_delivery_queue": queue,
+        "attention_summary": attention,
     }
     errors = validate_instance(
         report,
-        read_object(root() / "schemas/community_portfolio_report_v3.schema.json"),
+        read_object(root() / "schemas/community_portfolio_report_v4.schema.json"),
     )
     if errors:
         raise ValueError("invalid community portfolio report: " + "; ".join(errors))

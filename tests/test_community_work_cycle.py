@@ -451,6 +451,82 @@ def test_import_phase_receipt_records_existing_machine_wall_time() -> None:
             raise AssertionError("imported receipt drift must fail closed")
 
 
+def test_import_phase_receipt_atomically_closes_active_phase() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        base = Path(temporary)
+        cycle = base / "cycle.json"
+        init_ledger(
+            SimpleNamespace(
+                output=cycle,
+                cycle_id="receipt-import-active",
+                task_id="task",
+                started_at="2026-09-07T04:00:00Z",
+                observation_mode="PROSPECTIVE_EXACT",
+                minimum_material_speedup=1.02,
+            )
+        )
+        receipt = base / "worker-receipt.json"
+        atomic_json(
+            receipt,
+            {
+                "started_at": "2026-09-07T03:59:00Z",
+                "finished_at": "2026-09-07T04:00:00Z",
+                "elapsed_seconds": 60.0,
+            },
+        )
+        before = cycle.read_bytes()
+        try:
+            import_phase_receipt(
+                SimpleNamespace(
+                    ledger=cycle,
+                    span_id="environment-1",
+                    phase="ENVIRONMENT_SETUP",
+                    actor="CPU",
+                    resource_id="worker-1",
+                    receipt=receipt,
+                    started_at_field="started_at",
+                    ended_at_field="finished_at",
+                    duration_field="elapsed_seconds",
+                    status="COMPLETE",
+                )
+            )
+        except ValueError as error:
+            assert "starts before the active phase" in str(error)
+            assert cycle.read_bytes() == before
+        else:
+            raise AssertionError("receipt cannot precede the active phase")
+
+        atomic_json(
+            receipt,
+            {
+                "started_at": "2026-09-07T04:01:00Z",
+                "finished_at": "2026-09-07T04:03:00Z",
+                "elapsed_seconds": 120.0,
+            },
+        )
+
+        imported = import_phase_receipt(
+            SimpleNamespace(
+                ledger=cycle,
+                span_id="environment-1",
+                phase="ENVIRONMENT_SETUP",
+                actor="CPU",
+                resource_id="worker-1",
+                receipt=receipt,
+                started_at_field="started_at",
+                ended_at_field="finished_at",
+                duration_field="elapsed_seconds",
+                status="COMPLETE",
+            )
+        )
+
+        assert imported["spans"][0]["status"] == "COMPLETE"
+        assert imported["spans"][0]["ended_at"] == "2026-09-07T04:01:00Z"
+        assert imported["spans"][0]["evidence"] == [identity(receipt)]
+        assert imported["spans"][1]["started_at"] == "2026-09-07T04:01:00Z"
+        assert not any(span["status"] == "ACTIVE" for span in imported["spans"])
+
+
 def test_import_phase_receipt_rejects_backfill_and_duration_drift() -> None:
     with tempfile.TemporaryDirectory() as temporary:
         base = Path(temporary)
@@ -721,6 +797,7 @@ if __name__ == "__main__":
     test_environment_and_governance_overhead_reporting()
     test_run_phase_closes_success_failure_and_timeout()
     test_import_phase_receipt_records_existing_machine_wall_time()
+    test_import_phase_receipt_atomically_closes_active_phase()
     test_import_phase_receipt_rejects_backfill_and_duration_drift()
     test_pr_stage_is_atomic_and_fail_closed()
     test_pair_baseline_reads_bound_assessments()

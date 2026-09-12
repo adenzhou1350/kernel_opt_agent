@@ -129,7 +129,10 @@ def test_portfolio_aggregates_four_explicit_lanes(tmp_path: Path) -> None:
     assert report["totals"]["median_time_to_first_correct_seconds"] == 30.0
     assert report["totals"]["median_time_to_first_improvement_seconds"] == 120.0
     assert report["totals"]["qualified_results_per_gpu_hour"] == 120.0
-    assert report["schema_version"] == "community-portfolio-report-v3"
+    assert report["schema_version"] == "community-portfolio-report-v4"
+    assert report["active_delivery_queue"] == []
+    assert report["attention_summary"]["active_count"] == 0
+    assert report["attention_summary"]["lane_without_active_phase_count"] == 4
     assert report["totals"]["median_candidate_to_draft_seconds"] is None
     assert report["totals"]["median_draft_to_ready_seconds"] is None
     assert report["totals"]["prospective_draft_to_ready_conversion_rate"] is None
@@ -292,3 +295,56 @@ def test_claimed_work_cycle_version_without_canonical_fields_is_rejected(
     write_json(path, value)
     with pytest.raises(ValueError):
         build_report(path)
+
+
+def test_active_queue_exposes_user_and_environment_owners(tmp_path: Path) -> None:
+    path = manifest(tmp_path)
+    value = json.loads(path.read_text(encoding="utf-8"))
+    cases = (
+        (0, "EXTERNAL_WAIT", "EXTERNAL", "USER_BROWSER_CONFIRMATION"),
+        (1, "ENVIRONMENT_SETUP", "AGENT", None),
+        (2, "EXTERNAL_WAIT", "EXTERNAL", "GITHUB_AUTH"),
+    )
+    for lane_index, phase, actor, resource_id in cases:
+        identity = value["lanes"][lane_index]["work_cycle_ledgers"][0]
+        selected = tmp_path / identity["path"]
+        cycle = json.loads(selected.read_text(encoding="utf-8"))
+        cycle["spans"].append(
+            {
+                "span_id": "active",
+                "phase": phase,
+                "actor": actor,
+                "resource_id": resource_id,
+                "started_at": "2026-01-01T00:04:00Z",
+                "ended_at": None,
+                "status": "ACTIVE",
+                "evidence": [],
+            }
+        )
+        write_json(selected, cycle)
+        identity["sha256"] = sha256_file(selected)
+    write_json(path, value)
+
+    report = build_report(path)
+    queue = report["active_delivery_queue"]
+    assert [row["action_class"] for row in queue] == [
+        "USER_CONFIRMATION",
+        "CREDENTIAL",
+        "ENVIRONMENT",
+    ]
+    assert [row["needs_user_action"] for row in queue] == [True, True, False]
+    assert report["attention_summary"] == {
+        "active_count": 3,
+        "needs_user_action_count": 2,
+        "lane_without_active_phase_count": 1,
+        "oldest_active_seconds": queue[0]["active_seconds"],
+        "counts_by_action_class": {
+            "USER_CONFIRMATION": 1,
+            "CREDENTIAL": 1,
+            "ENVIRONMENT": 1,
+            "GOVERNANCE": 0,
+            "GPU_EXECUTION": 0,
+            "EXTERNAL_DEPENDENCY": 0,
+            "ACTIVE_WORK": 0,
+        },
+    }
