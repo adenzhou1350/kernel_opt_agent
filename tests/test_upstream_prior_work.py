@@ -138,6 +138,35 @@ def main() -> None:
         decision(adjacent)["recommended_action"] == "PROCEED_WITH_PRIOR_WORK_DISCLOSURE"
     )
 
+    prerequisite = base()
+    prerequisite["matches"] = [
+        prior(3986, state="OPEN", relationship="PREREQUISITE", closure="NOT_CLOSED")
+    ]
+    routed = decision(prerequisite)
+    assert routed["recommended_action"] == "WAIT_FOR_PREREQUISITE_TERMINAL_STATE"
+    assert routed["implementation_allowed"] is True
+    assert routed["draft_publication_allowed"] is False
+    assert routed["prerequisite_prs"] == [3986]
+    assert "do not publish a stacked candidate branch" in routed["required_actions"]
+
+    prerequisite["matches"] = [
+        prior(3986, state="MERGED", relationship="PREREQUISITE", closure="MERGED")
+    ]
+    routed = decision(prerequisite)
+    assert (
+        routed["recommended_action"] == "REBASE_AND_REQUALIFY_AFTER_PREREQUISITE_MERGE"
+    )
+    assert routed["implementation_allowed"] is True
+    assert routed["draft_publication_allowed"] is False
+
+    prerequisite["matches"] = [
+        prior(3986, relationship="PREREQUISITE", closure="TECHNICAL_REJECTION")
+    ]
+    routed = decision(prerequisite)
+    assert routed["recommended_action"] == "REPLAN_AFTER_PREREQUISITE_CLOSED"
+    assert routed["implementation_allowed"] is False
+    assert routed["draft_publication_allowed"] is False
+
     invalid = base()
     invalid["matches"] = [prior(24447), prior(24447)]
     result = run(invalid, expected_code=1)

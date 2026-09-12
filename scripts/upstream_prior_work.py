@@ -42,7 +42,12 @@ MATCH_KEYS = {
     "material_delta",
 }
 
-RELATIONSHIPS = {"EXACT_PREDECESSOR", "FEATURE_OVERLAP", "ADJACENT"}
+RELATIONSHIPS = {
+    "EXACT_PREDECESSOR",
+    "FEATURE_OVERLAP",
+    "ADJACENT",
+    "PREREQUISITE",
+}
 PR_STATES = {"OPEN", "CLOSED", "MERGED"}
 CLOSURE_CLASSES = {
     "NOT_CLOSED",
@@ -206,6 +211,7 @@ def classify(record: dict) -> dict:
     exact = [row for row in matches if row["relationship"] == "EXACT_PREDECESSOR"]
     overlapping = [row for row in matches if row["relationship"] == "FEATURE_OVERLAP"]
     adjacent = [row for row in matches if row["relationship"] == "ADJACENT"]
+    prerequisites = [row for row in matches if row["relationship"] == "PREREQUISITE"]
     attributed = set(candidate["attributed_pr_numbers"])
     coordinated = candidate["coordination_status"] in {"PLANNED", "POSTED"}
 
@@ -231,6 +237,28 @@ def classify(record: dict) -> dict:
         action = "REVIEW_UNKNOWN_CLOSURE_BEFORE_IMPLEMENTATION"
         implementation = publication = False
         required = ["classify the closed PR from immutable review or closure evidence"]
+    elif any(row["state"] == "OPEN" for row in prerequisites):
+        action = "WAIT_FOR_PREREQUISITE_TERMINAL_STATE"
+        implementation = True
+        publication = False
+        required = [
+            "do not publish a stacked candidate branch",
+            "keep cheap candidate validation current while the prerequisite is open",
+        ]
+    elif any(row["state"] == "CLOSED" for row in prerequisites):
+        action = "REPLAN_AFTER_PREREQUISITE_CLOSED"
+        implementation = publication = False
+        required = [
+            "decide whether to absorb, replace, or abandon the unavailable prerequisite"
+        ]
+    elif prerequisites:
+        action = "REBASE_AND_REQUALIFY_AFTER_PREREQUISITE_MERGE"
+        implementation = True
+        publication = False
+        required = [
+            "rebase the candidate onto current upstream after the prerequisite merge",
+            "repeat source-bound focused qualification before publishing a standalone Draft",
+        ]
     elif exact:
         numbers = {row["number"] for row in exact}
         disclosed = numbers.issubset(attributed)
@@ -285,6 +313,7 @@ def classify(record: dict) -> dict:
         "exact_predecessor_prs": [row["number"] for row in exact],
         "feature_overlap_prs": [row["number"] for row in overlapping],
         "adjacent_prs": [row["number"] for row in adjacent],
+        "prerequisite_prs": [row["number"] for row in prerequisites],
         "required_actions": required,
         "semantic_relationship_is_human_reviewed_input": True,
         "claim_boundary": "PRIOR_WORK_ROUTING_ONLY_NOT_CODE_CORRECTNESS_OR_PERFORMANCE",

@@ -59,6 +59,13 @@ Automation must never invoke `upstream-author-accountability` from agent test
 receipts or infer that a human reviewed the change. Run it only after the named
 submitter explicitly confirms every required attestation for the exact commit.
 
+When a candidate depends on an upstream PR, record that PR as a human-reviewed
+`PREREQUISITE` in `upstream-prior-work`. Do not push a stacked candidate while
+the prerequisite remains open. Keep cheap correctness work current, then rebase
+and repeat source-bound focused qualification after merge before publishing a
+standalone Draft. A closed-unmerged prerequisite requires replanning rather
+than silently carrying its code forward.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot

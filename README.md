@@ -53,6 +53,11 @@ Run this bounded prior-work gate before implementation, not at publication
 time. It distinguishes an exact open predecessor, an already merged change, a
 technical rejection, an unknown closure, an inactivity-bot closure, a feature
 overlap and adjacent work. Exact open or merged work blocks a competing Draft.
+Use relationship `PREREQUISITE` when a standalone candidate requires another
+upstream PR. An open prerequisite keeps cheap implementation work available
+but blocks publishing a stacked branch. After merge, rebase onto current
+upstream and repeat source-bound focused qualification before opening the
+standalone Draft; a closed-unmerged prerequisite routes to replanning.
 An inactive exact predecessor may be revived only after its PR number is
 attributed and coordination is planned or posted; the decision never claims
 the semantic relationship was inferred by code. Those relationship labels are
