@@ -4,7 +4,7 @@
   "title": "Public upstream pull-request CI snapshot",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "repository", "pull_request_number", "head_sha", "draft", "observed_at", "source", "checks"],
+  "required": ["schema_version", "repository", "pull_request_number", "head_sha", "draft", "observed_at", "source", "observed_check_count", "checks"],
   "properties": {
     "schema_version": {"const": "upstream-ci-snapshot-v1"},
     "repository": {"type": "string", "pattern": "^[^/\\s]+/[^/\\s]+$"},
@@ -13,6 +13,7 @@
     "draft": {"type": "boolean"},
     "observed_at": {"type": "string", "format": "date-time"},
     "source": {"enum": ["GITHUB_PUBLIC_API", "GITHUB_PUBLIC_UI"]},
+    "observed_check_count": {"type": "integer", "minimum": 1},
     "checks": {
       "type": "array",
       "minItems": 1,

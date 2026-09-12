@@ -29,6 +29,7 @@ CANDIDATE_FAILURE_MARKERS = (
     "candidate test failure",
     "compilation failed",
     "failed tests:",
+    "missing ci registry call",
     "lint failed",
     "test failures",
     "tests failed",
@@ -83,6 +84,10 @@ def validate_snapshot(snapshot_path: Path, schema_root: Path) -> dict:
     snapshot = json.loads(snapshot_path.read_text(encoding="utf-8"))
     parse_time(snapshot["observed_at"])
     check_ids = [check["check_id"] for check in snapshot["checks"]]
+    if snapshot["observed_check_count"] != len(check_ids):
+        raise ValueError(
+            "observed_check_count must equal the complete checks array length"
+        )
     if len(check_ids) != len(set(check_ids)):
         raise ValueError("check_id values must be unique")
     for check in snapshot["checks"]:

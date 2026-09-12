@@ -122,8 +122,8 @@ counts as a causal performance rejection.
 An upstream check matrix may render red because a Draft is intentionally
 blocked or a maintainer-only `run-ci` label is absent. Do not restart
 qualification from the aggregate color. Capture the exact public head SHA,
-check conclusions, detail URLs and the small evidence lines that explain each
-failure, then run:
+the public total check count, every check conclusion, detail URL and the small
+evidence lines that explain each failure, then run:
 
 ```bash
 python3 scripts/kernel_opt.py upstream-ci-route \
