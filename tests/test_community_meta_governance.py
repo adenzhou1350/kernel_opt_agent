@@ -17,9 +17,7 @@ from schema_utils import validate_instance  # noqa: E402
 
 def test_frozen_meta_governance_v1_contract() -> None:
     policy_path = ROOT / "knowledge/community/meta_governance.v1.json"
-    policy = json.loads(
-        policy_path.read_text(encoding="utf-8")
-    )
+    policy = json.loads(policy_path.read_text(encoding="utf-8"))
     schema = json.loads(
         (ROOT / "schemas/community_meta_governance.schema.json").read_text(
             encoding="utf-8"
@@ -55,10 +53,7 @@ def test_current_meta_governance_v2_contract() -> None:
     delivery = policy["repository_delivery_policy"]
     assert delivery["fork_sync"]["push_remote"] == "fork"
     assert delivery["fork_sync"]["fetch_before_decision"] is True
-    assert (
-        delivery["upstream_pull_requests"]["forbids_monolithic_backlog_pr"]
-        is True
-    )
+    assert delivery["upstream_pull_requests"]["forbids_monolithic_backlog_pr"] is True
     assert (
         delivery["upstream_pull_requests"]["forbids_unverified_performance_claims"]
         is True
