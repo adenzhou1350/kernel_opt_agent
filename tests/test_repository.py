@@ -211,6 +211,15 @@ def main():
             "--run", str(Path(temporary) / "missing-run"),
         ], expected=1)
         assert "candidate pool is missing" in failed_cli.stderr
+    child_help = run([
+        sys.executable,
+        str(ROOT / "scripts/kernel_opt.py"),
+        "community-timing",
+        "run-phase",
+        "--help",
+    ])
+    assert "--timeout-seconds" in child_help.stdout
+    assert "--receipt" in child_help.stdout
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([

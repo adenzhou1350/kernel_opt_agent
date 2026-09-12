@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "community_portfolio_manifest.schema.json",
+  "title": "Explicit four-lane work-cycle portfolio manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "claim_boundary",
+    "lane_topology_identity",
+    "lanes"
+  ],
+  "properties": {
+    "schema_version": {"const": "community-portfolio-manifest-v1"},
+    "claim_boundary": {"const": "EXPLICIT_LEDGER_SELECTION_NOT_CAUSAL_COMPARISON"},
+    "lane_topology_identity": {"$ref": "#/$defs/identity"},
+    "lanes": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/lane"}
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+      }
+    },
+    "lane": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lane_id", "thread_id", "work_cycle_ledgers"],
+      "properties": {
+        "lane_id": {
+          "enum": [
+            "VLLM_OPTIMIZATION",
+            "VLLM_A800_ADAPTATION",
+            "MOONCAKE_OPTIMIZATION",
+            "SGLANG_OPTIMIZATION"
+          ]
+        },
+        "thread_id": {"type": "string", "pattern": "^[0-9a-f-]{36}$"},
+        "work_cycle_ledgers": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/identity"}
+        }
+      }
+    }
+  }
+}

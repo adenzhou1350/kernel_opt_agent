@@ -4,6 +4,133 @@ For a human review of the framework boundary, execution flow, directory
 ownership and contract map, start with [REVIEW.md](REVIEW.md). This README is
 the operator quick start; `AGENTS.md` contains mandatory agent policy.
 
+Record the complete delivery cycle separately from performance metrics:
+
+```bash
+python3 scripts/kernel_opt.py community-timing init \
+  --cycle-id <cycle-id> --task-id <task-id> \
+  --minimum-material-speedup 1.02 \
+  --candidate-evidence candidate-value-decision.json \
+  --output work-cycle.json
+python3 scripts/kernel_opt.py community-timing switch-phase \
+  --ledger work-cycle.json --span-id environment-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU \
+  --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing end-phase \
+  --ledger work-cycle.json --span-id environment-1 \
+  --evidence discovery-receipt.json
+python3 scripts/kernel_opt.py community-timing run-phase \
+  --ledger work-cycle.json --span-id governance-1 \
+  --phase GOVERNANCE_VALIDATION --actor CPU --timeout-seconds 600 \
+  --receipt governance-command-receipt.json -- \
+  python3 -m pip check
+python3 scripts/kernel_opt.py community-timing import-phase-receipt \
+  --ledger work-cycle.json --span-id remote-env-1 \
+  --phase ENVIRONMENT_SETUP --actor CPU --resource-id worker-sm120 \
+  --receipt worker-terminal.json --started-at-field started_at \
+  --ended-at-field finished_at --duration-field elapsed_seconds \
+  --status INTERRUPTED
+python3 scripts/kernel_opt.py community-timing summarize \
+  --ledger work-cycle.json --output work-cycle-summary.json
+python3 scripts/kernel_opt.py community-timing audit-root \
+  --root /path/to/framework-evidence \
+  --max-active-phase-seconds 21600
+```
+
+Start a `PROSPECTIVE_EXACT` ledger when a framework candidate is selected,
+before editing production source. `init` atomically opens an active
+`BOTTLENECK_DIAGNOSIS` span by default, so timing cannot silently start after
+the work. Override it with `--initial-phase` when the first activity is already
+known. `--candidate-evidence` validates the immutable selection decision before
+the same atomic write creates `FIRST_CANDIDATE_PROPOSED`; missing evidence or a
+legacy observation mode leaves no partial ledger. Use `switch-phase` to close
+the current span and open its successor at one timestamp, avoiding gaps between
+separate end/start commands. The separate `mark` operation remains available
+for later milestones.
+
+Record GitHub transitions atomically with their stable URL, observed event time
+and immutable event receipt:
+
+```bash
+python3 scripts/kernel_opt.py community-timing record-pr-stage \
+  --ledger work-cycle.json --stage DRAFT \
+  --url https://github.com/owner/repository/pull/123 \
+  --evidence github-pr-draft-event.json
+python3 scripts/kernel_opt.py community-timing record-pr-stage \
+  --ledger work-cycle.json --stage READY \
+  --url https://github.com/owner/repository/pull/123 \
+  --evidence github-pr-ready-event.json
+```
+
+`READY` requires an observed Draft milestone and `MERGED` requires an observed
+Ready milestone. When the cycle is actively in `EXTERNAL_WAIT`, the same
+transaction closes that wait at the observed PR event time; unrelated
+environment, validation, and implementation phases remain active. Do not
+backfill missing timestamps from memory or filesystem
+mtimes; such a cycle remains `LEGACY_MILESTONE_BOUNDS` and is excluded from
+exact candidate-to-Draft and Draft-to-Ready timing.
+
+The ledger uses non-overlapping primary wall-clock spans for community research,
+bottleneck diagnosis, implementation, compile/measurement, correctness,
+performance, whole-model validation, upstream packaging, environment setup,
+governance validation and external wait. Use `ENVIRONMENT_SETUP` only for
+dependency/toolchain/runtime repair, and `GOVERNANCE_VALIDATION` only for
+contracts, authorization, evidence closure and policy checks. The summary
+reports their seconds and their share of attributed active work. If neither
+phase was recorded, that ratio is `null` with
+`NOT_SEPARATELY_RECORDED` rather than a misleading zero. Do not retroactively
+reclassify legacy spans.
+
+Select canonical ledgers across the autonomous lanes without scanning or
+guessing from chat transcripts:
+
+```bash
+python3 scripts/kernel_opt.py community-lanes validate \
+  --topology knowledge/community/lane_topology.v3.json
+python3 scripts/kernel_opt.py community-portfolio \
+  --manifest /path/to/portfolio-manifest.json \
+  --output /path/to/portfolio-report.json
+```
+
+Portfolio report v6 exposes the delivery funnel, freshness-attested action
+ownership and phase-time totals for only the explicitly selected, hash-bound
+`PROSPECTIVE_EXACT` ledgers. Active spans share one observation time.
+Environment/governance overhead is kept separate from external wait, and the
+report states that parallel candidate spans may overlap: it is not a wall-clock
+or labor-time measure. Root-wide historical instrumentation debt remains a
+separate audit and is never backfilled or hidden by the selected portfolio.
+
+An immutable ledger's `ACTIVE` span is historical state, not proof that work is
+still current. Only a valid, unexpired `community-action-attestation-v1` with
+an explicit owner enters `active_delivery_queue` or
+`needs_user_action_count`. Missing, expired, resolved and superseded states stay
+visible in `delivery_action_inventory` without creating current work. Pass each
+current attestation with `--action-attestation /path/to/action.json`.
+
+For a bounded command, prefer `run-phase`: it runs the exact argv without a
+shell, writes an immutable wall-time/exit-status receipt, and closes the span
+on success, non-zero exit, launch failure, or timeout. A passing command receipt
+is not correctness or performance evidence.
+When a governed worker already produced an immutable terminal receipt, use
+`import-phase-receipt` to bind its exact start/end timestamps instead of
+reconstructing wall time. The prospective ledger must already predate the
+receipt; optional duration-field reconciliation rejects inconsistent receipts.
+Importing timing does not validate the worker result or change its outcome.
+Hash-bound milestones report time to the first candidate, correct result,
+material improvement, qualified result, upstream-ready package, draft PR,
+ready-for-review PR and merge. Legacy trials may retain milestone bounds but
+must leave unavailable phase attribution under `UNATTRIBUTED_LEGACY_WORK`.
+This prevents a fast kernel result from hiding days spent packaging or waiting
+for external review.
+
+Controllers can run `audit-root` across lane evidence directories without
+messaging the execution lanes. It reports prospective ledgers that have no
+exact phase attribution, no primary phase, or an overlong active phase. It
+separately reports environment/governance measurement debt; a normally closed
+bounded cycle is not mistaken for an abandoned active cycle. The audit is
+read-only and intentionally does not create another evidence schema or infer
+historical timing.
+
 This repository turns GPU-kernel optimization into a reproducible loop driven
 by workload contracts, hardware evidence and falsifiable microbenchmarks.
 

@@ -26,6 +26,37 @@ Do not pause merely to ask the user what to do next.  Ask again only when a
 mathematical choice, correctness relaxation, expensive experiment or external
 mutation requires new authority.
 
+For every selected framework candidate, start a `PROSPECTIVE_EXACT` community
+timing ledger and record `FIRST_CANDIDATE_PROPOSED` before the first production
+source edit. The init command opens the first phase atomically; use
+`switch-phase` whenever work changes between diagnosis, implementation,
+environment repair, governance, validation and packaging so the efficiency
+metrics do not become an unclassified prospective ledger. Bind the selection
+decision as milestone evidence. When GitHub
+opens the Draft, marks it Ready or merges it, use `community-timing
+record-pr-stage` with the observed event time, PR URL and an immutable event
+receipt. Never reconstruct these timestamps later from memory or filesystem
+mtimes. If the ledger did not exist before implementation, classify that cycle
+as `LEGACY_MILESTONE_BOUNDS`; do not backfill it into delivery-speed metrics.
+Agent-repository maintenance PRs are never entered in a framework lane ledger.
+For bounded environment or governance commands, use `community-timing run-phase`
+instead of separate start/end writes so success, non-zero exit, timeout, and
+launch failure all close the phase with an immutable command receipt. The
+receipt measures command wall time and exit status; it is not correctness or
+performance evidence.
+If a governed worker executes the command and returns an immutable receipt, use
+`community-timing import-phase-receipt` against a ledger that existed before the
+worker run. Bind the receipt's explicit start/end fields and reconcile its
+duration field when available; never infer these times from file mtimes or
+retrofit them into a legacy cycle.
+Prefer `community-timing init --candidate-evidence <decision>` so ledger creation
+and the first candidate milestone are one atomic write rather than two manual
+mutations.
+The control plane may run `community-timing audit-root` over lane evidence
+directories to find missing or stale prospective instrumentation. This is a
+pull-only audit: use its output in the dashboard and do not interrupt a live
+execution lane merely to request a status restatement.
+
 ## Optimization invariants
 
 - Freeze a machine-readable operator contract, workload and hardware snapshot
