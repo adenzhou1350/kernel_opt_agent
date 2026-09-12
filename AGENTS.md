@@ -153,6 +153,9 @@ changed-line review, the submitter's relevant test rerun, ability to defend the
 change, AI disclosure, and the repository's commit-attribution requirement.
 Missing accountability routes to the author; it is not another execution-lane
 research cycle and must not block unrelated inbox entries.
+Automation must never invoke `upstream-author-accountability` from agent test
+receipts or infer that a human reviewed the change. Run it only after the named
+submitter explicitly confirms every required attestation for the exact commit.
 
 Normal local source edits, CPU-only builds and focused tests are implementation
 work and do not require repeated user authorization.  Expensive compilation,
