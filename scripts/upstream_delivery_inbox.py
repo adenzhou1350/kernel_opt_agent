@@ -111,6 +111,12 @@ ACTIONABLE = {
     "ONE_TOPIC_SPECIFIC_CHANNEL_ESCALATION",
     "COMPLETE_AUTHOR_ACCOUNTABILITY",
 }
+AUTHOR_ACCOUNTABILITY_ROUTABLE_ACTIONS = {
+    "OPEN_DRAFT",
+    "KEEP_DRAFT_CONTINUE_QUALIFICATION",
+    "CONTINUE_QUALIFICATION_WITH_EARLY_REVIEW",
+    "MARK_READY_AND_REQUEST_REVIEW",
+}
 
 
 def exact_keys(value: object, expected: set[str], path: str, errors: list[str]) -> dict:
@@ -681,7 +687,10 @@ def build(
                             )
                             if accountability_errors:
                                 accountability_status = "REVIEW_REQUIRED"
-                    if accountability_errors and effective_action == "OPEN_DRAFT":
+                    if (
+                        accountability_errors
+                        and effective_action in AUTHOR_ACCOUNTABILITY_ROUTABLE_ACTIONS
+                    ):
                         effective_action = "COMPLETE_AUTHOR_ACCOUNTABILITY"
                         effective_owner = "AUTHOR"
                     accountability_result = {

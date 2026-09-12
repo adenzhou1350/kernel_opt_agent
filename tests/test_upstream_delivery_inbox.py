@@ -369,6 +369,47 @@ def main() -> None:
             "errors": [],
         }
 
+        open_draft = review_state("vllm-project/vllm", "OPEN", 56580)
+        open_draft_path = root / "open-draft.json"
+        open_draft_sha = write_json(open_draft_path, open_draft)
+        open_draft_v5 = copy.deepcopy(v5)
+        open_draft_v5["candidates"][0]["review_state"] = {
+            "path": open_draft_path.name,
+            "sha256": open_draft_sha,
+        }
+        open_draft_v5["candidates"][0]["draft_materials"]["author_accountability"] = (
+            None
+        )
+        write_json(manifest, open_draft_v5)
+        open_draft_inbox = run(manifest)["inbox"]
+        open_draft_item = next(
+            item
+            for item in open_draft_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert open_draft_item["review_state_action"] == (
+            "KEEP_DRAFT_CONTINUE_QUALIFICATION"
+        )
+        assert open_draft_item["recommended_action"] == (
+            "COMPLETE_AUTHOR_ACCOUNTABILITY"
+        )
+        assert open_draft_item["external_action_owner"] == "AUTHOR"
+
+        open_draft_v5["candidates"][0]["draft_materials"]["author_accountability"] = {
+            "path": accountability_path.name,
+            "sha256": accountability_sha,
+        }
+        write_json(manifest, open_draft_v5)
+        reviewed_open_draft_inbox = run(manifest)["inbox"]
+        reviewed_open_draft_item = next(
+            item
+            for item in reviewed_open_draft_inbox["items"]
+            if item["candidate_id"] == "mooncake-lazy-group-cache"
+        )
+        assert reviewed_open_draft_item["recommended_action"] == (
+            "KEEP_DRAFT_CONTINUE_QUALIFICATION"
+        )
+
         wrong_accountability = copy.deepcopy(accountability)
         wrong_accountability["candidate_commit"] = "c" * 40
         v5["candidates"][0]["draft_materials"]["author_accountability"]["sha256"] = (

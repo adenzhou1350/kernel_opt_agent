@@ -234,9 +234,11 @@ publication action. In addition to v4 freshness, it accepts a hash-bound
 commit. Until the named human submitter attests that every changed line was
 reviewed, relevant tests were rerun, the change can be defended, AI assistance
 is disclosed, and the repository's commit-attribution rule is satisfied or not
-applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY` instead
-of `OPEN_DRAFT`. The attestation is a responsibility boundary, not a substitute
-for correctness or performance evidence.
+applicable, the candidate is routed to `COMPLETE_AUTHOR_ACCOUNTABILITY`. This
+also remains true after an AI-assisted Draft has already been opened: a Draft
+must not make the missing human review disappear behind
+`KEEP_DRAFT_CONTINUE_QUALIFICATION`. The attestation is a responsibility
+boundary, not a substitute for correctness or performance evidence.
 
 Before the human review, automation may assemble the exact commit, evidence,
 pending gates, proposed body and fail-closed attestation command into one
