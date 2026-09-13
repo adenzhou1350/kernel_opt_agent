@@ -70,9 +70,7 @@ def write_once(path: Path, value: dict) -> None:
 
 
 def validate_spec(spec_path: Path) -> dict:
-    errors = validate_json_file(
-        spec_path, repository_root() / "schemas" / SCHEMA
-    )
+    errors = validate_json_file(spec_path, repository_root() / "schemas" / SCHEMA)
     if errors:
         raise ValueError("invalid pipeline canary schema: " + "; ".join(errors))
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
@@ -133,9 +131,7 @@ def run_canary(spec_path: Path, artifact_root: Path, output_path: Path) -> dict:
             path = resolve_inside(
                 artifact_root, expected["path"], f"{stage['id']} output"
             )
-            before[expected["path"]] = (
-                sha256_file(path) if path.is_file() else None
-            )
+            before[expected["path"]] = sha256_file(path) if path.is_file() else None
             outputs.append((expected, path))
 
         argv = [render(value, artifact_root) for value in stage["argv"]]
@@ -226,8 +222,7 @@ def run_canary(spec_path: Path, artifact_root: Path, output_path: Path) -> dict:
     )
     if result_errors:
         raise ValueError(
-            "pipeline canary produced an invalid result: "
-            + "; ".join(result_errors)
+            "pipeline canary produced an invalid result: " + "; ".join(result_errors)
         )
     return receipt
 

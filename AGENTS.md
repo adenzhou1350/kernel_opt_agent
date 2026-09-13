@@ -53,9 +53,14 @@ mutation requires new authority.
 - Before a costly build or GPU run whose output feeds an analyzer, assembler
   or decision gate, run `qualification-pipeline-canary` with representative
   synthetic data through the real argv-form producer and every downstream
-  consumer. Require every declared output to be created or changed. A passing
-  canary proves command and artifact compatibility only; it is not execution
-  authorization, correctness evidence or a performance claim.
+  consumer. Exercise both an accepted fixture and each terminal candidate
+  outcome that can occur during the costly run, including correctness or
+  materiality rejection. A nonzero exit code may be the expected result of a
+  negative fixture, but the stage must still create its declared terminal
+  artifact; an exception or expected exit without that artifact is pipeline
+  incompatibility. Require every declared output to be created or changed. A
+  passing canary proves command and artifact compatibility only; it is not
+  execution authorization, correctness evidence or a performance claim.
 - Preserve the mathematical result and public ABI unless the user authorizes a
   change.  Record every authorized relaxation explicitly.
 - Separate mathematical DAG edges from schedule-induced serialization.

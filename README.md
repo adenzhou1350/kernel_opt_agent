@@ -127,6 +127,14 @@ hashes stdout, stderr and outputs, and writes the terminal receipt once. Use
 catches producer/consumer field, scope and terminal-case mismatches; it does
 not authorize execution or create correctness or performance evidence.
 
+Do not canary only the happy path. For an analyzer that returns `2` when a
+candidate fails correctness or materiality, add a synthetic negative stage
+with `expected_exit_code: 2` and declare its result JSON in
+`expected_outputs`. The canary accepts the nonzero exit only when the terminal
+artifact is actually created or changed. This catches analyzers that raise on
+an expected candidate rejection and leave the resource controller with no
+machine-readable result after an otherwise successful GPU run.
+
 ## Clean asset lifecycle
 
 Each directory has one owner:

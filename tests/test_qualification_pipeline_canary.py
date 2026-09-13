@@ -121,6 +121,64 @@ def test_canary_catches_producer_consumer_field_mismatch_before_gpu() -> None:
         assert "exit code" in result["stages"][1]["error"]
 
 
+def test_canary_accepts_expected_negative_exit_with_terminal_artifact() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        producer, _ = make_scripts(root)
+        rejector = root / "rejector.py"
+        write(
+            rejector,
+            "import json, pathlib, sys\n"
+            "pathlib.Path(sys.argv[1]).write_text("
+            "json.dumps({'status': 'FAIL', 'reason': 'correctness'}))\n"
+            "raise SystemExit(2)\n",
+        )
+        value = spec(producer, rejector.name)
+        value["stages"][1]["argv"] = [
+            "{python}",
+            rejector.name,
+            "{artifact_root}/decision.json",
+        ]
+        value["stages"][1]["expected_exit_code"] = 2
+        spec_path = root / "spec.json"
+        output = root / "receipt.json"
+        write_json(spec_path, value)
+
+        result = run_canary(spec_path, root, output)
+
+        assert result["status"] == "PASS"
+        assert result["pipeline_compatible"] is True
+        assert result["stages"][1]["exit_code"] == 2
+        assert result["stages"][1]["outputs"][0]["path"] == "decision.json"
+
+
+def test_canary_rejects_expected_negative_exit_without_terminal_artifact() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        producer, _ = make_scripts(root)
+        crashing_rejector = root / "crashing_rejector.py"
+        write(
+            crashing_rejector,
+            "raise SystemExit(2)\n",
+        )
+        value = spec(producer, crashing_rejector.name)
+        value["stages"][1]["argv"] = ["{python}", crashing_rejector.name]
+        value["stages"][1]["expected_exit_code"] = 2
+        spec_path = root / "spec.json"
+        output = root / "receipt.json"
+        write_json(spec_path, value)
+
+        result = run_canary(spec_path, root, output)
+
+        assert result["status"] == "FAIL"
+        assert result["pipeline_compatible"] is False
+        assert result["stages"][1]["exit_code"] == 2
+        assert result["stages"][1]["status"] == "FAIL"
+        assert result["stages"][1]["error"] == (
+            "required output is missing: decision.json"
+        )
+
+
 def test_canary_rejects_paths_outside_the_artifact_root() -> None:
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)
