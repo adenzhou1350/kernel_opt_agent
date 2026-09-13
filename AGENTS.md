@@ -64,7 +64,9 @@ mutation requires new authority.
   every producer, analyzer, validator and immutable data file needed by the
   canary in `required_inputs` with its SHA-256. The runner verifies the complete
   input set before starting stage one, so a missing downstream consumer cannot
-  waste an otherwise successful producer run.
+  waste an otherwise successful producer run. For every declared Python input,
+  the runner also follows imports that resolve to files inside the artifact root
+  and rejects an omitted local helper before stage one.
 - Preserve the mathematical result and public ABI unless the user authorizes a
   change.  Record every authorized relaxation explicitly.
 - Separate mathematical DAG edges from schedule-induced serialization.

@@ -166,6 +166,62 @@ def test_canary_rejects_input_hash_drift_before_running_any_stage() -> None:
         assert not output.exists()
 
 
+def test_canary_rejects_an_undeclared_local_python_dependency() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        producer, consumer = make_scripts(root)
+        helper = root / "helper.py"
+        write(helper, "VALUE = 'abc'\n")
+        write(
+            root / producer,
+            "import helper, json, pathlib, sys\n"
+            "pathlib.Path(sys.argv[1]).write_text("
+            "json.dumps({'git_tree': helper.VALUE}))\n",
+        )
+        value = spec(producer, consumer)
+        value["required_inputs"] = [
+            {"path": producer, "sha256": sha256_file(root / producer)},
+            {"path": consumer, "sha256": sha256_file(root / consumer)},
+        ]
+        spec_path = root / "spec.json"
+        output = root / "receipt.json"
+        write_json(spec_path, value)
+
+        with pytest.raises(ValueError, match="omits a local Python dependency"):
+            run_canary(spec_path, root, output)
+
+        assert not (root / "result.json").exists()
+        assert not output.exists()
+
+
+def test_canary_accepts_a_hash_bound_local_python_dependency() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        producer, consumer = make_scripts(root)
+        helper = root / "helper.py"
+        write(helper, "VALUE = 'abc'\n")
+        write(
+            root / producer,
+            "import helper, json, pathlib, sys\n"
+            "pathlib.Path(sys.argv[1]).write_text("
+            "json.dumps({'git_tree': helper.VALUE}))\n",
+        )
+        value = spec(producer, consumer)
+        value["required_inputs"] = [
+            {"path": producer, "sha256": sha256_file(root / producer)},
+            {"path": consumer, "sha256": sha256_file(root / consumer)},
+            {"path": helper.name, "sha256": sha256_file(helper)},
+        ]
+        spec_path = root / "spec.json"
+        output = root / "receipt.json"
+        write_json(spec_path, value)
+
+        result = run_canary(spec_path, root, output)
+
+        assert result["status"] == "PASS"
+        assert result["pipeline_compatible"] is True
+
+
 def test_canary_accepts_expected_negative_exit_with_terminal_artifact() -> None:
     with tempfile.TemporaryDirectory() as temp:
         root = Path(temp)

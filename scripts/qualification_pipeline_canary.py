@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -105,6 +106,61 @@ def validate_required_inputs(spec: dict, artifact_root: Path) -> None:
             )
 
 
+def local_python_dependencies(path: Path, artifact_root: Path) -> set[Path]:
+    """Return direct imports that resolve to Python files inside artifact_root."""
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+
+    dependencies: set[Path] = set()
+    for module in modules:
+        relative = Path(*module.split("."))
+        candidates = [
+            path.parent / relative.with_suffix(".py"),
+            path.parent / relative / "__init__.py",
+            artifact_root / relative.with_suffix(".py"),
+            artifact_root / relative / "__init__.py",
+        ]
+        for candidate in candidates:
+            resolved = candidate.resolve()
+            try:
+                resolved.relative_to(artifact_root)
+            except ValueError:
+                continue
+            if resolved.is_file():
+                dependencies.add(resolved)
+                break
+    return dependencies
+
+
+def validate_local_python_import_closure(spec: dict, artifact_root: Path) -> None:
+    """Require every local Python dependency of a declared input to be bound."""
+    declared = {
+        resolve_inside(artifact_root, item["path"], "required input")
+        for item in spec.get("required_inputs", [])
+    }
+    pending = [path for path in declared if path.suffix == ".py"]
+    scanned: set[Path] = set()
+    while pending:
+        path = pending.pop()
+        if path in scanned:
+            continue
+        scanned.add(path)
+        for dependency in local_python_dependencies(path, artifact_root):
+            if dependency not in declared:
+                relative = dependency.relative_to(artifact_root).as_posix()
+                importer = path.relative_to(artifact_root).as_posix()
+                raise ValueError(
+                    "pipeline canary omits a local Python dependency: "
+                    f"{importer} imports {relative}"
+                )
+            pending.append(dependency)
+
+
 def run_canary(spec_path: Path, artifact_root: Path, output_path: Path) -> dict:
     spec_path = spec_path.resolve(strict=True)
     artifact_root = artifact_root.resolve(strict=True)
@@ -122,6 +178,7 @@ def run_canary(spec_path: Path, artifact_root: Path, output_path: Path) -> dict:
             "pipeline canary claim boundary differs from the tool contract"
         )
     validate_required_inputs(spec, artifact_root)
+    validate_local_python_import_closure(spec, artifact_root)
 
     receipt = {
         "schema_version": "qualification-pipeline-canary-result-v1",
