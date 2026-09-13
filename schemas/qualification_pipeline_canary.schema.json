@@ -8,6 +8,18 @@
   "properties": {
     "schema_version": {"const": "qualification-pipeline-canary-v1"},
     "claim_boundary": {"const": "DRY_RUN_COMPATIBILITY_ONLY_NOT_EXECUTION_AUTHORIZATION_OR_PERFORMANCE_EVIDENCE"},
+    "required_inputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "sha256"],
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+        }
+      }
+    },
     "stages": {
       "type": "array",
       "minItems": 2,

@@ -127,6 +127,12 @@ hashes stdout, stderr and outputs, and writes the terminal receipt once. Use
 catches producer/consumer field, scope and terminal-case mismatches; it does
 not authorize execution or create correctness or performance evidence.
 
+Declare every producer, analyzer, validator and immutable data dependency in
+the spec's `required_inputs` array as an artifact-root-relative path plus
+SHA-256. The runner validates the whole set before stage one, preventing a
+missing or drifted downstream consumer from being discovered only after the
+producer has run.
+
 Do not canary only the happy path. For an analyzer that returns `2` when a
 candidate fails correctness or materiality, add a synthetic negative stage
 with `expected_exit_code: 2` and declare its result JSON in

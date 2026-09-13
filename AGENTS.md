@@ -60,7 +60,11 @@ mutation requires new authority.
   artifact; an exception or expected exit without that artifact is pipeline
   incompatibility. Require every declared output to be created or changed. A
   passing canary proves command and artifact compatibility only; it is not
-  execution authorization, correctness evidence or a performance claim.
+  execution authorization, correctness evidence or a performance claim. List
+  every producer, analyzer, validator and immutable data file needed by the
+  canary in `required_inputs` with its SHA-256. The runner verifies the complete
+  input set before starting stage one, so a missing downstream consumer cannot
+  waste an otherwise successful producer run.
 - Preserve the mathematical result and public ABI unless the user authorizes a
   change.  Record every authorized relaxation explicitly.
 - Separate mathematical DAG edges from schedule-induced serialization.

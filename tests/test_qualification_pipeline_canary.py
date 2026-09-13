@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 import sys
@@ -30,6 +31,10 @@ def write(path: Path, value: str) -> None:
 
 def write_json(path: Path, value: dict) -> None:
     write(path, json.dumps(value, indent=2) + "\n")
+
+
+def sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def spec(producer: str, consumer: str) -> dict:
@@ -119,6 +124,46 @@ def test_canary_catches_producer_consumer_field_mismatch_before_gpu() -> None:
         assert result["stages"][0]["status"] == "PASS"
         assert result["stages"][1]["status"] == "FAIL"
         assert "exit code" in result["stages"][1]["error"]
+
+
+def test_canary_rejects_a_missing_consumer_before_running_the_producer() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        producer, consumer = make_scripts(root)
+        value = spec(producer, consumer)
+        value["required_inputs"] = [
+            {"path": producer, "sha256": sha256_file(root / producer)},
+            {"path": consumer, "sha256": sha256_file(root / consumer)},
+        ]
+        (root / consumer).unlink()
+        spec_path = root / "spec.json"
+        output = root / "receipt.json"
+        write_json(spec_path, value)
+
+        with pytest.raises(FileNotFoundError, match="required input is missing"):
+            run_canary(spec_path, root, output)
+
+        assert not (root / "result.json").exists()
+        assert not output.exists()
+
+
+def test_canary_rejects_input_hash_drift_before_running_any_stage() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        producer, consumer = make_scripts(root)
+        value = spec(producer, consumer)
+        value["required_inputs"] = [
+            {"path": consumer, "sha256": "0" * 64},
+        ]
+        spec_path = root / "spec.json"
+        output = root / "receipt.json"
+        write_json(spec_path, value)
+
+        with pytest.raises(ValueError, match="required input hash mismatch"):
+            run_canary(spec_path, root, output)
+
+        assert not (root / "result.json").exists()
+        assert not output.exists()
 
 
 def test_canary_accepts_expected_negative_exit_with_terminal_artifact() -> None:

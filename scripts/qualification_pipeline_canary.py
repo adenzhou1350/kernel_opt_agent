@@ -79,6 +79,9 @@ def validate_spec(spec_path: Path) -> dict:
         raise ValueError("pipeline canary stage ids must be unique")
     if not 2 <= len(stage_ids) <= 16:
         raise ValueError("pipeline canary requires between 2 and 16 stages")
+    input_paths = [item["path"] for item in spec.get("required_inputs", [])]
+    if len(input_paths) != len(set(input_paths)):
+        raise ValueError("pipeline canary repeats a required input path")
     for stage in spec["stages"]:
         output_paths = [item["path"] for item in stage["expected_outputs"]]
         if len(output_paths) != len(set(output_paths)):
@@ -86,6 +89,20 @@ def validate_spec(spec_path: Path) -> dict:
                 f"pipeline canary stage {stage['id']} repeats an output path"
             )
     return spec
+
+
+def validate_required_inputs(spec: dict, artifact_root: Path) -> None:
+    """Validate every declared executable/data input before any stage starts."""
+    for expected in spec.get("required_inputs", []):
+        path = resolve_inside(artifact_root, expected["path"], "required input")
+        if not path.is_file():
+            raise FileNotFoundError(f"required input is missing: {expected['path']}")
+        actual = sha256_file(path)
+        if actual != expected["sha256"]:
+            raise ValueError(
+                f"required input hash mismatch: {expected['path']} "
+                f"expected {expected['sha256']} got {actual}"
+            )
 
 
 def run_canary(spec_path: Path, artifact_root: Path, output_path: Path) -> dict:
@@ -104,6 +121,7 @@ def run_canary(spec_path: Path, artifact_root: Path, output_path: Path) -> dict:
         raise ValueError(
             "pipeline canary claim boundary differs from the tool contract"
         )
+    validate_required_inputs(spec, artifact_root)
 
     receipt = {
         "schema_version": "qualification-pipeline-canary-result-v1",
