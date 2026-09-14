@@ -109,9 +109,11 @@ def claims_root(artifact_root: Path) -> Path:
 
 
 def executor_identity(plan: dict) -> dict:
+    bound_inputs = plan.get("bound_inputs", {})
     candidates = (
         plan.get("executor"),
-        plan.get("bound_inputs", {}).get("materialization_executor"),
+        bound_inputs.get("materialization_executor"),
+        bound_inputs.get("workflow"),
     )
     for candidate in candidates:
         if (

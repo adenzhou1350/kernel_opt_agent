@@ -24,6 +24,7 @@ from qualification_environment_materialization import (  # noqa: E402
 )
 from qualification_environment_materialization_dispatch import (  # noqa: E402
     dispatch,
+    executor_identity,
 )
 
 
@@ -182,6 +183,18 @@ def dispatchable_fixture(
     )
     write(approval_path, approval)
     return approval_path, executor_path
+
+
+def test_executor_identity_accepts_hash_bound_workflow(tmp_path: Path) -> None:
+    _, executor_path = dispatchable_fixture(tmp_path)
+    plan_path = tmp_path / "experiments" / "plan.json"
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    plan["bound_inputs"]["workflow"] = plan.pop("executor")
+
+    assert executor_identity(plan) == {
+        "path": "tools/executor.py",
+        "sha256": digest(executor_path),
+    }
 
 
 def test_issue_and_validate_preserves_non_gpu_boundary(tmp_path: Path) -> None:
