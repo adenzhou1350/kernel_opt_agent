@@ -18,6 +18,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 
 from qualification_environment_materialization import issue_approval  # noqa: E402
 from qualification_environment_remote_dispatch import (  # noqa: E402
+    command_record,
     dispatch,
     issue_authorization,
     self_identified,
@@ -26,6 +27,23 @@ from qualification_environment_remote_dispatch import (  # noqa: E402
 
 NOW = datetime(2026, 9, 13, 1, 0, tzinfo=UTC)
 REMOTE_ROOT = "/workspace/kernel-opt/runs/test-run"
+
+
+def test_command_record_preserves_bounded_diagnostic_tails() -> None:
+    completed = subprocess.CompletedProcess(
+        ["worker"],
+        1,
+        stdout=b"prefix-" + b"o" * 5000,
+        stderr=b"failure: missing executor identity\n",
+    )
+
+    record = command_record("WORKER_DISPATCH", completed)
+
+    assert len(record["stdout_tail"]) == 4096
+    assert record["stdout_tail"] == "o" * 4096
+    assert record["stderr_tail"] == "failure: missing executor identity\n"
+    assert record["stdout_sha256"] == hashlib.sha256(completed.stdout).hexdigest()
+    assert record["stderr_sha256"] == hashlib.sha256(completed.stderr).hexdigest()
 
 
 def write(path: Path, value: object) -> None:

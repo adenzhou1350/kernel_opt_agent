@@ -64,7 +64,9 @@
           "stage": {"type": "string", "minLength": 1},
           "exit_code": {"type": ["integer", "null"]},
           "stdout_sha256": {"$ref": "#/$defs/sha256"},
-          "stderr_sha256": {"$ref": "#/$defs/sha256"}
+          "stderr_sha256": {"$ref": "#/$defs/sha256"},
+          "stdout_tail": {"type": "string", "maxLength": 4096},
+          "stderr_tail": {"type": "string", "maxLength": 4096}
         }
       }
     },

@@ -486,12 +486,19 @@ def openssh_options(plan: dict, *, scp: bool) -> list[str]:
 
 
 def command_record(stage: str, completed: subprocess.CompletedProcess[bytes]) -> dict:
-    return {
+    record = {
         "stage": stage,
         "exit_code": completed.returncode,
         "stdout_sha256": hashlib.sha256(completed.stdout).hexdigest(),
         "stderr_sha256": hashlib.sha256(completed.stderr).hexdigest(),
     }
+    for name, payload in (
+        ("stdout_tail", completed.stdout),
+        ("stderr_tail", completed.stderr),
+    ):
+        if payload:
+            record[name] = payload[-4096:].decode("utf-8", errors="replace")
+    return record
 
 
 def run_checked(
