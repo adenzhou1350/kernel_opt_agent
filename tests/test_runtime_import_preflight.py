@@ -50,6 +50,9 @@ def write_request(
     forbidden: list[str] | None = None,
     module: str = "sample_model",
     attribute: str | None = "QuantConfig",
+    visibility_requirement: str | None = None,
+    device_context: dict | None = None,
+    cuda_visible_devices: str = "",
 ) -> Path:
     request = {
         "schema_version": "runtime-import-preflight-request-v1",
@@ -58,7 +61,7 @@ def write_request(
         "working_directory": str(tmp_path),
         "python_paths": [str(tmp_path)],
         "environment_overrides": {
-            "CUDA_VISIBLE_DEVICES": "",
+            "CUDA_VISIBLE_DEVICES": cuda_visible_devices,
             "HF_HUB_OFFLINE": "1",
             "TRANSFORMERS_OFFLINE": "1",
         },
@@ -79,6 +82,10 @@ def write_request(
             }
         ],
     }
+    if visibility_requirement is not None:
+        request["imports"][0]["device_visibility_requirement"] = visibility_requirement
+    if device_context is not None:
+        request["device_context"] = device_context
     path = tmp_path / "request.json"
     path.write_text(json.dumps(request), encoding="utf-8")
     return path
@@ -196,3 +203,100 @@ def test_interpreter_drift_and_unknown_fields_fail_closed(tmp_path: Path) -> Non
     request_path.write_text(json.dumps(request), encoding="utf-8")
     with pytest.raises(ValueError, match="additional property"):
         run_evaluate(request_path)
+
+
+def test_device_dependent_import_is_blocked_before_hidden_probe(tmp_path: Path) -> None:
+    _, entrypoint = make_package(tmp_path)
+    result = run_evaluate(
+        write_request(
+            tmp_path,
+            entrypoint,
+            visibility_requirement="LEASED_CUDA_VISIBLE_REQUIRED",
+        )
+    )
+    assert result["decision"] == "BLOCKED_RUNTIME_IMPORT"
+    assert result["imports"][0]["blockers"] == ["LEASED_CUDA_VISIBILITY_REQUIRED"]
+    assert result["imports"][0]["error_type"] == "DeviceVisibilityContractError"
+
+
+def test_visible_selector_requires_lease_context_and_exact_order(
+    tmp_path: Path,
+) -> None:
+    _, entrypoint = make_package(tmp_path)
+    with pytest.raises(ValueError, match="requires device_context"):
+        run_evaluate(
+            write_request(
+                tmp_path,
+                entrypoint,
+                cuda_visible_devices="GPU-aaaa",
+            )
+        )
+
+    context = {
+        "mode": "LEASED_EXACT_UUID",
+        "gpu_uuids": ["GPU-aaaa", "GPU-bbbb"],
+        "lease_id": "lease-1",
+        "authorization_sha256": "a" * 64,
+    }
+    with pytest.raises(ValueError, match="ordered gpu_uuids"):
+        run_evaluate(
+            write_request(
+                tmp_path,
+                entrypoint,
+                device_context=context,
+                cuda_visible_devices="GPU-bbbb,GPU-aaaa",
+            )
+        )
+
+
+def test_device_dependent_import_passes_in_bound_visible_context(
+    tmp_path: Path,
+) -> None:
+    _, entrypoint = make_package(tmp_path)
+    context = {
+        "mode": "LEASED_EXACT_UUID",
+        "gpu_uuids": ["GPU-aaaa"],
+        "lease_id": "lease-1",
+        "authorization_sha256": "a" * 64,
+    }
+    result = run_evaluate(
+        write_request(
+            tmp_path,
+            entrypoint,
+            visibility_requirement="LEASED_CUDA_VISIBLE_REQUIRED",
+            device_context=context,
+            cuda_visible_devices="GPU-aaaa",
+        )
+    )
+    assert result["decision"] == "READY_FOR_NEXT_PREFLIGHT"
+    assert result["device_context"] == {
+        "mode": "LEASED_EXACT_UUID",
+        "cuda_visible_devices": "GPU-aaaa",
+        "gpu_uuids": ["GPU-aaaa"],
+        "lease_id": "lease-1",
+        "authorization_sha256": "a" * 64,
+    }
+    assert result["claim_boundary"].startswith(
+        "LEASE_IDENTITY_AND_CUDA_SELECTOR_BOUND_IMPORT_PREFLIGHT"
+    )
+
+
+def test_cpu_only_import_rejects_visible_device_context(tmp_path: Path) -> None:
+    _, entrypoint = make_package(tmp_path)
+    context = {
+        "mode": "LEASED_EXACT_UUID",
+        "gpu_uuids": ["GPU-aaaa"],
+        "lease_id": "lease-1",
+        "authorization_sha256": "a" * 64,
+    }
+    result = run_evaluate(
+        write_request(
+            tmp_path,
+            entrypoint,
+            visibility_requirement="CUDA_HIDDEN_REQUIRED",
+            device_context=context,
+            cuda_visible_devices="GPU-aaaa",
+        )
+    )
+    assert result["decision"] == "BLOCKED_RUNTIME_IMPORT"
+    assert result["imports"][0]["blockers"] == ["CUDA_HIDDEN_REQUIRED"]

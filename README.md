@@ -171,6 +171,14 @@ backend import before an expensive server or GPU qualification. It is only a
 read-only import preflight and never authorizes a build, service, GPU workload,
 correctness claim, or performance claim.
 
+Runtime import preflights also bind device visibility. Requests without an
+explicit device context must hide CUDA with `CUDA_VISIBLE_DEVICES=""` or `-1`.
+Mark imports that inspect CUDA platform state as
+`LEASED_CUDA_VISIBLE_REQUIRED`; execute them only with a
+`LEASED_EXACT_UUID` context whose ordered full UUID selector, lease id and
+authorization hash all match. A visible import may initialize CUDA even when
+it launches no workload, so its receipt must not be reported as CPU-only.
+
 ## Seeded hardware evidence
 
 The first adapter and historical dataset target an RTX 5090 / SM120 environment.

@@ -30,6 +30,32 @@
       "propertyNames": {"pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
       "additionalProperties": {"type": "string"}
     },
+    "device_context": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode"],
+          "properties": {"mode": {"const": "CUDA_HIDDEN"}}
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "gpu_uuids", "lease_id", "authorization_sha256"],
+          "properties": {
+            "mode": {"const": "LEASED_EXACT_UUID"},
+            "gpu_uuids": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {"type": "string", "pattern": "^GPU-[0-9A-Fa-f-]+$"}
+            },
+            "lease_id": {"type": "string", "minLength": 1},
+            "authorization_sha256": {"$ref": "#/$defs/sha256"}
+          }
+        }
+      ]
+    },
     "timeout_seconds": {"type": "number", "exclusiveMinimum": 0, "maximum": 300},
     "imports": {
       "type": "array",
@@ -51,6 +77,13 @@
           "attribute": {"type": ["string", "null"], "pattern": "^[A-Za-z_][A-Za-z0-9_]*$"},
           "expected_module_file": {"$ref": "#/$defs/file_identity"},
           "expected_attribute_module": {"type": ["string", "null"], "pattern": "^[A-Za-z_][A-Za-z0-9_.]*$"},
+          "device_visibility_requirement": {
+            "enum": [
+              "CUDA_HIDDEN_COMPATIBLE",
+              "CUDA_HIDDEN_REQUIRED",
+              "LEASED_CUDA_VISIBLE_REQUIRED"
+            ]
+          },
           "forbidden_loaded_module_prefixes": {
             "type": "array",
             "uniqueItems": true,

@@ -13,6 +13,7 @@
     "interpreter",
     "working_directory",
     "python_paths",
+    "device_context",
     "effective_environment_sha256",
     "imports",
     "blockers",
@@ -35,6 +36,18 @@
     },
     "working_directory": {"type": "string", "minLength": 1},
     "python_paths": {"type": "array", "items": {"type": "string", "minLength": 1}},
+    "device_context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "cuda_visible_devices", "gpu_uuids", "lease_id", "authorization_sha256"],
+      "properties": {
+        "mode": {"enum": ["CUDA_HIDDEN", "LEASED_EXACT_UUID"]},
+        "cuda_visible_devices": {"type": ["string", "null"]},
+        "gpu_uuids": {"type": "array", "items": {"type": "string"}},
+        "lease_id": {"type": ["string", "null"]},
+        "authorization_sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+      }
+    },
     "effective_environment_sha256": {"$ref": "#/$defs/sha256"},
     "imports": {
       "type": "array",
@@ -70,7 +83,12 @@
       }
     },
     "blockers": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
-    "claim_boundary": {"const": "CPU_PROCESS_IMPORT_PATH_AND_TRANSITIVE_MODULE_PREFLIGHT_ONLY_NOT_NATIVE_BUILD_GPU_SERVICE_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"}
+    "claim_boundary": {
+      "enum": [
+        "CPU_PROCESS_IMPORT_PATH_AND_TRANSITIVE_MODULE_PREFLIGHT_ONLY_NOT_NATIVE_BUILD_GPU_SERVICE_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION",
+        "LEASE_IDENTITY_AND_CUDA_SELECTOR_BOUND_IMPORT_PREFLIGHT_MAY_INITIALIZE_CUDA_NOT_GPU_WORKLOAD_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"
+      ]
+    }
   },
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
