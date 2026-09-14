@@ -100,7 +100,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         ),
         "qualification-worker-toolchain": Command(
             "qualification_worker_toolchain_gate.py",
-            "reject missing or stale worker tools before a GPU lease",
+            "reject missing or stale worker tools before direct GPU dispatch",
         ),
         "qualification-source-bundle": Command(
             "qualification_source_bundle.py",
@@ -108,7 +108,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         ),
         "resource-broker": Command(
             "resource_broker.py",
-            "queue jobs and reserve compatible multi-GPU worker resources",
+            "inspect legacy queue and lease records (audit compatibility only)",
         ),
     },
     "hardware": {

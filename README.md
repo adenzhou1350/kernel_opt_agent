@@ -1024,54 +1024,26 @@ and the exact worker id. Reuse then fails closed on either the worker id or
 attestation hash. This is still preparation evidence, never a GPU lease or
 workload authorization.
 
-For several autonomous lanes sharing multiple GPU machines, queue validation
-work independently from the task that discovered it:
+For several autonomous lanes sharing multiple GPU machines, each lane writes a
+sealed execution request and immediately returns to useful non-GPU work. The
+portfolio controller directly dispatches a request when a fresh live inventory
+shows an exact compatible GPU set idle. There is no queue or lease prerequisite.
+Immediately before launch the controller rechecks full GPU UUIDs, process lists,
+visible ordinal mapping, required tools and the sealed request identity. It is
+the sole allocator for that GPU set until the child exits, then records the
+terminal result and cleanup state. It never preempts, resets, kills or modifies
+another task or service. When no compatible GPU is idle, it records one
+non-blocking `NO_IDLE_GPU` observation; lanes must not poll or mint successive
+request versions just to wait for capacity.
 
-```bash
-python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
-  submit --job job.json
-python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
-  bind-gate --job same-job-with-ready-gate.json
-python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
-  withdraw --job-id stale-job --reason-path decisions/supersession.json \
-  --reason-sha256 <sha256>
-python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
-  acquire --inventory inventory.json
-python3 scripts/kernel_opt.py resource-broker --database broker.sqlite \
-  plan --inventory inventory.json
-python3 scripts/kernel_opt.py resource-broker --database broker.sqlite snapshot
-```
+The `resource-broker` command remains available only to inspect or close legacy
+SQLite queue/lease records. New executions must not submit, bind or acquire
+through it, and dashboard readiness is derived from live inventory rather than
+historical jobs or leases.
 
-The resource broker atomically reserves an exact GPU gang on one compatible
-worker, prefers a reusable environment closure, and backfills a smaller
-runnable job when a larger high-priority gang cannot currently fit. It is
-deliberately non-launching: the returned lease identifies only the worker, GPU
-UUIDs, environment, budget, and callback task. The task-specific authorization
-and atomic dispatcher remain mandatory before starting a process. A missed
-heartbeat keeps its GPUs reserved in `STALE_REQUIRES_RECONCILIATION` until a
-hash-bound terminal result releases them, so a possibly running job is never
-made available by timeout alone.
-`bind-gate` lets the controller atomically move an existing
-`BLOCKED_AUTHORIZATION` job into the queue after an external supervisor gate is
-available. It accepts only the same complete job with a READY gate identity;
-any workload, source, environment, resource, budget, priority, origin or
-callback drift is rejected. The broker binds that identity but does not certify
-its authorization semantics or launch work.
-An unleased blocked or queued job whose immutable body is superseded can be
-withdrawn with a hash-bound reason. Withdrawal preserves the terminal audit
-record and is forbidden once any lease exists; it never counts as an
-experimental result.
-Jobs that require a particular topology or must avoid service GPUs can bind an
-exact gang through optional `resource.required_gpu_uuids`. Its cardinality must
-equal `gpu_count`; the broker waits unless every named UUID is simultaneously
-free on one compatible host, and records that exact sorted set in the lease.
-The read-only `plan` view classifies every queued item as immediately
-reservable, waiting for GPUs, requiring environment preparation, or having no
-compatible resource. It is suitable for a dashboard but is not a reservation.
-
-Profile, compiler and disassembly tools must be present before a GPU lease is
-created. Collect a fresh worker attestation, then bind the exact execution plan
-as the consumer of a pre-lease toolchain gate:
+Profile, compiler and disassembly tools must be present before direct GPU
+dispatch. Collect a fresh worker attestation, then bind the exact execution plan
+as the consumer of a pre-dispatch toolchain gate:
 
 ```bash
 python3 scripts/kernel_opt.py qualification-worker-toolchain \
@@ -1079,14 +1051,14 @@ python3 scripts/kernel_opt.py qualification-worker-toolchain \
   --consumer sealed-gpu-execution-plan.json \
   --worker-id worker-shared-sm120 --host-id shared-8x-sm120-32g \
   --require-tool nsys --require-tool cuobjdump \
-  --max-age-seconds 300 --output prelease-toolchain-gate.json
+  --max-age-seconds 300 --output predispatch-toolchain-gate.json
 ```
 
 The worker attestation records common compiler, profiler and binary-inspection
-tools even when they are absent. The gate returns `BLOCKED_PRELEASE` for a
-missing tool or stale attestation, before a broker lease consumes GPU capacity.
-`READY_FOR_PRELEASE_BINDING` proves only fresh tool availability; it does not
-authorize a lease, process, GPU workload, correctness or performance claim.
+tools even when they are absent. A missing tool or stale attestation blocks the
+child before dispatch. A passing result proves only fresh tool availability; it
+does not by itself authorize a process, GPU workload, correctness or
+performance claim.
 
 An accepted optimization is not automatically an upstream-ready change. Build
 the review package from a clean candidate commit and hash-bound evidence. Set

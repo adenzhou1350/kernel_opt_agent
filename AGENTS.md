@@ -243,21 +243,26 @@ FlashInfer and temporary paths must stay inside the writable closure. Do not
 fall back to `/root`, `$HOME` or another image-owned filesystem, and do not
 repair a full image filesystem by deleting unrelated caches.
 
-When a shared qualification resource broker is available, submit the sealed
-validation job and continue bounded discovery or review work instead of waiting
-on a GPU. Do not SSH to a pooled worker or reserve cards independently. A broker
-lease is only a resource reservation; the lane's normal authorization and
-atomic dispatcher must still validate before launch. Treat a stale lease as
-possibly running until the worker reconciles it, and route its immutable
-terminal result only to the originating task recorded in the job.
+GPU qualification uses controller-owned direct dispatch. A lane prepares a
+sealed execution request and continues bounded discovery or review work; it
+does not submit a queue item, wait for a broker lease, or reserve cards itself.
+The portfolio controller may launch the request as soon as a fresh live probe
+shows an exact compatible GPU set idle. Immediately before child launch it must
+recheck full GPU UUIDs, visible ordinal mapping, processes and required tools;
+during the child it is the sole allocator for that set; after the child it must
+record result and process cleanup. Never preempt, reset, kill or alter another
+task or service. If no compatible GPU is idle, record one non-blocking
+`NO_IDLE_GPU` observation and keep doing useful non-GPU work instead of polling
+or producing new lease versions. Historical broker jobs and leases are
+audit-only compatibility records and must not gate new execution.
 
-Before submitting or acquiring a GPU job that depends on a profiler, compiler,
-disassembler or runtime utility, collect a fresh worker attestation and run
+Before direct GPU dispatch that depends on a profiler, compiler, disassembler
+or runtime utility, collect a fresh worker attestation and run
 `qualification-worker-toolchain` against the exact execution plan. Bind every
 required executable by name and the plan bytes as the consumer. A stale
-attestation or missing tool is a pre-lease environment blocker; do not reserve
-GPUs merely to discover it in the worker process. A passing result is tool
-availability evidence only and does not authorize the lease or execution.
+attestation or missing tool is a pre-dispatch environment blocker; do not start
+the child merely to discover it. A passing result is tool availability evidence
+only and does not authorize execution.
 
 ## Theory-to-kernel analysis spine
 
