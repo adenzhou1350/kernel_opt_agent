@@ -177,6 +177,12 @@ Require the intended environment-variable mapping, a writable directory and a
 workload-sized free-space floor. A blocked preflight is an environment result,
 not a candidate failure; move to a reviewed cache root or stop the bounded
 repair instead of retrying against an implicit home-directory default.
+Run the authorized cache-bound command through `cache-environment-exec` so the
+child process receives the repository's exact XDG, Hugging Face, Torch,
+TorchInductor, Triton, CUDA, SGLang, FlashInfer and temporary-directory mapping.
+A plan or preflight that merely records those variables is insufficient. The
+wrapper preserves the caller's CUDA visibility and does not authorize the
+command, native build, GPU, workload or performance claim.
 
 On a CPU-only preprovisioned worker, `CUDA_VISIBLE_DEVICES=-1` can make
 `torch.cuda.get_arch_list()` return an empty list even when the installed Torch

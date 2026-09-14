@@ -34,6 +34,10 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
             "environment_cache_preflight.py",
             "fail closed before cache-bound downloads, JIT compilation, or builds",
         ),
+        "cache-environment-exec": Command(
+            "run_with_cache_environment.py",
+            "run an authorized command with task-private framework caches",
+        ),
         "qualification-environment-authorize": Command(
             "qualification_environment_materialization.py",
             "approve CPU-only qualification-environment materialization",
