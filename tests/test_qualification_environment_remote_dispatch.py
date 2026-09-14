@@ -356,6 +356,7 @@ class FakeTransport:
         self.worker_terminal = worker_terminal
         self.remote: dict[str, bytes] = {}
         self.calls: list[list[str]] = []
+        self.timeouts: list[float | None] = []
 
     def worker_artifacts(self) -> None:
         approval = json.loads(self.paths["approval"].read_text(encoding="utf-8"))
@@ -417,6 +418,7 @@ class FakeTransport:
 
     def __call__(self, argv: list[str], **kwargs) -> subprocess.CompletedProcess[bytes]:
         self.calls.append(argv)
+        self.timeouts.append(kwargs.get("timeout"))
         executable = Path(argv[0])
         if executable == self.paths["ssh"]:
             command = argv[-1]
@@ -490,6 +492,14 @@ def test_dispatch_retrieves_worker_terminal_and_consumes_once(tmp_path: Path) ->
     assert result["worker_terminal_receipt"] is not None
     assert any(row["stage"] == "WORKER_DISPATCH" for row in result["commands"])
     assert all("StrictHostKeyChecking=yes" in call for call in fake.calls)
+    for call, timeout in zip(fake.calls, fake.timeouts, strict=True):
+        executable = Path(call[0])
+        if executable == paths["scp"]:
+            assert timeout == 30
+        elif executable == paths["ssh"] and any(
+            marker in call[-1] for marker in ("if test -e", "mkdir -p", "sha256sum")
+        ):
+            assert timeout == 5
 
     with pytest.raises(FileExistsError, match="already has a receipt"):
         dispatch(

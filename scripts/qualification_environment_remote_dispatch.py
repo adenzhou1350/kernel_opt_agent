@@ -543,6 +543,7 @@ def stage_file(
     runner: Callable[..., subprocess.CompletedProcess[bytes]],
 ) -> list[dict]:
     transfer_timeout = plan["budget"]["transfer_timeout_seconds"]
+    metadata_timeout = plan["budget"]["connect_timeout_seconds"]
     remote_root = plan["remote_artifact_root"]
     quoted_destination = shlex.quote(destination)
     canonical_checks = " && ".join(
@@ -558,7 +559,7 @@ def stage_file(
         f"then test -f {quoted_destination} && test ! -L {quoted_destination} "
         f"&& sha256sum {quoted_destination}; else printf 'ABSENT\\n'; fi",
         runner,
-        timeout=transfer_timeout,
+        timeout=metadata_timeout,
     )
     records = [command_record("REMOTE_IDENTITY_PREFLIGHT", inspect)]
     text = inspect.stdout.decode("utf-8", errors="strict").strip()
@@ -576,7 +577,7 @@ def stage_file(
         target,
         f"mkdir -p {shlex.quote(parent)}",
         runner,
-        timeout=transfer_timeout,
+        timeout=metadata_timeout,
     )
     records.append(command_record("REMOTE_PARENT_CREATE", mkdir))
     upload = run_checked(
@@ -602,7 +603,7 @@ def stage_file(
             )
         ),
         runner,
-        timeout=transfer_timeout,
+        timeout=metadata_timeout,
     )
     records.append(command_record("REMOTE_ATOMIC_PUBLISH", publish))
     return records
