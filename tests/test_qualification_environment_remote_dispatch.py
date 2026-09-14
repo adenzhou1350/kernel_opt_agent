@@ -257,7 +257,8 @@ def staged_fixture(tmp_path: Path) -> dict[str, Path]:
     paths = fixture(tmp_path)
     plan = json.loads(paths["plan"].read_text(encoding="utf-8"))
     stage_root = "/workspace/kernel-opt/staging/test-run-v2"
-    plan["paths"] = {"stage_root": stage_root}
+    receipt = f"{stage_root}/receipt.json"
+    plan["paths"] = {"stage_root": stage_root, "receipt": receipt}
     plan["staged_inputs"] = {
         "executor": {
             "filename": "executor.py",
@@ -286,6 +287,8 @@ def staged_fixture(tmp_path: Path) -> dict[str, Path]:
                 f"{stage_root}/plan.json",
                 "--approval",
                 f"{stage_root}/approval.json",
+                "--receipt",
+                receipt,
             ],
         },
     ]
@@ -518,6 +521,10 @@ def test_explicit_staging_layout_runs_without_rewriting_frozen_plan(
     )
     assert any(
         "/workspace/kernel-opt/staging/test-run-v2/approval.json" in row
+        for row in transferred
+    )
+    assert not any(
+        "/workspace/kernel-opt/staging/test-run-v2/receipt.json" in row
         for row in transferred
     )
 

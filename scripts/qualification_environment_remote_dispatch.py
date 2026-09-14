@@ -203,6 +203,9 @@ def referenced_staging_inputs(
     materialization_plan: dict, roots: set[PurePosixPath]
 ) -> set[str]:
     outputs = absolute_posix_paths(materialization_plan.get("required_outputs"))
+    paths = materialization_plan.get("paths")
+    if isinstance(paths, dict):
+        outputs.update(absolute_posix_paths(paths.get("receipt")))
     result: set[str] = set()
     for step in materialization_plan.get("materialization_steps", []):
         if not isinstance(step, dict) or not isinstance(step.get("argv"), list):
