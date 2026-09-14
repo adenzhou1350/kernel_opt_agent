@@ -350,10 +350,12 @@ class FakeTransport:
         *,
         worker_exit: int = 0,
         worker_terminal: bool = True,
+        timeout_publish_once: bool = False,
     ) -> None:
         self.paths = paths
         self.worker_exit = worker_exit
         self.worker_terminal = worker_terminal
+        self.timeout_publish_once = timeout_publish_once
         self.remote: dict[str, bytes] = {}
         self.calls: list[list[str]] = []
         self.timeouts: list[float | None] = []
@@ -422,6 +424,9 @@ class FakeTransport:
         executable = Path(argv[0])
         if executable == self.paths["ssh"]:
             command = argv[-1]
+            if self.timeout_publish_once and " && ln " in command:
+                self.timeout_publish_once = False
+                raise subprocess.TimeoutExpired(argv, kwargs.get("timeout"))
             if "if test -e" in command:
                 return subprocess.CompletedProcess(argv, 0, b"ABSENT\n", b"")
             if command.startswith("/usr/bin/python3 ") and (
@@ -536,6 +541,25 @@ def test_explicit_staging_layout_runs_without_rewriting_frozen_plan(
     assert not any(
         "/workspace/kernel-opt/staging/test-run-v2/receipt.json" in row
         for row in transferred
+    )
+
+
+def test_publish_timeout_accepts_only_read_only_exact_file_reconciliation(
+    tmp_path: Path,
+) -> None:
+    paths = fixture(tmp_path)
+    fake = FakeTransport(paths, timeout_publish_once=True)
+    result = dispatch(
+        artifact_root=tmp_path,
+        authorization_path=paths["authorization"],
+        expected_authorization_sha256=digest(paths["authorization"]),
+        now=NOW,
+        runner=fake,
+    )
+    assert result["state"] == "WORKER_TERMINAL_RETRIEVED"
+    assert any(
+        row["stage"] == "REMOTE_ATOMIC_PUBLISH_RECONCILED_AFTER_TIMEOUT"
+        for row in result["commands"]
     )
 
 

@@ -591,21 +591,44 @@ def stage_file(
         timeout=transfer_timeout,
     )
     records.append(command_record("UPLOAD", upload))
-    publish = remote_shell(
-        plan,
-        target,
-        " && ".join(
-            (
-                canonical_checks,
-                f"test \"$(sha256sum {shlex.quote(temporary)} | cut -d' ' -f1)\" = {expected_sha256}",
-                f"ln {shlex.quote(temporary)} {quoted_destination}",
-                f"rm {shlex.quote(temporary)}",
-            )
-        ),
-        runner,
-        timeout=metadata_timeout,
-    )
-    records.append(command_record("REMOTE_ATOMIC_PUBLISH", publish))
+    try:
+        publish = remote_shell(
+            plan,
+            target,
+            " && ".join(
+                (
+                    canonical_checks,
+                    f"test \"$(sha256sum {shlex.quote(temporary)} | cut -d' ' -f1)\" = {expected_sha256}",
+                    f"ln {shlex.quote(temporary)} {quoted_destination}",
+                    f"rm {shlex.quote(temporary)}",
+                )
+            ),
+            runner,
+            timeout=metadata_timeout,
+        )
+    except subprocess.TimeoutExpired:
+        # Some SSH gateways deliver and complete the atomic publish but fail to
+        # return the remote exit status.  Do not replay the mutation.  A fresh
+        # read-only connection may only accept the already-published exact file.
+        reconciled = remote_shell(
+            plan,
+            target,
+            " && ".join(
+                (
+                    canonical_checks,
+                    f"test -f {quoted_destination}",
+                    f"test ! -L {quoted_destination}",
+                    f"test \"$(sha256sum {quoted_destination} | cut -d' ' -f1)\" = {expected_sha256}",
+                )
+            ),
+            runner,
+            timeout=metadata_timeout,
+        )
+        records.append(
+            command_record("REMOTE_ATOMIC_PUBLISH_RECONCILED_AFTER_TIMEOUT", reconciled)
+        )
+    else:
+        records.append(command_record("REMOTE_ATOMIC_PUBLISH", publish))
     return records
 
 
