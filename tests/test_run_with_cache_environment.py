@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -13,7 +15,7 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from qualification_environment_worker import CACHE_ENVIRONMENT_KEYS  # noqa: E402
+from cache_environment import CACHE_ENVIRONMENT_KEYS  # noqa: E402
 from run_with_cache_environment import (  # noqa: E402
     contract,
     isolated_environment,
@@ -106,3 +108,27 @@ def test_wrapper_requires_command_without_print_mode(
     )
     with pytest.raises(SystemExit, match="2"):
         main()
+
+
+def test_wrapper_is_portable_without_worker_module(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for name in ("cache_environment.py", "run_with_cache_environment.py"):
+        shutil.copy2(ROOT / "scripts" / name, scripts / name)
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(scripts / "run_with_cache_environment.py"),
+            "--closure-root",
+            "/workspace/kernel-opt/tasks/portable-v1",
+            "--print-environment",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    result = json.loads(completed.stdout)
+    assert result["status"] == "PASS"
+    assert set(result["environment"]) == set(CACHE_ENVIRONMENT_KEYS)

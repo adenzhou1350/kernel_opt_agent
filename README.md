@@ -436,6 +436,10 @@ The command emits one JSON object containing the complete environment mapping;
 consumers must create and bind every emitted path before the first framework
 import rather than partially reconstructing the mapping.
 
+For a portable command wrapper, copy `run_with_cache_environment.py` together
+with its small `cache_environment.py` dependency. It intentionally does not
+import the worker attestation, schema, broker, or dispatcher modules.
+
 Framework imports may also write informational logs to stdout before a probe
 prints its machine result. Use `parse_final_json_object` to require the final
 non-empty line to be one JSON object. Earlier logs remain permitted, while a

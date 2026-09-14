@@ -8,7 +8,7 @@ import json
 import os
 from pathlib import Path, PurePosixPath
 
-from qualification_environment_worker import cpu_only_cache_environment
+from cache_environment import cpu_only_cache_environment
 
 
 CLAIM_BOUNDARY = (
