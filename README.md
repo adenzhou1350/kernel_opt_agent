@@ -1024,6 +1024,14 @@ and the exact worker id. Reuse then fails closed on either the worker id or
 attestation hash. This is still preparation evidence, never a GPU lease or
 workload authorization.
 
+Runtime import preflights also bind device visibility. Requests without an
+explicit device context must hide CUDA with `CUDA_VISIBLE_DEVICES=""` or `-1`.
+Mark imports that inspect CUDA platform state as
+`LEASED_CUDA_VISIBLE_REQUIRED`; execute them only with a
+`LEASED_EXACT_UUID` context whose ordered full UUID selector, lease id and
+authorization hash all match. A visible import may initialize CUDA even when
+it launches no workload, so its receipt must not be reported as CPU-only.
+
 For several autonomous lanes sharing multiple GPU machines, queue validation
 work independently from the task that discovered it:
 

@@ -23,6 +23,11 @@ CLAIM_BOUNDARY = (
     "CPU_PROCESS_IMPORT_PATH_AND_TRANSITIVE_MODULE_PREFLIGHT_ONLY_NOT_NATIVE_BUILD_"
     "GPU_SERVICE_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"
 )
+LEASED_VISIBLE_CLAIM_BOUNDARY = (
+    "LEASE_IDENTITY_AND_CUDA_SELECTOR_BOUND_IMPORT_PREFLIGHT_MAY_INITIALIZE_CUDA_"
+    "NOT_GPU_WORKLOAD_CORRECTNESS_PERFORMANCE_OR_EXECUTION_AUTHORIZATION"
+)
+HIDDEN_CUDA_VALUES = {"", "-1"}
 
 WORKER = r"""
 import hashlib
@@ -232,6 +237,88 @@ def probe_import(
     }
 
 
+def blocked_import(specification: dict, blocker: str, error: str) -> dict:
+    return {
+        "import_id": specification["import_id"],
+        "module": specification["module"],
+        "attribute": specification["attribute"],
+        "status": "BLOCKED",
+        "module_file": None,
+        "module_sha256": None,
+        "attribute_module": None,
+        "forbidden_loaded_modules": [],
+        "error_type": "DeviceVisibilityContractError",
+        "error": error,
+        "blockers": [blocker],
+    }
+
+
+def effective_device_context(request: dict) -> dict:
+    selector = request["environment_overrides"].get("CUDA_VISIBLE_DEVICES")
+    configured = request.get("device_context")
+    if configured is None:
+        if selector not in HIDDEN_CUDA_VALUES:
+            raise ValueError(
+                "a non-hidden CUDA_VISIBLE_DEVICES selector requires device_context"
+            )
+        return {
+            "mode": "CUDA_HIDDEN",
+            "cuda_visible_devices": selector,
+            "gpu_uuids": [],
+            "lease_id": None,
+            "authorization_sha256": None,
+        }
+
+    mode = configured["mode"]
+    if mode == "CUDA_HIDDEN":
+        if selector not in HIDDEN_CUDA_VALUES:
+            raise ValueError(
+                "CUDA_HIDDEN device_context requires CUDA_VISIBLE_DEVICES to be '' or '-1'"
+            )
+        return {
+            "mode": mode,
+            "cuda_visible_devices": selector,
+            "gpu_uuids": [],
+            "lease_id": None,
+            "authorization_sha256": None,
+        }
+
+    gpu_uuids = configured["gpu_uuids"]
+    expected_selector = ",".join(gpu_uuids)
+    if selector != expected_selector:
+        raise ValueError(
+            "LEASED_EXACT_UUID device_context requires CUDA_VISIBLE_DEVICES to "
+            "exactly equal the ordered gpu_uuids"
+        )
+    return {
+        "mode": mode,
+        "cuda_visible_devices": selector,
+        "gpu_uuids": gpu_uuids,
+        "lease_id": configured["lease_id"],
+        "authorization_sha256": configured["authorization_sha256"],
+    }
+
+
+def visibility_blocker(specification: dict, device_context: dict) -> dict | None:
+    requirement = specification.get(
+        "device_visibility_requirement", "CUDA_HIDDEN_COMPATIBLE"
+    )
+    mode = device_context["mode"]
+    if requirement == "LEASED_CUDA_VISIBLE_REQUIRED" and mode != "LEASED_EXACT_UUID":
+        return blocked_import(
+            specification,
+            "LEASED_CUDA_VISIBILITY_REQUIRED",
+            "import is declared device-dependent and must run only after an exact lease",
+        )
+    if requirement == "CUDA_HIDDEN_REQUIRED" and mode != "CUDA_HIDDEN":
+        return blocked_import(
+            specification,
+            "CUDA_HIDDEN_REQUIRED",
+            "import is declared CPU-only and must not run with a visible CUDA selector",
+        )
+    return None
+
+
 def evaluate(
     request: dict, request_path: Path, inherited_environment: dict[str, str]
 ) -> dict:
@@ -247,6 +334,7 @@ def evaluate(
     python_paths = [
         resolved_absolute(path, "python path") for path in request["python_paths"]
     ]
+    device_context = effective_device_context(request)
     base_blockers: list[str] = []
     if not interpreter.is_file():
         base_blockers.append("INTERPRETER_MISSING")
@@ -263,16 +351,18 @@ def evaluate(
     environment["PYTHONPATH"] = os.pathsep.join(str(path) for path in python_paths)
     results = []
     if not base_blockers:
-        results = [
-            probe_import(
-                interpreter,
-                working_directory,
-                environment,
-                specification,
-                request["timeout_seconds"],
+        for specification in request["imports"]:
+            mismatch = visibility_blocker(specification, device_context)
+            results.append(
+                mismatch
+                or probe_import(
+                    interpreter,
+                    working_directory,
+                    environment,
+                    specification,
+                    request["timeout_seconds"],
+                )
             )
-            for specification in request["imports"]
-        ]
     blockers = list(base_blockers)
     blockers.extend(
         f"{result['import_id']}:{blocker}"
@@ -297,10 +387,15 @@ def evaluate(
         },
         "working_directory": working_directory.as_posix(),
         "python_paths": [path.as_posix() for path in python_paths],
+        "device_context": device_context,
         "effective_environment_sha256": canonical_sha256(environment),
         "imports": results,
         "blockers": blockers,
-        "claim_boundary": CLAIM_BOUNDARY,
+        "claim_boundary": (
+            CLAIM_BOUNDARY
+            if device_context["mode"] == "CUDA_HIDDEN"
+            else LEASED_VISIBLE_CLAIM_BOUNDARY
+        ),
     }
     validate(output, RESULT_SCHEMA, "runtime import preflight result")
     return output
@@ -332,6 +427,7 @@ def request_template() -> dict:
                     "sha256": "0" * 64,
                 },
                 "expected_attribute_module": "package.models.optional_model.quant_config",
+                "device_visibility_requirement": "CUDA_HIDDEN_REQUIRED",
                 "forbidden_loaded_module_prefixes": [
                     "package.models.optional_model.cuda_backend"
                 ],

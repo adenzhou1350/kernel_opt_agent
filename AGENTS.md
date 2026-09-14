@@ -218,6 +218,12 @@ registry/config imports. A missing generated interface, wrong imported tree or
 eager optional backend is a pre-launch environment/source blocker; do not spend
 GPU time discovering it during server startup. A passing import receipt is not
 native-build, service, correctness, performance or execution authorization.
+Declare whether each import is CUDA-hidden-compatible, CUDA-hidden-required or
+lease-visible-required. A visible `CUDA_VISIBLE_DEVICES` selector must be the
+ordered full-UUID set from an exact lease and authorization. Some framework or
+model imports initialize CUDA merely while resolving platform state; run those
+only inside the lease and describe the receipt as a CUDA-capable import
+preflight, never as CPU-only evidence.
 
 On a CPU-only preprovisioned worker, `CUDA_VISIBLE_DEVICES=-1` can make
 `torch.cuda.get_arch_list()` return an empty list even when the installed Torch
