@@ -5,8 +5,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 import sys
+import venv
 from pathlib import Path
 
 import pytest
@@ -196,3 +198,40 @@ def test_interpreter_drift_and_unknown_fields_fail_closed(tmp_path: Path) -> Non
     request_path.write_text(json.dumps(request), encoding="utf-8")
     with pytest.raises(ValueError, match="additional property"):
         run_evaluate(request_path)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX venv executable symlinks")
+@pytest.mark.parametrize("hash_drift", [False, True])
+def test_symlinked_venv_keeps_its_import_environment(
+    tmp_path: Path, hash_drift: bool
+) -> None:
+    env_root = tmp_path / "venv"
+    venv.EnvBuilder(with_pip=False, symlinks=True).create(env_root)
+    interpreter = env_root / "bin/python"
+    assert interpreter.is_symlink()
+    site = Path(
+        subprocess.check_output(
+            [
+                str(interpreter),
+                "-c",
+                "import sysconfig; print(sysconfig.get_path('purelib'))",
+            ],
+            text=True,
+        ).strip()
+    )
+    _, entrypoint = make_package(site)
+    request_path = write_request(tmp_path, entrypoint)
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request["interpreter"] = {
+        "path": str(interpreter),
+        "sha256": "0" * 64 if hash_drift else digest(interpreter),
+    }
+    request_path.write_text(json.dumps(request), encoding="utf-8")
+    result = run_evaluate(request_path)
+    assert result["interpreter"]["path"] == interpreter.as_posix()
+    if hash_drift:
+        assert result["blockers"] == ["INTERPRETER_SHA256_MISMATCH"]
+        assert result["imports"] == []
+    else:
+        assert result["decision"] == "READY_FOR_NEXT_PREFLIGHT"
+        assert result["imports"][0]["module_file"] == entrypoint.resolve().as_posix()
