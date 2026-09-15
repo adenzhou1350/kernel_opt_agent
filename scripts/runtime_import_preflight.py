@@ -115,11 +115,15 @@ def validate(value: dict, schema_name: str, label: str) -> None:
         raise ValueError(f"invalid {label}: " + "; ".join(errors))
 
 
-def resolved_absolute(raw: str, label: str) -> Path:
+def resolved_absolute(raw: str, label: str, *, follow_symlinks: bool = True) -> Path:
     path = Path(raw).expanduser()
     if not path.is_absolute():
         raise ValueError(f"{label} must be absolute")
-    return path.resolve(strict=False)
+    if follow_symlinks:
+        return path.resolve(strict=False)
+    # Launching a venv's resolved base binary discards its pyvenv.cfg and site
+    # packages. Preserve the executable path; file hashing still follows links.
+    return Path(os.path.abspath(path))
 
 
 def same_path(left: str | None, right: Path) -> bool:
@@ -240,7 +244,9 @@ def evaluate(
     if len(import_ids) != len(set(import_ids)):
         raise ValueError("import_id values must be unique")
 
-    interpreter = resolved_absolute(request["interpreter"]["path"], "interpreter path")
+    interpreter = resolved_absolute(
+        request["interpreter"]["path"], "interpreter path", follow_symlinks=False
+    )
     working_directory = resolved_absolute(
         request["working_directory"], "working directory"
     )
