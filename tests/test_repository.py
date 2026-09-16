@@ -204,7 +204,16 @@ def main():
         json.loads(path.read_text())
 
     cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"])
+    assert "worklog" in cli_help.stdout and "knowledge" in cli_help.stdout
+    assert "experiment-execute" not in cli_help.stdout
+    cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--all"])
     assert "new-run" in cli_help.stdout and "experiment-execute" in cli_help.stdout
+    child_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "audit", "--help"])
+    assert "--root" in child_help.stdout
+    failed_cli = run([
+        sys.executable, str(ROOT / "scripts/kernel_opt.py"), "audit", "--invalid-option",
+    ], expected=2)
+    assert "unrecognized arguments" in failed_cli.stderr
 
     report_fixture = ROOT / "tests/fixtures/human_review_report.json"
     run([

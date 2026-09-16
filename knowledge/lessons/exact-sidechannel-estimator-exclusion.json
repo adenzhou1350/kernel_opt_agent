@@ -1,0 +1,18 @@
+{
+  "id": "exact-sidechannel-estimator-exclusion",
+  "title": "Exclude exactly restored outliers from neighboring quantization scales",
+  "applies_when": "Grouped lossy quantization shares a scale across approximate values and high-magnitude spans that a separate side channel will restore exactly, such as selective preservation during compressed weight synchronization.",
+  "lesson": "Restoring an outlier afterward does not undo its effect on the scale used for neighboring lossy values. Derive the estimator over only values that remain approximate. For a symmetric max-abs statistic, zero the exact-span intersections in a temporary quantizer input before estimating the scale; keep persistent source values unchanged. Reconstruct the compressed payload, then restore every excluded span from the exact payload. Handle all-exact and all-zero groups explicitly. Validate neighboring approximate outputs as well as exact spans, including spans crossing groups, chunks, partitions and padding tails. Check actual training behavior and measure total synchronization and step cost before claiming benefit or selecting coarser groups.",
+  "avoid_when": "Zero masking is not general exclusion for a mean or asymmetric min/max estimator: it changes counts or introduces an artificial endpoint. Other estimators require a mathematically valid statistic adjusted for the retained values. Do not exclude values without guaranteed exact restoration, mutate the persistent source buffer, or infer convergence and speed from reconstruction error alone.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/deeplearning/tensorrt/10.x.x/inference-library/work-quantized-types.html",
+      "note": "NVIDIA documents symmetric max-abs scale formulas and block quantization. These explain why an outlier can enlarge a shared scale; excluding exact-restored spans is a derived proposal, not a TensorRT recommendation or local performance result."
+    },
+    {
+      "url": "https://arxiv.org/abs/2208.07339v2",
+      "note": "LLM.int8() supplies primary evidence for separating outlier features from lower-precision computation in inference. It is mechanism context, not proof for exact side-channel restoration in distributed training; no local timing or convergence proof is published here."
+    }
+  ],
+  "status": "hypothesis"
+}

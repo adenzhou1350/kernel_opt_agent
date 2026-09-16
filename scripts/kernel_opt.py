@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Single public command surface for the evidence-closed optimization workflow."""
+"""Practical optimization tools. Use --all for optional research commands."""
 
 from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -19,6 +20,10 @@ class Command:
 
 
 COMMAND_GROUPS: dict[str, dict[str, Command]] = {
+    "everyday optimization": {
+        "worklog": Command("worklog.py", "record a local optimization run and its evidence"),
+        "knowledge": Command("knowledge_notes.py", "search, deduplicate and contribute reusable lessons"),
+    },
     "run lifecycle": {
         "new-run": Command("new_run.py", "freeze intake and create a run"),
         "next": Command("optimizer_step.py", "select the next evidence-driven action"),
@@ -72,28 +77,41 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
 
 
-def epilog() -> str:
+def epilog(all_commands: bool = False) -> str:
     lines = ["commands:"]
     for group, commands in COMMAND_GROUPS.items():
+        if not all_commands and group != "everyday optimization":
+            continue
         lines.append(f"  {group}:")
         lines.extend(f"    {name:<24} {command.summary}" for name, command in commands.items())
-    lines.extend(("", "arguments after COMMAND are forwarded unchanged; use COMMAND --help for details"))
+    lines.extend(("", "use --all for specialist and historical research commands",
+                  "arguments after COMMAND are forwarded unchanged; use COMMAND --help for details"))
     return "\n".join(lines)
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--all"]:
+        print(epilog(all_commands=True))
+        return 0
     parser = argparse.ArgumentParser(description=__doc__, epilog=epilog(), formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=sorted(COMMANDS))
-    args, forwarded = parser.parse_known_args()
-    target = Path(__file__).resolve().with_name(COMMANDS[args.command].script)
+    parser.add_argument("command", choices=sorted(COMMANDS), metavar="COMMAND")
+    # Once a valid command is present, every remaining argument belongs to the
+    # child command. In particular, COMMAND --help must show the child's help.
+    if len(sys.argv) >= 2 and sys.argv[1] in COMMANDS:
+        command_name = sys.argv[1]
+        forwarded = sys.argv[2:]
+    else:
+        args = parser.parse_args()
+        command_name = args.command
+        forwarded = []
+    target = Path(__file__).resolve().with_name(COMMANDS[command_name].script)
     if not target.is_file():
         parser.error(f"command implementation is missing: {target}")
     # The public command must preserve reusable-zone purity.  Child command
     # modules import shared helpers from scripts/; disable bytecode generation
-    # before exec so normal framework use never creates scripts/__pycache__.
+    # before launch so normal framework use never creates scripts/__pycache__.
     os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
-    os.execv(sys.executable, [sys.executable, str(target), *forwarded])
-    return 127
+    return subprocess.call([sys.executable, str(target), *forwarded])
 
 
 if __name__ == "__main__":

@@ -30,6 +30,7 @@ ALLOWED_TOP_LEVEL = {
     "README.md",
     "REVIEW.md",
     "hardware",
+    "knowledge",
     "microbench",
     "runs",
     "schemas",

@@ -1,166 +1,107 @@
 # Kernel Optimization Agent
 
-For a human review of the framework boundary, execution flow, directory
-ownership and contract map, start with [REVIEW.md](REVIEW.md). This README is
-the operator quick start; `AGENTS.md` contains mandatory agent policy.
+A small working kit for turning GPU and framework optimization ideas into
+tested, reviewable changes. It gives a coding agent reusable lessons and
+measurement tools while leaving analysis and implementation to the agent.
 
-This repository turns GPU-kernel optimization into a reproducible loop driven
-by workload contracts, hardware evidence and falsifiable microbenchmarks.
+**The default is an ordinary PR workflow.** Detailed hardware modeling and
+performance-limit certification are available when the problem needs them.
 
-It deliberately contains no application-specific algorithm, workload or
-performance result.  Hardware facts are separated from empirical measurements;
-measurements are keyed by device and software environment.
+## Start
 
-## Start a run
-
-An agent launched with this directory as its working tree is governed by
-`AGENTS.md` and must request operator computation, workload and target hardware
-before tuning.  The same gate is enforced by the command line:
+Python 3.10+ is enough for the lightweight commands; no model API, GPU framework,
+database, scheduler service or agent framework is required to use the notebook
+and knowledge search. Run these commands from the repository root:
 
 ```bash
-python3 scripts/kernel_opt.py new-run --help
-python3 scripts/kernel_opt.py new-run --print-intake
+python scripts/kernel_opt.py knowledge search "collective launch overhead"
+python scripts/kernel_opt.py worklog init --run runs/my-optimization \
+  --objective "Reduce overhead in the affected production path" \
+  --source "repository URL and commit" \
+  --workload "representative shapes, mode and numerical requirements" \
+  --hardware "device and runtime version"
 ```
 
-Once three manifests are available:
+Run the repository's normal tests and benchmark in your chosen environment, then
+record a result with its reproduction command and existing evidence:
 
 ```bash
-python3 scripts/kernel_opt.py new-run \
-  --operator operator.json \
-  --workload workload.json \
-  --hardware hardware.json
+python scripts/kernel_opt.py worklog record --run runs/my-optimization \
+  --kind correctness --summary "Focused tests passed" \
+  --evidence /path/to/test-output.txt --command "pytest tests/test_affected.py"
+python scripts/kernel_opt.py worklog record --run runs/my-optimization \
+  --kind decision --status INCONCLUSIVE \
+  --summary "Correctness passed; representative workload comparison remains"
+python scripts/kernel_opt.py worklog status --run runs/my-optimization
 ```
 
-`scripts/kernel_opt.py` is the stable public command surface. Individual
-scripts remain implementation modules:
+The notebook links and hashes evidence automatically. It does not execute the
+recorded command, infer missing measurements, or certify a PR as Ready. Change
+the source/workload/hardware descriptions to the actual experiment before
+interpreting results. Unknown values remain explicit when starting discovery.
+
+For an agent, point it at [AGENTS.md](AGENTS.md) and the
+[kernel-optimizer skill](skill/kernel-optimizer/SKILL.md). Ask it to:
+
+1. Confirm a correct baseline and the production path being optimized.
+2. Test a small, high-value hypothesis using the cheapest informative experiment.
+3. Validate correctness and compare representative baseline/candidate runs.
+4. Deliver a focused PR or record why the candidate should stop.
+
+## Reuse and contribute knowledge
+
+Start with [knowledge/README.md](knowledge/README.md). The maintained shortlist
+is in `knowledge/lessons/`: applicability, a useful lesson, exceptions and public
+evidence. Search returns a few related entries; it never chooses the optimization
+for you. Specialist archives, where present in your checkout, remain available
+for explicit searches.
 
 ```bash
-python3 scripts/kernel_opt.py --help
-python3 scripts/kernel_opt.py new-run --operator operator.json --workload workload.json --hardware hardware.json
-python3 scripts/kernel_opt.py next --run runs/<run-id>
+python scripts/kernel_opt.py knowledge search "graph mode latency"
+python scripts/kernel_opt.py knowledge add --file /path/to/lesson.json
+python scripts/kernel_opt.py knowledge check
 ```
 
-The run is intentionally blocked until `hardware_evidence.json` archives exact
-vendor-official documents for the programming model, ISA, target-architecture
-tuning guide and device specification. If the agent cannot find one of those
-official documents, the developer must provide its location; inferred hardware
-facts and neighboring-device values are forbidden.
+Contribute a lesson with a small PR. Search first, reuse its stable ID when
+improving an existing lesson, and explain which evidence changed the advice.
+Upload reusable code and sanitized evidence; keep private logs, machine access
+details, model downloads and raw profiles outside the PR. Git records revisions;
+ordinary knowledge edits do not need a new versioned approval chain.
 
-After the exact launched binary is archived inside the run, disassemble it with
-a hash-bound tool/architecture receipt, classify every static instruction site,
-and build the conservative resource set. Unknown or multiply classified SASS
-mnemonics are a hard stop:
+## Tools and research mode
+
+`python scripts/kernel_opt.py --help` shows the small default interface.
+`python scripts/kernel_opt.py --all` lists optional and historical commands.
+Existing command names and recorded research runs retain their meaning.
+
+Useful specialist tools include paired sample analysis, source bundle transport,
+runtime import checks, hardware queries and profiler analysis. Use whichever is
+available in your checkout and relevant to the experiment. They are not a required
+sequence. For an explicit lower-bound or performance-limit claim, use
+[performance-limit research](skill/kernel-optimizer/references/limit_research.md).
+
+## Layout
+
+| Path | Purpose |
+| --- | --- |
+| `AGENTS.md`, `skill/kernel-optimizer/` | Short default instructions; opt-in research references |
+| `knowledge/lessons/` | Reviewed, portable lessons shared through Git |
+| `scripts/` | Notebook, retrieval and reusable measurement tools |
+| `tests/` | Tests for maintained tools |
+| `runs/` | Local experiment notebooks, commands and raw results |
+| `hardware/`, `microbench/`, `schemas/`, `templates/` | Existing specialist research assets |
+
+New runs and caches are ignored by Git. Previously tracked research material is
+preserved for reproducibility; there is no automatic deletion or migration.
+Historical community governance documents are records, not default instructions.
+
+## Checks
 
 ```bash
-python3 scripts/kernel_opt.py sass-archive \
-  --binary runs/<run-id>/static/launched.cubin \
-  --output-sass runs/<run-id>/static/final.sass \
-  --output-receipt runs/<run-id>/static/disassembly_receipt.json \
-  --vendor NVIDIA --device-name '<exact device>' --compute-capability 12.0
-python3 scripts/kernel_opt.py sass-count \
-  --input runs/<run-id>/static/final.sass \
-  --binary runs/<run-id>/static/launched.cubin \
-  --disassembly-receipt runs/<run-id>/static/disassembly_receipt.json \
-  --output runs/<run-id>/static/sass-summary.json
-python3 scripts/kernel_opt.py resources-discover \
-  --sass-summary runs/<run-id>/static/sass-summary.json \
-  --hardware-evidence runs/<run-id>/hardware_evidence.json \
-  --output runs/<run-id>/models/resource_discovery.json
-python3 scripts/kernel_opt.py next --run runs/<run-id>
+python -B -m pytest -q -p no:cacheprovider tests/test_worklog.py tests/test_knowledge_notes.py
+python scripts/kernel_opt.py knowledge check
 ```
 
-Use `scripts/kernel_opt.py hardware-discover` to create a hardware snapshot,
-then use the selected microbenchmarks and analysis commands to build evidence. `runs/` is
-for generated artifacts; reusable knowledge belongs in `hardware/`,
-`microbench/`, `schemas/` or the skill references.
-
-Each run designates one `GLOBAL_SCHEDULER` and an independent
-`GLOBAL_SUPERVISOR`. The scheduler maintains the global resource balance,
-2--4-candidate tradeoff frontier and candidate-driven experiment queue. The
-supervisor alone approves a hash-bound, budgeted dispatch. Stage workers cannot
-accept a local candidate or approve their own probe. Phase gates reject a
-run whose material resources are omitted, whose unknown utilization is not
-bound to an experiment request, or whose accepted candidate lacks a global
-tradeoff decision.
-
-The shortest legal experiment path is:
-
-```bash
-python3 scripts/kernel_opt.py experiment-rank --run runs/<run-id>
-python3 scripts/kernel_opt.py experiment-materialize --run runs/<run-id> --request-id <id>
-# Complete the sealed experiment.json, then independent review:
-python3 scripts/kernel_opt.py experiment-approve --run runs/<run-id> --request-id <id> \
-  --supervisor-id <registered-id> --rationale '<decision-boundary review>'
-python3 scripts/kernel_opt.py experiment-dispatch --run runs/<run-id> --request-id <id>
-```
-
-Dispatch fails when the top-two ordering cannot flip, the quantity is not
-identifiable at the required precision, any role identity overlaps, a tier
-budget is exceeded, or any approved artifact changed.
-
-Run phases are non-skippable.  Inspect and advance the next gate with:
-
-```bash
-python3 scripts/kernel_opt.py advance --run runs/<run-id> --to BASELINE --check-only
-python3 scripts/kernel_opt.py advance --run runs/<run-id> --to BASELINE
-```
-
-The enforced order is planning, production-exact baseline, modeling,
-P0--P3 experiments, production/P4 validation, certification and completion.
-
-## Clean asset lifecycle
-
-Each directory has one owner:
-
-- `runs/` contains mutable application work, raw evidence, binaries and new
-  microbenchmark candidates.
-- `microbench/` contains promoted application-independent source packages only.
-- `hardware/measurements/` contains immutable results keyed by complete device
-  and software identity.
-- `skill/`, `scripts/`, `schemas/` and `templates/` contain only reusable
-  instructions, automation and contracts.
-
-Create candidates with `scripts/kernel_opt.py microbench-new`. At each accepted
-hypothesis and before closing a run, execute `scripts/kernel_opt.py
-microbench-harvest --run <run> --promote`; only candidates whose
-correctness, controls, clean build, two independent cold starts, genericity and
-static-instruction evidence are hash-bound and pass are added to the catalog.
-Mechanism, device-calibrated and production-predictive claims have progressively
-stronger gates. Device qualification additionally requires an
-`EVIDENCE_CLOSED_V2` record in `hardware/measurements/index.json`; a string
-`PASS` or an unregistered result is rejected. Promotion is append-only and never overwrites an
-existing package. `scripts/kernel_opt.py audit` rejects undeclared files,
-caches, generated outputs, production dependencies and task-specific content
-in reusable directories.
-
-Cold validation commands are argv-form JSON executed by `scripts/kernel_opt.py
-microbench-reproduce`. The executor rejects source-tree
-outputs and stale pre-existing artifacts, then binds logs and fresh outputs to
-its own identity. Promotion accepts PASS check results only when those exact
-artifacts occur in a trusted reproduction receipt.
-
-## Evidence classes
-
-- `FACT`: queried or statically verified.
-- `MEASURED`: backed by immutable raw samples.
-- `INFERRED`: derived from stated facts and measurements.
-- `HYPOTHESIS`: awaiting a discriminating experiment.
-- `REJECTED`: falsified or measured with an invalid method.
-
-See `skill/kernel-optimizer/references/` for the optimization protocol.
-
-## Seeded hardware evidence
-
-The first adapter and historical dataset target an RTX 5090 / SM120 environment.
-They live under `hardware/measurements/nvidia/rtx5090_sm120_gpu6/` and include a
-hardware snapshot, raw launch/barrier/load/store samples, service-curve fits,
-the compiled binary identity, resource usage and SASS.  The counter-access
-probe is archived separately and currently reports `DENIED`; no stall-counter
-claim is permitted from that environment.
-
-Those historical records are explicitly `LEGACY_UNQUALIFIED`: they may be
-inspected, but they cannot parameterize a hardware model. A usable measurement
-must be re-run and registered as `EVIDENCE_CLOSED_V2` with official target
-evidence, P0 calibration, source, binary, final SASS and raw samples. New device
-models receive separate snapshots and measurement directories rather than
-inheriting values.
+See [REVIEW.md](REVIEW.md) for scope, tradeoffs and review guidance. Success is
+measured by useful, correctly validated changes and avoided repeated mistakes,
+not the number of cards, agents, test cases or generated documents.

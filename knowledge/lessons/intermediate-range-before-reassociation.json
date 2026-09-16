@@ -1,0 +1,14 @@
+{
+  "id": "intermediate-range-before-reassociation",
+  "title": "Check intermediate ranges before reassociation or hoisting",
+  "applies_when": "Fusion, quantization algebra or validation hoisting changes where a low-precision product, subtraction, accumulation or cast occurs.",
+  "lesson": "Compare intermediate ranges and rounding points in the original and rewritten expressions. A representable final mathematical result can still overflow during evaluation. Test legal extrema and cancellation cases alongside ordinary inputs; retain required casts or use a permitted wider accumulator when the new expression exceeds its dtype range.",
+  "avoid_when": "Real-number algebra alone does not justify a floating-point rewrite. This lesson does not prohibit reassociation when the operator contract permits its numerical effect and range analysis covers the legal domain.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/main/notes/numerical_accuracy.html#extremal-values",
+      "note": "PyTorch gives an intermediate-overflow example with a representable mathematical result. This supports the range hazard, not a speed or correctness claim for a specific rewrite."
+    }
+  ],
+  "status": "validated"
+}
