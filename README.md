@@ -1,11 +1,17 @@
 # Kernel Optimization Agent
 
-A small working kit for turning GPU and framework optimization ideas into
-tested, reviewable changes. It gives a coding agent reusable lessons and
-measurement tools while leaving analysis and implementation to the agent.
+A model-independent working kit for understanding hardware and developing
+correct, faster kernels at lower experiment and context cost. Reusable evidence
+and tools should help a fresh capable model reach good solutions sooner, explain
+the remaining performance gap when justified, and contribute what it learns.
 
-**The default is an ordinary PR workflow.** Detailed hardware modeling and
-performance-limit certification are available when the problem needs them.
+**Constrain the claims and side effects, not the model's method.** The agent may
+choose its algorithms, search breadth, experiment order, tools and collaborators;
+the workflow below is a useful starting point, not a prescribed sequence.
+Correctness, reproducible evidence, user scope and shared-resource safety remain
+requirements. Approaching a justified performance limit is a research direction,
+not a certificate required for every useful change. Stronger models should reuse
+the accumulated assets without inheriting a fixed reasoning recipe.
 
 ## Start
 
@@ -41,7 +47,7 @@ the source/workload/hardware descriptions to the actual experiment before
 interpreting results. Unknown values remain explicit when starting discovery.
 
 For an agent, point it at [AGENTS.md](AGENTS.md) and the
-[kernel-optimizer skill](skill/kernel-optimizer/SKILL.md). Ask it to:
+[kernel-optimizer skill](skill/kernel-optimizer/SKILL.md). A typical task covers:
 
 1. Confirm a correct baseline and the production path being optimized.
 2. Test a small, high-value hypothesis using the cheapest informative experiment.
