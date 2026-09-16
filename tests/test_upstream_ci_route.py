@@ -250,7 +250,7 @@ def test_snapshot_schema_rejects_hidden_payload() -> None:
 
 def test_public_cli_registers_upstream_ci_route() -> None:
     completed = subprocess.run(
-        [sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"],
+        [sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--all"],
         check=True,
         capture_output=True,
         text=True,

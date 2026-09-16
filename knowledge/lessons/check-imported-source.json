@@ -1,0 +1,14 @@
+{
+  "id": "check-imported-source",
+  "title": "Identify the code imported by the benchmark process",
+  "applies_when": "Python benchmarks involve editable installs, multiple checkouts, generated modules, native extensions or a long-lived interpreter that may retain an earlier import.",
+  "lesson": "Use the actual benchmark interpreter and environment to inspect module origins, including __file__ or __spec__.origin where available. Check the callable's defining module and the native extension build when relevant. Python's module cache and import search path can make an edited checkout differ from the code being measured; use a fresh process when cached imports obscure the comparison.",
+  "avoid_when": "A matching Python filename does not prove that a compiled extension or captured graph contains the new code. Namespace and built-in modules may have no ordinary source file. Import checks can execute module initialization, so choose a safe diagnostic entry point.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3/reference/import.html",
+      "note": "The Python reference documents the module cache, search path and module specifications. These mechanisms explain source ambiguity; it does not validate any local installation or build."
+    }
+  ],
+  "status": "validated"
+}

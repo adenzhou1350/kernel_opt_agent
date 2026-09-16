@@ -1,0 +1,14 @@
+{
+  "id": "measure-production-execution-mode",
+  "title": "Recheck eager improvements under production graph execution",
+  "applies_when": "A change saves Python dispatch or launch overhead, uses a runtime override, or routes on tensor shape while production uses compilation or CUDA graph replay.",
+  "lesson": "Compare baseline and candidate in the same production execution mode and verify the changed path executes there. Graph replay can remove the CPU work that dominated an eager experiment. Report startup and capture separately from steady-state latency. When dispatch needs the logical phase or valid row count, verify it still receives that information under padded or compiled execution.",
+  "avoid_when": "An eager diagnostic can isolate a mechanism but cannot establish the sign of a graph-mode improvement. Do not add graph-specific machinery to a workload that only uses eager execution.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/main/notes/cuda.html#cuda-graphs",
+      "note": "PyTorch documents fixed replay arguments, reduced CPU overhead and omitted CPU work during replay. Production routing and performance conclusions remain candidate-specific hypotheses."
+    }
+  ],
+  "status": "hypothesis"
+}

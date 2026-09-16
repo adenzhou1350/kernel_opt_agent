@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Single public command surface for the evidence-closed optimization workflow."""
+"""Practical optimization tools. Use --all for optional research commands."""
 
 from __future__ import annotations
 
@@ -21,6 +21,10 @@ class Command:
 
 
 COMMAND_GROUPS: dict[str, dict[str, Command]] = {
+    "everyday optimization": {
+        "worklog": Command("worklog.py", "record a local optimization run and its evidence"),
+        "knowledge": Command("knowledge_notes.py", "search, deduplicate and contribute reusable lessons"),
+    },
     "run lifecycle": {
         "new-run": Command("new_run.py", "freeze intake and create a run"),
         "trace-intake": Command("import_flashinfer_trace.py", "convert FlashInfer Trace into frozen intake contracts"),
@@ -200,18 +204,24 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
 COMMANDS = {name: command for group in COMMAND_GROUPS.values() for name, command in group.items()}
 
 
-def epilog() -> str:
+def epilog(all_commands: bool = False) -> str:
     lines = ["commands:"]
     for group, commands in COMMAND_GROUPS.items():
+        if not all_commands and group != "everyday optimization":
+            continue
         lines.append(f"  {group}:")
         lines.extend(f"    {name:<24} {command.summary}" for name, command in commands.items())
-    lines.extend(("", "arguments after COMMAND are forwarded unchanged; use COMMAND --help for details"))
+    lines.extend(("", "use --all for specialist and historical research commands",
+                  "arguments after COMMAND are forwarded unchanged; use COMMAND --help for details"))
     return "\n".join(lines)
 
 
 def main() -> int:
+    if sys.argv[1:] == ["--all"]:
+        print(epilog(all_commands=True))
+        return 0
     parser = argparse.ArgumentParser(description=__doc__, epilog=epilog(), formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=sorted(COMMANDS))
+    parser.add_argument("command", choices=sorted(COMMANDS), metavar="COMMAND")
     # Once a valid command is present, every remaining argument belongs to the
     # child command. In particular, COMMAND --help must show the child's help.
     if len(sys.argv) >= 2 and sys.argv[1] in COMMANDS:

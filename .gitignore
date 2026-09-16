@@ -6,3 +6,7 @@ runs/*/candidates/build/
 .DS_Store
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
+# Keep new local runs out of knowledge PRs; historical tracked runs stay tracked.
+runs/*
+.intake-*/

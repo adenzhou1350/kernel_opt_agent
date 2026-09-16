@@ -1,0 +1,14 @@
+{
+  "id": "production-path-and-impact",
+  "title": "Trace the production path before crediting a local speedup",
+  "applies_when": "A helper or kernel microbenchmark improves, but backend dispatch, fallback behavior or its share of the target workload is uncertain.",
+  "lesson": "Trace representative requests to the implementation that actually runs. Estimate how much elapsed time that component can remove before expanding optimization work. An Amdahl estimate needs a measured non-overlapping time share and unchanged residual work; inclusive profiler totals are not automatically that share. Confirm the eventual result in the target workload.",
+  "avoid_when": "Do not treat a configuration flag as execution evidence, invent a missing time share, or apply a universal minimum gain. Amdahl's simple serial model needs adjustment when overlap, concurrency or bottlenecks change.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/#application-profiling",
+      "note": "Official guidance supports realistic workload profiling and scope-limited speedup bounds. It does not establish reachability or a measured gain for any particular candidate."
+    }
+  ],
+  "status": "validated"
+}

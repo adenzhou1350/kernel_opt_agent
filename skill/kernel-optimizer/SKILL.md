@@ -1,168 +1,48 @@
 ---
 name: kernel-optimizer
-description: Plan, model and optimize GPU kernels against an explicit computation contract, target workload and target hardware using microarchitecture-rooted resource models, PTX/SASS audits, reproducible microbenchmarks and evidence-graded limit certificates. Use for kernel performance analysis or iterative implementation; do not use for ordinary application profiling without kernel optimization intent.
+description: Optimize GPU kernels and framework execution paths for a concrete workload, validate correctness and performance, and prepare focused upstream changes. Use deeper resource modeling when a performance-limit claim requires it.
 metadata:
-  short-description: Evidence-driven GPU kernel optimization
+  short-description: Practical kernel optimization with reusable evidence
 ---
 
 # Kernel optimizer
 
-Begin every new run with the mandatory intake gate.  Freeze operator
-computation, target workload and target hardware.  First resolve them from the
-active Goal, current run, repository and live resource inventory; ask only for
-a missing choice that changes semantics, expensive execution scope or an
-external mutation.  A standing authorization to auto-discover a named resource
-class allows the controller to freeze a freshly attested idle device from that
-class, but never to preempt a service.  Read
-[references/intake.md](references/intake.md) when fields remain unresolved or
-a historical run may be reused.
+Read the repository's `AGENTS.md`. Default to a focused implementation and
+validation loop. Ordinary optimization does not require a formal phase machine,
+multiple agent roles or a performance-limit certificate.
 
-In a multi-lane portfolio, keep each lane autonomous and the controller
-pull-based.  Do not send acknowledgements, unchanged status, successive hash
-lists or ordinary cycle narration to another lane.  Persist them in the run
-and continue the Goal.  Notify the controller only for a changed candidate
-decision, Draft/Ready/merged or maintainer action, terminal approved expensive
-execution, evidence-invalidating defect, or genuinely user-owned decision.
-Blocked accelerator, environment or review gates leave cheap discovery,
-focused correctness and Draft preparation available.
+Resolve computation semantics, representative workload, target hardware and
+numerical tolerance from the task and available evidence. Keep unknowns explicit.
+Search a few relevant lessons with `scripts/kernel_opt.py knowledge search`;
+check the conditions and underlying sources before applying them.
 
-Then execute an evidence-driven loop:
+Establish a runnable correct baseline and confirm the affected production path.
+Estimate whether removing the suspected cost could matter to the whole workload.
+Then make the smallest useful change and run the cheapest test that can reject
+it. Expand profiling, modeling or the candidate search only when the result
+would change the next decision.
 
-1. Freeze semantics, ABI, correctness tolerances and workload weights.
-2. Discover and snapshot hardware/toolchain state, then establish a correct
-   production-exact discovery baseline.
-3. Read
-   [references/discovery_loop.md](references/discovery_loop.md), derive the
-   operator's exact theory-to-kernel dependency spine, then compile 2--6
-   conditional global opportunities from the work/DAG models and rank them by
-   expected global gain, confidence and implementation cost with
-   `scripts/kernel_opt.py opportunity`. Never present a decomposition-specific
-   floor as an absolute global optimum.
-4. Generate 2--6 materially different architecture candidates, starting with
-   the top one or two ranked opportunities, and write their run-local production
-   implementations. Expand toward the upper bound only after the first focused
-   candidates fail or remain ambiguous. Use `scripts/kernel_opt.py candidate` to give
-   compiler, import, layout and harness failures a bounded repair loop.
-5. Cheaply screen every valid architecture family on an anchor and edge case.
-   Discovery results route work only; they do not accept a candidate or claim a
-   hardware fact. Before expanding environment or accelerator qualification,
-   run `scripts/kernel_opt.py candidate-value` on each survivor, then immediately
-   start its prospective ledger with `community-timing init
-   --candidate-value-decision`. The strict start re-hashes the request and
-   recomputes the decision; a generic evidence file is not an exact
-   candidate-to-Draft origin. Quantify an
-   unknown whole-workload ceiling rather than guessing it, stop candidates
-   below the materiality floor, and account for permanent review/API/protocol
-   cost. Promote at most 2--4 survivors.
-6. For qualification finalists, build `hardware_evidence.json` from exact
-   vendor-official documents and official target-device queries. Archive URL,
-   command, version, section, artifact and SHA-256. Do not record an inferred
-   hardware fact or a neighboring-device value.
-7. Archive the exact launched finalist/baseline binaries with
-   `scripts/kernel_opt.py sass-archive`, classify them with `sass-count`, then
-   run `resources-discover`. Every static site must map to exactly one reviewed
-   instruction class; unresolved or ambiguous mappings block qualification.
-8. Create the optimization plan and target-
-   microarchitecture resource graph. Build mandatory-work and
-   mathematical/current-DAG ledgers, then map the current schedule onto the
-   resource graph.
-9. Bind and freeze the 2--4 promoted architecture-level candidates. Compute each
-   candidate's resource-constrained objective interval.  Register only the one
-   unresolved quantity whose uncertainty can change the top-two ordering; an
-   `UNKNOWN` resource is not by itself permission to measure.
-10. Have a separate microarchitecture analyst map that abstract quantity to an
-   observable.  If an atomic probe cannot identify it with the precision
-   required by the decision boundary, use candidate A/B or stop; do not expand
-   a parameter sweep.  Read
-   [references/decision_supervision.md](references/decision_supervision.md).
-11. Pass P0 from raw positive/zero-work, graph/direct, clock, competing-load,
-   independent-process and cold/warm measurements. Then materialize the
-   experiment contract before dispatch: immutable source, argv-form commands,
-   parameter matrix, controls, expected SASS and artifacts.
-12. Obtain a hash-bound `GLOBAL_SUPERVISOR` approval.  The supervisor must be
-   distinct from the scheduler, microarchitecture analyst and experimenter,
-   may veto the experiment, and enforces separate screening/qualification
-   budgets.  No approval means no dispatch.
-13. Qualify one discovery survivor, validate full-workload correctness, run
-   interleaved paired measurements and complete the required PTX/SASS/resource
-   audit. Technical implementation failures are repaired in discovery and do
-   not count as causal experiment revisions.
-14. Record ACCEPT, REJECT or INCONCLUSIVE; bind only results created by the
-   sealed execution contract. Apply field-level update transforms to resource
-   balance, schedule and frontier, verify before/after hashes and recompute the
-   changed fields from the bound result before reranking.
-15. When a new probe answers an application-independent hardware question,
-   automatically process it through the microbenchmark promotion gate. Static,
-   mechanism, device and production-predictive qualification are distinct;
-   device claims require an evidence-closed measurement registration. Keep a
-   failed or application-shaped probe inside its run; never copy it directly
-   into the reusable catalog.
+Match baseline and candidate source, inputs, execution mode, runtime and device.
+Use the target's numerical contract; bitwise equality is not universally required.
+Distinguish kernel time, GPU activity and end-to-end latency. Qualify performance
+with representative repeated comparisons, including relevant regression cases.
+Treat environment failures as environment problems rather than evidence against
+the optimization. Keep repairs bounded by their likely value.
 
-Every run must designate exactly one global scheduling/resource-modeling owner
-and one independent global supervisor.  Before building the plan or delegating stage work, read
-[references/global_scheduler.md](references/global_scheduler.md).  The global
-scheduler owns resource balance, candidate generation, compute-memory
-tradeoffs and ranking.  The supervisor alone approves dispatch and may halt or
-force replanning.  Stage agents return evidence; they do not independently
-declare a local optimum.
+Use `worklog init|record|status` for lightweight experiment notes, or reuse the
+task's existing record. Write reproduction commands and evidence once; let tools
+compute identities. A passing bookkeeping check is not a correctness result.
 
-Use `scripts/kernel_opt.py advance` for every phase transition. A production run must
-use the `evidence-closed-v2` contract; an absent or unknown contract never falls
-back to legacy behavior. Do not qualify a discovery candidate before the run
-reaches `EXPERIMENT`, validate production
-before `PRODUCTION_VALIDATION`, or issue a limit claim before `CERTIFICATION`.
-Run-local discovery implementation and cheap screening are allowed after a
-correct baseline, regardless of formal phase, because they carry no production
-acceptance claim.
-The phase checker is a minimum gate; passing it does not replace technical
-judgment or evidence review.
+Prepare a small PR according to the target repository's requirements. State the
+tested scope and pending checks. When a direction fails, record the counterexample
+and a concrete reopening condition. Extract a reusable lesson only if it improves
+a future decision; follow `knowledge/README.md` and deduplicate existing entries.
 
-Prefer the stable `scripts/kernel_opt.py` command surface; individual scripts
-are implementation modules. Use `scripts/kernel_opt.py next --run <run>` after
-every artifact change. It
-selects the next model-driven action; `--apply-safe` may perform deterministic
-ranking and planning steps but never executes an unmaterialized experiment or
-silently applies an arbitrary numeric result to the global model.
+On shared hardware, use compatible idle devices under the existing authority,
+isolate environments and caches, coordinate active allocation, and clean up only
+your own processes. No legacy queue or lease is required. Keep ordinary progress
+in the task record; avoid cross-task acknowledgements and repeated status messages.
 
-For plan construction and resource mapping, read
-[references/microarchitecture_planning.md](references/microarchitecture_planning.md),
-then use [references/modeling.md](references/modeling.md) for lower bounds.  For
-PTX/SASS admission and causal instruction analysis, read
-[references/instruction_analysis.md](references/instruction_analysis.md).  For
-test design and decision gates, read
-[references/optimization_workflow.md](references/optimization_workflow.md).
-When creating or reusing a microbenchmark, read
-[references/microbenchmark_lifecycle.md](references/microbenchmark_lifecycle.md).
-For timer choice, mechanism controls, P0--P4 qualification and coupled-resource
-experiments, also read
-[references/microbenchmark_precision.md](references/microbenchmark_precision.md).
-For evidence labels and invalid measurement patterns, read
-[references/evidence_grades.md](references/evidence_grades.md).  For hardware
-selection and database rules, read
-[references/hardware_routing.md](references/hardware_routing.md).
-
-When producing a human-facing optimization review, read the complete contract
-under [references/human_review_contract/](references/human_review_contract/README.md).
-Build the machine-readable report first, validate it with `scripts/kernel_opt.py
-report-validate`, and only then render HTML with `report-render`. The primary page must use the
-contract's Chinese vocabulary, keep internal experiment IDs in the collapsed
-developer appendix, distinguish capacity from activity, and map every latency
-or throughput claim to a matched measurement and an explicit boundary.
-
-Use repository scripts for deterministic intake, discovery, fitting, paired
-analysis, benchmark promotion, repository-purity auditing and certificate
-emission. A proof certificate is computed per workload case from immutable
-silicon, resource-service and dependency-DAG lower bounds plus a feasible
-schedule upper bound; the checker recomputes the weighted gap. `runs/` owns
-mutable and application-specific work. Reusable
-directories contain only promoted source, schemas, instructions or immutable
-hardware evidence; do not place build products or production imports there.
-
-After intake is complete, start the authorized baseline and modeling work
-without asking for another generic confirmation.  Pause only for a missing
-mathematical choice, correctness relaxation, costly experiment or external
-mutation that exceeds the user's authority.  Environment repair is bounded:
-route every terminal attempt through `qualification-route`, create a successor
-only for changed executable bytes, identities or reviewed scope, and stop that
-route when its frozen repair budget is exhausted.  Continue another cheap
-candidate or delivery task instead of producing more plan/receipt versions.
+For explicit hardware bounds, final-instruction attribution or certification,
+read [limit_research.md](references/limit_research.md). Load further references
+only when that mode or a concrete technical question needs them.

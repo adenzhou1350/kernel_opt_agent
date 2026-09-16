@@ -34,7 +34,7 @@ def main() -> int:
     assert len(groups) == len(set(groups)), f"duplicate CLI command groups: {groups}"
 
     result = subprocess.run(
-        [sys.executable, str(CLI), "--help"],
+        [sys.executable, str(CLI), "--all"],
         capture_output=True,
         check=True,
         text=True,
@@ -50,6 +50,11 @@ def main() -> int:
         "upstream-readiness-discover",
     ):
         assert command in result.stdout, command
+    default = subprocess.run(
+        [sys.executable, str(CLI), "--help"], capture_output=True, check=True, text=True,
+    )
+    assert "worklog" in default.stdout and "knowledge" in default.stdout
+    assert "upstream-author-accountability" not in default.stdout
     print("kernel_opt CLI section test: PASS")
     return 0
 

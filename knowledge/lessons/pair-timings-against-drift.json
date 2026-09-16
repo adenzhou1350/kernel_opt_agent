@@ -1,0 +1,14 @@
+{
+  "id": "pair-timings-against-drift",
+  "title": "Pair baseline and candidate timings to expose run-order drift",
+  "applies_when": "A small latency difference may be confounded by warmup, cache state, thermal drift, competing load or separate benchmark sessions.",
+  "lesson": "Match workload, concurrency, precision and timing boundaries across arms. Warm each arm appropriately, then collect nearby baseline/candidate pairs with randomized or balanced order. Retain paired differences and variability. If the apparent gain cannot be distinguished from drift and noise, report it as inconclusive rather than choosing a favorable session.",
+  "avoid_when": "Pairing does not repair unequal configurations or state leaking between arms. Use independently initialized processes when necessary and randomize their order. Cold-start objectives need their own comparable cold-start measurements.",
+  "evidence": [
+    {
+      "url": "https://google.github.io/benchmark/user_guide.html#random-interleaving",
+      "note": "Google Benchmark documents random interleaving to reduce system-state effects. Pairing and process isolation here are experimental-design suggestions, not proof of a measured improvement."
+    }
+  ],
+  "status": "hypothesis"
+}

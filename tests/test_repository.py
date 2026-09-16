@@ -204,6 +204,9 @@ def main():
         json.loads(path.read_text(encoding="utf-8"))
 
     cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--help"])
+    assert "worklog" in cli_help.stdout and "knowledge" in cli_help.stdout
+    assert "experiment-execute" not in cli_help.stdout
+    cli_help = run([sys.executable, str(ROOT / "scripts/kernel_opt.py"), "--all"])
     assert "new-run" in cli_help.stdout and "experiment-execute" in cli_help.stdout
     child_help = run([
         sys.executable,
