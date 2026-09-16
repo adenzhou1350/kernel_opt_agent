@@ -1,0 +1,14 @@
+{
+  "id": "measured-rate-is-not-a-physical-ceiling",
+  "title": "Keep empirical service rates separate from physical capacity bounds",
+  "applies_when": "Estimating kernel headroom from a GPU specification, bandwidth microbenchmark, GEMM rate or fitted service curve.",
+  "lesson": "A conditional time lower bound needs necessary work for the permitted algorithm family and an applicable upper resource capacity. A measured rate is instead an achieved reference conditioned on shape, cache, precision, clocks and execution mode. Keep these values separate; an observation faster than the model predicts is evidence to revisit the model, not proof of exceeding hardware limits. Use resource-specific analysis to select the next experiment, then validate the production workload.",
+  "avoid_when": "Do not substitute current implementation traffic for an algorithmic minimum, use nominal-clock or sparse low-precision peaks as unconditional dense bounds, label cache-resident traffic as DRAM bandwidth, or treat a maximum of resource times as proof that an executable schedule attains it.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/nsight-compute/ProfilingGuide/",
+      "note": "Official resource and Roofline analysis distinguishes hardware capacity, achieved utilization and memory hierarchy. This supports the modeling distinction, not a measured rate or optimality claim for any particular device or kernel."
+    }
+  ],
+  "status": "validated"
+}

@@ -12,6 +12,10 @@ capable coding agent and keeps bookkeeping out of its reasoning path.
   references. It records judgments; it does not certify their truth.
 - `scripts/knowledge_notes.py` and `knowledge/lessons/`: small, inspectable search
   and contribution tools. Results expose conditions and sources, not authority.
+- `scripts/hardware_probe.py`, `scripts/hardware_profile.py` and their tests:
+  passive inventory and supplied-input resource arithmetic. Unsupported metadata
+  stays unknown; empirical rates never become physical ceilings. This is not an
+  automatic calibration service or an optimality certificate.
 - `tests/test_worklog.py` and `tests/test_knowledge_notes.py`: executable examples
   of the default path, duplicate handling and malformed-input behavior.
 - `skill/kernel-optimizer/references/limit_research.md`: intentional entry into

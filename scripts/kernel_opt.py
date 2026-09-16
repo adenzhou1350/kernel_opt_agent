@@ -24,6 +24,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
     "everyday optimization": {
         "worklog": Command("worklog.py", "record a local optimization run and its evidence"),
         "knowledge": Command("knowledge_notes.py", "search, deduplicate and contribute reusable lessons"),
+        "hardware-profile": Command("hardware_profile.py", "inspect device metadata and estimate conditional resource gaps"),
     },
     "run lifecycle": {
         "new-run": Command("new_run.py", "freeze intake and create a run"),
