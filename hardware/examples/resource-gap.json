@@ -1,0 +1,24 @@
+{
+  "device": "SYNTHETIC EXAMPLE, not an actual GPU measurement",
+  "workload": "Hypothetical fixed cold copy with verified output",
+  "assumptions": [
+    "All numbers are illustrative; replace them with applicable evidence before making any hardware claim.",
+    "Assume this algorithm class requires at least 2 MB across the stated memory boundary.",
+    "Assume the capacity ceiling holds for the same device, clock range and execution scope as the observation."
+  ],
+  "resources": [
+    {
+      "name": "dram",
+      "unit": "bytes",
+      "minimum_work": 2000000,
+      "minimum_work_basis": "Illustrative mandatory cold input plus output traffic, not current implementation traffic",
+      "upper_rate_per_second": 200000000000,
+      "upper_rate_basis": "Hypothetical upper capacity; not a measured slope or a real vendor specification",
+      "reference_work": 2000000,
+      "measured_rate_per_second": 160000000000,
+      "measurement_basis": "Illustrative matched service rate; a real record needs raw samples, command, cache/shape and runtime identity"
+    }
+  ],
+  "observed_us": 11,
+  "observation_basis": "Illustrative correct, matched observation; no GPU was run"
+}
