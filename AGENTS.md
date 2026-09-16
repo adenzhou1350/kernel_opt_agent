@@ -13,6 +13,9 @@ research references and historical community records for ordinary delivery work.
 - Search `python scripts/kernel_opt.py knowledge search "<problem>"` for a few
   relevant lessons. Read their applicability and evidence before using them.
   Search results are suggestions, not candidate rankings or verified claims.
+- For an unfamiliar GPU, use the first-layer handoff in `hardware/PROFILING.md`.
+  Carry queried facts and unknowns forward; investigate only gaps that can change
+  the next decision. Inventory is not calibration or proof of an operator optimum.
 - Establish a runnable baseline and confirm the affected path is reached. Estimate
   the possible whole-workload benefit before expensive implementation or tuning.
   Choose the cheapest useful experiment; no fixed candidate count or universal
