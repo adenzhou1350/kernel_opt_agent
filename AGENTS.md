@@ -1,32 +1,47 @@
 # Kernel optimization workspace
 
-Default to delivering a small, correct, useful upstream change. Use the model's
-judgment for analysis and implementation; use scripts for repeatable execution
-and measurement. These instructions supersede older mandatory workflow text in
+Help a fresh capable model understand hardware and reach correct, efficient
+operator implementations with less repeated work, GPU time and context cost.
+Keep evidence reusable and key decisions explainable. Use the model's judgment
+for analysis and implementation; use scripts for repeatable execution and
+measurement. These instructions supersede older mandatory workflow text in
 research references and historical community records for ordinary delivery work.
+
+The activities below are adaptable guidance, not a required sequence or a method
+whitelist. Choose, reorder or omit tools and research steps according to expected
+information value, reuse potential and the task's budget. Existing experience is
+a falsifiable prior; revise or reject it when conditions or evidence disagree.
+Keep numerical correctness, honest claims, user authority and shared-resource
+safety intact. Near-optimality is a conditional claim to justify, not an admission
+gate. Do not require a reasoning transcript; record the decisive hypothesis,
+reproduction, result and reason for changing direction once.
 
 ## Ordinary optimization work (default)
 
 - Resolve the computation, representative workload, target hardware and numerical
   requirements from the task and existing evidence. Ask only for a missing choice
   that materially changes the work. Record unknowns; cheap investigation can proceed.
-- Search `python scripts/kernel_opt.py knowledge search "<problem>"` for a few
-  relevant lessons. Read their applicability and evidence before using them.
-  Search results are suggestions, not candidate rankings or verified claims.
-- For an unfamiliar GPU, use the first-layer handoff in `hardware/PROFILING.md`.
-  Carry queried facts and unknowns forward; investigate only gaps that can change
-  the next decision. Inventory is not calibration or proof of an operator optimum.
+- Reuse relevant evidence when it can save work. The lightweight entry point is
+  `python scripts/kernel_opt.py knowledge search "<problem>"`; equivalent existing
+  evidence is fine. Check applicability before transfer, not just the architecture
+  name. Search results are suggestions, not rankings of scientific merit.
+- For unfamiliar hardware, `hardware/PROFILING.md` offers a first-layer handoff;
+  an equivalent existing profile is fine. Carry queried facts and unknowns forward.
+  Investigate gaps that can change a current or reusable future decision.
+  Inventory is not calibration or proof of an operator optimum.
 - Establish a runnable baseline and confirm the affected path is reached. Estimate
   the possible whole-workload benefit before expensive implementation or tuning.
   Choose the cheapest useful experiment; no fixed candidate count or universal
   percentage threshold is required.
-- Implement one focused candidate, run relevant correctness/regression checks,
-  then compare matched baseline/candidate workloads. Use interleaved or randomized
+- Choose candidate breadth and implementation scope by expected value; keep each
+  comparison interpretable. Run relevant correctness/regression checks and compare
+  matched baseline/candidate workloads. Use interleaved or randomized
   repeats when order, clocks, caches or competing load could confound the result.
   Preserve numerical semantics unless the task explicitly permits a relaxation.
-- Keep one lightweight notebook with `worklog init|record|status`. Record source,
-  workload, hardware, reproduction commands, results and evidence paths. This is
-  bookkeeping, not a phase gate. Existing task notes can be used without migration.
+- Keep source, workload, hardware, reproduction commands, results and evidence
+  in the task's existing record or a lightweight `worklog init|record|status`
+  notebook. Record once, not in duplicate formats or for every routine tool call.
+  Bookkeeping is not a phase gate; existing notes need no migration.
 - End a candidate with a reviewable change or an evidence-backed stop/inconclusive
   decision. Record the reason and what would justify reopening it. Repeated
   environment repair should trigger a change of approach, not more planning files.
@@ -73,10 +88,10 @@ Repository-maintenance PRs are separate from community optimization results.
 
 ## Optional performance-limit research
 
-Only use `skill/kernel-optimizer/references/limit_research.md` when the task asks
-for a performance bound/certificate or when detailed architecture modeling is
-needed. That mode retains the existing strict experiment and certification tools.
-Its requirements do not block an ordinary correctness or optimization PR.
+Use `hardware/PROFILING.md` for lightweight conditional resource-gap analysis.
+Use `skill/kernel-optimizer/references/limit_research.md` when the deliverable
+needs that formal protocol or you deliberately choose it for the task. Its
+existing strict requirements do not block ordinary analysis or a useful PR.
 
 ## Repository changes
 

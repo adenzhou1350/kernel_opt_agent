@@ -1,8 +1,9 @@
 # Optional performance-limit research
 
-Use this mode when the requested result is a justified performance bound,
-architecture-level explanation or limit certificate. Ordinary PR delivery uses
-the repository's short default workflow and does not inherit these requirements.
+Use this mode when the deliverable needs this repository's formal protocol or
+you deliberately choose it for the task. A hardware explanation or conditional resource-gap
+estimate alone does not require the phase machine. Ordinary analysis and PR
+delivery use the short default workflow and do not inherit these requirements.
 
 The existing strict pipeline remains:
 
@@ -27,10 +28,11 @@ Load references for the research question:
   controls, qualification and production comparisons.
 - [evidence_grades.md](evidence_grades.md): what each level of evidence can prove.
 
-A limit claim needs applicable lower bounds, a feasible upper bound, measured
-uncertainty and a reproducible gap calculation. A fast benchmark or plausible
-SASS explanation alone is not a proof. When those inputs cannot be obtained,
-report the measured result and uncertainty without claiming optimality.
+A near-optimality or gap certificate needs applicable lower bounds, a feasible
+upper bound, measured uncertainty and a reproducible gap calculation. A lower
+bound alone does not prove attainability; a fast benchmark or plausible SASS
+explanation alone is not a proof. When those inputs cannot be obtained, report
+the measured result and uncertainty without claiming optimality.
 
 These documents describe strict research procedures. Their general-sounding
 "every run" rules apply only to runs intentionally using this research mode.

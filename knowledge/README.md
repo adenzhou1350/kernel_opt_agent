@@ -5,6 +5,12 @@ a hypothesis, then apply the ones whose conditions fit the current work.
 After learning something reusable, update an existing lesson or add one scoped
 lesson. A run does not owe the library a new card.
 
+Knowledge is an evidence-backed starting point, not a method whitelist. A newer
+model may choose a different algorithm or overturn old advice. Preserve the
+applicability and counterexample when updating a lesson so the next task saves
+experiments rather than inherits an unexplained rule. Same-architecture matches
+help discovery; they do not establish equal device capacity or transferable rates.
+
 ```sh
 python scripts/kernel_opt.py knowledge search "graph launch overhead" --limit 3
 python scripts/kernel_opt.py knowledge add --file lesson.json

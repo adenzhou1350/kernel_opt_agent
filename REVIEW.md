@@ -49,6 +49,10 @@ The refactor removes that default requirement and keeps working tools callable.
 Removing the legacy implementation wholesale would break recorded reproductions
 without establishing any benefit to ordinary delivery.
 
-Future additions should demonstrate a concrete reduction in repeated failure,
-time to a correct result or validation cost. Compare workflow changes on new,
-similar tasks with the same model and budget before claiming improved PR yield.
+Judge substantial additions by reduced repeated failure, time to a correct
+result, GPU cost and model-context cost, alongside validated performance and
+remaining justified resource gaps. For claims about workflow/knowledge value,
+compare held-out tasks with the same model, tools and budget, with and without
+the added asset; include retrieval and revalidation costs. Do not credit a model
+upgrade to the workflow or count more documents/PRs as proof of useful progress.
+This is how to evaluate the system, not a new gate for each routine edit.
