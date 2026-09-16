@@ -70,11 +70,14 @@ ordinary knowledge edits do not need a new versioned approval chain.
 
 ## Tools and research mode
 
-For device metadata and a lightweight, conditional performance-gap calculation,
-see [hardware-aware profiling](hardware/PROFILING.md). `hardware-profile inspect`
-is read-only; `hardware-profile estimate` works offline. Neither installs an
-environment or runs GPU calibration. Documented capacities, empirical service
-rates and actual operator timings remain separate.
+For a new GPU, [hardware-aware profiling](hardware/PROFILING.md) can produce a
+first-layer `HARDWARE.md` + `profile.json` briefing for a fresh agent: queried
+capacities, observed topology, unknowns and the next useful measurements.
+`hardware-profile inspect --cuda --topology` queries NVIDIA metadata without
+compiling or running kernels; `handoff` and conditional `estimate` work offline.
+No environment installation or automatic calibration is performed. Unsupported
+fields stay unknown; documented capacities, empirical rates and operator timings
+remain separate. This does not claim arbitrary-vendor support or an absolute optimum.
 
 `python scripts/kernel_opt.py --help` shows the small default interface.
 `python scripts/kernel_opt.py --all` lists optional and historical commands.
@@ -105,7 +108,7 @@ Historical community governance documents are records, not default instructions.
 
 ```bash
 python -B -m pytest -q -p no:cacheprovider tests/test_worklog.py tests/test_knowledge_notes.py
-python -B -m pytest -q -p no:cacheprovider tests/test_hardware_probe.py tests/test_hardware_profile.py
+python -B -m pytest -q -p no:cacheprovider tests/test_hardware_probe.py tests/test_hardware_profile.py tests/test_hardware_cuda.py tests/test_hardware_topology.py tests/test_hardware_handoff.py
 python scripts/kernel_opt.py knowledge check
 ```
 

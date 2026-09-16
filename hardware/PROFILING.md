@@ -19,9 +19,74 @@ reported device indices and UUIDs, not row order. Inventory is neither a
 calibration nor permission to run on an apparently idle GPU. An unsupported
 vendor reports unavailable; AMD/Intel adapters are not implemented yet.
 
-The older `hardware-discover` tool can compile its CUDA device-property helper.
-Use it deliberately when richer register/shared-memory/cache properties are
-needed and compilation is appropriate, not as a default passive inventory.
+For a new NVIDIA device, opt into richer metadata and a portable handoff:
+
+```sh
+python scripts/kernel_opt.py hardware-profile inspect --cuda --topology \
+  --output runs/new-card/profile.json
+python scripts/kernel_opt.py hardware-profile handoff \
+  --profile runs/new-card/profile.json --output runs/new-card/HARDWARE.md
+```
+
+On a multi-device host, add `--device GPU-<exact-UUID>` to `handoff`; never guess
+from row order or a CUDA ordinal. Give a fresh agent **both `HARDWARE.md` and
+`profile.json`**, plus the operator/model task. No previous chat is required.
+Use `handoff --format json` for a programmatic consumer.
+
+- `--cuda` uses the installed CUDA Driver API in a child process with a 10-second
+  timeout. It initializes the driver but creates no context, allocation or
+  kernel and does not compile or import Torch. It queries SM count, warp width,
+  L2, shared-memory/register limits, thread/block limits, memory bus width,
+  reported clocks and selected capability flags. Missing attributes remain null.
+- `--topology` queries `nvidia-smi topo -m`, checking GPU index/UUID identities
+  before and after. It reports GPU/NIC relationship labels and available CPU/NUMA
+  affinities, not link throughput. NIC labels are not independently verified
+  NIC identities. Unsupported Windows/container output remains unknown.
+- Driver attributes join by UUID-v2 only. This is a reported device/instance,
+  not proof of a full physical GPU; a legacy UUID or mismatched MIG identity
+  cannot silently contribute physical-parent capacities. Virtualization and
+  visibility restrictions may limit what can be observed.
+
+The older `hardware-discover` tool can compile its CUDA device-property helper;
+it is not required for this first-layer handoff.
+
+## What the first layer hands to the next layer
+
+The brief separates three things: **queried capacities**, **supplied performance
+evidence**, and **decision-dependent unknowns**. It includes a generic logical
+resource hierarchy, but does not pretend to discover the physical SM-to-L2
+wiring, slice arbitration, cache mapping/replacement policy, or every execution
+unit's service rate. These are not all exposed by a vendor API.
+
+The first layer is useful when a new agent can identify its target, cite where a
+parameter came from, tell which quantities are still unknown, and select the
+cheapest informative next experiment. Filling the capacity checklist does not
+mean the chip is fully understood or an optimum has been established. No new
+phase gate, approval document or mandatory exhaustive calibration is required.
+
+For a numerical bound, the next layer must still establish the workload's
+unavoidable work and applicable upper capacities. Obtain architecture-specific
+instruction/precision information from official sources, and measure only the
+relevant service curves and coupled-resource behavior. A theoretical bound is
+conditional on the algorithm/numerical/clock assumptions; it is not necessarily
+attainable. Measured best-known rates give useful targets, not physical proofs.
+
+If these sources or calibrations already exist, `handoff --rates FILE` can carry
+them forward. The JSON object binds `device_uuid` and `profile_sha256` and has a
+`rates` list. Each entry contains:
+
+- `resource`, positive `value`, and `unit` (`bytes/s`, `FLOP/s`, `instructions/s`,
+  or `us` for an empirical latency).
+- `kind`: `documented_upper` or `empirical_reference`.
+- Nonempty `conditions`, `evidence`, and `uncertainty` strings. Record exact
+  precision, dense/sparse mode, clock regime, cache/working set, concurrency,
+  runtime and reproduction/raw-sample reference as applicable.
+
+The tool validates the binding and basic fields, **not the truth or applicability
+of those sources**. It does not fetch references, derive bandwidth from nominal
+clock/bus width, turn a measurement into a physical upper bound, or automatically
+feed unverified rates into an optimum calculation. Profiles and briefs are
+snapshots; recheck identity/runtime/load before execution.
 
 ## Calibrate only what can change the next decision
 
