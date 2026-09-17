@@ -118,6 +118,18 @@ def worker() -> dict:
         unknowns.append(f"CUDA driver unavailable: {type(error).__name__}: {error}")
         return result
     result["evidence"]["library"] = library
+    if sys.platform.startswith("linux"):
+        try:
+            maps = Path("/proc/self/maps").read_text(encoding="utf-8", errors="replace")
+            result["evidence"]["loaded_library_paths"] = sorted(
+                {
+                    line.split()[-1]
+                    for line in maps.splitlines()
+                    if "/" in line and "libcuda" in line.split()[-1]
+                }
+            )
+        except OSError:
+            result["evidence"]["loaded_library_paths"] = None
     pointer_int = ctypes.POINTER(ctypes.c_int)
     signatures = {
         "cuInit": [ctypes.c_uint],

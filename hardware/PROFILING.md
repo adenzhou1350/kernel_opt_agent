@@ -46,6 +46,20 @@ Use `handoff --format json` for a programmatic consumer.
   not proof of a full physical GPU; a legacy UUID or mismatched MIG identity
   cannot silently contribute physical-parent capacities. Virtualization and
   visibility restrictions may limit what can be observed.
+- On Linux, `--cuda` also reads available proc/sysfs metadata: kernel UUID at
+  the same PCI address, PCIe link speed/width and NUMA node, and RDMA port state
+  and advertised rate. It records the loaded CUDA driver library path. A
+  kernel/user-space UUID difference is a mapping question (for example a proxy
+  or partition), not proof of a broken device. Keep the runtime observations,
+  but resolve the mapping before calling them physical-card capacities.
+
+The topology parser accepts color-only ANSI decoration and common mlx5/irdma
+NIC names, preserves the raw output, and gives the matrix query up to 10 seconds
+(identity queries stay bounded at 2 seconds). Unsupported terminal controls,
+incomplete/asymmetric matrices, or NVLink labels on NIC edges fail closed to
+unknown topology. No retry/install loop is needed to discover this limitation.
+PCIe negotiated GT/s, NVLink labels and RDMA port Gb/s are not application
+bandwidth and do not prove that a transport path is usable.
 
 The older `hardware-discover` tool can compile its CUDA device-property helper;
 it is not required for this first-layer handoff.
@@ -111,10 +125,52 @@ snapshots; recheck identity/runtime/load before execution.
    and compare paired correct production runs. An optimization can change the
    bottleneck: update the model rather than blindly accumulating speedups.
 
-This is the measurement procedure, not an implemented multi-vendor automatic
-calibration/install service. `hardware-profile` never launches these probes.
-Use existing relevant probes and the selected framework's normal benchmark;
-introduce a new probe only for a specific unresolved decision.
+For a cheap first reference, an optional existing-Torch example is included:
+
+```sh
+CUDA_VISIBLE_DEVICES=GPU-<full-uuid> timeout 120 /existing/env/bin/python \
+  hardware/probes/torch_quick_reference.py --device GPU-<full-uuid> \
+  --output /fresh/task-private/reference.json
+```
+
+The caller must check current load/processes, coordinate exclusive use, and
+record pre/post identity, clocks and power conditions. The output parent must
+already exist. The probe checks Torch's actual UUID before allocations and uses
+less than 1 GiB of allocated tensors: 8/256 MiB FP32 copy buffers and BF16 square
+GEMMs of size 2048/4096, each with 3 warmups and 7 synchronized event samples.
+It records raw samples, constant-input sanity and runtime/precision policy.
+It does not install, compile source, profile, change clocks, or reserve resources.
+A failed attempt can leave an empty output file; use a new path for another run.
+An empty process list alone does not prove idleness: visibility can be restricted
+inside a container. Check utilization and memory as well, and skip a busy or
+ambiguous device rather than altering its services or isolation.
+
+This is a narrow empirical reference, not a stress test, physical bandwidth
+measurement, numerical qualification, full service curve or upper bound. A
+small working set may be cache-resident, but that does not establish which cache
+served it; large logical copy traffic is not automatically DRAM transactions.
+Use a matched operator probe next only if its answer changes a decision.
+`hardware-profile` never launches calibration or installs an environment.
+
+## Reuse at the right scope
+
+Cache three different things rather than rediscovering everything each time:
+
+1. **Architecture knowledge:** official instruction, precision, memory hierarchy
+   and scheduling semantics, keyed by vendor/architecture/document revision.
+   Reuse as a starting point, not a substitute for the SKU's queried capacities.
+2. **Device/host snapshot:** UUID and partition identity, actual SM/cache/memory
+   limits, driver, visibility and PCIe/NUMA/NIC topology. Query on first contact
+   and recheck cheap identities after host/runtime/allocation changes.
+3. **Measured reference:** exact probe, shape/dtype/layout, software/backend,
+   cache regime, clocks/power/load, raw samples and numerical contract. Another
+   card of the same architecture may reuse the method, not the numeric rate.
+   Rerun a small canary before trusting a cached rate in a new environment.
+
+Store unknowns and the cheapest way to resolve them. Do not repeatedly try a
+known unsupported Windows topology command, privileged profiler counter, or
+opaque virtualized topology without a relevant environment/permission change.
+This is guidance for saving work, not a mandatory inventory schema or phase gate.
 
 ## Calculate a small resource-gap report
 

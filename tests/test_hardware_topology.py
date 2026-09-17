@@ -46,8 +46,11 @@ class HardwareTopologyTests(unittest.TestCase):
             patch.object(topology.subprocess, "run", side_effect=responses) as run,
         ):
             result = topology.inspect_topology(DEVICES if devices is None else devices)
-        for call in run.call_args_list:
-            self.assertEqual(call.kwargs["timeout"], 2)
+        self.assertEqual(len(result["evidence"]["commands"]), run.call_count)
+        for call, evidence in zip(run.call_args_list, result["evidence"]["commands"]):
+            timeout = 10 if call.args[0][1:] == ["topo", "-m"] else 2
+            self.assertEqual(call.kwargs["timeout"], timeout)
+            self.assertEqual(evidence["timeout_seconds"], timeout)
             self.assertFalse(call.kwargs.get("shell", False))
             self.assertEqual(call.args[0][0], "/tools/nvidia-smi")
             self.assertIn(
@@ -58,6 +61,11 @@ class HardwareTopologyTests(unittest.TestCase):
                 ],
             )
         self.assertLessEqual(run.call_count, 3)
+        identity_args = ["--query-gpu=index,uuid", "--format=csv,noheader,nounits"]
+        self.assertEqual(
+            [call.args[0][1:] for call in run.call_args_list],
+            [identity_args, ["topo", "-m"], identity_args][: run.call_count],
+        )
         if result["status"] != "OBSERVED":
             self.assertEqual(result["affinities"], {})
         return result, run
@@ -114,6 +122,134 @@ class HardwareTopologyTests(unittest.TestCase):
                     "gpu_numa_id": "N/A",
                 },
             },
+        )
+
+    def test_sgr_header_and_real_style_tab_padding_preserve_raw(self):
+        matrix = (
+            "\t\x1b[4mGPU7\tGPU2\tNIC0\tCPU Affinity\tNUMA Affinity"
+            "\tGPU NUMA ID\x1b[0m\r\n"
+            "GPU2\tNV18\t X \tPHB\t32-63,96-127\t1\t\tN/A\r\n"
+            "NIC0\tPIX\tPHB\t X \t\t\t\t\r\n"
+            "GPU7\t X \tNV18\tPIX\t0-31,64-95\t0\t\tN/A\r\n"
+            "\r\nLegend:\r\n  X = Self\r\n"
+        )
+        result, _ = self.inspect_matrix(matrix)
+        self.assertEqual(result["status"], "OBSERVED")
+        self.assertEqual(result["raw"], matrix)
+        self.assertEqual(result["evidence"]["commands"][1]["stdout"], matrix)
+        self.assertEqual(result["edges"][0]["relationship"], "NV18")
+        self.assertEqual(len(result["edges"]), 3)
+        self.assertEqual(
+            result["affinities"]["GPU-two"],
+            {
+                "cpu_affinity": "32-63,96-127",
+                "numa_affinity": "1",
+                "gpu_numa_id": "N/A",
+            },
+        )
+
+    def test_only_sgr_controls_are_removed(self):
+        matrix = "GPU2 GPU7\nGPU2 X \x1b[1;32mSYS\x1b[m\nGPU7 SYS X\n"
+        result, _ = self.inspect_matrix(matrix)
+        self.assertEqual(result["status"], "OBSERVED")
+        self.assertEqual(result["raw"], matrix)
+        for control in (
+            "\x1b[2J",  # Clear screen, not SGR.
+            "\x1b[1A",  # Move cursor, not SGR.
+            "\x1b]0;title\x07",  # Operating system command.
+            "\x1b[?4m",  # Private/unsupported SGR syntax.
+            "\x1b[4",  # Incomplete escape sequence.
+            "\x00",
+            "\x08",
+            "\x0b",
+            "\x0c",
+            "\r",  # Bare carriage return, not a CRLF line ending.
+            "\x7f",
+            "\x85",
+            "\x9b4m",
+        ):
+            for placement in ("header", "affinity", "legend"):
+                with self.subTest(control=control, placement=placement):
+                    if placement == "header":
+                        invalid = control + MATRIX
+                    elif placement == "affinity":
+                        invalid = MATRIX.replace("N/A", control + "N/A", 1)
+                    else:
+                        invalid = MATRIX + control
+                    result, _ = self.inspect_matrix(invalid)
+                    self.assertEqual(result["status"], "UNAVAILABLE")
+                    self.assertEqual(result["edges"], [])
+                    self.assertEqual(result["raw"], invalid)
+                    self.assertTrue(
+                        any(
+                            "Unsupported control" in value
+                            for value in result["unknowns"]
+                        )
+                    )
+
+    def test_legacy_nic_labels_remain_unverified_matrix_labels(self):
+        for nic in ("mlx5_0", "mlx5_12", "irdma0", "irdma12"):
+            with self.subTest(nic=nic):
+                matrix = MATRIX.replace("NIC0", nic)
+                result, _ = self.inspect_matrix(matrix)
+                self.assertEqual(result["status"], "OBSERVED")
+                self.assertEqual(result["raw"], matrix)
+                self.assertEqual(len(result["edges"]), 3)
+                self.assertEqual(result["edges"][1]["target"], nic)
+                self.assertEqual(result["edges"][1]["relationship"], "PIX")
+                self.assertTrue(
+                    any(
+                        "not independently verified" in value
+                        for value in result["unknowns"]
+                    )
+                )
+
+    def test_nvlink_involving_non_gpu_labels_is_rejected(self):
+        for nic in ("NIC0", "mlx5_0", "irdma0"):
+            for nic_first in (False, True):
+                with self.subTest(nic=nic, nic_first=nic_first):
+                    nodes = (
+                        [nic, "GPU2", "GPU7"] if nic_first else ["GPU2", "GPU7", nic]
+                    )
+                    # Sanitized reproduction of an anomalous all-NV8 matrix.
+                    matrix = "\t\x1b[4m" + "\t".join(nodes) + "\x1b[0m\n"
+                    matrix += "".join(
+                        source
+                        + "\t"
+                        + "\t".join(
+                            "X" if source == target else "NV8" for target in nodes
+                        )
+                        + "\n"
+                        for source in reversed(nodes)
+                    )
+                    result, _ = self.inspect_matrix(matrix)
+                    self.assertEqual(result["status"], "UNAVAILABLE")
+                    self.assertEqual(result["edges"], [])
+                    self.assertEqual(result["raw"], matrix)
+                    self.assertTrue(
+                        any(
+                            "NVLink relationship involves a non-GPU" in value
+                            for value in result["unknowns"]
+                        )
+                    )
+
+    def test_nvlink_between_nics_is_rejected(self):
+        matrix = (
+            "GPU2 GPU7 mlx5_0 irdma0\n"
+            "GPU2 X NV8 PHB PHB\n"
+            "GPU7 NV8 X PHB PHB\n"
+            "mlx5_0 PHB PHB X NV8\n"
+            "irdma0 PHB PHB NV8 X\n"
+        )
+        result, _ = self.inspect_matrix(matrix)
+        self.assertEqual(result["status"], "UNAVAILABLE")
+        self.assertEqual(result["edges"], [])
+        self.assertEqual(result["raw"], matrix)
+        self.assertTrue(
+            any(
+                "NVLink relationship involves a non-GPU" in value
+                for value in result["unknowns"]
+            )
         )
 
     def test_empty_and_na_affinities_stay_explicit(self):
@@ -277,7 +413,10 @@ class HardwareTopologyTests(unittest.TestCase):
                 self.completed(IDENTITIES),
             ]
             responses[position] = subprocess.TimeoutExpired(
-                "nvidia-smi", 2, output=b"partial matrix"
+                "nvidia-smi",
+                10 if position == 1 else 2,
+                output=b"partial matrix",
+                stderr=b"partial error",
             )
             with self.subTest(position=position):
                 result, run = self.inspect(responses)
@@ -287,8 +426,27 @@ class HardwareTopologyTests(unittest.TestCase):
                 self.assertTrue(
                     any("TimeoutExpired" in value for value in result["unknowns"])
                 )
+                evidence = result["evidence"]["commands"][position]
+                self.assertTrue(evidence["timed_out"])
+                self.assertIsNone(evidence["returncode"])
+                self.assertEqual(evidence["stdout"], "partial matrix")
+                self.assertEqual(evidence["stderr"], "partial error")
                 if position == 1:
                     self.assertEqual(result["raw"], "partial matrix")
+
+    def test_timed_out_matrix_is_not_parsed_even_if_output_looks_complete(self):
+        result, run = self.inspect(
+            [
+                self.completed(IDENTITIES),
+                subprocess.TimeoutExpired("nvidia-smi", 10, output=MATRIX),
+                self.completed(IDENTITIES),
+            ]
+        )
+        self.assertEqual(result["status"], "UNAVAILABLE")
+        self.assertEqual(result["edges"], [])
+        self.assertEqual(result["raw"], MATRIX)
+        self.assertNotIn("gpu_labels", result["evidence"])
+        self.assertEqual(run.call_count, 3)
 
     def test_process_execution_failure_is_explicit(self):
         result, run = self.inspect([OSError("executable disappeared")])

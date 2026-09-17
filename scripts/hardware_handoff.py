@@ -155,6 +155,15 @@ def build_handoff(profile, *, profile_sha256, device_uuid=None, rates=None):
             raise ValueError("topology affinities must map UUIDs to objects")
         affinity = copy.deepcopy(affinities.get(device_uuid, {}))
     observations = checked_rates(rates, device_uuid, profile_sha256)
+    host = profile.get("host_metadata", {})
+    if not isinstance(host, dict):
+        raise ValueError("host_metadata must be an object")
+    host_device = indexed(host.get("devices", []), "host").get(device_uuid, {})
+    warnings.extend(host.get("unknowns", []))
+    if host_device.get("identity_status") == "DIFFERENT_IDENTITY_LAYERS":
+        warnings.append(
+            "Selected device has different kernel/runtime UUIDs at the same PCI BDF. Capacities below remain runtime-reported observations, not verified whole-physical-GPU facts. Resolve the mapping before physical capacity or routing claims."
+        )
     gaps = [
         {
             "area": "documented execution capabilities",
@@ -191,6 +200,9 @@ def build_handoff(profile, *, profile_sha256, device_uuid=None, rates=None):
         "capture_time": profile.get("evidence", {}).get("captured_at"),
         "identity_scope": "Reported device/instance only; not proof of a whole physical GPU. CUDA ordinals may be remapped; UUID-v1 is not sufficient for a MIG join.",
         "management_observations": copy.deepcopy(smi),
+        "host_device_observations": copy.deepcopy(host_device),
+        "host_kernel_driver_observation": host.get("kernel_driver"),
+        "host_rdma_port_observations": copy.deepcopy(host.get("rdma_ports", [])),
         "cuda_driver_version": driver.get("driver_version"),
         "cuda_visible_devices": driver.get("environment", {}).get(
             "CUDA_VISIBLE_DEVICES"
@@ -316,6 +328,9 @@ def render_handoff(report):
         for key in (
             "identity_scope",
             "management_observations",
+            "host_device_observations",
+            "host_kernel_driver_observation",
+            "host_rdma_port_observations",
             "cuda_driver_version",
             "cuda_visible_devices",
             "additional_cuda_attributes",

@@ -1,0 +1,12 @@
+{
+  "id": "reuse-hardware-evidence-by-scope",
+  "title": "Reuse architecture knowledge, device snapshots and measurements at different scopes",
+  "applies_when": "Onboarding a new GPU or reusing hardware knowledge across devices, hosts, drivers or operator workloads.",
+  "lesson": "Reuse official architecture semantics by architecture and document revision; query actual SKU/partition capacities and host topology separately. Keep empirical rates bound to probe, precision, shape, layout, cache regime, runtime and power/clock/load conditions. Reuse the method on another device, then run a cheap canary before transferring numerical rates. Preserve unavailable fields and known query limitations so the next agent does not repeat unsupported probes without a relevant environment change.",
+  "avoid_when": "Matching architecture or marketing names does not prove equal SM counts, bandwidth, partition size or connectivity. A live inventory or empty process list is not an allocation/idleness guarantee; check load and memory too, especially with container visibility restrictions. Negotiated link metadata is not payload bandwidth, and an empirical reference is not a physical ceiling.",
+  "evidence": [
+    {"url": "https://docs.nvidia.com/deploy/nvidia-smi/", "note": "Documents device identity, query availability, link and runtime-dependent management observations. Supports cheap per-device revalidation, not transfer of private benchmark rates."},
+    {"url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/", "note": "Documents timing and effective-bandwidth interpretation, memory hierarchy and performance dependencies. Supports scoped measurement reuse; no per-device performance number is asserted here."}
+  ],
+  "status": "validated"
+}
