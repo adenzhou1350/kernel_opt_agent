@@ -13,8 +13,11 @@ import shutil
 import subprocess
 
 
-TIMEOUT_SECONDS = 2
-NODE = re.compile(r"(?:GPU|NIC)(?:0|[1-9][0-9]*)\Z")
+IDENTITY_TIMEOUT_SECONDS = 2
+TOPOLOGY_TIMEOUT_SECONDS = 10
+NODE = re.compile(r"(?:GPU|NIC|mlx5_|irdma)(?:0|[1-9][0-9]*)\Z")
+ANSI_SGR = re.compile(r"\x1b\[[0-9;]*m")
+UNSUPPORTED_CONTROL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 RELATIONSHIP = re.compile(r"(?:X|SYS|NODE|PHB|PXB|PIX|NV[1-9][0-9]*)\Z")
 AFFINITIES = re.compile(r"(?:CPU Affinity(?: NUMA Affinity)?(?: GPU NUMA ID)?)?\Z")
 AFFINITY_KEYS = {
@@ -49,7 +52,13 @@ def _identities(rows: list) -> dict[int, str]:
 
 
 def _matrix(raw: str, identities: dict[int, str]) -> tuple[list, dict, dict]:
-    lines = [line for line in raw.splitlines() if line.strip()]
+    # Some drivers underline the header even when stdout is captured. Only
+    # remove SGR styling from the parse copy; other terminal controls can alter
+    # the meaning of the displayed matrix and must not be silently discarded.
+    parse_text = ANSI_SGR.sub("", raw).replace("\r\n", "\n")
+    if UNSUPPORTED_CONTROL.search(parse_text):
+        raise ValueError("Unsupported control character in topology output.")
+    lines = [line for line in parse_text.splitlines() if line.strip()]
     if not lines:
         raise ValueError("No topology matrix was reported.")
     header = lines[0].split()
@@ -119,6 +128,10 @@ def _matrix(raw: str, identities: dict[int, str]) -> tuple[list, dict, dict]:
                 raise ValueError(
                     "Topology matrix has an inconsistent pair relationship."
                 )
+            if relationship.startswith("NV") and (
+                source not in gpu_labels or target not in gpu_labels
+            ):
+                raise ValueError("NVLink relationship involves a non-GPU matrix label.")
             edges.append(
                 {
                     "source": gpu_labels.get(source, source),
@@ -133,7 +146,8 @@ def _matrix(raw: str, identities: dict[int, str]) -> tuple[list, dict, dict]:
 def inspect_topology(devices: list[dict]) -> dict:
     """Observe one undirected edge per pair, never using CSV/matrix row order.
 
-    At most three read-only commands run, each with a two-second timeout. The
+    At most three read-only commands run without retries: identity queries have
+    two-second timeouts and the topology query has a ten-second timeout. The
     inventory's entire index/UUID mapping must equal both identity queries.
     Affinity values are observed strings, keyed by UUID; absent header columns
     are omitted and explicit blank cells remain empty strings. Failed checks
@@ -166,9 +180,15 @@ def inspect_topology(devices: list[dict]) -> dict:
         )
         return result
 
-    def query(arguments):
+    def query(arguments, timeout):
         argv = [smi, *arguments]
-        evidence = {"argv": argv, "returncode": None, "stdout": "", "stderr": ""}
+        evidence = {
+            "argv": argv,
+            "timeout_seconds": timeout,
+            "returncode": None,
+            "stdout": "",
+            "stderr": "",
+        }
         result["evidence"]["commands"].append(evidence)
         try:
             completed = subprocess.run(
@@ -177,12 +197,13 @@ def inspect_topology(devices: list[dict]) -> dict:
                 text=True,
                 encoding="utf-8",
                 errors="replace",
-                timeout=TIMEOUT_SECONDS,
+                timeout=timeout,
                 check=False,
             )
         except (OSError, subprocess.TimeoutExpired) as error:
             evidence["error"] = f"{type(error).__name__}: {error}"
             if isinstance(error, subprocess.TimeoutExpired):
+                evidence["timed_out"] = True
                 for key in ("stdout", "stderr"):
                     value = getattr(error, key, None) or ""
                     evidence[key] = (
@@ -206,7 +227,10 @@ def inspect_topology(devices: list[dict]) -> dict:
         return evidence
 
     def identity_query():
-        evidence = query(["--query-gpu=index,uuid", "--format=csv,noheader,nounits"])
+        evidence = query(
+            ["--query-gpu=index,uuid", "--format=csv,noheader,nounits"],
+            IDENTITY_TIMEOUT_SECONDS,
+        )
         if evidence["returncode"] != 0:
             return None
         try:
@@ -229,7 +253,7 @@ def inspect_topology(devices: list[dict]) -> dict:
             "GPU index/UUID mapping differs from the supplied management inventory."
         )
         return result
-    matrix = query(["topo", "-m"])
+    matrix = query(["topo", "-m"], TOPOLOGY_TIMEOUT_SECONDS)
     result["raw"] = matrix["stdout"]
     after = identity_query()
     if after is None:
@@ -255,7 +279,7 @@ def inspect_topology(devices: list[dict]) -> dict:
     result["affinities"] = affinities
     result["evidence"]["gpu_labels"] = gpu_labels
     if any(
-        edge[endpoint].startswith("NIC")
+        edge[endpoint] not in gpu_labels.values()
         for edge in edges
         for endpoint in ("source", "target")
     ):

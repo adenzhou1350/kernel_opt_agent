@@ -107,6 +107,27 @@ class HardwareHandoffTests(unittest.TestCase):
         self.assertIn("No numerical capacity-rate or calibration evidence", rendered)
         self.assertIn("UNKNOWN", rendered)
 
+    def test_host_identity_difference_survives_fresh_agent_handoff(self):
+        data = snapshot()
+        data["host_metadata"] = {
+            "devices": [
+                {
+                    "uuid": "GPU-b",
+                    "kernel_uuid": "GPU-physical",
+                    "identity_status": "DIFFERENT_IDENTITY_LAYERS",
+                }
+            ],
+            "unknowns": [],
+        }
+        report = self.report(data)
+        self.assertTrue(
+            any("different kernel/runtime UUIDs" in w for w in report["warnings"])
+        )
+        self.assertEqual(
+            report["host_device_observations"]["kernel_uuid"], "GPU-physical"
+        )
+        self.assertIn("runtime-reported", handoff.render_handoff(report))
+
     def test_no_ordinal_fallback_or_legacy_uuid_mig_join(self):
         data = snapshot()
         data["cuda_driver"]["devices"][0]["uuid"] = "GPU-other"

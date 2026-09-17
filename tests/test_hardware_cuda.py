@@ -104,6 +104,28 @@ class HardwareCudaTests(unittest.TestCase):
         self.assertIn("cuInit failed with CUresult 100", result["unknowns"][-1])
         driver.cuDeviceGetCount.assert_not_called()
 
+    def test_linux_loaded_paths_are_optional_and_decoding_is_tolerant(self):
+        with (
+            patch.object(cuda.sys, "platform", "linux"),
+            patch.object(
+                cuda.Path,
+                "read_text",
+                return_value="1-2 r-xp 0 00:00 1 /compat/libcuda.so.1\n",
+            ) as read,
+        ):
+            result = self.worker(fake_driver())
+        read.assert_called_once_with(encoding="utf-8", errors="replace")
+        self.assertEqual(
+            result["evidence"]["loaded_library_paths"], ["/compat/libcuda.so.1"]
+        )
+        with (
+            patch.object(cuda.sys, "platform", "linux"),
+            patch.object(cuda.Path, "read_text", side_effect=OSError("unavailable")),
+        ):
+            result = self.worker(fake_driver())
+        self.assertEqual(result["status"], "OBSERVED")
+        self.assertIsNone(result["evidence"]["loaded_library_paths"])
+
     def test_optional_failures_retain_other_attributes_and_devices(self):
         driver = fake_driver(failures={120: 1, 97: 801, "cuDeviceTotalMem_v2": 801})
         result = self.worker(driver)

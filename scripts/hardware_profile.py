@@ -191,8 +191,12 @@ def main(argv=None):
             result = inspect_nvidia()
             if args.cuda:
                 from hardware_cuda import inspect_cuda
+                from hardware_host import inspect_host
 
                 result["cuda_driver"] = inspect_cuda()
+                result["host_metadata"] = inspect_host(
+                    result["cuda_driver"].get("devices", [])
+                )
                 if result["cuda_driver"]["status"] == "OBSERVED":
                     result["status"] = "OBSERVED"
             if args.topology:
