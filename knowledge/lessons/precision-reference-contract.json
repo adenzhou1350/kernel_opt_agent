@@ -2,12 +2,12 @@
   "id": "precision-reference-contract",
   "title": "Keep precision diagnostics separate from the required reference",
   "applies_when": "Changing batching, reduction order or precision produces a numerical mismatch, especially near an argmax or another discrete decision boundary.",
-  "lesson": "Specify whether correctness means exact output identity, numerical tolerance or a statistical property. Localize the first divergence and compare both arms under that contract. A higher-precision side calculation can diagnose sensitivity, but candidate-only recomputation does not establish agreement with a stock low-precision baseline. Test a proposed selective fallback on held-out boundary cases and include detection and replay costs.",
+  "lesson": "Specify whether correctness means exact output identity, numerical tolerance or a statistical property. Localize the first divergence and compare both arms under that contract. Supplement random unit inputs with baseline-captured activations, learned weights, shapes and epsilon values; replay the unchanged candidate on those inputs before costly performance qualification. Verify that capture does not alter the baseline. A matching argmax does not satisfy a separately required full-output tolerance. A higher-precision side calculation can diagnose sensitivity, but candidate-only recomputation does not establish agreement with a stock low-precision baseline. Test a proposed selective fallback on held-out boundary cases and include detection and replay costs.",
   "avoid_when": "Do not impose exact token identity on every floating-point or stochastic operator. A small decision margin is a diagnostic clue, not a guarantee that selective recomputation is sufficient or profitable.",
   "evidence": [
     {
       "url": "https://docs.pytorch.org/docs/main/notes/numerical_accuracy.html#batched-computations-or-slice-computations",
-      "note": "PyTorch documents that batched and individual floating-point operations need not agree bitwise. Selective precision repair is a hypothesis; this source supplies no empirical proof for that repair."
+      "note": "PyTorch documents that mathematically equivalent operations and batched or individual computations need not agree bitwise. Activation replay and selective precision repair are workflow hypotheses, not measured cost benefits established by this source."
     },
     {
       "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/#reference-comparison",
