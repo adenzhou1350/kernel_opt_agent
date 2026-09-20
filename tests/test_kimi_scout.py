@@ -2,10 +2,12 @@
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from types import SimpleNamespace
 import unittest
@@ -141,7 +143,39 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(current["runtime"]["deadline"])
         self.assertIsNone(current["runtime"]["daily_max_calls"])
         self.assertEqual(current["runtime"]["attempted_this_run"], 9)
+        self.assertIsInstance(current["runtime"]["heartbeat_at"], float)
+        self.assertIsNone(current["runtime"]["next_feed_at"])
+        self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertTrue(all(job["state"] == "NO_LEAD" for job in current["jobs"]))
+
+    def test_heartbeat_and_next_feed_visible_during_inflight_call(self):
+        self.add()
+        heartbeat_seen = threading.Event()
+        snapshots = []
+        original_write = scout.write_json
+
+        def record(path, value):
+            original_write(path, value)
+            if path.name == "runtime.json":
+                snapshots.append(dict(value))
+                if value["state"] == "RUNNING" and value.get("attempted_this_run") == 1:
+                    heartbeat_seen.set()
+
+        def execute(root, job, *unused):
+            self.assertTrue(heartbeat_seen.wait(2), "heartbeat blocked on model call")
+            return self.fake_execute(root, job)
+
+        with (
+            patch.object(scout, "HEARTBEAT_SECONDS", 0.01),
+            patch.object(scout, "write_json", side_effect=record),
+            patch.object(scout, "collect"),
+            patch.object(scout, "execute", side_effect=execute),
+        ):
+            scout.run(self.run_args(feeds=Path("unused")))
+        active = [s for s in snapshots if s.get("attempted_this_run") == 1]
+        self.assertGreater(active[0]["heartbeat_at"], snapshots[0]["heartbeat_at"])
+        self.assertGreater(active[0]["next_feed_at"], active[0]["heartbeat_at"])
+        self.assertIsNone(snapshots[-1]["next_feed_at"])
 
     def test_continuous_worker_resumes_after_rolling_cap(self):
         self.add("first")
@@ -200,7 +234,8 @@ class ScoutTests(unittest.TestCase):
         ):
             current = scout.run(self.run_args(concurrency=1, once=False))
         self.assertEqual(current["runtime"]["attempted_this_run"], 2)
-        self.assertGreater(current["runtime"]["cooldown_until"], time.time())
+        self.assertEqual(current["runtime"]["state"], "STOPPED")
+        self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 3)
 
     def test_report_feed_splits_distinct_issues(self):
@@ -343,6 +378,49 @@ class ScoutTests(unittest.TestCase):
         request = json.loads(run.call_args.kwargs["input"])
         self.assertEqual(request["max_output_tokens"], 2048)
         self.assertIn(scout.SYSTEM, request["prompt"])
+        recorded = json.loads(
+            (self.root / "results" / f"{job['id']}.request.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(recorded, request)
+        arguments = run.call_args.args[0]
+        live = Path(arguments[arguments.index("--progress-file") + 1])
+        self.assertTrue(live.is_absolute())
+        self.assertEqual(live, self.root / "results" / f"{job['id']}.live.json")
+        self.assertNotIn("api_key", json.dumps(recorded))
+
+    def test_execute_resolves_relative_root_before_changing_subprocess_cwd(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        response = {
+            "ok": True,
+            "text": json.dumps(result()),
+            "tools_advertised": 0,
+            "tool_calls_executed": 0,
+        }
+        previous = Path.cwd()
+        try:
+            os.chdir(self.root.parent)
+            with patch.object(
+                scout.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    [], 0, json.dumps(response), ""
+                ),
+            ) as run:
+                receipt = scout.execute(
+                    Path(self.root.name), job, sys.executable, 30, 2048
+                )
+        finally:
+            os.chdir(previous)
+        self.assertEqual(receipt["state"], "REVIEW")
+        self.assertTrue(run.call_args.kwargs["cwd"].is_absolute())
+        arguments = run.call_args.args[0]
+        self.assertEqual(
+            Path(arguments[arguments.index("--progress-file") + 1]),
+            self.root / "results" / f"{job['id']}.live.json",
+        )
 
     def test_failure_and_timeout_not_retried_or_secret_logged(self):
         for name, response in (
@@ -361,7 +439,40 @@ class ScoutTests(unittest.TestCase):
             self.assertEqual(receipt["state"], "FAILED")
             self.assertEqual(receipt["charged_tokens_or_reservation"], job["charge"])
             self.assertNotIn("secret", json.dumps(receipt).lower())
+            recorded = (self.root / "results" / f"{job['id']}.request.json").read_text(
+                encoding="utf-8"
+            )
+            self.assertNotIn("secret", recorded.lower())
+            live = (self.root / "results" / f"{job['id']}.live.json").read_text(
+                encoding="utf-8"
+            )
+            self.assertEqual(json.loads(live)["phase"], "failed")
+            self.assertNotIn("secret", live.lower())
         self.assertIsNone(scout.claim(self.root, 12, 200000, 2048))
+
+    def test_timeout_preserves_only_visible_partial_progress(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        path = self.root / "results" / f"{job['id']}.live.json"
+
+        def timeout(*unused, **kwargs):
+            scout.write_json(
+                path,
+                {
+                    "text": "partial answer",
+                    "phase": "streaming",
+                    "updated_at": time.time(),
+                },
+            )
+            raise subprocess.TimeoutExpired("private command", 30, stderr="SECRET")
+
+        with patch.object(scout.subprocess, "run", side_effect=timeout):
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        self.assertEqual(receipt["state"], "FAILED")
+        live = json.loads(path.read_text())
+        self.assertEqual(live["text"], "partial answer")
+        self.assertEqual(live["phase"], "failed")
+        self.assertNotIn("SECRET", path.read_text())
 
     def test_unexpected_tool_capability_is_rejected(self):
         self.add()

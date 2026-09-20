@@ -5,6 +5,7 @@ Run with the Kimi installation's Python: ``python -I -B -X utf8 <this-file>``.
 Stdin is one JSON object with ``prompt`` and optional ``max_output_tokens``
 (default 2048, range 256..4096) / ``timeout_seconds`` (default 180, maximum 600).
 ``--check`` validates the installed version/configuration without a model call.
+``--progress-file`` optionally writes atomic snapshots of visible answer text.
 Only the default configured Kimi API-key provider is supported. OAuth is rejected
 instead of migrating or refreshing shared credentials. No Kimi agent, plugins,
 MCP, hooks, skills, workspace scan, session, or tool dispatcher is instantiated.
@@ -18,9 +19,11 @@ import importlib.metadata
 import json
 import logging
 import math
+import os
 import sys
 import time
 import tomllib
+from collections.abc import Callable
 from pathlib import Path
 from urllib.parse import urlsplit
 
@@ -42,6 +45,53 @@ SYSTEM_PROMPT = (
 
 class BackendError(Exception):
     """An error whose fixed code is safe to return without configuration details."""
+
+
+class ProgressFile:
+    """Best-effort visible output only, never reasoning or provider diagnostics."""
+
+    def __init__(self, path: Path):
+        self.path = path
+        self.last_write = float("-inf")
+        self.phase = None
+
+    def __call__(self, text: str, phase: str) -> None:
+        now = time.monotonic()
+        if (
+            phase == self.phase
+            and phase not in {"completed", "failed"}
+            and now - self.last_write < 0.25
+        ):
+            return
+        temporary = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
+        try:
+            temporary.write_text(
+                json.dumps(
+                    {"text": text, "updated_at": time.time(), "phase": phase},
+                    ensure_ascii=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            os.replace(temporary, self.path)
+            self.last_write, self.phase = now, phase
+        except OSError:
+            # A status file must never fail or retry the model request.
+            pass
+        finally:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
+def report_progress(progress, text: str, phase: str) -> None:
+    if progress is not None:
+        try:
+            progress(text, phase)
+        except Exception:
+            # Do not expose callback errors or make them model-call failures.
+            pass
 
 
 def read_request(raw: bytes) -> dict:
@@ -135,7 +185,29 @@ def load_provider(config_file: Path) -> dict:
     }
 
 
-async def complete(request: dict, provider_config: dict) -> dict:
+async def complete(
+    request: dict,
+    provider_config: dict,
+    progress: Callable[[str, str], None] | None = None,
+) -> dict:
+    visible_text = ""
+
+    def update(text: str, phase: str) -> None:
+        nonlocal visible_text
+        visible_text = text
+        report_progress(progress, text, phase)
+
+    update("", "requesting")
+    try:
+        payload = await _complete(request, provider_config, update)
+    except BaseException:
+        update(visible_text, "failed")
+        raise
+    update(payload["text"], "completed" if payload["ok"] else "failed")
+    return payload
+
+
+async def _complete(request: dict, provider_config: dict, progress) -> dict:
     import httpx
     from kosong.chat_provider.kimi import Kimi, extract_usage_from_chunk
     from loguru import logger
@@ -186,6 +258,7 @@ async def complete(request: dict, provider_config: dict) -> dict:
                 extra_body={"thinking": {"type": "disabled"}},
             )
             try:
+                progress("", "streaming")
                 async for chunk in stream:
                     chunk_usage = extract_usage_from_chunk(chunk)
                     if chunk_usage is not None:
@@ -207,6 +280,8 @@ async def complete(request: dict, provider_config: dict) -> dict:
                     if output_chars > MAX_OUTPUT_CHARS:
                         raise BackendError("output_too_large")
                     text_parts.append(text)
+                    if text:
+                        progress("".join(text_parts), "streaming")
                     if choice.finish_reason is not None:
                         finish_reason = choice.finish_reason
             finally:
@@ -280,9 +355,18 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check", action="store_true", help="Validate without network/model calls"
     )
+    parser.add_argument(
+        "--progress-file", type=Path, help="Controller-chosen absolute live JSON path"
+    )
     args = parser.parse_args(argv)
     started = time.monotonic()
+    progress = None
     try:
+        if args.progress_file is not None:
+            if not args.progress_file.is_absolute():
+                raise BackendError("absolute_progress_file_required")
+            progress = ProgressFile(args.progress_file)
+            report_progress(progress, "", "requesting")
         if not sys.flags.isolated:
             raise BackendError("isolated_python_required_use_dash_I")
         request = (
@@ -293,8 +377,9 @@ def main(argv: list[str] | None = None) -> int:
         provider = load_provider(args.config_file)
         if args.check:
             payload = {"ok": True, "check_only": True, "tools_advertised": 0}
+            report_progress(progress, "", "completed")
         else:
-            payload = asyncio.run(complete(request, provider))
+            payload = asyncio.run(complete(request, provider, progress))
         payload.update(
             {
                 "kimi_version": SUPPORTED_KIMI_VERSION,
@@ -304,6 +389,10 @@ def main(argv: list[str] | None = None) -> int:
         )
     except Exception as error:
         payload = safe_error(error)
+        # Completion reports its own final partial output; failures before it
+        # starts still need a terminal snapshot without diagnostics.
+        if progress is not None and progress.phase not in {"completed", "failed"}:
+            report_progress(progress, "", "failed")
     payload["elapsed_seconds"] = round(time.monotonic() - started, 3)
     print(json.dumps(payload, ensure_ascii=True), flush=True)
     return 0 if payload["ok"] else (75 if payload.get("retryable") else 1)

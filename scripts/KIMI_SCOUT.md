@@ -108,6 +108,40 @@ requesting missing context, improve the packet rather than adding an unrestricte
 agent or repeatedly paying for the same question. Existing PRs such as Quack
 #161 and our FlashAttention #2902 should be reviewed, not duplicated.
 
+## Live local dashboard
+
+```sh
+python scripts/kimi_scout_dashboard.py --root runs/kimi-scout --port 8767
+```
+
+Open `http://127.0.0.1:8767`. The viewer is read-only and loopback-only: it has
+no start/stop/dispatch endpoints, does not load Kimi credentials, and does not
+expose the inbox as a file server. It can stay open independently of the scout.
+On Windows, use `Start-Process -WindowStyle Hidden` with explicit output/error
+logs for a background viewer; it does not install startup tasks or keep the PC
+awake. Other machines cannot access this loopback address.
+
+The page refreshes every two seconds while visible. It shows worker slots,
+queue/history filters, evidence packets, visible assistant replies, duration,
+actual reported usage and reservations separately. Historical integration trials
+are included in the totals. `REVIEW` is **unverified**, not a qualified PR.
+Each task is a separate bounded model request, not a persistent multi-turn agent
+conversation. A queue with no new evidence shows idle workers, not fake activity.
+
+New requests save their exact public input to `results/<id>.request.json` and
+throttled visible-output snapshots to `results/<id>.live.json`. Hidden reasoning,
+provider config and credentials are never copied to the viewer. Live snapshots
+are best-effort observability, not accepted findings. Legacy jobs have saved
+evidence/results but no token-by-token replay or exact historical system prompt;
+the page labels those limitations. Restart the scout after upgrading to enable
+new snapshots and heartbeats; do not replay past paid calls just for the UI.
+
+Offline viewer tests (temporary local HTTP server only):
+
+```sh
+python -B tests/test_kimi_scout_dashboard.py
+```
+
 ## Evaluate before expanding
 
 Review the first batch for useful leads, incorrect claims, and missing context.

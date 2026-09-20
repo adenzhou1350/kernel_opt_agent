@@ -1,0 +1,432 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Kimi Scout · 运行看板</title>
+  <style>
+    :root { color-scheme: light dark; --bg:#f4f5f3; --panel:#fff; --subtle:#f7f8f6; --text:#202824; --muted:#67736c; --line:#dfe5df; --accent:#24775b; --accent-bg:#edf6f0; --amber:#92601c; --amber-bg:#fff6e5; --red:#b04343; --red-bg:#fdf0ef; --blue:#426887; --blue-bg:#edf3fa; --shadow:0 2px 8px #26392a05; }
+    @media (prefers-color-scheme:dark) { :root { --bg:#141816; --panel:#1c211e; --subtle:#222923; --text:#e3eae5; --muted:#9baa9f; --line:#333e36; --accent:#8ad0ad; --accent-bg:#233b2e; --amber:#e2ba75; --amber-bg:#3a3020; --red:#eea3a0; --red-bg:#3d2726; --blue:#a1bedb; --blue-bg:#263442; --shadow:none; } }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei",sans-serif; }
+    button,input,select { font:inherit; }
+    button,a,input,select,summary { -webkit-tap-highlight-color:transparent; }
+    button { cursor:pointer; }
+    button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+    a { color:var(--accent); text-underline-offset:3px; overflow-wrap:anywhere; }
+    button { color:inherit; }
+    [hidden] { display:none !important; }
+    .shell { max-width:1600px; padding:30px 36px 36px; margin:auto; }
+    .topbar,.brand,.top-actions,.section-title,.worker-top,.job-row-top,.detail-title-row,.panel-heading,.tabbar,.status-line { display:flex; align-items:center; }
+    .topbar { gap:20px; justify-content:space-between; margin-bottom:24px; }
+    .brand { gap:13px; }
+    .brand-mark { width:42px; height:42px; display:grid; place-items:center; border:1px solid var(--line); border-radius:12px; background:var(--panel); color:var(--accent); font-size:22px; font-weight:700; }
+    h1,h2,h3,p { margin:0; }
+    h1 { font-size:22px; letter-spacing:-.6px; line-height:1.3; }
+    .subtitle { font-size:12px; color:var(--muted); margin-top:3px; }
+    .top-actions { gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+    .button { background:var(--panel); border:1px solid var(--line); padding:7px 12px; border-radius:8px; font-size:12px; }
+    .button:hover { background:var(--subtle); }
+    .button:disabled { opacity:.5; cursor:wait; }
+    .badge { display:inline-flex; align-items:center; gap:6px; width:fit-content; white-space:nowrap; font-size:11px; font-weight:600; border-radius:5px; padding:3px 7px; color:var(--muted); background:var(--subtle); border:1px solid var(--line); }
+    .badge.running { color:var(--accent); background:var(--accent-bg); border-color:transparent; }
+    .badge.review,.badge.needs_context,.badge.cooldown { color:var(--amber); background:var(--amber-bg); border-color:transparent; }
+    .badge.failed { color:var(--red); background:var(--red-bg); border-color:transparent; }
+    .badge.pending { color:var(--blue); background:var(--blue-bg); border-color:transparent; }
+    .dot { width:6px; height:6px; display:inline-block; border-radius:50%; background:currentColor; }
+    .muted { color:var(--muted); }
+    .tiny { font-size:11px; }
+    .mono { font-family:ui-monospace,SFMono-Regular,Consolas,monospace; }
+    .notice { border:1px solid var(--line); border-radius:9px; padding:10px 14px; margin-bottom:16px; color:var(--muted); background:var(--panel); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .notice.warning { border-color:var(--amber); background:var(--amber-bg); color:var(--amber); }
+    .notice.error { border-color:var(--red); background:var(--red-bg); color:var(--red); }
+    .stats { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:12px; margin-bottom:25px; }
+    .stat { background:var(--panel); border:1px solid var(--line); border-radius:11px; padding:16px 19px; box-shadow:var(--shadow); }
+    .stat-label { font-size:12px; color:var(--muted); }
+    .stat-value { font-size:29px; font-weight:650; letter-spacing:-1px; margin:3px 0 1px; font-variant-numeric:tabular-nums; }
+    .stat-note { font-size:11px; color:var(--muted); min-height:17px; }
+    .section-title { justify-content:space-between; gap:12px; margin-bottom:11px; }
+    h2 { font-size:14px; font-weight:650; }
+    .workers { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:24px; }
+    .worker { text-align:left; min-width:0; padding:15px 17px; background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:137px; box-shadow:var(--shadow); }
+    .worker.active { border-top:3px solid var(--accent); padding-top:13px; }
+    .worker:not(:disabled):hover { border-color:var(--accent); }
+    .worker:disabled { cursor:default; }
+    .worker-top { justify-content:space-between; gap:8px; margin-bottom:11px; }
+    .worker-label { font-size:10px; font-weight:650; color:var(--muted); letter-spacing:1px; }
+    .worker-name { font-size:13px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .worker-info { font-size:11px; color:var(--muted); margin-top:6px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .workspace { display:grid; grid-template-columns:minmax(290px,340px) minmax(0,1fr); gap:18px; align-items:start; }
+    .panel { border:1px solid var(--line); border-radius:12px; background:var(--panel); box-shadow:var(--shadow); min-width:0; overflow:hidden; }
+    .panel-heading { justify-content:space-between; padding:17px 18px 12px; }
+    .history-tools { padding:0 14px 14px; display:grid; gap:8px; grid-template-columns:minmax(0,1fr) auto; }
+    .search { grid-column:1/-1; width:100%; }
+    input,select { border:1px solid var(--line); background:var(--subtle); color:var(--text); border-radius:7px; padding:8px 10px; font-size:12px; min-width:0; }
+    .history-count { align-self:center; font-size:11px; color:var(--muted); padding-right:3px; }
+    .job-list { max-height:775px; overflow-y:auto; border-top:1px solid var(--line); }
+    .job-row { display:block; width:100%; text-align:left; border:0; background:transparent; padding:14px 17px; border-bottom:1px solid var(--line); border-left:3px solid transparent; }
+    .job-row:last-child { border-bottom:0; }
+    .job-row:hover { background:var(--subtle); }
+    .job-row.selected { border-left-color:var(--accent); background:var(--accent-bg); }
+    .job-row-top { gap:9px; justify-content:space-between; margin-bottom:7px; }
+    .job-repo { font-size:11px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .job-name { font-size:13px; line-height:1.5; overflow-wrap:anywhere; font-weight:600; display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden; }
+    .job-meta { display:flex; justify-content:space-between; gap:8px; margin-top:7px; color:var(--muted); font-size:10px; font-variant-numeric:tabular-nums; }
+    .empty { text-align:center; color:var(--muted); padding:48px 20px; font-size:13px; }
+    .detail-empty { padding:125px 20px; }
+    .detail-head { padding:23px 24px 17px; }
+    .detail-title-row { justify-content:space-between; align-items:start; gap:15px; }
+    .detail-title { font-size:19px; line-height:1.55; overflow-wrap:anywhere; font-weight:650; letter-spacing:-.3px; }
+    .detail-subtitle { margin-top:7px; font-size:11px; color:var(--muted); overflow-wrap:anywhere; }
+    .detail-meta { display:flex; flex-wrap:wrap; gap:12px 25px; padding:14px 0 2px; margin-top:14px; border-top:1px solid var(--line); }
+    .meta-item { font-size:11px; }
+    .meta-item dt { color:var(--muted); margin-bottom:2px; }
+    .meta-item dd { margin:0; font-variant-numeric:tabular-nums; }
+    .detail-notice { margin:0 24px 17px; }
+    .analysis { margin:0 24px 20px; border:1px solid var(--line); border-radius:9px; overflow:hidden; }
+    .analysis-heading { font-size:12px; background:var(--subtle); padding:9px 13px; border-bottom:1px solid var(--line); font-weight:600; }
+    .analysis-grid { display:grid; grid-template-columns:1fr 1fr; }
+    .analysis-item { padding:12px 13px; border-bottom:1px solid var(--line); min-width:0; }
+    .analysis-item:nth-child(odd) { border-right:1px solid var(--line); }
+    .analysis-label { font-size:10px; color:var(--muted); margin-bottom:4px; }
+    .analysis-text { font-size:12px; line-height:1.8; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .evidence { padding:12px 13px; }
+    .evidence-item { padding:8px 0; }
+    .evidence-item + .evidence-item { border-top:1px solid var(--line); }
+    .evidence blockquote { margin:6px 0 2px; padding:4px 10px; border-left:2px solid var(--line); color:var(--muted); white-space:pre-wrap; overflow-wrap:anywhere; font-size:12px; }
+    .evidence a { font-size:11px; }
+    .tabbar { border-top:1px solid var(--line); border-bottom:1px solid var(--line); gap:20px; padding:0 24px; }
+    .tab { border:0; border-bottom:2px solid transparent; background:transparent; padding:12px 0 10px; color:var(--muted); font-size:12px; }
+    .tab[aria-selected="true"] { color:var(--accent); border-bottom-color:var(--accent); font-weight:600; }
+    .tab-panel { padding:20px 24px 24px; }
+    .status-line { justify-content:space-between; flex-wrap:wrap; gap:8px; color:var(--muted); font-size:11px; margin-bottom:11px; }
+    pre { margin:0; font:12px/1.85 ui-monospace,SFMono-Regular,Consolas,"Microsoft YaHei",monospace; white-space:pre-wrap; overflow-wrap:anywhere; tab-size:2; }
+    .output { background:var(--subtle); border:1px solid var(--line); border-radius:8px; padding:16px; max-height:560px; overflow-y:auto; min-height:130px; }
+    .input-question { font-size:13px; white-space:pre-wrap; overflow-wrap:anywhere; margin:8px 0 17px; line-height:1.85; }
+    .source { border:1px solid var(--line); border-radius:8px; margin-top:9px; overflow:hidden; }
+    .source summary { padding:10px 12px; cursor:pointer; font-size:12px; background:var(--subtle); overflow-wrap:anywhere; }
+    .source-body { padding:12px; }
+    .source pre { margin-top:10px; max-height:350px; overflow:auto; }
+    .source-meta { font-size:11px; overflow-wrap:anywhere; }
+    .footer { font-size:11px; color:var(--muted); margin-top:18px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px; }
+    @media (min-width:1200px) { .history { position:sticky; top:18px; } }
+    @media (max-width:1050px) { .shell { padding:24px 22px; } .stats { gap:9px; } .stat { padding:13px; } .stat-value { font-size:25px; } .workspace { grid-template-columns:minmax(260px,30%) minmax(0,1fr); gap:13px; } .workers { gap:9px; } .worker { padding:13px; } .worker.active { padding-top:11px; } .detail-head { padding:19px 18px 15px; } .analysis { margin-left:18px; margin-right:18px; } .tabbar,.tab-panel { padding-left:18px; padding-right:18px; } .detail-notice { margin-left:18px; margin-right:18px; } }
+    @media (max-width:760px) { .shell { padding:20px 15px; } .topbar { align-items:flex-start; gap:15px; } .top-actions { gap:7px; } .refresh-time { display:none; } .stats { grid-template-columns:repeat(3,1fr); margin-bottom:20px; } .stat:nth-child(4),.stat:nth-child(5) { grid-column:auto; } .workers { grid-template-columns:repeat(2,1fr); } .workspace { grid-template-columns:1fr; } .job-list { max-height:330px; } .analysis-grid { grid-template-columns:1fr; } .analysis-item:nth-child(odd) { border-right:0; } .detail-title { font-size:17px; } .detail-title-row { flex-wrap:wrap; } .detail-empty { padding:60px 20px; } }
+    @media (max-width:430px) { .topbar { flex-direction:column; } .top-actions { justify-content:flex-start; width:100%; } .refresh-time { display:inline; margin-left:auto; } .stat { padding:11px; } .stat-label { font-size:11px; } .stat-value { font-size:23px; } .stat-note { font-size:10px; } .tabbar { gap:17px; } .detail-meta { gap:12px 18px; } }
+    @media (prefers-reduced-motion:no-preference) { .dot.live { animation:pulse 2s ease-in-out infinite; } @keyframes pulse { 50% { opacity:.35; } } }
+  </style>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <div class="brand"><div class="brand-mark" aria-hidden="true">K</div><div><h1>Kimi Scout</h1><p class="subtitle">公开源码线索 · 每个任务为一轮独立分析，非持续对话</p></div></div>
+    <div class="top-actions"><span id="runtimeBadge" class="badge"><span class="dot"></span><span id="runtimeLabel">正在连接</span></span><span id="refreshTime" class="tiny muted refresh-time">尚未同步</span><button id="refresh" type="button" class="button">刷新</button></div>
+  </header>
+  <div id="connectionError" class="notice error" role="alert" hidden></div>
+  <div id="warnings" class="notice warning" hidden></div>
+  <section class="stats" aria-label="运行概览">
+    <div class="stat"><div class="stat-label">全部任务（含早期接通测试）</div><div class="stat-value" id="totalJobs">—</div><div class="stat-note" id="completedJobs">等待首轮同步</div></div>
+    <div class="stat"><div class="stat-label">正在分析</div><div class="stat-value" id="runningJobs">—</div><div class="stat-note" id="pendingJobs">—</div></div>
+    <div class="stat"><div class="stat-label">待验证线索</div><div class="stat-value" id="reviewJobs">—</div><div class="stat-note">REVIEW · 尚未实测验证</div></div>
+    <div class="stat"><div class="stat-label">已报告 Token</div><div class="stat-value" id="reportedTokens">—</div><div class="stat-note" id="tokenCoverage">仅统计 API 返回用量</div></div>
+    <div class="stat"><div class="stat-label">预留 Token</div><div class="stat-value" id="reservedTokens">—</div><div class="stat-note">本地预算记账 · 非实际用量</div></div>
+  </section>
+  <section aria-labelledby="workersHeading">
+    <div class="section-title"><h2 id="workersHeading">工作槽位</h2><span id="runtimeMeta" class="tiny muted">4 个展示槽位</span></div>
+    <div id="workers" class="workers"></div>
+  </section>
+  <div class="workspace">
+    <section class="panel history" aria-labelledby="historyHeading">
+      <div class="panel-heading"><h2 id="historyHeading">任务历史</h2><span class="tiny muted">按创建时间倒序</span></div>
+      <div class="history-tools"><input id="search" class="search" type="search" placeholder="搜索仓库、任务或结论…" aria-label="搜索任务"><select id="stateFilter" aria-label="筛选任务状态"><option value="">全部状态</option><option value="RUNNING">正在分析 · RUNNING</option><option value="PENDING">等待中 · PENDING</option><option value="REVIEW">待验证 · REVIEW</option><option value="NO_LEAD">暂无发现 · NO_LEAD</option><option value="NEEDS_CONTEXT">缺少上下文 · NEEDS_CONTEXT</option><option value="FAILED">失败 · FAILED</option></select><span id="historyCount" class="history-count">0 个任务</span></div>
+      <div id="jobList" class="job-list"><div class="empty">正在读取任务…</div></div>
+    </section>
+    <section class="panel detail" aria-label="任务详情">
+      <div id="detailEmpty" class="empty detail-empty">选择一个任务，查看输入与分析结果</div>
+      <div id="detailContent" hidden>
+        <div class="detail-head"><div class="detail-title-row"><h2 id="detailTitle" class="detail-title"></h2><span id="detailState" class="badge"></span></div><div id="detailSubtitle" class="detail-subtitle"></div><dl id="detailMeta" class="detail-meta"></dl></div>
+        <div id="detailNotice" class="notice detail-notice" hidden></div>
+        <div id="detailError" class="notice error detail-notice" role="alert" hidden></div>
+        <div id="analysis" class="analysis" hidden></div>
+        <div class="tabbar" role="tablist" aria-label="任务内容"><button type="button" class="tab" id="tabAnswer" role="tab" aria-selected="true" aria-controls="answerPanel" data-panel="answerPanel">模型回答</button><button type="button" class="tab" id="tabSources" role="tab" aria-selected="false" aria-controls="sourcesPanel" data-panel="sourcesPanel" tabindex="-1">输入资料</button><button type="button" class="tab" id="tabPrompt" role="tab" aria-selected="false" aria-controls="promptPanel" data-panel="promptPanel" tabindex="-1">输入提示词</button></div>
+        <div id="answerPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabAnswer"><div class="status-line"><span id="answerStatus"></span><span id="answerMeta" class="mono"></span></div><pre id="answer" class="output" tabindex="0" aria-label="模型回答文本"></pre></div>
+        <div id="sourcesPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabSources" hidden><div class="tiny muted">用户问题 / 任务目标</div><p id="question" class="input-question"></p><div id="packetMeta" class="source-meta muted"></div><div id="sources"></div><details class="source"><summary>完整公开资料包（JSON）</summary><div class="source-body"><pre id="packetText" tabindex="0"></pre></div></details></div>
+        <div id="promptPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabPrompt" hidden><p id="promptNote" class="tiny muted" style="margin-bottom:12px"></p><pre id="prompt" class="output" tabindex="0" aria-label="输入提示词"></pre></div>
+      </div>
+    </section>
+  </div>
+  <footer class="footer"><span>只读观察 · REVIEW 表示待验证线索，不代表已验证或可提交 PR</span><span id="pollStatus">可见时每 2 秒同步</span></footer>
+</main>
+<script>
+"use strict";
+(() => {
+  const $ = id => document.getElementById(id);
+  const labels = {RUNNING:"正在分析",PENDING:"等待中",REVIEW:"待验证",NO_LEAD:"暂无发现",NEEDS_CONTEXT:"缺少上下文",FAILED:"失败",STOPPED:"已停止",COOLDOWN:"冷却中"};
+  const knownStates = new Set(Object.keys(labels));
+  const modelFields = [["hypothesis","发现 / 假设"],["baseline","现有基线"],["next_check","下一步验证"],["duplicate_risk","重复风险"],["uncertainty","不确定性"],["knowledge_suggestion","可复用知识建议"]];
+  let state = null, selectedId = null, detail = null, timer = null, busy = false, refreshQueued = false;
+  let detailSignature = "", analysisSignature = "", packetSignature = "", lastGoodAt = null, detailNeedsRefresh = false;
+  const number = n => n != null && Number.isFinite(Number(n)) ? new Intl.NumberFormat("zh-CN").format(Number(n)) : "—";
+  const compact = n => n == null || !Number.isFinite(Number(n)) ? "—" : new Intl.NumberFormat("zh-CN", {notation:"compact",maximumFractionDigits:1}).format(Number(n));
+  const plain = value => value == null ? "" : typeof value === "string" ? value : JSON.stringify(value, null, 2);
+  const date = value => {
+    if (value == null || value === "") return null;
+    const numeric = typeof value === "number" || /^\d+(\.\d+)?$/.test(String(value));
+    const result = new Date(numeric ? Number(value) * (Number(value) < 1e12 ? 1000 : 1) : value);
+    return Number.isNaN(result.getTime()) ? null : result;
+  };
+  const time = (value, full = false) => {
+    const d = date(value);
+    return d ? new Intl.DateTimeFormat("zh-CN", full ? {month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false} : {hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false}).format(d) : "—";
+  };
+  const duration = value => {
+    if (value == null || !Number.isFinite(Number(value))) return "—";
+    const seconds = Math.max(0, Math.floor(Number(value)));
+    if (seconds < 60) return seconds + " 秒";
+    if (seconds < 3600) return Math.floor(seconds / 60) + " 分 " + seconds % 60 + " 秒";
+    return Math.floor(seconds / 3600) + " 时 " + Math.floor(seconds % 3600 / 60) + " 分";
+  };
+  function node(tag, className, text) {
+    const result = document.createElement(tag);
+    if (className) result.className = className;
+    if (text != null) result.textContent = plain(text);
+    return result;
+  }
+  function text(id, value) { $(id).textContent = plain(value); }
+  function badge(value, target) {
+    const result = target || node("span");
+    result.className = "badge " + (knownStates.has(value) ? value.toLowerCase() : "");
+    result.textContent = (labels[value] || value || "未知") + (value === "REVIEW" ? " · REVIEW" : "");
+    return result;
+  }
+  function safeLink(url, label) {
+    try {
+      const parsed = new URL(url);
+      if (!["https:","http:"].includes(parsed.protocol) || parsed.username || parsed.password) throw new Error("unsupported URL");
+      const link = node("a", "", label || url);
+      link.href = parsed.href; link.target = "_blank"; link.rel = "noopener noreferrer";
+      return link;
+    } catch (_) { return node("span", "muted", label || url || "未提供链接"); }
+  }
+  function setNotice(id, content, kind) {
+    const el = $(id); el.hidden = !content; el.textContent = content || "";
+    if (kind !== undefined) el.className = "notice detail-notice " + kind;
+  }
+  function renderOverview() {
+    const summary = state.summary || {}, counts = summary.counts || {}, runtime = state.runtime || {};
+    const count = key => Number(counts[key] || 0);
+    text("totalJobs", number(summary.total_jobs ?? state.jobs.length));
+    text("completedJobs", "已结束 " + number((summary.total_jobs ?? state.jobs.length) - count("RUNNING") - count("PENDING")) + " · 失败 " + number(count("FAILED")));
+    text("runningJobs", number(count("RUNNING"))); text("pendingJobs", "排队等待 " + number(count("PENDING")) + " 个任务");
+    text("reviewJobs", number(count("REVIEW"))); text("reportedTokens", compact(summary.reported_tokens));
+    $("reportedTokens").title = number(summary.reported_tokens);
+    text("reservedTokens", compact(summary.reserved_tokens)); $("reservedTokens").title = number(summary.reserved_tokens);
+    text("tokenCoverage", "已知用量 " + number(summary.usage_known_jobs || 0) + " 个任务");
+    const isAlive = runtime.alive === true;
+    const runtimeState = isAlive ? runtime.state : "STOPPED";
+    $("runtimeBadge").className = "badge " + (runtimeState === "COOLDOWN" ? "cooldown" : isAlive ? "running" : "");
+    text("runtimeLabel", isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
+    $("runtimeBadge").firstElementChild.className = "dot" + (isAlive && runtimeState === "RUNNING" ? " live" : "");
+    const runtimeParts = ["并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
+    if (runtime.pid) runtimeParts.unshift("PID " + runtime.pid);
+    if (runtimeState === "COOLDOWN") runtimeParts.push("冷却至 " + time(runtime.cooldown_until));
+    if (state.feed?.at) runtimeParts.push("采集 " + time(state.feed.at));
+    text("runtimeMeta", runtimeParts.join(" · "));
+    const feedErrors = (state.feed?.errors || []).map(error => "资料采集：" + plain(error));
+    const warnings = [...(state.warnings || []).map(plain), ...feedErrors];
+    if (count("RUNNING") > 4) warnings.push("当前有 " + count("RUNNING") + " 个运行任务；下方展示前 4 个，其余可在任务历史中查看。");
+    if (!isAlive && count("RUNNING")) warnings.push("守护进程未运行，RUNNING 为保存状态，任务可能已中断。");
+    setNotice("warnings", warnings.join("\n"));
+    const active = state.jobs.filter(job => job.state === "RUNNING").sort((a,b) => (date(a.started)?.getTime() || 0) - (date(b.started)?.getTime() || 0));
+    const workerNodes = [];
+    for (let i = 0; i < 4; i++) {
+      const job = active[i], worker = node("button", "worker" + (job ? " active" : ""));
+      worker.type = "button"; worker.disabled = !job;
+      const top = node("div", "worker-top"); top.append(node("span", "worker-label", "WORKER " + String(i + 1).padStart(2,"0")), job ? badge(job.state) : node("span", "badge", "空闲"));
+      worker.append(top, node("div", "worker-name", job ? job.name : "等待新任务"), node("div", "worker-info", job ? (job.repo || "公开源码") + " · " + duration(job.elapsed_seconds) : isAlive ? "任务分配后自动显示" : "守护进程未运行"));
+      if (job) { worker.title = job.name; worker.addEventListener("click", () => selectJob(job.id)); }
+      workerNodes.push(worker);
+    }
+    $("workers").replaceChildren(...workerNodes);
+    text("refreshTime", "同步于 " + time(lastGoodAt));
+    renderHistory();
+  }
+  function renderHistory() {
+    if (!state) return;
+    const query = $("search").value.trim().toLocaleLowerCase(), filter = $("stateFilter").value;
+    const jobs = state.jobs.filter(job => (!filter || job.state === filter) && (!query || [job.id, job.name, job.repo, job.title, job.error].some(value => plain(value).toLocaleLowerCase().includes(query)))).sort((a,b) => (date(b.created)?.getTime() || 0) - (date(a.created)?.getTime() || 0));
+    text("historyCount", jobs.length + " / " + state.jobs.length);
+    const rows = jobs.map(job => {
+      const row = node("button", "job-row" + (job.id === selectedId ? " selected" : ""));
+      row.type = "button"; row.setAttribute("aria-pressed", String(job.id === selectedId));
+      const top = node("div", "job-row-top"); top.append(node("span", "job-repo", job.repo || job.name), badge(job.state));
+      const meta = node("div", "job-meta"); meta.append(node("span", "", time(job.created, true)), node("span", "", job.usage?.total_tokens != null ? compact(job.usage.total_tokens) + " tokens" : job.state === "RUNNING" ? duration(job.elapsed_seconds) : "用量未知"));
+      row.append(top, node("div", "job-name", job.title || job.name || job.id), meta);
+      row.addEventListener("click", () => selectJob(job.id)); return row;
+    });
+    $("jobList").replaceChildren(...(rows.length ? rows : [node("div", "empty", state.jobs.length ? "没有匹配的任务" : "暂无任务，等待采集结果")]));
+  }
+  function selectJob(id, updateHash = true) {
+    if (!/^[a-f0-9]{24}$/.test(id || "")) return;
+    if (updateHash) history.replaceState(null, "", "#job=" + id);
+    if (selectedId !== id) {
+      selectedId = id; detail = null; detailSignature = ""; analysisSignature = ""; packetSignature = ""; detailNeedsRefresh = true;
+      $("detailContent").hidden = true; $("detailEmpty").hidden = false; text("detailEmpty", "正在读取任务详情…");
+      renderHistory();
+    }
+    requestRefresh();
+  }
+  function renderAnalysis(analysis) {
+    const signature = JSON.stringify(analysis);
+    if (signature === analysisSignature) return;
+    analysisSignature = signature;
+    $("analysis").hidden = !analysis || typeof analysis !== "object";
+    if (!analysis || typeof analysis !== "object") { $("analysis").replaceChildren(); return; }
+    const decisionLabels = {lead:"发现线索 · 待验证",no_lead:"暂无可行动线索",needs_context:"需要更多上下文"};
+    const heading = node("div", "analysis-heading", "结构化结论 · " + (decisionLabels[analysis.decision] || analysis.decision || "模型分析"));
+    const grid = node("div", "analysis-grid");
+    modelFields.forEach(([key,label]) => {
+      if (analysis[key] == null) return;
+      const field = node("div", "analysis-item"); field.append(node("div", "analysis-label", label), node("div", "analysis-text", analysis[key] || "未提供")); grid.append(field);
+    });
+    const evidence = node("div", "evidence"); evidence.append(node("div", "analysis-label", "引用证据 · 引文仅作为模型结论的来源线索"));
+    const refs = Array.isArray(analysis.evidence) ? analysis.evidence : [];
+    refs.forEach((ref, i) => {
+      const item = node("div", "evidence-item"); item.append(safeLink(ref.url, (i + 1) + ". " + (ref.url || "未提供链接")), node("blockquote", "", ref.quote || "未提供引文")); evidence.append(item);
+    });
+    if (!refs.length) evidence.append(node("p", "tiny muted", "未提供引用证据"));
+    $("analysis").replaceChildren(heading, grid, evidence);
+  }
+  function renderPacket(packet) {
+    const signature = JSON.stringify(packet);
+    if (signature === packetSignature) return;
+    packetSignature = signature; packet = packet && typeof packet === "object" ? packet : {};
+    text("question", packet.question || "资料包中未提供独立问题；完整输入见提示词。");
+    const sources = Array.isArray(packet.sources) ? packet.sources : [];
+    text("packetMeta", [packet.repo, packet.commit ? "修订 " + packet.commit : "", sources.length + " 份来源资料"].filter(Boolean).join(" · "));
+    $("sources").replaceChildren(...sources.map((source, i) => {
+      const item = node("details", "source");
+      item.append(node("summary", "", "来源 " + (i + 1) + " · " + (source.url || "公开资料")));
+      const body = node("div", "source-body"); const pre = node("pre", "", source.text || "（空）"); pre.tabIndex = 0;
+      body.append(safeLink(source.url, "打开原始来源 ↗"), pre); item.append(body); return item;
+    }));
+    text("packetText", JSON.stringify(packet, null, 2));
+  }
+  function renderDetail(data) {
+    if (!data.job || data.job.id !== selectedId) return;
+    detail = data; detailNeedsRefresh = false;
+    $("detailEmpty").hidden = true; $("detailContent").hidden = false;
+    const job = data.job, usage = data.usage || job.usage;
+    text("detailTitle", job.title || data.analysis?.title || job.name || job.id); badge(job.state, $("detailState"));
+    text("detailSubtitle", [job.repo, job.name, job.id].filter(Boolean).join(" · "));
+    const metadata = [["创建时间",time(job.created,true)],["开始时间",time(job.started,true)],["结束时间",time(job.finished,true)],["耗时",duration(job.elapsed_seconds)],["Token（输入 / 输出）",usage ? number(usage.input_tokens) + " / " + number(usage.output_tokens) : "未报告"],["Token 总计",usage?.total_tokens != null ? number(usage.total_tokens) : "未报告"]];
+    if (data.finish_reason) metadata.push(["结束原因",data.finish_reason]);
+    $("detailMeta").replaceChildren(...metadata.map(([label,value]) => { const item = node("div", "meta-item"); item.append(node("dt", "", label),node("dd", "", value)); return item; }));
+    setNotice("detailNotice", job.state === "REVIEW" ? "这是一条待验证线索。尚未经过复现、正确性或性能验证，也不代表可提交 PR。" : job.state === "RUNNING" ? "分析进行中。下方显示已收到的回答正文；内容可能不完整。" : job.state === "PENDING" ? "任务等待分配，尚未开始模型分析。" : "", job.state === "REVIEW" ? "warning" : "");
+    setNotice("detailError", job.error ? "任务错误：" + plain(job.error) : "");
+    renderAnalysis(data.analysis);
+    renderPacket(data.packet);
+    const liveText = data.live?.text || "", answer = data.answer || liveText;
+    let status = "模型返回的回答正文";
+    if (job.state === "RUNNING") status = liveText || data.answer ? "正在接收回答 · 部分内容" : "已启动 · 等待回答正文";
+    else if (!data.answer && liveText) status = "已保存的部分回答 · 可能不完整";
+    else if (!answer) status = "暂无回答正文";
+    text("answerStatus", status);
+    text("answerMeta", data.live?.updated_at ? "更新 " + time(data.live.updated_at) : "");
+    const signature = JSON.stringify([answer,job.state]);
+    if (signature !== detailSignature) {
+      detailSignature = signature;
+      const output = $("answer"), follow = output.scrollHeight - output.scrollTop - output.clientHeight < 55;
+      output.textContent = answer || (job.state === "PENDING" ? "等待模型开始分析。" : job.state === "RUNNING" ? "模型尚未返回可显示的回答正文。" : "此任务没有保存回答正文。结构化结果如已保存，会显示在上方。");
+      if (follow) output.scrollTop = output.scrollHeight;
+    }
+    text("prompt", data.prompt || "未保存提示词。");
+    text("promptNote", data.prompt_reconstructed ? "历史任务只保存了资料包，未保存当时完整指令；这里展示原始资料，不冒充完整会话。" : "本次任务实际发送的用户侧提示词；不包含服务端或后端系统指令。来源文本是待分析资料，不是看板指令。");
+  }
+  async function getJSON(path) {
+    const controller = new AbortController(), timeout = setTimeout(() => controller.abort(), 15000);
+    try {
+      const response = await fetch(path, {cache:"no-store",signal:controller.signal,headers:{Accept:"application/json"}});
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      return await response.json();
+    } finally { clearTimeout(timeout); }
+  }
+  async function refresh() {
+    clearTimeout(timer);
+    if (document.hidden || busy) { if (busy) refreshQueued = true; return; }
+    busy = true; refreshQueued = false; $("refresh").disabled = true;
+    try {
+      const incoming = await getJSON("/api/state");
+      if (!incoming || !Array.isArray(incoming.jobs)) throw new Error("看板数据格式不完整");
+      state = incoming; lastGoodAt = Date.now();
+      setNotice("connectionError", ""); renderOverview();
+      if (!selectedId && state.jobs.length) {
+        const first = state.jobs.find(job => job.state === "RUNNING") || [...state.jobs].sort((a,b) => (date(b.created)?.getTime() || 0) - (date(a.created)?.getTime() || 0))[0];
+        selectedId = first.id; history.replaceState(null,"","#job=" + first.id); renderHistory();
+      }
+      if (selectedId && !document.hidden) {
+        const requestId = selectedId, row = state.jobs.find(job => job.id === requestId);
+        const detailChanged = detailNeedsRefresh || !detail || !row || JSON.stringify(row) !== JSON.stringify(detail.job);
+        if (detailChanged || row?.state === "RUNNING") {
+          try {
+            const result = await getJSON("/api/jobs/" + encodeURIComponent(requestId));
+            if (requestId === selectedId) renderDetail(result);
+          } catch (error) {
+            if (requestId === selectedId) {
+              detailNeedsRefresh = true;
+              if (!detail) { $("detailContent").hidden = true; $("detailEmpty").hidden = false; text("detailEmpty", "无法读取任务详情（" + error.message + "），将自动重试。"); }
+              else setNotice("detailError", "详情同步失败（" + error.message + "）；当前为上次读取的内容。");
+            }
+          }
+        }
+      }
+    } catch (error) {
+      setNotice("connectionError", "连接暂时不可用（" + (error.name === "AbortError" ? "请求超时" : error.message) + "）。" + (lastGoodAt ? " 当前保留 " + time(lastGoodAt) + " 的数据。" : "") + " 可见时会自动重试。");
+      text("runtimeLabel", "连接中断"); $("runtimeBadge").className = "badge failed";
+      $("runtimeBadge").firstElementChild.className = "dot";
+    } finally {
+      busy = false; $("refresh").disabled = false;
+      if (!document.hidden) timer = setTimeout(refresh, refreshQueued ? 0 : 2000);
+    }
+  }
+  function requestRefresh() {
+    clearTimeout(timer);
+    if (busy) { refreshQueued = true; return; }
+    refresh();
+  }
+  function readHash() {
+    const match = /^#job=([a-f0-9]{24})$/.exec(location.hash);
+    if (match) selectJob(match[1], false);
+  }
+  function activateTab(tab, focus = false) {
+    document.querySelectorAll(".tab").forEach(button => {
+      const selected = button === tab;
+      button.setAttribute("aria-selected", String(selected)); button.tabIndex = selected ? 0 : -1;
+      $(button.dataset.panel).hidden = !selected;
+    });
+    if (focus) tab.focus();
+  }
+  document.querySelectorAll(".tab").forEach(tab => {
+    tab.addEventListener("click", () => activateTab(tab));
+    tab.addEventListener("keydown", event => {
+      if (!["ArrowLeft","ArrowRight","Home","End"].includes(event.key)) return;
+      event.preventDefault(); const tabs = [...document.querySelectorAll(".tab")], i = tabs.indexOf(tab);
+      const next = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1 : (i + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      activateTab(tabs[next], true);
+    });
+  });
+  $("search").addEventListener("input", renderHistory); $("stateFilter").addEventListener("change", renderHistory);
+  $("refresh").addEventListener("click", requestRefresh); window.addEventListener("hashchange", readHash);
+  document.addEventListener("visibilitychange", () => {
+    clearTimeout(timer); text("pollStatus", document.hidden ? "页面隐藏 · 已暂停同步" : "可见时每 2 秒同步");
+    if (!document.hidden) requestRefresh();
+  });
+  // All external values are rendered through textContent, never as HTML or Markdown.
+  const initial = /^#job=([a-f0-9]{24})$/.exec(location.hash);
+  if (initial) selectedId = initial[1];
+  requestRefresh();
+})();
+</script>
+</body>
+</html>

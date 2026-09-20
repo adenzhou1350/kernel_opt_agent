@@ -18,6 +18,7 @@ import re
 import sqlite3
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -45,6 +46,7 @@ Keep the entire answer under 600 Chinese characters excluding evidence URLs.
 """
 MAX_INPUT_BYTES = 24000
 MAX_OUTPUT = 4096
+HEARTBEAT_SECONDS = 5.0
 
 
 def dumps(value):
@@ -407,7 +409,8 @@ def validate_result(result, packet):
 
 
 def execute(root, job, python, timeout, output_tokens):
-    root = Path(root)
+    # Backend cwd is the individual work directory, not the controller cwd.
+    root = Path(root).resolve()
     request = {
         "prompt": SYSTEM + "\nUNTRUSTED PUBLIC EVIDENCE PACKET:\n" + job["packet"],
         "max_output_tokens": output_tokens,
@@ -417,10 +420,12 @@ def execute(root, job, python, timeout, output_tokens):
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     work = root / "work" / job["id"]
+    live_path = root / "results" / f"{job['id']}.live.json"
     started = time.monotonic()
     charge, result, error, state = job["charge"], None, None, "FAILED"
     try:
         work.mkdir(exist_ok=False)
+        write_json(root / "results" / f"{job['id']}.request.json", request)
         proc = subprocess.run(
             [
                 str(python),
@@ -429,6 +434,8 @@ def execute(root, job, python, timeout, output_tokens):
                 "-X",
                 "utf8",
                 str(ROOT / "scripts" / "kimi_scout_backend.py"),
+                "--progress-file",
+                str(live_path),
             ],
             input=dumps(request),
             text=True,
@@ -493,6 +500,30 @@ def execute(root, job, python, timeout, output_tokens):
         error = error or type(exc).__name__
         if type(exc) is ValueError:
             error = str(exc)
+    if state == "FAILED":
+        try:
+            # A killed/timed-out subprocess cannot flush its own final snapshot.
+            # Keep only its visible text, never stdout/stderr or exception data.
+            live = (
+                json.loads(live_path.read_text(encoding="utf-8"))
+                if live_path.exists()
+                else {}
+            )
+            if isinstance(live, dict) and live.get("phase") not in {
+                "completed",
+                "failed",
+            }:
+                text = live.get("text", "")
+                write_json(
+                    live_path,
+                    {
+                        "text": text if isinstance(text, str) else "",
+                        "updated_at": time.time(),
+                        "phase": "failed",
+                    },
+                )
+        except (OSError, ValueError):
+            pass
     receipt = {
         "job_id": job["id"],
         "name": job["name"],
@@ -560,7 +591,7 @@ def single_runner(root):
 
 
 def run(args):
-    root = args.root
+    root = Path(args.root).resolve()
     with single_runner(root):
         if (root / "STOP").exists():
             raise ValueError("STOP exists; remove it explicitly before restarting")
@@ -581,11 +612,31 @@ def run(args):
             "concurrency": args.concurrency,
             "daily_max_calls": args.max_jobs or None,
             "daily_token_budget": args.token_budget or None,
+            "cooldown_until": None,
+            "next_feed_at": time.time() if args.feeds else None,
         }
-        write_json(
-            runtime_path,
-            runtime,
-        )
+        runtime_lock = threading.Lock()
+        heartbeat_stop = threading.Event()
+
+        def publish(**updates):
+            with runtime_lock:
+                runtime.update(
+                    heartbeat_at=time.time(), attempted_this_run=attempts, **updates
+                )
+                write_json(runtime_path, runtime)
+
+        def heartbeat():
+            # Feed collection and draining bounded in-flight calls can block the
+            # scheduler loop. Keep its liveness visible during those operations.
+            while not heartbeat_stop.wait(HEARTBEAT_SECONDS):
+                try:
+                    publish()
+                except OSError:
+                    pass
+
+        publish()
+        heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
+        heartbeat_thread.start()
         reason = "stop, deadline, or --once queue drained"
         try:
             with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
@@ -610,15 +661,17 @@ def run(args):
                             3600,
                         )
                         failures = 0
-                    state = "COOLDOWN" if time.time() < cooldown_until else "RUNNING"
-                    if state != runtime["state"]:
-                        runtime.update(
-                            state=state, cooldown_until=cooldown_until or None
-                        )
-                        write_json(runtime_path, runtime)
+                    if time.time() >= cooldown_until:
+                        cooldown_until = 0.0
+                    state = "COOLDOWN" if cooldown_until else "RUNNING"
+                    if state != runtime["state"] or runtime["cooldown_until"] != (
+                        cooldown_until or None
+                    ):
+                        publish(state=state, cooldown_until=cooldown_until or None)
                     if args.feeds and time.time() >= next_feed and not running:
                         collect(root, args.feeds, args.github_auth)
                         next_feed = time.time() + args.poll_seconds
+                        publish(next_feed_at=next_feed)
                     while (
                         len(running) < args.concurrency
                         and failures < 2
@@ -660,13 +713,15 @@ def run(args):
             reason = "infrastructure failure; inspect local error log"
             raise
         finally:
-            runtime.update(
+            heartbeat_stop.set()
+            heartbeat_thread.join()
+            publish(
                 state="STOPPED",
                 finished=time.time(),
-                attempted_this_run=attempts,
+                cooldown_until=None,
+                next_feed_at=None,
                 reason=reason,
             )
-            write_json(root / "runtime.json", runtime)
     return status(root)
 
 

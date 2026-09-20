@@ -28,13 +28,15 @@ class FakeStream:
 
     async def __aiter__(self):
         for chunk in self.chunks:
+            if isinstance(chunk, Exception):
+                raise chunk
             yield chunk
 
     async def close(self):
         self.closed = True
 
 
-def chunk(text="review", finish="stop", tool_calls=None, usage=True):
+def chunk(text="review", finish="stop", tool_calls=None, usage=True, reasoning=""):
     return SimpleNamespace(
         usage=SimpleNamespace(
             prompt_tokens=100,
@@ -45,7 +47,9 @@ def chunk(text="review", finish="stop", tool_calls=None, usage=True):
         else None,
         choices=[
             SimpleNamespace(
-                delta=SimpleNamespace(content=text, tool_calls=tool_calls),
+                delta=SimpleNamespace(
+                    content=text, tool_calls=tool_calls, reasoning_content=reasoning
+                ),
                 finish_reason=finish,
             )
         ],
@@ -138,7 +142,11 @@ class BackendTests(unittest.TestCase):
                 patch.object(
                     backend.importlib.metadata, "version", return_value="1.30.0"
                 ),
-                patch.object(backend.sys, "flags", SimpleNamespace(isolated=True)),
+                patch.object(
+                    backend.sys,
+                    "flags",
+                    SimpleNamespace(isolated=True, ignore_environment=True),
+                ),
                 patch.object(
                     backend, "complete", side_effect=AssertionError("must not call")
                 ),
@@ -152,7 +160,7 @@ class BackendTests(unittest.TestCase):
             self.assertNotIn("TEST_ONLY", output.getvalue())
             self.assertNotIn("model.invalid", output.getvalue())
 
-    def fake_completion(self, chunks):
+    def fake_completion(self, chunks, progress=None):
         calls = {}
         stream = FakeStream(chunks)
 
@@ -202,8 +210,118 @@ class BackendTests(unittest.TestCase):
         }
         request = backend.read_request(b'{"prompt":"explicit public source"}')
         with patch.dict(sys.modules, modules), patch.object(backend.logging, "disable"):
-            result = asyncio.run(backend.complete(request, provider))
+            result = asyncio.run(backend.complete(request, provider, progress))
         return result, calls, stream
+
+    def test_progress_contains_only_visible_content_and_finishes(self):
+        updates = []
+        result, _, _ = self.fake_completion(
+            [
+                chunk(text="", finish=None, reasoning="PRIVATE_REASONING"),
+                chunk(text="visible ", finish=None),
+                chunk(text="answer"),
+            ],
+            lambda text, phase: updates.append({"text": text, "phase": phase}),
+        )
+        self.assertEqual(updates[0], {"text": "", "phase": "requesting"})
+        self.assertIn({"text": "visible ", "phase": "streaming"}, updates)
+        self.assertEqual(updates[-1], {"text": "visible answer", "phase": "completed"})
+        self.assertEqual(result["text"], "visible answer")
+        serialized = json.dumps(updates)
+        for forbidden in ("PRIVATE_REASONING", "TEST_ONLY", "model.invalid", "api_key"):
+            self.assertNotIn(forbidden, serialized)
+
+    def test_progress_failure_keeps_partial_text_without_exception_details(self):
+        updates = []
+        with self.assertRaises(RuntimeError):
+            self.fake_completion(
+                [chunk(text="partial", finish=None), RuntimeError("SECRET_HEADERS")],
+                lambda text, phase: updates.append({"text": text, "phase": phase}),
+            )
+        self.assertEqual(updates[-1], {"text": "partial", "phase": "failed"})
+        self.assertNotIn("SECRET_HEADERS", json.dumps(updates))
+        updates.clear()
+        result, _, _ = self.fake_completion(
+            [chunk(finish="length")],
+            lambda text, phase: updates.append({"text": text, "phase": phase}),
+        )
+        self.assertFalse(result["ok"])
+        self.assertEqual(updates[-1], {"text": "review", "phase": "failed"})
+
+    def test_progress_callback_failure_does_not_change_model_call(self):
+        def fail(*unused):
+            raise OSError("private location")
+
+        result, calls, stream = self.fake_completion([chunk()], fail)
+        self.assertTrue(result["ok"])
+        self.assertEqual(calls["request"]["tools"], [])
+        self.assertEqual(calls["provider"]["max_retries"], 0)
+        self.assertTrue(stream.closed)
+
+    def test_atomic_progress_is_throttled_and_forces_terminal_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "visible.live.json"
+            progress = backend.ProgressFile(path)
+            with patch.object(
+                backend.time, "monotonic", side_effect=[0, 0.1, 0.26, 0.27]
+            ):
+                progress("first", "streaming")
+                progress("second", "streaming")
+                self.assertEqual(json.loads(path.read_text())["text"], "first")
+                progress("third", "streaming")
+                self.assertEqual(json.loads(path.read_text())["text"], "third")
+                progress("final", "failed")
+            snapshot = json.loads(path.read_text())
+            self.assertEqual(set(snapshot), {"text", "updated_at", "phase"})
+            self.assertEqual(snapshot["text"], "final")
+            self.assertEqual(snapshot["phase"], "failed")
+            self.assertIsInstance(snapshot["updated_at"], float)
+            self.assertEqual(list(Path(directory).iterdir()), [path])
+            # An inaccessible progress destination is explicitly non-fatal.
+            result, _, _ = self.fake_completion(
+                [chunk()],
+                backend.ProgressFile(Path(directory) / "missing" / "live.json"),
+            )
+            self.assertTrue(result["ok"])
+
+    def test_pre_request_failure_gets_safe_terminal_progress(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "visible.live.json"
+            output = io.StringIO()
+            with (
+                patch.object(
+                    backend.sys,
+                    "flags",
+                    SimpleNamespace(isolated=True, ignore_environment=True),
+                ),
+                patch.object(
+                    backend.sys,
+                    "stdin",
+                    SimpleNamespace(buffer=io.BytesIO(b'{"prompt":"public"}')),
+                ),
+                patch.object(
+                    backend, "load_provider", side_effect=RuntimeError("SECRET_KEY")
+                ),
+                contextlib.redirect_stdout(output),
+            ):
+                self.assertEqual(backend.main(["--progress-file", str(path)]), 1)
+            snapshot = json.loads(path.read_text())
+            self.assertEqual(snapshot["phase"], "failed")
+            self.assertEqual(snapshot["text"], "")
+            self.assertNotIn("SECRET_KEY", path.read_text() + output.getvalue())
+            self.assertEqual(json.loads(output.getvalue())["error"], "backend_failure")
+
+    def test_relative_progress_path_cannot_follow_backend_working_directory(self):
+        output = io.StringIO()
+        with (
+            patch.object(backend, "load_provider") as load,
+            contextlib.redirect_stdout(output),
+        ):
+            self.assertEqual(backend.main(["--progress-file", "relative.json"]), 1)
+        load.assert_not_called()
+        self.assertEqual(
+            json.loads(output.getvalue())["error"], "absolute_progress_file_required"
+        )
 
     def test_no_tools_retries_proxy_environment_or_redirects(self):
         result, calls, stream = self.fake_completion([chunk()])
