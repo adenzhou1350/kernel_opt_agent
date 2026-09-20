@@ -367,6 +367,9 @@ def validate_result(result, packet):
     ):
         raise ValueError("lead must cite supplied evidence")
     sources = {source["url"]: source["text"] for source in packet["sources"]}
+    for related in packet.get("related_open_items_sample", []):
+        # Titles are explicitly supplied evidence, not inferred PR contents.
+        sources.setdefault(related["url"], related["title"])
     for ref in refs:
         if not isinstance(ref, dict) or set(ref) != {"url", "quote"}:
             raise ValueError("invalid evidence shape")

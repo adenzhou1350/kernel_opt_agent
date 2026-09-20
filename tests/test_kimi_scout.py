@@ -71,6 +71,17 @@ class ScoutTests(unittest.TestCase):
             scout.enqueue(self.root, first), scout.enqueue(self.root, second)
         )
 
+    def test_citation_to_supplied_related_title_is_allowed(self):
+        source = packet()
+        source["related_open_items_sample"] = [
+            {"url": "https://github.com/a/b/pull/1", "title": "Existing fix"}
+        ]
+        value = result()
+        value["evidence"] = [
+            {"url": "https://github.com/a/b/pull/1", "quote": "Existing fix"}
+        ]
+        self.assertEqual(scout.validate_result(value, source), value)
+
     def test_atomic_claim_and_persistent_daily_cap(self):
         for i in range(8):
             self.add(str(i))
