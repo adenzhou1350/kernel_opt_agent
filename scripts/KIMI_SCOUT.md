@@ -211,6 +211,16 @@ are included in the totals. `REVIEW` is **unverified**, not a qualified PR.
 Each task is a separate bounded model request, not a persistent multi-turn agent
 conversation. A queue with no new evidence shows idle workers, not fake activity.
 
+The handoff overview reports the last 15 minutes of completions, rate and failures,
+the last completion time, and current slot occupancy (not GPU utilization).
+Repository cards aggregate the full inbox, not just the 500 visible history rows.
+Only REVIEW jobs without a child are counted as current review leaves; a leaf is
+still an unverified hypothesis, not a cross-chain-deduplicated or PR-ready result.
+Reproduction-plan leaves have not executed tests. The lifetime call/token ledger
+is collapsed separately. An offline or stale-heartbeat process cannot appear as
+confirmed live occupancy. Updating this viewer does not require restarting scout
+workers or replaying analysis.
+
 New requests save their exact public input to `results/<id>.request.json` and
 throttled visible-output snapshots to `results/<id>.live.json`. Hidden reasoning,
 provider config and credentials are never copied to the viewer. Live snapshots
@@ -223,6 +233,7 @@ Offline viewer tests (temporary local HTTP server only):
 
 ```sh
 python -B tests/test_kimi_scout_dashboard.py
+python -B tests/test_kimi_scout_dashboard_briefing.py
 ```
 
 ## Evaluate before expanding

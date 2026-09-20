@@ -141,6 +141,155 @@ global.document = {
         self.assertEqual(summary["reported_tokens"], 123)
         self.assertEqual(summary["reserved_tokens"], 0)
         self.assertEqual(summary["usage_known_jobs"], 1)
+        self.assertEqual(
+            self.inbox.state()["activity"]["repos"][0]["reported_tokens"], 123
+        )
+
+    def test_activity_aggregates_beyond_display_limit_and_includes_empty_repos(self):
+        now = 10000
+        scout.write_json(self.root / "research.json", {
+            "goals": [{"repo": "zero/repo"}, {"repo": "zero/repo"}]
+        })
+        with scout.connect(self.root) as db:
+            db.execute("UPDATE jobs SET created=?", (now - 2000,))
+            db.executemany(
+                "INSERT INTO jobs (id,name,packet,state,created,started,finished,result) "
+                "VALUES (?,?,?,?,?,?,?,?)",
+                [
+                    (
+                        f"{index:024x}",
+                        f"job-{index}",
+                        json.dumps({
+                            "repo": "many/jobs",
+                            "research": {"stage": "reproduction_plan"},
+                        }),
+                        "REVIEW" if index == 0 else "FAILED" if index == 1 else "NO_LEAD",
+                        now - 1000 + index,
+                        now - 30,
+                        now - 10,
+                        json.dumps({"usage": {"total_tokens": 10}}),
+                    )
+                    for index in range(501)
+                ],
+            )
+        with patch.object(dashboard.time, "time", return_value=now):
+            state = self.inbox.state()
+        self.assertEqual(len(state["jobs"]), 500)
+        self.assertNotIn(self.job_id, {job["id"] for job in state["jobs"]})
+        activity = state["activity"]
+        self.assertEqual(activity["window_seconds"], 900)
+        self.assertEqual(activity["observed_seconds"], 900)
+        self.assertEqual(activity["completed"], 501)
+        self.assertAlmostEqual(activity["completed_per_minute"], 33.4)
+        self.assertEqual(activity["failed"], 1)
+        self.assertEqual(activity["average_elapsed_seconds"], 20)
+        self.assertEqual(activity["last_completion"], now - 10)
+        self.assertEqual(activity["review_leaves"], 1)
+        self.assertEqual(activity["reproduction_leaves"], 1)
+        repos = {repo["repo"]: repo for repo in activity["repos"]}
+        self.assertEqual(set(repos), {"a/b", "many/jobs", "zero/repo"})
+        self.assertEqual(repos["a/b"]["pending"], 1)
+        self.assertEqual(repos["many/jobs"]["total"], 501)
+        self.assertEqual(repos["many/jobs"]["completed"], 501)
+        self.assertEqual(repos["many/jobs"]["failed"], 1)
+        self.assertEqual(repos["many/jobs"]["reported_tokens"], 5010)
+        self.assertEqual(repos["many/jobs"]["review_leaves"], 1)
+        self.assertEqual(repos["zero/repo"]["total"], 0)
+        self.assertIsNone(repos["zero/repo"]["last_finished"])
+
+    def test_stored_usage_skips_answer_artifact_reads(self):
+        with scout.connect(self.root) as db:
+            db.execute(
+                "UPDATE jobs SET result=?",
+                (json.dumps({"usage": {"total_tokens": 7}}),),
+            )
+        with patch.object(self.inbox, "artifact") as artifact:
+            state = self.inbox.state()
+        artifact.assert_not_called()
+        self.assertEqual(state["summary"]["reported_tokens"], 7)
+        self.assertEqual(state["activity"]["repos"][0]["reported_tokens"], 7)
+
+    def test_activity_leaf_exclusion_uses_children_in_every_state(self):
+        child_id = scout.enqueue(self.root, {
+            **self.packet,
+            "name": "cross-repo child",
+            "repo": "child/repo",
+            "research": {
+                "parent_job_id": self.job_id,
+                "stage": "reproduction_plan",
+            },
+        })
+        with scout.connect(self.root) as db:
+            db.execute("UPDATE jobs SET state='REVIEW' WHERE id=?", (self.job_id,))
+        for child_state in ("PENDING", "RUNNING", "FAILED", "NO_LEAD", "REVIEW"):
+            with self.subTest(state=child_state):
+                with scout.connect(self.root) as db:
+                    db.execute("UPDATE jobs SET state=? WHERE id=?", (child_state, child_id))
+                activity = self.inbox.state()["activity"]
+                expected = int(child_state == "REVIEW")
+                self.assertEqual(activity["review_leaves"], expected)
+                self.assertEqual(activity["reproduction_leaves"], expected)
+                self.assertEqual(activity["repos"][0]["review_leaves"], 0)
+        scout.enqueue(self.root, {
+            **self.packet,
+            "name": "pending grandchild",
+            "research": {"parent_job_id": child_id},
+        })
+        self.assertEqual(self.inbox.state()["activity"]["review_leaves"], 0)
+
+    def test_activity_recent_window_boundaries_and_last_completion(self):
+        now = 10000
+        with scout.connect(self.root) as db:
+            db.execute(
+                "UPDATE jobs SET state='FAILED',created=?,started=?,finished=?",
+                (now - 2000, now - 920, now - 900),
+            )
+        with patch.object(dashboard.time, "time", return_value=now):
+            activity = self.inbox.state()["activity"]
+        self.assertEqual(activity["completed"], 1)
+        self.assertEqual(activity["failed"], 1)
+        self.assertEqual(activity["average_elapsed_seconds"], 20)
+        for finished in (now - 901, now + 1):
+            with self.subTest(finished=finished):
+                with scout.connect(self.root) as db:
+                    db.execute("UPDATE jobs SET finished=?", (finished,))
+                with patch.object(dashboard.time, "time", return_value=now):
+                    activity = self.inbox.state()["activity"]
+                self.assertEqual(activity["completed"], 0)
+                self.assertEqual(activity["completed_per_minute"], 0)
+                self.assertEqual(activity["failed"], 0)
+                self.assertIsNone(activity["average_elapsed_seconds"])
+                self.assertEqual(activity["last_completion"], finished)
+
+    def test_activity_short_observation_and_empty_inbox(self):
+        now = 10000
+        with scout.connect(self.root) as db:
+            db.execute(
+                "UPDATE jobs SET state='NO_LEAD',created=?,started=?,finished=?",
+                (now - 30, now - 10, now - 5),
+            )
+        with patch.object(dashboard.time, "time", return_value=now):
+            activity = self.inbox.state()["activity"]
+        self.assertEqual(activity["observed_seconds"], 30)
+        self.assertEqual(activity["completed_per_minute"], 2)
+        for created in (now, now + 1):
+            with self.subTest(created=created):
+                with scout.connect(self.root) as db:
+                    db.execute("UPDATE jobs SET created=?", (created,))
+                with patch.object(dashboard.time, "time", return_value=now):
+                    activity = self.inbox.state()["activity"]
+                self.assertEqual(activity["observed_seconds"], 0)
+                self.assertEqual(activity["completed_per_minute"], 0)
+        with scout.connect(self.root) as db:
+            db.execute("DELETE FROM jobs")
+        with patch.object(dashboard.time, "time", return_value=now):
+            activity = self.inbox.state()["activity"]
+        self.assertEqual(activity["observed_seconds"], 0)
+        self.assertEqual(activity["completed"], 0)
+        self.assertEqual(activity["completed_per_minute"], 0)
+        self.assertEqual(activity["repos"], [])
+        self.assertIsNone(activity["average_elapsed_seconds"])
+        self.assertIsNone(activity["last_completion"])
 
     def test_legacy_prompts_are_explicitly_reconstructed(self):
         detail = self.inbox.detail(self.job_id)
@@ -214,7 +363,10 @@ global.document = {
             self.assertIsNone(self.inbox.state()["research"])
 
     def test_malformed_research_metadata_preserves_old_jobs(self):
-        for metadata in (None, [], "invalid", {"root_job_id": ["not", "an", "id"]}):
+        for metadata in (
+            None, [], "invalid", {"root_job_id": ["not", "an", "id"]},
+            {"parent_job_id": ["not", "an", "id"]},
+        ):
             with self.subTest(metadata=metadata):
                 with scout.connect(self.root) as db:
                     db.execute(

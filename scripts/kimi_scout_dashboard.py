@@ -86,6 +86,97 @@ def valid_usage(value):
     return {k: v for k in keys if type(v := value.get(k)) is int and v >= 0}
 
 
+def activity_summary(jobs, research, now):
+    """Aggregate the full inbox; research leaves are still unvalidated output."""
+    window_seconds = 900
+    parents = {
+        job["parent_job_id"]
+        for job in jobs
+        if isinstance(job["parent_job_id"], str)
+    }
+    repositories = {}
+
+    def repository(repo):
+        repo = repo if isinstance(repo, str) else ""
+        if repo not in repositories:
+            repositories[repo] = {
+                "repo": repo,
+                "total": 0,
+                "running": 0,
+                "pending": 0,
+                "review_leaves": 0,
+                "reproduction_leaves": 0,
+                "completed": 0,
+                "failed": 0,
+                "reported_tokens": 0,
+                "last_finished": None,
+            }
+        return repositories[repo]
+
+    goals = (research or {}).get("goals", [])
+    if isinstance(goals, list):
+        for goal in goals:
+            if isinstance(goal, dict) and isinstance(goal.get("repo"), str):
+                repository(goal["repo"])
+
+    recent = []
+    for job in jobs:
+        repo = repository(job["repo"])
+        repo["total"] += 1
+        repo["running"] += job["state"] == "RUNNING"
+        repo["pending"] += job["state"] == "PENDING"
+        repo["failed"] += job["state"] == "FAILED"
+        leaf = job["state"] == "REVIEW" and job["id"] not in parents
+        repo["review_leaves"] += leaf
+        repo["reproduction_leaves"] += leaf and job["stage"] == "reproduction_plan"
+        if job["usage"] is not None:
+            repo["reported_tokens"] += job["usage"]["total_tokens"]
+        finished = job["finished"]
+        if finished is not None and job["state"] in (
+            "REVIEW", "NO_LEAD", "NEEDS_CONTEXT", "FAILED"
+        ):
+            repo["completed"] += 1
+            previous = repo["last_finished"]
+            repo["last_finished"] = (
+                max(previous, finished) if previous is not None else finished
+            )
+            if now - window_seconds <= finished <= now:
+                recent.append(job)
+
+    observed_seconds = min(
+        window_seconds, max(0, now - min((job["created"] for job in jobs), default=now))
+    )
+    elapsed = [
+        max(0, job["finished"] - job["started"])
+        for job in recent
+        if job["started"] is not None
+    ]
+    repos = sorted(repositories.values(), key=lambda repo: repo["repo"])
+    return {
+        "window_seconds": window_seconds,
+        "observed_seconds": observed_seconds,
+        "completed": len(recent),
+        "completed_per_minute": (
+            len(recent) * 60 / observed_seconds if observed_seconds else 0
+        ),
+        "failed": sum(job["state"] == "FAILED" for job in recent),
+        "average_elapsed_seconds": (
+            round(sum(elapsed) / len(elapsed), 2) if elapsed else None
+        ),
+        "last_completion": max(
+            (
+                repo["last_finished"]
+                for repo in repos
+                if repo["last_finished"] is not None
+            ),
+            default=None,
+        ),
+        "review_leaves": sum(repo["review_leaves"] for repo in repos),
+        "reproduction_leaves": sum(repo["reproduction_leaves"] for repo in repos),
+        "repos": repos,
+    }
+
+
 class Inbox:
     def __init__(self, root):
         self.root = Path(root).resolve(strict=True)
@@ -122,8 +213,9 @@ class Inbox:
         analysis = json_object(result.get("analysis"))
         packet = json_object(row.get("packet"))
         research = json_object(packet.get("research"))
-        answer = self.artifact(row["id"], "answer")
-        usage = valid_usage(result.get("usage")) or valid_usage(answer.get("usage"))
+        usage = valid_usage(result.get("usage"))
+        if usage is None:
+            usage = valid_usage(self.artifact(row["id"], "answer").get("usage"))
         started, finished = row.get("started"), row.get("finished")
         elapsed = max(0, (finished or now) - started) if started else 0
         live = self.artifact(row["id"], "live") if row["state"] == "RUNNING" else {}
@@ -176,6 +268,7 @@ class Inbox:
             "now": now,
             "runtime": runtime,
             "research": research,
+            "activity": activity_summary(jobs, research, now),
             "summary": {
                 "counts": dict(Counter(row["state"] for row in rows)),
                 "total_jobs": len(jobs),
