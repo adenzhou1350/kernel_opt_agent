@@ -1,0 +1,21 @@
+{
+  "objective": "持续寻找可便宜证伪、有源码依据、可进入人工验证的小型开源贡献；优先排除重复、陈旧问题与无实际收益方向。",
+  "queue_target": 24,
+  "repos": [
+    {
+      "repo": "Dao-AILab/quack", "ref": "main",
+      "source_prefixes": ["quack/"],
+      "question": "Inspect real-input API boundaries and kernel correctness. Existing Quack PR #161 and varlen layout docs are known work. Do not repeat the rejected ceil-offset/token-padding recipe or mixed FP8-grouped versus BF16-loop performance claim."
+    },
+    {
+      "repo": "Dao-AILab/flash-attention", "ref": "main",
+      "source_prefixes": ["flash_attn/", "csrc/flash_attn/src/", "hopper/"],
+      "question": "Find bounded correctness, unsupported-configuration diagnostics, or boundary-test opportunities. PR #2902 already addresses SM120 SharedStorage validation. Distinguish supported production execution from hypothetical configurations; never assume a reported issue is current or unclaimed."
+    },
+    {
+      "repo": "sgl-project/sglang", "ref": "main",
+      "source_prefixes": ["python/sglang/srt/mem_cache/", "python/sglang/srt/managers/", "python/sglang/srt/layers/"],
+      "question": "Find small production-reachable correctness or host-overhead opportunities. Avoid backend rewrites and eager-to-graph extrapolation. Demand exact source context and a cheap falsification plan; no performance or Ready claims without execution."
+    }
+  ]
+}

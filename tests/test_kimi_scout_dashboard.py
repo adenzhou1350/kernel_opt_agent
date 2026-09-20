@@ -80,10 +80,84 @@ class DashboardTests(unittest.TestCase):
     def test_legacy_prompts_are_explicitly_reconstructed(self):
         detail = self.inbox.detail(self.job_id)
         self.assertTrue(detail["prompt_reconstructed"])
+        self.assertIsNone(self.inbox.state()["research"])
+        for key in ("stage", "parent_job_id", "root_job_id"):
+            self.assertIsNone(detail["job"][key])
         self.artifact("request", {"prompt": "exact saved prompt"})
         detail = self.inbox.detail(self.job_id)
         self.assertFalse(detail["prompt_reconstructed"])
         self.assertEqual(detail["prompt"], "exact saved prompt")
+
+    def test_research_snapshot_and_review_chain_counts_are_read_only(self):
+        snapshot = {
+            "enabled": True,
+            "objective": "Investigate public source evidence",
+            "phase": "WAITING_FOR_NEW_EVIDENCE",
+            "updated_at": time.time(),
+            "queue_target": 24,
+            "queued": 3,
+            "followups_created": 2,
+            "discovery_created": 1,
+            "scanned_sources": 7,
+            "next_scan_at": time.time() + 600,
+            "last_error": None,
+            "goals": [
+                {"repo": "a/b", "scanned_sources": 7, "available_sources": 10, "issue_page": 2}
+            ],
+        }
+        scout.write_json(self.root / "research.json", snapshot)
+        child = {
+            **self.packet,
+            "name": "follow up source",
+            "research": {
+                "stage": "source_followup",
+                "parent_job_id": self.job_id,
+                "root_job_id": self.job_id,
+                "depth": 1,
+                "objective": snapshot["objective"],
+            },
+        }
+        child_id = scout.enqueue(self.root, child)
+        with scout.connect(self.root) as db:
+            db.execute("UPDATE jobs SET state='REVIEW'")
+        before = (self.root / "research.json").read_bytes()
+        state = self.inbox.state()
+        self.assertEqual(state["research"], snapshot)
+        self.assertEqual(state["summary"]["total_jobs"], 2)
+        self.assertEqual(state["summary"]["counts"]["REVIEW"], 2)
+        self.assertEqual(state["summary"]["candidate_roots"], 1)
+        detail = self.inbox.detail(child_id)
+        for key in ("stage", "parent_job_id", "root_job_id"):
+            self.assertEqual(detail["job"][key], child["research"][key])
+        self.assertEqual(before, (self.root / "research.json").read_bytes())
+
+    def test_research_snapshot_is_optional_and_confined(self):
+        self.assertIsNone(self.inbox.state()["research"])
+        snapshot = self.root / "research.json"
+        for content in ("{", "[]", "null", "{}"):
+            with self.subTest(content=content):
+                snapshot.write_text(content, encoding="utf-8")
+                self.assertIsNone(self.inbox.state()["research"])
+        snapshot.unlink()
+        with tempfile.TemporaryDirectory() as other:
+            secret = Path(other) / "provider.json"
+            secret.write_text('{"private":"never"}', encoding="utf-8")
+            try:
+                snapshot.symlink_to(secret)
+            except OSError:
+                self.skipTest("Symlinks require privileges on this Windows account")
+            self.assertIsNone(self.inbox.state()["research"])
+
+    def test_malformed_research_metadata_preserves_old_jobs(self):
+        for metadata in (None, [], "invalid", {"root_job_id": ["not", "an", "id"]}):
+            with self.subTest(metadata=metadata):
+                with scout.connect(self.root) as db:
+                    db.execute(
+                        "UPDATE jobs SET state='REVIEW',packet=?",
+                        (json.dumps({**self.packet, "research": metadata}),),
+                    )
+                self.assertEqual(self.inbox.state()["summary"]["candidate_roots"], 1)
+                self.assertEqual(self.inbox.detail(self.job_id)["job"]["repo"], "a/b")
 
     def test_live_partial_and_malformed_file(self):
         with scout.connect(self.root) as db:
@@ -135,6 +209,8 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(self.inbox.artifact(self.job_id, "answer"), {})
 
     def test_read_only_http_routes_headers_and_origin(self):
+        scout.write_json(self.root / "research.json", {"enabled": True, "phase": "READY"})
+        scout.write_json(self.root / "provider.json", {"private": "never"})
         server = dashboard.make_server(self.root, port=0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
@@ -143,13 +219,21 @@ class DashboardTests(unittest.TestCase):
             with urlopen(base + "/api/state", timeout=3) as response:
                 self.assertEqual(response.headers["Cache-Control"], "no-store")
                 self.assertNotIn("Access-Control-Allow-Origin", response.headers)
-                self.assertEqual(json.load(response)["summary"]["total_jobs"], 1)
+                state = json.load(response)
+                self.assertEqual(state["summary"]["total_jobs"], 1)
+                self.assertEqual(state["research"], {"enabled": True, "phase": "READY"})
+                self.assertNotIn("never", json.dumps(state))
+            with urlopen(base + "/api/state?research=provider.json", timeout=3) as response:
+                self.assertNotIn("never", response.read().decode("utf-8"))
             for path, headers, method, status in (
                 ("/api/state", {"Host": "evil.example"}, "GET", 403),
                 ("/api/state", {"Origin": "https://evil.example"}, "GET", 403),
                 ("/api/jobs/../../config.toml", {}, "GET", 404),
                 ("/runtime.json", {}, "GET", 404),
+                ("/research.json", {}, "GET", 404),
+                ("/provider.json", {}, "GET", 404),
                 ("/api/stop", {}, "POST", 501),
+                ("/api/research", {}, "POST", 501),
             ):
                 with (
                     self.subTest(path=path, method=method),

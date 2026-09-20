@@ -423,6 +423,7 @@ def execute(root, job, python, timeout, output_tokens):
     live_path = root / "results" / f"{job['id']}.live.json"
     started = time.monotonic()
     charge, result, error, state = job["charge"], None, None, "FAILED"
+    backend_completed = False
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
@@ -482,6 +483,7 @@ def execute(root, job, python, timeout, output_tokens):
             or response.get("tool_calls_executed") != 0
         ):
             raise ValueError("unexpected backend capabilities")
+        backend_completed = True
         result = validate_result(
             parse_answer(response["text"]), json.loads(job["packet"])
         )
@@ -530,6 +532,11 @@ def execute(root, job, python, timeout, output_tokens):
         "state": state,
         "result": result,
         "error": error,
+        "failure_scope": (
+            "answer" if backend_completed else "provider_or_infrastructure"
+        )
+        if state == "FAILED"
+        else None,
         "charged_tokens_or_reservation": charge,
         "wall_seconds": round(time.monotonic() - started, 3),
         "finished": time.time(),
@@ -603,8 +610,15 @@ def run(args):
             )
         deadline = time.time() + args.hours * 3600 if args.hours else float("inf")
         running, attempts, failures, next_feed = set(), 0, 0, 0.0
+        answer_failures = 0
         cooldown_until, error_cycles = 0.0, 0
         runtime_path = root / "runtime.json"
+        research_path = getattr(args, "research", None)
+        producer = None
+        if research_path:
+            from kimi_scout_research import ResearchProducer
+
+            producer = ResearchProducer(root, research_path, args.github_auth)
         runtime = {
             "pid": os.getpid(),
             "state": "RUNNING",
@@ -614,6 +628,7 @@ def run(args):
             "daily_token_budget": args.token_budget or None,
             "cooldown_until": None,
             "next_feed_at": time.time() if args.feeds else None,
+            "research_mode": bool(research_path),
         }
         runtime_lock = threading.Lock()
         heartbeat_stop = threading.Event()
@@ -639,6 +654,8 @@ def run(args):
         heartbeat_thread.start()
         reason = "stop, deadline, or --once queue drained"
         try:
+            if producer:
+                producer.start()
             with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
                 while time.time() < deadline and not (root / "STOP").exists():
                     if running:
@@ -650,17 +667,23 @@ def run(args):
                             key=lambda r: r["finished"],
                         )
                         for receipt in receipts:
-                            if receipt["state"] == "FAILED":
+                            if (
+                                receipt["state"] == "FAILED"
+                                and receipt.get("failure_scope") != "answer"
+                            ):
                                 failures += 1
+                            elif receipt["state"] == "FAILED":
+                                failures = 0
+                                answer_failures += 1
                             else:
-                                failures, error_cycles = 0, 0
-                    if failures >= 2:
+                                failures, answer_failures, error_cycles = 0, 0, 0
+                    if failures >= 2 or answer_failures >= 8:
                         error_cycles += 1
                         cooldown_until = time.time() + min(
                             args.error_cooldown_seconds * 2 ** min(error_cycles - 1, 4),
                             3600,
                         )
-                        failures = 0
+                        failures, answer_failures = 0, 0
                     if time.time() >= cooldown_until:
                         cooldown_until = 0.0
                     state = "COOLDOWN" if cooldown_until else "RUNNING"
@@ -713,6 +736,8 @@ def run(args):
             reason = "infrastructure failure; inspect local error log"
             raise
         finally:
+            if producer:
+                producer.stop()
             heartbeat_stop.set()
             heartbeat_thread.join()
             publish(
@@ -755,7 +780,11 @@ def main(argv=None):
         required=True,
         help="Python inside existing Kimi Code environment",
     )
-    worker.add_argument("--feeds", type=Path)
+    discovery = worker.add_mutually_exclusive_group()
+    discovery.add_argument("--feeds", type=Path)
+    discovery.add_argument(
+        "--research", type=Path, help="durable public-source frontier configuration"
+    )
     worker.add_argument("--github-auth", action="store_true")
     worker.add_argument(
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
@@ -803,6 +832,10 @@ def main(argv=None):
         elif args.action == "feed":
             result = collect(args.root, args.feeds, args.github_auth)
         else:
+            if args.research and args.once:
+                raise ValueError(
+                    "research is continuous; use --hours or stop, not --once"
+                )
             if not (
                 0 <= args.hours <= 168
                 and 0 <= args.max_jobs <= 100

@@ -47,6 +47,9 @@
     .stat-value { font-size:29px; font-weight:650; letter-spacing:-1px; margin:3px 0 1px; font-variant-numeric:tabular-nums; }
     .stat-note { font-size:11px; color:var(--muted); min-height:17px; }
     .section-title { justify-content:space-between; gap:12px; margin-bottom:11px; }
+    .research { margin-bottom:24px; padding:16px 19px; }
+    .research-objective { white-space:pre-wrap; overflow-wrap:anywhere; margin-bottom:8px; }
+    .research-counts,.research-goals { display:flex; flex-wrap:wrap; gap:7px 20px; font-size:12px; color:var(--muted); margin-bottom:8px; }
     h2 { font-size:14px; font-weight:650; }
     .workers { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:24px; }
     .worker { text-align:left; min-width:0; padding:15px 17px; background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:137px; box-shadow:var(--shadow); }
@@ -126,11 +129,20 @@
   <div id="connectionError" class="notice error" role="alert" hidden></div>
   <div id="warnings" class="notice warning" hidden></div>
   <section class="stats" aria-label="运行概览">
-    <div class="stat"><div class="stat-label">全部任务（含早期接通测试）</div><div class="stat-value" id="totalJobs">—</div><div class="stat-note" id="completedJobs">等待首轮同步</div></div>
+    <div class="stat"><div class="stat-label">分析调用（含跟进及早期接通测试）</div><div class="stat-value" id="totalJobs">—</div><div class="stat-note" id="completedJobs">等待首轮同步</div></div>
     <div class="stat"><div class="stat-label">正在分析</div><div class="stat-value" id="runningJobs">—</div><div class="stat-note" id="pendingJobs">—</div></div>
-    <div class="stat"><div class="stat-label">待验证线索</div><div class="stat-value" id="reviewJobs">—</div><div class="stat-note">REVIEW · 尚未实测验证</div></div>
+    <div class="stat"><div class="stat-label">REVIEW 分析（非独立 PR 数）</div><div class="stat-value" id="reviewJobs">—</div><div class="stat-note" id="candidateRoots">待验证 · 非去重线索数</div></div>
     <div class="stat"><div class="stat-label">已报告 Token</div><div class="stat-value" id="reportedTokens">—</div><div class="stat-note" id="tokenCoverage">仅统计 API 返回用量</div></div>
     <div class="stat"><div class="stat-label">预留 Token</div><div class="stat-value" id="reservedTokens">—</div><div class="stat-note">本地预算记账 · 非实际用量</div></div>
+  </section>
+  <section id="researchPanel" class="panel research" aria-labelledby="researchHeading" hidden>
+    <div class="section-title"><h2 id="researchHeading">持续研究目标 / 待分析材料</h2><span id="researchPhase" class="badge"></span></div>
+    <p id="researchObjective" class="research-objective"></p>
+    <div id="researchCounts" class="research-counts"></div>
+    <div id="researchGoals" class="research-goals"></div>
+    <p id="researchTiming" class="tiny muted"></p>
+    <p id="researchError" class="tiny" hidden></p>
+    <p class="tiny muted">本地只读状态快照 · 不自动修改代码或运行 GPU 验证</p>
   </section>
   <section aria-labelledby="workersHeading">
     <div class="section-title"><h2 id="workersHeading">工作槽位</h2><span id="runtimeMeta" class="tiny muted">4 个展示槽位</span></div>
@@ -164,6 +176,9 @@
   const $ = id => document.getElementById(id);
   const labels = {RUNNING:"正在分析",PENDING:"等待中",REVIEW:"待验证",NO_LEAD:"暂无发现",NEEDS_CONTEXT:"缺少上下文",FAILED:"失败",STOPPED:"已停止",COOLDOWN:"冷却中"};
   const knownStates = new Set(Object.keys(labels));
+  const stageLabels = {source_audit:"源码初查",issue_triage:"Issue 初筛",source_followup:"源码跟进",reproduction_plan:"复现计划"};
+  const phaseLabels = {REFILLING:"补充材料中",READY:"材料已就绪",WAITING_FOR_NEW_EVIDENCE:"等待新证据",BACKOFF:"退避等待",STOPPED:"已停止"};
+  const stageLabel = stage => stageLabels[stage] || plain(stage) || "独立分析（历史任务）";
   const modelFields = [["hypothesis","发现 / 假设"],["baseline","现有基线"],["next_check","下一步验证"],["duplicate_risk","重复风险"],["uncertainty","不确定性"],["knowledge_suggestion","可复用知识建议"]];
   let state = null, selectedId = null, detail = null, timer = null, busy = false, refreshQueued = false;
   let detailSignature = "", analysisSignature = "", packetSignature = "", lastGoodAt = null, detailNeedsRefresh = false;
@@ -213,6 +228,20 @@
     const el = $(id); el.hidden = !content; el.textContent = content || "";
     if (kind !== undefined) el.className = "notice detail-notice " + kind;
   }
+  function renderResearch() {
+    const research = state.research;
+    $("researchPanel").hidden = !research || typeof research !== "object";
+    if (!research || typeof research !== "object") return;
+    text("researchObjective", research.objective || "未提供研究目标");
+    text("researchPhase", (phaseLabels[research.phase] || research.phase || "未知阶段") + (research.phase ? " · " + research.phase : ""));
+    const counts = ["待分析缓冲 " + number(research.queued) + " / " + number(research.queue_target), "发现任务入队 " + number(research.discovery_created), "跟进任务入队 " + number(research.followups_created), "已排队源码窗口（累计） " + number(research.scanned_sources)];
+    $("researchCounts").replaceChildren(...counts.map(value => node("span", "", value)));
+    const goals = Array.isArray(research.goals) ? research.goals : [];
+    $("researchGoals").replaceChildren(...goals.filter(goal => goal && typeof goal === "object").map(goal => node("span", "", plain(goal.repo) + " · 源码窗口入队 " + number(goal.scanned_sources) + " · 范围文件 " + number(goal.available_sources) + " · Issue 页 " + number(goal.issue_page))));
+    text("researchTiming", "快照更新 " + time(research.updated_at, true) + (research.next_scan_at ? " · 下次扫描 " + time(research.next_scan_at, true) : ""));
+    $("researchError").hidden = !research.last_error;
+    text("researchError", research.last_error ? "研究采集错误：" + plain(research.last_error) : "");
+  }
   function renderOverview() {
     const summary = state.summary || {}, counts = summary.counts || {}, runtime = state.runtime || {};
     const count = key => Number(counts[key] || 0);
@@ -220,6 +249,7 @@
     text("completedJobs", "已结束 " + number((summary.total_jobs ?? state.jobs.length) - count("RUNNING") - count("PENDING")) + " · 失败 " + number(count("FAILED")));
     text("runningJobs", number(count("RUNNING"))); text("pendingJobs", "排队等待 " + number(count("PENDING")) + " 个任务");
     text("reviewJobs", number(count("REVIEW"))); text("reportedTokens", compact(summary.reported_tokens));
+    text("candidateRoots", summary.candidate_roots == null ? "待验证 · 非去重线索数" : number(summary.candidate_roots) + " 条候选链 · 非去重线索数");
     $("reportedTokens").title = number(summary.reported_tokens);
     text("reservedTokens", compact(summary.reserved_tokens)); $("reservedTokens").title = number(summary.reserved_tokens);
     text("tokenCoverage", "已知用量 " + number(summary.usage_known_jobs || 0) + " 个任务");
@@ -250,19 +280,20 @@
     }
     $("workers").replaceChildren(...workerNodes);
     text("refreshTime", "同步于 " + time(lastGoodAt));
+    renderResearch();
     renderHistory();
   }
   function renderHistory() {
     if (!state) return;
     const query = $("search").value.trim().toLocaleLowerCase(), filter = $("stateFilter").value;
-    const jobs = state.jobs.filter(job => (!filter || job.state === filter) && (!query || [job.id, job.name, job.repo, job.title, job.error].some(value => plain(value).toLocaleLowerCase().includes(query)))).sort((a,b) => (date(b.created)?.getTime() || 0) - (date(a.created)?.getTime() || 0));
+    const jobs = state.jobs.filter(job => (!filter || job.state === filter) && (!query || [job.id, job.name, job.repo, job.title, job.error, job.stage, stageLabel(job.stage)].some(value => plain(value).toLocaleLowerCase().includes(query)))).sort((a,b) => (date(b.created)?.getTime() || 0) - (date(a.created)?.getTime() || 0));
     text("historyCount", jobs.length + " / " + state.jobs.length);
     const rows = jobs.map(job => {
       const row = node("button", "job-row" + (job.id === selectedId ? " selected" : ""));
       row.type = "button"; row.setAttribute("aria-pressed", String(job.id === selectedId));
       const top = node("div", "job-row-top"); top.append(node("span", "job-repo", job.repo || job.name), badge(job.state));
       const meta = node("div", "job-meta"); meta.append(node("span", "", time(job.created, true)), node("span", "", job.usage?.total_tokens != null ? compact(job.usage.total_tokens) + " tokens" : job.state === "RUNNING" ? duration(job.elapsed_seconds) : "用量未知"));
-      row.append(top, node("div", "job-name", job.title || job.name || job.id), meta);
+      row.append(top, node("div", "job-name", job.title || job.name || job.id), node("div", "tiny muted", stageLabel(job.stage)), meta);
       row.addEventListener("click", () => selectJob(job.id)); return row;
     });
     $("jobList").replaceChildren(...(rows.length ? rows : [node("div", "empty", state.jobs.length ? "没有匹配的任务" : "暂无任务，等待采集结果")]));
@@ -320,9 +351,14 @@
     const job = data.job, usage = data.usage || job.usage;
     text("detailTitle", job.title || data.analysis?.title || job.name || job.id); badge(job.state, $("detailState"));
     text("detailSubtitle", [job.repo, job.name, job.id].filter(Boolean).join(" · "));
-    const metadata = [["创建时间",time(job.created,true)],["开始时间",time(job.started,true)],["结束时间",time(job.finished,true)],["耗时",duration(job.elapsed_seconds)],["Token（输入 / 输出）",usage ? number(usage.input_tokens) + " / " + number(usage.output_tokens) : "未报告"],["Token 总计",usage?.total_tokens != null ? number(usage.total_tokens) : "未报告"]];
+    const metadata = [["研究阶段",stageLabel(job.stage)],["创建时间",time(job.created,true)],["开始时间",time(job.started,true)],["结束时间",time(job.finished,true)],["耗时",duration(job.elapsed_seconds)],["Token（输入 / 输出）",usage ? number(usage.input_tokens) + " / " + number(usage.output_tokens) : "未报告"],["Token 总计",usage?.total_tokens != null ? number(usage.total_tokens) : "未报告"]];
     if (data.finish_reason) metadata.push(["结束原因",data.finish_reason]);
     $("detailMeta").replaceChildren(...metadata.map(([label,value]) => { const item = node("div", "meta-item"); item.append(node("dt", "", label),node("dd", "", value)); return item; }));
+    [["父任务",job.parent_job_id],["起始任务",job.root_job_id]].forEach(([label,id]) => {
+      if (!/^[a-f0-9]{24}$/.test(id || "") || id === job.id) return;
+      const item = node("div", "meta-item"), value = node("dd"), link = node("a", "mono", id);
+      link.href = "#job=" + id; value.append(link); item.append(node("dt", "", label), value); $("detailMeta").append(item);
+    });
     setNotice("detailNotice", job.state === "REVIEW" ? "这是一条待验证线索。尚未经过复现、正确性或性能验证，也不代表可提交 PR。" : job.state === "RUNNING" ? "分析进行中。下方显示已收到的回答正文；内容可能不完整。" : job.state === "PENDING" ? "任务等待分配，尚未开始模型分析。" : "", job.state === "REVIEW" ? "warning" : "");
     setNotice("detailError", job.error ? "任务错误：" + plain(job.error) : "");
     renderAnalysis(data.analysis);

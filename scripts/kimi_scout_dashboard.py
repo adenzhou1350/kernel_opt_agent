@@ -121,6 +121,7 @@ class Inbox:
         result = json_object(row.get("result"))
         analysis = json_object(result.get("analysis"))
         packet = json_object(row.get("packet"))
+        research = json_object(packet.get("research"))
         answer = self.artifact(row["id"], "answer")
         usage = valid_usage(result.get("usage")) or valid_usage(answer.get("usage"))
         started, finished = row.get("started"), row.get("finished")
@@ -141,6 +142,9 @@ class Inbox:
                 )
             },
             "repo": packet.get("repo", ""),
+            "stage": research.get("stage"),
+            "parent_job_id": research.get("parent_job_id"),
+            "root_job_id": research.get("root_job_id"),
             "title": analysis.get("title", ""),
             "elapsed_seconds": round(elapsed, 2),
             "usage": usage,
@@ -151,6 +155,7 @@ class Inbox:
         now = time.time()
         runtime = read_artifact(self.root, "runtime.json")
         feed = read_artifact(self.root, "last-feed.json")
+        research = read_artifact(self.root, "research.json") or None
         rows = self.rows()
         jobs = [self.describe(row, now) for row in rows]
         warnings = []
@@ -170,9 +175,22 @@ class Inbox:
         return {
             "now": now,
             "runtime": runtime,
+            "research": research,
             "summary": {
                 "counts": dict(Counter(row["state"] for row in rows)),
                 "total_jobs": len(jobs),
+                # A review chain can contain multiple analysis calls. Even its
+                # root count is not a claim of unique leads or ready PRs.
+                "candidate_roots": len(
+                    {
+                        j["root_job_id"]
+                        if isinstance(j["root_job_id"], str)
+                        and JOB_ID.fullmatch(j["root_job_id"])
+                        else j["id"]
+                        for j in jobs
+                        if j["state"] == "REVIEW"
+                    }
+                ),
                 "reported_tokens": sum(
                     j["usage"]["total_tokens"] for j in jobs if j["usage"] is not None
                 ),

@@ -30,17 +30,20 @@ work needs this service, and it does not resurrect the historical GPU broker.
   Valid reported usage replaces reservations even when answer validation fails;
   unknown usage keeps the full reservation. This is not a dollar-cost estimate.
   The Kimi account's own limits still apply. There are no automatic model retries.
-- Two consecutive errors pause new calls for 15 minutes, escalating to at most
+- Two consecutive provider/infrastructure errors pause new calls for 15 minutes, escalating to at most
   one hour during repeated outages. The worker stays alive, drains in-flight
   calls and resumes with new work after cooldown; failed jobs are not replayed.
   Interrupted jobs are not replayed either. Local storage/infrastructure errors
   still stop the process with an explicit failure reason.
   `stop` prevents new requests; bounded requests already in flight finish.
   OS-level single-runner locking prevents duplicate daemons on the same inbox.
+  An isolated invalid answer/citation fails only that job; eight consecutive
+  invalid answers also activate cooldown to prevent a paid bad-output loop.
 - Results require supplied URLs and source excerpts (ignoring only whitespace
   and displayed line-number prefixes). This checks provenance,
   **not truth**. `REVIEW` is an unverified lead; `NEEDS_CONTEXT` needs human/owner
-  investigation. Neither means correct, fast, novel, or upstream-ready.
+  investigation or bounded public-source enrichment. Neither means correct,
+  fast, novel, or upstream-ready.
 - Raw evidence/results stay in ignored `runs/`. Knowledge suggestions are not
   automatically written into the reviewed library. Review, deduplicate, then use
   the normal `knowledge add` workflow if a finding will help a future decision.
@@ -83,6 +86,48 @@ capacity becomes available again as attempts age out of the 24-hour window.
 Example feeds split up to eight unresolved reports per repository into distinct
 small packets. They poll for changed evidence, not repeated answers to unchanged
 questions; being alive does not imply four paid calls are always in flight.
+
+## Continuous research queue (optional)
+
+Replace `--feeds` with `--research templates/kimi-scout-research.json` to pursue
+an explicit public-repository objective rather than wait only for recent issues:
+
+```sh
+python scripts/kimi_scout.py --root runs/kimi-scout run \
+  --kimi-python <kimi-python> --research templates/kimi-scout-research.json \
+  --github-auth --hours 0 --concurrency 4 --max-jobs 0 --token-budget 0
+```
+
+This deliberately allows continuing paid Kimi usage until stopped. It is a local
+queue producer, not Codex Goal mode and not an unrestricted Kimi agent. No extra
+Codex conversation, recurring wakeup or agent-to-agent messaging is required.
+
+- A separate controller thread maintains up to 24 pending packets, while the
+  existing four workers independently consume them. It rotates repositories,
+  issue triage, source windows and follow-ups. State survives daemon restarts.
+- Discovery includes up to ten pages of open issues per sweep and up to three
+  120-line windows per eligible file in configured source prefixes, with related
+  tests where identifiable. **This is partial sampling, not complete code review.**
+  Repository snapshots, exact source blobs and public evidence are cached locally.
+- Leads and context requests receive at most two follow-ups, only when new public
+  evidence is available. The controller can add issue comments, observed tree
+  members and bounded related-work search. Model hints cannot introduce arbitrary
+  fetch URLs or paths. The final output is a falsification/reproduction **plan**;
+  actual tests, GPU validation and PR decisions still belong to the owner.
+- Source-window content and issue evidence are deduplicated. Timestamp-only issue
+  updates and unchanged snippets under a new commit do not buy a repeated call.
+  No-lead, failed and interrupted calls are not automatically retried.
+- After a sweep, the producer waits for new public evidence rather than
+  manufacturing more prompts. API failures back off separately; provider and
+  bad-answer circuit breakers and account limits still apply. Four concurrent
+  slots are a ceiling, not a guarantee of nonstop paid requests.
+
+`research.json` displays the objective, queue buffer, producer state and cumulative
+source windows (not full-file coverage). SQLite stores the durable frontier and
+dedup keys. Per-call packets include stage and parent/root lineage. REVIEW calls
+within one chain are not multiple candidate PRs. Public caches and all raw
+results remain local under the ignored run directory; reviewed knowledge is
+never automatically overwritten.
 
 ```sh
 python scripts/kimi_scout.py --root runs/kimi-scout status

@@ -238,6 +238,30 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 3)
 
+    def test_persistent_bad_answers_have_separate_circuit_breaker(self):
+        for i in range(10):
+            self.add(str(i))
+
+        def fail(root, job, *unused):
+            with scout.connect(root) as db:
+                db.execute("UPDATE jobs SET state='FAILED' WHERE id=?", (job["id"],))
+            return {
+                "state": "FAILED",
+                "failure_scope": "answer",
+                "finished": time.time(),
+            }
+
+        def stop(_):
+            (self.root / "STOP").touch()
+
+        with (
+            patch.object(scout, "execute", side_effect=fail),
+            patch.object(scout.time, "sleep", side_effect=stop),
+        ):
+            current = scout.run(self.run_args(concurrency=1, once=False))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 8)
+        self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 2)
+
     def test_report_feed_splits_distinct_issues(self):
         def response(url, **unused):
             if "/search/issues?" in url:
