@@ -145,7 +145,7 @@
     <p class="tiny muted">本地只读状态快照 · 不自动修改代码或运行 GPU 验证</p>
   </section>
   <section aria-labelledby="workersHeading">
-    <div class="section-title"><h2 id="workersHeading">工作槽位</h2><span id="runtimeMeta" class="tiny muted">4 个展示槽位</span></div>
+    <div class="section-title"><h2 id="workersHeading">工作槽位</h2><span id="runtimeMeta" class="tiny muted">正在读取实际并发配置</span></div>
     <div id="workers" class="workers"></div>
   </section>
   <div class="workspace">
@@ -176,7 +176,7 @@
   const $ = id => document.getElementById(id);
   const labels = {RUNNING:"正在分析",PENDING:"等待中",REVIEW:"待验证",NO_LEAD:"暂无发现",NEEDS_CONTEXT:"缺少上下文",FAILED:"失败",STOPPED:"已停止",COOLDOWN:"冷却中"};
   const knownStates = new Set(Object.keys(labels));
-  const stageLabels = {source_audit:"源码初查",issue_triage:"Issue 初筛",source_followup:"源码跟进",reproduction_plan:"复现计划"};
+  const stageLabels = {source_audit:"源码初查",issue_triage:"Issue 初筛",source_followup:"反证 / 源码复核",reproduction_plan:"复现计划（未执行）"};
   const phaseLabels = {REFILLING:"补充材料中",READY:"材料已就绪",WAITING_FOR_NEW_EVIDENCE:"等待新证据",BACKOFF:"退避等待",STOPPED:"已停止"};
   const stageLabel = stage => stageLabels[stage] || plain(stage) || "独立分析（历史任务）";
   const modelFields = [["hypothesis","发现 / 假设"],["baseline","现有基线"],["next_check","下一步验证"],["duplicate_risk","重复风险"],["uncertainty","不确定性"],["knowledge_suggestion","可复用知识建议"]];
@@ -234,7 +234,7 @@
     if (!research || typeof research !== "object") return;
     text("researchObjective", research.objective || "未提供研究目标");
     text("researchPhase", (phaseLabels[research.phase] || research.phase || "未知阶段") + (research.phase ? " · " + research.phase : ""));
-    const counts = ["待分析缓冲 " + number(research.queued) + " / " + number(research.queue_target), "发现任务入队 " + number(research.discovery_created), "跟进任务入队 " + number(research.followups_created), "已排队源码窗口（累计） " + number(research.scanned_sources)];
+    const counts = ["待分析缓冲 " + number(research.queued) + " / " + number(research.queue_target), "取材并发 " + number(research.context_workers || 1), "发现任务入队 " + number(research.discovery_created), "跟进任务入队 " + number(research.followups_created), "已排队源码窗口（累计） " + number(research.scanned_sources)];
     $("researchCounts").replaceChildren(...counts.map(value => node("span", "", value)));
     const goals = Array.isArray(research.goals) ? research.goals : [];
     $("researchGoals").replaceChildren(...goals.filter(goal => goal && typeof goal === "object").map(goal => node("span", "", plain(goal.repo) + " · 源码窗口入队 " + number(goal.scanned_sources) + " · 范围文件 " + number(goal.available_sources) + " · Issue 页 " + number(goal.issue_page))));
@@ -259,22 +259,25 @@
     text("runtimeLabel", isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
     $("runtimeBadge").firstElementChild.className = "dot" + (isAlive && runtimeState === "RUNNING" ? " live" : "");
     const runtimeParts = ["并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
+    if (runtime.queue_policy === "review_weighted") runtimeParts.push("调度偏好：发现 3 / 复核 3 / 复现计划 2，空位借用");
     if (runtime.pid) runtimeParts.unshift("PID " + runtime.pid);
     if (runtimeState === "COOLDOWN") runtimeParts.push("冷却至 " + time(runtime.cooldown_until));
-    if (state.feed?.at) runtimeParts.push("采集 " + time(state.feed.at));
+    const collectionTime = state.research?.updated_at || state.feed?.at;
+    if (collectionTime) runtimeParts.push("采集 " + time(collectionTime));
     text("runtimeMeta", runtimeParts.join(" · "));
     const feedErrors = (state.feed?.errors || []).map(error => "资料采集：" + plain(error));
     const warnings = [...(state.warnings || []).map(plain), ...feedErrors];
-    if (count("RUNNING") > 4) warnings.push("当前有 " + count("RUNNING") + " 个运行任务；下方展示前 4 个，其余可在任务历史中查看。");
+    const workerCount = Math.max(1, Math.min(16, Number(runtime.concurrency) || 4));
+    if (count("RUNNING") > workerCount) warnings.push("运行任务超过配置槽位；请检查是否有遗留状态，其他任务可在历史中查看。");
     if (!isAlive && count("RUNNING")) warnings.push("守护进程未运行，RUNNING 为保存状态，任务可能已中断。");
     setNotice("warnings", warnings.join("\n"));
     const active = state.jobs.filter(job => job.state === "RUNNING").sort((a,b) => (date(a.started)?.getTime() || 0) - (date(b.started)?.getTime() || 0));
     const workerNodes = [];
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < workerCount; i++) {
       const job = active[i], worker = node("button", "worker" + (job ? " active" : ""));
       worker.type = "button"; worker.disabled = !job;
       const top = node("div", "worker-top"); top.append(node("span", "worker-label", "WORKER " + String(i + 1).padStart(2,"0")), job ? badge(job.state) : node("span", "badge", "空闲"));
-      worker.append(top, node("div", "worker-name", job ? job.name : "等待新任务"), node("div", "worker-info", job ? (job.repo || "公开源码") + " · " + duration(job.elapsed_seconds) : isAlive ? "任务分配后自动显示" : "守护进程未运行"));
+      worker.append(top, node("div", "worker-name", job ? job.name : "等待新任务"), node("div", "worker-info", job ? (job.repo || "公开源码") + " · " + stageLabel(job.stage) + " · " + duration(job.elapsed_seconds) : isAlive ? "任务分配后自动显示" : "守护进程未运行"));
       if (job) { worker.title = job.name; worker.addEventListener("click", () => selectJob(job.id)); }
       workerNodes.push(worker);
     }

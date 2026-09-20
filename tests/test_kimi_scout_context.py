@@ -28,9 +28,12 @@ class ContextTests(unittest.TestCase):
         self.context = context.PublicContext(self.root, github_auth=True)
         self.calls = []
         self.metadata = {"private": False, "visibility": "public", "full_name": REPO}
-        self.tree = {"tree": [
-            {"path": "src/kernel.py", "type": "blob", "mode": "100644", "sha": BLOB}
-        ], "truncated": False}
+        self.tree = {
+            "tree": [
+                {"path": "src/kernel.py", "type": "blob", "mode": "100644", "sha": BLOB}
+            ],
+            "truncated": False,
+        }
         self.raw = "\n".join(f"value_{i} = {i}" for i in range(1, 301))
         self.routes = {}
         self.fetch = patch.object(context.scout, "fetch", side_effect=self.fake_fetch)
@@ -53,7 +56,10 @@ class ContextTests(unittest.TestCase):
         raise AssertionError(f"unexpected fetch: {url}")
 
     def issue_route(self, page=1):
-        return API + f"/issues?state=open&sort=updated&direction=desc&per_page=30&page={page}"
+        return (
+            API
+            + f"/issues?state=open&sort=updated&direction=desc&per_page=30&page={page}"
+        )
 
     def test_private_metadata_blocks_context_even_with_configured_auth(self):
         self.metadata["private"] = True
@@ -70,7 +76,11 @@ class ContextTests(unittest.TestCase):
         self.assertFalse(list((self.root / "public-cache").iterdir()))
 
     def test_visibility_must_be_explicitly_public_before_authenticated_context(self):
-        for metadata in ({"private": False}, {"private": False, "visibility": "internal"}, {"visibility": "public"}):
+        for metadata in (
+            {"private": False},
+            {"private": False, "visibility": "internal"},
+            {"visibility": "public"},
+        ):
             self.metadata = metadata
             with self.assertRaisesRegex(ValueError, "non-public"):
                 self.context.snapshot(REPO)
@@ -82,16 +92,29 @@ class ContextTests(unittest.TestCase):
         self.assertTrue(all(auth is False for _, _, auth in self.calls))
 
     def test_snapshot_is_bounded_and_skips_unsafe_paths_and_symlinks(self):
-        for name in ("../escape", "/root", "a//b", "a/./b", "a\\b", "https://evil/x", "a\x00b"):
+        for name in (
+            "../escape",
+            "/root",
+            "a//b",
+            "a/./b",
+            "a\\b",
+            "https://evil/x",
+            "a\x00b",
+        ):
             self.tree["tree"].append({"path": name, "type": "blob", "sha": BLOB})
-        self.tree["tree"].append({"path": "link", "type": "blob", "mode": "120000", "sha": BLOB})
+        self.tree["tree"].append(
+            {"path": "link", "type": "blob", "mode": "120000", "sha": BLOB}
+        )
         self.tree["truncated"] = True
         snapshot = self.context.snapshot(REPO)
         self.assertEqual(snapshot["files"], ["src/kernel.py"])
         self.assertEqual(snapshot["blobs"], {"src/kernel.py": BLOB})
         self.assertEqual(snapshot["skipped_paths"], 8)
         self.assertTrue(snapshot["truncated"])
-        self.assertLessEqual(sum(limit for _, limit, _ in self.calls), 10_000_000)
+        self.assertLessEqual(
+            sum(limit for _, limit, _ in self.calls),
+            context.TREE_LIMIT + 2 * context.API_LIMIT,
+        )
         self.assertEqual([auth for _, _, auth in self.calls], [True, True, True])
 
     def test_snapshot_cache_ttl_and_immutable_alias(self):
@@ -103,6 +126,56 @@ class ContextTests(unittest.TestCase):
         with patch.object(context.time, "time", return_value=1901):
             self.assertEqual(self.context.snapshot(REPO), first)
         self.assertEqual(len(self.calls), 6)
+
+    def test_scoped_tree_skips_large_unselected_subtrees_and_keeps_identity(self):
+        subtree = "d" * 40
+        top_url = API + f"/git/trees/{TREE}"
+        sub_url = API + f"/git/trees/{subtree}?recursive=1"
+        self.routes[top_url] = {
+            "tree": [
+                {"path": "src", "type": "tree", "mode": "040000", "sha": subtree},
+                {"path": "vendor", "type": "tree", "mode": "040000", "sha": "e" * 40},
+                {"path": "AGENTS.md", "type": "blob", "mode": "100644", "sha": BLOB},
+            ]
+        }
+        self.routes[sub_url] = {
+            "tree": [
+                {"path": "kernel.py", "type": "blob", "mode": "100644", "sha": BLOB},
+                {"path": "../escape.py", "type": "blob", "mode": "100644", "sha": BLOB},
+            ]
+        }
+        scoped = context.PublicContext(self.root, True, {REPO: ["src"]})
+        first = scoped.snapshot(REPO)
+        self.assertEqual(first["files"], ["AGENTS.md", "src/kernel.py"])
+        self.assertTrue(first["truncated"])
+        self.assertEqual(first["tree_roots"], ["src"])
+        self.assertEqual(scoped.snapshot(REPO, COMMIT), first)
+        self.assertEqual(len(self.calls), 4)
+        self.assertFalse(
+            any(url.endswith(TREE + "?recursive=1") for url, _, _ in self.calls)
+        )
+        self.assertEqual(scoped.source(REPO, COMMIT, "src/kernel.py")["url"], RAW)
+        # Unscoped cache does not alias a scoped snapshot.
+        self.assertEqual(self.context.snapshot(REPO)["tree_roots"], [])
+
+    def test_scoped_tree_rejects_unobserved_or_unsafe_roots(self):
+        for roots in [["../src"], ["src/nested"], [], ["src"] * 9]:
+            with self.assertRaises(ValueError):
+                context.PublicContext(self.root, True, {REPO: roots})
+        scoped = context.PublicContext(self.root, True, {REPO: ["src"]})
+        self.routes[API + f"/git/trees/{TREE}"] = {"tree": []}
+        with self.assertRaisesRegex(ValueError, "absent"):
+            scoped.snapshot(REPO)
+        self.routes[API + f"/git/trees/{TREE}"] = {"tree": [], "truncated": True}
+        with self.assertRaisesRegex(ValueError, "truncated"):
+            scoped.snapshot(REPO)
+
+    def test_tree_metadata_stays_bounded(self):
+        with patch.object(
+            context.scout, "fetch", return_value="x" * (context.TREE_LIMIT + 1)
+        ):
+            with self.assertRaisesRegex(ValueError, "read budget"):
+                self.context._read(API, context.TREE_LIMIT)
 
     def test_public_metadata_is_reused_for_fifteen_minutes(self):
         self.routes[self.issue_route()] = []
@@ -134,7 +207,15 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(sum(url == API for url, _, _ in self.calls), 2)
 
     def test_input_paths_revisions_and_urls_fail_before_network(self):
-        for path in ("../secret", "/secret", "a/../b", "a\\b", "a//b", "https://evil/x", "C:/file"):
+        for path in (
+            "../secret",
+            "/secret",
+            "a/../b",
+            "a\\b",
+            "a//b",
+            "https://evil/x",
+            "C:/file",
+        ):
             with self.assertRaises(ValueError):
                 self.context.source(REPO, COMMIT, path)
         for ref in ("../main", "/main", "main?x", "https://evil/x", "main#fragment"):
@@ -148,7 +229,9 @@ class ContextTests(unittest.TestCase):
     def test_nonexistent_path_and_mismatched_commit_never_fetch_raw(self):
         with self.assertRaisesRegex(ValueError, "absent"):
             self.context.source(REPO, COMMIT, "src/missing.py")
-        self.assertFalse(any(url.startswith("https://raw.") for url, _, _ in self.calls))
+        self.assertFalse(
+            any(url.startswith("https://raw.") for url, _, _ in self.calls)
+        )
         other = "d" * 40
         self.routes[API + "/commits/" + other] = {"sha": COMMIT}
         with self.assertRaisesRegex(ValueError, "does not match"):
@@ -161,15 +244,24 @@ class ContextTests(unittest.TestCase):
         self.assertLessEqual(len(first["text"].splitlines()), 120)
         self.assertEqual(first["total_lines"], 300)
         self.assertTrue(first["truncated"])
-        self.assertIn("value_240 = 240", context.scout.normalized_excerpt(first["text"]))
-        second = self.context.source(REPO, COMMIT, "src/kernel.py", start=250, max_lines=20)
+        self.assertIn(
+            "value_240 = 240", context.scout.normalized_excerpt(first["text"])
+        )
+        second = self.context.source(
+            REPO, COMMIT, "src/kernel.py", start=250, max_lines=20
+        )
         self.assertTrue(second["text"].startswith("250: value_250 = 250"))
         self.assertEqual((second["start_line"], second["end_line"]), (250, 269))
         self.assertEqual(sum(url == RAW for url, _, _ in self.calls), 1)
         self.assertFalse(next(auth for url, _, auth in self.calls if url == RAW))
 
     def test_source_window_bounds_and_truncation_are_explicit(self):
-        for kwargs in ({"start": 0}, {"start": True}, {"max_lines": 161}, {"max_lines": 0}):
+        for kwargs in (
+            {"start": 0},
+            {"start": True},
+            {"max_lines": 161},
+            {"max_lines": 0},
+        ):
             with self.assertRaises(ValueError):
                 self.context.source(REPO, COMMIT, "src/kernel.py", **kwargs)
         self.assertEqual(self.calls, [])
@@ -185,7 +277,9 @@ class ContextTests(unittest.TestCase):
     def test_member_path_punctuation_is_quoted_in_immutable_raw_url(self):
         path = "src/file ?#%.py"
         self.tree["tree"].append({"path": path, "type": "blob", "sha": BLOB})
-        url = f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/src/file%20%3F%23%25.py"
+        url = (
+            f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/src/file%20%3F%23%25.py"
+        )
         self.routes[url] = "print('public data only')\n"
         source = self.context.source(REPO, COMMIT, path)
         self.assertEqual(source["url"], url)
@@ -201,7 +295,13 @@ class ContextTests(unittest.TestCase):
 
     def test_issue_page_excludes_prs_and_never_uses_returned_urls(self):
         self.routes[self.issue_route(2)] = [
-            {"number": 12, "title": "bug", "body": "details", "html_url": "https://evil/x", "comments_url": "https://evil/comments"},
+            {
+                "number": 12,
+                "title": "bug",
+                "body": "details",
+                "html_url": "https://evil/x",
+                "comments_url": "https://evil/comments",
+            },
             {"number": 13, "title": "PR", "pull_request": {}},
             {"number": 14, "title": "closed", "state": "closed"},
         ]
@@ -214,14 +314,21 @@ class ContextTests(unittest.TestCase):
 
     def test_issue_evidence_bounds_full_issue_and_three_comments(self):
         self.routes[API + "/issues/12"] = {
-            "number": 12, "title": "bug", "body": "b" * 6000, "comments": 5,
-            "comments_url": "https://evil/comments", "html_url": "https://evil/x",
+            "number": 12,
+            "title": "bug",
+            "body": "b" * 6000,
+            "comments": 5,
+            "comments_url": "https://evil/comments",
+            "html_url": "https://evil/x",
         }
         self.routes[API + "/issues/12/comments?per_page=3&page=1"] = [
-            {"id": i, "body": "c" * 1500, "html_url": "https://evil/x"} for i in range(1, 5)
+            {"id": i, "body": "c" * 1500, "html_url": "https://evil/x"}
+            for i in range(1, 5)
         ]
         sources = self.context.issue_sources(REPO, 12)
-        self.assertEqual([len(item["text"]) for item in sources], [5000, 1200, 1200, 1200])
+        self.assertEqual(
+            [len(item["text"]) for item in sources], [5000, 1200, 1200, 1200]
+        )
         self.assertTrue(all(item["truncated"] for item in sources))
         self.assertTrue(sources[0]["comments_truncated"])
         self.assertTrue(sources[-1]["url"].endswith("/issues/12#issuecomment-3"))
@@ -235,17 +342,33 @@ class ContextTests(unittest.TestCase):
         def search_fetch(url, limit=1_000_000, github_auth=False):
             if url.startswith("https://api.github.com/search/issues?"):
                 self.calls.append((url, limit, github_auth))
-                return json.dumps({"items": [
-                    {"number": i, "title": "existing fix", "body": "details", "pull_request": {}, "html_url": "https://evil/x"}
-                    for i in range(1, 8)
-                ], "incomplete_results": False})
+                return json.dumps(
+                    {
+                        "items": [
+                            {
+                                "number": i,
+                                "title": "existing fix",
+                                "body": "details",
+                                "pull_request": {},
+                                "html_url": "https://evil/x",
+                            }
+                            for i in range(1, 8)
+                        ],
+                        "incomplete_results": False,
+                    }
+                )
             return original(url, limit, github_auth)
 
         with patch.object(context.scout, "fetch", side_effect=search_fetch):
             sources = self.context.duplicate_sources(REPO, title)
         self.assertEqual(len(sources), 5)
         self.assertTrue(all(item["search_exhaustive"] is False for item in sources))
-        self.assertTrue(all(item["url"].startswith(f"https://github.com/{REPO}/pull/") for item in sources))
+        self.assertTrue(
+            all(
+                item["url"].startswith(f"https://github.com/{REPO}/pull/")
+                for item in sources
+            )
+        )
         query = parse_qs(urlsplit(self.calls[-1][0]).query)
         self.assertEqual(query["per_page"], ["5"])
         self.assertTrue(query["q"][0].startswith(f"repo:{REPO} in:title,body "))

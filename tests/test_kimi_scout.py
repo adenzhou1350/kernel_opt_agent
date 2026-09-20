@@ -75,6 +75,14 @@ class ScoutTests(unittest.TestCase):
             scout.enqueue(self.root, first), scout.enqueue(self.root, second)
         )
 
+    def test_enqueue_respects_callers_transaction_rollback(self):
+        with self.assertRaises(RuntimeError):
+            with scout.connect(self.root) as db:
+                db.execute("BEGIN IMMEDIATE")
+                scout.enqueue(self.root, packet(), db=db)
+                raise RuntimeError("rollback")
+        self.assertEqual(scout.status(self.root)["jobs"], [])
+
     def test_citation_to_supplied_related_title_is_allowed(self):
         source = packet()
         source["related_open_items_sample"] = [
@@ -108,6 +116,30 @@ class ScoutTests(unittest.TestCase):
         job = scout.claim(self.root, 0, 0, 4096)
         self.assertIsNotNone(job)
         self.assertGreater(job["charge"], 4096)
+
+    def test_review_preferences_borrow_capacity_and_do_not_starve_discovery(self):
+        for stage in ("source_audit", "source_followup", "reproduction_plan"):
+            for i in range(7):
+                value = packet(f"{stage}-{i}")
+                value["research"] = {"stage": stage}
+                scout.enqueue(self.root, value)
+        selected = [
+            json.loads(scout.claim(self.root, 0, 0, 4096, stages)["packet"])[
+                "research"
+            ]["stage"]
+            for stages in scout.REVIEW_ROTATION * 2
+        ]
+        for cycle in (selected[:8], selected[8:]):
+            self.assertEqual(cycle.count("source_audit"), 3)
+            self.assertEqual(cycle.count("source_followup"), 3)
+            self.assertEqual(cycle.count("reproduction_plan"), 2)
+        # An absent role never strands other queued work.
+        self.assertIsNotNone(scout.claim(self.root, 0, 0, 4096, ("absent",)))
+
+    def test_review_preference_still_respects_atomic_cost_cap(self):
+        self.add()
+        self.assertIsNone(scout.claim(self.root, 0, 1, 4096, ("source_followup",)))
+        self.assertEqual(scout.status(self.root)["jobs"][0]["state"], "PENDING")
 
     def run_args(self, **changes):
         defaults = dict(
@@ -147,6 +179,46 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(current["runtime"]["next_feed_at"])
         self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertTrue(all(job["state"] == "NO_LEAD" for job in current["jobs"]))
+
+    def test_eight_and_sixteen_workers_can_really_run_simultaneously(self):
+        for count in (8, 16):
+            with self.subTest(concurrency=count):
+                for i in range(count):
+                    self.add(f"{count}-{i}")
+                barrier = threading.Barrier(count, timeout=10)
+
+                def execute(root, job, *unused):
+                    barrier.wait()
+                    return self.fake_execute(root, job)
+
+                with patch.object(scout, "execute", side_effect=execute):
+                    current = scout.run(
+                        self.run_args(concurrency=count, review_priority=True)
+                    )
+                self.assertEqual(current["runtime"]["attempted_this_run"], count)
+                self.assertEqual(current["runtime"]["concurrency"], count)
+                self.assertEqual(current["runtime"]["queue_policy"], "review_weighted")
+
+    def test_cli_accepts_up_to_sixteen_workers(self):
+        args = [
+            "--root",
+            str(self.root),
+            "run",
+            "--kimi-python",
+            sys.executable,
+            "--concurrency",
+            "8",
+            "--review-priority",
+            "--once",
+        ]
+        for count in (1, 8, 16):
+            with self.subTest(concurrency=count):
+                with patch.object(scout, "run", return_value={}) as run:
+                    self.assertEqual(scout.main([*args[:6], str(count), *args[7:]]), 0)
+                self.assertEqual(run.call_args.args[0].concurrency, count)
+        for count in (0, 17):
+            with self.subTest(concurrency=count), self.assertRaises(SystemExit):
+                scout.main([*args[:6], str(count), *args[7:]])
 
     def test_heartbeat_and_next_feed_visible_during_inflight_call(self):
         self.add()

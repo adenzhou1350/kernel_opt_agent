@@ -1,9 +1,11 @@
 """Offline frontier tests: no GitHub, credentials, Kimi, or GPU activity."""
 
 import json
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import patch
@@ -224,6 +226,268 @@ class ResearchTests(unittest.TestCase):
         self.config.write_text(json.dumps(self.value))
         with self.assertRaises(ValueError):
             research.configuration(self.config)
+
+    def test_context_workers_default_and_bounds(self):
+        self.assertEqual(research.configuration(self.config)["context_workers"], 1)
+        for value in (0, 4, True, 1.5, "2"):
+            with self.subTest(value=value):
+                self.value["context_workers"] = value
+                self.config.write_text(json.dumps(self.value))
+                with self.assertRaises(ValueError):
+                    research.configuration(self.config)
+        self.value["context_workers"] = 3
+        self.config.write_text(json.dumps(self.value))
+        self.assertEqual(research.configuration(self.config)["context_workers"], 3)
+
+    def test_repository_count_bounds(self):
+        for count in (0, 1, 10, 12, 13):
+            with self.subTest(count=count):
+                self.value["repos"] = [
+                    dict(self.spec, repo=f"owner/repo{i}") for i in range(count)
+                ]
+                self.config.write_text(json.dumps(self.value))
+                if 1 <= count <= 12:
+                    self.assertEqual(
+                        len(research.configuration(self.config)["repos"]), count
+                    )
+                else:
+                    with self.assertRaisesRegex(ValueError, "1..12"):
+                        research.configuration(self.config)
+
+    def test_ten_repository_frontier_visits_every_repository(self):
+        self.value.update(
+            queue_target=16,
+            context_workers=3,
+            repos=[dict(self.spec, repo=f"owner/repo{i}") for i in range(10)],
+        )
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        for _ in range(10):
+            self.assertTrue(producer.tick())
+        self.assertEqual(
+            {json.loads(row["packet"])["repo"] for row in self.jobs()},
+            {spec["repo"] for spec in self.value["repos"]},
+        )
+        self.assertEqual(producer.config["context_workers"], 3)
+
+    def test_javascript_and_typescript_observed_source_paths(self):
+        paths = [
+            f"src/router{suffix}"
+            for suffix in (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs")
+        ]
+        ignored = ["src/router.json", "src/vendor/router.ts", "docs/router.ts"]
+        snapshot = {"files": paths + ignored}
+        self.assertEqual(research.source_paths(snapshot, self.spec), sorted(paths))
+        self.assertEqual(
+            research.relevant_paths(
+                {"files": paths + ["src/router.json"]},
+                " ".join(paths) + " src/missing.ts",
+            ),
+            sorted(paths),
+        )
+        self.assertNotIn(
+            paths[0],
+            research.relevant_paths(snapshot, " ".join(paths), exclude=[paths[0]]),
+        )
+
+    def test_typescript_source_audit_includes_observed_related_test(self):
+        paths = ["src/router.ts", "tests/router.test.ts"]
+        snapshot = {
+            "commit": self.context.revision,
+            "files": paths,
+            "blobs": {path: self.context.blob for path in paths},
+        }
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["research"]["stage"], "source_audit")
+        self.assertEqual(
+            [source["url"].rsplit("/", 1)[-1] for source in packet["sources"]],
+            ["router.ts", "router.test.ts"],
+        )
+
+    def parallel_producer(self, context):
+        self.value["context_workers"] = 2
+        self.value["repos"].append(
+            {"repo": "c/d", "source_prefixes": ["src/"], "question": "Check bounds"}
+        )
+        self.config.write_text(json.dumps(self.value))
+        return research.ResearchProducer(self.root, self.config, context=context)
+
+    def test_parallel_repository_progress_and_stop_drains_blocked_fetch(self):
+        blocked, release, other_finished = (
+            threading.Event(),
+            threading.Event(),
+            threading.Event(),
+        )
+        original = self.context.snapshot
+        calls = []
+
+        def snapshot(repo, ref="main"):
+            calls.append(repo)
+            if repo == "a/b":
+                blocked.set()
+                if not release.wait(5):
+                    raise TimeoutError("test release did not arrive")
+            return original(repo, ref)
+
+        producer = self.parallel_producer(self.context)
+        emit = producer.emit
+
+        def observed_emit(*args, **kwargs):
+            made = emit(*args, **kwargs)
+            if made and args[1]["repo"] == "c/d":
+                other_finished.set()
+            return made
+
+        with (
+            patch.object(self.context, "snapshot", side_effect=snapshot),
+            patch.object(producer, "emit", side_effect=observed_emit),
+        ):
+            producer.start()
+            stopper = None
+            try:
+                self.assertTrue(blocked.wait(2))
+                self.assertTrue(other_finished.wait(2))
+                # c/d emits while a/b is blocked, without a second a/b refill.
+                self.assertEqual(calls.count("a/b"), 1)
+                self.assertTrue(
+                    any(json.loads(r["packet"])["repo"] == "c/d" for r in self.jobs())
+                )
+                stopper = threading.Thread(target=producer.stop)
+                stopper.start()
+                stopper.join(0.1)
+                self.assertTrue(stopper.is_alive())
+                release.set()
+                stopper.join(3)
+                self.assertFalse(stopper.is_alive())
+                self.assertFalse(
+                    any(json.loads(r["packet"])["repo"] == "a/b" for r in self.jobs())
+                )
+                self.assertFalse(any(call[0] == "a/b" for call in self.context.calls))
+                status = json.loads((self.root / "research.json").read_text())
+                self.assertEqual(status["phase"], "STOPPED")
+                self.assertEqual(status["context_workers"], 2)
+                self.assertEqual(status["context_inflight"], 0)
+                with scout.connect(self.root) as db:
+                    state = json.loads(
+                        db.execute(
+                            "SELECT value FROM research_meta WHERE key='frontier'"
+                        ).fetchone()[0]
+                    )
+                self.assertEqual(set(state["repos"]), {"a/b", "c/d"})
+                self.assertEqual(state["discovery_created"], len(self.jobs()))
+            finally:
+                release.set()
+                producer.stop()
+                if stopper:
+                    stopper.join(3)
+
+    def test_parallel_emissions_deduplicate_atomically(self):
+        barrier = threading.Barrier(8)
+
+        def submit(_):
+            barrier.wait(timeout=3)
+            return self.producer.emit(
+                "same-key",
+                self.spec,
+                [{"url": "https://github.com/a/b/issues/1", "text": "same"}],
+                "issue_triage",
+            )
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            made = list(pool.map(submit, range(8)))
+        self.assertEqual(sum(made), 1)
+        self.assertEqual(len(self.jobs()), 1)
+        self.assertEqual(self.producer.state["discovery_created"], 1)
+        with scout.connect(self.root) as db:
+            self.assertEqual(
+                db.execute("SELECT count(*) FROM research_seen").fetchone()[0], 2
+            )
+
+    def test_fast_parallel_refills_do_not_wait_for_idle_scan_interval(self):
+        self.value["context_workers"] = 2
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        emitted = threading.Event()
+        emit = producer.emit
+        count = 0
+
+        def observe(*args, **kwargs):
+            nonlocal count
+            made = emit(*args, **kwargs)
+            count += int(made)
+            if count >= 2:
+                emitted.set()
+            return made
+
+        with patch.object(producer, "emit", side_effect=observe):
+            producer.start()
+            try:
+                self.assertTrue(emitted.wait(2))
+            finally:
+                producer.stop()
+
+    def test_parallel_last_queue_slot_preserves_deferred_source(self):
+        for i in range(3):
+            self.producer.emit(
+                str(i),
+                self.spec,
+                [{"url": "https://github.com/a/b/issues/1", "text": str(i)}],
+                "issue_triage",
+            )
+        producer = self.parallel_producer(self.context)
+        barrier = threading.Barrier(2)
+        original = self.context.source
+
+        def source(repo, commit, path, **kwargs):
+            if path == "src/kernel.py":
+                barrier.wait(timeout=3)
+            return original(repo, commit, path, **kwargs)
+
+        progress = [{}, {}]
+        specs = producer.config["repos"]
+        with patch.object(self.context, "source", side_effect=source):
+            with ThreadPoolExecutor(max_workers=2) as pool:
+                futures = [
+                    pool.submit(producer.refill, spec, p, 2)
+                    for spec, p in zip(specs, progress)
+                ]
+                made = [f.result() for f in futures]
+        self.assertEqual(sum(made), 1)
+        self.assertEqual(len(self.jobs()), 4)
+        deferred = made.index(False)
+        self.assertEqual(progress[deferred].get("source_cursor", 0), 0)
+        with scout.connect(self.root) as db:
+            db.execute("UPDATE jobs SET state='NO_LEAD'")
+        self.assertTrue(producer.refill(specs[deferred], progress[deferred], 2))
+        self.assertEqual(len(self.jobs()), 5)
+
+    def test_emit_rolls_back_job_when_transaction_fails(self):
+        enqueue = scout.enqueue
+
+        def fail_after_enqueue(*args, **kwargs):
+            enqueue(*args, **kwargs)
+            raise RuntimeError("injected database operation failure")
+
+        with patch.object(scout, "enqueue", side_effect=fail_after_enqueue):
+            with self.assertRaises(RuntimeError):
+                self.producer.emit(
+                    "rollback",
+                    self.spec,
+                    [{"url": "https://github.com/a/b/issues/1", "text": "rollback"}],
+                    "issue_triage",
+                )
+        self.assertEqual(len(self.jobs()), 0)
+        self.assertEqual(self.producer.state["discovery_created"], 0)
+        with scout.connect(self.root) as db:
+            self.assertEqual(
+                db.execute("SELECT count(*) FROM research_seen").fetchone()[0], 0
+            )
 
     def test_snapshot_published_no_model_or_credential_data(self):
         self.producer.publish("READY")

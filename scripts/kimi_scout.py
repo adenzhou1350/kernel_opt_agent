@@ -41,12 +41,28 @@ duplicate_risk, uncertainty, knowledge_suggestion (all strings), evidence
 (list of {url, quote}, excerpts <=300 characters from supplied sources;
 only line-number prefixes and whitespace may be omitted).
 For lead, require at least one evidence excerpt. Never label a lead Ready.
+Prefer ONE short, contiguous copied source line, without its line-number prefix.
+Never stitch nonadjacent lines, replace code with ellipses, paraphrase inside a
+quote, or emit literal backslash-n sequences as source text. For no_lead, an
+empty evidence list is allowed; do not invent quotations to fill it.
 Answer concisely in Chinese; source quotations stay unchanged.
 Keep the entire answer under 600 Chinese characters excluding evidence URLs.
 """
 MAX_INPUT_BYTES = 24000
 MAX_OUTPUT = 4096
 HEARTBEAT_SECONDS = 5.0
+DISCOVERY_STAGES = ("source_audit", "issue_triage")
+# Preferences, not idle reservations: unused capacity always accepts other work.
+REVIEW_ROTATION = (
+    ("source_followup",),
+    ("reproduction_plan",),
+    DISCOVERY_STAGES,
+    ("source_followup",),
+    DISCOVERY_STAGES,
+    ("reproduction_plan",),
+    ("source_followup",),
+    DISCOVERY_STAGES,
+)
 
 
 def dumps(value):
@@ -259,7 +275,7 @@ def collect_source(spec, github_auth=False):
     return packet
 
 
-def enqueue(root, packet):
+def enqueue(root, packet, *, db=None):
     if (
         not isinstance(packet, dict)
         or not isinstance(packet.get("name"), str)
@@ -293,8 +309,10 @@ def enqueue(root, packet):
         for source in packet["sources"]
     ]
     job_id = hashlib.sha256(dumps(identity).encode()).hexdigest()[:24]
-    with connect(root) as db:
-        db.execute(
+    # A producer may atomically insert its queue slot and dedup keys. In that
+    # case the caller owns commit/rollback; normal callers keep the old behavior.
+    with connect(root) if db is None else contextlib.nullcontext(db) as target:
+        target.execute(
             "INSERT OR IGNORE INTO jobs(id,name,packet,state,created) VALUES(?,?,?,'PENDING',?)",
             (job_id, packet["name"], body, time.time()),
         )
@@ -323,7 +341,7 @@ def collect(root, feeds, github_auth=False):
     return results
 
 
-def claim(root, max_jobs, token_budget, output_tokens):
+def claim(root, max_jobs, token_budget, output_tokens, preferred_stages=()):
     with connect(root) as db:
         db.execute("BEGIN IMMEDIATE")
         recent = db.execute(
@@ -332,9 +350,18 @@ def claim(root, max_jobs, token_budget, output_tokens):
         ).fetchone()
         if max_jobs and recent[0] >= max_jobs:
             return None
-        row = db.execute(
-            "SELECT * FROM jobs WHERE state='PENDING' ORDER BY created LIMIT 1"
-        ).fetchone()
+        if preferred_stages:
+            placeholders = ",".join("?" for _ in preferred_stages)
+            row = db.execute(
+                "SELECT * FROM jobs WHERE state='PENDING' ORDER BY CASE WHEN "
+                f"json_extract(packet,'$.research.stage') IN ({placeholders}) "
+                "THEN 0 ELSE 1 END, created LIMIT 1",
+                tuple(preferred_stages),
+            ).fetchone()
+        else:
+            row = db.execute(
+                "SELECT * FROM jobs WHERE state='PENDING' ORDER BY created LIMIT 1"
+            ).fetchone()
         if row is None:
             return None
         # Conservative byte-based input allowance; not a currency quotation.
@@ -629,6 +656,9 @@ def run(args):
             "cooldown_until": None,
             "next_feed_at": time.time() if args.feeds else None,
             "research_mode": bool(research_path),
+            "queue_policy": "review_weighted"
+            if getattr(args, "review_priority", False)
+            else "fifo",
         }
         runtime_lock = threading.Lock()
         heartbeat_stop = threading.Event()
@@ -703,7 +733,13 @@ def run(args):
                         and not (root / "STOP").exists()
                     ):
                         job = claim(
-                            root, args.max_jobs, args.token_budget, args.output_tokens
+                            root,
+                            args.max_jobs,
+                            args.token_budget,
+                            args.output_tokens,
+                            REVIEW_ROTATION[attempts % len(REVIEW_ROTATION)]
+                            if getattr(args, "review_priority", False)
+                            else (),
                         )
                         if job is None:
                             break
@@ -789,7 +825,12 @@ def main(argv=None):
     worker.add_argument(
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
     )
-    worker.add_argument("--concurrency", type=int, choices=(1, 2, 3, 4), default=2)
+    worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
+    worker.add_argument(
+        "--review-priority",
+        action="store_true",
+        help="prefer 3 discovery, 3 skeptical review and 2 reproduction-plan calls per 8 claims; borrow idle capacity",
+    )
     worker.add_argument(
         "--max-jobs",
         type=int,

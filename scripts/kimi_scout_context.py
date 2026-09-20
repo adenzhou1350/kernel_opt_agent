@@ -68,11 +68,19 @@ def _text(value):
 
 
 class PublicContext:
-    def __init__(self, root, github_auth=False):
+    def __init__(self, root, github_auth=False, tree_roots=None):
         self.cache = Path(root) / "public-cache"
         self.cache.mkdir(parents=True, exist_ok=True)
         self.github_auth = bool(github_auth)
         self._public_until = {}
+        self.tree_roots = tree_roots or {}
+        for repo, roots in self.tree_roots.items():
+            _repo(repo)
+            if not isinstance(roots, list) or not 1 <= len(roots) <= 8:
+                raise ValueError("tree_roots needs 1..8 explicit directories")
+            for name in roots:
+                if "/" in _path(name):
+                    raise ValueError("tree_roots must be top-level directories")
 
     def _read(self, url, limit=API_LIMIT, authenticated=True):
         text = scout.fetch(
@@ -123,7 +131,9 @@ class PublicContext:
     def snapshot(self, repo, ref="main"):
         repo, ref = _repo(repo), _ref(ref)
         self._public(repo)
-        path = self._cache_path("snapshot", [repo, ref])
+        roots = sorted(set(self.tree_roots.get(repo, [])))
+        identity = [repo, ref, roots] if roots else [repo, ref]
+        path = self._cache_path("snapshot", identity)
         cached = self._load(path)
         cached_at = cached.get("at") if cached else None
         if (
@@ -152,10 +162,49 @@ class PublicContext:
         if SHA.fullmatch(ref) and commit != ref:
             raise ValueError("resolved revision does not match requested commit")
         tree_sha = _sha(commit_data["commit"]["tree"]["sha"])
-        tree = self._json(
-            f"https://api.github.com/repos/{repo}/git/trees/{tree_sha}?recursive=1",
-            TREE_LIMIT,
-        )
+        tree_url = f"https://api.github.com/repos/{repo}/git/trees/"
+        if roots:
+            # Resolve only explicitly configured top-level trees, from a verified
+            # root tree. Large monorepo responses need not be fetched or trusted.
+            top = self._json(tree_url + tree_sha, TREE_LIMIT)
+            if (
+                not isinstance(top, dict)
+                or not isinstance(top.get("tree"), list)
+                or top.get("truncated")
+            ):
+                raise ValueError("invalid or truncated root tree")
+            entries = [
+                e
+                for e in top["tree"]
+                if isinstance(e, dict) and e.get("type") == "blob"
+            ]
+            directories = {
+                e.get("path"): e
+                for e in top["tree"]
+                if isinstance(e, dict) and e.get("type") == "tree"
+            }
+            for name in roots:
+                entry = directories.get(name)
+                if not entry or entry.get("mode") != "040000":
+                    raise ValueError("configured tree root is absent")
+                subtree = self._json(
+                    tree_url + _sha(entry.get("sha")) + "?recursive=1", TREE_LIMIT
+                )
+                if not isinstance(subtree, dict) or not isinstance(
+                    subtree.get("tree"), list
+                ):
+                    raise ValueError("invalid public subtree")
+                for item in subtree["tree"]:
+                    if isinstance(item, dict) and isinstance(item.get("path"), str):
+                        # Validate the relative component before prefixing it.
+                        try:
+                            relative = _path(item["path"])
+                        except ValueError:
+                            continue
+                        entries.append({**item, "path": name + "/" + relative})
+            tree = {"tree": entries, "truncated": True}
+        else:
+            tree = self._json(tree_url + tree_sha + "?recursive=1", TREE_LIMIT)
         if not isinstance(tree, dict) or not isinstance(tree.get("tree"), list):
             raise ValueError("invalid public repository tree")
         blobs, skipped = {}, 0
@@ -177,12 +226,14 @@ class PublicContext:
             "blobs": blobs,
             "truncated": bool(tree.get("truncated", False)),
             "skipped_paths": skipped,
+            "tree_roots": roots,
         }
         record = {"at": time.time(), "snapshot": value}
         scout.write_json(path, record)
         # A follow-up for the resolved immutable revision reuses this tree.
         if ref != commit:
-            scout.write_json(self._cache_path("snapshot", [repo, commit]), record)
+            alias = [repo, commit, roots] if roots else [repo, commit]
+            scout.write_json(self._cache_path("snapshot", alias), record)
         return value
 
     def source(self, repo, commit, path, hints="", *, start=None, max_lines=120):

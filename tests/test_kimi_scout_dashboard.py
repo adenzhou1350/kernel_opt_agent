@@ -4,7 +4,9 @@ import importlib.util
 from contextlib import closing
 import json
 from pathlib import Path
+import shutil
 import sqlite3
+import subprocess
 import tempfile
 import threading
 import time
@@ -54,6 +56,69 @@ class DashboardTests(unittest.TestCase):
             self.assertEqual(
                 db.execute("SELECT state FROM jobs").fetchone()[0], "PENDING"
             )
+
+    @unittest.skipUnless(
+        shutil.which("node"), "Node is needed for the offline DOM test"
+    )
+    def test_worker_cards_follow_runtime_concurrency_up_to_sixteen(self):
+        page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        script = page.split("<script>", 1)[1].split("</script>", 1)[0]
+        # Execute the actual overview renderer with a tiny DOM, without polling.
+        overview = script.split("  function renderHistory() {", 1)[0]
+        harness = """
+const elements = new Map();
+function element() {
+  return {
+    children: [], firstElementChild: {},
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; },
+    addEventListener() {},
+  };
+}
+global.document = {
+  createElement: element,
+  getElementById(id) {
+    if (!elements.has(id)) elements.set(id, element());
+    return elements.get(id);
+  },
+};
+"""
+        exercise = """
+  function renderHistory() {}
+  const observations = [];
+  for (const count of [1, 8, 16, 32]) {
+    state = {
+      summary: {counts: {RUNNING: count}},
+      runtime: {concurrency: count, alive: true, state: "RUNNING"},
+      jobs: Array.from({length: count}, (_, i) => ({
+        id: String(i), name: "job-" + i, state: "RUNNING", started: i + 1,
+      })),
+    };
+    renderOverview();
+    const cards = elements.get("workers").children;
+    observations.push({
+      count: cards.length,
+      last: cards.at(-1).children[1].textContent,
+      warning: elements.get("warnings").textContent,
+    });
+  }
+  process.stdout.write(JSON.stringify(observations));
+})();
+"""
+        result = subprocess.run(
+            [shutil.which("node"), "-"],
+            input=harness + overview + exercise,
+            text=True,
+            encoding="utf-8",
+            capture_output=True,
+            timeout=10,
+            check=True,
+        )
+        values = json.loads(result.stdout)
+        self.assertEqual([value["count"] for value in values], [1, 8, 16, 16])
+        self.assertEqual(values[2]["last"], "job-15")
+        self.assertEqual(values[2]["warning"], "")
+        self.assertTrue(values[3]["warning"])
 
     def test_actual_usage_not_reservations_including_failed_answers(self):
         with scout.connect(self.root) as db:

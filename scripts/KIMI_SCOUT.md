@@ -120,7 +120,45 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
 - After a sweep, the producer waits for new public evidence rather than
   manufacturing more prompts. API failures back off separately; provider and
   bad-answer circuit breakers and account limits still apply. Four concurrent
-  slots are a ceiling, not a guarantee of nonstop paid requests.
+slots are a ceiling, not a guarantee of nonstop paid requests.
+
+### Optional 8–16 worker trial
+
+`--concurrency 8 --review-priority` enables up to eight model calls with a
+work-conserving preference cycle: three discovery, three skeptical source-review,
+and two reproduction-plan claims per eight claims. These are queue preferences,
+not fixed agents or a guarantee of independent truth. If a preferred stage is
+absent, the oldest available packet uses that capacity; discovery is not starved.
+Defaults remain unchanged. Do not start a second runner on the same inbox.
+
+`--concurrency 16 --review-priority` raises the ceiling to sixteen; the same
+3/3/2 preference cycle repeats (approximately 6/6/4 claims, not fixed roles).
+Compare real completion throughput, p50/p95 latency, source/JSON failures and
+provider errors against the eight-worker window before keeping the increase.
+Sixteen working requests establish a tested lower bound, not the provider's
+maximum capacity or a promise of sixteen useful findings. Do not probe higher
+limits by creating duplicate work or bypassing provider backoff.
+
+`templates/kimi-scout-research-wide.json` covers vLLM, SGLang, Quack, FlashInfer,
+TileLang, FlashAttention, Mooncake, Megatron-LM, DeepSpeed and OpenClaw. Source
+sampling includes TypeScript/JavaScript for OpenClaw; these are application
+correctness leads, not operator-performance results. Its optional
+`context_workers: 3` overlaps bounded
+public context reads across repositories to reduce an empty model queue; this is
+separate from paid model concurrency. Each repository has at most one active
+refill, and the producer drains before releasing its single-runner lock.
+For large monorepos, optional `tree_roots` selects explicit top-level directories
+(OpenClaw uses `src`). The controller resolves their Git tree identities from
+the root and caches a deliberately partial snapshot. Metadata stays capped at
+8 MB per tree, source files at 1 MB, and model packets at 24 KB. Unselected
+subtrees are not reviewed; a large tree never becomes a large paid prompt.
+
+The review stage tries to disprove a lead using supplied callers/tests/related
+work; the last stage produces a minimal reproduction **plan**. Neither executes
+model-generated code, marks a PR Ready, or promotes knowledge automatically.
+Only exact source quotations pass validation. Malformed output is recorded once,
+not silently repaired or retried. Compare occupancy, failure mix, terminal leaf
+leads and owner review time before assuming eight workers halve delivery time.
 
 `research.json` displays the objective, queue buffer, producer state and cumulative
 source windows (not full-file coverage). SQLite stores the durable frontier and

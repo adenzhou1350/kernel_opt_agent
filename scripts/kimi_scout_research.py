@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from pathlib import Path
 import re
 import threading
@@ -15,6 +17,25 @@ import time
 
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
+
+SOURCE_SUFFIXES = (
+    ".py",
+    ".cu",
+    ".cuh",
+    ".cpp",
+    ".h",
+    ".hpp",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+)
+
+
+class QueueFull(Exception):
+    """Defer a fetched packet without advancing its evidence cursor."""
 
 
 def configuration(path):
@@ -26,9 +47,12 @@ def configuration(path):
         or not 4 <= value["queue_target"] <= 64
     ):
         raise ValueError("research queue_target must be 4..64")
+    context_workers = value.setdefault("context_workers", 1)
+    if type(context_workers) is not int or not 1 <= context_workers <= 3:
+        raise ValueError("research context_workers must be 1..3")
     repos = value.get("repos")
-    if not isinstance(repos, list) or not 1 <= len(repos) <= 8:
-        raise ValueError("research needs 1..8 explicit public repositories")
+    if not isinstance(repos, list) or not 1 <= len(repos) <= 12:
+        raise ValueError("research needs 1..12 explicit public repositories")
     names = set()
     for spec in repos:
         repo = scout.public_repo(spec["repo"])
@@ -52,6 +76,18 @@ def configuration(path):
             raise ValueError("research needs safe explicit source prefixes")
         if not isinstance(spec.get("question"), str):
             raise ValueError("research repository needs a question")
+        roots = spec.get("tree_roots", [])
+        if (
+            not isinstance(roots, list)
+            or len(roots) > 8
+            or any(
+                not isinstance(r, str) or not re.fullmatch(r"[A-Za-z0-9_-]+", r)
+                for r in roots
+            )
+        ):
+            raise ValueError("tree_roots needs safe top-level directories")
+        if roots and any(p.split("/")[0] not in roots for p in prefixes):
+            raise ValueError("source prefixes must lie in configured tree roots")
     return value
 
 
@@ -60,7 +96,7 @@ def source_paths(snapshot, spec):
         p
         for p in snapshot["files"]
         if any(p.startswith(prefix) for prefix in spec["source_prefixes"])
-        and p.endswith((".py", ".cu", ".cuh", ".cpp", ".h", ".hpp"))
+        and p.endswith(SOURCE_SUFFIXES)
         and not p.endswith("__init__.py")
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )
@@ -72,9 +108,7 @@ def relevant_paths(snapshot, hints, exclude=()):
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
     ranked = []
     for path in snapshot["files"]:
-        if path in exclude or not path.endswith(
-            (".py", ".cu", ".cuh", ".cpp", ".h", ".hpp")
-        ):
+        if path in exclude or not path.endswith(SOURCE_SUFFIXES):
             continue
         name = path.rsplit("/", 1)[-1].lower()
         stem = name.rsplit(".", 1)[0]
@@ -92,9 +126,19 @@ class ResearchProducer:
     def __init__(self, root, config_path, github_auth=False, context=None):
         self.root = Path(root)
         self.config = configuration(config_path)
-        self.context = context or PublicContext(root, github_auth)
+        self.context = context or PublicContext(
+            root,
+            github_auth,
+            tree_roots={
+                s["repo"]: s["tree_roots"]
+                for s in self.config["repos"]
+                if s.get("tree_roots")
+            },
+        )
         self.halt = threading.Event()
         self.thread = None
+        self.lock = threading.RLock()
+        self.inflight_repos = set()
         with scout.connect(root) as db:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS research_seen (key TEXT PRIMARY KEY, job TEXT)"
@@ -138,13 +182,17 @@ class ResearchProducer:
             db.execute("INSERT OR IGNORE INTO research_seen VALUES (?,?)", (key, job))
 
     def save(self):
-        with scout.connect(self.root) as db:
+        with self.lock, scout.connect(self.root) as db:
             db.execute(
                 "INSERT OR REPLACE INTO research_meta VALUES ('frontier',?)",
                 (scout.dumps(self.state),),
             )
 
     def publish(self, phase, error=None, next_scan=None):
+        with self.lock:
+            self._publish(phase, error, next_scan)
+
+    def _publish(self, phase, error, next_scan):
         goals = [
             {
                 "repo": spec["repo"],
@@ -163,6 +211,8 @@ class ResearchProducer:
                 "phase": phase,
                 "updated_at": time.time(),
                 "queue_target": self.config["queue_target"],
+                "context_workers": self.config["context_workers"],
+                "context_inflight": len(self.inflight_repos),
                 "queued": self.pending(),
                 "goals": goals,
                 "followups_created": self.state["followups_created"],
@@ -233,10 +283,36 @@ class ResearchProducer:
             longest["truncated"] = True
         if not packet["sources"] or self.stopped():
             return False
-        job = scout.enqueue(self.root, packet)
-        self.remember(key, job)
-        self.remember(evidence_key, job)
-        self.state["followups_created" if parent else "discovery_created"] += 1
+        # Queue admission, job insertion and both dedup keys commit together.
+        # Different repository fetches never hold this lock across network I/O.
+        with self.lock:
+            with scout.connect(self.root) as db:
+                db.execute("BEGIN IMMEDIATE")
+                if (
+                    self.stopped()
+                    or db.execute(
+                        "SELECT 1 FROM research_seen WHERE key=?", (key,)
+                    ).fetchone()
+                ):
+                    return False
+                if db.execute(
+                    "SELECT 1 FROM research_seen WHERE key=?", (evidence_key,)
+                ).fetchone():
+                    db.execute(
+                        "INSERT OR IGNORE INTO research_seen VALUES (?,NULL)", (key,)
+                    )
+                    return False
+                queued = db.execute(
+                    "SELECT count(*) FROM jobs WHERE state='PENDING'"
+                ).fetchone()[0]
+                if queued >= self.config["queue_target"]:
+                    raise QueueFull
+                job = scout.enqueue(self.root, packet, db=db)
+                db.executemany(
+                    "INSERT OR IGNORE INTO research_seen VALUES (?,?)",
+                    ((key, job), (evidence_key, job)),
+                )
+            self.state["followups_created" if parent else "discovery_created"] += 1
         return True
 
     def snapshot(self, spec, progress):
@@ -277,6 +353,8 @@ class ResearchProducer:
                 )
             ]
             snapshot = self.snapshot(spec, progress)
+            if self.stopped():
+                return False
             matches = relevant_paths(snapshot, sources[0]["text"])
             if matches:
                 sources.append(
@@ -342,11 +420,16 @@ class ResearchProducer:
                 progress["source_cursor"] = (cursor // 3 + 1) * 3
                 continue
             sources = [source]
+            if self.stopped():
+                return False
             stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
             tests = [
                 p
                 for p in snapshot["files"]
-                if p != path and "test" in p and stem in p and p.endswith(".py")
+                if p != path
+                and "test" in p
+                and stem in p
+                and p.endswith(SOURCE_SUFFIXES)
             ]
             if tests:
                 sources.append(
@@ -417,6 +500,8 @@ class ResearchProducer:
                 continue
             analysis = scout.dumps(json.loads(row["result"])["analysis"])
             snapshot = self.snapshot(spec, progress)
+            if self.stopped():
+                return False
             sources = (
                 self.context.issue_sources(spec["repo"], number)
                 if number
@@ -460,7 +545,14 @@ class ResearchProducer:
                     "analysis": analysis,
                 },
                 question=(
-                    "Try to disprove the prior untrusted hypothesis using new source and related items. "
+                    (
+                        "Role: skeptical reviewer, not the original proposer. Check caller preconditions, "
+                        "tests, reachability and existing fixes; missing context is not a defect. "
+                        if depth == 0
+                        else "Role: reproduction planner. Retain only a still-supported hypothesis; "
+                        "give a minimal regression test plan, dependencies and expected before/after assertions. "
+                    )
+                    + "Try to disprove the prior untrusted hypothesis using new source and related items. "
                     "If already fixed or covered by an existing PR, say no_lead; do not propose a competing copy. "
                     "Give one minimal runnable test PLAN (not a claim of execution), exact source location, expected boundary, and stop condition. "
                     "This chain has at most two followups; remaining environment/GPU questions must be handed to the owner."
@@ -472,25 +564,128 @@ class ResearchProducer:
         """At most one new packet per tick; FIFO workers run independently."""
         if self.stopped() or self.pending() >= self.config["queue_target"]:
             return False
+        spec, progress, first = self.next_refill()
+        try:
+            return self.refill(spec, progress, first)
+        finally:
+            with self.lock:
+                self.state["repos"][spec["repo"]] = progress
+                self.save()
+
+    def next_refill(self, exclude=()):
+        """Coordinator-only selection; workers own isolated progress copies."""
         repos = self.config["repos"]
-        turn = self.state["turn"]
-        self.state["turn"] += 1
-        spec = repos[turn % len(repos)]
-        progress = self.state["repos"].setdefault(spec["repo"], {})
+        with self.lock:
+            for _ in repos:
+                turn = self.state["turn"]
+                self.state["turn"] += 1
+                spec = repos[turn % len(repos)]
+                if spec["repo"] not in exclude:
+                    return (
+                        spec,
+                        deepcopy(self.state["repos"].get(spec["repo"], {})),
+                        (turn // len(repos)) % 3,
+                    )
+        return None
+
+    def refill(self, spec, progress, first):
         methods = (self.followup, self.issue, self.source_audit)
         # Rotate both repositories and kinds, even after a provider/source error.
-        first = (turn // len(repos)) % 3
         try:
             for offset in range(3):
-                if self.stopped():
+                if self.stopped() or self.pending() >= self.config["queue_target"]:
                     break
                 if methods[(first + offset) % 3](spec, progress):
                     return True
             return False
+        except QueueFull:
+            return False
+
+    def finish_refill(self, repo, future, progress):
+        """Only the coordinator merges worker state and persists the frontier."""
+        try:
+            return future.result(), None
+        except Exception as exc:
+            return False, type(exc).__name__
         finally:
+            with self.lock:
+                self.state["repos"][repo] = progress
+                self.inflight_repos.discard(repo)
+                self.save()
+
+    def parallel_loop(self):
+        active, ready_at = {}, {}
+        pool = ThreadPoolExecutor(
+            max_workers=self.config["context_workers"],
+            thread_name_prefix="public-research-context",
+        )
+        try:
+            while not self.stopped():
+                error = None
+                for repo, (future, progress) in list(active.items()):
+                    if not future.done():
+                        continue
+                    made, failure = self.finish_refill(repo, future, progress)
+                    del active[repo]
+                    ready_at[repo] = time.monotonic() + (
+                        60 if failure else 0.2 if made else 5
+                    )
+                    error = failure or error
+                while (
+                    not self.stopped()
+                    and len(active) < self.config["context_workers"]
+                    and self.pending() < self.config["queue_target"]
+                ):
+                    excluded = set(active) | {
+                        repo
+                        for repo, deadline in ready_at.items()
+                        if deadline > time.monotonic()
+                    }
+                    work = self.next_refill(excluded)
+                    if work is None:
+                        break
+                    spec, progress, first = work
+                    repo = spec["repo"]
+                    # One refill per repository keeps its cache writes disjoint
+                    # from other workers, including shared .tmp cache filenames.
+                    with self.lock:
+                        self.inflight_repos.add(repo)
+                    active[repo] = (
+                        pool.submit(self.refill, spec, progress, first),
+                        progress,
+                    )
+                queued = self.pending()
+                phase = (
+                    "BACKOFF"
+                    if error
+                    else "REFILLING"
+                    if active
+                    else "READY"
+                    if queued >= self.config["queue_target"]
+                    else "WAITING_FOR_NEW_EVIDENCE"
+                )
+                delay = 0.2 if active else 5
+                if not active and queued < self.config["queue_target"] and ready_at:
+                    delay = min(5, max(0.01, min(ready_at.values()) - time.monotonic()))
+                self.publish(
+                    phase,
+                    error=error,
+                    next_scan=None if active else time.time() + delay,
+                )
+                self.halt.wait(delay)
+        finally:
+            # Retain the single-runner lock until every bounded public GET has
+            # returned; stopped workers cannot publish a late model packet.
+            pool.shutdown(wait=True)
+            for repo, (future, progress) in active.items():
+                self.finish_refill(repo, future, progress)
             self.save()
+            self.publish("STOPPED")
 
     def loop(self):
+        if self.config["context_workers"] > 1:
+            self.parallel_loop()
+            return
         while not self.stopped():
             try:
                 if self.pending() >= self.config["queue_target"]:
