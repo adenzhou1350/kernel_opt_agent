@@ -213,23 +213,27 @@ def collect_source(spec, github_auth=False):
     ]
     # Busy repositories often fill /issues with PRs. Fetch unresolved reports
     # separately; do not pay the model just to rediscover someone else's PR.
+    issue_limit = spec.get("issue_limit", 2)
+    if type(issue_limit) is not int or not 1 <= issue_limit <= 20:
+        raise ValueError("issue_limit must be between 1 and 20")
     query = urllib.parse.urlencode(
         {
             "q": f"repo:{repo} is:issue is:open",
             "sort": "updated",
-            "per_page": 3,
+            "per_page": issue_limit,
         }
     )
     reports = json.loads(
         fetch(f"https://api.github.com/search/issues?{query}", github_auth=github_auth)
     )["items"]
-    for item in reports[:2]:
-        sources.append(
+    report_sources = []
+    for item in reports[:issue_limit]:
+        report_sources.append(
             evidence(
                 item["html_url"], item["title"] + "\n" + (item.get("body") or ""), 1600
             )
         )
-    return {
+    packet = {
         "name": spec["name"],
         "repo": repo,
         "commit": commit,
@@ -239,6 +243,18 @@ def collect_source(spec, github_auth=False):
         "duplicate_search_complete": False,
         "reviewed_lessons": reviewed_lessons(),
     }
+    if spec.get("split_reports"):
+        # Separate evidence packets keep each call small and parallelizable.
+        return [
+            dict(
+                packet,
+                name=f"{spec['name']}-issue-{report['url'].rsplit('/', 1)[-1]}",
+                sources=sources + [report],
+            )
+            for report in report_sources
+        ]
+    packet["sources"] = sources + report_sources
+    return packet
 
 
 def enqueue(root, packet):
@@ -286,13 +302,16 @@ def enqueue(root, packet):
 def collect(root, feeds, github_auth=False):
     results = []
     for spec in json.loads(Path(feeds).read_text(encoding="utf-8")):
+        if (Path(root) / "STOP").exists():
+            break
         try:
-            results.append(
-                {
-                    "name": spec["name"],
-                    "job_id": enqueue(root, collect_source(spec, github_auth)),
-                }
-            )
+            packets = collect_source(spec, github_auth)
+            for packet in packets if isinstance(packets, list) else [packets]:
+                if (Path(root) / "STOP").exists():
+                    break
+                results.append(
+                    {"name": packet["name"], "job_id": enqueue(root, packet)}
+                )
         except Exception as exc:
             # URLs contain no credentials; still avoid dumping response bodies.
             results.append(
@@ -309,7 +328,7 @@ def claim(root, max_jobs, token_budget, output_tokens):
             "SELECT COUNT(*), COALESCE(SUM(charge),0) FROM jobs WHERE started>=?",
             (time.time() - 86400,),
         ).fetchone()
-        if recent[0] >= max_jobs:
+        if max_jobs and recent[0] >= max_jobs:
             return None
         row = db.execute(
             "SELECT * FROM jobs WHERE state='PENDING' ORDER BY created LIMIT 1"
@@ -318,7 +337,7 @@ def claim(root, max_jobs, token_budget, output_tokens):
             return None
         # Conservative byte-based input allowance; not a currency quotation.
         reserve = len((SYSTEM + row["packet"]).encode("utf-8")) + output_tokens + 2048
-        if recent[1] + reserve > token_budget:
+        if token_budget and recent[1] + reserve > token_budget:
             return None
         db.execute(
             "UPDATE jobs SET state='RUNNING',started=?,charge=? WHERE id=?",
@@ -421,6 +440,10 @@ def execute(root, job, python, timeout, output_tokens):
             check=False,
         )
         response = json.loads(proc.stdout)
+        usage = response.get("usage") or {}
+        actual = usage.get("total_tokens")
+        if type(actual) is int and actual > 0:
+            charge = actual
         if isinstance(response.get("text"), str):
             # Preserve generated output even on parser failure, not stderr or
             # provider errors. This is untrusted model data, not an instruction.
@@ -455,10 +478,6 @@ def execute(root, job, python, timeout, output_tokens):
         result = validate_result(
             parse_answer(response["text"]), json.loads(job["packet"])
         )
-        usage = response.get("usage") or {}
-        actual = usage.get("total_tokens")
-        if isinstance(actual, int) and actual > 0:
-            charge = actual
         state = {
             "lead": "REVIEW",
             "no_lead": "NO_LEAD",
@@ -551,33 +570,59 @@ def run(args):
                 "UPDATE jobs SET state='FAILED',error='InterruptedPreviousRunner',finished=? WHERE state='RUNNING'",
                 (time.time(),),
             )
-        deadline = time.time() + args.hours * 3600
+        deadline = time.time() + args.hours * 3600 if args.hours else float("inf")
         running, attempts, failures, next_feed = set(), 0, 0, 0.0
+        cooldown_until, error_cycles = 0.0, 0
+        runtime_path = root / "runtime.json"
+        runtime = {
+            "pid": os.getpid(),
+            "state": "RUNNING",
+            "deadline": deadline if args.hours else None,
+            "concurrency": args.concurrency,
+            "daily_max_calls": args.max_jobs or None,
+            "daily_token_budget": args.token_budget or None,
+        }
         write_json(
-            root / "runtime.json",
-            {
-                "pid": os.getpid(),
-                "state": "RUNNING",
-                "deadline": deadline,
-                "concurrency": args.concurrency,
-                "daily_max_calls": args.max_jobs,
-                "daily_token_budget": args.token_budget,
-            },
+            runtime_path,
+            runtime,
         )
+        reason = "stop, deadline, or --once queue drained"
         try:
             with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
                 while time.time() < deadline and not (root / "STOP").exists():
-                    if (
-                        args.feeds
-                        and time.time() >= next_feed
-                        and attempts < args.max_jobs
-                    ):
+                    if running:
+                        done, running = wait(
+                            running, timeout=1, return_when=FIRST_COMPLETED
+                        )
+                        receipts = sorted(
+                            (future.result() for future in done),
+                            key=lambda r: r["finished"],
+                        )
+                        for receipt in receipts:
+                            if receipt["state"] == "FAILED":
+                                failures += 1
+                            else:
+                                failures, error_cycles = 0, 0
+                    if failures >= 2:
+                        error_cycles += 1
+                        cooldown_until = time.time() + min(
+                            args.error_cooldown_seconds * 2 ** min(error_cycles - 1, 4),
+                            3600,
+                        )
+                        failures = 0
+                    state = "COOLDOWN" if time.time() < cooldown_until else "RUNNING"
+                    if state != runtime["state"]:
+                        runtime.update(
+                            state=state, cooldown_until=cooldown_until or None
+                        )
+                        write_json(runtime_path, runtime)
+                    if args.feeds and time.time() >= next_feed and not running:
                         collect(root, args.feeds, args.github_auth)
                         next_feed = time.time() + args.poll_seconds
                     while (
                         len(running) < args.concurrency
-                        and attempts < args.max_jobs
                         and failures < 2
+                        and time.time() >= cooldown_until
                         and time.time() < deadline
                         and not (root / "STOP").exists()
                     ):
@@ -586,7 +631,9 @@ def run(args):
                         )
                         if job is None:
                             break
-                        remaining = int(deadline - time.time())
+                        remaining = (
+                            int(deadline - time.time()) if args.hours else args.timeout
+                        )
                         if remaining < 15:
                             with connect(root) as db:
                                 db.execute(
@@ -605,30 +652,19 @@ def run(args):
                             )
                         )
                         attempts += 1
-                    if running:
-                        done, running = wait(
-                            running, timeout=1, return_when=FIRST_COMPLETED
-                        )
-                        for future in done:
-                            receipt = future.result()
-                            failures = (
-                                failures + 1 if receipt["state"] == "FAILED" else 0
-                            )
-                    else:
-                        if args.once or attempts >= args.max_jobs or failures >= 2:
+                    if not running:
+                        if args.once:
                             break
                         time.sleep(1)
-                    if failures >= 2:
-                        break
+        except Exception:
+            reason = "infrastructure failure; inspect local error log"
+            raise
         finally:
-            runtime = json.loads((root / "runtime.json").read_text(encoding="utf-8"))
             runtime.update(
                 state="STOPPED",
                 finished=time.time(),
                 attempted_this_run=attempts,
-                reason="error circuit breaker"
-                if failures >= 2
-                else "stop, limit, or queue drained",
+                reason=reason,
             )
             write_json(root / "runtime.json", runtime)
     return status(root)
@@ -666,20 +702,26 @@ def main(argv=None):
     )
     worker.add_argument("--feeds", type=Path)
     worker.add_argument("--github-auth", action="store_true")
-    worker.add_argument("--hours", type=float, default=24)
+    worker.add_argument(
+        "--hours", type=float, default=24, help="0 runs until explicitly stopped"
+    )
     worker.add_argument("--concurrency", type=int, choices=(1, 2, 3, 4), default=2)
     worker.add_argument(
-        "--max-jobs", type=int, default=12, help="persistent rolling-24h attempt cap"
+        "--max-jobs",
+        type=int,
+        default=12,
+        help="rolling-24h attempt cap; 0 explicitly disables it",
     )
     worker.add_argument(
         "--token-budget",
         type=int,
         default=200000,
-        help="rolling 24h tokens, conservative reservations on unknown usage",
+        help="rolling 24h tokens; 0 explicitly disables this cap",
     )
     worker.add_argument("--output-tokens", type=int, default=MAX_OUTPUT)
     worker.add_argument("--timeout", type=int, default=180)
     worker.add_argument("--poll-seconds", type=int, default=1800)
+    worker.add_argument("--error-cooldown-seconds", type=int, default=900)
     worker.add_argument(
         "--once", action="store_true", help="drain available work then exit"
     )
@@ -707,12 +749,13 @@ def main(argv=None):
             result = collect(args.root, args.feeds, args.github_auth)
         else:
             if not (
-                0 < args.hours <= 168
-                and 1 <= args.max_jobs <= 100
-                and 1024 <= args.token_budget <= 2_000_000
+                0 <= args.hours <= 168
+                and 0 <= args.max_jobs <= 100
+                and (args.token_budget == 0 or 1024 <= args.token_budget <= 2_000_000)
                 and 256 <= args.output_tokens <= 4096
                 and 15 <= args.timeout <= 600
                 and args.poll_seconds >= 300
+                and 60 <= args.error_cooldown_seconds <= 3600
             ):
                 raise ValueError("invalid budget; keep trials bounded")
             result = run(args)

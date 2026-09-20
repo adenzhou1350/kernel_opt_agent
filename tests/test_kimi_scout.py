@@ -6,6 +6,8 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
+from types import SimpleNamespace
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
@@ -99,6 +101,146 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(scout.claim(self.root, 12, 100, 2048))
         self.assertEqual(scout.status(self.root)["jobs"][0]["state"], "PENDING")
 
+    def test_explicit_zero_caps_allow_work_and_still_account(self):
+        self.add()
+        job = scout.claim(self.root, 0, 0, 4096)
+        self.assertIsNotNone(job)
+        self.assertGreater(job["charge"], 4096)
+
+    def run_args(self, **changes):
+        defaults = dict(
+            root=self.root,
+            hours=0,
+            concurrency=4,
+            max_jobs=0,
+            token_budget=0,
+            feeds=None,
+            github_auth=False,
+            poll_seconds=300,
+            output_tokens=4096,
+            timeout=30,
+            error_cooldown_seconds=60,
+            kimi_python=sys.executable,
+            once=True,
+        )
+        return SimpleNamespace(**dict(defaults, **changes))
+
+    def fake_execute(self, root, job, *unused):
+        with scout.connect(root) as db:
+            db.execute(
+                "UPDATE jobs SET state='NO_LEAD',finished=? WHERE id=?",
+                (time.time(), job["id"]),
+            )
+        return {"state": "NO_LEAD", "finished": time.time()}
+
+    def test_unlimited_run_drains_four_way_and_has_no_deadline(self):
+        for i in range(9):
+            self.add(str(i))
+        with patch.object(scout, "execute", side_effect=self.fake_execute):
+            current = scout.run(self.run_args())
+        self.assertIsNone(current["runtime"]["deadline"])
+        self.assertIsNone(current["runtime"]["daily_max_calls"])
+        self.assertEqual(current["runtime"]["attempted_this_run"], 9)
+        self.assertTrue(all(job["state"] == "NO_LEAD" for job in current["jobs"]))
+
+    def test_continuous_worker_resumes_after_rolling_cap(self):
+        self.add("first")
+        self.add("second")
+        calls = []
+
+        def execute(root, job, *unused):
+            calls.append(job["id"])
+            value = self.fake_execute(root, job)
+            if len(calls) == 2:
+                (root / "STOP").touch()
+            return value
+
+        def expire_window(_):
+            with scout.connect(self.root) as db:
+                db.execute(
+                    "UPDATE jobs SET started=? WHERE state='NO_LEAD'",
+                    (time.time() - 86401,),
+                )
+
+        with (
+            patch.object(scout, "execute", side_effect=execute),
+            patch.object(scout.time, "sleep", side_effect=expire_window),
+        ):
+            scout.run(self.run_args(max_jobs=1, concurrency=1, once=False))
+        self.assertEqual(len(calls), 2)
+
+    def test_stop_during_feed_prevents_dispatch(self):
+        self.add()
+
+        def stop(*unused):
+            (self.root / "STOP").touch()
+
+        with (
+            patch.object(scout, "collect", side_effect=stop),
+            patch.object(scout, "execute") as execute,
+        ):
+            scout.run(self.run_args(feeds=Path("unused")))
+        execute.assert_not_called()
+
+    def test_cooldown_is_interruptible_without_replaying_failed_jobs(self):
+        for i in range(5):
+            self.add(str(i))
+
+        def fail(root, job, *unused):
+            with scout.connect(root) as db:
+                db.execute("UPDATE jobs SET state='FAILED' WHERE id=?", (job["id"],))
+            return {"state": "FAILED", "finished": time.time()}
+
+        def stop(_):
+            (self.root / "STOP").touch()
+
+        with (
+            patch.object(scout, "execute", side_effect=fail),
+            patch.object(scout.time, "sleep", side_effect=stop),
+        ):
+            current = scout.run(self.run_args(concurrency=1, once=False))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 2)
+        self.assertGreater(current["runtime"]["cooldown_until"], time.time())
+        self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 3)
+
+    def test_report_feed_splits_distinct_issues(self):
+        def response(url, **unused):
+            if "/search/issues?" in url:
+                return json.dumps(
+                    {
+                        "items": [
+                            {
+                                "html_url": f"https://github.com/a/b/issues/{i}",
+                                "title": str(i),
+                                "body": "public bug report",
+                            }
+                            for i in range(2)
+                        ]
+                    }
+                )
+            if "/commits/" in url:
+                return json.dumps({"sha": "a" * 40})
+            if "/issues?" in url:
+                return "[]"
+            return '{"private": false}'
+
+        with (
+            patch.object(scout, "fetch", side_effect=response),
+            patch.object(scout, "reviewed_lessons", return_value=[]),
+        ):
+            packets = scout.collect_source(
+                {
+                    "repo": "a/b",
+                    "name": "test",
+                    "question": "triage",
+                    "issue_limit": 8,
+                    "split_reports": True,
+                }
+            )
+        self.assertEqual(len(packets), 2)
+        self.assertNotEqual(packets[0]["name"], packets[1]["name"])
+        self.assertTrue(all(len(p["sources"]) == 1 for p in packets))
+
     def test_private_or_oversized_packet_rejected(self):
         for url in (
             "http://github.com/a",
@@ -160,6 +302,7 @@ class ScoutTests(unittest.TestCase):
             "tools_advertised": 0,
             "tool_calls_executed": 0,
             "finish_reason": "stop",
+            "usage": {"total_tokens": 321},
         }
         with patch.object(
             scout.subprocess,
@@ -168,6 +311,7 @@ class ScoutTests(unittest.TestCase):
         ):
             receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
         self.assertEqual(receipt["error"], "unexpected result fields")
+        self.assertEqual(receipt["charged_tokens_or_reservation"], 321)
         raw = json.loads(
             (self.root / "results" / (job["id"] + ".answer.json")).read_text()
         )

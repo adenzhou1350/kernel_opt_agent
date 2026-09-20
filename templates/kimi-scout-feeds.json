@@ -2,6 +2,8 @@
   {
     "name": "quack-real-tensor-varlen-api",
     "repo": "Dao-AILab/quack",
+    "issue_limit": 8,
+    "split_reports": true,
     "ref": "main",
     "files": [
       {"path": "quack/blockscaled/operand.py", "start": 650, "count": 115},
@@ -12,6 +14,8 @@
   {
     "name": "flash-attention-small-correctness-leads",
     "repo": "Dao-AILab/flash-attention",
+    "issue_limit": 8,
+    "split_reports": true,
     "ref": "main",
     "files": [],
     "question": "Triage the supplied recent public issues/PRs for ONE small correctness, unsupported-configuration diagnostic, or missing boundary-test lead. Hardware available to the owner includes SM89, SM120, SM80, SM103, but access is not yours and a live allocation is not implied. PR #2902 already addresses SM120 SharedStorage validation; do not propose a competing copy. Without source, report needs_context and name the cheapest exact-source check."
@@ -19,6 +23,8 @@
   {
     "name": "sglang-small-correctness-leads",
     "repo": "sgl-project/sglang",
+    "issue_limit": 8,
+    "split_reports": true,
     "ref": "main",
     "files": [],
     "question": "Triage these recent public items for ONE bounded source-level correctness or measurable production-path lead. Avoid generic backend swaps, unsupported eager-to-graph extrapolation, and proposing to reimplement an existing open PR. A bug report is not proof; identify a minimal reproduction and missing source context. No performance or Ready claims."

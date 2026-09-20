@@ -27,10 +27,14 @@ work needs this service, and it does not resurrect the historical GPU broker.
   the client requests disabled thinking / low effort, but does not assume the
   endpoint honors it. A length-terminated answer is not accepted as a finding.
   Conservative input-byte plus output reservations are atomic before dispatch.
-  Actual reported usage replaces reservations on accepted results; failures or
-  unknown usage keep the full reservation. This is not a dollar-cost estimate.
+  Valid reported usage replaces reservations even when answer validation fails;
+  unknown usage keeps the full reservation. This is not a dollar-cost estimate.
   The Kimi account's own limits still apply. There are no automatic model retries.
-- Two consecutive errors stop the worker. Interrupted jobs are not replayed.
+- Two consecutive errors pause new calls for 15 minutes, escalating to at most
+  one hour during repeated outages. The worker stays alive, drains in-flight
+  calls and resumes with new work after cooldown; failed jobs are not replayed.
+  Interrupted jobs are not replayed either. Local storage/infrastructure errors
+  still stop the process with an explicit failure reason.
   `stop` prevents new requests; bounded requests already in flight finish.
   OS-level single-runner locking prevents duplicate daemons on the same inbox.
 - Results require supplied URLs and source excerpts (ignoring only whitespace
@@ -62,6 +66,23 @@ On Windows, launch with `Start-Process -WindowStyle Hidden` and explicit log pat
 to keep this local worker running after the terminal closes. This program does
 not modify startup tasks or prevent sleep; the computer and network must stay on.
 It does not require a recurring Codex conversation or spend Codex tokens itself.
+
+For explicitly authorized continuous operation (no local daily call/token caps):
+
+```sh
+python scripts/kimi_scout.py --root runs/kimi-scout run \
+  --kimi-python <kimi-python> --feeds templates/kimi-scout-feeds.json \
+  --hours 0 --concurrency 4 --max-jobs 0 --token-budget 0 --poll-seconds 300
+```
+
+Zero disables only that named limit; per-call timeout/output limits, dedup,
+tool prohibition and provider account limits remain. This may consume ongoing
+paid account usage until stopped. Runtime JSON represents disabled caps/deadline
+as `null`. Finite rolling budgets pause claims rather than permanently exiting;
+capacity becomes available again as attempts age out of the 24-hour window.
+Example feeds split up to eight unresolved reports per repository into distinct
+small packets. They poll for changed evidence, not repeated answers to unchanged
+questions; being alive does not imply four paid calls are always in flight.
 
 ```sh
 python scripts/kimi_scout.py --root runs/kimi-scout status
