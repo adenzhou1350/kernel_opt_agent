@@ -357,6 +357,47 @@ is separately authorized paid model usage, not free work merely because slots
 are empty. On resume, explicitly archive the delivery STOP marker; keep the DB
 and completed/failed artifacts so old candidates are not silently replayed.
 
+Delivery supports up to 16 slots, but this is a ceiling, not a useful-work target.
+Vacant workers immediately replenish a depleted queue; only a genuinely exhausted
+frontier backs off. For example, use 4 discovery + 12 delivery to keep the same
+16-call ceiling. The viewer shows both the total and each stage separately.
+
+`--gpu-proposals` additionally prepares small Torch/Triton GPU tests from compatible
+source or CPU attempts that require CUDA. These end as `GPU_REVIEW_REQUIRED`, with
+fixed-name candidate/test files and hashes; they **do not run GPU code, connect to
+a host, install packages or grant approval**. Availability of an idle GPU does not
+resolve missing package context, a different architecture, or non-Python sources.
+Adding `--route-blocked-gpu` explicitly routes up to 24 old CPU/CUDA blockers once,
+preserving their old terminal records. It does not repeat CPU execution or retry
+GPU execution. Malformed proposals get at most one format repair, then become
+inconclusive; they do not trigger a provider-outage cooldown. A saved successful
+model response is reused rather than regenerated for that one repair.
+
+The explicit GPU verifier is for owner-reviewed source and tests only. On shared
+hosts without a container sandbox, never feed arbitrary unreviewed model output
+to that verifier. Inspect code, use an idle exact UUID, and keep each comparison
+task-private. This is adapted GPU correctness evidence, not an official repository
+suite, performance qualification, or a ready PR.
+
+After reviewing all three files, bind their SHA256 values in a JSON object with
+exactly `baseline`, `candidate`, and `test` keys. On the chosen Linux worker, use
+the existing compatible Torch interpreter:
+
+```sh
+python -B scripts/kimi_scout_gpu_verify.py \
+  --baseline baseline.py --candidate candidate.py --test test_subject.py \
+  --gpu-uuid GPU-<full-device-uuid> --reviewed-sha256 reviewed.json \
+  > gpu-result.json
+```
+
+This explicit tool checks the reviewed bytes, coordinates through the existing
+per-UUID flock directory, samples idleness before and after each arm, and uses
+separate processes with private caches and a 30-second arm timeout. It drops root
+privileges for test children and terminates only their own process groups. These
+are accident-limiting controls, **not network/filesystem isolation**; code review
+is still required. CLI success means a comparison completed, not that a bug or PR
+has been qualified. Keep the raw result and inspect both arms' tests and cleanup.
+
 Offline checks (no network, credentials, or paid model calls):
 
 ```sh

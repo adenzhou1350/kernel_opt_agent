@@ -385,6 +385,31 @@ global.document = {
             except OSError:
                 self.skipTest("Symlinks require privileges on this Windows account")
             self.assertIsNone(self.inbox.state()["delivery"])
+            self.assertIsNone(self.inbox.state()["delivery_gpu"])
+
+    def test_gpu_delivery_snapshot_is_optional_read_only_historical_evidence(self):
+        self.assertIsNone(self.inbox.state()["delivery_gpu"])
+        path = self.root / "delivery" / "gpu-latest.json"
+        path.parent.mkdir()
+        for content in ("{", "[]", "null", "{}"):
+            with self.subTest(content=content):
+                path.write_text(content, encoding="utf-8")
+                self.assertIsNone(self.inbox.state()["delivery_gpu"])
+        snapshot = {
+            "at": 1, "repo": "a/b", "lead_id": self.job_id, "gpu_uuid": "GPU-test",
+            "baseline_exit": 1, "candidate_exit": 0, "tests_run": 2,
+            "cleanup_ok": True, "scope": "adapted single-module, not PR ready",
+        }
+        scout.write_json(path, snapshot)
+        before = path.read_bytes()
+        with patch.object(dashboard.time, "time", return_value=100000):
+            state = self.inbox.state()
+        self.assertEqual(state["delivery_gpu"], snapshot)
+        self.assertIsNone(state["delivery"])
+        self.assertEqual(state["summary"]["counts"], {"PENDING": 1})
+        self.assertEqual(path.read_bytes(), before)
+        with patch.object(dashboard, "MAX_FILE_BYTES", 4):
+            self.assertIsNone(self.inbox.state()["delivery_gpu"])
 
     def test_delivery_snapshot_is_read_only_and_separate_from_search(self):
         now = 10000
@@ -435,6 +460,84 @@ global.document = {
                 self.assertEqual(delivery["jobs"], [])
 
     @unittest.skipUnless(shutil.which("node"), "Node is needed for the offline DOM test")
+    def test_total_capacity_counts_only_confirmed_active_pipeline_tasks(self):
+        page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        self.assertIn("总在途任务 / 总配置槽位 · 搜索 + 复现", page)
+        self.assertIn("环境受限（ENVIRONMENT_BLOCKED）不等于缺少 GPU", page)
+        script = page.split("<script>", 1)[1].split("</script>", 1)[0]
+        overview = script.split("  function renderHistory() {", 1)[0]
+        harness = """
+const elements = new Map();
+function element() {
+  return {
+    children: [],
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; },
+    addEventListener() {},
+  };
+}
+global.document = {
+  createElement: element,
+  getElementById(id) {
+    if (!elements.has(id)) elements.set(id, element());
+    return elements.get(id);
+  },
+};
+"""
+        exercise = """
+  const search = {concurrency: 4, alive: true, heartbeat_at: 995, state: "RUNNING"};
+  const delivery = {
+    concurrency: 12, active: 12, alive: true, heartbeat_fresh: true, state: "RUNNING",
+    execution_concurrency: 20, gpu_devices: Array(32).fill("GPU"),
+    counts: {REPRODUCED: 100, REVIEW_READY: 100, ENVIRONMENT_BLOCKED: 100},
+  };
+  const observations = [];
+  for (const [runtime, deliveryState] of [
+    [search, delivery],
+    [{...search, heartbeat_at: 819}, delivery],
+    [search, {...delivery, alive: false}],
+    [{...search, alive: false}, {...delivery, heartbeat_fresh: false}],
+    [search, {...delivery, state: "STOPPED"}],
+    [{...search, heartbeat_at: 1001}, delivery],
+    [{...search, active: 1}, delivery],
+    [search, null],
+    [{...search, state: "STOPPED"}, delivery],
+  ]) {
+    state = {
+      now: 1000, runtime, delivery: deliveryState,
+      summary: {counts: {RUNNING: 3, REVIEW: 500}},
+    };
+    renderBriefing();
+    observations.push({
+      total: elements.get("totalCapacity").textContent,
+      breakdown: elements.get("totalCapacityBreakdown").textContent,
+      note: elements.get("totalCapacityNote").textContent,
+    });
+  }
+  process.stdout.write(JSON.stringify(observations));
+})();
+"""
+        result = subprocess.run(
+            [shutil.which("node"), "-"], input=harness + overview + exercise,
+            text=True, encoding="utf-8", capture_output=True, timeout=10, check=True,
+        )
+        observations = json.loads(result.stdout)
+        self.assertEqual(
+            [row["total"] for row in observations],
+            ["15 / 16", "12 / 16", "3 / 16", "0 / 16", "3 / 16", "12 / 16",
+             "13 / 16", "3 / 4", "12 / 16"],
+        )
+        self.assertEqual(observations[0]["breakdown"], "搜索 3 / 4 · 复现 12 / 12")
+        self.assertEqual(observations[1]["breakdown"], "搜索 未确认 / 4 · 复现 12 / 12")
+        self.assertEqual(observations[2]["breakdown"], "搜索 3 / 4 · 复现 未确认 / 12")
+        self.assertEqual(observations[7]["breakdown"], "搜索 3 / 4 · 复现 暂无状态")
+        for index in (1, 2, 3, 4, 5, 8):
+            self.assertIn("仅合计已确认在途任务", observations[index]["note"])
+        for row in observations:
+            self.assertIn("待复核结果不占槽位", row["note"])
+            self.assertIn("CPU 容器与 GPU 设备不另加槽位", row["note"])
+
+    @unittest.skipUnless(shutil.which("node"), "Node is needed for the offline DOM test")
     def test_delivery_render_is_text_only_separate_and_honest_about_evidence(self):
         page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
         script = page.split("<script>", 1)[1].split("</script>", 1)[0]
@@ -466,8 +569,13 @@ function collect(el) {
   let selected = null;
   function selectJob(id) { selected = id; }
   state = {
-    summary: {counts: {}}, jobs: [],
+    now: 100000, summary: {counts: {}}, jobs: [],
     runtime: {concurrency: 12, alive: true, state: "RUNNING"},
+    delivery_gpu: {
+      at: 1, repo: "<script>gpu</script>", lead_id: "<img src=x>", gpu_uuid: "GPU-test",
+      baseline_exit: 1, candidate_exit: 0, tests_run: 2, cleanup_ok: true,
+      scope: "<b>adapted single-module</b>", active: 999,
+    },
     delivery: {
       alive: true, heartbeat_fresh: true, state: "RUNNING", active: 2,
       concurrency: 4, execution_concurrency: 2, reported_tokens: 1234,
@@ -493,6 +601,12 @@ function collect(el) {
     count: rows.length, first: collect(rows[0]), second: collect(rows[1]), selected,
     secondHasButton: rows[1].children.some(child => child.listeners.click),
     reproduced: elements.get("deliveryReproduced").textContent,
+    gpuHidden: elements.get("deliveryGpuPanel").hidden,
+    gpuTiming: elements.get("deliveryGpuTiming").textContent,
+    gpuResult: elements.get("deliveryGpuResult").textContent,
+    gpuSource: elements.get("deliveryGpuSource").textContent,
+    gpuScope: elements.get("deliveryGpuScope").textContent,
+    totalCapacity: elements.get("totalCapacity").textContent,
   };
   state.delivery.heartbeat_fresh = false;
   renderDelivery();
@@ -502,6 +616,18 @@ function collect(el) {
   state.delivery = null;
   renderDelivery();
   values.absentHidden = elements.get("deliveryPanel").hidden;
+  values.gpuWithoutRuntimeHidden = elements.get("deliveryGpuPanel").hidden;
+  state.delivery_gpu.at = 100001;
+  state.delivery_gpu.cleanup_ok = false;
+  renderDelivery();
+  values.futureGpuTiming = elements.get("deliveryGpuTiming").textContent;
+  values.failedGpuCleanup = elements.get("deliveryGpuResult").textContent;
+  values.invalidGpuHidden = [];
+  for (const invalid of [null, [], {}]) {
+    state.delivery_gpu = invalid;
+    renderDelivery();
+    values.invalidGpuHidden.push(elements.get("deliveryGpuPanel").hidden);
+  }
   process.stdout.write(JSON.stringify(values));
 })();
 """
@@ -529,6 +655,18 @@ function collect(el) {
         self.assertIn("不代表正在执行", values["staleNote"])
         self.assertEqual(values["staleState"], "心跳待确认")
         self.assertTrue(values["absentHidden"])
+        self.assertFalse(values["gpuHidden"])
+        self.assertFalse(values["gpuWithoutRuntimeHidden"])
+        self.assertIn("历史结果，不代表正在执行", values["gpuTiming"])
+        self.assertIn("27 时", values["gpuTiming"])
+        self.assertEqual(values["gpuResult"], "退出码 1 → 0 · 测试数 2 · 资源清理：已确认")
+        self.assertIn("<script>gpu</script>", values["gpuSource"])
+        self.assertIn("<img src=x>", values["gpuSource"])
+        self.assertIn("<b>adapted single-module</b>", values["gpuScope"])
+        self.assertEqual(values["totalCapacity"], "2 / 16")
+        self.assertIn("记录时间待确认", values["futureGpuTiming"])
+        self.assertIn("资源清理：未完成", values["failedGpuCleanup"])
+        self.assertEqual(values["invalidGpuHidden"], [True, True, True])
 
     def test_malformed_research_metadata_preserves_old_jobs(self):
         for metadata in (

@@ -249,6 +249,7 @@ class Inbox:
         feed = read_artifact(self.root, "last-feed.json")
         research = read_artifact(self.root, "research.json") or None
         delivery = read_artifact(self.root, "delivery/runtime.json") or None
+        delivery_gpu = read_artifact(self.root, "delivery/gpu-latest.json") or None
         if delivery is not None:
             delivery["alive"] = process_alive(delivery.get("pid"))
             if not delivery["alive"] and delivery.get("state") != "STOPPED":
@@ -284,6 +285,7 @@ class Inbox:
             "runtime": runtime,
             "research": research,
             "delivery": delivery,
+            "delivery_gpu": delivery_gpu,
             "activity": activity_summary(jobs, research, now),
             "summary": {
                 "counts": dict(Counter(row["state"] for row in rows)),

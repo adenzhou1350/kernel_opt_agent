@@ -1,5 +1,6 @@
 """Offline delivery-queue and repair-loop tests; no model, Docker or network."""
 
+import io
 import json
 import subprocess
 import sys
@@ -87,6 +88,82 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(len(ids), 8)
         self.assertEqual(len(set(ids)), 8)
 
+    def test_fast_terminal_batch_refills_before_poll_deadline(self):
+        leads = [lead(i) for i in range(20)]
+        with (
+            patch.object(delivery, "select_leads", return_value=leads),
+            patch.object(delivery.time, "time", return_value=100),
+        ):
+            self.assertEqual(self.worker.refill(active=0), 8)
+            for _ in range(8):
+                job = delivery.claim(self.worker.root)
+                delivery.update(self.worker.root, job["id"], "ENVIRONMENT_BLOCKED")
+            self.assertEqual(self.worker.refill(active=0), 8)
+        with delivery.database(self.worker.root) as db:
+            counts = dict(
+                db.execute("SELECT state,count(*) FROM delivery GROUP BY state")
+            )
+        self.assertEqual(counts, {"ENVIRONMENT_BLOCKED": 8, "PENDING": 8})
+
+    def test_exhausted_source_backs_off_and_never_retries_terminal_jobs(self):
+        with (
+            patch.object(delivery, "select_leads", return_value=[lead(1)]) as select,
+            patch.object(delivery.time, "time", return_value=100),
+        ):
+            self.assertEqual(self.worker.refill(active=0), 1)
+            job = delivery.claim(self.worker.root)
+            delivery.update(self.worker.root, job["id"], "ENVIRONMENT_BLOCKED")
+            self.assertEqual(self.worker.refill(active=0), 0)
+            self.assertEqual(select.call_count, 1)
+        with (
+            patch.object(delivery, "select_leads", return_value=[lead(1), lead(2)]),
+            patch.object(delivery.time, "time", return_value=110),
+        ):
+            self.assertEqual(self.worker.refill(active=0), 1)
+        self.assertEqual(delivery.claim(self.worker.root)["source_job_id"], "2")
+        self.assertIsNone(delivery.claim(self.worker.root))
+
+    def test_refill_waits_while_pending_can_fill_free_slots(self):
+        with (
+            patch.object(
+                delivery, "select_leads", return_value=[lead(i) for i in range(20)]
+            ) as select,
+            patch.object(delivery.time, "time", return_value=100),
+        ):
+            self.assertEqual(self.worker.refill(active=0), 8)
+            for _ in range(6):
+                delivery.claim(self.worker.root)
+            self.assertEqual(self.worker.refill(active=2), 0)
+            self.assertEqual(select.call_count, 1)
+            delivery.claim(self.worker.root)
+            self.assertEqual(self.worker.refill(active=2), 7)
+
+    def test_cli_accepts_sixteen_slots_and_rejects_seventeen(self):
+        (self.inbox / "scout.sqlite").touch()
+        arguments = [
+            "delivery",
+            "--root",
+            str(self.inbox),
+            "--kimi-python",
+            sys.executable,
+            "--concurrency",
+            "16",
+        ]
+        with (
+            patch.object(sys, "argv", arguments),
+            patch.object(delivery.Delivery, "run", autospec=True) as run,
+        ):
+            delivery.main()
+        self.assertEqual(run.call_args.args[0].args.concurrency, 16)
+        self.assertEqual(run.call_args.args[0].args.execution_concurrency, 2)
+        with (
+            patch.object(sys, "argv", arguments[:-1] + ["17"]),
+            patch.object(sys, "stderr", io.StringIO()),
+            self.assertRaises(SystemExit) as error,
+        ):
+            delivery.main()
+        self.assertEqual(error.exception.code, 2)
+
     def test_replacement_is_bounded_and_unique(self):
         self.assertIn("return 2", delivery.proposal(proposal(), SOURCE))
         for source in ("no match", SOURCE + SOURCE):
@@ -96,6 +173,137 @@ class DeliveryTests(unittest.TestCase):
         value["edits"][0]["path"] = "/outside/private.py"
         with self.assertRaises(ValueError):
             delivery.proposal(value, SOURCE)
+
+    def test_direct_from_subject_import_is_valid_but_relative_is_not(self):
+        code = TEST.replace("import subject", "from subject import value").replace(
+            "subject.value()", "value()"
+        )
+        self.assertIn(
+            "return 2", delivery.proposal({**proposal(), "test_code": code}, SOURCE)
+        )
+        with self.assertRaises(ValueError):
+            delivery.proposal(
+                {
+                    **proposal(),
+                    "test_code": code.replace("from subject", "from .subject"),
+                },
+                SOURCE,
+            )
+
+    def test_gpu_proposal_is_explicit_opt_in_and_never_executes(self):
+        self.args.gpu_proposals = True
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        source = {
+            "source": SOURCE,
+            "path": "gpu.py",
+            "url": "https://public.invalid/data",
+            "required_dependency_modules": ["torch", "triton"],
+        }
+        with (
+            patch.object(delivery, "load_source", return_value=source),
+            patch.object(self.worker, "model", return_value=proposal()) as model,
+            patch.object(self.worker, "sandbox") as sandbox,
+        ):
+            self.assertEqual(self.worker.execute(job), "GPU_REVIEW_REQUIRED")
+        sandbox.assert_not_called()
+        self.assertEqual(model.call_count, 1)
+        work = self.worker.root / "jobs" / job["id"]
+        saved = json.loads((work / "gpu-proposal.json").read_text())
+        self.assertFalse(saved["executed"])
+        self.assertFalse(saved["qualified"])
+        self.assertTrue((work / "gpu-test.py").is_file())
+        self.assertFalse((work / "approval.json").exists())
+
+    def test_explicit_gpu_route_preserves_cpu_terminal_and_is_once_only(self):
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        work = self.worker.root / "jobs" / job["id"]
+        work.mkdir()
+        delivery.update(
+            self.worker.root,
+            job["id"],
+            "ENVIRONMENT_BLOCKED",
+            "requires CUDA",
+            {"executed": False},
+        )
+        self.assertEqual(delivery.route_blocked_gpu(self.worker.root), 1)
+        saved = json.loads((work / "cpu-terminal-before-gpu.json").read_text())
+        self.assertEqual(saved["state"], "ENVIRONMENT_BLOCKED")
+        routed = delivery.claim(self.worker.root)
+        self.assertTrue(json.loads(routed["payload"])["gpu_proposal_route"])
+        delivery.update(
+            self.worker.root, job["id"], "ENVIRONMENT_BLOCKED", "requires CUDA"
+        )
+        self.assertEqual(delivery.route_blocked_gpu(self.worker.root), 0)
+
+    def test_gpu_invalid_proposal_gets_only_one_repair_without_outage_state(self):
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        work = self.worker.root / "jobs" / job["id"]
+        work.mkdir()
+        invalid = {**proposal(), "test_code": "import unittest"}
+        with (
+            patch.object(self.worker, "model", side_effect=[invalid, invalid]) as model,
+            patch.object(self.worker, "sandbox") as sandbox,
+        ):
+            self.assertEqual(
+                self.worker.prepare_gpu(job, work, {}, SOURCE), "INCONCLUSIVE"
+            )
+        self.assertEqual(model.call_count, 2)
+        sandbox.assert_not_called()
+        with delivery.database(self.worker.root) as db:
+            row = db.execute("SELECT state,reason FROM delivery").fetchone()
+        self.assertEqual(row["state"], "INCONCLUSIVE")
+        self.assertIn("proposal validation", row["reason"])
+
+    def test_saved_invalid_gpu_answer_is_not_regenerated_before_one_repair(self):
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        work = self.worker.root / "jobs" / job["id"]
+        work.mkdir()
+        delivery.scout.write_json(
+            work / "gpu-proposal.answer.json",
+            {"ok": True, "tool_calls_executed": 0, "text": "not json"},
+        )
+        with patch.object(self.worker, "model", return_value=proposal()) as model:
+            self.assertEqual(
+                self.worker.prepare_gpu(job, work, {}, SOURCE), "GPU_REVIEW_REQUIRED"
+            )
+        self.assertEqual(model.call_count, 1)
+        self.assertEqual(model.call_args.args[1], "gpu-proposal-repair")
+
+    def test_cpu_gpu_environment_response_routes_to_proposal_not_execution(self):
+        self.args.gpu_proposals = True
+        rejection = {
+            "decision": "needs_environment",
+            "reason": "requires CUDA device",
+            "test_code": "",
+            "edits": [],
+        }
+        state, row, model, sandbox = self.run_job([], [rejection, proposal()])
+        self.assertEqual(state, "GPU_REVIEW_REQUIRED")
+        self.assertEqual(model.call_count, 2)
+        sandbox.assert_not_called()
+        self.assertFalse(json.loads(row["result"])["executed"])
+
+    def test_gpu_routing_does_not_bypass_malformed_cpu_proposal_repair(self):
+        self.args.gpu_proposals = True
+        invalid_values = (
+            [],
+            None,
+            {**proposal(), "decision": "needs_environment", "reason": []},
+        )
+        for number, invalid in enumerate(invalid_values):
+            with self.subTest(invalid=invalid):
+                state, row, model, sandbox = self.run_job(
+                    [], [invalid, invalid], number=number
+                )
+                self.assertEqual(state, "INCONCLUSIVE")
+                self.assertEqual(model.call_count, 2)
+                self.assertEqual(model.call_args.args[1], "repair")
+                sandbox.assert_not_called()
+                self.assertIn("proposal validation", row["reason"])
 
     def test_zero_skip_and_copied_only_tests_do_not_admit(self):
         for code in (
@@ -136,8 +344,8 @@ class DeliveryTests(unittest.TestCase):
         )
         self.assertEqual(delivery.classify({"inconclusive": True})[0], "INCONCLUSIVE")
 
-    def run_job(self, outputs, answers):
-        delivery.stage(self.worker.root, [lead()])
+    def run_job(self, outputs, answers, *, number=1):
+        delivery.stage(self.worker.root, [lead(number)])
         job = delivery.claim(self.worker.root)
         source = {
             "source": SOURCE,
@@ -153,7 +361,9 @@ class DeliveryTests(unittest.TestCase):
         ):
             state = self.worker.execute(job)
         with delivery.database(self.worker.root) as db:
-            row = dict(db.execute("SELECT * FROM delivery").fetchone())
+            row = dict(
+                db.execute("SELECT * FROM delivery WHERE id=?", (job["id"],)).fetchone()
+            )
         return state, row, model, sandbox
 
     def test_real_output_gets_one_repair_then_separate_review(self):
