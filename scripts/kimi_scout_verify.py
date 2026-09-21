@@ -22,6 +22,14 @@ import uuid
 from pathlib import Path
 
 IMAGE = "sha256:a041b350d5d9483b538d5af07e9553ee8cbc7fc7fa90c2f7d20d93f18ce9bbd1"
+TORCH_CPU_IMAGE = (
+    "sha256:83727efdf2e8586e9193b08efb5c334c4b52abae93319c5db3cc34b3bd2295c0"
+)
+PROFILES = {
+    "stdlib": (IMAGE, "/usr/local/bin/python3", "512m"),
+    "torch-cpu": (TORCH_CPU_IMAGE, "/opt/venv/bin/python", "2g"),
+}
+CLAIM_SCOPE = "ADAPTED_SINGLE_MODULE_CPU_SCREEN_NOT_UPSTREAM_SUITE"
 DOCKER = [
     "/usr/bin/docker",
     "--host",
@@ -64,9 +72,12 @@ def read_input(value):
     return content
 
 
-def command(subject, test, name):
+def command(subject, test, name, *, profile="stdlib"):
     if not re.fullmatch(r"kimi-verify-[0-9a-f]{32}", name):
         raise ValueError("container name must be controller-generated")
+    if profile not in PROFILES:
+        raise ValueError("profile must be stdlib or torch-cpu")
+    image, python, memory = PROFILES[profile]
     return DOCKER + [
         "run",
         "--pull",
@@ -87,9 +98,9 @@ def command(subject, test, name):
         "--security-opt",
         "no-new-privileges=true",
         "--memory",
-        "512m",
+        memory,
         "--memory-swap",
-        "512m",
+        memory,
         "--cpus",
         "1",
         "--pids-limit",
@@ -102,6 +113,10 @@ def command(subject, test, name):
         "/tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777",
         "--env",
         "HOME=/tmp",
+        "--env",
+        "LD_PRELOAD=",
+        "--env",
+        "CUDA_VISIBLE_DEVICES=",
         "--workdir",
         "/tmp",
         "--mount",
@@ -109,8 +124,8 @@ def command(subject, test, name):
         "--mount",
         f"type=bind,src={test},dst=/input/test_subject.py,readonly",
         "--entrypoint",
-        "/usr/local/bin/python3",
-        IMAGE,
+        python,
+        image,
         "-I",
         "-B",
         "-c",
@@ -118,7 +133,7 @@ def command(subject, test, name):
     ]
 
 
-def run_case(subject, test, timeout):
+def run_case(subject, test, timeout, *, profile="stdlib"):
     name = "kimi-verify-" + uuid.uuid4().hex
     started = time.monotonic()
     captured = bytearray()
@@ -137,7 +152,7 @@ def run_case(subject, test, timeout):
 
     try:
         process = subprocess.Popen(
-            command(subject, test, name),
+            command(subject, test, name, profile=profile),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=ENV,
@@ -173,6 +188,8 @@ def run_case(subject, test, timeout):
     counts = re.findall(r"(?m)^" + MARKER + r"(\d+)$", output)
     count = int(counts[-1]) if counts else None
     return {
+        "profile": profile,
+        "claim_scope": CLAIM_SCOPE,
         "exit_code": None if timed_out else process.returncode,
         "seconds": round(time.monotonic() - started, 3),
         "timed_out": timed_out,
@@ -188,11 +205,13 @@ def run_case(subject, test, timeout):
     }
 
 
-def verify(baseline, candidate, test, *, timeout=60):
+def verify(baseline, candidate, test, *, timeout=60, profile="stdlib"):
     if sys.platform != "linux":
         raise ValueError("run this opt-in verifier inside Linux/WSL")
     if type(timeout) not in (int, float) or not 1 <= timeout <= 120:
         raise ValueError("timeout must be 1..120 seconds per run")
+    if profile not in PROFILES:
+        raise ValueError("profile must be stdlib or torch-cpu")
     contents = {
         key: read_input(value)
         for key, value in (
@@ -209,9 +228,9 @@ def verify(baseline, candidate, test, *, timeout=60):
             path.write_bytes(content)
             path.chmod(0o444)
             files[key] = path
-        before = run_case(files["baseline"], files["test"], timeout)
+        before = run_case(files["baseline"], files["test"], timeout, profile=profile)
         fixed = (
-            run_case(files["candidate"], files["test"], timeout)
+            run_case(files["candidate"], files["test"], timeout, profile=profile)
             if before["cleanup_ok"]
             else {
                 "exit_code": None,
@@ -221,7 +240,9 @@ def verify(baseline, candidate, test, *, timeout=60):
         )
     return {
         "label": "TEST_RESULT_NOT_PR_READY",
-        "image": IMAGE,
+        "profile": profile,
+        "claim_scope": CLAIM_SCOPE,
+        "image": PROFILES[profile][0],
         "input_sha256": {
             key: hashlib.sha256(data).hexdigest() for key, data in contents.items()
         },
@@ -238,12 +259,21 @@ def main(argv=None):
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--test", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=60)
+    parser.add_argument("--profile", choices=tuple(PROFILES), default="stdlib")
     args = parser.parse_args(argv)
     try:
-        result = verify(args.baseline, args.candidate, args.test, timeout=args.timeout)
+        result = verify(
+            args.baseline,
+            args.candidate,
+            args.test,
+            timeout=args.timeout,
+            profile=args.profile,
+        )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         result = {
             "label": "TEST_RESULT_NOT_PR_READY",
+            "profile": args.profile,
+            "claim_scope": CLAIM_SCOPE,
             "inconclusive": True,
             "error": type(error).__name__,
         }

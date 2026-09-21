@@ -313,6 +313,50 @@ six tests gave baseline 5 pass / 1 error and fixed 6 pass. This demonstrates the
 feedback loop, not new bug discovery or improved scout precision. Review still
 found a redundant assertion in the generated test.
 
+## Opt-in delivery workers (actual tests, separate from discovery)
+
+The owner can connect the backlog to `kimi_scout_delivery.py`. Unlike the
+tool-free discovery daemon, this explicitly enabled controller stages public
+modules and executes generated code **only inside the restricted verifier**.
+Kimi still has zero tools or host command access; the controller accepts bounded
+exact string edits, never model-selected commands, images or output paths.
+
+```sh
+python scripts/kimi_scout_delivery.py --root runs/kimi-scout \
+  --kimi-python <kimi-python> --github-auth --concurrency 4 --execution-concurrency 2
+# Graceful stop: no new model/container stages; in-flight work drains.
+python scripts/kimi_scout_delivery.py --root runs/kimi-scout --stop
+```
+
+On Windows, use the existing Ubuntu WSL Docker daemon (`--wsl Ubuntu`); Linux
+invokes the same fixed verifier directly. Both cached images use `--pull never`.
+`stdlib` is the Python 3.10 image above; `torch-cpu` is a pinned public vLLM CPU CI
+image with Python 3.12 and CPU Torch. Selection is based on observed required
+imports, not a model instruction. These are **adapted single-module CPU screens**,
+not full-repository tests, official dependency qualification or GPU evidence.
+Missing packages, package-relative imports, native/GPU code and other languages
+are explicit environment blockers; the worker does not install them or fabricate
+equivalent toy implementations. Lazy/optional imports remain runtime unknowns.
+
+Terminal scout leads are admitted round-robin across repositories with exact
+path/hypothesis deduplication. One lead gets generation, at most one repair using
+real output, and a separate skeptical call only for before-fail/fixed-pass.
+`REPRODUCED` still needs owner assertion/reachability/novelty review; `NO_BUG`
+is a model rejection, not an executed proof. No PR or knowledge is auto-published.
+Source and result artifacts are preserved in ignored `delivery/jobs/`; a separate
+small SQLite table records terminal outcomes without rewriting discovery history.
+Interrupted attempts are not retried. STOP and uncertain container cleanup block
+new execution stages; repeated failures cool down admissions.
+
+The dashboard shows discovery and delivery capacities separately. Divide the
+desired model-call ceiling between the two processes (for example 8 + 8), while
+keeping CPU container concurrency at 1 or 2. Do not increase search to fill idle
+slots when the available evidence or compatible verification work is exhausted.
+`--max-jobs N` is a bounded admission trial; zero continues on unseen leads. This
+is separately authorized paid model usage, not free work merely because slots
+are empty. On resume, explicitly archive the delivery STOP marker; keep the DB
+and completed/failed artifacts so old candidates are not silently replayed.
+
 Offline checks (no network, credentials, or paid model calls):
 
 ```sh

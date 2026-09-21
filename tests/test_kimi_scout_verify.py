@@ -66,6 +66,37 @@ class VerifyTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             verify.command("/a.py", "/b.py", "other-container")
 
+    def test_torch_cpu_profile_is_pinned_with_same_isolation(self):
+        name = "kimi-verify-" + "b" * 32
+        default = verify.command("/a.py", "/b.py", name)
+        args = verify.command("/a.py", "/b.py", name, profile="torch-cpu")
+        self.assertEqual(args[args.index("--entrypoint") + 1], "/opt/venv/bin/python")
+        self.assertEqual(args[-5], verify.TORCH_CPU_IMAGE)
+        self.assertEqual(args[args.index("--memory") + 1], "2g")
+        self.assertEqual(args[args.index("--memory-swap") + 1], "2g")
+        for original, actual in zip(default, args):
+            if original not in (verify.IMAGE, "/usr/local/bin/python3", "512m"):
+                self.assertEqual(original, actual)
+        self.assertIn("CUDA_VISIBLE_DEVICES=", args)
+        self.assertIn("LD_PRELOAD=", args)
+        self.assertNotIn("--gpus", args)
+        with self.assertRaises(ValueError):
+            verify.command("/a.py", "/b.py", name, profile="arbitrary-image")
+
+    def test_run_case_threads_profile_without_changing_result_trust(self):
+        with (
+            patch.object(verify.subprocess, "Popen", return_value=Process()) as start,
+            patch.object(
+                verify.subprocess,
+                "run",
+                return_value=type("Done", (), {"returncode": 0})(),
+            ),
+        ):
+            result = verify.run_case("/baseline.py", "/test.py", 1, profile="torch-cpu")
+        self.assertIn(verify.TORCH_CPU_IMAGE, start.call_args.args[0])
+        self.assertEqual(result["profile"], "torch-cpu")
+        self.assertEqual(result["claim_scope"], verify.CLAIM_SCOPE)
+
     def test_timeout_kills_only_owned_client_and_uuid_container(self):
         process = Process(timeout=True)
         with (
@@ -133,9 +164,10 @@ class VerifyTests(unittest.TestCase):
                 path.write_text(f"# public fixture {i}\n", encoding="utf-8")
             calls = []
 
-            def run(subject, test, timeout):
+            def run(subject, test, timeout, *, profile="stdlib"):
                 calls.append((subject.read_bytes(), test.read_bytes(), subject, test))
                 self.assertNotIn(subject, paths)
+                self.assertEqual(profile, "stdlib")
                 return {
                     "exit_code": 1 if len(calls) == 1 else 0,
                     "inconclusive": False,
@@ -151,11 +183,61 @@ class VerifyTests(unittest.TestCase):
             self.assertEqual(calls[0][1], calls[1][1])
             self.assertFalse(calls[0][2].exists())
             self.assertEqual(result["label"], "TEST_RESULT_NOT_PR_READY")
+            self.assertEqual(result["profile"], "stdlib")
+            self.assertEqual(result["image"], verify.IMAGE)
+            self.assertEqual(result["claim_scope"], verify.CLAIM_SCOPE)
             self.assertEqual(result["before"]["exit_code"], 1)
             self.assertEqual(result["fixed"]["exit_code"], 0)
             self.assertEqual(
                 set(result["input_sha256"]), {"baseline", "candidate", "test"}
             )
+
+    def test_verify_and_cli_thread_only_selected_profile(self):
+        with (
+            tempfile.TemporaryDirectory() as directory,
+            patch.object(verify.sys, "platform", "linux"),
+            patch.object(verify, "read_input", return_value=b"# public fixture\n"),
+            patch.object(
+                verify,
+                "run_case",
+                return_value={
+                    "exit_code": 0,
+                    "inconclusive": False,
+                    "cleanup_ok": True,
+                },
+            ) as run,
+        ):
+            paths = [Path(directory) / name for name in ("a.py", "b.py", "test.py")]
+            result = verify.verify(*paths, profile="torch-cpu")
+            self.assertEqual(result["image"], verify.TORCH_CPU_IMAGE)
+            self.assertEqual(result["profile"], "torch-cpu")
+            self.assertEqual(result["label"], "TEST_RESULT_NOT_PR_READY")
+            self.assertEqual(run.call_count, 2)
+            self.assertTrue(
+                all(c.kwargs == {"profile": "torch-cpu"} for c in run.call_args_list)
+            )
+            with self.assertRaises(ValueError):
+                verify.verify(*paths, profile="arbitrary-image")
+        with (
+            patch.object(verify, "verify", return_value={"inconclusive": False}) as run,
+            patch("sys.stdout", new_callable=io.StringIO),
+        ):
+            self.assertEqual(
+                verify.main(
+                    [
+                        "--baseline",
+                        "a.py",
+                        "--candidate",
+                        "b.py",
+                        "--test",
+                        "test.py",
+                        "--profile",
+                        "torch-cpu",
+                    ]
+                ),
+                0,
+            )
+        self.assertEqual(run.call_args.kwargs["profile"], "torch-cpu")
 
     def test_zero_tests_are_rejected_by_fixed_harness(self):
         self.assertIn("count = suite.countTestCases()", verify.HARNESS)

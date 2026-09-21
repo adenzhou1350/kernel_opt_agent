@@ -73,6 +73,12 @@
     .research { margin-bottom:24px; padding:16px 19px; }
     .research-objective { white-space:pre-wrap; overflow-wrap:anywhere; margin-bottom:8px; }
     .research-counts,.research-goals { display:flex; flex-wrap:wrap; gap:7px 20px; font-size:12px; color:var(--muted); margin-bottom:8px; }
+    .delivery { padding:20px 24px; margin-bottom:24px; }
+    .delivery-jobs { max-height:440px; overflow-y:auto; border-top:1px solid var(--line); margin-top:14px; }
+    .delivery-job { padding:13px 0; border-bottom:1px solid var(--line); }
+    .delivery-job:last-child { border-bottom:0; }
+    .delivery-reason { margin-top:7px; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .delivery-link { padding:3px 7px; margin-top:7px; }
     h2 { font-size:14px; font-weight:650; }
     .workers { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin-bottom:24px; }
     .worker { text-align:left; min-width:0; padding:12px 15px; background:var(--panel); border:1px solid var(--line); border-radius:10px; min-height:105px; box-shadow:var(--shadow); }
@@ -157,13 +163,27 @@
     <div class="section-title"><div><h2 id="briefingHeading">研究交班概览</h2><p class="briefing-copy">先看有没有继续运行，再看留下了多少值得实测的线索。</p></div><span id="activityWindow" class="badge">最近 15 分钟</span></div>
     <div class="briefing-metrics">
       <div><span class="stat-label">最近完成</span><strong id="recentCompleted" class="briefing-value">—</strong><span id="recentRate" class="stat-note">等待运行数据</span></div>
-      <div><span class="stat-label">待验证线索 · 链末端</span><strong id="leafReviews" class="briefing-value">—</strong><span class="stat-note">排除已有后续任务的旧结论，仍未跨链去重</span></div>
+      <div><span class="stat-label">分析线索 · 原始链末端</span><strong id="leafReviews" class="briefing-value">—</strong><span class="stat-note">含已分流任务；实际测试结果见下方复现面板</span></div>
       <div><span class="stat-label">其中已有复现计划</span><strong id="plannedReviews" class="briefing-value">—</strong><span class="stat-note">计划尚未执行，不等于验证通过</span></div>
       <div><span class="stat-label">最近失败</span><strong id="recentFailed" class="briefing-value">—</strong><span id="recentLatency" class="stat-note">含回答校验失败，非全为服务错误</span></div>
     </div>
-    <div class="capacity"><span id="capacityLabel">并发槽位 —</span><progress id="capacityMeter" max="16" value="0" aria-label="当前并发槽位占用"></progress><strong id="capacityValue">—</strong></div>
+    <div class="capacity"><span id="capacityLabel">搜索 / 反证槽位 —</span><progress id="capacityMeter" max="16" value="0" aria-label="搜索与反证并发槽位占用"></progress><strong id="capacityValue">—</strong></div>
     <div class="briefing-foot"><span id="flowStatus">正在读取状态…</span><span id="lastCompletion">最近完成 —</span></div>
-    <p class="briefing-copy" style="margin-top:14px">待验证 ≠ 可提 PR。这里只统计自动分析；真实复现、回归测试与 PR 资格须另行验收，不把模型判断算成成功。</p>
+    <p class="briefing-copy" style="margin-top:14px">待验证 ≠ 可提 PR。以上只统计搜索与反证分析；实际执行见下方，回归测试与 PR 资格仍须复核。</p>
+  </section>
+  <section id="deliveryPanel" class="panel delivery" aria-labelledby="deliveryHeading" hidden>
+    <div class="section-title"><div><h2 id="deliveryHeading">实际复现与修补</h2><p class="briefing-copy">独立执行流水线 · 不占用下方搜索槽位 · 本看板只读，不触发执行或提交 PR</p></div><span id="deliveryState" class="badge"></span></div>
+    <div class="briefing-metrics">
+      <div><span class="stat-label">复现流水线槽位</span><strong id="deliveryCapacity" class="briefing-value">—</strong><span id="deliveryActivity" class="stat-note">等待状态快照</span></div>
+      <div><span class="stat-label">CPU 容器上限</span><strong id="deliveryExecutionLimit" class="briefing-value">—</strong><span class="stat-note">执行限额，不是额外模型槽位</span></div>
+      <div><span class="stat-label">REPRODUCED · 待复核</span><strong id="deliveryReproduced" class="briefing-value">—</strong><span class="stat-note">同一测试：旧代码失败 / 修改后通过，不等于可提 PR</span></div>
+      <div><span class="stat-label">复现流水线已报告 Token</span><strong id="deliveryTokens" class="briefing-value">—</strong><span class="stat-note">与搜索账本分开统计</span></div>
+    </div>
+    <div id="deliveryCounts" class="research-counts"></div>
+    <p id="deliveryTiming" class="tiny muted"></p>
+    <p class="briefing-copy">NO_BUG 是模型判断，须结合原因与测试证据阅读，不等于已证明没有缺陷。任何结果都不会自动创建 PR。</p>
+    <div class="section-title" style="margin-top:16px"><h3 class="tiny muted">最近复现任务</h3><span id="deliveryJobsNote" class="tiny muted">最多展示 20 项</span></div>
+    <div id="deliveryJobs" class="delivery-jobs"></div>
   </section>
   <section class="portfolio" aria-labelledby="portfolioHeading">
     <div class="section-title"><h2 id="portfolioHeading">仓库产出分布</h2><span class="tiny muted">累计数据 · 点击查看该仓库最近记录</span></div>
@@ -188,7 +208,7 @@
     <p class="tiny muted">本地只读状态快照 · 不自动修改代码或运行 GPU 验证</p>
   </section>
   <section aria-labelledby="workersHeading">
-    <div class="section-title"><h2 id="workersHeading">工作槽位</h2><span id="runtimeMeta" class="tiny muted">正在读取实际并发配置</span></div>
+    <div class="section-title"><h2 id="workersHeading">搜索 / 反证槽位</h2><span id="runtimeMeta" class="tiny muted">正在读取实际并发配置</span></div>
     <div id="workers" class="workers"></div>
   </section>
   <div class="workspace">
@@ -284,7 +304,7 @@
     text("recentFailed", number(activity.failed));
     text("recentLatency", activity.average_elapsed_seconds == null ? "含回答校验失败，非全为服务错误" : "平均耗时 " + duration(activity.average_elapsed_seconds) + " · 含回答校验失败");
     text("activityWindow", activity.observed_seconds == null ? "最近 15 分钟" : "统计窗口 " + duration(activity.observed_seconds));
-    text("capacityLabel", "并发槽位 " + occupied + " / " + limit);
+    text("capacityLabel", "搜索 / 反证槽位 " + occupied + " / " + limit);
     text("capacityValue", live ? Math.round(100 * occupied / limit) + "%" : "未确认在线");
     $("capacityMeter").max = limit; $("capacityMeter").value = occupied;
     let flow = "运行中 · 已排队 " + number(counts.PENDING || 0) + " 个任务";
@@ -319,6 +339,39 @@
     $("researchError").hidden = !research.last_error;
     text("researchError", research.last_error ? "研究采集错误：" + plain(research.last_error) : "");
   }
+  function renderDelivery() {
+    const delivery = state.delivery;
+    $("deliveryPanel").hidden = !delivery || typeof delivery !== "object" || Array.isArray(delivery);
+    if ($("deliveryPanel").hidden) return;
+    const deliveryLabels = {PENDING:"排队",GENERATING:"生成测试",TESTING:"执行测试",REPAIRING:"修补中",REVIEWING:"复核中",REPRODUCED:"旧失败 / 新通过 · 待复核",NO_BUG:"模型判定无缺陷",ENVIRONMENT_BLOCKED:"环境受限",INCONCLUSIVE:"未得结论",FAILED:"失败"};
+    const counts = delivery.counts && typeof delivery.counts === "object" ? delivery.counts : {};
+    const live = delivery.alive === true && delivery.heartbeat_fresh === true && delivery.state !== "STOPPED";
+    const status = !delivery.alive ? (delivery.state === "STOPPED" ? "已停止" : "进程离线") : !delivery.heartbeat_fresh ? "心跳待确认" : delivery.state === "STOPPED" ? "已停止" : "运行中";
+    $("deliveryState").className = "badge" + (live ? " running" : "");
+    text("deliveryState", status);
+    text("deliveryCapacity", (live ? number(delivery.active) : "—") + " / " + number(delivery.concurrency));
+    text("deliveryActivity", live ? "排队 " + number(counts.PENDING || 0) + " 项 · 与搜索槽位分开" : "以下为保存状态，不代表正在执行");
+    text("deliveryExecutionLimit", number(delivery.execution_concurrency));
+    text("deliveryReproduced", number(counts.REPRODUCED || 0));
+    text("deliveryTokens", compact(delivery.reported_tokens));
+    $("deliveryTokens").title = number(delivery.reported_tokens);
+    $("deliveryCounts").replaceChildren(...Object.entries(deliveryLabels).map(([key,label]) => node("span", "", label + " " + number(counts[key] || 0))));
+    text("deliveryTiming", (delivery.pid ? "PID " + plain(delivery.pid) + " · " : "") + "心跳 " + time(delivery.heartbeat_at, true));
+    const jobs = Array.isArray(delivery.jobs) ? delivery.jobs.filter(job => job && typeof job === "object" && !Array.isArray(job)).slice(0,20) : [];
+    text("deliveryJobsNote", "最近 " + jobs.length + " 项 · 最多 20 项");
+    $("deliveryJobs").replaceChildren(...(jobs.length ? jobs.map(job => {
+      const row = node("article", "delivery-job"), top = node("div", "job-row-top");
+      const tone = job.state === "FAILED" ? " failed" : job.state === "REPRODUCED" || job.state === "ENVIRONMENT_BLOCKED" || job.state === "INCONCLUSIVE" ? " review" : "";
+      top.append(node("span", "job-repo", job.repo || "未标记仓库"), node("span", "badge" + tone, (deliveryLabels[job.state] || plain(job.state) || "未知状态") + " · " + plain(job.state)));
+      row.append(top, node("div", "job-name", job.title || job.id || "未命名任务"), node("div", "tiny muted", "更新 " + time(job.updated_at, true) + " · 测试数 " + number(job.tests_run) + " · 退出码 " + number(job.baseline_exit) + " → " + number(job.candidate_exit)));
+      row.append(node("p", "tiny delivery-reason", job.reason || (job.state === "NO_BUG" ? "未提供原因；仅有模型判断，尚无无缺陷证明。" : "未提供原因 / 测试说明。")));
+      if (/^[a-f0-9]{24}$/.test(job.source_job_id || "")) {
+        const link = node("button", "button delivery-link", "查看搜索来源任务"); link.type = "button";
+        link.addEventListener("click", () => selectJob(job.source_job_id)); row.append(link);
+      }
+      return row;
+    }) : [node("div", "empty", "暂无实际复现任务记录")]));
+  }
   function renderOverview() {
     const summary = state.summary || {}, counts = summary.counts || {}, runtime = state.runtime || {};
     const count = key => Number(counts[key] || 0);
@@ -335,7 +388,7 @@
     $("runtimeBadge").className = "badge " + (runtimeState === "COOLDOWN" ? "cooldown" : isAlive ? "running" : "");
     text("runtimeLabel", isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
     $("runtimeBadge").firstElementChild.className = "dot" + (isAlive && runtimeState === "RUNNING" ? " live" : "");
-    const runtimeParts = ["并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
+    const runtimeParts = ["搜索 / 反证并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
     if (runtime.queue_policy === "review_weighted") runtimeParts.push("调度偏好：发现 3 / 复核 3 / 复现计划 2，空位借用");
     if (runtime.pid) runtimeParts.unshift("PID " + runtime.pid);
     if (runtimeState === "COOLDOWN") runtimeParts.push("冷却至 " + time(runtime.cooldown_until));
@@ -359,10 +412,11 @@
       workerNodes.push(worker);
     }
     $("workers").replaceChildren(...workerNodes);
-    text("workersHeading", "工作槽位 · " + workerCount + " 并发");
+    text("workersHeading", "搜索 / 反证槽位 · " + workerCount + " 并发");
     text("refreshTime", "同步于 " + time(lastGoodAt));
     renderBriefing();
     renderResearch();
+    renderDelivery();
     renderHistory();
   }
   function renderHistory() {

@@ -1,9 +1,7 @@
 """Local-only viewer checks: no model, external network or GPU calls."""
 
 import importlib.util
-from contextlib import closing
 import json
-from pathlib import Path
 import shutil
 import sqlite3
 import subprocess
@@ -11,6 +9,8 @@ import tempfile
 import threading
 import time
 import unittest
+from contextlib import closing
+from pathlib import Path
 from unittest.mock import patch
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -362,6 +362,174 @@ global.document = {
                 self.skipTest("Symlinks require privileges on this Windows account")
             self.assertIsNone(self.inbox.state()["research"])
 
+    def test_delivery_snapshot_is_optional_and_size_bounded(self):
+        self.assertIsNone(self.inbox.state()["delivery"])
+        directory = self.root / "delivery"
+        directory.mkdir()
+        snapshot = directory / "runtime.json"
+        for content in ("{", "[]", "null", "{}"):
+            with self.subTest(content=content):
+                snapshot.write_text(content, encoding="utf-8")
+                self.assertIsNone(self.inbox.state()["delivery"])
+        snapshot.write_text('{"state":"RUNNING"}', encoding="utf-8")
+        with patch.object(dashboard, "MAX_FILE_BYTES", 4):
+            self.assertIsNone(self.inbox.state()["delivery"])
+
+    def test_delivery_snapshot_cannot_follow_a_directory_outside_root(self):
+        with tempfile.TemporaryDirectory() as other:
+            (Path(other) / "runtime.json").write_text(
+                '{"private":"never"}', encoding="utf-8"
+            )
+            try:
+                (self.root / "delivery").symlink_to(other, target_is_directory=True)
+            except OSError:
+                self.skipTest("Symlinks require privileges on this Windows account")
+            self.assertIsNone(self.inbox.state()["delivery"])
+
+    def test_delivery_snapshot_is_read_only_and_separate_from_search(self):
+        now = 10000
+        path = self.root / "delivery" / "runtime.json"
+        path.parent.mkdir()
+        snapshot = {
+            "pid": 123, "state": "RUNNING", "heartbeat_at": now - 5,
+            "concurrency": 4, "execution_concurrency": 2, "active": 2,
+            "counts": {"REPRODUCED": 1, "NO_BUG": 1}, "reported_tokens": 987,
+            "jobs": [None] + [{"id": str(index)} for index in range(21)],
+        }
+        scout.write_json(path, snapshot)
+        before = path.read_bytes()
+        with (
+            patch.object(dashboard.time, "time", return_value=now),
+            patch.object(dashboard, "process_alive", side_effect=lambda pid: pid == 123),
+        ):
+            state = self.inbox.state()
+        delivery = state["delivery"]
+        self.assertTrue(delivery["alive"])
+        self.assertTrue(delivery["heartbeat_fresh"])
+        self.assertEqual(delivery["jobs"], [{"id": str(index)} for index in range(20)])
+        self.assertEqual(delivery["counts"], snapshot["counts"])
+        self.assertEqual(delivery["concurrency"], 4)
+        self.assertEqual(delivery["execution_concurrency"], 2)
+        self.assertEqual(state["summary"]["counts"], {"PENDING": 1})
+        self.assertEqual(state["summary"]["reported_tokens"], 0)
+        self.assertEqual(path.read_bytes(), before)
+        for alive, status, heartbeat, expected_status, fresh in (
+            (False, "RUNNING", now, "OFFLINE", True),
+            (False, "STOPPED", now, "STOPPED", True),
+            (True, "RUNNING", now - 181, "RUNNING", False),
+            (True, "RUNNING", now + 1, "RUNNING", False),
+            (True, "RUNNING", "invalid", "RUNNING", False),
+        ):
+            with self.subTest(alive=alive, status=status, heartbeat=heartbeat):
+                scout.write_json(path, {
+                    **snapshot, "state": status, "heartbeat_at": heartbeat,
+                    "jobs": "invalid",
+                })
+                with (
+                    patch.object(dashboard.time, "time", return_value=now),
+                    patch.object(dashboard, "process_alive", return_value=alive),
+                ):
+                    delivery = self.inbox.state()["delivery"]
+                self.assertEqual(delivery["state"], expected_status)
+                self.assertEqual(delivery["heartbeat_fresh"], fresh)
+                self.assertEqual(delivery["jobs"], [])
+
+    @unittest.skipUnless(shutil.which("node"), "Node is needed for the offline DOM test")
+    def test_delivery_render_is_text_only_separate_and_honest_about_evidence(self):
+        page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        script = page.split("<script>", 1)[1].split("</script>", 1)[0]
+        overview = script.split("  function renderHistory() {", 1)[0]
+        harness = """
+const elements = new Map();
+function element() {
+  return {
+    children: [], firstElementChild: {}, listeners: {},
+    set innerHTML(value) { throw Error("HTML injection sink used"); },
+    append(...children) { this.children.push(...children); },
+    replaceChildren(...children) { this.children = children; },
+    addEventListener(event, callback) { this.listeners[event] = callback; },
+  };
+}
+global.document = {
+  createElement: element,
+  getElementById(id) {
+    if (!elements.has(id)) elements.set(id, element());
+    return elements.get(id);
+  },
+};
+function collect(el) {
+  return [el.textContent || "", ...el.children.map(collect)].join(" ");
+}
+"""
+        exercise = """
+  function renderHistory() {}
+  let selected = null;
+  function selectJob(id) { selected = id; }
+  state = {
+    summary: {counts: {}}, jobs: [],
+    runtime: {concurrency: 12, alive: true, state: "RUNNING"},
+    delivery: {
+      alive: true, heartbeat_fresh: true, state: "RUNNING", active: 2,
+      concurrency: 4, execution_concurrency: 2, reported_tokens: 1234,
+      counts: {PENDING: 3, REPRODUCED: 1, NO_BUG: 1},
+      jobs: [
+        {title: "<script>alert(1)</script>", repo: "<img src=x>",
+         state: "REPRODUCED", reason: "<b>old fails/new passes</b>",
+         source_job_id: "a".repeat(24), tests_run: 2, baseline_exit: 1, candidate_exit: 0},
+        {title: "judgment only", state: "NO_BUG", source_job_id: "javascript:alert(1)"},
+        ...Array.from({length: 21}, (_, i) => ({id: "job-" + i, state: "PENDING"})),
+      ],
+    },
+  };
+  renderOverview();
+  const rows = elements.get("deliveryJobs").children;
+  rows[0].children.at(-1).listeners.click();
+  const values = {
+    hidden: elements.get("deliveryPanel").hidden,
+    capacity: elements.get("deliveryCapacity").textContent,
+    executions: elements.get("deliveryExecutionLimit").textContent,
+    finderCount: elements.get("workers").children.length,
+    finderHeading: elements.get("workersHeading").textContent,
+    count: rows.length, first: collect(rows[0]), second: collect(rows[1]), selected,
+    secondHasButton: rows[1].children.some(child => child.listeners.click),
+    reproduced: elements.get("deliveryReproduced").textContent,
+  };
+  state.delivery.heartbeat_fresh = false;
+  renderDelivery();
+  values.staleCapacity = elements.get("deliveryCapacity").textContent;
+  values.staleNote = elements.get("deliveryActivity").textContent;
+  values.staleState = elements.get("deliveryState").textContent;
+  state.delivery = null;
+  renderDelivery();
+  values.absentHidden = elements.get("deliveryPanel").hidden;
+  process.stdout.write(JSON.stringify(values));
+})();
+"""
+        result = subprocess.run(
+            [shutil.which("node"), "-"], input=harness + overview + exercise,
+            text=True, encoding="utf-8", capture_output=True, timeout=10, check=True,
+        )
+        values = json.loads(result.stdout)
+        self.assertFalse(values["hidden"])
+        self.assertEqual(values["capacity"], "2 / 4")
+        self.assertEqual(values["executions"], "2")
+        self.assertEqual(values["finderCount"], 12)
+        self.assertEqual(values["finderHeading"], "搜索 / 反证槽位 · 12 并发")
+        self.assertEqual(values["count"], 20)
+        for literal in (
+            "<script>alert(1)</script>", "<img src=x>", "<b>old fails/new passes</b>",
+            "旧失败 / 新通过 · 待复核", "退出码 1 → 0", "测试数 2",
+        ):
+            self.assertIn(literal, values["first"])
+        self.assertIn("仅有模型判断，尚无无缺陷证明", values["second"])
+        self.assertFalse(values["secondHasButton"])
+        self.assertEqual(values["selected"], "a" * 24)
+        self.assertEqual(values["reproduced"], "1")
+        self.assertEqual(values["staleCapacity"], "— / 4")
+        self.assertIn("不代表正在执行", values["staleNote"])
+        self.assertEqual(values["staleState"], "心跳待确认")
+        self.assertTrue(values["absentHidden"])
+
     def test_malformed_research_metadata_preserves_old_jobs(self):
         for metadata in (
             None, [], "invalid", {"root_job_id": ["not", "an", "id"]},
@@ -427,6 +595,10 @@ global.document = {
 
     def test_read_only_http_routes_headers_and_origin(self):
         scout.write_json(self.root / "research.json", {"enabled": True, "phase": "READY"})
+        (self.root / "delivery").mkdir()
+        scout.write_json(self.root / "delivery" / "runtime.json", {
+            "state": "STOPPED", "concurrency": 4, "execution_concurrency": 2,
+        })
         scout.write_json(self.root / "provider.json", {"private": "never"})
         server = dashboard.make_server(self.root, port=0)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -439,6 +611,9 @@ global.document = {
                 state = json.load(response)
                 self.assertEqual(state["summary"]["total_jobs"], 1)
                 self.assertEqual(state["research"], {"enabled": True, "phase": "READY"})
+                self.assertEqual(state["delivery"]["state"], "STOPPED")
+                self.assertFalse(state["delivery"]["alive"])
+                self.assertEqual(state["delivery"]["execution_concurrency"], 2)
                 self.assertNotIn("never", json.dumps(state))
             with urlopen(base + "/api/state?research=provider.json", timeout=3) as response:
                 self.assertNotIn("never", response.read().decode("utf-8"))
@@ -448,9 +623,11 @@ global.document = {
                 ("/api/jobs/../../config.toml", {}, "GET", 404),
                 ("/runtime.json", {}, "GET", 404),
                 ("/research.json", {}, "GET", 404),
+                ("/delivery/runtime.json", {}, "GET", 404),
                 ("/provider.json", {}, "GET", 404),
                 ("/api/stop", {}, "POST", 501),
                 ("/api/research", {}, "POST", 501),
+                ("/api/delivery", {}, "POST", 501),
             ):
                 with (
                     self.subTest(path=path, method=method),

@@ -7,15 +7,15 @@ loaded. Run independently of the scout; stopping the viewer never stops research
 from __future__ import annotations
 
 import argparse
-from collections import Counter
 import ctypes
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import os
-from pathlib import Path
 import re
 import sqlite3
 import time
+from collections import Counter
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from urllib.parse import urlsplit
 
 PAGE = Path(__file__).with_suffix(".html")
@@ -248,6 +248,21 @@ class Inbox:
         runtime = read_artifact(self.root, "runtime.json")
         feed = read_artifact(self.root, "last-feed.json")
         research = read_artifact(self.root, "research.json") or None
+        delivery = read_artifact(self.root, "delivery/runtime.json") or None
+        if delivery is not None:
+            delivery["alive"] = process_alive(delivery.get("pid"))
+            if not delivery["alive"] and delivery.get("state") != "STOPPED":
+                delivery["state"] = "OFFLINE"
+            heartbeat = delivery.get("heartbeat_at")
+            delivery["heartbeat_fresh"] = (
+                type(heartbeat) in (int, float) and 0 <= now - heartbeat <= 180
+            )
+            recent = delivery.get("jobs")
+            delivery["jobs"] = (
+                [job for job in recent if isinstance(job, dict)][:20]
+                if isinstance(recent, list)
+                else []
+            )
         rows = self.rows()
         jobs = [self.describe(row, now) for row in rows]
         warnings = []
@@ -268,6 +283,7 @@ class Inbox:
             "now": now,
             "runtime": runtime,
             "research": research,
+            "delivery": delivery,
             "activity": activity_summary(jobs, research, now),
             "summary": {
                 "counts": dict(Counter(row["state"] for row in rows)),
