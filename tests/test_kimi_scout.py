@@ -117,6 +117,38 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNotNone(job)
         self.assertGreater(job["charge"], 4096)
 
+    def test_uncapped_claim_skips_history_aggregate(self):
+        self.add()
+        from contextlib import contextmanager
+
+        statements = []
+        real_connect = scout.connect
+
+        @contextmanager
+        def traced(root):
+            with real_connect(root) as db:
+                db.set_trace_callback(statements.append)
+                yield db
+
+        with patch.object(scout, "connect", traced):
+            self.assertIsNotNone(scout.claim(self.root, 0, 0, 4096))
+        self.assertFalse(any("SUM(charge)" in sql for sql in statements))
+
+    def test_run_migrates_old_inbox_indexes_without_losing_jobs(self):
+        self.add()
+        with scout.connect(self.root) as db:
+            db.execute("DROP INDEX scout_jobs_state_created")
+            db.execute("DROP INDEX scout_jobs_started_charge")
+        with patch.object(scout, "execute", side_effect=self.fake_execute):
+            scout.run(self.run_args())
+        with scout.connect(self.root) as db:
+            indexes = {row[1] for row in db.execute("PRAGMA index_list(jobs)")}
+            rows = list(db.execute("SELECT state FROM jobs"))
+        self.assertTrue(
+            {"scout_jobs_state_created", "scout_jobs_started_charge"} <= indexes
+        )
+        self.assertEqual([row[0] for row in rows], ["NO_LEAD"])
+
     def test_review_preferences_borrow_capacity_and_do_not_starve_discovery(self):
         for stage in ("source_audit", "source_followup", "reproduction_plan"):
             for i in range(7):

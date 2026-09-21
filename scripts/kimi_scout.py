@@ -99,6 +99,13 @@ def initialize(root):
             state TEXT NOT NULL, created REAL NOT NULL, started REAL,
             finished REAL, charge INTEGER NOT NULL DEFAULT 0, result TEXT,
             error TEXT)""")
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS scout_jobs_state_created ON jobs(state,created)"
+        )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS scout_jobs_started_charge "
+            "ON jobs(started,charge)"
+        )
 
 
 def public_repo(repo):
@@ -344,12 +351,6 @@ def collect(root, feeds, github_auth=False):
 def claim(root, max_jobs, token_budget, output_tokens, preferred_stages=()):
     with connect(root) as db:
         db.execute("BEGIN IMMEDIATE")
-        recent = db.execute(
-            "SELECT COUNT(*), COALESCE(SUM(charge),0) FROM jobs WHERE started>=?",
-            (time.time() - 86400,),
-        ).fetchone()
-        if max_jobs and recent[0] >= max_jobs:
-            return None
         if preferred_stages:
             placeholders = ",".join("?" for _ in preferred_stages)
             row = db.execute(
@@ -364,6 +365,14 @@ def claim(root, max_jobs, token_budget, output_tokens, preferred_stages=()):
             ).fetchone()
         if row is None:
             return None
+        # Uncapped runs still record usage, but need no history scan per claim.
+        if max_jobs or token_budget:
+            recent = db.execute(
+                "SELECT COUNT(*), COALESCE(SUM(charge),0) FROM jobs WHERE started>=?",
+                (time.time() - 86400,),
+            ).fetchone()
+            if max_jobs and recent[0] >= max_jobs:
+                return None
         # Conservative byte-based input allowance; not a currency quotation.
         reserve = len((SYSTEM + row["packet"]).encode("utf-8")) + output_tokens + 2048
         if token_budget and recent[1] + reserve > token_budget:
@@ -629,6 +638,7 @@ def run(args):
     with single_runner(root):
         if (root / "STOP").exists():
             raise ValueError("STOP exists; remove it explicitly before restarting")
+        initialize(root)  # Idempotent index migration for existing inboxes.
         with connect(root) as db:
             # Never silently retry work whose prior provider completion is unknown.
             db.execute(

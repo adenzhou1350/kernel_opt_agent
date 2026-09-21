@@ -312,6 +312,37 @@ class ContextTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.context.issue_page(REPO, "https://evil")
 
+    def test_pr_only_issue_page_does_not_exhaust_later_issues(self):
+        self.routes[self.issue_route(1)] = [
+            {"number": number, "title": "PR", "pull_request": {}}
+            for number in range(1, 31)
+        ]
+        self.routes[self.issue_route(2)] = [
+            {"number": 31, "title": "real issue", "body": "details"}
+        ]
+        self.routes[self.issue_route(3)] = []
+
+        first = self.context.issue_page(REPO, 1)
+        self.assertIsInstance(first, list)
+        self.assertEqual(first, [])
+        self.assertFalse(first.exhausted)
+        second = self.context.issue_page(REPO, 2)
+        self.assertEqual([item["number"] for item in second], [31])
+        self.assertFalse(second.exhausted)
+        last = self.context.issue_page(REPO, 3)
+        self.assertEqual(last, [])
+        self.assertTrue(last.exhausted)
+
+    def test_short_filtered_issue_page_is_not_raw_exhaustion(self):
+        self.routes[self.issue_route()] = [
+            {"number": 1, "title": "PR", "pull_request": {}},
+            {"number": 2, "title": "closed", "state": "closed"},
+        ]
+        page = self.context.issue_page(REPO)
+        self.assertEqual(page, [])
+        self.assertFalse(page.exhausted)
+        self.assertEqual(json.loads(json.dumps(page)), [])
+
     def test_issue_evidence_bounds_full_issue_and_three_comments(self):
         self.routes[API + "/issues/12"] = {
             "number": 12,

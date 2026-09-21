@@ -167,6 +167,15 @@ within one chain are not multiple candidate PRs. Public caches and all raw
 results remain local under the ignored run directory; reviewed knowledge is
 never automatically overwritten.
 
+Refill and worker claims use SQLite indexes, installed idempotently on restart
+without resetting history or budgets. Followup eligibility (repository, depth and
+already-seen chain) is filtered before the retrieval limit; recent activity in a
+busy repository cannot hide an older candidate in another. A GitHub issues page
+containing only pull requests advances pagination rather than ending the scan.
+If slots are idle with an empty queue, inspect context supply and source coverage
+before increasing model concurrency. Exhausted scopes and no-new-evidence stops
+are normal; do not manufacture repeated calls to improve occupancy.
+
 ```sh
 python scripts/kimi_scout.py --root runs/kimi-scout status
 python scripts/kimi_scout.py --root runs/kimi-scout stop

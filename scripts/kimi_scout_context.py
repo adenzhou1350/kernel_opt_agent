@@ -67,6 +67,14 @@ def _text(value):
     return value if isinstance(value, str) else ""
 
 
+class IssuePage(list):
+    """Filtered issues with pagination exhaustion from the raw API response."""
+
+    def __init__(self, items, *, exhausted):
+        super().__init__(items)
+        self.exhausted = exhausted
+
+
 class PublicContext:
     def __init__(self, root, github_auth=False, tree_roots=None):
         self.cache = Path(root) / "public-cache"
@@ -302,7 +310,9 @@ class PublicContext:
         items = self._json(f"https://api.github.com/repos/{repo}/issues?{query}")
         if not isinstance(items, list):
             raise ValueError("invalid public issue page")
-        result = []
+        # GitHub includes pull requests in this endpoint. A page containing only
+        # filtered records is still a page; later pages may contain real issues.
+        result = IssuePage([], exhausted=not items)
         for item in items[:30]:
             if (
                 not isinstance(item, dict)

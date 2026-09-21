@@ -13,6 +13,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
 import kimi_scout_research as research
+from kimi_scout_context import IssuePage
 
 
 class Context:
@@ -169,6 +170,69 @@ class ResearchTests(unittest.TestCase):
         self.producer.issue(self.spec, {})
         self.finish(self.jobs()[0], "no_lead")
         self.assertFalse(self.producer.followup(self.spec, {}))
+
+    def test_pr_only_page_advances_before_later_issue_and_real_eof(self):
+        progress = {}
+        issue = self.context.issue_page("a/b")[0]
+        with patch.object(
+            self.context,
+            "issue_page",
+            side_effect=[
+                IssuePage([], exhausted=False),
+                IssuePage([issue], exhausted=False),
+                IssuePage([], exhausted=True),
+            ],
+        ) as pages:
+            self.assertFalse(self.producer.issue(self.spec, progress))
+            self.assertEqual(progress["issue_page"], 1)
+            self.assertNotIn("issues_after", progress)
+            self.assertTrue(self.producer.issue(self.spec, progress))
+            self.assertFalse(self.producer.issue(self.spec, progress))
+        self.assertEqual([call.args[1] for call in pages.call_args_list], [1, 2, 3])
+        self.assertEqual(progress["issue_page"], 0)
+        self.assertGreater(progress["issues_after"], time.time())
+
+    def test_followup_older_than_global_limit_is_not_starved(self):
+        for kind in ("foreign", "handled", "depth_two"):
+            with self.subTest(kind=kind):
+                self.producer.issue(self.spec, {})
+                original = self.jobs()[0]
+                self.finish(original)
+                template = json.loads(original["packet"])
+                template.pop("focus_issue", None)
+                template["research"] = {"depth": 2 if kind == "depth_two" else 0}
+                if kind == "foreign":
+                    template["repo"] = "other/repo"
+                with scout.connect(self.root) as db:
+                    db.executemany(
+                        "INSERT INTO jobs(id,name,packet,state,created,finished,result) "
+                        "VALUES(?,?,?,'REVIEW',?,?,?)",
+                        [
+                            (
+                                f"newer-{i}",
+                                "noise",
+                                json.dumps(template),
+                                time.time(),
+                                time.time() + 100 + i,
+                                original["result"] or json.dumps({"analysis": {}}),
+                            )
+                            for i in range(1501)
+                        ],
+                    )
+                    if kind == "handled":
+                        db.executemany(
+                            "INSERT INTO research_seen(key) VALUES(?)",
+                            [(f"followup:newer-{i}:1",) for i in range(1501)],
+                        )
+                self.assertTrue(self.producer.followup(self.spec, {}))
+                child = self.jobs()[-1]
+                self.assertEqual(
+                    json.loads(child["packet"])["research"]["parent_job_id"],
+                    original["id"],
+                )
+                with scout.connect(self.root) as db:
+                    db.execute("DELETE FROM jobs")
+                    db.execute("DELETE FROM research_seen")
 
     def test_queue_ceiling_and_stop_are_enforced(self):
         for i in range(4):

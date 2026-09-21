@@ -146,6 +146,11 @@ class ResearchProducer:
             db.execute(
                 "CREATE TABLE IF NOT EXISTS research_meta (key TEXT PRIMARY KEY, value TEXT)"
             )
+            db.execute(
+                "CREATE INDEX IF NOT EXISTS research_jobs_repo_finished "
+                "ON jobs(json_extract(packet,'$.repo'),finished DESC) "
+                "WHERE state IN ('REVIEW','NEEDS_CONTEXT')"
+            )
             row = db.execute(
                 "SELECT value FROM research_meta WHERE key='frontier'"
             ).fetchone()
@@ -335,7 +340,10 @@ class ResearchProducer:
             progress["issue_page"] = page
             progress["issues"] = items
             if not items:
-                progress.update(issue_page=0, issues_after=time.time() + 1800)
+                # The API mixes PRs with issues. A filtered PR-only page is not
+                # EOF: keep the cursor so the next refill reads the next page.
+                if getattr(items, "exhausted", True):
+                    progress.update(issue_page=0, issues_after=time.time() + 1800)
                 return False
         for _ in range(min(len(items), 30)):
             if self.stopped():
@@ -462,7 +470,24 @@ class ResearchProducer:
         with scout.connect(self.root) as db:
             rows = list(
                 db.execute(
-                    "SELECT id,packet,result FROM jobs WHERE state IN ('REVIEW','NEEDS_CONTEXT') ORDER BY finished DESC LIMIT 1500"
+                    """SELECT j.id,j.packet,j.result FROM jobs AS j
+                    WHERE j.state IN ('REVIEW','NEEDS_CONTEXT')
+                      AND json_extract(j.packet,'$.repo')=?
+                      AND COALESCE(json_extract(j.packet,'$.research.depth'),0)<2
+                      AND NOT EXISTS (
+                        SELECT 1 FROM research_seen AS s WHERE s.key =
+                          'followup:' || CASE
+                            WHEN json_extract(j.packet,'$.focus_issue') THEN
+                              'issue:' || json_extract(j.packet,'$.repo') || ':' ||
+                              json_extract(j.packet,'$.focus_issue')
+                            ELSE COALESCE(
+                              NULLIF(json_extract(j.packet,'$.research.root_job_id'),''),
+                              j.id)
+                            END || ':' ||
+                            (COALESCE(json_extract(j.packet,'$.research.depth'),0)+1)
+                      )
+                    ORDER BY j.finished DESC LIMIT 1500""",
+                    (spec["repo"],),
                 )
             )
         for row in rows:
