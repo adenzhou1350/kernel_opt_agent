@@ -197,6 +197,36 @@ global.document = {
         self.assertEqual(repos["zero/repo"]["total"], 0)
         self.assertIsNone(repos["zero/repo"]["last_finished"])
 
+    def test_state_does_not_expand_historical_evidence_packets(self):
+        with scout.connect(self.root) as db:
+            db.executemany(
+                "INSERT INTO jobs (id,name,packet,state,created,result) "
+                "VALUES (?,?,?,?,?,?)",
+                [
+                    (
+                        f"{index + 1:024x}",
+                        f"old-{index}",
+                        json.dumps(
+                            {
+                                "repo": "old/repo",
+                                "sources": [{"text": "x" * 1000}],
+                            }
+                        ),
+                        "NO_LEAD",
+                        index + 1,
+                        json.dumps({"usage": {"total_tokens": 1}}),
+                    )
+                    for index in range(600)
+                ],
+            )
+        with patch.object(
+            self.inbox, "describe", wraps=self.inbox.describe
+        ) as describe:
+            state = self.inbox.state()
+        self.assertEqual(describe.call_count, 500)
+        self.assertEqual(state["summary"]["total_jobs"], 601)
+        self.assertEqual(state["summary"]["reported_tokens"], 600)
+
     def test_stored_usage_skips_answer_artifact_reads(self):
         with scout.connect(self.root) as db:
             db.execute(

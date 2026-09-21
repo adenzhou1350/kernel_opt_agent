@@ -185,7 +185,7 @@ class Inbox:
             raise ValueError("expected an existing scout inbox with scout.sqlite")
         self.database = database
 
-    def rows(self, job_id=None):
+    def rows(self, job_id=None, limit=None):
         # Do not call scout.connect(): its WAL setup/transactions are for writers.
         db = sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True, timeout=2)
         db.row_factory = sqlite3.Row
@@ -196,12 +196,65 @@ class Inbox:
                     dict(row)
                     for row in db.execute("SELECT * FROM jobs WHERE id=?", (job_id,))
                 ]
+            if limit is not None:
+                return [
+                    dict(row)
+                    for row in db.execute(
+                        "SELECT * FROM jobs ORDER BY created DESC LIMIT ?", (limit,)
+                    )
+                ]
             return [
                 dict(row)
                 for row in db.execute("SELECT * FROM jobs ORDER BY created DESC")
             ]
         finally:
             db.close()
+
+    def activity_rows(self):
+        """Read only dashboard fields, never the large public evidence packets."""
+        db = sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True, timeout=2)
+        db.row_factory = sqlite3.Row
+        try:
+            db.execute("PRAGMA query_only=ON")
+            return [
+                dict(row)
+                for row in db.execute(
+                    """SELECT id,state,created,started,finished,charge,
+                    json_extract(packet,'$.repo') AS repo,
+                    json_extract(packet,'$.research.stage') AS stage,
+                    json_extract(packet,'$.research.parent_job_id') AS parent_job_id,
+                    json_extract(packet,'$.research.root_job_id') AS root_job_id,
+                    json_extract(result,'$.usage.input_tokens') AS input_tokens,
+                    json_extract(result,'$.usage.output_tokens') AS output_tokens,
+                    json_extract(result,'$.usage.total_tokens') AS total_tokens,
+                    json_extract(result,'$.usage.cached_input_tokens') AS cached_input_tokens
+                    FROM jobs"""
+                )
+            ]
+        finally:
+            db.close()
+
+    @staticmethod
+    def activity_job(row, latest_usage):
+        usage = None
+        if type(row.get("total_tokens")) is int and row["total_tokens"] >= 0:
+            usage = {
+                key: value
+                for key in (
+                    "input_tokens",
+                    "output_tokens",
+                    "total_tokens",
+                    "cached_input_tokens",
+                )
+                if type(value := row.get(key)) is int and value >= 0
+            }
+        elif row["id"] in latest_usage:
+            usage = latest_usage[row["id"]]
+        return {
+            **row,
+            "repo": row.get("repo") or "",
+            "usage": usage,
+        }
 
     def artifact(self, job_id, suffix):
         if not JOB_ID.fullmatch(job_id):
@@ -264,8 +317,15 @@ class Inbox:
                 if isinstance(recent, list)
                 else []
             )
-        rows = self.rows()
+        # The inbox can contain tens of thousands of multi-KiB evidence packets.
+        # Expand only the visible tail; all-history counters use a narrow SQL
+        # projection so dashboard polling cannot starve the producer database.
+        rows = self.rows(limit=500)
         jobs = [self.describe(row, now) for row in rows]
+        latest_usage = {
+            job["id"]: job["usage"] for job in jobs if job["usage"] is not None
+        }
+        history = [self.activity_job(row, latest_usage) for row in self.activity_rows()]
         warnings = []
         runtime["alive"] = process_alive(runtime.get("pid"))
         if runtime.get("state") != "STOPPED" and not runtime["alive"]:
@@ -278,7 +338,7 @@ class Inbox:
             warnings.append("Scout 心跳超过 3 分钟未更新，请检查抓取或运行状态。")
         if (self.root / "STOP").exists() and runtime["alive"]:
             warnings.append("已请求停止；在途调用可能仍在完成。")
-        if len(jobs) > 500:
+        if len(history) > 500:
             warnings.append("列表仅展示最近 500 项；汇总包含全部历史任务。")
         return {
             "now": now,
@@ -286,10 +346,10 @@ class Inbox:
             "research": research,
             "delivery": delivery,
             "delivery_gpu": delivery_gpu,
-            "activity": activity_summary(jobs, research, now),
+            "activity": activity_summary(history, research, now),
             "summary": {
-                "counts": dict(Counter(row["state"] for row in rows)),
-                "total_jobs": len(jobs),
+                "counts": dict(Counter(job["state"] for job in history)),
+                "total_jobs": len(history),
                 # A review chain can contain multiple analysis calls. Even its
                 # root count is not a claim of unique leads or ready PRs.
                 "candidate_roots": len(
@@ -298,15 +358,19 @@ class Inbox:
                         if isinstance(j["root_job_id"], str)
                         and JOB_ID.fullmatch(j["root_job_id"])
                         else j["id"]
-                        for j in jobs
+                        for j in history
                         if j["state"] == "REVIEW"
                     }
                 ),
                 "reported_tokens": sum(
-                    j["usage"]["total_tokens"] for j in jobs if j["usage"] is not None
+                    j["usage"]["total_tokens"]
+                    for j in history
+                    if j["usage"] is not None
                 ),
-                "reserved_tokens": sum(j["charge"] for j in jobs if j["usage"] is None),
-                "usage_known_jobs": sum(j["usage"] is not None for j in jobs),
+                "reserved_tokens": sum(
+                    j["charge"] for j in history if j["usage"] is None
+                ),
+                "usage_known_jobs": sum(j["usage"] is not None for j in history),
             },
             "feed": {
                 "at": feed.get("at"),

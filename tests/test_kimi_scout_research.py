@@ -476,6 +476,38 @@ class ResearchTests(unittest.TestCase):
         self.config.write_text(json.dumps(self.value))
         self.assertEqual(research.configuration(self.config)["source_windows"], 8)
 
+    def test_refill_batch_default_and_bounds(self):
+        self.assertEqual(research.configuration(self.config)["refill_batch"], 4)
+        for value in (0, 17, True, 1.5, "8"):
+            with self.subTest(value=value):
+                self.value["refill_batch"] = value
+                self.config.write_text(json.dumps(self.value))
+                with self.assertRaises(ValueError):
+                    research.configuration(self.config)
+        self.value["refill_batch"] = 8
+        self.config.write_text(json.dumps(self.value))
+        self.assertEqual(research.configuration(self.config)["refill_batch"], 8)
+
+    def test_refill_batches_multiple_packets_from_one_repository(self):
+        self.value.update(queue_target=8, refill_batch=4, source_windows=8)
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        progress = {}
+        def long_source(repo, commit, path, hints="", start=None):
+            start = start or 1
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": f"{start}: kernel boundary {self.context.blob}",
+                "total_lines": 1000,
+            }
+
+        with patch.object(self.context, "source", side_effect=long_source):
+            self.assertTrue(producer.refill(self.spec, progress, 2, 4))
+        self.assertEqual(len(self.jobs()), 4)
+        self.assertEqual(progress["scanned_sources"], 3)
+
     def test_source_audit_can_scan_configured_later_windows(self):
         self.value["source_windows"] = 8
         self.config.write_text(json.dumps(self.value))

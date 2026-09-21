@@ -53,6 +53,9 @@ def configuration(path):
     source_windows = value.setdefault("source_windows", 3)
     if type(source_windows) is not int or not 1 <= source_windows <= 12:
         raise ValueError("research source_windows must be 1..12")
+    refill_batch = value.setdefault("refill_batch", 4)
+    if type(refill_batch) is not int or not 1 <= refill_batch <= 16:
+        raise ValueError("research refill_batch must be 1..16")
     repos = value.get("repos")
     if not isinstance(repos, list) or not 1 <= len(repos) <= 12:
         raise ValueError("research needs 1..12 explicit public repositories")
@@ -253,6 +256,7 @@ class ResearchProducer:
                 "queue_target": self.config["queue_target"],
                 "context_workers": self.config["context_workers"],
                 "source_windows": self.config["source_windows"],
+                "refill_batch": self.config["refill_batch"],
                 "context_inflight": len(self.inflight_repos),
                 "queued": self.pending(),
                 "goals": goals,
@@ -674,18 +678,34 @@ class ResearchProducer:
                     )
         return None
 
-    def refill(self, spec, progress, first):
+    def refill(self, spec, progress, first, batch_size=1):
         methods = (self.followup, self.issue, self.source_audit)
-        # Rotate both repositories and kinds, even after a provider/source error.
+        # Context retrieval is much slower than model consumption. Refill a
+        # bounded batch from each already-open repository frontier instead of
+        # paying that latency again for every single queued job. A complete
+        # dry rotation still stops immediately, and emit() remains the atomic
+        # queue-target guard while other repository refills run concurrently.
+        made = 0
+        dry = 0
+        cursor = first
         try:
-            for offset in range(3):
-                if self.stopped() or self.pending() >= self.config["queue_target"]:
-                    break
-                if methods[(first + offset) % 3](spec, progress):
-                    return True
-            return False
+            while (
+                made < batch_size
+                and not self.stopped()
+                and self.pending() < self.config["queue_target"]
+            ):
+                created = methods[cursor % len(methods)](spec, progress)
+                cursor += 1
+                if created:
+                    made += 1
+                    dry = 0
+                else:
+                    dry += 1
+                    if dry >= len(methods):
+                        break
+            return made > 0
         except QueueFull:
-            return False
+            return made > 0
 
     def finish_refill(self, repo, future, progress):
         """Only the coordinator merges worker state and persists the frontier."""
@@ -737,7 +757,13 @@ class ResearchProducer:
                     with self.lock:
                         self.inflight_repos.add(repo)
                     active[repo] = (
-                        pool.submit(self.refill, spec, progress, first),
+                        pool.submit(
+                            self.refill,
+                            spec,
+                            progress,
+                            first,
+                            self.config["refill_batch"],
+                        ),
                         progress,
                     )
                 queued = self.pending()

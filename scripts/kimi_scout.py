@@ -106,6 +106,9 @@ def initialize(root):
             "CREATE INDEX IF NOT EXISTS scout_jobs_started_charge "
             "ON jobs(started,charge)"
         )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS scout_jobs_created ON jobs(created DESC)"
+        )
 
 
 def public_repo(repo):
