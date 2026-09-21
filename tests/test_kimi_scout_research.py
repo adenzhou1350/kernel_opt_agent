@@ -264,6 +264,164 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(paths, ["src/kernel.py"])
         self.assertNotIn("secret", paths)
 
+    def test_generic_filenames_need_an_observed_full_path(self):
+        snapshot = {"files": ["src/kernel.py", "examples/kernel.py", "src/utils.py"]}
+        self.assertEqual(research.relevant_paths(snapshot, "kernel.py utils.py"), [])
+        self.assertEqual(
+            research.relevant_paths(snapshot, "inspect src/kernel.py and src/utils.py"),
+            ["src/kernel.py", "src/utils.py"],
+        )
+
+    def test_same_file_windows_survive_dedup_and_unchanged_packets_do_not_repeat(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        old = {"url": url, "text": "1: original boundary"}
+        new = {"url": url, "text": "121: caller validates the boundary"}
+        self.assertTrue(
+            self.producer.emit(
+                "windows", self.spec, [old, new, dict(new)], "source_followup"
+            )
+        )
+        self.assertEqual(json.loads(self.jobs()[0]["packet"])["sources"], [old, new])
+        self.assertFalse(
+            self.producer.emit("same", self.spec, [new, old], "source_followup")
+        )
+        self.assertEqual(len(self.jobs()), 1)
+
+    def test_followup_keeps_new_same_file_window_and_stops_without_new_evidence(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        old = {"url": url, "text": "1: original boundary"}
+        new = {"url": url, "text": "121: caller validates the boundary"}
+        self.producer.emit("root", self.spec, [old], "source_audit")
+        self.finish(self.jobs()[0])
+        with (
+            patch.object(self.context, "source", return_value=new) as source,
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+            child = self.jobs()[-1]
+            packet = json.loads(child["packet"])
+            self.assertEqual(packet["sources"], [old, new])
+            answer = dict.fromkeys(
+                (
+                    "title",
+                    "hypothesis",
+                    "baseline",
+                    "next_check",
+                    "duplicate_risk",
+                    "uncertainty",
+                    "knowledge_suggestion",
+                ),
+                "Unexecuted regression hypothesis",
+            )
+            answer.update(
+                decision="lead",
+                evidence=[{"url": url, "quote": s["text"]} for s in (old, new)],
+            )
+            self.assertIs(scout.validate_result(answer, packet), answer)
+            hints = source.call_args.kwargs["hints"]
+            self.assertTrue(hints.startswith("src/kernel.py boundary\n"))
+            self.assertIn(url, hints)
+            self.assertNotIn('"next_check":', hints)
+            self.finish(child)
+            self.assertFalse(self.producer.followup(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 2)
+
+    def test_revision_only_followup_does_not_create_fresh_evidence(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        old = {"url": url, "text": "1: original boundary"}
+        self.producer.emit("root", self.spec, [old], "source_audit")
+        self.finish(self.jobs()[0])
+        updated = dict(old, url=url.replace(self.context.revision, "d" * 40))
+        with (
+            patch.object(self.context, "source", return_value=updated),
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+        ):
+            self.assertFalse(self.producer.followup(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 1)
+
+    def test_budget_trimmed_followup_does_not_repeat_unchanged_raw_windows(self):
+        prefix = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/"
+        old = {"url": prefix + "src/kernel.py", "text": "a" * 9000}
+        new = {"url": old["url"], "text": "b" * 9000}
+        test = {"url": prefix + "tests/test_kernel.py", "text": "c" * 9000}
+
+        def finish(row):
+            self.finish(row)
+            with scout.connect(self.root) as db:
+                db.execute(
+                    "UPDATE jobs SET result=? WHERE id=?",
+                    (
+                        json.dumps(
+                            {
+                                "analysis": {
+                                    "title": "boundary",
+                                    "next_check": "Inspect src/kernel.py and tests/test_kernel.py",
+                                }
+                            }
+                        ),
+                        row["id"],
+                    ),
+                )
+
+        self.producer.emit("root", self.spec, [old, test], "source_audit")
+        self.assertFalse(
+            self.producer.emit("same-root", self.spec, [old, test], "source_audit")
+        )
+        finish(self.jobs()[0])
+        with (
+            patch.object(
+                self.context,
+                "source",
+                side_effect=lambda repo, commit, path, **kwargs: (
+                    new if path == "src/kernel.py" else test
+                ),
+            ),
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+            child = self.jobs()[-1]
+            sources = json.loads(child["packet"])["sources"]
+            self.assertEqual(len(sources), 3)
+            self.assertTrue(any("_scout_pretrim_sha256" in s for s in sources))
+            self.assertTrue(any(len(s["text"]) < 9000 for s in sources))
+            finish(child)
+            self.assertFalse(self.producer.followup(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 2)
+
+    def test_search_snippet_cannot_trigger_followup_when_full_issue_is_unchanged(self):
+        self.producer.issue(self.spec, {})
+        self.finish(self.jobs()[0])
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.finish(self.jobs()[-1])
+        snippet = {
+            "url": "https://github.com/a/b/issues/42",
+            "text": "shorter search snippet",
+        }
+        with patch.object(self.context, "duplicate_sources", return_value=[snippet]):
+            self.assertFalse(self.producer.followup(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 2)
+
+    def test_budget_trims_peripheral_search_before_same_file_code_windows(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        code = [{"url": url, "text": "a" * 6000}, {"url": url, "text": "b" * 9000}]
+        related = [
+            {
+                "url": f"https://github.com/a/b/pull/{i}",
+                "text": "s" * 1800,
+                "search_exhaustive": False,
+            }
+            for i in range(3)
+        ]
+        self.producer.emit(
+            "large_windows", self.spec, code + related, "source_followup"
+        )
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["sources"][:2], code)
+        self.assertTrue(any(s.get("truncated") for s in packet["sources"][2:]))
+        self.assertLessEqual(
+            len((scout.SYSTEM + scout.dumps(packet)).encode()), scout.MAX_INPUT_BYTES
+        )
+
     def test_oversize_evidence_trimmed_with_explicit_flag(self):
         self.producer.emit(
             "large",

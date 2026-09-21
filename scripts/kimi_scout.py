@@ -423,10 +423,12 @@ def validate_result(result, packet):
         or (result["decision"] == "lead" and not refs)
     ):
         raise ValueError("lead must cite supplied evidence")
-    sources = {source["url"]: source["text"] for source in packet["sources"]}
+    sources = {}
+    for source in packet["sources"]:
+        sources.setdefault(source["url"], []).append(source["text"])
     for related in packet.get("related_open_items_sample", []):
         # Titles are explicitly supplied evidence, not inferred PR contents.
-        sources.setdefault(related["url"], related["title"])
+        sources.setdefault(related["url"], [related["title"]])
     for ref in refs:
         if not isinstance(ref, dict) or set(ref) != {"url", "quote"}:
             raise ValueError("invalid evidence shape")
@@ -436,7 +438,10 @@ def validate_result(result, packet):
             or not 1 <= len(quote) <= 300
             or not normalized_excerpt(quote)
             or ref["url"] not in sources
-            or normalized_excerpt(quote) not in normalized_excerpt(sources[ref["url"]])
+            or not any(
+                normalized_excerpt(quote) in normalized_excerpt(excerpt)
+                for excerpt in sources[ref["url"]]
+            )
         ):
             raise ValueError(
                 "evidence is not a supplied excerpt (whitespace normalized)"

@@ -176,6 +176,13 @@ If slots are idle with an empty queue, inspect context supply and source coverag
 before increasing model concurrency. Exhausted scopes and no-new-evidence stops
 are normal; do not manufacture repeated calls to improve occupancy.
 
+Follow-ups retain distinct excerpts of the same immutable raw-source URL;
+URL deduplication must not discard a newly supplied constructor or caller window.
+Each citation must match one delivered excerpt, not a concatenation across gaps.
+Generic filenames such as `kernel.py` are not evidence that two files are related;
+prefer the owning observed path. Excerpts remain partial: retaining a new window
+does not establish that the complete API contract has been inspected.
+
 ```sh
 python scripts/kimi_scout.py --root runs/kimi-scout status
 python scripts/kimi_scout.py --root runs/kimi-scout stop
@@ -251,6 +258,17 @@ Review the first batch for useful leads, incorrect claims, and missing context.
 Track accepted leads, owner review time, actual tokens and downstream GPU time.
 Keep it only if this lowers **total cost per useful validated change**, not just
 the cost of producing plausible PR prose. A batch with zero real leads is allowed.
+
+When terminal leads accumulate, the limiting stage is owner verification, not
+discovery capacity. Group existing leads by owning path/symbol and hypothesis,
+check the complete caller/input contract and related work, then choose a small
+reproducible batch in environments already available. Record an actual baseline
+failure/fixed pass, a concrete rejection, or an environment blocker once. More
+reproduction-plan prose is not another validation stage. A future test executor
+needs an explicit isolated execution boundary; this scout still has no tools.
+Measure verified findings per reported token and owner review time on that batch;
+do not divide delivered PRs by all calls as a precision estimate while most leads
+remain unreviewed. More occupied slots alone are not a quality improvement.
 
 Offline checks (no network, credentials, or paid model calls):
 

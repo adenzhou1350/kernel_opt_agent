@@ -451,6 +451,20 @@ class ScoutTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             scout.validate_result(value, source)
 
+    def test_multiple_windows_of_one_url_remain_individually_quotable(self):
+        source = packet()
+        url = source["sources"][0]["url"]
+        source["sources"].append(
+            {"url": url, "text": "80: assert index >= 0", "truncated": True}
+        )
+        for quote in ("return values[index]", "assert index >= 0"):
+            value = result()
+            value["evidence"] = [{"url": url, "quote": quote}]
+            self.assertEqual(scout.validate_result(value, source), value)
+        value["evidence"][0]["quote"] = "return values[index] assert index >= 0"
+        with self.assertRaises(ValueError):
+            scout.validate_result(value, source)
+
     def test_automatic_feed_rejects_private_repository(self):
         with patch.object(scout, "fetch", return_value='{"private": true}'):
             with self.assertRaisesRegex(ValueError, "private"):

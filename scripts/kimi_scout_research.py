@@ -112,14 +112,46 @@ def relevant_paths(snapshot, hints, exclude=()):
             continue
         name = path.rsplit("/", 1)[-1].lower()
         stem = name.rsplit(".", 1)[0]
-        if stem in {"__init__", "utils", "test", "common", "setup"}:
+        exact_path = path.lower() in hints
+        if (
+            stem in {"__init__", "utils", "test", "common", "setup", "kernel"}
+            and not exact_path
+        ):
             continue
-        score = 100 if path.lower() in hints else 50 if name in hints else 0
+        score = 100 if exact_path else 50 if name in hints else 0
         if len(stem) >= 5 and stem in words:
             score += 10
         if score:
             ranked.append((-score, path))
     return [path for _, path in sorted(ranked)]
+
+
+def distinct_sources(sources):
+    """Keep distinct code windows, but prefer full issue context over search snippets."""
+    unique = {}
+    for source in sources:
+        url = source["url"]
+        key = (
+            url,
+            source["text"]
+            if url.startswith("https://raw.githubusercontent.com/")
+            else None,
+        )
+        unique.setdefault(key, dict(source))
+    return list(unique.values())
+
+
+def evidence_identity(source):
+    return re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]), source["text"]
+
+
+def retrieval_identity(source):
+    # This controller metadata only prevents budget trimming from looking like
+    # fresh retrieval. Quotes remain limited to the delivered text.
+    digest = source.get("_scout_pretrim_sha256")
+    if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
+        digest = hashlib.sha256(source["text"].encode("utf-8")).hexdigest()
+    return evidence_identity(source)[0], digest
 
 
 class ResearchProducer:
@@ -233,10 +265,7 @@ class ResearchProducer:
     ):
         if self.stopped() or self.seen(key):
             return False
-        # Exact excerpts remain quotable; deduplicate repeated URLs before budget trimming.
-        unique = {}
-        for item in sources:
-            unique.setdefault(item["url"], dict(item))
+        sources = distinct_sources(sources)
         # Timestamp-only updates and changes outside the delivered source window
         # are not fresh evidence. Do not let job names/blob identities defeat dedup.
         fingerprint = hashlib.sha256(
@@ -244,10 +273,7 @@ class ResearchProducer:
                 {
                     "repo": spec["repo"],
                     "stage": stage,
-                    "sources": sorted(
-                        (re.sub(r"/[0-9a-f]{40}/", "/REV/", s["url"]), s["text"])
-                        for s in unique.values()
-                    ),
+                    "sources": sorted(evidence_identity(s) for s in sources),
                 }
             ).encode()
         ).hexdigest()
@@ -259,7 +285,7 @@ class ResearchProducer:
             "name": f"{spec['repo']}:{stage}:{fingerprint[:12]}",
             "repo": spec["repo"],
             "question": spec["question"] + "\n" + question,
-            "sources": list(unique.values()),
+            "sources": sources,
             "reviewed_lessons": self.lessons,
             "research": {
                 "stage": stage,
@@ -279,11 +305,23 @@ class ResearchProducer:
             len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
             > scout.MAX_INPUT_BYTES
         ):
+            # Related-work search snippets are peripheral to the code contract;
+            # shrink those first so fresh same-file windows reach the reviewer.
+            peripheral = [
+                s
+                for s in packet["sources"]
+                if s.get("search_exhaustive") is False and len(s["text"]) >= 300
+            ]
             longest = max(
-                packet["sources"], key=lambda x: len(x["text"].encode("utf-8"))
+                peripheral or packet["sources"],
+                key=lambda x: len(x["text"].encode("utf-8")),
             )
             if len(longest["text"]) < 300:
                 raise ValueError("research packet cannot fit evidence budget")
+            longest.setdefault(
+                "_scout_pretrim_sha256",
+                hashlib.sha256(longest["text"].encode("utf-8")).hexdigest(),
+            )
             longest["text"] = longest["text"][: int(len(longest["text"]) * 0.75)]
             longest["truncated"] = True
         if not packet["sources"] or self.stopped():
@@ -523,7 +561,8 @@ class ResearchProducer:
             key = f"followup:{chain}:{depth + 1}"
             if self.seen(key):
                 continue
-            analysis = scout.dumps(json.loads(row["result"])["analysis"])
+            analysis_value = json.loads(row["result"])["analysis"]
+            analysis = scout.dumps(analysis_value)
             snapshot = self.snapshot(spec, progress)
             if self.stopped():
                 return False
@@ -532,7 +571,14 @@ class ResearchProducer:
                 if number
                 else list(packet["sources"][:1])
             )
-            hints = analysis + "\n" + "\n".join(s["text"] for s in sources)
+            hints = "\n".join(
+                [
+                    analysis_value.get(field, "")
+                    for field in ("next_check", "hypothesis", "title")
+                ]
+                + [ref["quote"] for ref in analysis_value.get("evidence", [])]
+                + [s["url"] + "\n" + s["text"] for s in sources]
+            )
             paths = relevant_paths(snapshot, hints)
             for path in paths[:2]:
                 if self.stopped():
@@ -550,8 +596,9 @@ class ResearchProducer:
                 else json.loads(row["result"])["analysis"]["title"]
             )
             sources.extend(self.context.duplicate_sources(spec["repo"], title))
-            old_evidence = {(s["url"], s["text"]) for s in packet["sources"]}
-            if not any((s["url"], s["text"]) not in old_evidence for s in sources):
+            sources = distinct_sources(sources)
+            old_evidence = {retrieval_identity(s) for s in packet["sources"]}
+            if not any(retrieval_identity(s) not in old_evidence for s in sources):
                 self.remember(
                     key
                 )  # No new evidence: never pay just to rephrase an answer.
