@@ -451,7 +451,7 @@ class ResearchTests(unittest.TestCase):
 
     def test_context_workers_default_and_bounds(self):
         self.assertEqual(research.configuration(self.config)["context_workers"], 1)
-        for value in (0, 9, True, 1.5, "2"):
+        for value in (0, 17, True, 1.5, "2"):
             with self.subTest(value=value):
                 self.value["context_workers"] = value
                 self.config.write_text(json.dumps(self.value))
@@ -460,9 +460,61 @@ class ResearchTests(unittest.TestCase):
         self.value["context_workers"] = 3
         self.config.write_text(json.dumps(self.value))
         self.assertEqual(research.configuration(self.config)["context_workers"], 3)
-        self.value["context_workers"] = 8
+        self.value["context_workers"] = 16
         self.config.write_text(json.dumps(self.value))
-        self.assertEqual(research.configuration(self.config)["context_workers"], 8)
+        self.assertEqual(research.configuration(self.config)["context_workers"], 16)
+
+    def test_source_windows_default_and_bounds(self):
+        self.assertEqual(research.configuration(self.config)["source_windows"], 3)
+        for value in (0, 13, True, 1.5, "8"):
+            with self.subTest(value=value):
+                self.value["source_windows"] = value
+                self.config.write_text(json.dumps(self.value))
+                with self.assertRaises(ValueError):
+                    research.configuration(self.config)
+        self.value["source_windows"] = 8
+        self.config.write_text(json.dumps(self.value))
+        self.assertEqual(research.configuration(self.config)["source_windows"], 8)
+
+    def test_source_audit_can_scan_configured_later_windows(self):
+        self.value["source_windows"] = 8
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        progress = {"source_cursor": 3, "source_windows": 8}
+
+        def source(repo, commit, path, hints="", start=None):
+            start = start or 1
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": f"{start}: later boundary",
+                "total_lines": 960,
+            }
+
+        with patch.object(self.context, "source", side_effect=source):
+            self.assertTrue(producer.source_audit(self.spec, progress))
+        self.assertEqual(
+            json.loads(self.jobs()[0]["packet"])["sources"][0]["text"],
+            "361: later boundary",
+        )
+        self.assertEqual(progress["source_cursor"], 4)
+
+    def test_source_audit_migrates_existing_window_cursor(self):
+        self.value["source_windows"] = 8
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        progress = {"source_cursor": 3, "sources_after": time.time() + 3600}
+        snapshot = {
+            "commit": "a" * 40,
+            "files": ["src/a.py", "src/b.py"],
+            "blobs": {"src/a.py": "b" * 40, "src/b.py": "c" * 40},
+        }
+
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(producer.source_audit(self.spec, progress))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertIn("src/b.py", packet["sources"][0]["url"])
+        self.assertEqual(progress["source_windows"], 8)
+        self.assertNotIn("sources_after", progress)
 
     def test_repository_count_bounds(self):
         for count in (0, 1, 10, 12, 13):

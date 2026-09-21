@@ -44,12 +44,15 @@ def configuration(path):
         raise ValueError("research configuration needs an objective")
     if (
         type(value.get("queue_target")) is not int
-        or not 4 <= value["queue_target"] <= 64
+        or not 4 <= value["queue_target"] <= 128
     ):
-        raise ValueError("research queue_target must be 4..64")
+        raise ValueError("research queue_target must be 4..128")
     context_workers = value.setdefault("context_workers", 1)
-    if type(context_workers) is not int or not 1 <= context_workers <= 8:
-        raise ValueError("research context_workers must be 1..8")
+    if type(context_workers) is not int or not 1 <= context_workers <= 16:
+        raise ValueError("research context_workers must be 1..16")
+    source_windows = value.setdefault("source_windows", 3)
+    if type(source_windows) is not int or not 1 <= source_windows <= 12:
+        raise ValueError("research source_windows must be 1..12")
     repos = value.get("repos")
     if not isinstance(repos, list) or not 1 <= len(repos) <= 12:
         raise ValueError("research needs 1..12 explicit public repositories")
@@ -249,6 +252,7 @@ class ResearchProducer:
                 "updated_at": time.time(),
                 "queue_target": self.config["queue_target"],
                 "context_workers": self.config["context_workers"],
+                "source_windows": self.config["source_windows"],
                 "context_inflight": len(self.inflight_repos),
                 "queued": self.pending(),
                 "goals": goals,
@@ -424,6 +428,16 @@ class ResearchProducer:
         return False
 
     def source_audit(self, spec, progress):
+        windows = self.config["source_windows"]
+        previous_windows = progress.get("source_windows", 3)
+        if previous_windows != windows:
+            cursor = progress.get("source_cursor", 0)
+            path_index, window_index = divmod(cursor, previous_windows)
+            progress["source_cursor"] = path_index * windows + min(
+                window_index, windows - 1
+            )
+            progress.pop("sources_after", None)
+        progress["source_windows"] = windows
         if time.time() < progress.get("sources_after", 0):
             return False
         snapshot = self.snapshot(spec, progress)
@@ -433,13 +447,13 @@ class ResearchProducer:
             if self.stopped():
                 return False
             cursor = progress.get("source_cursor", 0)
-            if cursor >= len(paths) * 3:
+            if cursor >= len(paths) * windows:
                 progress.update(source_cursor=0, sources_after=time.time() + 1800)
                 progress.pop(
                     "commit", None
                 )  # Refresh revision only after this bounded sweep.
                 return False
-            path, window = paths[cursor // 3], cursor % 3
+            path, window = paths[cursor // windows], cursor % windows
             start = 1 + window * 120
             key = f"source:{spec['repo']}:{path}:{snapshot['blobs'][path]}:{start}"
             if self.seen(key):
@@ -458,12 +472,12 @@ class ResearchProducer:
                 }:
                     raise
                 self.remember(key)
-                progress["source_cursor"] = (cursor // 3 + 1) * 3
+                progress["source_cursor"] = (cursor // windows + 1) * windows
                 progress["skipped_sources"] = progress.get("skipped_sources", 0) + 1
                 continue
             if start > source.get("total_lines", 0):
                 self.remember(key)
-                progress["source_cursor"] = (cursor // 3 + 1) * 3
+                progress["source_cursor"] = (cursor // windows + 1) * windows
                 continue
             sources = [source]
             if self.stopped():
@@ -494,7 +508,7 @@ class ResearchProducer:
                 ),
             )
             progress["source_cursor"] = (
-                (cursor // 3 + 1) * 3
+                (cursor // windows + 1) * windows
                 if start + 120 > source.get("total_lines", 0)
                 else cursor + 1
             )
