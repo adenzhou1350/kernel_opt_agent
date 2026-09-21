@@ -57,6 +57,13 @@ class DashboardTests(unittest.TestCase):
                 db.execute("SELECT state FROM jobs").fetchone()[0], "PENDING"
             )
 
+    def test_http_snapshot_cache_single_flights_history_projection(self):
+        with patch.object(self.inbox, "state", wraps=self.inbox.state) as state:
+            first = self.inbox.cached_state()
+            second = self.inbox.cached_state()
+        self.assertIs(first, second)
+        self.assertEqual(state.call_count, 1)
+
     @unittest.skipUnless(
         shutil.which("node"), "Node is needed for the offline DOM test"
     )

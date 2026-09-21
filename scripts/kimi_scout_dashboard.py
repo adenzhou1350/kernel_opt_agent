@@ -12,6 +12,7 @@ import json
 import os
 import re
 import sqlite3
+import threading
 import time
 from collections import Counter
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -184,6 +185,18 @@ class Inbox:
         if not database.is_file() or database.resolve().parent != self.root:
             raise ValueError("expected an existing scout inbox with scout.sqlite")
         self.database = database
+        self._snapshot_lock = threading.Lock()
+        self._snapshot = None
+        self._snapshot_at = 0.0
+
+    def cached_state(self, max_age=5):
+        """Single-flight the expensive historical projection for HTTP polling."""
+        with self._snapshot_lock:
+            now = time.monotonic()
+            if self._snapshot is None or now - self._snapshot_at >= max_age:
+                self._snapshot = self.state()
+                self._snapshot_at = time.monotonic()
+            return self._snapshot
 
     def rows(self, job_id=None, limit=None):
         # Do not call scout.connect(): its WAL setup/transactions are for writers.
@@ -457,7 +470,7 @@ def make_server(root, port=8767):
                 if path == "/":
                     self.respond(200, PAGE.read_bytes(), "text/html; charset=utf-8")
                 elif path == "/api/state":
-                    self.respond(200, inbox.state())
+                    self.respond(200, inbox.cached_state())
                 elif path.startswith("/api/jobs/"):
                     self.respond(200, inbox.detail(path.removeprefix("/api/jobs/")))
                 elif path == "/health":
