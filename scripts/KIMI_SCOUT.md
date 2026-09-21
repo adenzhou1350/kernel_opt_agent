@@ -264,16 +264,60 @@ discovery capacity. Group existing leads by owning path/symbol and hypothesis,
 check the complete caller/input contract and related work, then choose a small
 reproducible batch in environments already available. Record an actual baseline
 failure/fixed pass, a concrete rejection, or an environment blocker once. More
-reproduction-plan prose is not another validation stage. A future test executor
-needs an explicit isolated execution boundary; this scout still has no tools.
+reproduction-plan prose is not another validation stage. The separate opt-in
+executor below supplies an isolated execution boundary; this scout still has no tools.
 Measure verified findings per reported token and owner review time on that batch;
 do not divide delivered PRs by all calls as a precision estimate while most leads
 remain unreviewed. More occupied slots alone are not a quality improvement.
+
+## Opt-in CPU test execution
+
+`kimi_scout_verify.py` runs one owner-staged public Python module before and after
+a change, using the same selected `unittest` file. The test imports `subject`.
+Invoke it explicitly inside Linux/WSL with an existing Docker daemon:
+
+```sh
+python3 scripts/kimi_scout_verify.py --baseline /public/before.py \
+  --candidate /public/after.py --test /public/test_subject.py --timeout 60
+```
+
+It uses the cached official uv Python 3.10 image pinned by its full SHA256 in the
+script, with `--pull never` and explicit `runc` (not a GPU runtime). Each sequential
+run has no network, a read-only root,
+UID 65534, no capabilities/new privileges, 512 MiB memory, one CPU, 64 processes,
+and a private 64 MiB scratch tmpfs. Only immutable copies of the selected module
+and test files are mounted read-only; directories, symlinks, credentials, Docker
+sockets and GPU devices are not mounted. Dependencies are not installed.
+Docker disk logging is disabled; only the bounded attached output is collected.
+
+JSON output records input hashes, image, exit codes, elapsed time and bounded
+untrusted test output. Timeouts, truncated output, missing/zero test counts or
+failed cleanup are inconclusive. The label is always `TEST_RESULT_NOT_PR_READY`:
+a reviewer must judge whether assertions exercise the real defect and whether
+the change meets repository requirements. Generated tests can be wrong or weak.
+The reported test count and output are untrusted observations, not semantic proof
+or evidence that an advisory snippet is a qualified contribution.
+This command makes no Kimi calls, does not consume the scout queue, and does not
+publish changes. Host-side commands are fixed; model code runs only in Docker.
+
+Suggested small-batch workflow: select a reproducible public-source lead, ask
+Kimi for tests that import the real module, inspect the proposed test, run both
+versions, and return actual logs for at most one test-repair attempt. Keep the
+first failure as evidence; do not silently weaken assertions or mark environment
+failures as candidate defects. Package/native/GPU tests need their own compatible
+isolation and are not supported by this stdlib-only entry point.
+
+A known-regression pilot used 6,600 reported Kimi tokens for generation plus one
+repair: an initial malformed quote failed both versions; after repair the same
+six tests gave baseline 5 pass / 1 error and fixed 6 pass. This demonstrates the
+feedback loop, not new bug discovery or improved scout precision. Review still
+found a redundant assertion in the generated test.
 
 Offline checks (no network, credentials, or paid model calls):
 
 ```sh
 python -B tests/test_kimi_scout.py
+python -B tests/test_kimi_scout_verify.py
 <kimi-python> -I -B -X utf8 tests/test_kimi_scout_backend.py
 ```
 
