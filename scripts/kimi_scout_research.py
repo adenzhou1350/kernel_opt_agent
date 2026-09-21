@@ -48,8 +48,8 @@ def configuration(path):
     ):
         raise ValueError("research queue_target must be 4..64")
     context_workers = value.setdefault("context_workers", 1)
-    if type(context_workers) is not int or not 1 <= context_workers <= 3:
-        raise ValueError("research context_workers must be 1..3")
+    if type(context_workers) is not int or not 1 <= context_workers <= 8:
+        raise ValueError("research context_workers must be 1..8")
     repos = value.get("repos")
     if not isinstance(repos, list) or not 1 <= len(repos) <= 12:
         raise ValueError("research needs 1..12 explicit public repositories")

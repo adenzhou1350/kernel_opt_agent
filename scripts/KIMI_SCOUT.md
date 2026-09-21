@@ -147,6 +147,10 @@ correctness leads, not operator-performance results. Its optional
 public context reads across repositories to reduce an empty model queue; this is
 separate from paid model concurrency. Each repository has at most one active
 refill, and the producer drains before releasing its single-runner lock.
+For a ten-repository frontier with a persistently empty paid queue, 4–6 context
+workers are a reasonable measured trial; the supported ceiling is 8. Increase
+this only when public-context supply is the observed bottleneck. It does not add
+paid model calls itself, and one repository still has at most one active refill.
 For large monorepos, optional `tree_roots` selects explicit top-level directories
 (OpenClaw uses `src`). The controller resolves their Git tree identities from
 the root and caches a deliberately partial snapshot. Metadata stays capped at

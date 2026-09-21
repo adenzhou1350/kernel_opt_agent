@@ -690,7 +690,7 @@ def run(args):
             # scheduler loop. Keep its liveness visible during those operations.
             while not heartbeat_stop.wait(HEARTBEAT_SECONDS):
                 try:
-                    publish()
+                    publish(active=len(running))
                 except OSError:
                     pass
 
@@ -779,6 +779,7 @@ def run(args):
                             )
                         )
                         attempts += 1
+                    publish(active=len(running))
                     if not running:
                         if args.once:
                             break

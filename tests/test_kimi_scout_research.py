@@ -451,7 +451,7 @@ class ResearchTests(unittest.TestCase):
 
     def test_context_workers_default_and_bounds(self):
         self.assertEqual(research.configuration(self.config)["context_workers"], 1)
-        for value in (0, 4, True, 1.5, "2"):
+        for value in (0, 9, True, 1.5, "2"):
             with self.subTest(value=value):
                 self.value["context_workers"] = value
                 self.config.write_text(json.dumps(self.value))
@@ -460,6 +460,9 @@ class ResearchTests(unittest.TestCase):
         self.value["context_workers"] = 3
         self.config.write_text(json.dumps(self.value))
         self.assertEqual(research.configuration(self.config)["context_workers"], 3)
+        self.value["context_workers"] = 8
+        self.config.write_text(json.dumps(self.value))
+        self.assertEqual(research.configuration(self.config)["context_workers"], 8)
 
     def test_repository_count_bounds(self):
         for count in (0, 1, 10, 12, 13):
