@@ -436,8 +436,10 @@ class DeliveryTests(unittest.TestCase):
             (self.worker.root / "owner-queue.json").read_text(encoding="utf-8")
         )
         self.assertEqual(queue["schema_version"], "kimi-owner-queue-v1")
+        self.assertEqual(queue["total"], 1)
         self.assertEqual(queue["count"], 1)
         self.assertEqual(queue["items"][0]["id"], row["id"])
+        self.assertFalse(queue["items"][0]["legacy"])
         self.assertIn("owner review", queue["claim_boundary"])
 
     def test_sandbox_transport_or_cleanup_uncertainty_stops_new_work(self):

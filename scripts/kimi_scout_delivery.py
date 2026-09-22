@@ -803,10 +803,11 @@ class Delivery:
                 )
                 jobs.append(item)
             owner_rows = db.execute(
-                "SELECT id,source_job_id,repo,title,updated_at,result FROM delivery "
-                "WHERE state=? ORDER BY "
+                "SELECT id,source_job_id,repo,title,state,updated_at,result FROM delivery "
+                "WHERE state IN (?, 'REPRODUCED') ORDER BY "
+                "CASE WHEN state=? THEN 0 ELSE 1 END,"
                 "json_extract(result,'$.owner_score') DESC,updated_at DESC LIMIT ?",
-                (OWNER_STATE, self.args.owner_queue_limit),
+                (OWNER_STATE, OWNER_STATE, self.args.owner_queue_limit),
             ).fetchall()
             owner_queue = []
             for row in owner_rows:
@@ -817,16 +818,20 @@ class Delivery:
                         "source_job_id": row["source_job_id"],
                         "repo": row["repo"],
                         "title": row["title"],
+                        "state": row["state"],
                         "updated_at": row["updated_at"],
                         "owner_score": result.get("owner_score", 0),
                         "handoff": result.get("owner_handoff"),
+                        "legacy": row["state"] == "REPRODUCED",
                     }
                 )
+            owner_ready = counts.get(OWNER_STATE, 0) + counts.get("REPRODUCED", 0)
         scout.write_json(
             self.root / "owner-queue.json",
             {
                 "schema_version": "kimi-owner-queue-v1",
                 "generated_at": time.time(),
+                "total": owner_ready,
                 "count": len(owner_queue),
                 "items": owner_queue,
                 "claim_boundary": (
@@ -846,7 +851,7 @@ class Delivery:
                 "counts": counts,
                 "reported_tokens": tokens,
                 "jobs": jobs,
-                "owner_ready": counts.get(OWNER_STATE, 0),
+                "owner_ready": owner_ready,
                 "active": sum(counts.get(k, 0) for k in ACTIVE - {"PENDING"}),
             },
         )
