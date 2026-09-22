@@ -549,18 +549,18 @@ class ResearchTests(unittest.TestCase):
         self.assertNotIn("sources_after", progress)
 
     def test_repository_count_bounds(self):
-        for count in (0, 1, 10, 12, 13):
+        for count in (0, 1, 12, 24, 25):
             with self.subTest(count=count):
                 self.value["repos"] = [
                     dict(self.spec, repo=f"owner/repo{i}") for i in range(count)
                 ]
                 self.config.write_text(json.dumps(self.value))
-                if 1 <= count <= 12:
+                if 1 <= count <= 24:
                     self.assertEqual(
                         len(research.configuration(self.config)["repos"]), count
                     )
                 else:
-                    with self.assertRaisesRegex(ValueError, "1..12"):
+                    with self.assertRaisesRegex(ValueError, "1..24"):
                         research.configuration(self.config)
 
     def test_ten_repository_frontier_visits_every_repository(self):

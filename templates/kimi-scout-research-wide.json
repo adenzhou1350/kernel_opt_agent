@@ -1,7 +1,9 @@
 {
   "objective": "发现可复现的小型开源贡献；先反证、检查已有实现与真实调用路径，再交付最小测试计划。所有输出是未执行的假设，不是合格 PR。",
-  "queue_target": 48,
-  "context_workers": 3,
+  "queue_target": 128,
+  "context_workers": 16,
+  "refill_batch": 8,
+  "source_windows": 12,
   "repos": [
     {
       "repo": "vllm-project/vllm",
@@ -135,6 +137,54 @@
         "cpp/tensorrt_llm/kernels/"
       ],
       "question": "Find production-reachable PyTorch frontend, quantization, shape/layout, cache, or kernel-wrapper correctness gaps with a minimal regression. Check callers and existing work first. Keep architecture and precision claims scoped; do not infer serving throughput from isolated kernel arithmetic."
+    },
+    {
+      "repo": "pytorch/ao",
+      "ref": "main",
+      "source_prefixes": ["torchao/quantization/", "torchao/dtypes/", "torchao/prototype/", "torchao/float8/"],
+      "question": "Find production-reachable quantization, dtype/layout, dispatch or serialization correctness gaps with a minimal CPU or single-GPU regression. Prove an actual caller and supported contract; reject numerical relaxations disguised as fixes and microbench-only speedup claims."
+    },
+    {
+      "repo": "huggingface/transformers",
+      "ref": "main",
+      "source_prefixes": ["src/transformers/cache_utils.py", "src/transformers/generation/", "src/transformers/integrations/", "src/transformers/modeling_utils.py"],
+      "question": "Find bounded generation, cache, model-loading or integration correctness bugs with a focused regression. Require a current production caller and search existing fixes; avoid model-specific speculative rewrites and style-only cleanup."
+    },
+    {
+      "repo": "InternLM/lmdeploy",
+      "ref": "main",
+      "source_prefixes": ["lmdeploy/pytorch/", "lmdeploy/turbomind/", "lmdeploy/serve/"],
+      "question": "Find production-reachable serving, cache, quantization, batching or wrapper correctness gaps. Prefer cheap source/CPU falsification before GPU work and keep TurboMind versus PyTorch claims separate."
+    },
+    {
+      "repo": "bitsandbytes-foundation/bitsandbytes",
+      "ref": "main",
+      "source_prefixes": ["bitsandbytes/", "csrc/"],
+      "question": "Find supported quantization, optimizer state, dtype/device, serialization or backend-dispatch correctness gaps. Require a real API caller and a small regression; never infer training or serving gain from an isolated conversion kernel."
+    },
+    {
+      "repo": "facebookresearch/xformers",
+      "ref": "main",
+      "source_prefixes": ["xformers/ops/", "xformers/components/", "xformers/checkpoint.py"],
+      "question": "Find supported attention/operator dispatch, stride/layout, autograd or checkpoint correctness gaps. Confirm the selected backend and supported hardware contract before proposing code; prefer focused regression tests."
+    },
+    {
+      "repo": "NVIDIA/TransformerEngine",
+      "ref": "main",
+      "source_prefixes": ["transformer_engine/pytorch/", "transformer_engine/common/", "transformer_engine/jax/"],
+      "question": "Find reachable dtype, recipe, distributed-group, graph, cache or extension-boundary correctness gaps. Keep framework and architecture scope explicit; require a cheap regression before any build or GPU qualification."
+    },
+    {
+      "repo": "ROCm/aiter",
+      "ref": "main",
+      "source_prefixes": ["aiter/", "csrc/", "op_tests/"],
+      "question": "Find supported wrapper, shape/layout, dtype, cache-key or architecture-guard correctness gaps. Do not transfer CUDA assumptions to ROCm; require exact supported hardware and a bounded test plan."
+    },
+    {
+      "repo": "ggml-org/llama.cpp",
+      "ref": "master",
+      "source_prefixes": ["src/", "ggml/src/", "common/"],
+      "question": "Find small production-reachable inference, quantization, batching, cache or backend-selection correctness gaps. Check existing issues and cross-platform contracts; avoid broad rewrites and unmeasured micro-optimizations."
     }
   ]
 }

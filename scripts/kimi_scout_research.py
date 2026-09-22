@@ -57,8 +57,8 @@ def configuration(path):
     if type(refill_batch) is not int or not 1 <= refill_batch <= 16:
         raise ValueError("research refill_batch must be 1..16")
     repos = value.get("repos")
-    if not isinstance(repos, list) or not 1 <= len(repos) <= 12:
-        raise ValueError("research needs 1..12 explicit public repositories")
+    if not isinstance(repos, list) or not 1 <= len(repos) <= 24:
+        raise ValueError("research needs 1..24 explicit public repositories")
     names = set()
     for spec in repos:
         repo = scout.public_repo(spec["repo"])
