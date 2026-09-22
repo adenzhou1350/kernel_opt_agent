@@ -179,7 +179,7 @@
     <div class="briefing-metrics">
       <div><span class="stat-label">复现流水线槽位</span><strong id="deliveryCapacity" class="briefing-value">—</strong><span id="deliveryActivity" class="stat-note">等待状态快照</span></div>
       <div><span class="stat-label">CPU 容器上限</span><strong id="deliveryExecutionLimit" class="briefing-value">—</strong><span class="stat-note">执行限额，不是额外模型槽位</span></div>
-      <div><span class="stat-label">REPRODUCED · 待复核</span><strong id="deliveryReproduced" class="briefing-value">—</strong><span class="stat-note">同一测试：旧代码失败 / 修改后通过，不等于可提 PR</span></div>
+      <div><span class="stat-label">Owner 终审队列</span><strong id="deliveryReproduced" class="briefing-value">—</strong><span class="stat-note">Kimi 已完成旧失败 / 新通过；源码语义、重复项和官方测试由 owner 终审</span></div>
       <div><span class="stat-label">复现流水线已报告 Token</span><strong id="deliveryTokens" class="briefing-value">—</strong><span class="stat-note">与搜索账本分开统计</span></div>
     </div>
     <div id="deliveryCounts" class="research-counts"></div>
@@ -369,7 +369,7 @@
     const delivery = state.delivery;
     $("deliveryPanel").hidden = !delivery || typeof delivery !== "object" || Array.isArray(delivery);
     if ($("deliveryPanel").hidden) return;
-    const deliveryLabels = {PENDING:"排队",GENERATING:"生成测试",TESTING:"执行测试",REPAIRING:"修补中",REVIEWING:"复核中",GPU_REVIEW_REQUIRED:"GPU 测试已生成 · 尚未执行",REPRODUCED:"旧失败 / 新通过 · 待复核",NO_BUG:"模型判定无缺陷",ENVIRONMENT_BLOCKED:"环境受限",INCONCLUSIVE:"未得结论",FAILED:"失败"};
+    const deliveryLabels = {PENDING:"排队",GENERATING:"生成测试",TESTING:"执行测试",REPAIRING:"修补中",REVIEWING:"旧版复核中",OWNER_REVIEW_REQUIRED:"A/B 已复现 · 待 owner 终审",GPU_REVIEW_REQUIRED:"GPU 测试已生成 · 尚未执行",REPRODUCED:"旧失败 / 新通过 · 待复核",NO_BUG:"模型判定无缺陷",ENVIRONMENT_BLOCKED:"环境受限",INCONCLUSIVE:"未得结论",FAILED:"失败"};
     const counts = delivery.counts && typeof delivery.counts === "object" ? delivery.counts : {};
     const live = delivery.alive === true && delivery.heartbeat_fresh === true && delivery.state !== "STOPPED";
     const status = !delivery.alive ? (delivery.state === "STOPPED" ? "已停止" : "进程离线") : !delivery.heartbeat_fresh ? "心跳待确认" : delivery.state === "STOPPED" ? "已停止" : "运行中";
@@ -378,7 +378,7 @@
     text("deliveryCapacity", (live ? number(delivery.active) : "—") + " / " + number(delivery.concurrency));
     text("deliveryActivity", live ? "排队 " + number(counts.PENDING || 0) + " 项 · 与搜索槽位分开" : "以下为保存状态，不代表正在执行");
     text("deliveryExecutionLimit", number(delivery.execution_concurrency));
-    text("deliveryReproduced", number(counts.REPRODUCED || 0));
+    text("deliveryReproduced", number(delivery.owner_ready ?? counts.OWNER_REVIEW_REQUIRED ?? counts.REPRODUCED ?? 0));
     text("deliveryTokens", compact(delivery.reported_tokens));
     $("deliveryTokens").title = number(delivery.reported_tokens);
     $("deliveryCounts").replaceChildren(...Object.entries(deliveryLabels).map(([key,label]) => node("span", "", label + " " + number(counts[key] || 0))));
@@ -387,7 +387,7 @@
     text("deliveryJobsNote", "最近 " + jobs.length + " 项 · 最多 20 项");
     $("deliveryJobs").replaceChildren(...(jobs.length ? jobs.map(job => {
       const row = node("article", "delivery-job"), top = node("div", "job-row-top");
-      const tone = job.state === "FAILED" ? " failed" : job.state === "REPRODUCED" || job.state === "ENVIRONMENT_BLOCKED" || job.state === "INCONCLUSIVE" ? " review" : "";
+      const tone = job.state === "FAILED" ? " failed" : ["OWNER_REVIEW_REQUIRED","REPRODUCED","ENVIRONMENT_BLOCKED","INCONCLUSIVE"].includes(job.state) ? " review" : "";
       top.append(node("span", "job-repo", job.repo || "未标记仓库"), node("span", "badge" + tone, (deliveryLabels[job.state] || plain(job.state) || "未知状态") + " · " + plain(job.state)));
       row.append(top, node("div", "job-name", job.title || job.id || "未命名任务"), node("div", "tiny muted", "更新 " + time(job.updated_at, true) + " · 测试数 " + number(job.tests_run) + " · 退出码 " + number(job.baseline_exit) + " → " + number(job.candidate_exit)));
       row.append(node("p", "tiny delivery-reason", job.reason || (job.state === "NO_BUG" ? "未提供原因；仅有模型判断，尚无无缺陷证明。" : "未提供原因 / 测试说明。")));

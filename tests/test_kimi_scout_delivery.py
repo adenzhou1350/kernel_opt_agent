@@ -70,6 +70,7 @@ class DeliveryTests(unittest.TestCase):
             root=self.inbox,
             concurrency=4,
             execution_concurrency=2,
+            owner_queue_limit=64,
             github_auth=False,
             kimi_python=Path(sys.executable),
             wsl="Ubuntu",
@@ -163,7 +164,7 @@ class DeliveryTests(unittest.TestCase):
         ):
             delivery.main()
         self.assertEqual(run.call_args.args[0].args.concurrency, 16)
-        self.assertEqual(run.call_args.args[0].args.execution_concurrency, 2)
+        self.assertEqual(run.call_args.args[0].args.execution_concurrency, 4)
         with (
             patch.object(sys, "argv", arguments[:-1] + ["17"]),
             patch.object(sys, "stderr", io.StringIO()),
@@ -374,16 +375,23 @@ class DeliveryTests(unittest.TestCase):
             )
         return state, row, model, sandbox
 
-    def test_real_output_gets_one_repair_then_separate_review(self):
-        verdict = {"decision": "accept_for_owner", "reason": "needs maintainer tests"}
+    def test_real_output_gets_one_repair_then_owner_handoff(self):
         state, row, model, sandbox = self.run_job(
-            [result(1, 1), result()], [proposal(), proposal(), verdict]
+            [result(1, 1), result()], [proposal(), proposal()]
         )
-        self.assertEqual(state, "REPRODUCED")
-        self.assertEqual(model.call_count, 3)
+        self.assertEqual(state, delivery.OWNER_STATE)
+        self.assertEqual(model.call_count, 2)
         self.assertEqual(sandbox.call_count, 2)
         self.assertIn("actual_result", model.call_args_list[1].args[2])
         self.assertFalse(json.loads(row["result"])["qualified"])
+        handoff = json.loads(
+            (self.worker.root / "jobs" / row["id"] / "owner-handoff.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertTrue(handoff["repair_used"])
+        self.assertEqual(handoff["tests_run"], 2)
+        self.assertFalse(handoff["claims"]["pr_ready"])
 
     def test_second_failure_is_terminal_without_third_execution(self):
         state, _, model, sandbox = self.run_job(
@@ -413,12 +421,24 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(model.call_count, 1)
         self.assertEqual(sandbox.call_count, 1)
 
-    def test_review_can_reject_a_before_fail_fixed_pass(self):
-        state, row, _, _ = self.run_job(
-            [result()], [proposal(), {"decision": "reject", "reason": "wrong contract"}]
-        )
-        self.assertEqual(state, "INCONCLUSIVE")
+    def test_direct_reproduction_stops_before_model_final_review(self):
+        state, row, model, sandbox = self.run_job([result()], [proposal()])
+        self.assertEqual(state, delivery.OWNER_STATE)
+        self.assertEqual(model.call_count, 1)
+        self.assertEqual(sandbox.call_count, 1)
         self.assertFalse(json.loads(row["result"])["qualified"])
+
+    def test_publish_writes_a_bounded_owner_queue(self):
+        state, row, _, _ = self.run_job([result()], [proposal()])
+        self.assertEqual(state, delivery.OWNER_STATE)
+        self.worker.publish("RUNNING")
+        queue = json.loads(
+            (self.worker.root / "owner-queue.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(queue["schema_version"], "kimi-owner-queue-v1")
+        self.assertEqual(queue["count"], 1)
+        self.assertEqual(queue["items"][0]["id"], row["id"])
+        self.assertIn("owner review", queue["claim_boundary"])
 
     def test_sandbox_transport_or_cleanup_uncertainty_stops_new_work(self):
         work = self.worker.root / "jobs" / "a"

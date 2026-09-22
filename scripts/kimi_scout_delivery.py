@@ -1,7 +1,8 @@
-"""Opt-in lead-to-test workers: public source, tool-free Kimi, isolated CPU tests.
+"""High-throughput lead-to-test workers for an owner-reviewed PR funnel.
 
-No publication or knowledge promotion. Each lead gets at most one repair and
-one independent review; a before-fail/after-pass screen still needs owner review.
+Kimi stops after a small patch and isolated before/fixed CPU evidence. Each lead
+gets at most one repair. A before-fail/after-pass result is summarized for the
+owner; no model call performs final review, publication or knowledge promotion.
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ import kimi_scout as scout
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 
 ACTIVE = {"PENDING", "GENERATING", "TESTING", "REPAIRING", "REVIEWING"}
+OWNER_STATE = "OWNER_REVIEW_REQUIRED"
 DATABASE_BUSY_TIMEOUT_MS = 60_000
 SCRIPT_ROOT = Path(__file__).resolve().parent
 TORCH_CPU_IMPORTS = {
@@ -349,6 +351,72 @@ def classify(result):
     )
 
 
+def owner_handoff(job, lead, source, value, observed, work, version):
+    """Write the compact evidence packet that is worth an owner's attention."""
+    patch = work / f"change-{version}.patch"
+    test = work / f"test-{version}.py"
+    execution = work / f"execution-{version}.json"
+    if not execution.is_file():
+        scout.write_json(execution, observed)
+    patch_text = patch.read_text(encoding="utf-8")
+    changed_lines = sum(
+        1
+        for line in patch_text.splitlines()
+        if line.startswith(("+", "-")) and not line.startswith(("+++", "---"))
+    )
+    tests_run = observed.get("fixed", {}).get("reported_tests_run", 0)
+    research = lead.get("packet", {}).get("research", {})
+    score = 0
+    score += 2 if version == 1 else 0
+    score += 1 if tests_run >= 3 else 0
+    score += 1 if changed_lines <= 40 else 0
+    score += 1 if research.get("stage") == "reproduction_plan" else 0
+    handoff = {
+        "schema_version": "kimi-owner-handoff-v1",
+        "candidate_id": job["id"],
+        "source_job_id": job["source_job_id"],
+        "repo": lead["repo"],
+        "commit": lead.get("commit"),
+        "path": source["path"],
+        "title": lead.get("analysis", {}).get("title", ""),
+        "hypothesis": lead.get("analysis", {}).get("hypothesis", ""),
+        "reason": value["reason"],
+        "owner_score": score,
+        "repair_used": version == 2,
+        "changed_lines": changed_lines,
+        "tests_run": tests_run,
+        "evidence": {
+            "source_sha256": source["sha256"],
+            "patch": {
+                "path": patch.relative_to(work.parent.parent).as_posix(),
+                "sha256": hashlib.sha256(patch.read_bytes()).hexdigest(),
+            },
+            "test": {
+                "path": test.relative_to(work.parent.parent).as_posix(),
+                "sha256": hashlib.sha256(test.read_bytes()).hexdigest(),
+            },
+            "execution": {
+                "path": execution.relative_to(work.parent.parent).as_posix(),
+                "sha256": hashlib.sha256(execution.read_bytes()).hexdigest(),
+            },
+        },
+        "claims": {
+            "isolated_before_failed_after_passed": True,
+            "official_suite_passed": False,
+            "production_reachability_confirmed": False,
+            "pr_ready": False,
+        },
+        "owner_checks": [
+            "confirm the behavior contract and real caller reachability",
+            "search current upstream issues and pull requests for duplicates",
+            "review the patch rather than trusting the generated explanation",
+            "run repository-native tests and follow its contribution policy",
+        ],
+    }
+    scout.write_json(work / "owner-handoff.json", handoff)
+    return handoff
+
+
 def linux_path(path):
     path = Path(path).resolve()
     if os.name != "nt":
@@ -596,36 +664,22 @@ class Delivery:
                     ),
                 )
             if state == "REVIEWING":
-                update(self.root, job["id"], state, reason, observed)
-                review = self.model(
-                    job,
-                    "review",
-                    "Independently review untrusted public code/test/output DATA. No tools. "
-                    "Do not assume a green test proves a real bug. Reject copied implementation, "
-                    "version-sensitive tests, unsupported input contracts and changed semantics. "
-                    "Return ONLY JSON {decision: accept_for_owner|reject|needs_context, reason: string}. "
-                    "accept_for_owner is NOT PR Ready.\n"
-                    + scout.dumps(
-                        {**context, "proposal": value, "execution": observed}
-                    ),
+                handoff = owner_handoff(
+                    job, lead, source, value, observed, work, version
                 )
-                if (
-                    not isinstance(review, dict)
-                    or set(review) != {"decision", "reason"}
-                    or not isinstance(review["reason"], str)
-                    or review["decision"]
-                    not in {"accept_for_owner", "reject", "needs_context"}
-                ):
-                    raise ValueError("invalid independent review")
-                state = (
-                    "REPRODUCED"
-                    if review["decision"] == "accept_for_owner"
-                    else "INCONCLUSIVE"
-                )
+                state = OWNER_STATE
                 reason = (
-                    "Model review (owner confirmation required): " + review["reason"]
+                    "Isolated before-fail/after-pass evidence; owner review required"
                 )
-                observed["independent_review"] = review
+                observed["owner_score"] = handoff["owner_score"]
+                observed["owner_handoff"] = {
+                    "path": (work / "owner-handoff.json")
+                    .relative_to(self.root)
+                    .as_posix(),
+                    "sha256": hashlib.sha256(
+                        (work / "owner-handoff.json").read_bytes()
+                    ).hexdigest(),
+                }
             observed["qualified"] = False
             update(self.root, job["id"], state, reason, observed)
             return state
@@ -748,6 +802,39 @@ class Delivery:
                     candidate_exit=result.get("fixed", {}).get("exit_code"),
                 )
                 jobs.append(item)
+            owner_rows = db.execute(
+                "SELECT id,source_job_id,repo,title,updated_at,result FROM delivery "
+                "WHERE state=? ORDER BY "
+                "json_extract(result,'$.owner_score') DESC,updated_at DESC LIMIT ?",
+                (OWNER_STATE, self.args.owner_queue_limit),
+            ).fetchall()
+            owner_queue = []
+            for row in owner_rows:
+                result = json.loads(row["result"])
+                owner_queue.append(
+                    {
+                        "id": row["id"],
+                        "source_job_id": row["source_job_id"],
+                        "repo": row["repo"],
+                        "title": row["title"],
+                        "updated_at": row["updated_at"],
+                        "owner_score": result.get("owner_score", 0),
+                        "handoff": result.get("owner_handoff"),
+                    }
+                )
+        scout.write_json(
+            self.root / "owner-queue.json",
+            {
+                "schema_version": "kimi-owner-queue-v1",
+                "generated_at": time.time(),
+                "count": len(owner_queue),
+                "items": owner_queue,
+                "claim_boundary": (
+                    "isolated reproductions awaiting owner review of source, contract, "
+                    "duplicates, repository tests and upstream delivery"
+                ),
+            },
+        )
         scout.write_json(
             self.root / "runtime.json",
             {
@@ -759,6 +846,7 @@ class Delivery:
                 "counts": counts,
                 "reported_tokens": tokens,
                 "jobs": jobs,
+                "owner_ready": counts.get(OWNER_STATE, 0),
                 "active": sum(counts.get(k, 0) for k in ACTIVE - {"PENDING"}),
             },
         )
@@ -826,8 +914,13 @@ def main():
     parser.add_argument(
         "--stop", action="store_true", help="drain this delivery worker only"
     )
-    parser.add_argument("--concurrency", type=int, choices=range(1, 17), default=4)
-    parser.add_argument("--execution-concurrency", type=int, choices=(1, 2), default=2)
+    parser.add_argument("--concurrency", type=int, choices=range(1, 17), default=16)
+    parser.add_argument(
+        "--execution-concurrency", type=int, choices=range(1, 5), default=4
+    )
+    parser.add_argument(
+        "--owner-queue-limit", type=int, choices=range(1, 257), default=64
+    )
     parser.add_argument("--wsl", default="Ubuntu")
     parser.add_argument("--github-auth", action="store_true")
     parser.add_argument(
