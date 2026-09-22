@@ -25,6 +25,7 @@ import kimi_scout as scout
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 
 ACTIVE = {"PENDING", "GENERATING", "TESTING", "REPAIRING", "REVIEWING"}
+DATABASE_BUSY_TIMEOUT_MS = 60_000
 SCRIPT_ROOT = Path(__file__).resolve().parent
 TORCH_CPU_IMPORTS = {
     "torch",
@@ -82,8 +83,11 @@ PUBLIC DATA:\n"""
 
 @contextmanager
 def database(root):
-    db = sqlite3.connect(root / "delivery.sqlite", timeout=15)
+    db = sqlite3.connect(
+        root / "delivery.sqlite", timeout=DATABASE_BUSY_TIMEOUT_MS / 1000
+    )
     db.row_factory = sqlite3.Row
+    db.execute(f"PRAGMA busy_timeout={DATABASE_BUSY_TIMEOUT_MS}")
     try:
         with db:
             yield db
@@ -95,6 +99,11 @@ def initialize(root):
     root.mkdir(exist_ok=True)
     (root / "jobs").mkdir(exist_ok=True)
     with database(root) as db:
+        # The dashboard and worker pool read the queue continuously. WAL keeps
+        # those readers from blocking short terminal-state updates; the longer
+        # busy timeout still fail-closes genuine writer contention instead of
+        # terminating the whole daemon on a transient scheduling collision.
+        db.execute("PRAGMA journal_mode=WAL")
         db.execute("""CREATE TABLE IF NOT EXISTS delivery (
             id TEXT PRIMARY KEY, source_job_id TEXT UNIQUE NOT NULL,
             dedup_key TEXT UNIQUE NOT NULL, repo TEXT NOT NULL, title TEXT NOT NULL,

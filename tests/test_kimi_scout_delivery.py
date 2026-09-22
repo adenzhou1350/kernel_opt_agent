@@ -88,6 +88,14 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(len(ids), 8)
         self.assertEqual(len(set(ids)), 8)
 
+    def test_queue_uses_wal_and_a_bounded_busy_timeout(self):
+        with delivery.database(self.worker.root) as db:
+            self.assertEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "wal")
+            self.assertEqual(
+                db.execute("PRAGMA busy_timeout").fetchone()[0],
+                delivery.DATABASE_BUSY_TIMEOUT_MS,
+            )
+
     def test_fast_terminal_batch_refills_before_poll_deadline(self):
         leads = [lead(i) for i in range(20)]
         with (
