@@ -1,7 +1,9 @@
-"""Read-only, loopback-only live viewer for a Kimi scout inbox (stdlib only).
+"""Read-only live viewer for a Kimi scout inbox (stdlib only).
 
 No provider configuration, arbitrary files, agent tools or mutation endpoints are
-loaded. Run independently of the scout; stopping the viewer never stops research.
+loaded. The safe default remains loopback-only; LAN exposure requires an explicit
+bind address and exact allowed Host headers. Run independently of the scout;
+stopping the viewer never stops research.
 """
 
 from __future__ import annotations
@@ -428,7 +430,7 @@ class Inbox:
         }
 
 
-def make_server(root, port=8767):
+def make_server(root, port=8767, bind="127.0.0.1", allowed_hosts=()):
     inbox = Inbox(root)
 
     class Handler(BaseHTTPRequestHandler):
@@ -458,6 +460,7 @@ def make_server(root, port=8767):
             hosts = {
                 f"127.0.0.1:{self.server.server_port}",
                 f"localhost:{self.server.server_port}",
+                *allowed_hosts,
             }
             origin = self.headers.get("Origin")
             if self.headers.get("Host") not in hosts or (
@@ -482,19 +485,30 @@ def make_server(root, port=8767):
             except (OSError, sqlite3.Error, ValueError):
                 self.respond(503, {"error": "inbox_temporarily_unavailable"})
 
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    return ThreadingHTTPServer((bind, port), Handler)
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--port", type=int, default=8767)
+    parser.add_argument(
+        "--bind",
+        default="127.0.0.1",
+        help="listen address (default: 127.0.0.1; use 0.0.0.0 for LAN access)",
+    )
+    parser.add_argument(
+        "--allow-host",
+        action="append",
+        default=[],
+        help="exact additional HTTP Host header, including port; repeat as needed",
+    )
     args = parser.parse_args(argv)
     if not 1 <= args.port <= 65535:
         parser.error("invalid port")
-    with make_server(args.root, args.port) as server:
+    with make_server(args.root, args.port, args.bind, tuple(args.allow_host)) as server:
         print(
-            f"Kimi scout viewer: http://127.0.0.1:{server.server_port} (read-only)",
+            f"Kimi scout viewer: http://{args.bind}:{server.server_port} (read-only)",
             flush=True,
         )
         try:

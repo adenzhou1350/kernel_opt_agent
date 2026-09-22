@@ -819,6 +819,44 @@ function collect(el) {
             server.server_close()
             thread.join(timeout=3)
 
+    def test_explicit_lan_host_is_allowed_without_weakening_origin_check(self):
+        server = dashboard.make_server(
+            self.root,
+            port=0,
+            bind="0.0.0.0",
+            allowed_hosts=("dashboard.internal:8767",),
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}/health"
+        try:
+            request = Request(
+                base,
+                headers={
+                    "Host": "dashboard.internal:8767",
+                    "Origin": "http://dashboard.internal:8767",
+                },
+            )
+            with urlopen(request, timeout=3) as response:
+                self.assertEqual(json.load(response), {"ok": True, "read_only": True})
+
+            with self.assertRaises(HTTPError) as error:
+                urlopen(
+                    Request(
+                        base,
+                        headers={
+                            "Host": "dashboard.internal:8767",
+                            "Origin": "https://evil.example",
+                        },
+                    ),
+                    timeout=3,
+                )
+            self.assertEqual(error.exception.code, 403)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+
     def test_unknown_usage_never_invented(self):
         for value in (None, {}, {"total_tokens": True}, {"total_tokens": -1}):
             self.assertIsNone(dashboard.valid_usage(value))
