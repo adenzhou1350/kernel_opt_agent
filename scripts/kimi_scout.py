@@ -845,7 +845,7 @@ def run(args):
             )
     # Continuous daemons should not scan and print the entire historical inbox
     # on shutdown; that can delay a supervised restart by minutes.
-    if not args.once:
+    if getattr(args, "return_summary_only", False) and not args.once:
         return {"runtime": json.loads(runtime_path.read_text(encoding="utf-8"))}
     return status(root)
 
@@ -951,6 +951,7 @@ def main(argv=None):
                 and 60 <= args.error_cooldown_seconds <= 3600
             ):
                 raise ValueError("invalid budget; keep trials bounded")
+            args.return_summary_only = True
             result = run(args)
         print(dumps(result))
         return 0

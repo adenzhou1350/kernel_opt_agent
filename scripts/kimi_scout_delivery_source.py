@@ -93,7 +93,9 @@ def _raw_sources(packet, repo):
         yield {"url": url, "commit": commit, "path": path}
 
 
-def select_leads(root, limit=20, *, exclude_source_ids=(), exclude_keys=()):
+def select_leads(
+    root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None
+):
     """Return terminal REVIEW leads fairly across repos; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
@@ -101,6 +103,10 @@ def select_leads(root, limit=20, *, exclude_source_ids=(), exclude_keys=()):
     """
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
+    if scan_limit is not None and (
+        type(scan_limit) is not int or not 1 <= scan_limit <= 10_000
+    ):
+        raise ValueError("scan_limit must be an integer between 1 and 10000")
     if not limit:
         return []
     db_path = (Path(root) / "scout.sqlite").resolve()
@@ -111,17 +117,31 @@ def select_leads(root, limit=20, *, exclude_source_ids=(), exclude_keys=()):
     excluded_ids = set(exclude_source_ids)
     try:
         connection.execute("PRAGMA query_only=ON")
+        delivery_db = Path(root) / "delivery" / "delivery.sqlite"
+        if delivery_db.is_file():
+            connection.execute(
+                "ATTACH DATABASE ? AS delivery_queue",
+                (delivery_db.resolve().as_uri() + "?mode=ro",),
+            )
+            unstaged = (
+                "AND NOT EXISTS (SELECT 1 FROM delivery_queue.delivery AS d "
+                "WHERE d.source_job_id=jobs.id)"
+            )
+        else:
+            unstaged = ""
         # NOT IN materializes the parent set once, avoiding a correlated scan
         # over the entire job history for every REVIEW row.
-        rows = connection.execute(
-            """SELECT id,packet,result FROM jobs
+        query = f"""SELECT id,packet,result FROM jobs
             WHERE state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
+            {unstaged}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
-        )
+        if scan_limit is not None:
+            query += " LIMIT ?"
+        rows = connection.execute(query, (scan_limit,) if scan_limit else ())
         for row in rows:
             if row["id"] in excluded_ids:
                 continue

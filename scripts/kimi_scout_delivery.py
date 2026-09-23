@@ -436,6 +436,7 @@ class Delivery:
         self.cpu = threading.BoundedSemaphore(args.execution_concurrency)
         self.next_refill = 0.0
         self.refill_exhausted = False
+        self.scan_limit = 512
 
     def stopped(self):
         return self.halt.is_set() or (self.root / "STOP").exists()
@@ -457,15 +458,20 @@ class Delivery:
             now < self.next_refill and pending >= self.args.concurrency - active
         ):
             return 0
-        made = stage(
-            self.root,
-            select_leads(
-                self.args.root,
-                limit=5000,
-                exclude_source_ids={row[0] for row in admitted},
-                exclude_keys={row[1] for row in admitted},
-            ),
-            limit=capacity,
+        leads = select_leads(
+            self.args.root,
+            limit=self.scan_limit,
+            scan_limit=self.scan_limit,
+            exclude_source_ids={row[0] for row in admitted},
+            exclude_keys={row[1] for row in admitted},
+        )
+        made = stage(self.root, leads, limit=capacity)
+        # If a page contained only duplicate canonical keys, widen the next
+        # read instead of permanently looping over the same historical page.
+        self.scan_limit = (
+            min(10_000, self.scan_limit * 2)
+            if made == 0 and len(leads) >= self.scan_limit
+            else 512
         )
         # A full batch may contain only fast static rejections. Keep admitting
         # unseen leads when slots would idle, without retrying terminal rows or

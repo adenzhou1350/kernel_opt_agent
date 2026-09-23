@@ -105,6 +105,23 @@ class SelectionTests(unittest.TestCase):
             ["fresh"],
         )
 
+    def test_attached_delivery_filter_runs_before_bounded_source_scan(self):
+        self.add("staged", finished=2)
+        self.add("fresh", finished=1)
+        delivery_root = self.root / "delivery"
+        delivery_root.mkdir()
+        db = sqlite3.connect(delivery_root / "delivery.sqlite")
+        try:
+            db.execute("CREATE TABLE delivery (source_job_id TEXT UNIQUE)")
+            db.execute("INSERT INTO delivery VALUES ('staged')")
+            db.commit()
+        finally:
+            db.close()
+        self.assertEqual(
+            [row["id"] for row in delivery.select_leads(self.root, 1, scan_limit=1)],
+            ["fresh"],
+        )
+
     def test_exact_normalized_dedup_is_revision_stable_not_semantic(self):
         self.add("old", hypothesis="  Same  HYPOTHESIS ", finished=1)
         changed = packet(
