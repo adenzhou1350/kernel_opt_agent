@@ -71,17 +71,29 @@ def dumps(value):
 
 def write_json(path, value):
     path = Path(path)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(dumps(value) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    temporary = path.with_name(
+        f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    )
+    try:
+        temporary.write_text(dumps(value) + "\n", encoding="utf-8")
+        for attempt in range(5):
+            try:
+                os.replace(temporary, path)
+                return
+            except PermissionError:
+                if attempt == 4:
+                    raise
+                # Windows readers can briefly deny replacing an open file.
+                time.sleep(0.05 * 2**attempt)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 @contextlib.contextmanager
 def connect(root):
-    connection = sqlite3.connect(Path(root) / "scout.sqlite", timeout=15)
+    connection = sqlite3.connect(Path(root) / "scout.sqlite", timeout=60)
     connection.row_factory = sqlite3.Row
     try:
-        connection.execute("PRAGMA journal_mode=WAL")
         with connection:
             yield connection
     finally:
@@ -94,6 +106,10 @@ def initialize(root):
     (root / "results").mkdir(exist_ok=True)
     (root / "work").mkdir(exist_ok=True)
     with connect(root) as db:
+        # Setting journal mode needs an exclusive lock. Existing WAL databases
+        # must not contend with the running delivery process during restart.
+        if db.execute("PRAGMA journal_mode").fetchone()[0].lower() != "wal":
+            db.execute("PRAGMA journal_mode=WAL")
         db.execute("""CREATE TABLE IF NOT EXISTS jobs (
             id TEXT PRIMARY KEY, name TEXT NOT NULL, packet TEXT NOT NULL,
             state TEXT NOT NULL, created REAL NOT NULL, started REAL,
@@ -351,7 +367,26 @@ def collect(root, feeds, github_auth=False):
     return results
 
 
+def retry_locked(operation):
+    """Retry a whole, rollback-safe transaction after a transient writer lock."""
+    for attempt in range(4):
+        try:
+            return operation()
+        except sqlite3.OperationalError as exc:
+            if "database is locked" not in str(exc).lower() or attempt == 3:
+                raise
+            time.sleep(0.25 * 2**attempt)
+
+
 def claim(root, max_jobs, token_budget, output_tokens, preferred_stages=()):
+    return retry_locked(
+        lambda: _claim_once(
+            root, max_jobs, token_budget, output_tokens, preferred_stages
+        )
+    )
+
+
+def _claim_once(root, max_jobs, token_budget, output_tokens, preferred_stages):
     with connect(root) as db:
         db.execute("BEGIN IMMEDIATE")
         if preferred_stages:
@@ -586,11 +621,15 @@ def execute(root, job, python, timeout, output_tokens):
         "finished": time.time(),
     }
     write_json(root / "results" / f"{job['id']}.json", receipt)
-    with connect(root) as db:
-        db.execute(
-            "UPDATE jobs SET state=?,finished=?,charge=?,result=?,error=? WHERE id=?",
-            (state, time.time(), charge, dumps(result), error, job["id"]),
-        )
+
+    def persist_receipt():
+        with connect(root) as db:
+            db.execute(
+                "UPDATE jobs SET state=?,finished=?,charge=?,result=?,error=? WHERE id=?",
+                (state, time.time(), charge, dumps(result), error, job["id"]),
+            )
+
+    retry_locked(persist_receipt)
     return receipt
 
 
@@ -706,6 +745,8 @@ def run(args):
                 producer.start()
             with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
                 while time.time() < deadline and not (root / "STOP").exists():
+                    if producer and producer.thread and not producer.thread.is_alive():
+                        raise RuntimeError("research producer stopped unexpectedly")
                     if running:
                         done, running = wait(
                             running, timeout=1, return_when=FIRST_COMPLETED
@@ -802,6 +843,10 @@ def run(args):
                 next_feed_at=None,
                 reason=reason,
             )
+    # Continuous daemons should not scan and print the entire historical inbox
+    # on shutdown; that can delay a supervised restart by minutes.
+    if not args.once:
+        return {"runtime": json.loads(runtime_path.read_text(encoding="utf-8"))}
     return status(root)
 
 

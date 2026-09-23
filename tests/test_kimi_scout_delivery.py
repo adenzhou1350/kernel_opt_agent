@@ -97,6 +97,15 @@ class DeliveryTests(unittest.TestCase):
                 delivery.DATABASE_BUSY_TIMEOUT_MS,
             )
 
+    def test_refill_excludes_already_admitted_source_and_dedup_keys(self):
+        delivery.stage(self.worker.root, [lead(1)])
+        with patch.object(delivery, "select_leads", return_value=[lead(2)]) as select:
+            self.assertEqual(self.worker.refill(active=0), 1)
+        self.assertEqual(select.call_args.kwargs["exclude_source_ids"], {"1"})
+        self.assertEqual(
+            select.call_args.kwargs["exclude_keys"], {"hypothesis1"}
+        )
+
     def test_fast_terminal_batch_refills_before_poll_deadline(self):
         leads = [lead(i) for i in range(20)]
         with (

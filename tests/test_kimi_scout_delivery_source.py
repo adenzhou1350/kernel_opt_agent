@@ -90,6 +90,21 @@ class SelectionTests(unittest.TestCase):
             [row["id"] for row in delivery.select_leads(self.root)], ["plan", "audit"]
         )
 
+    def test_staged_leads_do_not_hide_fresh_leads_at_selection_limit(self):
+        self.add("staged", finished=2)
+        self.add("fresh", finished=1)
+        first = delivery.select_leads(self.root, 1)
+        self.assertEqual([row["id"] for row in first], ["staged"])
+        self.assertEqual(
+            [row["id"] for row in delivery.select_leads(
+                self.root,
+                1,
+                exclude_source_ids={"staged"},
+                exclude_keys={first[0]["canonical_key"]},
+            )],
+            ["fresh"],
+        )
+
     def test_exact_normalized_dedup_is_revision_stable_not_semantic(self):
         self.add("old", hypothesis="  Same  HYPOTHESIS ", finished=1)
         changed = packet(

@@ -449,6 +449,9 @@ class Delivery:
             pending = db.execute(
                 "SELECT count(*) FROM delivery WHERE state='PENDING'"
             ).fetchone()[0]
+            admitted = db.execute(
+                "SELECT source_job_id,dedup_key FROM delivery"
+            ).fetchall()
         capacity = self.args.concurrency * 2 - pending
         if capacity <= 0 or (
             now < self.next_refill and pending >= self.args.concurrency - active
@@ -456,7 +459,12 @@ class Delivery:
             return 0
         made = stage(
             self.root,
-            select_leads(self.args.root, limit=5000),
+            select_leads(
+                self.args.root,
+                limit=5000,
+                exclude_source_ids={row[0] for row in admitted},
+                exclude_keys={row[1] for row in admitted},
+            ),
             limit=capacity,
         )
         # A full batch may contain only fast static rejections. Keep admitting

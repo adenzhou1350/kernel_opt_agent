@@ -93,7 +93,7 @@ def _raw_sources(packet, repo):
         yield {"url": url, "commit": commit, "path": path}
 
 
-def select_leads(root, limit=20):
+def select_leads(root, limit=20, *, exclude_source_ids=(), exclude_keys=()):
     """Return terminal REVIEW leads fairly across repos; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
@@ -107,7 +107,8 @@ def select_leads(root, limit=20):
     connection = sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True, timeout=15)
     connection.row_factory = sqlite3.Row
     buckets = {}
-    seen = set()
+    seen = set(exclude_keys)
+    excluded_ids = set(exclude_source_ids)
     try:
         connection.execute("PRAGMA query_only=ON")
         # NOT IN materializes the parent set once, avoiding a correlated scan
@@ -122,6 +123,8 @@ def select_leads(root, limit=20):
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
         )
         for row in rows:
+            if row["id"] in excluded_ids:
+                continue
             try:
                 packet = json.loads(row["packet"])
                 analysis = json.loads(row["result"])["analysis"]

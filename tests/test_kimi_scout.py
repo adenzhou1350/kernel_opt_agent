@@ -4,6 +4,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import sqlite3
 import subprocess
 import sys
 import tempfile
@@ -61,6 +62,25 @@ class ScoutTests(unittest.TestCase):
     def add(self, name="one"):
         return scout.enqueue(self.root, packet(name))
 
+    def test_atomic_json_write_survives_transient_windows_read_conflict(self):
+        destination = self.root / "status.json"
+        replace = os.replace
+        calls = 0
+
+        def transient(source, target):
+            nonlocal calls
+            calls += 1
+            if calls < 3:
+                raise PermissionError("file is temporarily open")
+            replace(source, target)
+
+        with patch.object(scout.os, "replace", side_effect=transient):
+            with patch.object(scout.time, "sleep"):
+                scout.write_json(destination, {"state": "RUNNING"})
+        self.assertEqual(calls, 3)
+        self.assertEqual(json.loads(destination.read_text()), {"state": "RUNNING"})
+        self.assertFalse(list(self.root.glob(".status.json.*.tmp")))
+
     def test_content_dedup_across_moving_revision(self):
         a = scout.enqueue(self.root, packet())
         b = scout.enqueue(self.root, packet(revision="b" * 40))
@@ -105,6 +125,39 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(len(valid), 2)
         self.assertEqual(len({job["id"] for job in valid}), 2)
         self.assertIsNone(scout.claim(self.root, 2, 200000, 2048))
+
+    def test_existing_wal_initialization_does_not_change_mode_under_writer(self):
+        with scout.connect(self.root) as writer:
+            writer.execute("BEGIN IMMEDIATE")
+            started = time.monotonic()
+            scout.initialize(self.root)
+            self.assertLess(time.monotonic() - started, 2)
+
+    def test_claim_retries_transient_database_lock_without_duplicate_claim(self):
+        self.add()
+        original = scout._claim_once
+        calls = 0
+
+        def transient(*args):
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                raise sqlite3.OperationalError("database is locked")
+            return original(*args)
+
+        with patch.object(scout, "_claim_once", side_effect=transient):
+            with patch.object(scout.time, "sleep"):
+                job = scout.claim(self.root, 0, 0, 2048)
+        self.assertEqual(calls, 2)
+        self.assertIsNotNone(job)
+        self.assertIsNone(scout.claim(self.root, 0, 0, 2048))
+
+    def test_lock_retry_does_not_mask_other_database_errors(self):
+        def invalid():
+            raise sqlite3.OperationalError("no such table: jobs")
+
+        with self.assertRaisesRegex(sqlite3.OperationalError, "no such table"):
+            scout.retry_locked(invalid)
 
     def test_reservation_budget_blocks_before_provider_call(self):
         self.add()

@@ -805,6 +805,15 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(value["phase"], "READY")
         self.assertEqual(value["goals"][0]["repo"], "a/b")
 
+    def test_transient_dashboard_permission_does_not_stop_research(self):
+        with patch.object(
+            self.producer, "_publish", side_effect=PermissionError("reader open")
+        ):
+            self.producer.publish("REFILLING")
+        self.producer.publish("READY")
+        value = json.loads((self.root / "research.json").read_text())
+        self.assertEqual(value["phase"], "READY")
+
     def test_unsupported_source_does_not_stall_frontier(self):
         progress = {}
         with patch.object(

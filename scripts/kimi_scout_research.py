@@ -233,7 +233,13 @@ class ResearchProducer:
 
     def publish(self, phase, error=None, next_scan=None):
         with self.lock:
-            self._publish(phase, error, next_scan)
+            try:
+                self._publish(phase, error, next_scan)
+            except PermissionError:
+                # Dashboard telemetry is recoverable; a Windows reader can
+                # briefly block replacement even after bounded write retries.
+                # The next loop refreshes it without discarding frontier work.
+                pass
 
     def _publish(self, phase, error, next_scan):
         goals = [
