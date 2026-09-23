@@ -505,6 +505,7 @@ class Delivery:
             capture_output=True,
             timeout=140,
             cwd=work,
+            env=scout.runtime_storage_env(self.args.root),
             check=False,
         )
         answer = json.loads(completed.stdout)
@@ -550,11 +551,25 @@ class Delivery:
                 "--profile",
                 profile,
             ]
+            env = scout.runtime_storage_env(self.args.root)
             if os.name == "nt":
-                command = ["wsl.exe", "-d", self.args.wsl, "--exec", *command]
+                command = [
+                    "wsl.exe",
+                    "-d",
+                    self.args.wsl,
+                    "--exec",
+                    "/usr/bin/env",
+                    "TMPDIR=" + linux_path(Path(env["TMPDIR"])),
+                    "XDG_CACHE_HOME=" + linux_path(Path(env["XDG_CACHE_HOME"])),
+                    *command,
+                ]
             try:
                 completed = subprocess.run(
-                    command, capture_output=True, timeout=150, check=False
+                    command,
+                    capture_output=True,
+                    timeout=150,
+                    check=False,
+                    env=env,
                 )
                 result = json.loads(completed.stdout)
             except (subprocess.TimeoutExpired, OSError, ValueError):

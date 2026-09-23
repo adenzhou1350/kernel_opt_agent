@@ -47,6 +47,12 @@ work needs this service, and it does not resurrect the historical GPU broker.
 - Raw evidence/results stay in ignored `runs/`. Knowledge suggestions are not
   automatically written into the reviewed library. Review, deduplicate, then use
   the normal `knowledge add` workflow if a finding will help a future decision.
+- Kimi/Python child-process temporary files and uv/XDG/Hugging Face caches are
+  scoped to `<root>/runtime-storage`; the WSL verifier also receives a temp path
+  on that volume. Put `--root` where there is enough free space. The installed
+  Kimi interpreter, its small credential directory, and shared WSL/container
+  image storage stay in their existing locations; other projects' caches are
+  not migrated.
 
 ## Run
 

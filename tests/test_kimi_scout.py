@@ -62,6 +62,20 @@ class ScoutTests(unittest.TestCase):
     def add(self, name="one"):
         return scout.enqueue(self.root, packet(name))
 
+    def test_runtime_storage_is_scoped_to_run_root(self):
+        source = {"TEMP": "C:/shared-temp", "OTHER": "preserved"}
+        env = scout.runtime_storage_env(self.root, source)
+        storage = self.root.resolve() / "runtime-storage"
+        self.assertEqual(source["TEMP"], "C:/shared-temp")
+        self.assertEqual(env["OTHER"], "preserved")
+        for key in ("TEMP", "TMP", "TMPDIR"):
+            self.assertEqual(env[key], str(storage / "tmp"))
+        self.assertEqual(env["UV_CACHE_DIR"], str(storage / "cache" / "uv"))
+        self.assertEqual(env["XDG_CACHE_HOME"], str(storage / "cache" / "xdg"))
+        self.assertEqual(env["HF_HOME"], str(storage / "cache" / "huggingface"))
+        for key in ("TEMP", "UV_CACHE_DIR", "XDG_CACHE_HOME", "HF_HOME"):
+            self.assertTrue(Path(env[key]).is_dir())
+
     def test_atomic_json_write_survives_transient_windows_read_conflict(self):
         destination = self.root / "status.json"
         replace = os.replace
