@@ -90,7 +90,7 @@ class ReviewedInputsTests(unittest.TestCase):
 class InventoryTests(unittest.TestCase):
     def test_exact_uuid_inventory_and_foreign_gpu_process(self):
         outputs = [
-            f"{GPU}, 2, 0, 0\n",
+            f"{GPU}, 2, 32768, 1024, 0\n",
             "GPU-ffffffff-1111-2222-3333-444444444444, 101, busy\n",
         ]
         with mock.patch.object(
@@ -100,12 +100,17 @@ class InventoryTests(unittest.TestCase):
         ) as call:
             result = verify.snapshot(GPU)
         self.assertEqual(result["index"], 2)
+        self.assertEqual(result["total_mib"], 32768)
+        self.assertEqual(result["memory_mib"], 1024)
         self.assertEqual(result["processes"], [])
         self.assertIn("--id=" + GPU, call.call_args_list[0].args[0])
         self.assertEqual(call.call_args_list[0].args[0][0], "/usr/bin/nvidia-smi")
 
     def test_unknown_metrics_and_uuid_mismatch_rejected(self):
-        for text in (f"{GPU}, 0, N/A, 0\n", "GPU-other, 0, 0, 0\n"):
+        for text in (
+            f"{GPU}, 0, 32768, N/A, 0\n",
+            "GPU-other, 0, 32768, 0, 0\n",
+        ):
             with (
                 self.subTest(text=text),
                 mock.patch.object(
@@ -115,13 +120,14 @@ class InventoryTests(unittest.TestCase):
             ):
                 verify.snapshot(GPU)
 
-    def test_three_samples_and_rejection_of_busy_device(self):
+    def test_three_samples_allow_other_processes_but_require_bounded_headroom(self):
         idle = {
             "uuid": GPU,
             "index": 0,
-            "memory_mib": 64,
-            "utilization": 1,
-            "processes": [],
+            "total_mib": 8192,
+            "memory_mib": 1024,
+            "utilization": 35,
+            "processes": [[GPU, "77", "other"]],
         }
         with (
             mock.patch.object(verify, "snapshot", return_value=idle) as probe,
@@ -131,14 +137,13 @@ class InventoryTests(unittest.TestCase):
             self.assertEqual(probe.call_count, 3)
             self.assertEqual(sleep.call_args_list, [mock.call(1), mock.call(1)])
         for change in (
-            {"memory_mib": 65},
-            {"utilization": 2},
-            {"processes": [[GPU, "77", "other"]]},
+            {"memory_mib": 2049},
+            {"utilization": 81},
         ):
             with (
                 self.subTest(change=change),
                 mock.patch.object(verify, "snapshot", return_value={**idle, **change}),
-                self.assertRaisesRegex(RuntimeError, "not idle"),
+                self.assertRaisesRegex(RuntimeError, "bounded headroom"),
             ):
                 verify.idle_samples(GPU)
 
@@ -229,7 +234,9 @@ class HarnessTests(unittest.TestCase):
         cuda = types.SimpleNamespace(
             device_count=mock.Mock(return_value=count),
             get_device_properties=mock.Mock(
-                return_value=types.SimpleNamespace(uuid=uuid)
+                return_value=types.SimpleNamespace(
+                    uuid=uuid, total_memory=32768 * 1024 * 1024
+                )
             ),
             set_device=mock.Mock(),
             set_per_process_memory_fraction=mock.Mock(),
@@ -256,7 +263,7 @@ class HarnessTests(unittest.TestCase):
         )
 
         def discovery(*args, **kwargs):
-            torch.cuda.set_per_process_memory_fraction.assert_called_once_with(0.25, 0)
+            torch.cuda.set_per_process_memory_fraction.assert_called_once_with(0.125, 0)
             return unittest.TestSuite()
 
         output = io.StringIO()
@@ -308,14 +315,28 @@ class SequenceTests(unittest.TestCase):
         return report, run, idle
 
     def test_fresh_arms_same_test_and_post_checks(self):
-        report, run, idle = self.execute([arm_result(), arm_result(exit_code=0)])
+        clean = arm_result(
+            exit_code=0,
+            tests={**arm_result()["tests"], "failures": 0},
+        )
+        report, run, idle = self.execute([arm_result(), clean])
         self.assertTrue(report["matched_test_count"])
+        self.assertTrue(report["screen_passed"])
         self.assertFalse(report["qualified"])
         self.assertEqual(
             run.call_args_list,
             [mock.call(b"before", b"same", GPU), mock.call(b"after", b"same", GPU)],
         )
         self.assertEqual(idle.call_count, 3)
+
+    def test_matching_test_counts_do_not_hide_candidate_failures(self):
+        report, _, _ = self.execute([arm_result(), arm_result(exit_code=0)])
+        self.assertTrue(report["matched_test_count"])
+        self.assertFalse(report["screen_passed"])
+        report, _, _ = self.execute(
+            [arm_result(), arm_result(tests={**arm_result()["tests"], "errors": 1})]
+        )
+        self.assertFalse(report["screen_passed"])
 
     def test_uncertain_before_never_launches_candidate(self):
         for changed in (

@@ -30,10 +30,13 @@ from pathlib import Path
 MAX_FILE = 262_144
 MAX_OUTPUT = 32_768
 TIMEOUT = 30
+MIN_HEADROOM_MIB = 6144
+MAX_TORCH_ALLOC_MIB = 4096
+MAX_UTILIZATION = 80
 MARKER = "KIMI_GPU_VERIFY_RESULT="
 SCOPE = "OWNER_REVIEWED_SINGLE_MODULE_GPU_SCREEN_NOT_UPSTREAM_SUITE"
 UUID_RE = r"GPU-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
-HARNESS = """import json, sys, unittest
+HARNESS = f"""import json, sys, unittest
 import torch
 expected, inputs = sys.argv[1:]
 if torch.cuda.device_count() != 1:
@@ -42,7 +45,8 @@ actual = str(getattr(torch.cuda.get_device_properties(0), "uuid", ""))
 if actual.lower().removeprefix("gpu-") != expected.lower().removeprefix("gpu-"):
     raise RuntimeError("visible CUDA UUID does not match selected UUID: " + actual)
 torch.cuda.set_device(0)
-torch.cuda.set_per_process_memory_fraction(0.25, 0)
+total_mib = torch.cuda.get_device_properties(0).total_memory / (1024 * 1024)
+torch.cuda.set_per_process_memory_fraction(min(0.25, {MAX_TORCH_ALLOC_MIB} / total_mib), 0)
 torch.set_num_threads(1)
 sys.path.insert(0, inputs)
 suite = unittest.defaultTestLoader.discover(inputs, pattern="test_subject.py")
@@ -128,11 +132,14 @@ def snapshot(gpu_uuid):
         return list(csv.reader(result.stdout.strip().splitlines()))
 
     rows = query(
-        ["--id=" + gpu_uuid, "--query-gpu=uuid,index,memory.used,utilization.gpu"]
+        [
+            "--id=" + gpu_uuid,
+            "--query-gpu=uuid,index,memory.total,memory.used,utilization.gpu",
+        ]
     )
     if (
         len(rows) != 1
-        or len(rows[0]) != 4
+        or len(rows[0]) != 5
         or rows[0][0].strip().lower() != gpu_uuid.lower()
     ):
         raise ValueError("nvidia-smi did not identify the exact selected GPU")
@@ -145,13 +152,15 @@ def snapshot(gpu_uuid):
     return {
         "uuid": row[0],
         "index": int(row[1]),
-        "memory_mib": int(row[2]),
-        "utilization": int(row[3]),
+        "total_mib": int(row[2]),
+        "memory_mib": int(row[3]),
+        "utilization": int(row[4]),
         "processes": [p for p in processes if p[0].strip().lower() == gpu_uuid.lower()],
     }
 
 
 def idle_samples(gpu_uuid):
+    """Require headroom for a bounded correctness screen; sharing is allowed."""
     samples = []
     for index in range(3):
         if index:
@@ -159,11 +168,12 @@ def idle_samples(gpu_uuid):
         sample = snapshot(gpu_uuid)
         samples.append(sample)
         if (
-            sample["memory_mib"] > 64
-            or sample["utilization"] > 1
-            or sample["processes"]
+            sample["total_mib"] - sample["memory_mib"] < MIN_HEADROOM_MIB
+            or sample["utilization"] > MAX_UTILIZATION
         ):
-            raise RuntimeError("selected GPU is not idle: " + json.dumps(sample))
+            raise RuntimeError(
+                "selected GPU lacks bounded headroom: " + json.dumps(sample)
+            )
     return samples
 
 
@@ -371,6 +381,16 @@ def verify(args):
         >= 2
         and all(a["tests"]["skipped"] == 0 for a in arms.values())
     )
+    report["screen_passed"] = bool(
+        report["matched_test_count"]
+        and "stopped" not in report
+        and arms["baseline"]["exit_code"] == 1
+        and arms["baseline"]["tests"]["failures"] >= 1
+        and arms["baseline"]["tests"]["errors"] == 0
+        and arms["candidate"]["exit_code"] == 0
+        and arms["candidate"]["tests"]["failures"] == 0
+        and arms["candidate"]["tests"]["errors"] == 0
+    )
     return report
 
 
@@ -382,7 +402,7 @@ def main():
     try:
         report = verify(parser.parse_args())
         print(json.dumps(report, ensure_ascii=False))
-        return 0 if report["matched_test_count"] and "stopped" not in report else 2
+        return 0 if report["screen_passed"] else 2
     except Exception as exc:  # noqa: BLE001 - CLI boundary reports failure without qualification.
         print(json.dumps({"scope": SCOPE, "qualified": False, "error": str(exc)}))
         return 2
