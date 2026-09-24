@@ -96,10 +96,11 @@ def _raw_sources(packet, repo):
 def select_leads(
     root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None
 ):
-    """Return terminal REVIEW leads fairly across repos; no DB/cache writes.
+    """Return Python-verifiable REVIEW leads fairly; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
+    Other-language leads remain in the research DB for a matching verifier.
     """
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
@@ -136,6 +137,12 @@ def select_leads(
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
+            AND EXISTS (
+              SELECT 1 FROM json_each(jobs.packet,'$.sources') AS source
+              WHERE CASE WHEN json_valid(source.value)
+                THEN json_extract(source.value,'$.url') END
+                GLOB 'https://raw.githubusercontent.com/*.py'
+            )
             {unstaged}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
@@ -154,6 +161,8 @@ def select_leads(
                 sources = list(_raw_sources(packet, repo))
                 primary = sources[0] if sources else None
                 python = next((s for s in sources if s["path"].endswith(".py")), None)
+                if python is None:
+                    continue
                 text = analysis.get("hypothesis") or analysis.get("title") or row["id"]
                 if not isinstance(text, str):
                     continue
