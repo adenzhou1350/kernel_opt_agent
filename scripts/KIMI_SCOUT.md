@@ -362,6 +362,14 @@ The dashboard shows discovery and delivery capacities separately. Divide the
 desired model-call ceiling between the two processes (for example 8 + 8), while
 keeping CPU container concurrency at 1 or 2. Do not increase search to fill idle
 slots when the available evidence or compatible verification work is exhausted.
+For an offline read-only cost and outcome snapshot, run
+`python scripts/kimi_scout_funnel.py --root runs/kimi-scout`. It separates
+research jobs, terminal review leaves, reported model tokens, delivery outcomes
+and the most common environment blockers by repository. A review leaf is still
+an unvalidated hypothesis. The report deliberately leaves linked PR count null:
+the inbox does not have an audited lead-to-PR identity, so it cannot claim a PR
+conversion rate. Use this snapshot before widening a frontier or increasing
+model concurrency.
 `--max-jobs N` is a bounded admission trial; zero continues on unseen leads. This
 is separately authorized paid model usage, not free work merely because slots
 are empty. On resume, explicitly archive the delivery STOP marker; keep the DB
