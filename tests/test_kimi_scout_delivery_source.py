@@ -26,7 +26,7 @@ def packet(repo=REPO, sources=None, parent=None, stage="reproduction_plan"):
         "repo": repo,
         "sources": sources
         if sources is not None
-        else [{"url": RAW, "text": "1: pass"}],
+        else [{"url": RAW.replace(REPO, repo), "text": "1: pass"}],
         "research": {"stage": stage, "parent_job_id": parent},
     }
 
@@ -96,12 +96,15 @@ class SelectionTests(unittest.TestCase):
         first = delivery.select_leads(self.root, 1)
         self.assertEqual([row["id"] for row in first], ["staged"])
         self.assertEqual(
-            [row["id"] for row in delivery.select_leads(
-                self.root,
-                1,
-                exclude_source_ids={"staged"},
-                exclude_keys={first[0]["canonical_key"]},
-            )],
+            [
+                row["id"]
+                for row in delivery.select_leads(
+                    self.root,
+                    1,
+                    exclude_source_ids={"staged"},
+                    exclude_keys={first[0]["canonical_key"]},
+                )
+            ],
             ["fresh"],
         )
 
@@ -121,6 +124,21 @@ class SelectionTests(unittest.TestCase):
             [row["id"] for row in delivery.select_leads(self.root, 1, scan_limit=1)],
             ["fresh"],
         )
+
+    def test_other_languages_remain_unstaged_and_do_not_starve_python(self):
+        cpp_raw = RAW.replace("src/check.py", "src/check.cpp")
+        self.add(
+            "cpp",
+            packet(
+                sources=["invalid source", {"url": cpp_raw, "text": "1: int main() {}"}]
+            ),
+            finished=2,
+        )
+        self.add("python", finished=1)
+        before = (self.root / "scout.sqlite").read_bytes()
+        selected = delivery.select_leads(self.root, 1, scan_limit=1)
+        self.assertEqual([row["id"] for row in selected], ["python"])
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
 
     def test_exact_normalized_dedup_is_revision_stable_not_semantic(self):
         self.add("old", hypothesis="  Same  HYPOTHESIS ", finished=1)

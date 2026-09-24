@@ -349,8 +349,13 @@ are explicit environment blockers; the worker does not install them or fabricate
 equivalent toy implementations. Lazy/optional imports remain runtime unknowns.
 
 Terminal scout leads are admitted round-robin across repositories with exact
-path/hypothesis deduplication. One lead gets generation, at most one repair using
-real output, and a separate skeptical call only for before-fail/fixed-pass.
+path/hypothesis deduplication. The Python delivery worker only admits packets
+with an immutable `.py` source URL. C++/TypeScript and other-language leads stay
+in the research database for a matching verifier instead of consuming a Python
+delivery slot and ending as `ENVIRONMENT_BLOCKED`. This admission check does not
+assert that a Python module is independently runnable. One lead gets generation,
+at most one repair using real output, and a separate skeptical call only for
+before-fail/fixed-pass.
 `REPRODUCED` still needs owner assertion/reachability/novelty review; `NO_BUG`
 is a model rejection, not an executed proof. No PR or knowledge is auto-published.
 Source and result artifacts are preserved in ignored `delivery/jobs/`; a separate
