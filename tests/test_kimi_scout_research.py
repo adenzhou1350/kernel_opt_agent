@@ -748,6 +748,38 @@ class ResearchTests(unittest.TestCase):
             finally:
                 producer.stop()
 
+    def test_parallel_coordinator_waits_while_all_context_workers_are_busy(self):
+        producer = self.parallel_producer(self.context)
+        blocked = threading.Event()
+        release = threading.Event()
+        calls = 0
+        call_lock = threading.Lock()
+        original = self.context.snapshot
+
+        def snapshot(repo, ref="main"):
+            nonlocal calls
+            with call_lock:
+                calls += 1
+                if calls == 2:
+                    blocked.set()
+            if not release.wait(5):
+                raise TimeoutError("test release did not arrive")
+            return original(repo, ref)
+
+        with (
+            patch.object(self.context, "snapshot", side_effect=snapshot),
+            patch.object(producer, "publish", wraps=producer.publish) as publish,
+        ):
+            producer.start()
+            try:
+                self.assertTrue(blocked.wait(2))
+                published_while_busy = publish.call_count
+                time.sleep(0.75)
+                self.assertLessEqual(publish.call_count - published_while_busy, 1)
+            finally:
+                release.set()
+                producer.stop()
+
     def test_parallel_last_queue_slot_preserves_deferred_source(self):
         for i in range(3):
             self.producer.emit(
