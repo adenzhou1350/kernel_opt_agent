@@ -389,11 +389,17 @@ class ResearchProducer:
         return True
 
     def snapshot(self, spec, progress):
+        # Source sweeps keep a stable revision until their cursor completes.
         snapshot = self.context.snapshot(
             spec["repo"], progress.get("commit") or spec.get("ref", "main")
         )
         progress["commit"] = snapshot["commit"]
         return snapshot
+
+    def current_snapshot(self, spec):
+        # Issue triage and follow-ups must not inherit a long sweep's pinned SHA.
+        # The context layer bounds mutable-ref refreshes with SNAPSHOT_TTL.
+        return self.context.snapshot(spec["repo"], spec.get("ref", "main"))
 
     def issue(self, spec, progress):
         if time.time() < progress.get("issues_after", 0):
@@ -428,7 +434,7 @@ class ResearchProducer:
                     5000,
                 )
             ]
-            snapshot = self.snapshot(spec, progress)
+            snapshot = self.current_snapshot(spec)
             if self.stopped():
                 return False
             matches = relevant_paths(snapshot, sources[0]["text"])
@@ -603,7 +609,7 @@ class ResearchProducer:
                 continue
             analysis_value = json.loads(row["result"])["analysis"]
             analysis = scout.dumps(analysis_value)
-            snapshot = self.snapshot(spec, progress)
+            snapshot = self.current_snapshot(spec)
             if self.stopped():
                 return False
             sources = (
@@ -759,9 +765,7 @@ class ResearchProducer:
                     if made:
                         empty_refills.pop(repo, None)
                     elif not failure:
-                        empty_refills[repo] = min(
-                            6, empty_refills.get(repo, 0) + 1
-                        )
+                        empty_refills[repo] = min(6, empty_refills.get(repo, 0) + 1)
                     ready_at[repo] = time.monotonic() + refill_retry_delay(
                         made, failure, empty_refills.get(repo, 0)
                     )

@@ -78,9 +78,7 @@ class Context:
 class ResearchTests(unittest.TestCase):
     def test_idle_refill_delay_ignores_expired_repository_deadlines(self):
         self.assertEqual(research.idle_refill_delay({"stale": 99}, 100), 30)
-        self.assertEqual(
-            research.idle_refill_delay({"stale": 99, "next": 102}, 100), 2
-        )
+        self.assertEqual(research.idle_refill_delay({"stale": 99, "next": 102}, 100), 2)
         self.assertEqual(research.idle_refill_delay({"next": 200}, 100), 30)
         self.assertEqual(research.idle_refill_delay({}, 100), 30)
 
@@ -156,6 +154,19 @@ class ResearchTests(unittest.TestCase):
         self.context.blob = "e" * 40
         self.assertTrue(self.producer.source_audit(self.spec, {}))
         self.assertEqual(len(self.jobs()), 2)
+
+    def test_issue_and_followup_use_current_ref_while_source_sweep_is_pinned(self):
+        progress = {"commit": "d" * 40}
+        with patch.object(self.context, "snapshot", wraps=self.context.snapshot) as get:
+            self.assertTrue(self.producer.issue(self.spec, progress))
+            self.assertEqual(get.call_args.args, ("a/b", "main"))
+            self.assertEqual(progress["commit"], "d" * 40)
+            self.finish(self.jobs()[0])
+            self.assertTrue(self.producer.followup(self.spec, progress))
+            self.assertEqual(get.call_args.args, ("a/b", "main"))
+            self.assertEqual(progress["commit"], "d" * 40)
+            self.producer.source_audit(self.spec, progress)
+            self.assertEqual(get.call_args.args, ("a/b", "d" * 40))
 
     def test_no_rephrasing_followup_and_two_step_cap(self):
         self.assertTrue(self.producer.issue(self.spec, {}))
@@ -511,6 +522,7 @@ class ResearchTests(unittest.TestCase):
             self.root, self.config, context=self.context
         )
         progress = {}
+
         def long_source(repo, commit, path, hints="", start=None):
             start = start or 1
             return {
@@ -527,7 +539,9 @@ class ResearchTests(unittest.TestCase):
     def test_source_audit_can_scan_configured_later_windows(self):
         self.value["source_windows"] = 8
         self.config.write_text(json.dumps(self.value))
-        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
         progress = {"source_cursor": 3, "source_windows": 8}
 
         def source(repo, commit, path, hints="", start=None):
@@ -549,7 +563,9 @@ class ResearchTests(unittest.TestCase):
     def test_source_audit_migrates_existing_window_cursor(self):
         self.value["source_windows"] = 8
         self.config.write_text(json.dumps(self.value))
-        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
         progress = {"source_cursor": 3, "sources_after": time.time() + 3600}
         snapshot = {
             "commit": "a" * 40,
