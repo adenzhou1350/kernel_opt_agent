@@ -44,12 +44,15 @@ def idle_refill_delay(ready_at, now):
     return min(30, max(0.01, min(future, default=30)))
 
 
-def refill_retry_delay(made, failure, empty_refills):
+def refill_retry_delay(made, failure, empty_refills, *, cursor_advanced=False):
     """Back off a repository only when it repeatedly yields no new evidence."""
     if failure:
         return 60
     if made:
         return 0.2
+    if cursor_advanced:
+        # Seen source windows still move the scan toward a fresh revision.
+        return 0.5
     return min(120, 5 * 2 ** max(0, empty_refills - 1))
 
 
@@ -757,17 +760,23 @@ class ResearchProducer:
             while not self.stopped():
                 self.refill_wake.clear()
                 error = None
-                for repo, (future, progress) in list(active.items()):
+                for repo, (future, progress, initial_cursor) in list(active.items()):
                     if not future.done():
                         continue
                     made, failure = self.finish_refill(repo, future, progress)
                     del active[repo]
+                    cursor_advanced = progress.get("source_cursor", 0) != initial_cursor
                     if made:
+                        empty_refills.pop(repo, None)
+                    elif cursor_advanced and not failure:
                         empty_refills.pop(repo, None)
                     elif not failure:
                         empty_refills[repo] = min(6, empty_refills.get(repo, 0) + 1)
                     ready_at[repo] = time.monotonic() + refill_retry_delay(
-                        made, failure, empty_refills.get(repo, 0)
+                        made,
+                        failure,
+                        empty_refills.get(repo, 0),
+                        cursor_advanced=cursor_advanced,
                     )
                     error = failure or error
                 while (
@@ -790,6 +799,7 @@ class ResearchProducer:
                     # from other workers, including shared .tmp cache filenames.
                     with self.lock:
                         self.inflight_repos.add(repo)
+                    initial_cursor = progress.get("source_cursor", 0)
                     future = pool.submit(
                         self.refill,
                         spec,
@@ -798,7 +808,7 @@ class ResearchProducer:
                         self.config["refill_batch"],
                     )
                     future.add_done_callback(lambda _: self.refill_wake.set())
-                    active[repo] = (future, progress)
+                    active[repo] = (future, progress, initial_cursor)
                 queued = self.pending()
                 phase = (
                     "BACKOFF"
@@ -824,7 +834,7 @@ class ResearchProducer:
             # Retain the single-runner lock until every bounded public GET has
             # returned; stopped workers cannot publish a late model packet.
             pool.shutdown(wait=True)
-            for repo, (future, progress) in active.items():
+            for repo, (future, progress, _) in active.items():
                 self.finish_refill(repo, future, progress)
             self.save()
             self.publish("STOPPED")
