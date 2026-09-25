@@ -76,6 +76,13 @@ class Context:
 
 
 class ResearchTests(unittest.TestCase):
+    def test_idle_refill_delay_ignores_expired_repository_deadlines(self):
+        self.assertEqual(research.idle_refill_delay({"stale": 99}, 100), 5)
+        self.assertEqual(
+            research.idle_refill_delay({"stale": 99, "next": 102}, 100), 2
+        )
+        self.assertEqual(research.idle_refill_delay({}, 100), 5)
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

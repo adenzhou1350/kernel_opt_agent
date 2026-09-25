@@ -38,6 +38,12 @@ class QueueFull(Exception):
     """Defer a fetched packet without advancing its evidence cursor."""
 
 
+def idle_refill_delay(ready_at, now):
+    """Sleep until a future retry, ignoring deadlines that already expired."""
+    future = (deadline - now for deadline in ready_at.values() if deadline > now)
+    return min(5, max(0.01, min(future, default=5)))
+
+
 def configuration(path):
     value = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(value, dict) or not isinstance(value.get("objective"), str):
@@ -758,6 +764,7 @@ class ResearchProducer:
                         break
                     spec, progress, first = work
                     repo = spec["repo"]
+                    ready_at.pop(repo, None)
                     # One refill per repository keeps its cache writes disjoint
                     # from other workers, including shared .tmp cache filenames.
                     with self.lock:
@@ -784,7 +791,7 @@ class ResearchProducer:
                 )
                 delay = 0.2 if active else 5
                 if not active and queued < self.config["queue_target"] and ready_at:
-                    delay = min(5, max(0.01, min(ready_at.values()) - time.monotonic()))
+                    delay = idle_refill_delay(ready_at, time.monotonic())
                 self.publish(
                     phase,
                     error=error,
