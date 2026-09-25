@@ -88,6 +88,13 @@ class ResearchTests(unittest.TestCase):
             [5, 10, 20, 40, 80, 120, 120],
         )
         self.assertEqual(research.refill_retry_delay(True, None, 6), 0.2)
+        self.assertEqual(
+            research.refill_retry_delay(False, None, 6, cursor_advanced=True), 0.5
+        )
+        self.assertEqual(
+            research.refill_retry_delay(False, "TimeoutError", 6, cursor_advanced=True),
+            60,
+        )
         self.assertEqual(research.refill_retry_delay(False, "TimeoutError", 6), 60)
 
     def setUp(self):
