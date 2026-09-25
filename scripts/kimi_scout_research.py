@@ -41,7 +41,16 @@ class QueueFull(Exception):
 def idle_refill_delay(ready_at, now):
     """Sleep until a future retry, ignoring deadlines that already expired."""
     future = (deadline - now for deadline in ready_at.values() if deadline > now)
-    return min(5, max(0.01, min(future, default=5)))
+    return min(30, max(0.01, min(future, default=30)))
+
+
+def refill_retry_delay(made, failure, empty_refills):
+    """Back off a repository only when it repeatedly yields no new evidence."""
+    if failure:
+        return 60
+    if made:
+        return 0.2
+    return min(120, 5 * 2 ** max(0, empty_refills - 1))
 
 
 def configuration(path):
@@ -733,7 +742,7 @@ class ResearchProducer:
                 self.save()
 
     def parallel_loop(self):
-        active, ready_at = {}, {}
+        active, ready_at, empty_refills = {}, {}, {}
         pool = ThreadPoolExecutor(
             max_workers=self.config["context_workers"],
             thread_name_prefix="public-research-context",
@@ -747,8 +756,14 @@ class ResearchProducer:
                         continue
                     made, failure = self.finish_refill(repo, future, progress)
                     del active[repo]
-                    ready_at[repo] = time.monotonic() + (
-                        60 if failure else 0.2 if made else 5
+                    if made:
+                        empty_refills.pop(repo, None)
+                    elif not failure:
+                        empty_refills[repo] = min(
+                            6, empty_refills.get(repo, 0) + 1
+                        )
+                    ready_at[repo] = time.monotonic() + refill_retry_delay(
+                        made, failure, empty_refills.get(repo, 0)
                     )
                     error = failure or error
                 while (

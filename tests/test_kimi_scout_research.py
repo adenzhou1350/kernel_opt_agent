@@ -77,11 +77,20 @@ class Context:
 
 class ResearchTests(unittest.TestCase):
     def test_idle_refill_delay_ignores_expired_repository_deadlines(self):
-        self.assertEqual(research.idle_refill_delay({"stale": 99}, 100), 5)
+        self.assertEqual(research.idle_refill_delay({"stale": 99}, 100), 30)
         self.assertEqual(
             research.idle_refill_delay({"stale": 99, "next": 102}, 100), 2
         )
-        self.assertEqual(research.idle_refill_delay({}, 100), 5)
+        self.assertEqual(research.idle_refill_delay({"next": 200}, 100), 30)
+        self.assertEqual(research.idle_refill_delay({}, 100), 30)
+
+    def test_empty_repository_refills_back_off_without_delaying_new_evidence(self):
+        self.assertEqual(
+            [research.refill_retry_delay(False, None, n) for n in range(1, 8)],
+            [5, 10, 20, 40, 80, 120, 120],
+        )
+        self.assertEqual(research.refill_retry_delay(True, None, 6), 0.2)
+        self.assertEqual(research.refill_retry_delay(False, "TimeoutError", 6), 60)
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
