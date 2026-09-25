@@ -478,22 +478,46 @@ class ResearchProducer:
         snapshot = self.snapshot(spec, progress)
         paths = source_paths(snapshot, spec)
         progress["available_sources"] = len(paths)
-        for _ in range(40):
+        total = len(paths) * windows
+        scan_end = min(total, progress.get("source_cursor", 0) + 2048)
+        while True:
             if self.stopped():
                 return False
             cursor = progress.get("source_cursor", 0)
-            if cursor >= len(paths) * windows:
+            if cursor >= total:
                 progress.update(source_cursor=0, sources_after=time.time() + 1800)
                 progress.pop(
                     "commit", None
                 )  # Refresh revision only after this bounded sweep.
                 return False
+            if cursor >= scan_end:
+                return False
+            batch_end = min(scan_end, cursor + 256)
+            keys = []
+            for index in range(cursor, batch_end):
+                batch_path, batch_window = paths[index // windows], index % windows
+                keys.append(
+                    f"source:{spec['repo']}:{batch_path}:"
+                    f"{snapshot['blobs'][batch_path]}:{1 + batch_window * 120}"
+                )
+            with scout.connect(self.root) as db:
+                seen = {
+                    row[0]
+                    for row in db.execute(
+                        f"SELECT key FROM research_seen WHERE key IN "
+                        f"({','.join('?' for _ in keys)})",
+                        keys,
+                    )
+                }
+            unseen = next((i for i, key in enumerate(keys) if key not in seen), None)
+            if unseen is None:
+                progress["source_cursor"] = batch_end
+                continue
+            cursor += unseen
+            progress["source_cursor"] = cursor
             path, window = paths[cursor // windows], cursor % windows
             start = 1 + window * 120
-            key = f"source:{spec['repo']}:{path}:{snapshot['blobs'][path]}:{start}"
-            if self.seen(key):
-                progress["source_cursor"] = cursor + 1
-                continue
+            key = keys[unseen]
             try:
                 source = self.context.source(
                     spec["repo"], snapshot["commit"], path, start=start
