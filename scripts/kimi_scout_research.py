@@ -180,6 +180,7 @@ class ResearchProducer:
             },
         )
         self.halt = threading.Event()
+        self.refill_wake = threading.Event()
         self.thread = None
         self.lock = threading.RLock()
         self.inflight_repos = set()
@@ -739,6 +740,7 @@ class ResearchProducer:
         )
         try:
             while not self.stopped():
+                self.refill_wake.clear()
                 error = None
                 for repo, (future, progress) in list(active.items()):
                     if not future.done():
@@ -769,16 +771,15 @@ class ResearchProducer:
                     # from other workers, including shared .tmp cache filenames.
                     with self.lock:
                         self.inflight_repos.add(repo)
-                    active[repo] = (
-                        pool.submit(
-                            self.refill,
-                            spec,
-                            progress,
-                            first,
-                            self.config["refill_batch"],
-                        ),
+                    future = pool.submit(
+                        self.refill,
+                        spec,
                         progress,
+                        first,
+                        self.config["refill_batch"],
                     )
+                    future.add_done_callback(lambda _: self.refill_wake.set())
+                    active[repo] = (future, progress)
                 queued = self.pending()
                 phase = (
                     "BACKOFF"
@@ -789,15 +790,17 @@ class ResearchProducer:
                     if queued >= self.config["queue_target"]
                     else "WAITING_FOR_NEW_EVIDENCE"
                 )
-                delay = 0.2 if active else 5
-                if not active and queued < self.config["queue_target"] and ready_at:
+                delay = 5
+                if queued < self.config["queue_target"] and ready_at:
                     delay = idle_refill_delay(ready_at, time.monotonic())
                 self.publish(
                     phase,
                     error=error,
                     next_scan=None if active else time.time() + delay,
                 )
-                self.halt.wait(delay)
+                if self.stopped():
+                    break
+                self.refill_wake.wait(delay)
         finally:
             # Retain the single-runner lock until every bounded public GET has
             # returned; stopped workers cannot publish a late model packet.
@@ -840,6 +843,7 @@ class ResearchProducer:
 
     def stop(self):
         self.halt.set()
+        self.refill_wake.set()
         if self.thread:
             # Keep single_runner locked until the bounded in-flight GET returns;
             # never allow an old producer to overlap a restarted daemon.
