@@ -162,6 +162,31 @@ class ResearchTests(unittest.TestCase):
         self.assertTrue(self.producer.source_audit(self.spec, {}))
         self.assertEqual(len(self.jobs()), 2)
 
+    def test_source_audit_bulk_skips_seen_windows_to_reach_unseen_file(self):
+        self.value["source_windows"] = 12
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        paths = [f"src/file{i}.py" for i in range(5)]
+        blobs = {path: str(i) * 40 for i, path in enumerate(paths)}
+        snapshot = {"commit": "a" * 40, "files": paths, "blobs": blobs}
+        with scout.connect(self.root) as db:
+            db.executemany(
+                "INSERT INTO research_seen(key) VALUES(?)",
+                [
+                    (f"source:a/b:{path}:{blobs[path]}:{1 + window * 120}",)
+                    for path in paths[:4]
+                    for window in range(12)
+                ],
+            )
+        progress = {}
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(producer.source_audit(self.spec, progress))
+        self.assertEqual(progress["source_cursor"], 60)
+        self.assertEqual(len(self.jobs()), 1)
+        self.assertIn("src/file4.py", self.context.calls[-1][2])
+
     def test_issue_and_followup_use_current_ref_while_source_sweep_is_pinned(self):
         progress = {"commit": "d" * 40}
         with patch.object(self.context, "snapshot", wraps=self.context.snapshot) as get:
