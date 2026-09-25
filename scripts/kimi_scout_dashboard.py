@@ -190,14 +190,37 @@ class Inbox:
         self._snapshot_lock = threading.Lock()
         self._snapshot = None
         self._snapshot_at = 0.0
+        self._snapshot_refreshing = False
 
-    def cached_state(self, max_age=5):
-        """Single-flight the expensive historical projection for HTTP polling."""
+    def _refresh_snapshot(self):
+        try:
+            snapshot = self.state()
+        except Exception:
+            # Retain the last good response and bound retries if the database is
+            # briefly unavailable while the producer is writing.
+            with self._snapshot_lock:
+                self._snapshot_at = time.monotonic()
+                self._snapshot_refreshing = False
+            return
+        with self._snapshot_lock:
+            self._snapshot = snapshot
+            self._snapshot_at = time.monotonic()
+            self._snapshot_refreshing = False
+
+    def cached_state(self, max_age=30):
+        """Serve the last snapshot while one background historical refresh runs."""
         with self._snapshot_lock:
             now = time.monotonic()
-            if self._snapshot is None or now - self._snapshot_at >= max_age:
+            if self._snapshot is None:
                 self._snapshot = self.state()
                 self._snapshot_at = time.monotonic()
+            elif now - self._snapshot_at >= max_age and not self._snapshot_refreshing:
+                self._snapshot_refreshing = True
+                threading.Thread(
+                    target=self._refresh_snapshot,
+                    name="scout-dashboard-snapshot",
+                    daemon=True,
+                ).start()
             return self._snapshot
 
     def rows(self, job_id=None, limit=None):
@@ -432,6 +455,9 @@ class Inbox:
 
 def make_server(root, port=8767, bind="127.0.0.1", allowed_hosts=()):
     inbox = Inbox(root)
+    # Pay the cold historical projection before accepting HTTP requests; later
+    # refreshes serve this last good snapshot without blocking the browser.
+    inbox.cached_state()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args):
