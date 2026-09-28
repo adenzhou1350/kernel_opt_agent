@@ -33,6 +33,31 @@ class Process:
 
 
 class VerifyTests(unittest.TestCase):
+    def test_harness_writes_result_and_count_to_one_stream(self):
+        self.assertIn(
+            "unittest.TextTestRunner(verbosity=2, stream=sys.stdout)", verify.HARNESS
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "test_subject.py").write_text(
+                "import unittest\n"
+                "class Probe(unittest.TestCase):\n"
+                "    def test_pass(self):\n"
+                "        self.assertTrue(True)\n",
+                encoding="utf-8",
+            )
+            harness = verify.HARNESS.replace("'/input'", repr(str(root)))
+            result = subprocess.run(
+                [sys.executable, "-I", "-B", "-c", harness],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertEqual(result.stdout.splitlines()[-1], "KIMI_VERIFY_TEST_COUNT=1")
+
     def test_command_has_only_selected_readonly_files_and_fixed_isolation(self):
         name = "kimi-verify-" + "a" * 32
         args = verify.command("/private/baseline.py", "/private/test.py", name)
