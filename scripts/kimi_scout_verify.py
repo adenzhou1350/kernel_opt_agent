@@ -48,7 +48,9 @@ count = suite.countTestCases()
 if not count:
     print('KIMI_VERIFY_TEST_COUNT=0', flush=True)
     sys.exit(5)
-result = unittest.TextTestRunner(verbosity=2).run(suite)
+# Keep the runner and count marker on one stream. Docker may interleave
+# separately captured stdout/stderr and hide the marker in a passing run.
+result = unittest.TextTestRunner(verbosity=2, stream=sys.stdout).run(suite)
 print('KIMI_VERIFY_TEST_COUNT=' + str(result.testsRun), flush=True)
 sys.exit(0 if result.wasSuccessful() else 1)
 """
