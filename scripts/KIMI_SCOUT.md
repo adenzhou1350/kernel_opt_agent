@@ -372,6 +372,10 @@ at most one repair using real output, and a separate skeptical call only for
 before-fail/fixed-pass.
 `REPRODUCED` still needs owner assertion/reachability/novelty review; `NO_BUG`
 is a model rejection, not an executed proof. No PR or knowledge is auto-published.
+The owner queue groups only byte-identical patch files within one repository:
+the displayed entry lists duplicate job IDs found in its bounded scan. Every
+original job and its evidence stays in SQLite. The raw owner-ready count is
+not a count of distinct fixes, and exact bytes cannot detect semantic duplicates.
 Source and result artifacts are preserved in ignored `delivery/jobs/`; a separate
 small SQLite table records terminal outcomes without rewriting discovery history.
 Interrupted attempts are not retried. STOP and uncertain container cleanup block
