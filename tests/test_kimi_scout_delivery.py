@@ -1,6 +1,7 @@
 """Offline delivery-queue and repair-loop tests; no model, Docker or network."""
 
 import io
+import hashlib
 import json
 import subprocess
 import sys
@@ -483,6 +484,60 @@ class DeliveryTests(unittest.TestCase):
                 ).fetchone()[0],
                 3,
             )
+
+    def test_reviewed_merged_audit_removes_only_matching_owner_display(self):
+        self.args.owner_queue_limit = 1
+        _, merged, _, _ = self.run_job([result()], [proposal()], number=1)
+        _, pending, _, _ = self.run_job([result()], [proposal()], number=2)
+        patch = self.worker.root / "jobs" / merged["id"] / "change-1.patch"
+        audit_dir = self.worker.root / "owner-audits"
+        audit_dir.mkdir()
+        audit = {
+            "schema_version": "scout-owner-public-pr-reconciliation-v1",
+            "candidate_id": merged["id"],
+            "repo": merged["repo"],
+            "candidate_patch": {
+                "path": f"jobs/{merged['id']}/change-1.patch",
+                "sha256": hashlib.sha256(patch.read_bytes()).hexdigest(),
+            },
+            "public_pr": {
+                "url": "https://github.com/public/project/pull/5000",
+                "state": "MERGED",
+                "upstream_merge_commit": "a" * 40,
+            },
+            "decision": "ALREADY_MERGED_NOT_A_NEW_PR_CANDIDATE",
+        }
+        audit_path = audit_dir / "merged.json"
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        self.worker.publish("STOPPED")
+        queue = json.loads((self.worker.root / "owner-queue.json").read_text())
+        runtime = json.loads((self.worker.root / "runtime.json").read_text())
+        self.assertEqual((queue["total"], queue["actionable_total"]), (2, 1))
+        self.assertEqual(queue["reviewed_merged_total"], 1)
+        self.assertEqual([item["id"] for item in queue["items"]], [pending["id"]])
+        self.assertEqual(runtime["owner_actionable"], 1)
+        with delivery.database(self.worker.root) as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT state FROM delivery WHERE id=?", (merged["id"],)
+                ).fetchone()[0],
+                delivery.OWNER_STATE,
+            )
+
+        audit["candidate_patch"]["sha256"] = "0" * 64
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        self.worker.publish("STOPPED")
+        queue = json.loads((self.worker.root / "owner-queue.json").read_text())
+        self.assertEqual(queue["actionable_total"], 2)
+
+        audit["candidate_patch"]["sha256"] = hashlib.sha256(
+            patch.read_bytes()
+        ).hexdigest()
+        audit["repo"] = "public/other"
+        audit_path.write_text(json.dumps(audit), encoding="utf-8")
+        self.worker.publish("STOPPED")
+        queue = json.loads((self.worker.root / "owner-queue.json").read_text())
+        self.assertEqual(queue["actionable_total"], 2)
 
     def test_explicit_source_fetch_retry_is_one_time_and_pre_model_only(self):
         delivery.stage(self.worker.root, [lead(1)])

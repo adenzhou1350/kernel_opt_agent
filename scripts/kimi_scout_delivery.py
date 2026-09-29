@@ -488,6 +488,54 @@ def exact_owner_patch_key(root, row):
     return None
 
 
+def merged_owner_audits(root):
+    """Read bounded, locally reviewed PR evidence without changing job history."""
+    audit_dir = root / "owner-audits"
+    if not audit_dir.is_dir() or audit_dir.is_symlink():
+        return {}
+    audits = {}
+    for path in sorted(audit_dir.glob("*.json"))[:1024]:
+        if not path.is_file() or path.is_symlink() or path.stat().st_size > 8192:
+            continue
+        try:
+            audit = json.loads(path.read_text(encoding="utf-8"))
+            candidate_id = audit["candidate_id"]
+            repo = audit["repo"]
+            pr = audit["public_pr"]
+            evidence = audit["candidate_patch"]
+            if (
+                audit["schema_version"] != "scout-owner-public-pr-reconciliation-v1"
+                or audit["decision"] != "ALREADY_MERGED_NOT_A_NEW_PR_CANDIDATE"
+                or not re.fullmatch(r"[0-9a-f]{24}", candidate_id)
+                or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo)
+                or pr["state"] != "MERGED"
+                or not re.fullmatch(r"[0-9a-f]{40}", pr["upstream_merge_commit"])
+                or pr["url"].casefold()
+                != f"https://github.com/{repo}/pull/{int(pr['url'].rsplit('/', 1)[-1])}".casefold()
+                or evidence["path"]
+                not in (
+                    f"jobs/{candidate_id}/change-1.patch",
+                    f"jobs/{candidate_id}/change-2.patch",
+                )
+                or not re.fullmatch(r"[0-9a-f]{64}", evidence["sha256"])
+            ):
+                continue
+            patch = root / evidence["path"]
+            if (
+                patch.parent.is_symlink()
+                or (root / "jobs").is_symlink()
+                or not patch.is_file()
+                or patch.is_symlink()
+                or not 0 < patch.stat().st_size <= 262_144
+                or hashlib.sha256(patch.read_bytes()).hexdigest() != evidence["sha256"]
+            ):
+                continue
+            audits[candidate_id] = audit
+        except (AttributeError, KeyError, TypeError, ValueError, OSError, UnicodeError):
+            continue
+    return audits
+
+
 class Delivery:
     def __init__(self, args):
         self.args = args
@@ -891,6 +939,17 @@ class Delivery:
                     candidate_exit=result.get("fixed", {}).get("exit_code"),
                 )
                 jobs.append(item)
+            reviewed_audits = {}
+            for candidate_id, audit in merged_owner_audits(self.root).items():
+                row = db.execute(
+                    "SELECT repo,state FROM delivery WHERE id=?", (candidate_id,)
+                ).fetchone()
+                if (
+                    row is not None
+                    and row["repo"].casefold() == audit["repo"].casefold()
+                    and row["state"] in (OWNER_STATE, "REPRODUCED")
+                ):
+                    reviewed_audits[candidate_id] = audit
             owner_queue = []
             exact_patches = {}
             offset = 0
@@ -908,6 +967,8 @@ class Delivery:
                     break
                 offset += len(owner_rows)
                 for row in owner_rows:
+                    if row["id"] in reviewed_audits:
+                        continue
                     patch_key = exact_owner_patch_key(self.root, row)
                     if patch_key is not None and patch_key in exact_patches:
                         exact_patches[patch_key]["exact_patch_duplicates"].append(
@@ -935,12 +996,15 @@ class Delivery:
                 if len(owner_rows) < page_size:
                     break
             owner_ready = counts.get(OWNER_STATE, 0) + counts.get("REPRODUCED", 0)
+            owner_actionable = owner_ready - len(reviewed_audits)
         scout.write_json(
             self.root / "owner-queue.json",
             {
                 "schema_version": "kimi-owner-queue-v1",
                 "generated_at": time.time(),
                 "total": owner_ready,
+                "actionable_total": owner_actionable,
+                "reviewed_merged_total": len(reviewed_audits),
                 "count": len(owner_queue),
                 "items": owner_queue,
                 "claim_boundary": (
@@ -963,6 +1027,8 @@ class Delivery:
                 "reported_tokens": tokens,
                 "jobs": jobs,
                 "owner_ready": owner_ready,
+                "owner_actionable": owner_actionable,
+                "owner_reviewed_merged": len(reviewed_audits),
                 "owner_distinct_displayed": len(owner_queue),
                 "owner_exact_duplicates_seen": sum(
                     len(item["exact_patch_duplicates"]) for item in owner_queue
