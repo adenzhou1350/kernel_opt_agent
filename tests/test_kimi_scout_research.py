@@ -1,13 +1,13 @@
 """Offline frontier tests: no GitHub, credentials, Kimi, or GPU activity."""
 
 import json
-from concurrent.futures import ThreadPoolExecutor
-from pathlib import Path
 import sys
 import tempfile
 import threading
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -30,7 +30,7 @@ class Context:
             "blobs": {"src/kernel.py": self.blob, "tests/test_kernel.py": "c" * 40},
         }
 
-    def source(self, repo, commit, path, hints="", start=None):
+    def source(self, repo, commit, path, hints="", start=None, max_lines=120):
         self.calls.append((repo, commit, path, start))
         start = start or 1
         if start > 10:
@@ -76,6 +76,18 @@ class Context:
 
 
 class ResearchTests(unittest.TestCase):
+    def test_refill_error_code_does_not_expose_untrusted_error_text(self):
+        self.assertEqual(
+            research.refill_error_code(
+                ValueError("public source exceeds read budget")
+            ),
+            "ValueError:source_budget",
+        )
+        self.assertEqual(
+            research.refill_error_code(ValueError("private URL or token text")),
+            "ValueError:other",
+        )
+
     def test_idle_refill_delay_ignores_expired_repository_deadlines(self):
         self.assertEqual(research.idle_refill_delay({"stale": 99}, 100), 30)
         self.assertEqual(research.idle_refill_delay({"stale": 99, "next": 102}, 100), 2)
@@ -151,8 +163,147 @@ class ResearchTests(unittest.TestCase):
         self.producer.save()
         again = research.ResearchProducer(self.root, self.config, context=self.context)
         self.assertFalse(again.source_audit(self.spec, again.state["repos"]["a/b"]))
+
+    def test_source_admission_records_shadow_action_before_model_result(self):
+        self.assertTrue(self.producer.source_audit(self.spec, {}))
+        with scout.connect(self.root) as db:
+            job = db.execute("SELECT id,state,packet,result FROM jobs").fetchone()
+            shadow = db.execute(
+                "SELECT * FROM research_action_shadow WHERE job_id=?", (job["id"],)
+            ).fetchone()
+            self.assertEqual(job["state"], "PENDING")
+            self.assertIsNone(job["result"])
+            self.assertEqual(
+                shadow["suggested_action"], "CHECK_TEST_AND_DOWNSTREAM_CONTRACT"
+            )
+            self.assertEqual(shadow["source_commit"], self.context.revision)
+            self.assertEqual(shadow["has_test_source"], 1)
+            self.assertIsNone(shadow["changed_blob"])
+            db.execute(
+                "UPDATE jobs SET state='REVIEW',result='later' WHERE id=?", (job["id"],)
+            )
+            self.assertEqual(
+                db.execute(
+                    "SELECT suggested_action FROM research_action_shadow WHERE job_id=?",
+                    (job["id"],),
+                ).fetchone()[0],
+                "CHECK_TEST_AND_DOWNSTREAM_CONTRACT",
+            )
         self.assertEqual(len(self.jobs()), 1)
         self.assertEqual(self.context.calls[0][-1], 1)
+
+    def test_completed_unchanged_sweep_skips_seen_window_scan(self):
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(progress["last_sweep_commit"], "a" * 40)
+        fetched = len(self.context.calls)
+        progress["sources_after"] = 0
+        with patch.object(scout, "connect", side_effect=AssertionError("seen scan")):
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertGreater(progress["sources_after"], time.time())
+        self.assertEqual(len(self.context.calls), fetched)
+
+    def test_new_revision_reopens_completed_source_sweep(self):
+        progress = {}
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        progress["sources_after"] = 0
+        self.context.revision = "d" * 40
+        self.context.blob = "e" * 40
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(len(self.jobs()), 2)
+
+    def test_new_revision_prioritizes_changed_blobs_and_resumes_order(self):
+        self.producer.config["source_windows"] = 1
+        old_commit, new_commit = "a" * 40, "d" * 40
+        names = ["src/alpha.py", "src/middle.py", "src/zeta.py"]
+        old_blobs = {name: "b" * 40 for name in names}
+        new_blobs = {**old_blobs, "src/zeta.py": "e" * 40}
+
+        class VersionedContext(Context):
+            def snapshot(self, repo, ref="main"):
+                commit = old_commit if ref == old_commit else self.revision
+                blobs = old_blobs if commit == old_commit else new_blobs
+                return {"commit": commit, "files": names, "blobs": blobs}
+
+        self.context = VersionedContext()
+        self.producer.context = self.context
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(progress["last_sweep_commit"], old_commit)
+        self.context.revision = new_commit
+        self.context.blob = "e" * 40
+        progress["sources_after"] = 0
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(self.context.calls[-1][2], "src/zeta.py")
+        self.assertEqual(progress["source_priority"]["paths"], ["src/zeta.py"])
+        frontier = json.loads(self.jobs()[-1]["packet"])["research"]["frontier"]
+        self.assertEqual(frontier["source_rank"], 1)
+        self.assertEqual(frontier["alphabetical_rank"], 3)
+        self.assertTrue(frontier["changed_blob"])
+        self.assertEqual(frontier["base_commit"], old_commit)
+        self.producer.save()
+        resumed = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        resumed.config["source_windows"] = 1
+        resumed_progress = resumed.state["repos"]["a/b"]
+        self.assertFalse(resumed.source_audit(self.spec, resumed_progress))
+        self.assertEqual(self.context.calls[-1][2], "src/zeta.py")
+        self.assertEqual(resumed_progress["last_sweep_commit"], new_commit)
+
+    def test_new_revision_preempts_long_pinned_sweep(self):
+        self.producer.config["source_windows"] = 1
+        old_commit, new_commit = "a" * 40, "d" * 40
+        names = ["src/alpha.py", "src/middle.py", "src/zeta.py"]
+        old_blobs = {name: "b" * 40 for name in names}
+        new_blobs = {**old_blobs, "src/zeta.py": "e" * 40}
+
+        class VersionedContext(Context):
+            def snapshot(self, repo, ref="main"):
+                commit = old_commit if ref == old_commit else self.revision
+                blobs = old_blobs if commit == old_commit else new_blobs
+                return {"commit": commit, "files": names, "blobs": blobs}
+
+        self.context = VersionedContext()
+        self.producer.context = self.context
+        progress = {}
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(progress["source_cursor"], 1)
+        self.context.revision = new_commit
+        self.context.blob = "e" * 40
+        progress["revision_check_after"] = 0
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(self.context.calls[-1][1:3], (new_commit, "src/zeta.py"))
+        self.assertEqual(progress["source_priority"]["paths"], ["src/zeta.py"])
+
+    def test_more_source_windows_reopen_completed_unchanged_revision(self):
+        progress = {}
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.value["source_windows"] = 4
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        widened = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        progress["sources_after"] = 0
+        fetched = len(self.context.calls)
+        self.assertFalse(widened.source_audit(self.spec, progress))
+        self.assertGreater(len(self.context.calls), fetched)
+        self.assertEqual(progress["last_sweep_commit"], "a" * 40)
+
+    def test_changed_source_prefix_reopens_completed_unchanged_revision(self):
+        progress = {}
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        progress["sources_after"] = 0
+        self.spec["source_prefixes"] = ["tests/"]
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(self.context.calls[-1][2], "tests/test_kernel.py")
 
     def test_only_changed_blob_creates_fresh_source_work(self):
         self.assertTrue(self.producer.source_audit(self.spec, {}))
@@ -198,16 +349,44 @@ class ResearchTests(unittest.TestCase):
             self.assertEqual(get.call_args.args, ("a/b", "main"))
             self.assertEqual(progress["commit"], "d" * 40)
             self.producer.source_audit(self.spec, progress)
-            self.assertEqual(get.call_args.args, ("a/b", "d" * 40))
+            self.assertEqual(get.call_args_list[-2].args, ("a/b", "d" * 40))
+            self.assertEqual(get.call_args.args, ("a/b", "main"))
+
+    def test_issue_skip_labels_do_not_spend_model_calls_or_hide_other_issues(self):
+        self.spec["issue_skip_labels"] = ["clawsweeper:no-new-fix-pr"]
+        blocked = {
+            **self.context.issue_page("a/b")[0],
+            "labels": ["clawsweeper:no-new-fix-pr"],
+        }
+        eligible = {**blocked, "number": 43, "labels": ["bug"]}
+        eligible["html_url"] = "https://github.com/a/b/issues/43"
+        with patch.object(self.context, "issue_page", return_value=[blocked, eligible]):
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 1)
+        self.assertEqual(json.loads(self.jobs()[0]["packet"])["focus_issue"], 43)
+
+    def test_issue_skip_labels_config_is_bounded(self):
+        self.value["repos"][0]["issue_skip_labels"] = ["no-new-fix-pr"]
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        self.assertEqual(
+            research.configuration(self.config)["repos"][0]["issue_skip_labels"],
+            ["no-new-fix-pr"],
+        )
+        self.value["repos"][0]["issue_skip_labels"] = [""]
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "issue_skip_labels"):
+            research.configuration(self.config)
 
     def test_no_rephrasing_followup_and_two_step_cap(self):
         self.assertTrue(self.producer.issue(self.spec, {}))
         self.finish(self.jobs()[0])
         self.assertTrue(self.producer.followup(self.spec, {}))
         child = self.jobs()[-1]
-        data = json.loads(child["packet"])["research"]
+        child_packet = json.loads(child["packet"])
+        data = child_packet["research"]
         self.assertEqual(data["depth"], 1)
         self.assertEqual(data["parent_job_id"], self.jobs()[0]["id"])
+        self.assertIn("author-owned work", child_packet["question"])
         self.finish(child)
         # Identical second-stage evidence costs no model call.
         self.assertFalse(self.producer.followup(self.spec, {}))
@@ -330,6 +509,63 @@ class ResearchTests(unittest.TestCase):
             research.relevant_paths(snapshot, "inspect src/kernel.py and src/utils.py"),
             ["src/kernel.py", "src/utils.py"],
         )
+
+    def test_same_file_kernel_definition_request_is_bounded_to_observed_path(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        packet = {
+            "repo": "a/b",
+            "sources": [{"url": url, "text": "190: grpo_fwd_kernel[(n,)]()"}],
+        }
+        snapshot = self.context.snapshot("a/b")
+        self.assertEqual(
+            research.same_file_kernel_definition(packet, snapshot),
+            ("src/kernel.py", "grpo_fwd_kernel"),
+        )
+        packet["sources"][0]["text"] += "\n30: def grpo_fwd_kernel():"
+        self.assertIsNone(research.same_file_kernel_definition(packet, snapshot))
+        packet["sources"][0]["text"] = "190: grpo_fwd_kernel[(n,)]()"
+        packet["sources"][0]["url"] = url.replace("a/b", "other/repo")
+        self.assertIsNone(research.same_file_kernel_definition(packet, snapshot))
+
+    def test_followup_adds_called_kernel_definition_before_review(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        old = {"url": url, "text": "190: grpo_fwd_kernel[(n,)]()"}
+        definition = {
+            "url": url,
+            "text": "30: def grpo_fwd_kernel():\n31: tl.store(loss_ptr + M, 0.0)",
+        }
+        later = {"url": url, "text": "220: wrapper context"}
+        self.producer.emit("kernel-caller", self.spec, [old], "source_audit")
+        self.finish(self.jobs()[0])
+
+        def source(*args, hints="", **kwargs):
+            return definition if hints == "def grpo_fwd_kernel(" else later
+
+        with (
+            patch.object(self.context, "source", side_effect=source),
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        packet = json.loads(self.jobs()[-1]["packet"])
+        self.assertEqual(packet["sources"], [old, definition, later])
+
+    def test_followup_keeps_new_related_work_when_optional_source_is_oversize(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        old = {"url": url, "text": "1: kernel boundary"}
+        related = {"url": "https://github.com/a/b/pull/3", "text": "related work"}
+        self.producer.emit("root", self.spec, [old], "source_audit")
+        self.finish(self.jobs()[0])
+        with (
+            patch.object(
+                self.context,
+                "source",
+                side_effect=ValueError("public source exceeds read budget"),
+            ),
+            patch.object(self.context, "duplicate_sources", return_value=[related]),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        packet = json.loads(self.jobs()[-1]["packet"])
+        self.assertEqual(packet["sources"], [old, related])
 
     def test_same_file_windows_survive_dedup_and_unchanged_packets_do_not_repeat(self):
         url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
@@ -502,6 +738,19 @@ class ResearchTests(unittest.TestCase):
         self.assertFalse(self.producer.issue(self.spec, {}))
         self.assertEqual(len(self.jobs()), 1)
 
+    def test_issue_keeps_public_report_when_optional_source_exceeds_budget(self):
+        with patch.object(
+            self.context,
+            "source",
+            side_effect=ValueError("public source exceeds read budget"),
+        ):
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["research"]["stage"], "issue_triage")
+        self.assertEqual(len(packet["sources"]), 1)
+        self.assertIn("/issues/42", packet["sources"][0]["url"])
+        self.assertIn("author-owned work", packet["question"])
+
     def test_config_rejects_unsafe_prefix_and_duplicate_repos(self):
         self.value["repos"][0]["source_prefixes"] = ["../private"]
         self.config.write_text(json.dumps(self.value))
@@ -555,7 +804,7 @@ class ResearchTests(unittest.TestCase):
         )
         progress = {}
 
-        def long_source(repo, commit, path, hints="", start=None):
+        def long_source(repo, commit, path, hints="", start=None, max_lines=120):
             start = start or 1
             return {
                 "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
@@ -576,7 +825,7 @@ class ResearchTests(unittest.TestCase):
         )
         progress = {"source_cursor": 3, "source_windows": 8}
 
-        def source(repo, commit, path, hints="", start=None):
+        def source(repo, commit, path, hints="", start=None, max_lines=120):
             start = start or 1
             return {
                 "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
@@ -681,6 +930,75 @@ class ResearchTests(unittest.TestCase):
             ["router.ts", "router.test.ts"],
         )
 
+    def test_oversize_optional_test_does_not_stall_source_frontier(self):
+        original_source = self.context.source
+
+        def source_with_oversize_test(repo, commit, path, **kwargs):
+            if path == "tests/test_kernel.py":
+                raise ValueError("public source exceeds read budget")
+            return original_source(repo, commit, path, **kwargs)
+
+        progress = {}
+        with patch.object(self.context, "source", side_effect=source_with_oversize_test):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(len(packet["sources"]), 1)
+        self.assertEqual(progress["source_cursor"], 3)
+
+    def test_unexpected_optional_source_error_still_fails_closed(self):
+        original_source = self.context.source
+
+        def source_with_invalid_test(repo, commit, path, **kwargs):
+            if path == "tests/test_kernel.py":
+                raise ValueError("source path is absent from the public snapshot")
+            return original_source(repo, commit, path, **kwargs)
+
+        with (
+            patch.object(self.context, "source", side_effect=source_with_invalid_test),
+            self.assertRaisesRegex(ValueError, "absent from the public snapshot"),
+        ):
+            self.producer.source_audit(self.spec, {})
+
+    def test_experimental_generated_cuda_audit_includes_feature_test_and_readme(self):
+        source_path = (
+            "flashinfer/experimental/kimi_k3_latent_moe/csrc/generated_binding_7b3.cu"
+        )
+        readme = "flashinfer/experimental/kimi_k3_latent_moe/README.md"
+        test_path = "tests/experimental/test_cake_kimi_k3_latent_moe.py"
+        files = [
+            source_path,
+            readme,
+            test_path,
+            "tests/experimental/test_unrelated_moe.py",
+        ]
+        snapshot = {
+            "commit": self.context.revision,
+            "files": files,
+            "blobs": {path: self.context.blob for path in files},
+        }
+        self.spec["source_prefixes"] = ["flashinfer/experimental/"]
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(
+            [
+                source["url"].split(self.context.revision + "/", 1)[-1]
+                for source in packet["sources"]
+            ],
+            [source_path, test_path, readme],
+        )
+        self.assertLessEqual(
+            len((scout.SYSTEM + scout.dumps(packet)).encode()),
+            scout.MAX_INPUT_BYTES,
+        )
+
+    def test_companion_paths_do_not_guess_absent_experimental_context(self):
+        source_path = "flashinfer/experimental/feature/generated_binding.cu"
+        files = [source_path, "tests/experimental/test_another_feature.py"]
+        self.assertEqual(
+            research.companion_source_paths(source_path, files), ([], None)
+        )
+
     def parallel_producer(self, context):
         self.value["context_workers"] = 2
         self.value["repos"].append(
@@ -688,6 +1006,30 @@ class ResearchTests(unittest.TestCase):
         )
         self.config.write_text(json.dumps(self.value))
         return research.ResearchProducer(self.root, self.config, context=context)
+
+    def test_disk_reserve_blocks_new_public_refills(self):
+        self.value["context_workers"] = 2
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(
+            self.root, self.config, context=self.context, min_free_disk_mb=1024
+        )
+        with patch.object(research.scout, "available_disk_mb", return_value=512):
+            producer.start()
+            try:
+                deadline = time.monotonic() + 2
+                while time.monotonic() < deadline:
+                    status_path = self.root / "research.json"
+                    if status_path.exists() and json.loads(status_path.read_text()).get(
+                        "phase"
+                    ) == "DISK_PAUSED":
+                        break
+                    time.sleep(0.01)
+                else:
+                    self.fail("producer did not publish disk pause")
+                self.assertEqual(self.context.calls, [])
+                self.assertEqual(self.jobs(), [])
+            finally:
+                producer.stop()
 
     def test_parallel_repository_progress_and_stop_drains_blocked_fetch(self):
         blocked, release, other_finished = (

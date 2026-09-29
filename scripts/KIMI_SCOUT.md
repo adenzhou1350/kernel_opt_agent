@@ -109,12 +109,15 @@ queue producer, not Codex Goal mode and not an unrestricted Kimi agent. No extra
 Codex conversation, recurring wakeup or agent-to-agent messaging is required.
 
 - A separate controller thread maintains up to 24 pending packets, while the
-  existing four workers independently consume them. It rotates repositories,
+  configured workers independently consume them. It rotates repositories,
   issue triage, source windows and follow-ups. State survives daemon restarts.
 - Discovery includes up to ten pages of open issues per sweep and up to three
   120-line windows per eligible file in configured source prefixes, with related
   tests where identifiable. **This is partial sampling, not complete code review.**
   Repository snapshots, exact source blobs and public evidence are cached locally.
+  On a new repository revision, changed Git blobs are sampled first; unchanged
+  blobs keep their deduplication identity. Mutable refs are refreshed after 900
+  seconds, so a stale snapshot is not treated as a new source fact.
 - Leads and context requests receive at most two follow-ups, only when new public
   evidence is available. The controller can add issue comments, observed tree
   members and bounded related-work search. Model hints cannot introduce arbitrary
@@ -154,9 +157,11 @@ public context reads across repositories to reduce an empty model queue; this is
 separate from paid model concurrency. Each repository has at most one active
 refill, and the producer drains before releasing its single-runner lock.
 For a ten-repository frontier with a persistently empty paid queue, 4–6 context
-workers are a reasonable measured trial; the supported ceiling is 8. Increase
+workers are a reasonable measured trial; the supported ceiling is 16. Increase
 this only when public-context supply is the observed bottleneck. It does not add
 paid model calls itself, and one repository still has at most one active refill.
+The local memory/disk guards and provider backoff still apply at 16. A full
+worker pool cannot create useful work when all sampled evidence is unchanged.
 For large monorepos, optional `tree_roots` selects explicit top-level directories
 (OpenClaw uses `src`). The controller resolves their Git tree identities from
 the root and caches a deliberately partial snapshot. Metadata stays capped at
@@ -166,6 +171,8 @@ subtrees are not reviewed; a large tree never becomes a large paid prompt.
 The review stage tries to disprove a lead using supplied callers/tests/related
 work; the last stage produces a minimal reproduction **plan**. Neither executes
 model-generated code, marks a PR Ready, or promotes knowledge automatically.
+An enqueue-time shadow record may suggest a cheap next action for later audit;
+it is advisory, not a test result or an automatic publication decision.
 Only exact source quotations pass validation. Malformed output is recorded once,
 not silently repaired or retried. Compare occupancy, failure mix, terminal leaf
 leads and owner review time before assuming eight workers halve delivery time.

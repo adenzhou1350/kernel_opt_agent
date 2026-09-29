@@ -15,6 +15,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -25,6 +26,44 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def available_memory_mb():
+    """Return host-available physical memory, or None if it cannot be read."""
+    if os.name == "nt":
+        import ctypes
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [
+                ("length", ctypes.c_ulong),
+                ("load", ctypes.c_ulong),
+                *[(name, ctypes.c_ulonglong) for name in (
+                    "total_phys", "avail_phys", "total_page", "avail_page",
+                    "total_virtual", "avail_virtual", "avail_extended",
+                )],
+            ]
+
+        status = MemoryStatus()
+        status.length = ctypes.sizeof(status)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return status.avail_phys // (1024 * 1024)
+    if sys.platform.startswith("linux"):
+        try:
+            for line in Path("/proc/meminfo").read_text(encoding="ascii").splitlines():
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024
+        except (OSError, ValueError, IndexError):
+            pass
+    return None
+
+
+def available_disk_mb(path):
+    """Return free space on the run-root volume, or None on probe failure."""
+    try:
+        return shutil.disk_usage(path).free // (1024 * 1024)
+    except OSError:
+        return None
 
 
 def runtime_storage_env(root, environ=None):
@@ -41,6 +80,9 @@ def runtime_storage_env(root, environ=None):
     for path in set(locations.values()):
         path.mkdir(parents=True, exist_ok=True)
     env = dict(os.environ if environ is None else environ)
+    # Controller-side API credentials must not reach model or test subprocesses.
+    env.pop("GH_TOKEN", None)
+    env.pop("GITHUB_TOKEN", None)
     env.update({key: str(path) for key, path in locations.items()})
     return env
 
@@ -145,6 +187,17 @@ def initialize(root):
         db.execute(
             "CREATE INDEX IF NOT EXISTS scout_jobs_created ON jobs(created DESC)"
         )
+        # Delivery reads the newest unstaged REVIEW rows repeatedly. Keep the
+        # parent lookup and priority ordering indexed as the inbox grows.
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS scout_jobs_parent_job_id "
+            "ON jobs(json_extract(packet,'$.research.parent_job_id'))"
+        )
+        db.execute(
+            "CREATE INDEX IF NOT EXISTS scout_jobs_delivery_priority "
+            "ON jobs(state, CASE json_extract(packet,'$.research.stage') "
+            "WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id)"
+        )
 
 
 def public_repo(repo):
@@ -162,6 +215,11 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def github_auth_header():
     """Optional read-only API auth; credential never enters prompts or receipts."""
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN")
+    if token:
+        if token != token.strip() or any(ord(char) < 33 for char in token):
+            raise ValueError("invalid GitHub token environment value")
+        return "Bearer " + token
     env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="Never")
     proc = subprocess.run(
         ["git", "-c", "credential.interactive=never", "credential", "fill"],
@@ -398,18 +456,52 @@ def retry_locked(operation):
             time.sleep(0.25 * 2**attempt)
 
 
-def claim(root, max_jobs, token_budget, output_tokens, preferred_stages=()):
+def claim(
+    root, max_jobs, token_budget, output_tokens, preferred_stages=(),
+    *, fair_repos=False
+):
+    if not fair_repos:
+        return retry_locked(
+            lambda: _claim_once(
+                root, max_jobs, token_budget, output_tokens, preferred_stages
+            )
+        )
     return retry_locked(
         lambda: _claim_once(
-            root, max_jobs, token_budget, output_tokens, preferred_stages
+            root, max_jobs, token_budget, output_tokens, preferred_stages,
+            fair_repos=fair_repos,
         )
     )
 
 
-def _claim_once(root, max_jobs, token_budget, output_tokens, preferred_stages):
+def _claim_once(
+    root, max_jobs, token_budget, output_tokens, preferred_stages,
+    *, fair_repos=False
+):
     with connect(root) as db:
         db.execute("BEGIN IMMEDIATE")
-        if preferred_stages:
+        if fair_repos:
+            # A source backlog from one repository must not consume every
+            # research slot. Count only live jobs, not historical outcomes.
+            stage_order = "CAST(0 AS INTEGER)"
+            params = ()
+            if preferred_stages:
+                placeholders = ",".join("?" for _ in preferred_stages)
+                stage_order = (
+                    "CASE WHEN json_extract(jobs.packet,'$.research.stage') IN "
+                    f"({placeholders}) THEN 0 ELSE 1 END"
+                )
+                params = tuple(preferred_stages)
+            row = db.execute(
+                "SELECT jobs.* FROM jobs LEFT JOIN ("
+                "SELECT json_extract(packet,'$.repo') AS repo, count(*) AS active "
+                "FROM jobs WHERE state='RUNNING' GROUP BY repo"
+                ") AS load ON load.repo=json_extract(jobs.packet,'$.repo') "
+                "WHERE jobs.state='PENDING' ORDER BY "
+                f"coalesce(load.active,0), {stage_order}, jobs.created LIMIT 1",
+                params,
+            ).fetchone()
+        elif preferred_stages:
             placeholders = ",".join("?" for _ in preferred_stages)
             row = db.execute(
                 "SELECT * FROM jobs WHERE state='PENDING' ORDER BY CASE WHEN "
@@ -653,12 +745,17 @@ def execute(root, job, python, timeout, output_tokens):
     return receipt
 
 
-def status(root):
+def status(root, limit=100):
+    if type(limit) is not int or not 1 <= limit <= 10_000:
+        raise ValueError("status limit must be an integer between 1 and 10000")
     with connect(root) as db:
+        total_jobs = db.execute("SELECT count(*) FROM jobs").fetchone()[0]
         rows = [
             dict(row)
             for row in db.execute(
-                "SELECT id,name,state,started,finished,charge,error FROM jobs ORDER BY created DESC"
+                "SELECT id,name,state,started,finished,charge,error FROM jobs "
+                "ORDER BY created DESC LIMIT ?",
+                (limit,),
             )
         ]
     runtime = Path(root) / "runtime.json"
@@ -667,6 +764,7 @@ def status(root):
         if runtime.exists()
         else None,
         "stop_requested": (Path(root) / "STOP").exists(),
+        "total_jobs": total_jobs,
         "jobs": rows,
         "notice": "REVIEW means an unverified hypothesis; never PR Ready. No automatic knowledge promotion.",
     }
@@ -722,12 +820,19 @@ def run(args):
         if research_path:
             from kimi_scout_research import ResearchProducer
 
-            producer = ResearchProducer(root, research_path, args.github_auth)
+            producer = ResearchProducer(
+                root,
+                research_path,
+                args.github_auth,
+                min_free_disk_mb=getattr(args, "min_free_disk_mb", 0),
+            )
         runtime = {
             "pid": os.getpid(),
             "state": "RUNNING",
             "deadline": deadline if args.hours else None,
             "concurrency": args.concurrency,
+            "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),
+            "min_free_disk_mb": getattr(args, "min_free_disk_mb", 0),
             "daily_max_calls": args.max_jobs or None,
             "daily_token_budget": args.token_budget or None,
             "cooldown_until": None,
@@ -804,6 +909,10 @@ def run(args):
                         collect(root, args.feeds, args.github_auth)
                         next_feed = time.time() + args.poll_seconds
                         publish(next_feed_at=next_feed)
+                    reserve = getattr(args, "min_free_memory_mb", 0)
+                    free_mb = available_memory_mb() if reserve else None
+                    disk_reserve = getattr(args, "min_free_disk_mb", 0)
+                    disk_free_mb = available_disk_mb(root) if disk_reserve else None
                     while (
                         len(running) < args.concurrency
                         and failures < 2
@@ -811,6 +920,12 @@ def run(args):
                         and time.time() < deadline
                         and not (root / "STOP").exists()
                     ):
+                        if reserve and (free_mb is None or free_mb < reserve):
+                            break
+                        if disk_reserve and (
+                            disk_free_mb is None or disk_free_mb < disk_reserve
+                        ):
+                            break
                         job = claim(
                             root,
                             args.max_jobs,
@@ -819,6 +934,7 @@ def run(args):
                             REVIEW_ROTATION[attempts % len(REVIEW_ROTATION)]
                             if getattr(args, "review_priority", False)
                             else (),
+                            fair_repos=bool(research_path),
                         )
                         if job is None:
                             break
@@ -843,7 +959,26 @@ def run(args):
                             )
                         )
                         attempts += 1
-                    publish(active=len(running))
+                        free_mb = available_memory_mb() if reserve else None
+                        disk_free_mb = (
+                            available_disk_mb(root) if disk_reserve else None
+                        )
+                    publish(
+                        active=len(running),
+                        memory_paused=bool(
+                            reserve
+                            and (free_mb is None or free_mb < reserve)
+                        ),
+                        available_memory_mb=free_mb,
+                        disk_paused=bool(
+                            disk_reserve
+                            and (
+                                disk_free_mb is None
+                                or disk_free_mb < disk_reserve
+                            )
+                        ),
+                        available_disk_mb=disk_free_mb,
+                    )
                     if not running:
                         if args.once:
                             break
@@ -880,7 +1015,10 @@ def main(argv=None):
     )
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("init")
-    actions.add_parser("status")
+    status_parser = actions.add_parser("status")
+    status_parser.add_argument(
+        "--limit", type=int, default=100, help="newest jobs to show (1..10000)"
+    )
     actions.add_parser("stop")
     add = actions.add_parser(
         "add", help="explicitly enqueue a reviewed public-data packet"
@@ -891,7 +1029,7 @@ def main(argv=None):
     feed.add_argument(
         "--github-auth",
         action="store_true",
-        help="use existing Git credential helper for public API GETs only",
+        help="use GH_TOKEN/GITHUB_TOKEN or the Git credential helper for public API GETs only",
     )
     worker = actions.add_parser("run")
     worker.add_argument(
@@ -910,6 +1048,18 @@ def main(argv=None):
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
     )
     worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
+    worker.add_argument(
+        "--min-free-memory-mb",
+        type=int,
+        default=0,
+        help="pause new calls below this host-available RAM; 0 disables the guard",
+    )
+    worker.add_argument(
+        "--min-free-disk-mb",
+        type=int,
+        default=0,
+        help="pause new work below this run-volume free space; 0 disables the guard",
+    )
     worker.add_argument(
         "--review-priority",
         action="store_true",
@@ -941,7 +1091,7 @@ def main(argv=None):
             initialize(args.root)
             result = {"root": str(args.root), "state": "INITIALIZED"}
         elif args.action == "status":
-            result = status(args.root)
+            result = status(args.root, limit=args.limit)
         elif args.action == "stop":
             (args.root / "STOP").write_text("stop requested\n", encoding="utf-8")
             result = {
@@ -967,6 +1117,8 @@ def main(argv=None):
                 and (args.token_budget == 0 or 1024 <= args.token_budget <= 2_000_000)
                 and 256 <= args.output_tokens <= 4096
                 and 15 <= args.timeout <= 600
+                and 0 <= args.min_free_memory_mb <= 1_048_576
+                and 0 <= args.min_free_disk_mb <= 1_048_576
                 and args.poll_seconds >= 300
                 and 60 <= args.error_cooldown_seconds <= 3600
             ):

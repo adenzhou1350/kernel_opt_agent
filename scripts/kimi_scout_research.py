@@ -8,14 +8,16 @@ from __future__ import annotations
 
 import hashlib
 import json
-from concurrent.futures import ThreadPoolExecutor
-from copy import deepcopy
-from pathlib import Path
 import re
 import threading
 import time
+import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
+from pathlib import Path
 
 import kimi_scout as scout
+import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
 
 SOURCE_SUFFIXES = (
@@ -32,10 +34,35 @@ SOURCE_SUFFIXES = (
     ".mjs",
     ".cjs",
 )
+OPTIONAL_SOURCE_UNAVAILABLE = frozenset(
+    {
+        "binary source is not supported",
+        "source exceeds read budget",
+        "public source exceeds read budget",
+    }
+)
 
 
 class QueueFull(Exception):
     """Defer a fetched packet without advancing its evidence cursor."""
+
+
+def refill_error_code(exc):
+    """Expose only known controller error codes, never fetched text or URLs."""
+    if isinstance(exc, ValueError):
+        known = {
+            "research packet cannot fit evidence budget": "packet_budget",
+            "public source exceeds read budget": "source_budget",
+            "source exceeds read budget": "source_budget",
+            "source path is absent from the public snapshot": "source_snapshot",
+            "configured tree root is absent": "tree_root_absent",
+            "invalid public issue page": "issue_page",
+            "issue response does not match requested issue": "issue_identity",
+            "invalid issue comments": "issue_comments",
+            "invalid public duplicate search": "duplicate_search",
+        }
+        return "ValueError:" + known.get(str(exc), "other")
+    return type(exc).__name__
 
 
 def idle_refill_delay(ready_at, now):
@@ -54,6 +81,47 @@ def refill_retry_delay(made, failure, empty_refills, *, cursor_advanced=False):
         # Seen source windows still move the scan toward a fresh revision.
         return 0.5
     return min(120, 5 * 2 ** max(0, empty_refills - 1))
+
+
+def companion_source_paths(path, files):
+    """Find exact-revision test/policy context without guessing generated names."""
+    stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    tests = sorted(
+        p
+        for p in files
+        if p != path and "test" in p and stem in p and p.endswith(SOURCE_SUFFIXES)
+    )
+    parts = path.split("/")
+    readme = None
+    if "experimental" in parts:
+        index = parts.index("experimental")
+        if index + 1 < len(parts) - 1:
+            feature = parts[index + 1]
+            feature_root = "/".join(parts[: index + 2])
+            candidate_readme = f"{feature_root}/README.md"
+            if candidate_readme in files:
+                readme = candidate_readme
+            feature_tests = sorted(
+                p
+                for p in files
+                if p.startswith("tests/experimental/")
+                and "test" in p
+                and (
+                    f"/{feature}/" in p
+                    or p.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                    in {f"test_{feature}", f"{feature}_test"}
+                    or p.rsplit("/", 1)[-1].startswith(f"test_{feature}_")
+                    or (
+                        "_" in feature
+                        and p.rsplit("/", 1)[-1]
+                        .rsplit(".", 1)[0]
+                        .endswith(f"_{feature}")
+                    )
+                )
+                and p.endswith(SOURCE_SUFFIXES)
+            )
+            tests = feature_tests + [p for p in tests if p not in feature_tests]
+    return tests[:1], readme
 
 
 def configuration(path):
@@ -112,6 +180,16 @@ def configuration(path):
             raise ValueError("tree_roots needs safe top-level directories")
         if roots and any(p.split("/")[0] not in roots for p in prefixes):
             raise ValueError("source prefixes must lie in configured tree roots")
+        skip_labels = spec.get("issue_skip_labels", [])
+        if (
+            not isinstance(skip_labels, list)
+            or len(skip_labels) > 16
+            or any(
+                not isinstance(label, str) or not label or len(label) > 100
+                for label in skip_labels
+            )
+        ):
+            raise ValueError("issue_skip_labels must be a bounded list of label names")
     return value
 
 
@@ -124,6 +202,15 @@ def source_paths(snapshot, spec):
         and not p.endswith("__init__.py")
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )
+
+
+def changed_first_paths(paths, current_blobs, previous_blobs, limit=512):
+    """Move changed Git blobs to the front without dropping any source paths."""
+    changed = [
+        path for path in paths if current_blobs[path] != previous_blobs.get(path)
+    ][:limit]
+    changed_set = set(changed)
+    return changed + [path for path in paths if path not in changed_set], changed
 
 
 def relevant_paths(snapshot, hints, exclude=()):
@@ -148,6 +235,28 @@ def relevant_paths(snapshot, hints, exclude=()):
         if score:
             ranked.append((-score, path))
     return [path for _, path in sorted(ranked)]
+
+
+def same_file_kernel_definition(packet, snapshot):
+    """Find one called Python kernel whose definition was outside the first window."""
+    repo = packet["repo"]
+    prefix = re.compile(
+        rf"https://raw\.githubusercontent\.com/{re.escape(repo)}/[0-9a-f]{{40}}/(.+)"
+    )
+    files = set(snapshot["files"])
+    sources = packet["sources"]
+    for source in sources[:2]:
+        match = prefix.fullmatch(source["url"])
+        if match is None:
+            continue
+        path = urllib.parse.unquote(match.group(1))
+        if path not in files or not path.endswith(".py"):
+            continue
+        for symbol in re.findall(r"\b([A-Za-z_]\w*_kernel)\s*\[", source["text"]):
+            definition = re.compile(rf"\bdef\s+{re.escape(symbol)}\s*\(")
+            if not any(definition.search(item["text"]) for item in sources):
+                return path, symbol
+    return None
 
 
 def distinct_sources(sources):
@@ -179,8 +288,12 @@ def retrieval_identity(source):
 
 
 class ResearchProducer:
-    def __init__(self, root, config_path, github_auth=False, context=None):
+    def __init__(
+        self, root, config_path, github_auth=False, context=None,
+        min_free_disk_mb=0,
+    ):
         self.root = Path(root)
+        self.min_free_disk_mb = min_free_disk_mb
         self.config = configuration(config_path)
         self.context = context or PublicContext(
             root,
@@ -197,6 +310,7 @@ class ResearchProducer:
         self.lock = threading.RLock()
         self.inflight_repos = set()
         with scout.connect(root) as db:
+            shadow.initialize(db)
             db.execute(
                 "CREATE TABLE IF NOT EXISTS research_seen (key TEXT PRIMARY KEY, job TEXT)"
             )
@@ -225,6 +339,12 @@ class ResearchProducer:
 
     def stopped(self):
         return self.halt.is_set() or (self.root / "STOP").exists()
+
+    def disk_paused(self):
+        if not self.min_free_disk_mb:
+            return False
+        free_mb = scout.available_disk_mb(self.root)
+        return free_mb is None or free_mb < self.min_free_disk_mb
 
     def pending(self):
         with scout.connect(self.root) as db:
@@ -294,7 +414,16 @@ class ResearchProducer:
         )
 
     def emit(
-        self, key, spec, sources, stage, *, parent=None, focus_issue=None, question=""
+        self,
+        key,
+        spec,
+        sources,
+        stage,
+        *,
+        parent=None,
+        focus_issue=None,
+        question="",
+        frontier=None,
     ):
         if self.stopped() or self.seen(key):
             return False
@@ -331,6 +460,8 @@ class ResearchProducer:
         }
         if focus_issue:
             packet["focus_issue"] = focus_issue
+        if frontier is not None:
+            packet["research"]["frontier"] = frontier
         if parent:
             packet["untrusted_prior_analysis"] = parent["analysis"][:2500]
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
@@ -384,6 +515,7 @@ class ResearchProducer:
                 if queued >= self.config["queue_target"]:
                     raise QueueFull
                 job = scout.enqueue(self.root, packet, db=db)
+                shadow.record(db, job, packet, scout.dumps(packet))
                 db.executemany(
                     "INSERT OR IGNORE INTO research_seen VALUES (?,?)",
                     ((key, job), (evidence_key, job)),
@@ -426,6 +558,9 @@ class ResearchProducer:
             if self.stopped():
                 return False
             item = items[0]
+            if set(item.get("labels", [])) & set(spec.get("issue_skip_labels", [])):
+                items.pop(0)
+                continue
             key = f"issue:{spec['repo']}:{item['number']}:{item.get('updated_at', '')}"
             if self.seen(key):
                 items.pop(0)
@@ -442,21 +577,31 @@ class ResearchProducer:
                 return False
             matches = relevant_paths(snapshot, sources[0]["text"])
             if matches:
-                sources.append(
-                    self.context.source(
-                        spec["repo"],
-                        snapshot["commit"],
-                        matches[0],
-                        hints=sources[0]["text"],
+                try:
+                    sources.append(
+                        self.context.source(
+                            spec["repo"],
+                            snapshot["commit"],
+                            matches[0],
+                            hints=sources[0]["text"],
+                        )
                     )
-                )
+                except ValueError as exc:
+                    if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                        raise
             created = self.emit(
                 key,
                 spec,
                 sources,
                 "issue_triage",
                 focus_issue=item["number"],
-                question="First triage: distinguish an actionable current-source question from stale/resolved/user-configuration reports. Name exact missing source symbols if needed.",
+                question=(
+                    "First triage: distinguish an actionable current-source question from "
+                    "stale/resolved/user-configuration reports. Name exact missing source "
+                    "symbols if needed. If the reporter already supplied a tested patch "
+                    "and offered to submit it, preserve the finding as author-owned work; "
+                    "suggest independent validation rather than a competing PR."
+                ),
             )
             items.pop(0)
             return created
@@ -472,12 +617,72 @@ class ResearchProducer:
                 window_index, windows - 1
             )
             progress.pop("sources_after", None)
+            progress.pop("last_sweep_commit", None)
+            progress.pop("last_sweep_scope", None)
+            progress.pop("source_priority", None)
+            progress.pop("priority_reference_commit", None)
         progress["source_windows"] = windows
         if time.time() < progress.get("sources_after", 0):
             return False
         snapshot = self.snapshot(spec, progress)
+        if time.time() >= progress.get("revision_check_after", 0):
+            latest = self.current_snapshot(spec)
+            progress["revision_check_after"] = time.time() + 900
+            if latest["commit"] != snapshot["commit"]:
+                # A long pinned sweep must not hide newer source for days.
+                # Previously queued packets remain versioned by their old SHA.
+                progress["priority_reference_commit"] = snapshot["commit"]
+                progress["commit"] = latest["commit"]
+                progress["source_cursor"] = 0
+                progress.pop("source_priority", None)
+                snapshot = latest
         paths = source_paths(snapshot, spec)
+        alphabetical_paths = paths
         progress["available_sources"] = len(paths)
+        scope = hashlib.sha256(scout.dumps([windows, paths]).encode()).hexdigest()
+        # Once a complete sweep has seen this exact revision, another pass
+        # cannot create fresh source evidence. Keep issue/follow-up discovery
+        # active, but avoid walking thousands of already-seen windows again.
+        if (
+            progress.get("source_cursor", 0) == 0
+            and progress.get("last_sweep_commit") == snapshot["commit"]
+            and progress.get("last_sweep_scope") == scope
+        ):
+            progress["sources_after"] = time.time() + 1800
+            progress.pop("commit", None)
+            return False
+        priority = progress.get("source_priority", {})
+        if (
+            priority.get("commit") != snapshot["commit"]
+            or priority.get("scope") != scope
+        ):
+            # A cursor already in flight belongs to the old ordering. Restart
+            # the sweep on a scope change or upgrade; seen keys keep this
+            # idempotent. Persist the new prefix across process restarts.
+            if priority and progress.get("source_cursor", 0):
+                progress["source_cursor"] = 0
+            changed = []
+            previous = progress.get("priority_reference_commit") or progress.get(
+                "last_sweep_commit"
+            )
+            if (
+                progress.get("source_cursor", 0) == 0
+                and previous
+                and previous != snapshot["commit"]
+            ):
+                old = self.context.snapshot(spec["repo"], previous)
+                _, changed = changed_first_paths(paths, snapshot["blobs"], old["blobs"])
+            priority = {
+                "commit": snapshot["commit"],
+                "scope": scope,
+                "paths": changed,
+                "base_commit": previous,
+            }
+            progress["source_priority"] = priority
+            progress.pop("priority_reference_commit", None)
+        prioritized = [path for path in priority["paths"] if path in paths]
+        prioritized_set = set(prioritized)
+        paths = prioritized + [path for path in paths if path not in prioritized_set]
         total = len(paths) * windows
         scan_end = min(total, progress.get("source_cursor", 0) + 2048)
         while True:
@@ -485,10 +690,17 @@ class ResearchProducer:
                 return False
             cursor = progress.get("source_cursor", 0)
             if cursor >= total:
-                progress.update(source_cursor=0, sources_after=time.time() + 1800)
+                progress.update(
+                    source_cursor=0,
+                    sources_after=time.time() + 1800,
+                    last_sweep_commit=snapshot["commit"],
+                    last_sweep_scope=scope,
+                )
                 progress.pop(
                     "commit", None
                 )  # Refresh revision only after this bounded sweep.
+                progress.pop("source_priority", None)
+                progress.pop("priority_reference_commit", None)
                 return False
             if cursor >= scan_end:
                 return False
@@ -542,29 +754,55 @@ class ResearchProducer:
             if self.stopped():
                 return False
             stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-            tests = [
-                p
-                for p in snapshot["files"]
-                if p != path
-                and "test" in p
-                and stem in p
-                and p.endswith(SOURCE_SUFFIXES)
-            ]
+            tests, readme = companion_source_paths(path, snapshot["files"])
             if tests:
-                sources.append(
-                    self.context.source(
-                        spec["repo"], snapshot["commit"], tests[0], hints=stem
+                try:
+                    sources.append(
+                        self.context.source(
+                            spec["repo"],
+                            snapshot["commit"],
+                            tests[0],
+                            hints=stem,
+                            max_lines=70,
+                        )
                     )
-                )
+                except ValueError as exc:
+                    if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                        raise
+            if readme:
+                try:
+                    sources.append(
+                        self.context.source(
+                            spec["repo"],
+                            snapshot["commit"],
+                            readme,
+                            hints="supported hardware experimental opt-in validation",
+                            max_lines=60,
+                        )
+                    )
+                except ValueError as exc:
+                    if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                        raise
             created = self.emit(
                 key,
                 spec,
                 sources,
                 "source_audit",
                 question=(
-                    f"Review only this supplied source window ({path}:{start}) and any supplied tests. "
-                    "Find at most one concrete boundary/correctness/production-impact gap. Missing surrounding code is uncertainty, not a bug. Prefer no_lead to speculative refactoring. Do not call it novel; later stages check related work."
+                    f"Review only this supplied source window ({path}:{start}) and any supplied test or feature policy. "
+                    "Find at most one concrete boundary/correctness/production-impact gap. "
+                    "Documented experimental opt-in or an unsupported GPU is not itself a bug. "
+                    "Missing surrounding code is uncertainty, not a bug. Prefer no_lead to speculative refactoring. "
+                    "Do not call it novel; later stages check related work."
                 ),
+                frontier={
+                    "policy": "changed_blobs_first_v1",
+                    "commit": snapshot["commit"],
+                    "base_commit": priority.get("base_commit"),
+                    "changed_blob": path in prioritized_set,
+                    "source_rank": cursor // windows + 1,
+                    "alphabetical_rank": alphabetical_paths.index(path) + 1,
+                },
             )
             progress["source_cursor"] = (
                 (cursor // windows + 1) * windows
@@ -652,15 +890,39 @@ class ResearchProducer:
                 + [ref["quote"] for ref in analysis_value.get("evidence", [])]
                 + [s["url"] + "\n" + s["text"] for s in sources]
             )
+            definition_request = same_file_kernel_definition(packet, snapshot)
+            if definition_request is not None:
+                path, symbol = definition_request
+                try:
+                    definition_source = self.context.source(
+                        spec["repo"],
+                        snapshot["commit"],
+                        path,
+                        hints=f"def {symbol}(",
+                        max_lines=100,
+                    )
+                except ValueError as exc:
+                    if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                        raise
+                else:
+                    if re.search(
+                        rf"\bdef\s+{re.escape(symbol)}\s*\(",
+                        definition_source["text"],
+                    ):
+                        sources.append(definition_source)
             paths = relevant_paths(snapshot, hints)
             for path in paths[:2]:
                 if self.stopped():
                     return False
-                sources.append(
-                    self.context.source(
-                        spec["repo"], snapshot["commit"], path, hints=hints
+                try:
+                    sources.append(
+                        self.context.source(
+                            spec["repo"], snapshot["commit"], path, hints=hints
+                        )
                     )
-                )
+                except ValueError as exc:
+                    if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                        raise
             if self.stopped():
                 return False
             title = (
@@ -699,6 +961,8 @@ class ResearchProducer:
                     )
                     + "Try to disprove the prior untrusted hypothesis using new source and related items. "
                     "If already fixed or covered by an existing PR, say no_lead; do not propose a competing copy. "
+                    "If the issue author supplied a tested fix and offered a PR, treat it as author-owned work "
+                    "and identify missing validation rather than proposing our own PR. "
                     "Give one minimal runnable test PLAN (not a claim of execution), exact source location, expected boundary, and stop condition. "
                     "This chain has at most two followups; remaining environment/GPU questions must be handed to the owner."
                 ),
@@ -767,7 +1031,7 @@ class ResearchProducer:
         try:
             return future.result(), None
         except Exception as exc:
-            return False, type(exc).__name__
+            return False, refill_error_code(exc)
         finally:
             with self.lock:
                 self.state["repos"][repo] = progress
@@ -802,9 +1066,10 @@ class ResearchProducer:
                         empty_refills.get(repo, 0),
                         cursor_advanced=cursor_advanced,
                     )
-                    error = failure or error
+                    error = f"{repo}:{failure}" if failure else error
                 while (
                     not self.stopped()
+                    and not self.disk_paused()
                     and len(active) < self.config["context_workers"]
                     and self.pending() < self.config["queue_target"]
                 ):
@@ -835,7 +1100,9 @@ class ResearchProducer:
                     active[repo] = (future, progress, initial_cursor)
                 queued = self.pending()
                 phase = (
-                    "BACKOFF"
+                    "DISK_PAUSED"
+                    if self.disk_paused()
+                    else "BACKOFF"
                     if error
                     else "REFILLING"
                     if active
@@ -869,6 +1136,10 @@ class ResearchProducer:
             return
         while not self.stopped():
             try:
+                if self.disk_paused():
+                    self.publish("DISK_PAUSED")
+                    self.halt.wait(5)
+                    continue
                 if self.pending() >= self.config["queue_target"]:
                     self.publish("READY")
                     self.halt.wait(5)

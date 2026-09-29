@@ -1,16 +1,15 @@
 """Offline public-context boundaries: no credentials, network, models or GPUs."""
 
 import json
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout_context as context
-
 
 COMMIT = "a" * 40
 TREE = "b" * 40
@@ -125,6 +124,9 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 3)
         with patch.object(context.time, "time", return_value=1901):
             self.assertEqual(self.context.snapshot(REPO), first)
+        self.assertEqual(len(self.calls), 6)
+        with patch.object(context.time, "time", return_value=1902):
+            self.assertEqual(self.context.snapshot(REPO, COMMIT), first)
         self.assertEqual(len(self.calls), 6)
 
     def test_scoped_tree_skips_large_unselected_subtrees_and_keeps_identity(self):
@@ -255,6 +257,19 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(sum(url == RAW for url, _, _ in self.calls), 1)
         self.assertFalse(next(auth for url, _, auth in self.calls if url == RAW))
 
+    def test_definition_hint_fetches_masked_store_not_later_kernel_call(self):
+        lines = [f"other_{i} = {i}" for i in range(1, 251)]
+        lines[29] = "def grpo_fwd_kernel():"
+        lines[94] = "    tl.store(loss_ptr + M, 0.0)"
+        lines[189] = "grpo_fwd_kernel[(row_len,)]()"
+        self.raw = "\n".join(lines)
+        evidence = self.context.source(
+            REPO, COMMIT, "src/kernel.py", hints="def grpo_fwd_kernel(", max_lines=100
+        )
+        self.assertIn("30: def grpo_fwd_kernel():", evidence["text"])
+        self.assertIn("95:     tl.store(loss_ptr + M, 0.0)", evidence["text"])
+        self.assertNotIn("190: grpo_fwd_kernel[(row_len,)]()", evidence["text"])
+
     def test_source_window_bounds_and_truncation_are_explicit(self):
         for kwargs in (
             {"start": 0},
@@ -299,6 +314,11 @@ class ContextTests(unittest.TestCase):
                 "number": 12,
                 "title": "bug",
                 "body": "details",
+                "labels": [
+                    {"name": "clawsweeper:no-new-fix-pr"},
+                    {"name": 9},
+                    "untrusted label shape",
+                ],
                 "html_url": "https://evil/x",
                 "comments_url": "https://evil/comments",
             },
@@ -308,6 +328,7 @@ class ContextTests(unittest.TestCase):
         items = self.context.issue_page(REPO, 2)
         self.assertEqual([item["number"] for item in items], [12])
         self.assertEqual(items[0]["html_url"], f"https://github.com/{REPO}/issues/12")
+        self.assertEqual(items[0]["labels"], ["clawsweeper:no-new-fix-pr"])
         self.assertEqual(len(self.calls), 2)
         with self.assertRaises(ValueError):
             self.context.issue_page(REPO, "https://evil")
