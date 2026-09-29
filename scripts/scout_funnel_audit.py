@@ -67,6 +67,13 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
             if "result" in delivery_columns
             else "NULL"
         )
+        owner_score = (
+            "CASE WHEN json_valid(d.result) "
+            "THEN CASE WHEN json_type(d.result,'$.owner_score')='integer' "
+            "THEN json_extract(d.result,'$.owner_score') END END"
+            if "result" in delivery_columns
+            else "NULL"
+        )
         query = f"""SELECT j.id,
                           COALESCE(json_extract(j.packet,'$.repo'),'') AS repo,
                           COALESCE(json_extract(j.packet,'$.research.stage'),'') AS stage,
@@ -74,7 +81,7 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
                           j.state, j.charge,
                           CASE WHEN json_valid(j.result)
                           THEN json_extract(j.result,'$.usage.total_tokens') END,
-                          d.state, COALESCE(d.reason,''), {pr_url}
+                          d.state, COALESCE(d.reason,''), {pr_url}, {owner_score}
                    FROM jobs AS j
                    LEFT JOIN research_action_shadow AS s ON s.job_id=j.id
                    LEFT JOIN deliverydb.delivery AS d ON d.source_job_id=j.id
@@ -83,6 +90,14 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
         unique_pr_urls = set()
         pr_open_candidate_rows = 0
         invalid_pr_link_rows = 0
+        score_buckets = defaultdict(
+            lambda: {
+                "owner_review_required_rows": 0,
+                "pr_open_candidate_rows": 0,
+                "_unique_pr_urls": set(),
+            }
+        )
+        unscored_owner_candidate_rows = 0
         for (
             job_id,
             repo,
@@ -94,6 +109,7 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
             delivery_state,
             reason,
             linked_pr_url,
+            recorded_owner_score,
         ) in connection.execute(query, (start, end)):
             group = groups[(repo, stage, source_class)]
             if job_id not in seen_jobs:
@@ -107,6 +123,15 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
             group["delivery_states"][delivery_state or "NOT_DELIVERED"] += 1
             if delivery_state == "ENVIRONMENT_BLOCKED":
                 group["environment_blockers"][blocker_class(reason)] += 1
+            if delivery_state in ("OWNER_REVIEW_REQUIRED", "PR_OPEN"):
+                if type(recorded_owner_score) is int and recorded_owner_score >= 0:
+                    score_buckets[recorded_owner_score][
+                        "owner_review_required_rows"
+                        if delivery_state == "OWNER_REVIEW_REQUIRED"
+                        else "pr_open_candidate_rows"
+                    ] += 1
+                else:
+                    unscored_owner_candidate_rows += 1
             if delivery_state == "PR_OPEN":
                 pr_open_candidate_rows += 1
                 group["pr_open_candidate_rows"] += 1
@@ -114,6 +139,10 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
                 if match and match.group(1).casefold() == repo.casefold():
                     group["_unique_pr_urls"].add(linked_pr_url)
                     unique_pr_urls.add(linked_pr_url)
+                    if type(recorded_owner_score) is int and recorded_owner_score >= 0:
+                        score_buckets[recorded_owner_score]["_unique_pr_urls"].add(
+                            linked_pr_url
+                        )
                 else:
                     invalid_pr_link_rows += 1
         rows = []
@@ -139,14 +168,25 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
                 row["stage"],
             )
         )
+        owner_score_snapshot = [
+            {
+                "owner_score": score,
+                "owner_review_required_rows": bucket["owner_review_required_rows"],
+                "pr_open_candidate_rows": bucket["pr_open_candidate_rows"],
+                "unique_linked_prs": len(bucket["_unique_pr_urls"]),
+            }
+            for score, bucket in sorted(score_buckets.items())
+        ]
         return {
-            "schema_version": "scout-funnel-snapshot-v2",
+            "schema_version": "scout-funnel-snapshot-v3",
             "created_from": start,
             "created_before": end,
             "observed_at": time.time(),
             "pr_open_candidate_rows": pr_open_candidate_rows,
             "unique_linked_prs": len(unique_pr_urls),
             "invalid_pr_link_rows": invalid_pr_link_rows,
+            "owner_score_snapshot": owner_score_snapshot,
+            "unscored_owner_candidate_rows": unscored_owner_candidate_rows,
             "groups": rows,
             "claim_boundary": (
                 "Reported tokens are not billed cost; charge may include reservation "
@@ -154,7 +194,10 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float) -> dict:
                 "are not independent value labels. NOT_DELIVERED is censored, not a negative. "
                 "PR_OPEN counts candidate links, while unique_linked_prs deduplicates "
                 "canonical PR URLs; neither proves review, merge, or value. A PR shared "
-                "across groups appears once globally but can appear in multiple groups."
+                "across groups appears once globally but can appear in multiple groups. "
+                "Owner-score buckets are candidate-row snapshots, not score accuracy "
+                "or conversion estimates: owner selection, duplicates, and pending reviews "
+                "censor their outcomes."
             ),
         }
     finally:

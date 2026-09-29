@@ -119,7 +119,9 @@ class FunnelAuditTests(unittest.TestCase):
                             source,
                             "PR_OPEN",
                             "",
-                            '{"pr":{"url":"https://github.com/a/b/pull/'
+                            '{"owner_score":'
+                            + str({"job-1": 1, "job-2": 2, "job-3": 5}[source])
+                            + ',"pr":{"url":"https://github.com/a/b/pull/'
                             + number
                             + '"}}',
                         )
@@ -135,13 +137,13 @@ class FunnelAuditTests(unittest.TestCase):
                             "job-2",
                             "PR_OPEN",
                             "",
-                            '{"pr":{"url":"https://github.com/other/repo/pull/12"}}',
+                            '{"owner_score":2,"pr":{"url":"https://github.com/other/repo/pull/12"}}',
                         )
                     ],
                 )
                 db.commit()
             result = funnel.audit(scout, delivery, 10, 14)
-            self.assertEqual(result["schema_version"], "scout-funnel-snapshot-v2")
+            self.assertEqual(result["schema_version"], "scout-funnel-snapshot-v3")
             self.assertEqual(result["pr_open_candidate_rows"], 5)
             self.assertEqual(result["unique_linked_prs"], 2)
             self.assertEqual(result["invalid_pr_link_rows"], 1)
@@ -151,6 +153,65 @@ class FunnelAuditTests(unittest.TestCase):
             self.assertEqual(group["reported_model_tokens"], 6)
             self.assertEqual(group["delivery_states"], {"PR_OPEN": 5})
             self.assertEqual(group["unique_linked_prs"], 2)
+            self.assertEqual(
+                result["owner_score_snapshot"],
+                [
+                    {
+                        "owner_score": 1,
+                        "owner_review_required_rows": 0,
+                        "pr_open_candidate_rows": 2,
+                        "unique_linked_prs": 1,
+                    },
+                    {
+                        "owner_score": 2,
+                        "owner_review_required_rows": 0,
+                        "pr_open_candidate_rows": 2,
+                        "unique_linked_prs": 1,
+                    },
+                    {
+                        "owner_score": 5,
+                        "owner_review_required_rows": 0,
+                        "pr_open_candidate_rows": 1,
+                        "unique_linked_prs": 1,
+                    },
+                ],
+            )
+
+    def test_unscored_owner_review_is_not_treated_as_low_score(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            scout = root / "scout.sqlite"
+            delivery = root / "delivery.sqlite"
+            with closing(sqlite3.connect(scout)) as db:
+                db.execute(
+                    "CREATE TABLE jobs (id TEXT, packet TEXT, state TEXT, charge INT, created REAL, result TEXT)"
+                )
+                db.execute(
+                    "CREATE TABLE research_action_shadow (job_id TEXT, source_class TEXT)"
+                )
+                db.executemany(
+                    "INSERT INTO jobs VALUES (?,?,?,?,?,?)",
+                    [
+                        (job, '{"repo":"a/b"}', "REVIEW", 1, 10, "{}")
+                        for job in ("job-1", "job-2")
+                    ],
+                )
+                db.commit()
+            with closing(sqlite3.connect(delivery)) as db:
+                db.execute(
+                    "CREATE TABLE delivery (source_job_id TEXT, state TEXT, reason TEXT, result TEXT)"
+                )
+                db.executemany(
+                    "INSERT INTO delivery VALUES (?,?,?,?)",
+                    [
+                        ("job-1", "OWNER_REVIEW_REQUIRED", "", "{}"),
+                        ("job-2", "OWNER_REVIEW_REQUIRED", "", '{"owner_score":true}'),
+                    ],
+                )
+                db.commit()
+            result = funnel.audit(scout, delivery, 10, 11)
+            self.assertEqual(result["owner_score_snapshot"], [])
+            self.assertEqual(result["unscored_owner_candidate_rows"], 2)
 
 
 if __name__ == "__main__":
