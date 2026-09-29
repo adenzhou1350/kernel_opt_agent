@@ -144,9 +144,8 @@ class PublicContext:
         path = self._cache_path("snapshot", identity)
         cached = self._load(path)
         cached_at = cached.get("at") if cached else None
-        if (
-            type(cached_at) in {int, float}
-            and 0 <= time.time() - cached_at < SNAPSHOT_TTL
+        if type(cached_at) in {int, float} and (
+            SHA.fullmatch(ref) or 0 <= time.time() - cached_at < SNAPSHOT_TTL
         ):
             value = cached.get("snapshot")
             if (
@@ -322,6 +321,9 @@ class PublicContext:
                 continue
             number = _number(item.get("number"))
             title, body = _text(item.get("title")), _text(item.get("body"))
+            labels = item.get("labels", [])
+            if not isinstance(labels, list):
+                labels = []
             result.append(
                 {
                     "number": number,
@@ -329,6 +331,12 @@ class PublicContext:
                     "body": body[:5000],
                     "updated_at": _text(item.get("updated_at")),
                     "state": "open",
+                    "labels": [
+                        label["name"]
+                        for label in labels[:32]
+                        if isinstance(label, dict)
+                        and isinstance(label.get("name"), str)
+                    ],
                     "html_url": f"https://github.com/{repo}/issues/{number}",
                     "truncated": len(title) > 500 or len(body) > 5000,
                 }

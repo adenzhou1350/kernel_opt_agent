@@ -63,11 +63,16 @@ class ScoutTests(unittest.TestCase):
         return scout.enqueue(self.root, packet(name))
 
     def test_runtime_storage_is_scoped_to_run_root(self):
-        source = {"TEMP": "C:/shared-temp", "OTHER": "preserved"}
+        source = {
+            "TEMP": "C:/shared-temp", "OTHER": "preserved",
+            "GH_TOKEN": "private", "GITHUB_TOKEN": "also-private",
+        }
         env = scout.runtime_storage_env(self.root, source)
         storage = self.root.resolve() / "runtime-storage"
         self.assertEqual(source["TEMP"], "C:/shared-temp")
         self.assertEqual(env["OTHER"], "preserved")
+        self.assertNotIn("GH_TOKEN", env)
+        self.assertNotIn("GITHUB_TOKEN", env)
         for key in ("TEMP", "TMP", "TMPDIR"):
             self.assertEqual(env[key], str(storage / "tmp"))
         self.assertEqual(env["UV_CACHE_DIR"], str(storage / "cache" / "uv"))
@@ -100,6 +105,18 @@ class ScoutTests(unittest.TestCase):
         b = scout.enqueue(self.root, packet(revision="b" * 40))
         self.assertEqual(a, b)
         self.assertEqual(len(scout.status(self.root)["jobs"]), 1)
+
+    def test_status_is_bounded_but_reports_total_jobs(self):
+        with scout.connect(self.root) as db:
+            db.executemany(
+                "INSERT INTO jobs(id,name,packet,state,created) VALUES(?,?,?,?,?)",
+                [(str(i), f"job-{i}", "{}", "NO_LEAD", float(i)) for i in range(3)],
+            )
+        current = scout.status(self.root, limit=2)
+        self.assertEqual(current["total_jobs"], 3)
+        self.assertEqual([row["id"] for row in current["jobs"]], ["2", "1"])
+        with self.assertRaisesRegex(ValueError, "status limit"):
+            scout.status(self.root, limit=0)
 
     def test_related_title_churn_does_not_trigger_another_call(self):
         first = packet()
@@ -240,6 +257,19 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(scout.claim(self.root, 0, 1, 4096, ("source_followup",)))
         self.assertEqual(scout.status(self.root)["jobs"][0]["state"], "PENDING")
 
+    def test_fair_research_claim_spreads_live_repositories(self):
+        for i in range(5):
+            value = packet(f"busy-{i}")
+            value["repo"] = "busy/repo"
+            scout.enqueue(self.root, value)
+        value = packet("quiet")
+        value["repo"] = "quiet/repo"
+        scout.enqueue(self.root, value)
+        busy = scout.claim(self.root, 0, 0, 4096, fair_repos=True)
+        self.assertEqual(json.loads(busy["packet"])["repo"], "busy/repo")
+        quiet = scout.claim(self.root, 0, 0, 4096, fair_repos=True)
+        self.assertEqual(json.loads(quiet["packet"])["repo"], "quiet/repo")
+
     def run_args(self, **changes):
         defaults = dict(
             root=self.root,
@@ -318,6 +348,68 @@ class ScoutTests(unittest.TestCase):
         for count in (0, 17):
             with self.subTest(concurrency=count), self.assertRaises(SystemExit):
                 scout.main([*args[:6], str(count), *args[7:]])
+
+    def test_memory_reserve_pauses_before_claiming_work(self):
+        self.add("memory-guard")
+        with (
+            patch.object(scout, "available_memory_mb", return_value=512),
+            patch.object(scout, "execute") as execute,
+        ):
+            current = scout.run(self.run_args(min_free_memory_mb=1024))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 0)
+        self.assertTrue(current["runtime"]["memory_paused"])
+        self.assertEqual(current["jobs"][0]["state"], "PENDING")
+        execute.assert_not_called()
+
+    def test_memory_probe_reports_a_nonnegative_value(self):
+        available = scout.available_memory_mb()
+        if sys.platform.startswith("linux") or sys.platform == "win32":
+            self.assertIsInstance(available, int)
+            self.assertGreaterEqual(available, 0)
+
+    def test_memory_reserve_admits_when_available(self):
+        self.add("memory-available")
+        with (
+            patch.object(scout, "available_memory_mb", return_value=2048),
+            patch.object(scout, "execute", side_effect=self.fake_execute),
+        ):
+            current = scout.run(self.run_args(min_free_memory_mb=1024))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 1)
+        self.assertFalse(current["runtime"]["memory_paused"])
+        self.assertEqual(current["jobs"][0]["state"], "NO_LEAD")
+
+    def test_disk_reserve_pauses_before_claiming_work(self):
+        self.add("disk-guard")
+        with (
+            patch.object(scout, "available_disk_mb", return_value=512),
+            patch.object(scout, "execute") as execute,
+        ):
+            current = scout.run(self.run_args(min_free_disk_mb=1024))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 0)
+        self.assertTrue(current["runtime"]["disk_paused"])
+        self.assertEqual(current["jobs"][0]["state"], "PENDING")
+        execute.assert_not_called()
+
+    def test_disk_reserve_admits_when_available(self):
+        self.add("disk-available")
+        with (
+            patch.object(scout, "available_disk_mb", return_value=2048),
+            patch.object(scout, "execute", side_effect=self.fake_execute),
+        ):
+            current = scout.run(self.run_args(min_free_disk_mb=1024))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 1)
+        self.assertFalse(current["runtime"]["disk_paused"])
+        self.assertEqual(current["jobs"][0]["state"], "NO_LEAD")
+
+    def test_disk_probe_failure_fails_closed(self):
+        self.add("disk-probe-failure")
+        with (
+            patch.object(scout.shutil, "disk_usage", side_effect=OSError),
+            patch.object(scout, "execute") as execute,
+        ):
+            current = scout.run(self.run_args(min_free_disk_mb=1024))
+        self.assertTrue(current["runtime"]["disk_paused"])
+        execute.assert_not_called()
 
     def test_heartbeat_and_next_feed_visible_during_inflight_call(self):
         self.add()
@@ -713,6 +805,15 @@ class ScoutTests(unittest.TestCase):
                 scout.fetch(url)
         with self.assertRaises(ValueError):
             scout.NoRedirect().redirect_request(None, None, None, None, None, None)
+
+    def test_github_auth_prefers_process_token_without_credential_helper(self):
+        with patch.dict(os.environ, {"GH_TOKEN": "test-token", "GITHUB_TOKEN": "other"}):
+            with patch.object(scout.subprocess, "run") as credential_helper:
+                self.assertEqual(scout.github_auth_header(), "Bearer test-token")
+                credential_helper.assert_not_called()
+        with patch.dict(os.environ, {"GH_TOKEN": "bad\nheader"}):
+            with self.assertRaises(ValueError):
+                scout.github_auth_header()
 
     def test_single_runner_lock(self):
         with scout.single_runner(self.root):
