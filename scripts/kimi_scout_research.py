@@ -194,12 +194,32 @@ def configuration(path):
 
 
 def source_paths(snapshot, spec):
+    test_dirs = {"test", "tests", "__tests__", "fixtures"}
+
+    def implementation_path(path):
+        parts = path.lower().split("/")
+        name = parts[-1]
+        stem = name.rsplit(".", 1)[0]
+        if any(
+            path.startswith(prefix)
+            and test_dirs.intersection(prefix.lower().split("/"))
+            for prefix in spec["source_prefixes"]
+        ):
+            return True
+        return not (
+            any(part in test_dirs for part in parts[:-1])
+            or stem in {"conftest", "test"}
+            or stem.startswith("test_")
+            or stem.endswith(("_test", ".test", ".spec"))
+        )
+
     return sorted(
         p
         for p in snapshot["files"]
         if any(p.startswith(prefix) for prefix in spec["source_prefixes"])
         and p.endswith(SOURCE_SUFFIXES)
         and not p.endswith("__init__.py")
+        and implementation_path(p)
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )
 

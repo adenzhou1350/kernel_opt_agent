@@ -914,6 +914,24 @@ class ResearchTests(unittest.TestCase):
             research.relevant_paths(snapshot, " ".join(paths), exclude=[paths[0]]),
         )
 
+    def test_source_audit_excludes_tests_but_keeps_companion_tests_available(self):
+        paths = [
+            "src/router.ts",
+            "src/router.test.ts",
+            "src/router.spec.ts",
+            "src/tests/router.ts",
+            "src/__tests__/router.ts",
+            "src/fixtures/router.ts",
+            "src/test_router.py",
+            "src/router_test.py",
+            "src/conftest.py",
+        ]
+        snapshot = {"files": paths}
+        self.assertEqual(research.source_paths(snapshot, self.spec), ["src/router.ts"])
+        tests, _ = research.companion_source_paths("src/router.ts", paths)
+        self.assertTrue(tests)
+        self.assertIn(tests[0], paths[1:])
+
     def test_typescript_source_audit_includes_observed_related_test(self):
         paths = ["src/router.ts", "tests/router.test.ts"]
         snapshot = {
