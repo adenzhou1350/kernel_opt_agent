@@ -81,6 +81,77 @@ class FunnelAuditTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             funnel.audit(Path("missing"), Path("missing"), 2, 1)
 
+    def test_unique_prs_do_not_inflate_job_or_token_counts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            scout = root / "scout.sqlite"
+            delivery = root / "delivery.sqlite"
+            with closing(sqlite3.connect(scout)) as db:
+                db.execute(
+                    "CREATE TABLE jobs (id TEXT, packet TEXT, state TEXT, charge INT, created REAL, result TEXT)"
+                )
+                db.execute(
+                    "CREATE TABLE research_action_shadow (job_id TEXT, source_class TEXT)"
+                )
+                db.executemany(
+                    "INSERT INTO jobs VALUES (?,?,?,?,?,?)",
+                    [
+                        (
+                            f"job-{index}",
+                            '{"repo":"a/b","research":{"stage":"source_audit"}}',
+                            "REVIEW",
+                            index * 10,
+                            10 + index,
+                            '{"usage":{"total_tokens":2}}',
+                        )
+                        for index in (1, 2, 3)
+                    ],
+                )
+                db.commit()
+            with closing(sqlite3.connect(delivery)) as db:
+                db.execute(
+                    "CREATE TABLE delivery (source_job_id TEXT, state TEXT, reason TEXT, result TEXT)"
+                )
+                db.executemany(
+                    "INSERT INTO delivery VALUES (?,?,?,?)",
+                    [
+                        (
+                            source,
+                            "PR_OPEN",
+                            "",
+                            '{"pr":{"url":"https://github.com/a/b/pull/'
+                            + number
+                            + '"}}',
+                        )
+                        for source, number in (
+                            ("job-1", "10"),
+                            ("job-1", "10"),
+                            ("job-2", "10"),
+                            ("job-3", "11"),
+                        )
+                    ]
+                    + [
+                        (
+                            "job-2",
+                            "PR_OPEN",
+                            "",
+                            '{"pr":{"url":"https://github.com/other/repo/pull/12"}}',
+                        )
+                    ],
+                )
+                db.commit()
+            result = funnel.audit(scout, delivery, 10, 14)
+            self.assertEqual(result["schema_version"], "scout-funnel-snapshot-v2")
+            self.assertEqual(result["pr_open_candidate_rows"], 5)
+            self.assertEqual(result["unique_linked_prs"], 2)
+            self.assertEqual(result["invalid_pr_link_rows"], 1)
+            group = result["groups"][0]
+            self.assertEqual(group["jobs"], 3)
+            self.assertEqual(group["charged_tokens_or_reservation"], 60)
+            self.assertEqual(group["reported_model_tokens"], 6)
+            self.assertEqual(group["delivery_states"], {"PR_OPEN": 5})
+            self.assertEqual(group["unique_linked_prs"], 2)
+
 
 if __name__ == "__main__":
     unittest.main()
