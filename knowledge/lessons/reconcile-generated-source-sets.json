@@ -1,0 +1,14 @@
+{
+  "id": "reconcile-generated-source-sets",
+  "title": "Reconcile generated source sets before publishing a reused build directory",
+  "applies_when": "A code generator writes shape- or architecture-specific source files into a directory reused by later runs, and a build or JIT staging step consumes the directory contents.",
+  "lesson": "Overwriting today's filenames does not remove yesterday's generated files. Compare the owned generated filenames with the current expected set, remove only obsolete owned files, then test both direct regeneration and the actual staging or publish path. Preserve unrelated files and verify that a removed shape's source cannot enter the next build blob.",
+  "avoid_when": "Do not delete a shared or concurrently used output directory, treat similarly named variants as interchangeable, or infer kernel correctness or speed from a source-list test. Fresh immutable output roots may not need reconciliation.",
+  "evidence": [
+    {
+      "url": "https://github.com/ROCm/aiter/pull/5936",
+      "note": "The MXFP4 MoE auxiliary generator fix and CPU regression tests demonstrate stale .cu removal through direct regeneration and Aiter's JIT staging/publish path. The PR is open; it does not establish AMD GPU performance or maintainer acceptance."
+    }
+  ],
+  "status": "validated"
+}
