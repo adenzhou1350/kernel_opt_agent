@@ -471,6 +471,23 @@ def linux_path(path):
     return "/mnt/" + path.drive[0].lower() + "/" + "/".join(path.parts[1:])
 
 
+def exact_owner_patch_key(root, row):
+    """Group only identical bounded patch bytes; missing evidence stays unique."""
+    if not re.fullmatch(r"[0-9a-f]{24}", row["id"]):
+        return None
+    work = root / "jobs" / row["id"]
+    for name in ("change-2.patch", "change-1.patch"):
+        patch = work / name
+        if not patch.is_file() or patch.is_symlink():
+            continue
+        if not 0 < patch.stat().st_size <= 262_144:
+            continue
+        content = patch.read_bytes()
+        if content.startswith(b"--- a/") and b"\n+++ b/" in content:
+            return row["repo"].casefold(), hashlib.sha256(content).digest()
+    return None
+
+
 class Delivery:
     def __init__(self, args):
         self.args = args
@@ -874,18 +891,33 @@ class Delivery:
                     candidate_exit=result.get("fixed", {}).get("exit_code"),
                 )
                 jobs.append(item)
-            owner_rows = db.execute(
-                "SELECT id,source_job_id,repo,title,state,updated_at,result FROM delivery "
-                "WHERE state IN (?, 'REPRODUCED') ORDER BY "
-                "CASE WHEN state=? THEN 0 ELSE 1 END,"
-                "json_extract(result,'$.owner_score') DESC,updated_at DESC LIMIT ?",
-                (OWNER_STATE, OWNER_STATE, self.args.owner_queue_limit),
-            ).fetchall()
             owner_queue = []
-            for row in owner_rows:
-                result = json.loads(row["result"])
-                owner_queue.append(
-                    {
+            exact_patches = {}
+            offset = 0
+            page_size = max(64, self.args.owner_queue_limit)
+            while len(owner_queue) < self.args.owner_queue_limit:
+                owner_rows = db.execute(
+                    "SELECT id,source_job_id,repo,title,state,updated_at,result "
+                    "FROM delivery WHERE state IN (?, 'REPRODUCED') ORDER BY "
+                    "CASE WHEN state=? THEN 0 ELSE 1 END,"
+                    "json_extract(result,'$.owner_score') DESC,updated_at DESC,id "
+                    "LIMIT ? OFFSET ?",
+                    (OWNER_STATE, OWNER_STATE, page_size, offset),
+                ).fetchall()
+                if not owner_rows:
+                    break
+                offset += len(owner_rows)
+                for row in owner_rows:
+                    patch_key = exact_owner_patch_key(self.root, row)
+                    if patch_key is not None and patch_key in exact_patches:
+                        exact_patches[patch_key]["exact_patch_duplicates"].append(
+                            row["id"]
+                        )
+                        continue
+                    if len(owner_queue) >= self.args.owner_queue_limit:
+                        continue
+                    result = json.loads(row["result"])
+                    item = {
                         "id": row["id"],
                         "source_job_id": row["source_job_id"],
                         "repo": row["repo"],
@@ -895,8 +927,13 @@ class Delivery:
                         "owner_score": result.get("owner_score", 0),
                         "handoff": result.get("owner_handoff"),
                         "legacy": row["state"] == "REPRODUCED",
+                        "exact_patch_duplicates": [],
                     }
-                )
+                    owner_queue.append(item)
+                    if patch_key is not None:
+                        exact_patches[patch_key] = item
+                if len(owner_rows) < page_size:
+                    break
             owner_ready = counts.get(OWNER_STATE, 0) + counts.get("REPRODUCED", 0)
         scout.write_json(
             self.root / "owner-queue.json",
@@ -908,7 +945,9 @@ class Delivery:
                 "items": owner_queue,
                 "claim_boundary": (
                     "isolated reproductions awaiting owner review of source, contract, "
-                    "duplicates, repository tests and upstream delivery"
+                    "duplicates, repository tests and upstream delivery; byte-identical "
+                    "patches in the same repository share one display slot, with all "
+                    "original jobs retained"
                 ),
             },
         )
@@ -924,6 +963,10 @@ class Delivery:
                 "reported_tokens": tokens,
                 "jobs": jobs,
                 "owner_ready": owner_ready,
+                "owner_distinct_displayed": len(owner_queue),
+                "owner_exact_duplicates_seen": sum(
+                    len(item["exact_patch_duplicates"]) for item in owner_queue
+                ),
                 "active": sum(counts.get(k, 0) for k in ACTIVE - {"PENDING"}),
             },
         )

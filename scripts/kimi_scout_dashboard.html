@@ -179,7 +179,7 @@
     <div class="briefing-metrics">
       <div><span class="stat-label">复现流水线槽位</span><strong id="deliveryCapacity" class="briefing-value">—</strong><span id="deliveryActivity" class="stat-note">等待状态快照</span></div>
       <div><span class="stat-label">CPU 容器上限</span><strong id="deliveryExecutionLimit" class="briefing-value">—</strong><span class="stat-note">执行限额，不是额外模型槽位</span></div>
-      <div><span class="stat-label">Owner 终审队列</span><strong id="deliveryReproduced" class="briefing-value">—</strong><span class="stat-note">Kimi 已完成旧失败 / 新通过；源码语义、重复项和官方测试由 owner 终审</span></div>
+      <div><span class="stat-label">Owner 终审队列</span><strong id="deliveryReproduced" class="briefing-value">—</strong><span id="deliveryOwnerDistinct" class="stat-note">源码语义、重复项和官方测试由 owner 终审</span></div>
       <div><span class="stat-label">复现流水线已报告 Token</span><strong id="deliveryTokens" class="briefing-value">—</strong><span class="stat-note">与搜索账本分开统计</span></div>
     </div>
     <div id="deliveryCounts" class="research-counts"></div>
@@ -379,6 +379,10 @@
     text("deliveryActivity", live ? "排队 " + number(counts.PENDING || 0) + " 项 · 与搜索槽位分开" : "以下为保存状态，不代表正在执行");
     text("deliveryExecutionLimit", number(delivery.execution_concurrency));
     text("deliveryReproduced", number(delivery.owner_ready ?? counts.OWNER_REVIEW_REQUIRED ?? counts.REPRODUCED ?? 0));
+    const distinct = Number(delivery.owner_distinct_displayed), duplicates = Number(delivery.owner_exact_duplicates_seen);
+    text("deliveryOwnerDistinct", Number.isFinite(distinct) && Number.isFinite(duplicates)
+      ? "快照展示 " + number(distinct) + " 组待审项 · 其中 " + number(duplicates) + " 条字节相同的报告合并展示；原记录保留"
+      : "源码语义、重复项和官方测试由 owner 终审");
     text("deliveryTokens", compact(delivery.reported_tokens));
     $("deliveryTokens").title = number(delivery.reported_tokens);
     $("deliveryCounts").replaceChildren(...Object.entries(deliveryLabels).map(([key,label]) => node("span", "", label + " " + number(counts[key] || 0))));

@@ -102,9 +102,7 @@ class DeliveryTests(unittest.TestCase):
         with patch.object(delivery, "select_leads", return_value=[lead(2)]) as select:
             self.assertEqual(self.worker.refill(active=0), 1)
         self.assertEqual(select.call_args.kwargs["exclude_source_ids"], {"1"})
-        self.assertEqual(
-            select.call_args.kwargs["exclude_keys"], {"hypothesis1"}
-        )
+        self.assertEqual(select.call_args.kwargs["exclude_keys"], {"hypothesis1"})
 
     def test_fast_terminal_batch_refills_before_poll_deadline(self):
         leads = [lead(i) for i in range(20)]
@@ -450,6 +448,41 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(queue["items"][0]["id"], row["id"])
         self.assertFalse(queue["items"][0]["legacy"])
         self.assertIn("owner review", queue["claim_boundary"])
+
+    def test_owner_queue_groups_exact_patches_without_dropping_jobs(self):
+        self.args.owner_queue_limit = 2
+        _, first, _, _ = self.run_job([result()], [proposal()], number=1)
+        _, duplicate, _, _ = self.run_job([result()], [proposal()], number=2)
+        distinct = proposal()
+        distinct["edits"] = [{"old": "return 1", "new": "return 3"}]
+        _, third, _, _ = self.run_job([result()], [distinct], number=3)
+
+        self.worker.publish("RUNNING")
+        queue = json.loads(
+            (self.worker.root / "owner-queue.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(queue["total"], 3)
+        self.assertEqual(queue["count"], 2)
+        runtime = json.loads(
+            (self.worker.root / "runtime.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(runtime["owner_distinct_displayed"], 2)
+        self.assertEqual(runtime["owner_exact_duplicates_seen"], 1)
+        self.assertIn(third["id"], {item["id"] for item in queue["items"]})
+        groups = [item for item in queue["items"] if item["exact_patch_duplicates"]]
+        self.assertEqual(len(groups), 1)
+        self.assertEqual(
+            {groups[0]["id"], *groups[0]["exact_patch_duplicates"]},
+            {first["id"], duplicate["id"]},
+        )
+        with delivery.database(self.worker.root) as db:
+            self.assertEqual(
+                db.execute(
+                    "SELECT count(*) FROM delivery WHERE state=?",
+                    (delivery.OWNER_STATE,),
+                ).fetchone()[0],
+                3,
+            )
 
     def test_explicit_source_fetch_retry_is_one_time_and_pre_model_only(self):
         delivery.stage(self.worker.root, [lead(1)])
