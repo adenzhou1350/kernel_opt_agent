@@ -235,6 +235,49 @@ def update(root, job_id, state, reason="", result=None):
         )
 
 
+def retry_preflight_transport(root, job_id):
+    """Explicitly retry one source-fetch failure, never a model/test attempt."""
+    if not re.fullmatch(r"[0-9a-f]{24}", job_id):
+        raise ValueError("invalid candidate id")
+    with scout.single_runner(root):
+        with database(root) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute("SELECT * FROM delivery WHERE id=?", (job_id,)).fetchone()
+            if row is None:
+                raise ValueError("candidate not found")
+            work = root / "jobs" / job_id
+            receipt = root / "preflight-retries" / (job_id + ".json")
+            if (
+                row["state"] != "FAILED"
+                or row["reason"] != "HTTPError"
+                or row["reported_tokens"] != 0
+                or json.loads(row["result"]) != {}
+                or not work.is_dir()
+                or any(work.iterdir())
+                or receipt.exists()
+            ):
+                raise ValueError("not an unused, once-retryable source-fetch failure")
+            recorded = {
+                "candidate_id": job_id,
+                "source_job_id": row["source_job_id"],
+                "prior_state": row["state"],
+                "prior_reason": row["reason"],
+                "recorded_at": time.time(),
+                "claim_boundary": "explicit one-time retry before model or sandbox use",
+            }
+            # execute() creates this directory before fetching source and
+            # deliberately refuses to reuse it. Only the verified empty
+            # preflight directory may be removed for a fresh claim.
+            work.rmdir()
+            receipt.parent.mkdir(exist_ok=True)
+            scout.write_json(receipt, recorded)
+            db.execute(
+                "UPDATE delivery SET state='PENDING',reason=?,updated_at=? WHERE id=?",
+                ("Explicit preflight transport retry", recorded["recorded_at"], job_id),
+            )
+            return recorded
+
+
 def proposal(value, source):
     if not isinstance(value, dict) or set(value) != {
         "decision",
@@ -948,6 +991,10 @@ def main():
     parser.add_argument(
         "--stop", action="store_true", help="drain this delivery worker only"
     )
+    parser.add_argument(
+        "--retry-preflight-job",
+        help="explicit one-time retry of an unused source-fetch HTTP failure",
+    )
     parser.add_argument("--concurrency", type=int, choices=range(1, 17), default=16)
     parser.add_argument(
         "--execution-concurrency", type=int, choices=range(1, 5), default=4
@@ -971,6 +1018,14 @@ def main():
         "--max-jobs", type=int, default=0, help="0 continues on new unseen leads"
     )
     args = parser.parse_args()
+    if args.retry_preflight_job:
+        if args.stop:
+            parser.error("preflight retry is a separate operation")
+        target = args.root.resolve() / "delivery"
+        if not (target / "delivery.sqlite").is_file():
+            parser.error("no existing delivery queue")
+        print(scout.dumps(retry_preflight_transport(target, args.retry_preflight_job)))
+        return
     if args.stop:
         target = args.root.resolve() / "delivery"
         if not (target / "delivery.sqlite").is_file():

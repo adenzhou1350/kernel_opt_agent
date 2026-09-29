@@ -338,6 +338,13 @@ python scripts/kimi_scout_delivery.py --root runs/kimi-scout \
 python scripts/kimi_scout_delivery.py --root runs/kimi-scout --stop
 ```
 
+If an unauthenticated public GitHub metadata request hits the API limit before
+the model or verifier starts, stop the delivery worker, enable `--github-auth`,
+and explicitly requeue that exact unused `FAILED/HTTPError` job once with
+`--retry-preflight-job <candidate-id>`. The command requires zero reported model
+tokens, no job artifacts, and an inactive worker lock; it writes an audit receipt.
+It will not retry a model call, sandbox run, or a second transport failure.
+
 On Windows, use the existing Ubuntu WSL Docker daemon (`--wsl Ubuntu`); Linux
 invokes the same fixed verifier directly. Both cached images use `--pull never`.
 `stdlib` is the Python 3.10 image above; `torch-cpu` is a pinned public vLLM CPU CI
