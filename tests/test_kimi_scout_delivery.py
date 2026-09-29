@@ -451,6 +451,51 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(queue["items"][0]["legacy"])
         self.assertIn("owner review", queue["claim_boundary"])
 
+    def test_explicit_source_fetch_retry_is_one_time_and_pre_model_only(self):
+        delivery.stage(self.worker.root, [lead(1)])
+        job = delivery.claim(self.worker.root)
+        work = self.worker.root / "jobs" / job["id"]
+        work.mkdir()
+        delivery.update(self.worker.root, job["id"], "FAILED", "HTTPError")
+
+        receipt = delivery.retry_preflight_transport(self.worker.root, job["id"])
+        self.assertEqual(receipt["prior_reason"], "HTTPError")
+        self.assertFalse(work.exists())
+        self.assertEqual(delivery.claim(self.worker.root)["id"], job["id"])
+        self.assertTrue(
+            (self.worker.root / "preflight-retries" / (job["id"] + ".json")).is_file()
+        )
+        delivery.update(self.worker.root, job["id"], "FAILED", "HTTPError")
+        with self.assertRaisesRegex(ValueError, "once-retryable"):
+            delivery.retry_preflight_transport(self.worker.root, job["id"])
+
+    def test_preflight_retry_rejects_any_model_or_test_artifact(self):
+        for number, reason, tokens, artifact in (
+            (1, "HTTPError", 1, False),
+            (2, "HTTPError", 0, True),
+            (3, "TimeoutError", 0, False),
+        ):
+            with self.subTest(number=number):
+                delivery.stage(self.worker.root, [lead(number)])
+                job = delivery.claim(self.worker.root)
+                work = self.worker.root / "jobs" / job["id"]
+                work.mkdir()
+                if artifact:
+                    (work / "generate.request.json").write_text("{}", encoding="utf-8")
+                delivery.update(self.worker.root, job["id"], "FAILED", reason)
+                with delivery.database(self.worker.root) as db:
+                    db.execute(
+                        "UPDATE delivery SET reported_tokens=? WHERE id=?",
+                        (tokens, job["id"]),
+                    )
+                with self.assertRaisesRegex(ValueError, "once-retryable"):
+                    delivery.retry_preflight_transport(self.worker.root, job["id"])
+                with delivery.database(self.worker.root) as db:
+                    state = db.execute(
+                        "SELECT state FROM delivery WHERE id=?", (job["id"],)
+                    ).fetchone()[0]
+                self.assertEqual(state, "FAILED")
+
     def test_sandbox_transport_or_cleanup_uncertainty_stops_new_work(self):
         work = self.worker.root / "jobs" / "a"
         work.mkdir()
