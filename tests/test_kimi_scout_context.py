@@ -308,6 +308,77 @@ class ContextTests(unittest.TestCase):
             self.context.source(REPO, COMMIT, "src/kernel.py", exact_hint="x", start=1)
         self.assertEqual(self.calls, [])
 
+    def test_python_qualified_method_hint_prefers_definition_over_header_mentions(self):
+        lines = [f"other_{i} = {i}" for i in range(1, 301)]
+        lines[0] = "# Mxfp4LinearMethod process_weights_after_loading guard missing?"
+        lines[149] = "class Mxfp4LinearMethod(LinearMethodBase):"
+        lines[199] = "    def process_weights_after_loading(self, layer):"
+        lines[219] = "        if any(fn is None for fn in kernels):"
+        lines[220] = "            raise RuntimeError('kernels unavailable')"
+        self.raw = "\n".join(lines)
+        evidence = self.context.source(
+            REPO,
+            COMMIT,
+            "src/kernel.py",
+            hints="Check Mxfp4LinearMethod.process_weights_after_loading for a guard",
+        )
+        self.assertIn("200:     def process_weights_after_loading", evidence["text"])
+        self.assertIn("221:             raise RuntimeError", evidence["text"])
+        self.assertNotIn("1: # Mxfp4LinearMethod", evidence["text"])
+
+    def test_typescript_constant_hint_prefers_declaration_over_comment_mentions(self):
+        lines = [f"// unrelated line {i}" for i in range(1, 301)]
+        lines[0] = "// SAFE_NETWORK_CODES CHROMIUM_NETWORK_MESSAGE_RE classify retries"
+        lines[189] = "export const SAFE_NETWORK_CODES = new Set(['ECONNRESET']);"
+        lines[194] = "const CHROMIUM_NETWORK_MESSAGE_RE = /net::ERR_CONNECTION_RESET/;"
+        self.raw = "\n".join(lines)
+        evidence = self.context.source(
+            REPO,
+            COMMIT,
+            "src/kernel.py",
+            hints="Inspect SAFE_NETWORK_CODES and CHROMIUM_NETWORK_MESSAGE_RE retry handling",
+        )
+        self.assertIn("190: export const SAFE_NETWORK_CODES", evidence["text"])
+        self.assertIn("195: const CHROMIUM_NETWORK_MESSAGE_RE", evidence["text"])
+        self.assertNotIn("1: // SAFE_NETWORK_CODES", evidence["text"])
+
+    def test_exact_hint_and_explicit_start_override_named_definition(self):
+        lines = [f"other_{i} = {i}" for i in range(1, 301)]
+        lines[39] = "async def target_method():"
+        lines[199] = "# requested explicit anchor"
+        self.raw = "\n".join(lines)
+        explicit = self.context.source(
+            REPO,
+            COMMIT,
+            "src/kernel.py",
+            hints="target_method",
+            start=200,
+            max_lines=20,
+        )
+        self.assertEqual(explicit["start_line"], 200)
+        literal = self.context.source(
+            REPO,
+            COMMIT,
+            "src/kernel.py",
+            hints="target_method",
+            exact_hint="requested explicit anchor",
+            max_lines=20,
+        )
+        self.assertIn("200: # requested explicit anchor", literal["text"])
+        self.assertNotIn("40: async def target_method", literal["text"])
+
+    def test_unmatched_or_empty_definition_hint_keeps_keyword_fallback(self):
+        for hints in ("value_240", ""):
+            with self.subTest(hints=hints):
+                ordinary = self.context.source(
+                    REPO, COMMIT, "src/kernel.py", hints=hints
+                )
+                with patch.object(context, "_definition_line", return_value=None):
+                    fallback = self.context.source(
+                        REPO, COMMIT, "src/kernel.py", hints=hints
+                    )
+                self.assertEqual(ordinary, fallback)
+
     def test_source_window_bounds_and_truncation_are_explicit(self):
         for kwargs in (
             {"start": 0},
