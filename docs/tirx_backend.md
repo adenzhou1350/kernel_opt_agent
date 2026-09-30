@@ -204,3 +204,16 @@ This is an owner judgment, never an automatic inference from a failed import.
 One SGLang QSA lead was resolved this way: valid speculative capture already
 makes metadata row count equal captured token capacity. Do not create artificial
 metadata to manufacture the mismatch before tracing its producer.
+
+Native controls matter outside kernel checks as well. A September 30 Node 24.16
+probe of OpenClaw's exact `BrokerChild` readiness/publication entry used real
+child stdout, not a copied Python implementation. It reproduced overridden
+pause intent. One tool-free Kimi advisory used 5,877 reported tokens and 10.82 s;
+its proposed guard still failed resume-then-pause. A second owner experiment
+preserved pause flags but stalled buffered delivery to normal consumers. The
+revised experiment passed five consumer/ordering controls, including prefix
+delivery and async iteration. POSIX host/worker IPC, teardown/backpressure and
+the repository suite remain unverified; **no PR qualification** is claimed.
+The reusable change is to keep native runner failure names (unittest, TAP,
+Vitest and Rust) in feedback and require observable consumer progress in repair
+controls. Source, references and tests remain fixed when comparing each repair.

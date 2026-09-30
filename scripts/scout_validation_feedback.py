@@ -26,7 +26,8 @@ def cpu_feedback(result):
         # Keep the failing test name and terminal exception, not only a FAIL label.
         for index, line in enumerate(lines):
             if re.search(
-                r"^(FAIL:|ERROR:|Traceback|Ran \d+ tests?|FAILED|OK$)|"
+                r"^\s*(?:[\u00d7\u276f]\s*)?(?:FAIL:|ERROR:|Traceback|Ran \d+ tests?|"
+                r"FAILED\b|OK$|not ok\b|FAIL\s+\S|test\s+\S+\s+\.\.\.\s+FAILED\b)|"
                 r"\b\w*(?:Error|Exception):",
                 line,
             ):

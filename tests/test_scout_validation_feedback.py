@@ -51,6 +51,18 @@ class FeedbackTests(unittest.TestCase):
         self.assertIn("ModuleNotFoundError", str(result))
         self.assertNotIn("qualified", result)
 
+    def test_native_runner_failed_entry_survives_without_an_exception(self):
+        for failure in (
+            "not ok 2 - retains caller pause",
+            " FAIL  src/process/pipe.test.ts > paused consumer",
+            " \u276f FAIL  src/process/pipe.test.ts > resumed consumer",
+            "test streams::pause_then_resume ... FAILED",
+        ):
+            with self.subTest(failure=failure):
+                brief = cpu_feedback({"before": {"output": "noise\n" + failure + "\n"}})
+                self.assertIn(failure, brief["arms"]["before"]["diagnostic_excerpts"])
+                self.assertIsNone(brief["arms"]["before"]["reported_tests_run"])
+
     def test_large_log_and_line_are_bounded(self):
         output = ("noise\n" * 6000) + ("AssertionError: " + "x" * 4000 + "\n") * 100
         brief = cpu_feedback({"before": {"output": output, "output_truncated": True}})

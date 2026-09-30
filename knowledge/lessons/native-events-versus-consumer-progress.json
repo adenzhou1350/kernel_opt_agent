@@ -1,0 +1,22 @@
+{
+  "id": "native-events-versus-consumer-progress",
+  "title": "Native event history does not prove consumer intent or progress",
+  "applies_when": "An asynchronous stream handoff or lifecycle repair infers current caller intent from past events, or a regression only checks state flags without exercising normal consumption.",
+  "lesson": "Use the actual runtime and owner entry to check explicit operation sequences and observable consumer progress. In Node readable streams, pause() need not emit a new pause event when already non-flowing, and removing a readable listener can schedule an automatic resume for data consumers. A historical resume event therefore cannot represent the latest caller intent. Keep pause-only, resume-then-pause, normal flowing consumption and async iteration as distinct controls; verify buffered bytes and EOF as well as state. A repair can preserve a pause flag yet stall normal consumers.",
+  "avoid_when": "These Node transition mechanisms are not universal to other stream libraries or runtime versions. A portable helper/owner-entry probe is not POSIX IPC transfer, whole-application, performance or PR qualification. Do not remove buffering guards or suppress native exit draining solely from a narrow state test.",
+  "evidence": [
+    {
+      "url": "https://github.com/nodejs/node/blob/v24.16.0/lib/internal/streams/readable.js",
+      "note": "pause() emits only on a flowing-state transition; updateReadableListening may resume when data listeners remain. This pinned native implementation explains the mechanism, not a general repair guarantee."
+    },
+    {
+      "url": "https://nodejs.org/api/stream.html#two-reading-modes",
+      "note": "The official reading-mode contract distinguishes flowing data consumption, readable-event consumption and asynchronous iteration. Test the intended consumer API, not a guessed common mode."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/6aaf62743219d1e9f4358fc2961750fb1be5fbbe/src/process/spawn-broker/pipe.ts",
+      "note": "The handoff holds reads, installs a readable listener and later uses recorded resume intent. This is a source example to inspect alongside the actual caller and native runtime; it does not qualify any proposed fix."
+    }
+  ],
+  "status": "validated"
+}
