@@ -95,6 +95,12 @@ metadata or `tirx check` in a private compiler environment. Complete positive an
 negative examples are in `examples/tirx/`. GPU validation and matched performance
 measurements remain separate; see the [integration pilot](docs/tirx_integration_status.md).
 
+Use `tirx inspect --arch <SM>` for bounded CUDA/PTX/SASS and resource feedback.
+The main optimizer instructions route tools by the concrete question and retain
+different measured optimization mechanisms. Optional `worklog record` candidate
+fields and `worklog frontier` provide that view while checking source/evidence
+identity. See [feedback routing](skill/kernel-optimizer/references/tirx_workflow.md).
+
 An optional [Kimi public-source scout](scripts/KIMI_SCOUT.md) can offload bounded
 source/issue triage to an existing Kimi Code account. It has no model tools or
 publication rights, deduplicates inputs, and caps concurrency and daily usage.

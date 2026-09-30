@@ -27,6 +27,21 @@ Choose implementation scope and informative tests by expected benefit and cost.
 Expand profiling, modeling or search when it can improve current decisions or
 create reusable evidence; stay within the task's scope and budget.
 
+For TIRx implementation, debugging or performance work, read
+[tirx_workflow.md](references/tirx_workflow.md). It routes concrete questions to
+CPU checks, generated CUDA/PTX/SASS inspection and applicable profiling tools.
+Use actual findings and measurements to choose the next revision; loading a
+reference does not establish that a tool ran. TIRx is an additional backend,
+selected by the workload and device rather than promoted by default.
+
+When several optimization mechanisms are plausible, retain a correct runnable
+representative of each worthwhile route, even if one is currently slower.
+Supersede redundant variants within a mechanism; do not discard a distinct
+schedule or decomposition solely on the current timing. Optional candidate
+fields in `worklog record` and `worklog frontier` provide a compact measured
+view without another run format. Keep workload, dtype, shape, numerical policy,
+runtime/timing mode and hardware conditions in the comparison context.
+
 Match baseline and candidate source, inputs, execution mode, runtime and device.
 Use the target's numerical contract; bitwise equality is not universally required.
 Distinguish kernel time, GPU activity and end-to-end latency. Qualify performance

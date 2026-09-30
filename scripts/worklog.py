@@ -13,6 +13,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -85,6 +86,25 @@ def check_record(entry):
         if entry["kind"] != "decision":
             raise ValueError("only a decision may link a PR")
         check_pr(entry["pr"])
+    candidate = entry.get("candidate")
+    if candidate is not None:
+        if entry["kind"] != "decision" or entry.get("status") not in DECISIONS:
+            raise ValueError("candidate requires an explicit decision")
+        if not isinstance(candidate, dict):
+            raise ValueError("candidate must be an object")
+        nonempty(candidate.get("family"), "candidate family")
+        nonempty(candidate.get("path"), "candidate path")
+        if not re.fullmatch(r"[0-9a-f]{64}", str(candidate.get("sha256", ""))):
+            raise ValueError("invalid candidate SHA-256")
+        latency = candidate.get("latency_us")
+        if latency is not None and (isinstance(latency, bool) or not isinstance(latency, (int, float))
+                                    or not math.isfinite(latency) or latency <= 0):
+            raise ValueError("candidate latency must be finite and positive")
+        if entry["status"] == "ACCEPT":
+            if latency is None or entry.get("evidence") is None:
+                raise ValueError("accepted candidate requires latency and evidence")
+            if any(entry["context"][key] == "UNKNOWN" for key in ("workload", "hardware")):
+                raise ValueError("accepted candidate requires workload and hardware context")
 
 
 def unique_keys(pairs):
@@ -172,9 +192,51 @@ def now():
     return datetime.now(timezone.utc).isoformat()
 
 
+def frontier(state):
+    """Show declared passing search routes; never infer correctness from timing."""
+    latest = {}
+    for index, entry in enumerate(state["records"]):
+        candidate = entry.get("candidate")
+        if candidate:
+            key = (entry["context"]["workload"], entry["context"]["hardware"], candidate["path"])
+            latest[key] = (index, entry)
+    groups, excluded = {}, []
+    for (workload, hardware, _), (index, entry) in latest.items():
+        candidate = entry["candidate"]
+        if entry["status"] != "ACCEPT":
+            excluded.append({"record": index, "reason": entry["status"]})
+            continue
+        reason = None
+        for identity in (candidate, entry["evidence"]):
+            try:
+                if file_hash(Path(identity["path"])) != identity["sha256"]:
+                    reason = "source or evidence changed"
+            except OSError:
+                reason = "source or evidence unavailable"
+        if reason:
+            excluded.append({"record": index, "reason": reason})
+            continue
+        families = groups.setdefault((workload, hardware), {})
+        current = families.get(candidate["family"])
+        member = {**candidate, "record": index, "evidence": entry["evidence"], "summary": entry["summary"]}
+        if current is None or member["latency_us"] <= current["latency_us"]:
+            families[candidate["family"]] = member
+    result = []
+    for (workload, hardware), families in groups.items():
+        members = sorted(families.values(), key=lambda item: item["latency_us"])
+        result.append({"workload": workload, "hardware": hardware, "members": members,
+                       "fastest_record": members[0]["record"]})
+    return {"groups": result, "excluded": excluded,
+            "note": "Explicit ACCEPT judgments with matching file identities only; not automatic proof. "
+                    "Keep the best measured member per mechanism family, including slower distinct routes. "
+                    "Only identical workload/hardware context strings are compared."}
+
+
 def execute(args):
     directory = Path(args.run).expanduser().resolve()
     path = directory / "run.json"
+    if args.action == "frontier":
+        return frontier(read_run(path))
     if args.action == "status":
         state = read_run(path)
         checks = []
@@ -244,6 +306,14 @@ def execute(args):
             "status": args.status,
             "pr": args.pr,
         }
+        if any(value is not None for value in (args.candidate, args.family, args.latency_us)):
+            if args.candidate is None or args.family is None:
+                raise ValueError("candidate and family must be supplied together")
+            candidate = Path(args.candidate).expanduser().resolve()
+            if candidate == path:
+                raise ValueError("run.json cannot be a candidate")
+            entry["candidate"] = {"path": str(candidate), "sha256": file_hash(candidate),
+                                  "family": args.family, "latency_us": args.latency_us}
         check_record(entry)
         state["records"].append(entry)
         state.update(context)
@@ -276,10 +346,14 @@ def main(argv=None):
         "--status", choices=DECISIONS, help="decision only; explicit judgment"
     )
     record.add_argument("--pr", help="decision only; HTTP(S) PR URL")
+    record.add_argument("--candidate", help="optional candidate source file for an explicit decision")
+    record.add_argument("--family", help="optimization mechanism, e.g. vectorized or persistent")
+    record.add_argument("--latency-us", type=float, help="measured latency under the exact workload/hardware context")
     status = subparsers.add_parser(
         "status", help="show notes and current evidence file identities"
     )
-    for command in (initialize, record, status):
+    routes = subparsers.add_parser("frontier", help="show measured accepted candidates, retaining distinct mechanisms")
+    for command in (initialize, record, status, routes):
         command.add_argument(
             "--run", required=True, help="run directory, containing run.json"
         )

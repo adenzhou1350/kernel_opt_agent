@@ -74,7 +74,8 @@ live check and shared lock for this experiment. Do not use historical availabili
 
 ## Continuing work
 
-A heartbeat attached to the research chat continues every six hours. It should
+A six-hour heartbeat is configured for the research chat and is currently
+paused. This follow-up used explicit bounded manual experiments. Future runs should
 advance a new useful experiment or affected regression, avoid duplicate work and
 remain quiet when there is no meaningful result. Shared GPUs must be checked and
 coordinated each time. Each GPU experiment is bounded to ten minutes; each CPU
@@ -152,3 +153,47 @@ Current source inspection still finds no automatic TIRx invocation in Scout or
 SemIf. Selective CPU checks are useful capabilities; default full checking and
 overall agent superiority remain unsupported. Private current-source report:
 `D:\codes\community-validation\tirx-harness-gzb-20260930\current-audit\README.md`.
+
+## Feedback and mechanism integration
+
+The main `AGENTS.md` and kernel-optimizer skill now route concrete questions to
+compiler checks, generated CUDA/PTX/SASS inspection, and applicable profiling.
+`kernel_opt.py tirx inspect` is implemented with explicit architecture, bounded
+CPU-only compilation, artifact hashes, resource logs and failed-stage handling.
+`worklog record` optionally records a measured candidate and mechanism family;
+`worklog frontier` checks current source/evidence identity, separates comparison
+contexts, retains the best declared passing member per family and honors later
+withdrawal. These are usable tools in ordinary kernel optimization. They are not
+an automatic Scout service or a claim that model search quality improved.
+
+Portable validation: 36 passed and 24 subtests passed for worklog and the TIRx
+adapter; public CLI sections and skill validation passed. Real compiler checks,
+CUDA/PTX/SASS exports and a failed-architecture control passed in the private
+environment. NCU/IKET remain unavailable/unqualified here; no counters or
+timelines are claimed.
+
+Two bounded event-timing studies on the same B300 SM10.3 device tested complete
+threadwise, tiled and persistent affine+ReLU mechanisms at five sizes. Each used
+three measurement windows, three exact-output seeds per window, and five
+randomized timing pairs. The first study motivated a concrete modification:
+increase the persistent kernel's CTA cap from 128 to 1024. A matched follow-up
+retained both variants and the other families. At 4,194,313 elements the pooled
+15-pair medians were 35.346us for 128 CTAs, 13.652us for 1024 CTAs and 13.708us
+for tiled: approximately 2.59x relative to the slower persistent candidate.
+All 180 follow-up shape/seed/mechanism checks passed. The actual public frontier
+retained threadwise, tiled and persistent routes, replacing the slower persistent
+variant. This is evidence of a useful feedback-driven edit and functioning
+candidate view, not superiority to Triton/cuBLAS or a full agent A/B.
+
+GPU2 became busy before execution; its live check aborted without any candidate
+launch. A newly idle GPU3 was checked, locked and mapped for both successful
+studies, then released to 0MiB/0%. Raw source-bound evidence and report:
+`D:\codes\community-validation\tirx-harness-gzb-20260930\feedback-integration\README.md`.
+
+Real CUDA 13.0 SM103a compilation/disassembly also exposed an upstream resource
+parser defect: an optional SMEM field from a later kernel was assigned to the
+first kernel. A narrow fix scopes parsing to the first report. Both new tests
+fail on the pristine parser; the patched focused suite passes 5 tests with
+xdist, and the native two-order compile reproducer no longer mixes fields.
+Submitted [TIRx-harness PR #12](https://github.com/mlc-ai/TIRx-harness/pull/12).
+The patch changes reporting only; no generated-kernel speedup is claimed.

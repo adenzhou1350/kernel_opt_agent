@@ -48,6 +48,41 @@ target project's full contract for that. Empty references cannot pass.
 Integer and boolean comparisons are exact, even with nonzero tolerances; mixed
 signed/unsigned values are compared without conversion to floating point.
 
+## Generated-code feedback
+
+Use the installed compiler environment to inspect a candidate without allocating
+a GPU. The explicit compatible architecture avoids auto-detecting a different
+device on a shared host:
+
+```sh
+python scripts/kernel_opt.py tirx inspect \
+  --case-file examples/tirx/feedback_cases.py --case persistent:4194313 \
+  --arch sm_103a --output runs/my-optimization/inspect.json --timeout 180
+```
+
+The bounded child compiles under the official CUDA initialization guard, with
+GPU visibility disabled, then calls `tirx_harness.dump_kernel.dump_module`.
+It records CUDA/PTX/cubin/SASS paths and hashes, raw ptxas logs, reported
+resources, source identity, errors and package versions. Requested-stage errors
+return exit 2, preserving partial artifacts. The dump API regenerates a cubin;
+it does not establish identity with the binary loaded by a separate GPU run.
+Match compilation settings before using its resources for a causal claim.
+Missing static SMEM in a ptxas report is not proof of zero dynamic shared memory.
+
+For wrong values use `check`; for generated instructions or spills use `inspect`;
+for hardware counters and pipeline overlap use an available NCU/IKET profiler
+or independent targeted measurements. Follow
+[TIRx workflow routing](../skill/kernel-optimizer/references/tirx_workflow.md).
+Do not turn unavailable profiler evidence into an inferred measured fact.
+
+`feedback_cases.py` supplies complete threadwise, tiled and persistent kernels,
+including a 1024-CTA persistent variant. `feedback_study.py` compiles before
+allocation, takes the existing UUID lock, verifies live idle/device mapping,
+checks three seeds per shape and uses randomized official event-timer pairs.
+It requires authorized idle Linux GPU hardware and an outer timeout. These
+mechanism examples and candidate views demonstrate tools; they are not a full
+model-generated optimization A/B.
+
 Exit 0 means the requested concrete checks passed; 1 means a checker or numeric
 finding; 2 means execution/coverage/configuration error. Unknown checker verdicts
 remain errors. Numerical simulation is skipped after checker findings/errors.

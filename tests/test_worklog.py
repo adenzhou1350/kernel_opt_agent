@@ -18,6 +18,60 @@ SPEC.loader.exec_module(worklog)
 
 
 class WorklogTests(unittest.TestCase):
+    def candidate(self, name, family, latency, **kwargs):
+        source = self.evidence(name + '.py', b'# complete candidate\n')
+        evidence = self.evidence(name + '.json', b'{"correctness":"PASS"}\n')
+        arguments = ['record', '--kind', 'decision', '--status', kwargs.get('status', 'ACCEPT'),
+                     '--summary', 'Measured candidate', '--candidate', str(source), '--family', family,
+                     '--latency-us', str(latency), '--evidence', str(evidence)]
+        for key in ('workload', 'hardware'):
+            if key in kwargs:
+                arguments += ['--' + key, kwargs[key]]
+        self.cli(*arguments)
+        return source, evidence
+
+    def test_frontier_retains_distinct_mechanisms_and_separates_context(self):
+        self.initialize('--workload', 'FP32 N32 exact event settings', '--hardware', 'GPU A runtime X')
+        self.candidate('fast', 'vectorized', 9)
+        self.candidate('redundant', 'vectorized', 11)
+        self.candidate('different', 'persistent', 13)
+        self.candidate('other_shape', 'vectorized', 3, workload='FP32 N64 exact event settings')
+        before = self.path.read_bytes()
+        result = self.cli('frontier')
+        self.assertEqual(len(result['groups']), 2)
+        members = result['groups'][0]['members']
+        self.assertEqual([m['family'] for m in members], ['vectorized', 'persistent'])
+        self.assertEqual([m['latency_us'] for m in members], [9, 13])
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_frontier_drops_stale_evidence_and_withdrawn_candidate(self):
+        self.initialize('--workload', 'contract', '--hardware', 'device/settings')
+        source, _ = self.candidate('source_changed', 'tiled', 9)
+        source.write_text('# different source', encoding='utf-8')
+        _, evidence = self.candidate('result_changed', 'persistent', 10)
+        evidence.write_text('changed', encoding='utf-8')
+        source2, _ = self.candidate('withdrawn', 'vectorized', 7)
+        self.cli('record', '--kind', 'decision', '--status', 'REJECT', '--summary', 'Held-out failure',
+                 '--candidate', str(source2), '--family', 'vectorized')
+        result = self.cli('frontier')
+        self.assertEqual(result['groups'], [])
+        self.assertEqual([item['reason'] for item in result['excluded']],
+                         ['source or evidence changed', 'source or evidence changed', 'REJECT'])
+
+    def test_candidate_admission_requires_finite_measurement_and_known_context(self):
+        self.initialize()
+        source = self.evidence('candidate.py')
+        evidence = self.evidence('results.json')
+        arguments = ['--kind', 'decision', '--status', 'ACCEPT', '--summary', 'candidate',
+                     '--candidate', str(source), '--family', 'tiled', '--evidence', str(evidence)]
+        original = self.path.read_bytes()
+        self.cli('record', *arguments, '--latency-us', '1', expected=2)
+        for latency in ('nan', 'inf', '0', '-1'):
+            self.cli('record', *arguments, '--latency-us', latency,
+                     '--workload', 'contract', '--hardware', 'device', expected=2)
+        self.cli('record', *arguments, '--workload', 'contract', '--hardware', 'device', expected=2)
+        self.assertEqual(self.path.read_bytes(), original)
+
     def test_public_cli_help_forwarding_and_exit_status(self):
         public = SCRIPT.with_name("kernel_opt.py")
         help_result = subprocess.run(

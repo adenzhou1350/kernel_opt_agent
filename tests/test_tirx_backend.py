@@ -167,3 +167,32 @@ def test_timeout_clears_old_pass_and_stops_only_own_process(tmp_path, monkeypatc
     assert backend.bounded_check(args) == 2
     assert json.loads(output.read_text())["status"] == "ERROR"
     assert killed
+
+
+@pytest.mark.parametrize('ok', [True, False])
+def test_inspection_keeps_explicit_arch_artifacts_and_failed_stages(tmp_path, monkeypatch, ok):
+    from contextlib import nullcontext
+    source = tmp_path / 'case.py'
+    source.write_text('def make_case(name):\n    return {"kernel": object()}\n')
+    captured = []
+
+    def dump(executable, **options):
+        captured.append(options)
+        artifact = tmp_path / 'kernel.cu'
+        artifact.write_text('// generated CUDA')
+        return SimpleNamespace(ok=ok, arch=options['arch'], symbols=['kernel'],
+                               ptxas={'registers': 8}, errors=[] if ok else ['SASS failed'],
+                               paths={'cuda': str(artifact)})
+
+    monkeypatch.setitem(sys.modules, 'tirx_harness.dump_kernel', SimpleNamespace(dump_module=dump))
+    monkeypatch.setitem(sys.modules, 'tirx_kernels.runner', SimpleNamespace(
+        compile_kernel=lambda kernel: kernel, cuda_initialization_guard=nullcontext, cuda_target=nullcontext))
+    args = SimpleNamespace(case_file=source, output=tmp_path/'inspect.json', case=['valid'], arch='sm_103a')
+    assert backend.inspect_worker(args) == (0 if ok else 2)
+    result = json.loads(args.output.read_text())
+    assert result['status'] == ('PASS' if ok else 'ERROR')
+    assert result['source_unchanged']
+    assert result['cases']['valid']['arch'] == 'sm_103a'
+    assert result['cases']['valid']['artifacts']['cuda']['sha256']
+    assert captured[0]['ptx'] and captured[0]['sass']
+    assert 'no GPU execution' in result['scope']

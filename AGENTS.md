@@ -38,6 +38,13 @@ reproduction, result and reason for changing direction once.
   matched baseline/candidate workloads. Use interleaved or randomized
   repeats when order, clocks, caches or competing load could confound the result.
   Preserve numerical semantics unless the task explicitly permits a relaxation.
+- Use concrete compiler/runtime findings to choose the next revision. For TIRx,
+  `skill/kernel-optimizer/references/tirx_workflow.md` routes numerical/sync
+  diagnosis, generated-code inspection and profiling. Retain worthwhile correct
+  representatives of different schedules or decompositions; optional candidate
+  fields in `worklog record` and `worklog frontier` keep a measured view without
+  another workflow. Supersede redundant variants within a mechanism rather than
+  discarding every slower distinct route.
 - Keep source, workload, hardware, reproduction commands, results and evidence
   in the task's existing record or a lightweight `worklog init|record|status`
   notebook. Record once, not in duplicate formats or for every routine tool call.
