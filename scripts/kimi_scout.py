@@ -24,6 +24,8 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from scout_lesson_context import fit_lesson_context, lesson_suggestions
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -311,6 +313,13 @@ def collect_source(spec, github_auth=False):
         "related_open_items_sample": related,
         "duplicate_search_complete": False,
         "reviewed_lessons": reviewed_lessons(),
+        "lesson_suggestions": lesson_suggestions(
+            spec["question"] + " " + " ".join(
+                item.get("path", "") for item in spec.get("files", [])
+            ),
+            exclude=("production-path-and-impact", "measure-production-execution-mode",
+                     "precision-reference-contract"),
+        ),
     }
     if spec.get("split_reports"):
         # Separate evidence packets keep each call small and parallelizable.
@@ -345,6 +354,7 @@ def enqueue(root, packet, *, db=None):
             )
         if not isinstance(source["text"], str):
             raise ValueError("source text must be a string")
+    fit_lesson_context(packet, MAX_INPUT_BYTES, SYSTEM)
     body = dumps(packet)
     if len((SYSTEM + body).encode("utf-8")) > MAX_INPUT_BYTES:
         raise ValueError("packet exceeds input budget; select narrower source windows")
@@ -355,6 +365,8 @@ def enqueue(root, packet, *, db=None):
     # Incidental related-PR ordering is not new evidence. Novelty must be checked
     # again by the owner before publication anyway.
     identity.pop("related_open_items_sample", None)
+    # New optional advice is not new public-source evidence.
+    identity.pop("lesson_suggestions", None)
     identity["sources"] = [
         dict(source, url=re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]))
         for source in packet["sources"]

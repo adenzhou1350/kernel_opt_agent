@@ -312,3 +312,15 @@ mechanism. Retain this negative result, use relevant dependency/caller context
 when it can change the repair, and do not add blind attempts merely to obtain a
 passing verdict. Raw evidence stays in the existing local run, not the public
 knowledge library; no GPU, service or shared dependency changes were made.
+
+Scout also retrieves at most one intact related card from the small curated
+lesson library for discovery and repair contexts, alongside its existing core
+lessons where present. Queries use the current question/path/hypothesis, not the
+entire source or historical job archive. The scope, counterconditions, status
+and public evidence stay with the card; lexical matches do not establish
+applicability. Oversized cards are omitted instead of truncating their caveats,
+and optional advice is dropped before it can displace primary source under the
+existing input cap. Card updates alone do not enqueue unchanged source again.
+The lookup has no growing cache, network fetch or automatic knowledge promotion.
+This repairs a real integration gap (previously only three fixed cards were
+included); it is not yet a measured PR-conversion or total-cost improvement.

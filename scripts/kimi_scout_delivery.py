@@ -24,6 +24,7 @@ from pathlib import Path
 
 import kimi_scout as scout
 from scout_validation_feedback import cpu_feedback
+from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 
 ACTIVE = {"PENDING", "GENERATING", "TESTING", "REPAIRING", "REVIEWING"}
@@ -676,7 +677,12 @@ class Delivery:
                 "source": original,
                 "runtime_profile": profile,
                 "runtime_scope": "isolated single-module CPU screen, not the official repository suite",
+                "lesson_suggestions": lesson_suggestions(
+                    source["path"] + " " + lead["analysis"].get("title", "")
+                    + " " + lead["analysis"].get("hypothesis", "")
+                ),
             }
+            fit_lesson_context(context, 220000)
             if gpu_only:
                 return self.prepare_gpu(job, work, context, original)
             prompt = PROMPT + "\nPUBLIC DATA:\n" + scout.dumps(context)

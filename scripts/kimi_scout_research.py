@@ -18,6 +18,7 @@ import urllib.parse
 
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
+from scout_lesson_context import fit_lesson_context, lesson_suggestions
 
 SOURCE_SUFFIXES = (
     ".py",
@@ -342,6 +343,12 @@ class ResearchProducer:
             "question": spec["question"] + "\n" + question,
             "sources": sources,
             "reviewed_lessons": self.lessons,
+            "lesson_suggestions": lesson_suggestions(
+                question + " " + " ".join(
+                    s["url"].rsplit("/", 1)[-1] for s in sources
+                ) + " " + spec["question"],
+                exclude=(card["id"] for card in self.lessons),
+            ),
             "research": {
                 "stage": stage,
                 "parent_job_id": parent["id"] if parent else None,
@@ -356,6 +363,7 @@ class ResearchProducer:
         if parent:
             packet["untrusted_prior_analysis"] = parent["analysis"][:2500]
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
+        fit_lesson_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         while (
             len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
             > scout.MAX_INPUT_BYTES
