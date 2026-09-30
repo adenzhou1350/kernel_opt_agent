@@ -131,6 +131,7 @@ COMMAND_GROUPS: dict[str, dict[str, Command]] = {
         "resources-discover": Command("discover_resources.py", "derive the material resource set"),
     },
     "measurement": {
+        "tirx": Command("tirx_backend.py", "screen trusted TIRx cases on CPU (optional backend)"),
         "p0-calibrate": Command("calibrate_p0.py", "qualify timing and launch semantics"),
         "persistent-run": Command("persistent_session_runner.py", "run bounded requests through one persistent worker"),
         "service-curve-fit": Command("fit_service_curve.py", "fit latency and throughput service curves"),
