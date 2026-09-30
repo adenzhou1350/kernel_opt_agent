@@ -20,6 +20,10 @@
     {
       "url": "https://github.com/openclaw/openclaw/blob/c83486b193fad973ae2b0a289e3379703c6185f2/test/vitest/vitest.scoped-config.ts",
       "note": "shouldPassWithNoTestsForCliIncludes permits success when every CLI selection is excluded. Resolve the owning lane and check executed inventory; this pinned example does not describe every runner."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/issues/162135",
+      "note": "Published native Node 24.16 registered-suite reproduction: caller pause and resume-then-pause both fail on pinned OpenClaw source, while ten existing handoff controls pass. The report includes the runnable tests and scope limits. A local candidate's 12 passes do not imply independent review, application impact or performance qualification."
     }
   ],
   "status": "validated"
