@@ -298,3 +298,17 @@ assertion location within the existing 12-line budget. Focused regressions cover
 colored logs and repetitive failure labels. This repairs observation delivery;
 it does not establish that a model repairs the program better. No new model or
 GPU execution is implied by replaying a saved log.
+
+An actual follow-up used the repaired compactor, the original pipe source and
+unchanged registered tests in one tool-free Kimi call (4,004 reported tokens,
+6.50 s). Its one-line proposal guarded the historical resume with `isPaused()`.
+On the same task-private Node 24.16.0 / Vitest 5.0.1 owning runner, both control
+and proposal gave 10 passed / 2 failed; each full command took about 30 s,
+including transformation. Tests were unchanged and the task's prior source was
+restored afterward. This owner-selected development replay is not a held-out or
+budget-matched comparison, and the proposal is not a contribution. Correctly
+delivering a failure did not resolve the unexamined native listener-transition
+mechanism. Retain this negative result, use relevant dependency/caller context
+when it can change the repair, and do not add blind attempts merely to obtain a
+passing verdict. Raw evidence stays in the existing local run, not the public
+knowledge library; no GPU, service or shared dependency changes were made.
