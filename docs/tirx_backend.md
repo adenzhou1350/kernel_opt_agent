@@ -205,57 +205,33 @@ One SGLang QSA lead was resolved this way: valid speculative capture already
 makes metadata row count equal captured token capacity. Do not create artificial
 metadata to manufacture the mismatch before tracing its producer.
 
-Native controls matter outside kernel checks as well. A September 30 Node 24.16
-probe of OpenClaw's exact `BrokerChild` readiness/publication entry used real
-child stdout, not a copied Python implementation. It reproduced overridden
-pause intent. One tool-free Kimi advisory used 5,877 reported tokens and 10.82 s;
-its proposed guard still failed resume-then-pause. A second owner experiment
-preserved pause flags but stalled buffered delivery to normal consumers. The
-revised experiment passed five consumer/ordering controls, including prefix
-delivery and async iteration. POSIX host/worker IPC, teardown/backpressure and
-the repository suite remain unverified; **no PR qualification** is claimed.
-The reusable change is to keep native runner failure names (unittest, TAP,
-Vitest and Rust) in feedback and require observable consumer progress in repair
-controls. Source, references and tests remain fixed when comparing each repair.
+An exploratory OpenClaw case tested native Node 24.16 stream consumption, not a
+copied implementation. Original pipes violated pause-only and resume-then-pause;
+the owner's repair passed six consumer/backpressure modes and nine transport/
+size controls through the real Linux host/worker IPC, including an exact
+`870c5b6` source replay. The older `c83486b` registered handoff suite, extended
+with two fixed regressions, gave 10 pass / 2 fail on control and 12 pass on repair
+(2.42 s in-file). These runs used explicit source overlays and cached external
+dependencies; current registered tests and independent publication review remain
+separate. They are not whole-application or performance qualifications.
 
-October 1 continuation replayed that pipe-local experiment onto the reusable
-OpenClaw checkout at `c83486b`, preserving its unchanged prefix-restoration API.
-On Linux/Node 24.16, real host/worker IPC passed six consumer/backpressure modes
-and nine transport/size controls with the experimental repair; the unchanged
-pipe reproduced both pause failures. In the registered handoff suite extended
-with the same two regressions, the final matched runs gave 10 pass / 2 fail on
-the unchanged pipe and 12 pass on the repair (2.42 s in-file test span). These
-runs used an explicit pipe/test loader overlay and
-the checkout's existing Vitest 5 dependencies, not a current-main full-suite
-qualification or an automatically executable TypeScript route. Current-source
-replay and publication review remain open; no new PR is claimed.
+Two tool-free Kimi calls used 5,877 / 8,769 reported tokens and 10.82 / 29.52 s.
+The second received concrete failed-control diagnostics but not the owner's
+winning implementation. Both proposed repairs still failed resume-then-pause;
+richer feedback did **not** establish better repair success or PR conversion.
+Its bounded registered replay produced no result and remains inconclusive.
+This single exploratory case is not a budget-matched productivity comparison.
 
-The first test-selection attempts returned success with **zero** tests because
-the unit/process configs exclude this file in favor of `unit-fast`. Those exits
-are not passing evidence. The matched comparison now checks the expected test
-inventory; Scout feedback marks an explicitly reported zero-test arm inconclusive
-even when its runner exits successfully. An absent count remains unknown rather
-than being invented as zero. This is a diagnostic warning, not a new promotion
-rule or permission to execute arbitrary native code.
+Reusable controls from the case:
 
-The first collected repair replay also returned 10 pass / 2 fail because the
-loader overlay reused the control's filesystem transform cache. A separate
-task-local cache per arm plus a cache key binding the pipe/test contents resolved
-the contradiction with the standalone native probe; the final control replay
-still reproduced both failures. Retain the earlier failed result. Non-file
-inputs to compilation are experiment inputs too, not reasons to weaken a test.
-
-October 1 feedback-assisted repair used the same native consumer controls and
-kept the owner's successful experiment out of the model context. The second
-tool-free Kimi call used 8,769 reported tokens and 29.52 s; its revised event/
-next-tick scheme still failed resume-then-pause in the native Node 24.16 owner
-entry, although four other consumer sequences passed. The attempted registered
-replay produced no result within its bounded run and is inconclusive, not a
-second candidate verdict. Richer diagnostics alone did not establish a better
-repair or PR conversion. The current upstream pipe bytes are still unchanged;
-a current-source native host replay remains blocked before worker readiness in
-the cached dependency environment. Preserve that boundary rather than claiming
-the older compatible checkout qualifies current main.
+- Keep native runner failure names (unittest, TAP, Vitest and Rust), and test
+  observable consumer progress, buffered bytes and EOF, not only state flags.
+  See [the applicable stream lesson](../knowledge/lessons/native-events-versus-consumer-progress.json).
+- Check executed inventory: an explicit zero-test success is inconclusive;
+  absent counts remain unknown. Resolve the owning test lane before retrying.
+- Bind source-overlay contents in transform caches and isolate arm caches.
+  A stale cache or a loader's incorrect internal-import resolution is a tooling
+  fault, not a reason to weaken product assertions. Preserve failed evidence.
 
 Scout's automatic CPU repair now keeps already executed test bytes unchanged.
 A repair may revise source or request context, but changing those tests requires
