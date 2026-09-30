@@ -67,6 +67,30 @@ def _text(value):
     return value if isinstance(value, str) else ""
 
 
+def _definition_line(lines, hints):
+    """Prefer a requested Python/JS declaration to incidental keyword mentions.
+
+    This is a bounded lexical anchor, not parsing, coverage or reachability proof.
+    Qualified method names take precedence over their enclosing class names.
+    """
+    hints = hints[:2000]
+    names = list(dict.fromkeys(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", hints)))[:32]
+    priority = {name: index for index, name in enumerate(names)}
+    qualified = set(re.findall(r"\.([A-Za-z_][A-Za-z0-9_]{2,})\b", hints))
+    declaration = re.compile(
+        r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+        r"(?:def|class|function|const|let|var|type|interface|enum)\s+"
+        r"([A-Za-z_]\w*)\b"
+    )
+    matches = []
+    for index, line in enumerate(lines):
+        match = declaration.match(line)
+        if match and match[1] in priority:
+            name = match[1]
+            matches.append((name not in qualified, priority[name], index))
+    return min(matches)[2] if matches else None
+
+
 class IssuePage(list):
     """Filtered issues with pagination exhaustion from the raw API response."""
 
@@ -298,6 +322,11 @@ class PublicContext:
             start = min(offset, max(0, len(lines) - max_lines)) + 1
         if start is not None and start > max(1, len(lines)):
             raise ValueError("source start line is beyond end of file")
+        if start is None:
+            definition = _definition_line(lines, hints)
+            if definition is not None:
+                offset = max(0, definition - min(30, max_lines // 4))
+                start = min(offset, max(0, len(lines) - max_lines)) + 1
         if start is None:
             words = list(
                 dict.fromkeys(

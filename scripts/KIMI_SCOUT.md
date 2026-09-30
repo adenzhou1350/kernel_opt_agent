@@ -118,6 +118,12 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   On a new repository revision, changed Git blobs are sampled first; unchanged
   blobs keep their deduplication identity. Mutable refs are refreshed after 900
   seconds, so a stale snapshot is not treated as a new source fact.
+- Named Python/JavaScript/TypeScript hints prefer a matching declaration over
+  incidental comment, import or call mentions; qualified method names precede
+  their enclosing class. Explicit line starts and matched exact literals retain
+  priority. This is a lexical window heuristic, not parsing or complete-function
+  coverage; unmatched hints keep keyword scoring and later code may still need
+  another window. Read and packet limits are unchanged.
 - Leads and context requests receive at most two follow-ups, only when new public
   evidence is available. The controller can add issue comments, observed tree
   members and bounded related-work search. Model hints cannot introduce arbitrary
