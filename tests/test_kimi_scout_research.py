@@ -1085,6 +1085,22 @@ class ResearchTests(unittest.TestCase):
             research.companion_source_paths(source_path, files), ([], None)
         )
 
+    def test_companion_test_matches_mirrored_source_and_test_directories(self):
+        files = [
+            "apps/cli/test/tui/components/messages/sticky-user-message.test.ts",
+            "apps/cli/test/tui/utils/sticky-user-message.test.ts",
+        ]
+        for source, expected in [
+            ("apps/cli/src/tui/utils/sticky-user-message.ts", files[1]),
+            ("apps/cli/src/tui/components/messages/sticky-user-message.ts", files[0]),
+        ]:
+            for candidates in [files, list(reversed(files))]:
+                with self.subTest(source=source, candidates=candidates):
+                    self.assertEqual(
+                        research.companion_source_paths(source, candidates),
+                        ([expected], None),
+                    )
+
     def test_companion_test_prefers_its_component_not_alphabetical_monorepo_match(self):
         path = "transfer-engine/src/config.cpp"
         files = [
