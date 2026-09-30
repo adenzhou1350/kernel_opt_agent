@@ -102,7 +102,18 @@ def companion_source_paths(path, files):
             if left != right:
                 break
             common += 1
-        return not exact, -common, candidate
+        # src/tui/utils and test/tui/utils belong together even when another
+        # component has the same basename. Keep repository locality primary.
+        mirrored = 0
+        directories = [
+            [part for part in name.split("/")[:-1] if part not in {"src", "test", "tests"}]
+            for name in (path, candidate)
+        ]
+        for left, right in zip(*directories):
+            if left != right:
+                break
+            mirrored += 1
+        return not exact, -common, -mirrored, candidate
 
     tests = sorted(
         (
