@@ -270,6 +270,44 @@ class ContextTests(unittest.TestCase):
         self.assertIn("95:     tl.store(loss_ptr + M, 0.0)", evidence["text"])
         self.assertNotIn("190: grpo_fwd_kernel[(row_len,)]()", evidence["text"])
 
+    def test_exact_literal_targets_registration_not_earlier_module_record(self):
+        lines = self.raw.splitlines()
+        lines[9] = '"pack_01234567": {"arch": "sm_103a"},'
+        lines[229] = '"quant:k8192_bf16": "pack_01234567",'
+        self.raw = "\n".join(lines)
+        evidence = self.context.source(
+            REPO,
+            COMMIT,
+            "src/kernel.py",
+            hints="pack_01234567",
+            exact_hint=': "pack_01234567"',
+            max_lines=80,
+        )
+        self.assertIn('230: "quant:k8192_bf16"', evidence["text"])
+        self.assertNotIn('10: "pack_01234567"', evidence["text"])
+        self.assertTrue(evidence["exact_hint_matched"])
+        self.assertTrue(evidence["truncated"])
+
+    def test_missing_or_clipped_literal_is_not_reported_as_matched(self):
+        evidence = self.context.source(
+            REPO, COMMIT, "src/kernel.py", hints="value_200", exact_hint="MISSING"
+        )
+        self.assertIn("200: value_200", evidence["text"])
+        self.assertFalse(evidence["exact_hint_matched"])
+        self.raw = "x" * 9500 + "HIDDEN"
+        fresh = context.PublicContext(self.root / "long-line")
+        evidence = fresh.source(REPO, COMMIT, "src/kernel.py", exact_hint="HIDDEN")
+        self.assertTrue(evidence["truncated"])
+        self.assertFalse(evidence["exact_hint_matched"])
+
+    def test_invalid_exact_literal_is_rejected_before_fetch(self):
+        for value in ("", "x" * 513, "a\nb", "a\x00b", 3):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                self.context.source(REPO, COMMIT, "src/kernel.py", exact_hint=value)
+        with self.assertRaises(ValueError):
+            self.context.source(REPO, COMMIT, "src/kernel.py", exact_hint="x", start=1)
+        self.assertEqual(self.calls, [])
+
     def test_source_window_bounds_and_truncation_are_explicit(self):
         for kwargs in (
             {"start": 0},

@@ -168,6 +168,15 @@ the root and caches a deliberately partial snapshot. Metadata stays capped at
 8 MB per tree, source files at 1 MB, and model packets at 24 KB. Unselected
 subtrees are not reviewed; a large tree never becomes a large paid prompt.
 
+Hash-named CUDA `_kernel.cu` / `_binding.cu` follow-ups also try the
+nearest unambiguous, observed package `*_jit.py` or `registry.py` and its README.
+They retain one ordinary source window and add at most an 80-line registry
+window plus 60 README lines, under the same packet/read/cache limits. The exact
+physical-module mapping is preferred over an earlier module record; missing or
+clipped anchors are explicitly marked. Ambiguous/missing conventions do not
+reject a lead or imply completeness. The registry is not executed and retrieval
+does not establish CUDA correctness, coverage or a useful PR.
+
 The review stage tries to disprove a lead using supplied callers/tests/related
 work; the last stage produces a minimal reproduction **plan**. Neither executes
 model-generated code, marks a PR Ready, or promotes knowledge automatically.

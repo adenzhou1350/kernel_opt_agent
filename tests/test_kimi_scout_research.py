@@ -78,9 +78,7 @@ class Context:
 class ResearchTests(unittest.TestCase):
     def test_refill_error_code_does_not_expose_untrusted_error_text(self):
         self.assertEqual(
-            research.refill_error_code(
-                ValueError("public source exceeds read budget")
-            ),
+            research.refill_error_code(ValueError("public source exceeds read budget")),
             "ValueError:source_budget",
         )
         self.assertEqual(
@@ -527,6 +525,52 @@ class ResearchTests(unittest.TestCase):
         packet["sources"][0]["url"] = url.replace("a/b", "other/repo")
         self.assertIsNone(research.same_file_kernel_definition(packet, snapshot))
 
+    def test_generated_followup_adds_registry_and_contract_not_unrelated_match(self):
+        module = "pack_0123456789abcdef"
+        path = f"package/feature/csrc/sm_103a/{module}_binding.cu"
+        revision = self.context.revision
+        old = {
+            "url": f"https://raw.githubusercontent.com/a/b/{revision}/{path}",
+            "text": "166: CheckDtype(arg_x, bf16);",
+        }
+        self.producer.emit("generated", self.spec, [old], "source_audit")
+        self.finish(self.jobs()[0])
+        files = [
+            path,
+            "package/feature/cake_jit.py",
+            "package/feature/README.md",
+            "unrelated/kernel.py",
+        ]
+        calls = []
+
+        def source(repo, commit, path, **kwargs):
+            calls.append((path, kwargs))
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": path + " " + str(kwargs),
+                "truncated": True,
+            }
+
+        with (
+            patch.object(
+                self.context,
+                "snapshot",
+                return_value={"commit": revision, "files": files},
+            ),
+            patch.object(self.context, "source", side_effect=source),
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+            patch.object(
+                research, "relevant_paths", return_value=[path, "unrelated/kernel.py"]
+            ),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual([p for p, _ in calls], files[:3])
+        self.assertEqual(calls[1][1]["exact_hint"], f': "{module}"')
+        self.assertEqual(calls[2][1]["max_lines"], 60)
+        packet = json.loads(self.jobs()[-1]["packet"])
+        self.assertEqual(len(packet["sources"]), 4)
+        self.assertNotIn("unrelated/kernel.py", scout.dumps(packet))
+
     def test_followup_adds_called_kernel_definition_before_review(self):
         url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
         old = {"url": url, "text": "190: grpo_fwd_kernel[(n,)]()"}
@@ -716,6 +760,26 @@ class ResearchTests(unittest.TestCase):
         self.assertLessEqual(
             len((scout.SYSTEM + scout.dumps(packet)).encode()), scout.MAX_INPUT_BYTES
         )
+
+    def test_packet_trimming_cannot_leave_a_removed_exact_anchor_marked_present(self):
+        prefix = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/"
+        source = {
+            "url": prefix + "src/kernel.py",
+            "text": "x" * 14000 + "ANCHOR",
+            "exact_hint": "ANCHOR",
+            "exact_hint_matched": True,
+        }
+        other = {"url": prefix + "tests/test_kernel.py", "text": "y" * 10000}
+        self.assertTrue(
+            self.producer.emit(
+                "anchor-trim", self.spec, [source, other], "source_followup"
+            )
+        )
+        packet = json.loads(self.jobs()[0]["packet"])
+        delivered = packet["sources"][0]
+        self.assertTrue(delivered["truncated"])
+        self.assertNotIn("ANCHOR", delivered["text"])
+        self.assertFalse(delivered["exact_hint_matched"])
 
     def test_oversize_evidence_trimmed_with_explicit_flag(self):
         self.producer.emit(
@@ -957,7 +1021,9 @@ class ResearchTests(unittest.TestCase):
             return original_source(repo, commit, path, **kwargs)
 
         progress = {}
-        with patch.object(self.context, "source", side_effect=source_with_oversize_test):
+        with patch.object(
+            self.context, "source", side_effect=source_with_oversize_test
+        ):
             self.assertTrue(self.producer.source_audit(self.spec, progress))
         packet = json.loads(self.jobs()[0]["packet"])
         self.assertEqual(len(packet["sources"]), 1)
@@ -1037,9 +1103,11 @@ class ResearchTests(unittest.TestCase):
                 deadline = time.monotonic() + 2
                 while time.monotonic() < deadline:
                     status_path = self.root / "research.json"
-                    if status_path.exists() and json.loads(status_path.read_text()).get(
-                        "phase"
-                    ) == "DISK_PAUSED":
+                    if (
+                        status_path.exists()
+                        and json.loads(status_path.read_text()).get("phase")
+                        == "DISK_PAUSED"
+                    ):
                         break
                     time.sleep(0.01)
                 else:
