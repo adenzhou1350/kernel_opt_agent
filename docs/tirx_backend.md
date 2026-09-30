@@ -324,3 +324,12 @@ existing input cap. Card updates alone do not enqueue unchanged source again.
 The lookup has no growing cache, network fetch or automatic knowledge promotion.
 This repairs a real integration gap (previously only three fixed cards were
 included); it is not yet a measured PR-conversion or total-cost improvement.
+
+A live, owner-selected existing FlashInfer lead exercised the retrieved
+consumer-contract card in one tool-free call (6,536 reported tokens, 5.92 s).
+The model requested omitted context instead of claiming qualification. Reading
+the same pinned function's omitted branch then falsified its missing-variable
+suspicion; the original alleged cache layout was also outside the documented
+layout. This is a wiring smoke and source-level falsification, not a paired
+quality/cost comparison. A relevant lesson cannot replace the missing code,
+and neither allegation warrants GPU testing without a supported caller.
