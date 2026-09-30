@@ -396,6 +396,23 @@ at most one repair using real output, and a separate skeptical call only for
 before-fail/fixed-pass.
 `REPRODUCED` still needs owner assertion/reachability/novelty review; `NO_BUG`
 is a model rejection, not an executed proof. No PR or knowledge is auto-published.
+When a reproduced candidate lacks a demonstrated consumer, sufficient value or
+target-environment evidence, explicitly defer that candidate instead of calling
+it `NO_BUG`:
+
+```sh
+python scripts/kimi_scout_delivery.py --root runs/kimi-scout \
+  --park-owner-job <candidate-id> --park-reason "<review finding>" \
+  --park-evidence-url https://github.com/owner/repo/blob/<40-char-commit>/path.py#L1 \
+  --reopen-when "<new evidence that would change the decision>"
+```
+
+`OWNER_PARKED` leaves the current owner queue but preserves tests, source, tokens,
+prior status and the decision in SQLite. It is neither a false-positive verdict
+nor a qualified PR, and does not suppress other hypotheses. The command requires
+an inactive delivery worker, makes no model/network/GPU calls, and refreshes the
+queue snapshot without replacing the worker PID/state/heartbeat. Revisit only
+when the recorded evidence condition is met; no automatic retry is implied.
 The owner queue groups only byte-identical patch files within one repository:
 the displayed entry lists duplicate job IDs found in its bounded scan. Every
 original job and its evidence stays in SQLite. The raw owner-ready count is
