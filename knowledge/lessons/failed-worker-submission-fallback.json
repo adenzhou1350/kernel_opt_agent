@@ -1,0 +1,22 @@
+{
+  "id": "failed-worker-submission-fallback",
+  "title": "Check new submissions after a worker failure, not only failed futures",
+  "applies_when": "An asynchronous compiler or other optional process pool promises an in-process fallback when background execution is unavailable.",
+  "lesson": "Trace two distinct failure transitions: an already-submitted future fails, and a subsequent new key is submitted to the now-broken executor. Handling future.result() alone does not cover executor.submit() raising before a future exists. Test an actual terminated worker, then a new submission through the real caller. Verify failed submission does not reserve the key or increment successful-submission counters, the intended fallback returns correct values, and exceptions from the fallback itself still propagate. Keep submission recovery separate from computation-error handling.",
+  "avoid_when": "Do not silently switch to local execution when distributed execution is required for correctness, isolation or resources. Do not swallow arbitrary programming errors or infer that a broken executor has recovered. An explicit shutdown may be an application lifecycle error rather than a supported fallback. A CPU compile stand-in validates host control flow, not CUDA compilation, numerical kernel correctness or performance.",
+  "evidence": [
+    {
+      "url": "https://github.com/Dao-AILab/quack/blob/35266c3298f0e9bf6d5f46c30aace2eaeae517e3/quack/cache/jit.py#L229-L270",
+      "note": "The actual cold-cache caller defers only when submit returns True; False reaches the existing in-process path. Polling failed futures and submitting a new key are separate transitions."
+    },
+    {
+      "url": "https://github.com/Dao-AILab/quack/blob/cc8851439adb8d3211a5f1b5dfa7c348e1ff3d6f/tests/test_async_compile.py#L27-L103",
+      "note": "Repository-native CPU regressions use real shut-down and abruptly terminated process pools. Six cases fail with the submission fix removed and pass after it, including actual jit_cache control flow with a CPU compile stand-in and propagation of its own error. GPU-dependent tests were not executed; this evidence is not a kernel performance result."
+    },
+    {
+      "url": "https://github.com/Dao-AILab/quack/pull/214",
+      "note": "Open contribution containing the scoped fix and reproduction details; publication does not establish maintainer acceptance or merge."
+    }
+  ],
+  "status": "validated"
+}
