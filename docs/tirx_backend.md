@@ -158,3 +158,39 @@ KCoral is a possible execution transport. Before deploying it for shared workers
 verify the full dependency stack, allocation coordination, profiler access and
 code isolation. The initial B300 trusted-script loopback test did not establish
 those properties.
+
+## Scout feedback, without requiring a new compiler
+
+The [TIRx Harness article](https://zhuanlan.zhihu.com/p/2088605062314643836)
+motivates actionable compiler diagnostics, reusable implementations rather than
+generic advice, and separating generation from device measurements. Scout keeps
+native project tests first; an existing TIRx case can opt into compiler feedback.
+Do not translate unrelated Python/TypeScript/CUDA leads solely to use TIRx.
+
+The delivery worker's existing one-repair call now receives per-arm exit/count/
+cleanup observations and bounded failure excerpts, not entire duplicated logs.
+The owner handoff includes the same brief plus its existing raw evidence link.
+Omission counts and hashes preserve the distinction between a partial diagnostic
+and complete evidence. Missing context, import errors and simulator gaps are not
+candidate defects; no new queue gate or automatic GPU execution is introduced.
+
+For an already reviewed TIRx case, create a tool-free model context:
+
+```sh
+python scripts/scout_validation_feedback.py \
+  --tirx-result runs/example/cpu.json --case-file examples/my_cases.py
+```
+
+This reads saved observations and source without importing either. It rejects a
+source hash mismatch, preserves failure/resource excerpts and explicitly forbids
+changing independent references or treating feedback as execution authority.
+Review any model edit before running the existing check/device route. Retain the
+source, reference and reproducible commands, not just the model's explanation.
+
+September 30 pilot: one tool-free Kimi call consumed a saved native int64 failure
+and proposed removing the planted `+1`; 1,220 reported tokens, 6.87 s model wall.
+Reference/control ASTs were unchanged. B300 SSH timed out, so the edited case was
+**not rerun**. This is a handoff demonstration, not a new bug, repair correctness
+certificate, productivity comparison or performance improvement. A four-job
+delivery trial hit four static environment/context blocks before any model/test
+execution; richer feedback does not solve missing package/test environments.

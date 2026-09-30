@@ -391,7 +391,8 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(state, delivery.OWNER_STATE)
         self.assertEqual(model.call_count, 2)
         self.assertEqual(sandbox.call_count, 2)
-        self.assertIn("actual_result", model.call_args_list[1].args[2])
+        self.assertIn("validation_feedback", model.call_args_list[1].args[2])
+        self.assertNotIn('"actual_result"', model.call_args_list[1].args[2])
         self.assertFalse(json.loads(row["result"])["qualified"])
         handoff = json.loads(
             (self.worker.root / "jobs" / row["id"] / "owner-handoff.json").read_text(

@@ -23,6 +23,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import kimi_scout as scout
+from scout_validation_feedback import cpu_feedback
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 
 ACTIVE = {"PENDING", "GENERATING", "TESTING", "REPAIRING", "REVIEWING"}
@@ -383,6 +384,7 @@ def owner_handoff(job, lead, source, value, observed, work, version):
         "reason": value["reason"],
         "owner_score": score,
         "repair_used": version == 2,
+        "validation_feedback": cpu_feedback(observed),
         "changed_lines": changed_lines,
         "tests_run": tests_run,
         "evidence": {
@@ -689,7 +691,8 @@ class Delivery:
                     + "\nONE REPAIR: examine actual output and correct the proposal only if justified. "
                     "Keep the behavioral contract; no weakened assertions. Same JSON response.\n"
                     + scout.dumps(
-                        {"previous_proposal": value, "actual_result": observed}
+                        {"previous_proposal": value,
+                         "validation_feedback": cpu_feedback(observed)}
                     ),
                 )
             if state == "REVIEWING":
