@@ -124,3 +124,31 @@ Private report and raw evidence:
 Use prechecks selectively, prepare before allocating GPU, and reuse worker
 imports/caches when useful. A real model-generated candidate search with matched
 budget and measured tokens remains necessary for a system-level conclusion.
+
+## Current-source audit
+
+The `c3f3c98` snapshot includes `3e7a33a`: exact integer/bool comparisons and
+explicit NumSim coverage verdicts. The current adapter's 21 regression tests and
+the public CLI section check passed. Actual native NumSim execution reproduced
+an old false PASS for int64 outputs near `2**60` with a +1 error; the current
+adapter returned FAIL with exact error 1. Correct int64 and affine cases passed;
+numerical, race and barrier negative controls failed as expected. The public
+`kernel_opt.py tirx check` route also returned the expected codes and retained
+source hashes. Native coverage-review cases were not exercised in this audit;
+that change has unit-test coverage.
+
+Using the current adapter in the same CPU-prepared single-process prototype,
+three interleaved repeats per arm found 6.933s direct versus 6.592s with prechecks
+for four safe numerical defects plus one valid candidate. Launches fell 5 to 1.
+For one valid candidate, times were 4.375s direct versus 4.754s with prechecks.
+These are warm-cache synthetic queues, not measured production error rates or
+model-generated search. The roughly 5% mixed-queue time reduction is not a stable
+speedup estimate: total-time ranges overlap and CUDA initialization varies.
+Mixed-queue allocated GPU-stage medians increased from 0.704s to 1.178s despite
+fewer launches. The earlier time/reservation savings did not reliably reproduce.
+No final-kernel changes or new kernel-performance claim accompany this audit.
+
+Current source inspection still finds no automatic TIRx invocation in Scout or
+SemIf. Selective CPU checks are useful capabilities; default full checking and
+overall agent superiority remain unsupported. Private current-source report:
+`D:\codes\community-validation\tirx-harness-gzb-20260930\current-audit\README.md`.
