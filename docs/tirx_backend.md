@@ -212,8 +212,20 @@ size controls through the real Linux host/worker IPC, including an exact
 `870c5b6` source replay. The older `c83486b` registered handoff suite, extended
 with two fixed regressions, gave 10 pass / 2 fail on control and 12 pass on repair
 (2.42 s in-file). These runs used explicit source overlays and cached external
-dependencies; current registered tests and independent publication review remain
-separate. They are not whole-application or performance qualifications.
+dependencies; they are not whole-application or performance qualifications.
+
+An October 1 follow-up closed the current registered-test environment gap on a
+task-private Linux worker. Exact `870c5b6` source with the same added regression
+bytes, Node 24.16.0, pinned pnpm 12.5.1 and the frozen-lockfile Vitest 5.0.1 install
+ran the owning `unit-fast` lane through `scripts/run-vitest.mjs`. The original
+pipe implementation gave 10 passed / 2 failed; the repair gave 12 passed, including
+both pause variants, async consumption and the early-byte/EOF controls. This
+is a native regression discriminator, not a claim about performance, the entire
+application or model-generated repair quality. Dependency preparation belongs
+outside the source-selection loop; independent publication review remains
+separate. Preserve failed bootstrap attempts as tooling failures, not product
+failures. The private raw logs are under
+`runs/kimi-scout-20260920/openclaw-native-szd-20261001/`.
 
 Two tool-free Kimi calls used 5,877 / 8,769 reported tokens and 10.82 / 29.52 s.
 The second received concrete failed-control diagnostics but not the owner's
