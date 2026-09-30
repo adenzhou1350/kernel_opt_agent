@@ -68,6 +68,9 @@ def evaluate(case, np, harness, cache):
             module = harness.numsim.transpile(kernel, cache_dir=cache)
             simulation = harness.numsim.Engine(max_workers=1).run(
                 module, inputs=fresh(), outputs=tuple(expected))
+            verdict = getattr(simulation, "verdict", None)
+            checks["simulation"] = {"status": "PASS" if verdict == "clean" else "ERROR",
+                                    "verdict": verdict, "diagnostics": simulation.diagnostics}
             outputs = {}
             for name, reference in expected.items():
                 actual = np.asarray(simulation.outputs[name])
@@ -75,18 +78,27 @@ def evaluate(case, np, harness, cache):
                 if actual.shape != reference.shape:
                     outputs[name] = {"status": "FAIL", "reason": "shape mismatch"}
                     continue
+                # Object integers retain all bits, including mixed signed/unsigned comparisons.
+                exact = actual.dtype.kind in "biu" or reference.dtype.kind in "biu"
+                left = actual.astype(object) if exact else actual.astype(np.complex128 if np.iscomplexobj(actual) else np.float64)
+                right = reference.astype(object) if exact else reference.astype(np.complex128 if np.iscomplexobj(reference) else np.float64)
                 try:
-                    np.testing.assert_allclose(actual, reference, rtol=rtol, atol=atol, equal_nan=False)
+                    if exact:
+                        np.testing.assert_array_equal(left, right)
+                    else:
+                        np.testing.assert_allclose(actual, reference, rtol=rtol, atol=atol, equal_nan=False)
                     status = "PASS"
                 except AssertionError:
                     status = "FAIL"
-                delta = np.abs(actual.astype(np.float64) - reference.astype(np.float64))
+                delta = np.abs(left - right)
                 finite = bool(np.isfinite(actual).all() and np.isfinite(reference).all())
+                max_error = delta.max() if finite and delta.size else None
+                if isinstance(max_error, np.generic):
+                    max_error = max_error.item()
                 outputs[name] = {"status": status if finite else "FAIL", "shape": list(actual.shape),
-                                 "max_abs_error": float(delta.max()) if finite and delta.size else None}
+                                 "max_abs_error": max_error}
             checks["numerical"] = {"status": "PASS" if all(x["status"] == "PASS" for x in outputs.values()) else "FAIL",
-                                   "rtol": rtol, "atol": atol, "outputs": outputs,
-                                   "diagnostics": repr(simulation.diagnostics)}
+                                   "rtol": rtol, "atol": atol, "outputs": outputs}
         except Exception as exc:
             checks["numerical"] = {"status": "ERROR", "error": f"{type(exc).__name__}: {exc}"}
     statuses = {item["status"] for item in checks.values()}
