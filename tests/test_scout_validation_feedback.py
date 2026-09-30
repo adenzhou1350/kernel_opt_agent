@@ -100,6 +100,38 @@ class FeedbackTests(unittest.TestCase):
             arm["output_sha256"], hashlib.sha256(output.encode()).hexdigest()
         )
 
+    def test_terminal_cause_is_not_crowded_out_by_failure_labels(self):
+        output = "\n".join(f"FAIL: test_{index}" for index in range(40))
+        output += "\nAssertionError: expected false to be true\n"
+        brief = cpu_feedback({"before": {"output": output}})
+        lines = brief["arms"]["before"]["diagnostic_excerpts"]
+        self.assertIn("AssertionError: expected false to be true", lines)
+        self.assertLessEqual(len(lines), 12)
+
+    def test_native_assertion_diff_and_site_survive_blank_lines(self):
+        output = (
+            "\x1b[31m FAIL \x1b[0m unit-fast pipe.test.ts > caller pause\n"
+            " FAIL  unit-fast pipe.test.ts > resume then pause\n"
+            "\x1b[1mAssertionError\x1b[22m: expected false to be true // Object.is equality\n"
+            "\n- Expected\n+ Received\n\n- true\n+ false\n\n"
+            " \u276f pipe.test.ts:48:42\n"
+            "     46|         await written;\n"
+            "     47|         await nextTick();\n"
+            "     48|         expect(child.stdout!.isPaused()).toBe(true);\n"
+        )
+        brief = cpu_feedback({"before": {"output": output}})
+        lines = brief["arms"]["before"]["diagnostic_excerpts"]
+        for value in (
+            "- true", "+ false", " \u276f pipe.test.ts:48:42",
+            "     48|         expect(child.stdout!.isPaused()).toBe(true);",
+        ):
+            self.assertIn(value, lines)
+        self.assertLessEqual(len(lines), 12)
+        self.assertEqual(
+            brief["arms"]["before"]["output_sha256"],
+            hashlib.sha256(output.encode()).hexdigest(),
+        )
+
     def test_tirx_copy_matches_without_import_or_execution(self):
         with tempfile.TemporaryDirectory() as directory:
             case = Path(directory) / "case.py"

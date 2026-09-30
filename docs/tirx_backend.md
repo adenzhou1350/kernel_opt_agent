@@ -284,3 +284,17 @@ claim. Scout's source locator now anchors an unambiguous Python `Class.method`
 within its owning class and prefers the last direct definition when duplicated.
 It parses source without executing it and keeps the existing window/cache budget.
 This retrieval correction is not a measured productivity or PR-conversion gain.
+The follow-up actually returned `no_lead` after reading this constructor (4,123
+reported tokens); it remains an owner-selected counterexample, not a held-out
+comparison or proof that arbitrary source follow-ups improve triage.
+
+Replaying the saved registered OpenClaw failure also exposed a real feedback
+transport defect: ANSI-colored assertion labels produced **zero** excerpts in
+the previous compactor. The revised compactor strips presentation codes for
+selection, prioritizes terminal causes and bounded assertion diffs/sites, and
+keeps the raw-output digest unchanged. The same log now retains the two failing
+test names, `expected false to be true`, expected/received values and the native
+assertion location within the existing 12-line budget. Focused regressions cover
+colored logs and repetitive failure labels. This repairs observation delivery;
+it does not establish that a model repairs the program better. No new model or
+GPU execution is implied by replaying a saved log.

@@ -15,6 +15,32 @@ from pathlib import Path
 import tirx_feedback
 
 
+def diagnostic_lines(lines):
+    """Keep causes and native assertion sites ahead of repetitive failure labels."""
+    causes, failures, details, context = [], [], [], set()
+    for index, line in enumerate(lines):
+        if re.search(r"\b\w*(?:Error|Exception):", line):
+            causes.append(index)
+            # Native assertion diffs can be separated from the exception by
+            # blank lines. Only keep diagnostic-shaped lines in this small span.
+            for offset in range(index + 1, min(len(lines), index + 21)):
+                if re.search(
+                    r"^\s*(?:[-+] |[\u276f>] .*:\d+|\d+\|)", lines[offset]
+                ):
+                    details.append(offset)
+        elif re.search(
+            r"^\s*(?:[\u00d7\u276f]\s*)?(?:FAIL:|ERROR:|Traceback|Ran \d+ tests?|"
+            r"FAILED\b|OK$|not ok\b|FAIL\s+\S|test\s+\S+\s+\.\.\.\s+FAILED\b)",
+            line,
+        ):
+            failures.append(index)
+    for index in causes + failures:
+        context.update(range(max(0, index - 1), min(len(lines), index + 2)))
+    # Priorities select the excerpt, but display stays in original log order.
+    ordered = dict.fromkeys(causes[:4] + failures[:2] + details + sorted(context))
+    return sorted(list(ordered)[:12])
+
+
 def cpu_feedback(result):
     """Expose concrete failures without repeating entire sandbox logs in prompts."""
     arms = {}
@@ -25,18 +51,11 @@ def cpu_feedback(result):
         if type(count) is int and count == 0:
             zero_test_arms.append(name)
         output = arm.get("output", "")
-        lines = output.splitlines()
-        indices = set()
-        # Keep the failing test name and terminal exception, not only a FAIL label.
-        for index, line in enumerate(lines):
-            if re.search(
-                r"^\s*(?:[\u00d7\u276f]\s*)?(?:FAIL:|ERROR:|Traceback|Ran \d+ tests?|"
-                r"FAILED\b|OK$|not ok\b|FAIL\s+\S|test\s+\S+\s+\.\.\.\s+FAILED\b)|"
-                r"\b\w*(?:Error|Exception):",
-                line,
-            ):
-                indices.update(range(max(0, index - 1), min(len(lines), index + 2)))
-        selected = sorted(indices)[:12]
+        # Real native logs often keep terminal colors even when redirected.
+        # Strip only presentation codes; the digest still binds the raw output.
+        lines = [re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", line)
+                 for line in output.splitlines()]
+        selected = diagnostic_lines(lines)
         arms[name] = {
             "exit_code": arm.get("exit_code"),
             "reported_tests_run": arm.get("reported_tests_run"),
