@@ -369,7 +369,7 @@
     const delivery = state.delivery;
     $("deliveryPanel").hidden = !delivery || typeof delivery !== "object" || Array.isArray(delivery);
     if ($("deliveryPanel").hidden) return;
-    const deliveryLabels = {PENDING:"排队",GENERATING:"生成测试",TESTING:"执行测试",REPAIRING:"修补中",REVIEWING:"旧版复核中",OWNER_REVIEW_REQUIRED:"A/B 已复现 · 待 owner 终审",GPU_REVIEW_REQUIRED:"GPU 测试已生成 · 尚未执行",REPRODUCED:"旧失败 / 新通过 · 待复核",NO_BUG:"模型判定无缺陷",ENVIRONMENT_BLOCKED:"环境受限",INCONCLUSIVE:"未得结论",FAILED:"失败"};
+    const deliveryLabels = {PENDING:"排队",GENERATING:"生成测试",TESTING:"执行测试",REPAIRING:"修补中",REVIEWING:"旧版复核中",OWNER_REVIEW_REQUIRED:"A/B 已复现 · 待 owner 终审",PR_OPEN:"关联 PR 的候选记录",GPU_REVIEW_REQUIRED:"GPU 测试已生成 · 尚未执行",REPRODUCED:"旧失败 / 新通过 · 待复核",NO_BUG:"模型判定无缺陷",ENVIRONMENT_BLOCKED:"环境受限",INCONCLUSIVE:"未得结论",FAILED:"失败"};
     const counts = delivery.counts && typeof delivery.counts === "object" ? delivery.counts : {};
     const live = delivery.alive === true && delivery.heartbeat_fresh === true && delivery.state !== "STOPPED";
     const status = !delivery.alive ? (delivery.state === "STOPPED" ? "已停止" : "进程离线") : !delivery.heartbeat_fresh ? "心跳待确认" : delivery.state === "STOPPED" ? "已停止" : "运行中";
@@ -387,6 +387,13 @@
     text("deliveryTokens", compact(delivery.reported_tokens));
     $("deliveryTokens").title = number(delivery.reported_tokens);
     $("deliveryCounts").replaceChildren(...Object.entries(deliveryLabels).map(([key,label]) => node("span", "", label + " " + number(counts[key] || 0))));
+    const publications = delivery.publications;
+    if (publications && Number.isInteger(publications.distinct_prs) && publications.distinct_prs >= 0) {
+      const distinct = node("span", "", "社区 PR（按链接去重） " + number(publications.distinct_prs));
+      distinct.title = "记录中的 PR 链接，不代表当前仍开放、CI 通过或已合入";
+      $("deliveryCounts").append(distinct);
+      if (publications.unverified_links) $("deliveryCounts").append(node("span", "", "待核对 PR 记录 " + number(publications.unverified_links)));
+    }
     text("deliveryTiming", (delivery.pid ? "PID " + plain(delivery.pid) + " · " : "") + "心跳 " + time(delivery.heartbeat_at, true));
     const jobs = Array.isArray(delivery.jobs) ? delivery.jobs.filter(job => job && typeof job === "object" && !Array.isArray(job)).slice(0,20) : [];
     text("deliveryJobsNote", "最近 " + jobs.length + " 项 · 最多 20 项");
