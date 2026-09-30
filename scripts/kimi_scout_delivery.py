@@ -272,7 +272,7 @@ def reject_owner_candidate(root, job_id, reason, evidence_url):
             ):
                 return prior
             raise ValueError("candidate has a different terminal decision")
-        if row["state"] not in {OWNER_STATE, "ENVIRONMENT_BLOCKED", "INCONCLUSIVE", "GPU_REVIEW_REQUIRED"}:
+        if row["state"] not in {OWNER_STATE, "REPRODUCED", "ENVIRONMENT_BLOCKED", "INCONCLUSIVE", "GPU_REVIEW_REQUIRED"}:
             raise ValueError("only terminal review candidates can be source-rejected")
         recorded = {
             "reason": reason,

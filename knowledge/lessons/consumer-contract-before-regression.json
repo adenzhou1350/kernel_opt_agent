@@ -3,8 +3,16 @@
   "title": "Establish the consumer contract before writing a failing regression",
   "applies_when": "A candidate alleges a formatting, validation, shape, resource-budget or backend-support mismatch from a helper name, comment or partial source window, and proposes expected behavior without tracing the producer and consumer.",
   "lesson": "Trace actual allocation/production, transformations and consumption before choosing expected behavior. DNS-SD instance labels allow punctuation that hostnames do not; applying hostname rules to every label can manufacture a failing test. Likewise, QSA speculative capture creates one metadata row per token, so replay's row count equals captured token capacity, not request count. A test that fabricates inconsistent internal metadata does not establish a reachable defect. Removing a device assertion or changing its error wording also does not establish backend support: require a documented supported caller and native kernel execution with checked outputs. Resource comments must be matched to actual registered geometry and implementation storage formulas: an excluded B_K=128 example does not justify removing registered B_K=64 kernels. Seek an observable consumer failure before repairing environments or publishing a correction.",
-  "avoid_when": "Do not dismiss reachable malformed host targets, escaping/length violations, or supported callers that mutate shapes or exceed allocation capacity. Error wording may itself be a documented API contract; validate that narrower claim separately rather than inferring backend support. Static review disproves only the specific alleged mismatch; it is not a native execution test or proof of general correctness.",
+  "avoid_when": "Do not dismiss reachable malformed host targets, escaping/length violations, or supported callers that mutate shapes or exceed allocation capacity. Error wording may itself be a documented API contract; validate that narrower claim separately rather than inferring backend support. A callback stand-in must preserve the real backend's layout transformations: RoPE+SDPA may take BSHD and return BHSD even when plain SDPA preserves shape. Baseline-fail/patch-pass against a shape-preserving invented callback is not a defect proof. Static review disproves only the specific alleged mismatch; it is not a native execution test or proof of general correctness.",
   "evidence": [
+    {
+      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/torchao/prototype/attention/shared_utils/attention.py#L122",
+      "note": "The real RoPE+FP8 SDPA backend explicitly takes BSHD and returns BHSD; its shared fake implementation permutes those dimensions. Plain SDPA's shape-preserving contract is different. This source contract refutes a proposed fake-kernel fix based on a callback that incorrectly preserves BSHD."
+    },
+    {
+      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/test/prototype/attention/test_rope_fusion_detection.py#L28",
+      "note": "The upstream registered CPU fusion tests use a BHSD-returning RoPE callback matching the real backend's output geometry. Prefer these controls over an invented BSHD-returning stand-in; this public source is not a claim of FA3 GPU qualification."
+    },
     {
       "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
       "note": "DNS-SD instance labels permit non-control punctuation and are limited to 63 octets; this is a protocol requirement, not a measured application result."
