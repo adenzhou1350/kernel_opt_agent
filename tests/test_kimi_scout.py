@@ -683,6 +683,57 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(live["phase"], "failed")
         self.assertNotIn("SECRET", path.read_text())
 
+    def test_missing_backend_protocol_is_not_a_model_answer_error(self):
+        for name, exit_code, stdout in (
+            ("empty", -1073741801, ""),
+            ("malformed", 1, "SECRET"),
+            ("non_object", 0, "[]"),
+        ):
+            self.add(name)
+            job = scout.claim(self.root, 12, 200000, 2048)
+            with patch.object(
+                scout.subprocess,
+                "run",
+                return_value=subprocess.CompletedProcess(
+                    [], exit_code, stdout, "api_key=SECRET"
+                ),
+            ):
+                receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+            self.assertEqual(receipt["error"], "invalid_backend_protocol")
+            self.assertEqual(receipt["failure_scope"], "provider_or_infrastructure")
+            self.assertEqual(
+                receipt["backend_process"],
+                {
+                    "returncode": exit_code,
+                    "stdout_chars": len(stdout),
+                    "stderr_chars": len("api_key=SECRET"),
+                },
+            )
+            self.assertNotIn("SECRET", json.dumps(receipt))
+            self.assertFalse(
+                (self.root / "results" / f"{job['id']}.answer.json").exists()
+            )
+
+    def test_malformed_model_answer_still_has_answer_failure_scope(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        response = {
+            "ok": True,
+            "text": "not JSON",
+            "tools_advertised": 0,
+            "tool_calls_executed": 0,
+            "usage": {"total_tokens": 321},
+        }
+        with patch.object(
+            scout.subprocess,
+            "run",
+            return_value=subprocess.CompletedProcess([], 0, json.dumps(response), ""),
+        ):
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        self.assertEqual(receipt["error"], "JSONDecodeError")
+        self.assertEqual(receipt["failure_scope"], "answer")
+        self.assertEqual(receipt["charged_tokens_or_reservation"], 321)
+
     def test_unexpected_tool_capability_is_rejected(self):
         self.add()
         job = scout.claim(self.root, 12, 200000, 2048)

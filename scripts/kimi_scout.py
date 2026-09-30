@@ -523,6 +523,7 @@ def execute(root, job, python, timeout, output_tokens):
     started = time.monotonic()
     charge, result, error, state = job["charge"], None, None, "FAILED"
     backend_completed = False
+    backend_process = None
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
@@ -546,7 +547,20 @@ def execute(root, job, python, timeout, output_tokens):
             timeout=timeout,
             check=False,
         )
-        response = json.loads(proc.stdout)
+        # A subprocess can die before emitting the protocol (e.g. Windows
+        # resource exhaustion). Keep numeric diagnostics, never provider stderr
+        # or raw stdout, and distinguish this from malformed model answer JSON.
+        backend_process = {
+            "returncode": proc.returncode,
+            "stdout_chars": len(proc.stdout),
+            "stderr_chars": len(proc.stderr),
+        }
+        try:
+            response = json.loads(proc.stdout)
+        except ValueError:
+            raise ValueError("invalid_backend_protocol") from None
+        if not isinstance(response, dict):
+            raise ValueError("invalid_backend_protocol")
         usage = response.get("usage") or {}
         actual = usage.get("total_tokens")
         if type(actual) is int and actual > 0:
@@ -640,6 +654,8 @@ def execute(root, job, python, timeout, output_tokens):
         "wall_seconds": round(time.monotonic() - started, 3),
         "finished": time.time(),
     }
+    if state == "FAILED" and backend_process is not None:
+        receipt["backend_process"] = backend_process
     write_json(root / "results" / f"{job['id']}.json", receipt)
 
     def persist_receipt():
