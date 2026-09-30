@@ -194,3 +194,13 @@ Reference/control ASTs were unchanged. B300 SSH timed out, so the edited case wa
 certificate, productivity comparison or performance improvement. A four-job
 delivery trial hit four static environment/context blocks before any model/test
 execution; richer feedback does not solve missing package/test environments.
+
+Before repairing an environment, an explicit owner source audit can also disprove
+an alleged bug. Delivery's `--reject-owner-job`, `--reject-reason` and
+`--reject-evidence-url` accept a terminal environment/context/GPU-review lead and
+retain its prior state and reason. The evidence URL must pin a commit in the same
+repository; running, pending and published candidates cannot be overridden.
+This is an owner judgment, never an automatic inference from a failed import.
+One SGLang QSA lead was resolved this way: valid speculative capture already
+makes metadata row count equal captured token capacity. Do not create artificial
+metadata to manufacture the mismatch before tracing its producer.

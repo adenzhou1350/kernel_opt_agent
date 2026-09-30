@@ -236,6 +236,61 @@ def update(root, job_id, state, reason="", result=None):
         )
 
 
+def reject_owner_candidate(root, job_id, reason, evidence_url):
+    """Remove a disproven owner candidate with an auditable source anchor."""
+    if not re.fullmatch(r"[0-9a-f]{24}", job_id):
+        raise ValueError("invalid candidate id")
+    reason = reason.strip()
+    if not reason or len(reason) > 1000:
+        raise ValueError("a concise rejection reason is required")
+    match = re.fullmatch(
+        r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/blob/"
+        r"[0-9a-f]{40}/[^\s?#]+(?:#L[1-9][0-9]*)?",
+        evidence_url,
+    )
+    if match is None:
+        raise ValueError("expected a commit-pinned GitHub source URL")
+    with database(root) as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT * FROM delivery WHERE id=?", (job_id,)).fetchone()
+        if row is None:
+            raise ValueError("candidate not found")
+        if row["repo"].casefold() != match.group(1).casefold():
+            raise ValueError("source repository does not match candidate")
+        result = json.loads(row["result"])
+        if row["state"] == "NO_BUG":
+            prior = result.get("owner_rejection")
+            if (
+                prior
+                and prior["reason"] == reason
+                and prior["evidence_url"] == evidence_url
+            ):
+                return prior
+            raise ValueError("candidate has a different terminal decision")
+        if row["state"] not in {OWNER_STATE, "ENVIRONMENT_BLOCKED", "INCONCLUSIVE", "GPU_REVIEW_REQUIRED"}:
+            raise ValueError("only terminal review candidates can be source-rejected")
+        recorded = {
+            "reason": reason,
+            "evidence_url": evidence_url,
+            "recorded_at": time.time(),
+            "prior_state": row["state"],
+            "prior_reason": row["reason"],
+            "claim_boundary": "owner source review disproved the proposed bug",
+        }
+        result["owner_rejection"] = recorded
+        db.execute(
+            "UPDATE delivery SET state='NO_BUG',reason=?,updated_at=?,result=? "
+            "WHERE id=?",
+            (
+                "Owner rejected: " + reason,
+                recorded["recorded_at"],
+                scout.dumps(result),
+                job_id,
+            ),
+        )
+        return recorded
+
+
 def proposal(value, source):
     if not isinstance(value, dict) or set(value) != {
         "decision",
@@ -948,6 +1003,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True, help="existing scout inbox")
     parser.add_argument("--kimi-python", type=Path)
+    parser.add_argument("--reject-owner-job", help="explicitly source-reviewed candidate to reject")
+    parser.add_argument("--reject-reason", help="why the specific hypothesis is disproved")
+    parser.add_argument("--reject-evidence-url", help="commit-pinned source evidence")
     parser.add_argument(
         "--stop", action="store_true", help="drain this delivery worker only"
     )
@@ -974,6 +1032,17 @@ def main():
         "--max-jobs", type=int, default=0, help="0 continues on new unseen leads"
     )
     args = parser.parse_args()
+    if args.reject_owner_job or args.reject_reason or args.reject_evidence_url:
+        if args.stop or args.route_blocked_gpu or args.max_jobs:
+            parser.error("source rejection is a separate owner operation")
+        if not (args.reject_owner_job and args.reject_reason and args.reject_evidence_url):
+            parser.error("owner rejection requires job, reason and evidence URL")
+        target = args.root.resolve() / "delivery"
+        if not (target / "delivery.sqlite").is_file():
+            parser.error("no existing delivery queue")
+        print(scout.dumps(reject_owner_candidate(target, args.reject_owner_job,
+                                                args.reject_reason, args.reject_evidence_url)))
+        return
     if args.stop:
         target = args.root.resolve() / "delivery"
         if not (target / "delivery.sqlite").is_file():

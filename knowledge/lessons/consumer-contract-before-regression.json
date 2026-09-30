@@ -1,0 +1,26 @@
+{
+  "id": "consumer-contract-before-regression",
+  "title": "Establish the consumer contract before writing a failing regression",
+  "applies_when": "A candidate alleges a formatting, validation or shape mismatch from a helper name or partial source window, and proposes expected behavior without tracing the producer and consumer.",
+  "lesson": "Trace actual allocation/production, transformations and consumption before choosing expected behavior. DNS-SD instance labels allow punctuation that hostnames do not; applying hostname rules to every label can manufacture a failing test. Likewise, QSA speculative capture creates one metadata row per token, so replay's row count equals captured token capacity, not request count. A test that fabricates inconsistent internal metadata does not establish a reachable defect. Seek a supported input and observable consumer failure before repairing environments or publishing a correction.",
+  "avoid_when": "Do not dismiss reachable malformed host targets, escaping/length violations, or supported callers that mutate shapes or exceed allocation capacity. Static review disproves only the specific alleged mismatch; it is not a native execution test or proof of general correctness.",
+  "evidence": [
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
+      "note": "DNS-SD instance labels permit non-control punctuation and are limited to 63 octets; this is a protocol requirement, not a measured application result."
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.3",
+      "note": "The standard explicitly distinguishes service instance names from hostnames and their naming restrictions."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8c9040c624d932f665e33f506781c5badee18afa/src/infra/widearea-dns.ts",
+      "note": "One normalizer feeds both a host label and a generated service instance. A trailing hyphen in the latter alone does not establish the claimed invalid zone. Explicit overrides and native resolver behavior require separate evidence."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/53225fadf40428149315d43f53b6df80d12957e0/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py#L884",
+      "note": "Speculative capture sets metadata_rows=num_tokens and slices sequence_lengths to that capacity; replay retrieves the captured metadata and derives num_rows from sequence_lengths.numel(). This counters the claim that _stage_extend_lens receives request count instead of captured token capacity for a valid initialized capture. No GPU validation is implied."
+    }
+  ],
+  "status": "counterexample"
+}
