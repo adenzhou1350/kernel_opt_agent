@@ -96,3 +96,31 @@ Next useful steps:
 No full attention suite, production route, autonomous tuning campaign, NCU/IKET,
 or system-level productivity improvement has been established. Proton/CUPTI
 remains unavailable in this environment; the event timer is the verified path.
+
+## Follow-up advantage ablation
+
+A bounded FP32 affine+ReLU study compared the same five safe synthetic candidates
+(four numerical defects and one valid implementation) on CPU and GPU. Three
+repeats per route found that a separate CPU worker plus GPU worker took median
+9.18s versus 7.06s for direct GPU validation: the current split-process interface
+is not automatically a speedup. Both rejected all defects and retained the valid
+candidate. The deliberately high defect ratio is not a production estimate.
+
+A follow-up prototype reused imports in one process and used CPU compilation
+before allocation in **both** routes. With existing candidate caches, medians
+were 5.74s with prechecks versus 6.75s direct, and allocated GPU-stage time was
+0.361s versus 0.458s. GPU candidate launches fell from five to one. First-time
+CPU candidate materialization cost 31.79s despite a previously built native
+engine, so these warm-case results do not justify checking every new kernel.
+The single-process route is an experiment, not an implemented production worker.
+
+Kernel measurements at four sizes with three seeds and seven randomized pairs
+showed tiled TIRx roughly matching fused Triton. At 1,048,576 elements, Torch's
+three-op chain took 13.08us, Triton 9.13us, TIRx naive 23.56us and TIRx tiled
+9.20us. Fusion helped both backends; TIRx did not establish broad superiority.
+
+Private report and raw evidence:
+`D:\codes\community-validation\tirx-harness-gzb-20260930\advantage-study\README.md`.
+Use prechecks selectively, prepare before allocating GPU, and reuse worker
+imports/caches when useful. A real model-generated candidate search with matched
+budget and measured tokens remains necessary for a system-level conclusion.
