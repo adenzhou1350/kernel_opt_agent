@@ -17,10 +17,16 @@ import tirx_feedback
 
 def diagnostic_lines(lines):
     """Keep causes and native assertion sites ahead of repetitive failure labels."""
-    causes, failures, details, context = [], [], [], set()
+    causes, failures, details, sites, context = [], [], [], [], set()
     for index, line in enumerate(lines):
         if re.search(r"\b\w*(?:Error|Exception):", line):
             causes.append(index)
+            # Preserve the closest native stack locations, not a full traceback.
+            # Pytest puts the useful file:line separately from the exception.
+            nearby = [offset for offset in range(max(0, index - 16), index)
+                      if re.search(r'^\s*(?:File ".+", line \d+|.+\.py:\d+: in )',
+                                   lines[offset])]
+            sites.extend(nearby[-2:])
             # Native assertion diffs can be separated from the exception by
             # blank lines. Only keep diagnostic-shaped lines in this small span.
             for offset in range(index + 1, min(len(lines), index + 21)):
@@ -37,7 +43,7 @@ def diagnostic_lines(lines):
     for index in causes + failures:
         context.update(range(max(0, index - 1), min(len(lines), index + 2)))
     # Priorities select the excerpt, but display stays in original log order.
-    ordered = dict.fromkeys(causes[:4] + failures[:2] + details + sorted(context))
+    ordered = dict.fromkeys(causes[:4] + failures[:2] + sites[:4] + details + sorted(context))
     return sorted(list(ordered)[:12])
 
 

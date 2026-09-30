@@ -179,6 +179,10 @@ The owner handoff includes the same brief plus its existing raw evidence link.
 Omission counts and hashes preserve the distinction between a partial diagnostic
 and complete evidence. Missing context, import errors and simulator gaps are not
 candidate defects; no new queue gate or automatic GPU execution is introduced.
+Python/pytest failures also retain the nearest bounded traceback source locations.
+This keeps a missing dependency API attached to its import site rather than
+inviting a repair of unrelated candidate code. The excerpt remains partial;
+inspect the raw traceback before choosing an environment or source change.
 
 For an already reviewed TIRx case, create a tool-free model context:
 

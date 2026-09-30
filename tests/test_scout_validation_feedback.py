@@ -63,6 +63,22 @@ class FeedbackTests(unittest.TestCase):
                 self.assertIn(failure, brief["arms"]["before"]["diagnostic_excerpts"])
                 self.assertIsNone(brief["arms"]["before"]["reported_tests_run"])
 
+    def test_native_import_failure_retains_nearest_source_locations(self):
+        for frames in (
+            'pkg/__init__.py:92: in <module>\n    from .kernel import Kernel\n'
+            'pkg/kernel.py:914: in Kernel\n    value: cute.FastDivmodDivisorV2,\n',
+            '  File "pkg/__init__.py", line 92, in <module>\n    from .kernel import Kernel\n'
+            '  File "pkg/kernel.py", line 914, in Kernel\n    value: cute.FastDivmodDivisorV2,\n',
+        ):
+            with self.subTest(frames=frames):
+                output = frames + 'E   AttributeError: module cutlass.cute has no attribute FastDivmodDivisorV2\n'
+                brief = cpu_feedback({"inconclusive": True, "before": {"output": output}})
+                lines = brief["arms"]["before"]["diagnostic_excerpts"]
+                self.assertTrue(any("kernel.py" in line and "914" in line for line in lines))
+                self.assertTrue(any("AttributeError" in line for line in lines))
+                self.assertTrue(brief["inconclusive"])
+                self.assertLessEqual(len(lines), 12)
+
     def test_zero_test_success_is_explicitly_inconclusive(self):
         brief = cpu_feedback(
             {
