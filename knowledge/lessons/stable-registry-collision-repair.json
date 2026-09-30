@@ -1,0 +1,18 @@
+{
+  "id": "stable-registry-collision-repair",
+  "title": "Repair registry collisions without changing visible ID meanings",
+  "applies_when": "Kernel configurations or plugins are declared in separate numeric-ID dictionaries and flattened into a canonical registry; those IDs may be persisted in tuned rows, caches or sidecars.",
+  "lesson": "Inspect the actual merged registry, not only each family's declared entries. Dict unpacking silently gives later entries precedence. Compare declared family IDs and full configuration metadata against the canonical consumer, then check code generation and exact dispatch. Restore shadowed entries in unused ID bands while preserving the complete pre-fix mapping of every visible ID; changing those meanings can silently reinterpret persisted tuning data. Test policy and bounds-checking axes explicitly, since a collision can replace an OOB variant with a nooob or different cache-policy variant.",
+  "avoid_when": "Some IDs intentionally alias one symbol, and some declared entries are deliberately disabled. Equal names alone do not prove an ID collision. Source generation is not GPU compilation, numerical qualification or a measured speedup.",
+  "evidence": [
+    {
+      "url": "https://github.com/ROCm/aiter/blob/89a47b84ac4b576339a50047e290c383c2377389/csrc/opus_gemm/opus_gemm_common.py#L694",
+      "note": "The OOB/nooob offset construction and later 4g-safe merge shadow 18 split-barrier cache-policy configurations in this exact revision."
+    },
+    {
+      "url": "https://github.com/ROCm/aiter/pull/5972",
+      "note": "Open, not merged: CPU regression tests, comparison preserving all 927 pre-fix ID-to-metadata bindings, and actual source generation for 18 restored entries. No AMD GPU or performance result is claimed."
+    }
+  ],
+  "status": "validated"
+}
