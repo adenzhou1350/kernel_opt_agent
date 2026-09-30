@@ -45,6 +45,8 @@ Each checker and simulator gets fresh copies of array buffers. Scalar bindings
 are retained. Output shape is checked and nonfinite outputs are rejected.
 Numerical checks do not establish dtype/storage-layout equivalence. Use the
 target project's full contract for that. Empty references cannot pass.
+Integer and boolean comparisons are exact, even with nonzero tolerances; mixed
+signed/unsigned values are compared without conversion to floating point.
 
 Exit 0 means the requested concrete checks passed; 1 means a checker or numeric
 finding; 2 means execution/coverage/configuration error. Unknown checker verdicts
@@ -52,6 +54,10 @@ remain errors. Numerical simulation is skipped after checker findings/errors.
 Results contain case-source SHA256, installed versions, checker details,
 tolerances, errors and elapsed CPU time; sibling stdout/stderr logs capture native
 tool diagnostics. This is ordinary evidence, not a new approval certificate.
+The `simulation` check retains the NumSim verdict and structured diagnostics.
+Only `clean` passes; a `review` or unknown verdict is ERROR, not a candidate
+rejection. The separate `numerical` check may still pass, showing that values
+matched while simulator coverage needs review.
 Only the case file itself is hashed; record imported helper source as additional
 evidence when applicable. Run one writer per output/cache directory.
 

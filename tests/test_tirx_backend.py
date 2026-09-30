@@ -20,7 +20,7 @@ class Report:
         return {"verdict": self.verdict, "findings": []}
 
 
-def runtime(verdict="clean", output=None, fail=False):
+def runtime(verdict="clean", output=None, fail=False, simulation_verdict="clean", diagnostics=None):
     calls = []
 
     def checker(kernel, inputs):
@@ -33,7 +33,8 @@ def runtime(verdict="clean", output=None, fail=False):
 
     def run(module, inputs, outputs):
         calls.append(float(inputs["out"][0]))
-        return SimpleNamespace(outputs={"out": output if output is not None else np.array([3.0])}, diagnostics=[])
+        return SimpleNamespace(outputs={"out": output if output is not None else np.array([3.0])},
+                               diagnostics=[] if diagnostics is None else diagnostics, verdict=simulation_verdict)
 
     return SimpleNamespace(synccheck=checker, racecheck=checker,
                            numsim=SimpleNamespace(transpile=lambda *a, **k: "compiled",
@@ -60,6 +61,50 @@ def test_wrong_nonfinite_or_wrong_shape_is_rejected(tmp_path, output):
     result = backend.evaluate(case(), np, harness, tmp_path)
     assert result["status"] == "FAIL"
     json.dumps(result, allow_nan=False)
+
+
+@pytest.mark.parametrize("actual,reference", [
+    (np.array([2**60 + 1], dtype=np.int64), np.array([2**60], dtype=np.int64)),
+    (np.array([2**64 - 1], dtype=np.uint64), np.array([2**64 - 2], dtype=np.uint64)),
+    (np.array([2**63], dtype=np.uint64), np.array([2**63 - 1], dtype=np.int64)),
+    (np.array([True]), np.array([False])),
+])
+def test_integer_and_boolean_outputs_are_exact_without_lossy_casts(tmp_path, actual, reference):
+    harness, _ = runtime(output=actual)
+    data = case()
+    data["expected"]["out"] = reference
+    result = backend.evaluate(data, np, harness, tmp_path)
+    assert result["status"] == "FAIL"
+    assert result["checks"]["numerical"]["outputs"]["out"]["max_abs_error"] == 1
+    json.dumps(result, allow_nan=False)
+
+
+def test_equal_large_integer_values_pass_and_tolerance_cannot_hide_integer_errors(tmp_path):
+    data = case()
+    data["expected"]["out"] = np.array([2**60], dtype=np.int64)
+    data["rtol"] = data["atol"] = 1
+    matching, _ = runtime(output=data["expected"]["out"].copy())
+    assert backend.evaluate(data, np, matching, tmp_path)["status"] == "PASS"
+    different, _ = runtime(output=np.array([2**60 + 1], dtype=np.int64))
+    assert backend.evaluate(data, np, different, tmp_path)["status"] == "FAIL"
+
+
+def test_float_tolerance_is_preserved(tmp_path):
+    harness, _ = runtime(output=np.array([3.01]))
+    data = case()
+    data["atol"] = 0.02
+    assert backend.evaluate(data, np, harness, tmp_path)["status"] == "PASS"
+
+
+@pytest.mark.parametrize("verdict", ["review", "incomplete", "unexpected", None])
+def test_numerical_match_does_not_hide_simulator_coverage_review(tmp_path, verdict):
+    diagnostics = [{"status": "review", "kind": "model_advisory"}]
+    harness, _ = runtime(simulation_verdict=verdict, diagnostics=diagnostics)
+    result = backend.evaluate(case(), np, harness, tmp_path)
+    assert result["status"] == "ERROR"
+    assert result["checks"]["numerical"]["status"] == "PASS"
+    assert result["checks"]["simulation"]["verdict"] == verdict
+    assert result["checks"]["simulation"]["diagnostics"] == diagnostics
 
 
 @pytest.mark.parametrize("verdict,status", [("error", "FAIL"), ("unknown", "ERROR")])
