@@ -63,6 +63,30 @@ class FeedbackTests(unittest.TestCase):
                 self.assertIn(failure, brief["arms"]["before"]["diagnostic_excerpts"])
                 self.assertIsNone(brief["arms"]["before"]["reported_tests_run"])
 
+    def test_zero_test_success_is_explicitly_inconclusive(self):
+        brief = cpu_feedback(
+            {
+                "inconclusive": False,
+                "before": {
+                    "exit_code": 0,
+                    "reported_tests_run": 0,
+                    "output": "success",
+                },
+                "fixed": {"exit_code": 0, "reported_tests_run": 12, "output": "PASS"},
+            }
+        )
+        self.assertTrue(brief["inconclusive"])
+        self.assertIn("Zero tests reported in before", brief["inventory_warning"])
+        self.assertEqual(brief["arms"]["before"]["reported_tests_run"], 0)
+        self.assertEqual(brief["arms"]["fixed"]["reported_tests_run"], 12)
+
+    def test_unknown_inventory_is_not_fabricated_as_zero(self):
+        for count in (None, False, "0", 3):
+            with self.subTest(count=count):
+                brief = cpu_feedback({"before": {"reported_tests_run": count}})
+                self.assertFalse(brief["inconclusive"])
+                self.assertEqual(brief["inventory_warning"], "")
+
     def test_large_log_and_line_are_bounded(self):
         output = ("noise\n" * 6000) + ("AssertionError: " + "x" * 4000 + "\n") * 100
         brief = cpu_feedback({"before": {"output": output, "output_truncated": True}})

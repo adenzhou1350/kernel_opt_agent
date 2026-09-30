@@ -2,7 +2,7 @@
   "id": "native-events-versus-consumer-progress",
   "title": "Native event history does not prove consumer intent or progress",
   "applies_when": "An asynchronous stream handoff or lifecycle repair infers current caller intent from past events, or a regression only checks state flags without exercising normal consumption.",
-  "lesson": "Use the actual runtime and owner entry to check explicit operation sequences and observable consumer progress. In Node readable streams, pause() need not emit a new pause event when already non-flowing, and removing a readable listener can schedule an automatic resume for data consumers. A historical resume event therefore cannot represent the latest caller intent. Keep pause-only, resume-then-pause, normal flowing consumption and async iteration as distinct controls; verify buffered bytes and EOF as well as state. A repair can preserve a pause flag yet stall normal consumers.",
+  "lesson": "Use the actual runtime and owner entry to check explicit operation sequences and observable consumer progress. In Node readable streams, pause() need not emit a new pause event when already non-flowing, and removing a readable listener can schedule an automatic resume for data consumers. A historical resume event therefore cannot represent the latest caller intent. Keep pause-only, resume-then-pause, normal flowing consumption and async iteration as distinct controls; verify buffered bytes and EOF as well as state. A repair can preserve a pause flag yet stall normal consumers. Confirm that the selected tests actually ran: scoped runners can return success when their filters exclude every selected file.",
   "avoid_when": "These Node transition mechanisms are not universal to other stream libraries or runtime versions. A portable helper/owner-entry probe is not POSIX IPC transfer, whole-application, performance or PR qualification. Do not remove buffering guards or suppress native exit draining solely from a narrow state test.",
   "evidence": [
     {
@@ -16,6 +16,10 @@
     {
       "url": "https://github.com/openclaw/openclaw/blob/6aaf62743219d1e9f4358fc2961750fb1be5fbbe/src/process/spawn-broker/pipe.ts",
       "note": "The handoff holds reads, installs a readable listener and later uses recorded resume intent. This is a source example to inspect alongside the actual caller and native runtime; it does not qualify any proposed fix."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/c83486b193fad973ae2b0a289e3379703c6185f2/test/vitest/vitest.scoped-config.ts",
+      "note": "shouldPassWithNoTestsForCliIncludes permits success when every CLI selection is excluded. Resolve the owning lane and check executed inventory; this pinned example does not describe every runner."
     }
   ],
   "status": "validated"

@@ -217,3 +217,30 @@ the repository suite remain unverified; **no PR qualification** is claimed.
 The reusable change is to keep native runner failure names (unittest, TAP,
 Vitest and Rust) in feedback and require observable consumer progress in repair
 controls. Source, references and tests remain fixed when comparing each repair.
+
+October 1 continuation replayed that pipe-local experiment onto the reusable
+OpenClaw checkout at `c83486b`, preserving its unchanged prefix-restoration API.
+On Linux/Node 24.16, real host/worker IPC passed six consumer/backpressure modes
+and nine transport/size controls with the experimental repair; the unchanged
+pipe reproduced both pause failures. In the registered handoff suite extended
+with the same two regressions, the final matched runs gave 10 pass / 2 fail on
+the unchanged pipe and 12 pass on the repair (2.42 s in-file test span). These
+runs used an explicit pipe/test loader overlay and
+the checkout's existing Vitest 5 dependencies, not a current-main full-suite
+qualification or an automatically executable TypeScript route. Current-source
+replay and publication review remain open; no new PR is claimed.
+
+The first test-selection attempts returned success with **zero** tests because
+the unit/process configs exclude this file in favor of `unit-fast`. Those exits
+are not passing evidence. The matched comparison now checks the expected test
+inventory; Scout feedback marks an explicitly reported zero-test arm inconclusive
+even when its runner exits successfully. An absent count remains unknown rather
+than being invented as zero. This is a diagnostic warning, not a new promotion
+rule or permission to execute arbitrary native code.
+
+The first collected repair replay also returned 10 pass / 2 fail because the
+loader overlay reused the control's filesystem transform cache. A separate
+task-local cache per arm plus a cache key binding the pipe/test contents resolved
+the contradiction with the standalone native probe; the final control replay
+still reproduced both failures. Retain the earlier failed result. Non-file
+inputs to compilation are experiment inputs too, not reasons to weaken a test.
