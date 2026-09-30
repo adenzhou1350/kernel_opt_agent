@@ -714,6 +714,34 @@ class ScoutTests(unittest.TestCase):
                 (self.root / "results" / f"{job['id']}.answer.json").exists()
             )
 
+    def test_backend_launch_os_error_retains_only_numeric_diagnostics(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        exc = OSError(12, "api_key=SECRET", "private-path")
+        exc.winerror = 1455
+        with patch.object(scout.subprocess, "run", side_effect=exc):
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        self.assertEqual(receipt["state"], "FAILED")
+        self.assertEqual(receipt["failure_scope"], "provider_or_infrastructure")
+        self.assertEqual(receipt["os_error"], {
+            "operation": "run_backend", "errno": 12, "winerror": 1455,
+        })
+        self.assertNotIn("backend_process", receipt)
+        self.assertNotIn("SECRET", json.dumps(receipt))
+        self.assertNotIn("private-path", json.dumps(receipt))
+        saved = json.loads((self.root / "results" / f"{job['id']}.json").read_text())
+        self.assertEqual(saved["os_error"], receipt["os_error"])
+
+    def test_existing_work_directory_is_not_misreported_as_launch_error(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        (self.root / "work" / job["id"]).mkdir()
+        with patch.object(scout.subprocess, "run") as run:
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        run.assert_not_called()
+        self.assertEqual(receipt["os_error"]["operation"], "prepare_request")
+        self.assertIsInstance(receipt["os_error"]["errno"], int)
+
     def test_malformed_model_answer_still_has_answer_failure_scope(self):
         self.add()
         job = scout.claim(self.root, 12, 200000, 2048)

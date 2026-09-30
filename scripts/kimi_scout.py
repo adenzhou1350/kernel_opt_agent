@@ -529,9 +529,12 @@ def execute(root, job, python, timeout, output_tokens):
     charge, result, error, state = job["charge"], None, None, "FAILED"
     backend_completed = False
     backend_process = None
+    os_error = None
+    operation = "prepare_request"
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
+        operation = "run_backend"
         proc = subprocess.run(
             [
                 str(python),
@@ -552,6 +555,7 @@ def execute(root, job, python, timeout, output_tokens):
             timeout=timeout,
             check=False,
         )
+        operation = "read_backend_response"
         # A subprocess can die before emitting the protocol (e.g. Windows
         # resource exhaustion). Keep numeric diagnostics, never provider stderr
         # or raw stdout, and distinguish this from malformed model answer JSON.
@@ -620,6 +624,13 @@ def execute(root, job, python, timeout, output_tokens):
         error = error or type(exc).__name__
         if type(exc) is ValueError:
             error = str(exc)
+        if isinstance(exc, OSError):
+            # Numeric OS diagnostics distinguish launch/resource faults from a
+            # filesystem fault without leaking filenames, commands or messages.
+            os_error = {"operation": operation}
+            for key in ("errno", "winerror"):
+                value = getattr(exc, key, None)
+                os_error[key] = value if type(value) is int else None
     if state == "FAILED":
         try:
             # A killed/timed-out subprocess cannot flush its own final snapshot.
@@ -661,6 +672,8 @@ def execute(root, job, python, timeout, output_tokens):
     }
     if state == "FAILED" and backend_process is not None:
         receipt["backend_process"] = backend_process
+    if state == "FAILED" and os_error is not None:
+        receipt["os_error"] = os_error
     write_json(root / "results" / f"{job['id']}.json", receipt)
 
     def persist_receipt():
