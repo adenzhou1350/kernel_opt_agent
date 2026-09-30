@@ -87,10 +87,30 @@ def refill_retry_delay(made, failure, empty_refills, *, cursor_advanced=False):
 def companion_source_paths(path, files):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+
+    def locality(candidate):
+        name = candidate.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+        exact = name in {
+            stem,
+            f"test_{stem}",
+            f"{stem}_test",
+            f"{stem}.test",
+            f"{stem}.spec",
+        }
+        common = 0
+        for left, right in zip(path.split("/")[:-1], candidate.split("/")[:-1]):
+            if left != right:
+                break
+            common += 1
+        return not exact, -common, candidate
+
     tests = sorted(
-        p
-        for p in files
-        if p != path and "test" in p and stem in p and p.endswith(SOURCE_SUFFIXES)
+        (
+            p
+            for p in files
+            if p != path and "test" in p and stem in p and p.endswith(SOURCE_SUFFIXES)
+        ),
+        key=locality,
     )
     parts = path.split("/")
     readme = None
@@ -123,6 +143,48 @@ def companion_source_paths(path, files):
             )
             tests = feature_tests + [p for p in tests if p not in feature_tests]
     return tests[:1], readme
+
+
+def followup_test_request(packet, snapshot, analysis):
+    """Suggest one observed companion test, never a model-produced fetch target.
+
+    Prefer tests in the source component over unrelated same-named monorepo files.
+    Only use primary source from the current pinned snapshot. A quoted constant
+    present in both that source and the hypothesis can anchor its test window;
+    it is a literal search hint, not proof of behavior or test coverage.
+    """
+    repo = packet["repo"]
+    prefix = f"https://raw.githubusercontent.com/{repo}/{snapshot['commit']}/"
+    hints = "\n".join(
+        analysis.get(field, "") for field in ("hypothesis", "next_check", "title")
+    )[:16000]
+    for source in packet["sources"][:2]:
+        url = source["url"]
+        if not url.startswith(prefix):
+            continue
+        path = urllib.parse.unquote(url[len(prefix) :])
+        if path not in snapshot["files"]:
+            continue
+        tests, _ = companion_source_paths(path, snapshot["files"])
+        if not tests:
+            continue
+        request = {"path": tests[0], "hints": hints, "max_lines": 80}
+        constants = set(re.findall(r"""["']([A-Z][A-Z0-9_]{4,})["']""", source["text"]))
+        anchor_hints = "\n".join(
+            analysis.get(field, "") for field in ("title", "hypothesis", "next_check")
+        )[:16000]
+        anchor = next(
+            (
+                word
+                for word in re.findall(r"\b[A-Z][A-Z0-9_]{4,}\b", anchor_hints)
+                if word in constants and len(word) <= 512
+            ),
+            None,
+        )
+        if anchor:
+            request["exact_hint"] = anchor
+        return request
+    return None
 
 
 def configuration(path):
@@ -939,9 +1001,17 @@ class ResearchProducer:
                         sources.append(definition_source)
             paths = relevant_paths(snapshot, hints)
             contracts = contract_requests(packet, snapshot)
+            test_request = (
+                None
+                if contracts
+                else followup_test_request(packet, snapshot, analysis_value)
+            )
+            if test_request:
+                paths = [path for path in paths if path != test_request["path"]]
             # Prefer the observed variant's registration/contract over an unrelated
-            # lexical match. Keep one ordinary source window and at most two additions.
-            for path in paths[: 1 if contracts else 2]:
+            # lexical match, or replace one lexical match with a component test.
+            # Neither hint increases the ordinary follow-up's source read count.
+            for path in paths[: 1 if contracts or test_request else 2]:
                 if self.stopped():
                     return False
                 try:
@@ -953,7 +1023,7 @@ class ResearchProducer:
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
-            for request in contracts:
+            for request in contracts or ([test_request] if test_request else []):
                 if self.stopped():
                     return False
                 try:
@@ -1000,6 +1070,7 @@ class ResearchProducer:
                         "give a minimal regression test plan, dependencies and expected before/after assertions. "
                     )
                     + "Try to disprove the prior untrusted hypothesis using new source and related items. "
+                    "Inspect what tests actually assert: a passing characterization test can document buggy behavior, not endorse it. "
                     "If already fixed or covered by an existing PR, say no_lead; do not propose a competing copy. "
                     "If the issue author supplied a tested fix and offered a PR, treat it as author-owned work "
                     "and identify missing validation rather than proposing our own PR. "

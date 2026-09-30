@@ -657,7 +657,9 @@ class ResearchTests(unittest.TestCase):
                 evidence=[{"url": url, "quote": s["text"]} for s in (old, new)],
             )
             self.assertIs(scout.validate_result(answer, packet), answer)
-            hints = source.call_args.kwargs["hints"]
+            # The ordinary source window retains full caller hints; a companion
+            # test request now follows it with its own bounded hypothesis hints.
+            hints = source.call_args_list[0].kwargs["hints"]
             self.assertTrue(hints.startswith("src/kernel.py boundary\n"))
             self.assertIn(url, hints)
             self.assertNotIn('"next_check":', hints)
@@ -1081,6 +1083,132 @@ class ResearchTests(unittest.TestCase):
         files = [source_path, "tests/experimental/test_another_feature.py"]
         self.assertEqual(
             research.companion_source_paths(source_path, files), ([], None)
+        )
+
+    def test_companion_test_prefers_its_component_not_alphabetical_monorepo_match(self):
+        path = "transfer-engine/src/config.cpp"
+        files = [
+            path,
+            "conductor/tests/config_test.cpp",
+            "transfer-engine/tent/tests/config_lifecycle_test.cpp",
+            "transfer-engine/tests/config_test.cpp",
+        ]
+        self.assertEqual(
+            research.companion_source_paths(path, files), ([files[-1]], None)
+        )
+
+    def test_followup_test_uses_observed_current_source_constant_as_literal_anchor(
+        self,
+    ):
+        revision = self.context.revision
+        path = "transfer-engine/src/config.cpp"
+        packet = {
+            "repo": "a/b",
+            "sources": [
+                {
+                    "url": f"https://raw.githubusercontent.com/a/b/{revision}/{path}",
+                    "text": '100: getenv("MC_RETRY_CNT");\n200: getenv("MC_SLICE_SIZE");',
+                }
+            ],
+        }
+        snapshot = {
+            "commit": revision,
+            "files": [
+                path,
+                "conductor/tests/config_test.cpp",
+                "transfer-engine/tests/config_test.cpp",
+            ],
+        }
+        analysis = {
+            "hypothesis": "MC_SLICE_SIZE accepts negative values",
+            "next_check": "inspect missing/tests.py and MC_RETRY_CNT",
+        }
+        request = research.followup_test_request(packet, snapshot, analysis)
+        self.assertEqual(request["path"], "transfer-engine/tests/config_test.cpp")
+        self.assertEqual(request["exact_hint"], "MC_SLICE_SIZE")
+        self.assertEqual(request["max_lines"], 80)
+        self.assertNotIn("missing/tests.py", request["path"])
+        for suffix in ("?query=1", "#anchor"):
+            packet["sources"][0]["url"] += suffix
+            self.assertIsNone(
+                research.followup_test_request(packet, snapshot, analysis)
+            )
+            packet["sources"][0]["url"] = packet["sources"][0]["url"].removesuffix(
+                suffix
+            )
+        for replacement in ("other/repo", "a/b/main"):
+            packet["sources"][0]["url"] = (
+                f"https://raw.githubusercontent.com/{replacement}/{revision}/{path}"
+            )
+            self.assertIsNone(
+                research.followup_test_request(packet, snapshot, analysis)
+            )
+        packet["sources"][0]["url"] = (
+            f"https://raw.githubusercontent.com/a/b/{'c' * 40}/{path}"
+        )
+        self.assertIsNone(research.followup_test_request(packet, snapshot, analysis))
+
+    def test_followup_test_does_not_promote_an_unobserved_anchor(self):
+        path = "src/kernel.py"
+        packet = {
+            "repo": "a/b",
+            "sources": [
+                {
+                    "url": f"https://raw.githubusercontent.com/a/b/{self.context.revision}/{path}",
+                    "text": "1: observed kernel definition",
+                }
+            ],
+        }
+        snapshot = self.context.snapshot("a/b")
+        request = research.followup_test_request(
+            packet, snapshot, {"hypothesis": "INVENTED_ENV_VAR bug"}
+        )
+        self.assertEqual(request["path"], "tests/test_kernel.py")
+        self.assertNotIn("exact_hint", request)
+        snapshot["files"] = [path]
+        self.assertIsNone(research.followup_test_request(packet, snapshot, {}))
+
+    def test_followup_replaces_second_lexical_fetch_with_companion_test(self):
+        revision = self.context.revision
+        path = "transfer-engine/src/config.cpp"
+        test_path = "transfer-engine/tests/config_test.cpp"
+        old = {
+            "url": f"https://raw.githubusercontent.com/a/b/{revision}/{path}",
+            "text": '100: getenv("MC_SLICE_SIZE");',
+        }
+        self.producer.emit("config", self.spec, [old], "source_audit")
+        self.finish(self.jobs()[0])
+        calls = []
+
+        def source(repo, commit, path, **kwargs):
+            calls.append((path, kwargs))
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": path,
+            }
+
+        with (
+            patch.object(
+                self.context,
+                "snapshot",
+                return_value={
+                    "commit": revision,
+                    "files": [path, test_path, "conductor/src/config.h"],
+                },
+            ),
+            patch.object(self.context, "source", side_effect=source),
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+            patch.object(
+                research,
+                "relevant_paths",
+                return_value=[path, "conductor/src/config.h"],
+            ),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual([path for path, _ in calls], [path, test_path])
+        self.assertEqual(calls[-1][1]["max_lines"], 80)
+        self.assertNotIn(
+            "conductor/src/config.h", scout.dumps(json.loads(self.jobs()[-1]["packet"]))
         )
 
     def parallel_producer(self, context):
