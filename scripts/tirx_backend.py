@@ -217,6 +217,9 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     actions = parser.add_subparsers(dest="action", required=True)
     actions.add_parser("probe", help="package metadata only; no compiler or GPU imports")
+    feedback = actions.add_parser("summarize", help="compact saved feedback; no compiler/model/GPU calls")
+    feedback.add_argument("--result", type=Path, required=True)
+    feedback.add_argument("--run", type=Path, help="optionally link raw evidence to an existing worklog")
     for action in ("check", "_check", "inspect", "_inspect"):
         child = actions.add_parser(action)
         child.add_argument("--case-file", type=Path, required=True, help="trusted Python defining make_case(name)")
@@ -229,6 +232,16 @@ def main():
     args = parser.parse_args()
     if args.action == "probe":
         print(json.dumps({"python": sys.version, "versions": versions()}))
+        return 0
+    if args.action == "summarize":
+        import tirx_feedback
+        try:
+            brief = tirx_feedback.summarize(args.result)
+            if args.run:
+                brief["notebook"] = tirx_feedback.record(args.run, brief, "tirx summarize (saved evidence only)")
+        except (OSError, ValueError, TypeError, AttributeError) as exc:
+            parser.error(str(exc))
+        print(json.dumps(brief, ensure_ascii=False, allow_nan=False))
         return 0
     if not math.isfinite(args.timeout) or args.timeout <= 0:
         parser.error("timeout must be finite and positive")

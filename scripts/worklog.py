@@ -22,7 +22,7 @@ from urllib.parse import urlsplit
 
 
 CONTEXT = ("source", "workload", "hardware")
-KINDS = ("baseline", "correctness", "performance", "decision")
+KINDS = ("baseline", "correctness", "inspection", "performance", "decision")
 DECISIONS = ("ACCEPT", "REJECT", "INCONCLUSIVE")
 NOTE = (
     "Status is the last explicitly recorded judgment, not automatic PR "

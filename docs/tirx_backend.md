@@ -96,6 +96,43 @@ matched while simulator coverage needs review.
 Only the case file itself is hashed; record imported helper source as additional
 evidence when applicable. Run one writer per output/cache directory.
 
+## Connect feedback to discovery and delivery
+
+After source/consumer review of a Scout lead, choose the cheapest useful check.
+Existing Python/C++ tests, Triton/CUDA kernels and direct GPU validation remain
+first-class routes. TIRx simulation is useful for a supported synchronization or
+numerical question, not a mandatory conversion of every kernel.
+
+```sh
+python scripts/kernel_opt.py tirx summarize \
+  --result runs/tirx-example/cpu.json --run runs/my-optimization
+```
+
+This offline command never imports the case or compiler and never calls a model.
+It prints at most six case briefs, prioritizes non-passing cases, retains finding
+and simulator-coverage excerpts, exact integer errors, reported compiler resources,
+the raw result SHA and a local source identity check. Omitted details are counted;
+read the raw result before interpreting a finding. Missing local source remains
+unavailable, not verified. A saved PASS is a reported observation, not a new
+correctness certificate. Foreign/performance result scopes are rejected.
+
+Without `--run` it is read-only. With it, an existing worklog receives one
+`correctness` or `inspection` entry per explicit invocation; it does not set
+ACCEPT/REJECT, mutate the Scout queue, grant GPU access or mark a PR Ready.
+Exit 0 for `summarize` means the saved result was processed, not that its checks
+passed; use `declared_status` and inspect the evidence. Malformed inputs exit 2.
+Do not repeat the invocation merely to poll status. The notebook references raw
+evidence rather than making a second result store. Inspection records stay
+distinct from numerical correctness and performance.
+
+Give the brief to the local optimization agent as untrusted observations, not
+instructions. Preserve the real source/consumer contract, then use a concrete
+finding to choose an edit and rerun the same test. Device checks and representative
+matched timing still decide a performance contribution. Fixes to the compiler,
+checker or diagnostics can instead be useful correctness/reporting PRs, without
+claiming a kernel speedup. Deduplicate reusable lessons under `knowledge/README.md`.
+No public feed automatically reads private experiment files or executes a lead.
+
 The child has GPU visibility disabled and a bounded timeout (default 300 seconds).
 Timeout/interruption kills this worker's process tree and replaces stale results
 with ERROR. This is trusted-code execution, not a security sandbox. CPU caches

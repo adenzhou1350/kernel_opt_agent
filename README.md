@@ -101,6 +101,22 @@ different measured optimization mechanisms. Optional `worklog record` candidate
 fields and `worklog frontier` provide that view while checking source/evidence
 identity. See [feedback routing](skill/kernel-optimizer/references/tirx_workflow.md).
 
+Connect saved checks to the same notebook with
+`tirx summarize --result <cpu-or-inspection.json> --run runs/<task>`.
+It emits a compact failure-first brief for the next edit and links the raw
+evidence without accepting a candidate or changing PR status. Summarization
+needs no compiler, GPU or model call. Use it locally after reviewing a Scout
+lead; do not send private worker results to the public discovery feed.
+
+The combined contribution loop is deliberately small: discovery supplies a
+hypothesis; inspect the actual consumer and related work; choose a useful native
+test, compiler check or device experiment; revise from the evidence; deliver a
+focused upstream change and retain only reusable lessons. Do not rewrite a good
+Triton/CUDA implementation into TIRx merely to use these tools. CPU simulation
+is optional, its startup cost counts, and unsupported coverage is not a veto.
+Judge the combination by verified changes, review/merge outcomes and total
+time/tokens/GPU cost, not generated leads or a speedup against a weak candidate.
+
 An optional [Kimi public-source scout](scripts/KIMI_SCOUT.md) can offload bounded
 source/issue triage to an existing Kimi Code account. It has no model tools or
 publication rights, deduplicates inputs, and caps concurrency and daily usage.

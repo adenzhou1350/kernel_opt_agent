@@ -45,6 +45,12 @@ reproduction, result and reason for changing direction once.
   fields in `worklog record` and `worklog frontier` keep a measured view without
   another workflow. Supersede redundant variants within a mechanism rather than
   discarding every slower distinct route.
+- For a reviewed Scout kernel lead, use the existing native tests/backend first;
+  choose TIRx checks only when they answer a useful question. `tirx summarize
+  --result <saved-check-or-inspection.json> --run <existing-notebook>` supplies
+  compact failure-first feedback and records the raw evidence once. It does not
+  execute source or promote PR status. Keep private feedback out of public feeds,
+  account for cold setup costs, and do not translate kernels just to fit a tool.
 - Keep source, workload, hardware, reproduction commands, results and evidence
   in the task's existing record or a lightweight `worklog init|record|status`
   notebook. Record once, not in duplicate formats or for every routine tool call.

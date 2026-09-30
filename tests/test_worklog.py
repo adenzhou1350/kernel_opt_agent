@@ -288,6 +288,8 @@ class WorklogTests(unittest.TestCase):
         original = self.path.read_bytes()
         cases = [
             ("--kind", "baseline", "--summary", "no evidence"),
+            ("--kind", "inspection", "--summary", "no evidence"),
+            ("--kind", "inspection", "--summary", "compiled", "--evidence", str(artifact), "--status", "ACCEPT"),
             ("--kind", "correctness", "--summary", "no evidence"),
             ("--kind", "performance", "--summary", "no evidence"),
             ("--kind", "decision", "--summary", " "),
