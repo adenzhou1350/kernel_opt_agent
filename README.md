@@ -89,6 +89,12 @@ remain separate. This does not claim arbitrary-vendor support or an absolute opt
 `python scripts/kernel_opt.py --all` lists optional and historical commands.
 Existing command names and recorded research runs retain their meaning.
 
+The optional [TIRx backend](docs/tirx_backend.md) screens trusted TIRx candidates
+with CPU numerical, synchronization and race checks. Use `tirx probe` for package
+metadata or `tirx check` in a private compiler environment. Complete positive and
+negative examples are in `examples/tirx/`. GPU validation and matched performance
+measurements remain separate; see the [integration pilot](docs/tirx_integration_status.md).
+
 An optional [Kimi public-source scout](scripts/KIMI_SCOUT.md) can offload bounded
 source/issue triage to an existing Kimi Code account. It has no model tools or
 publication rights, deduplicates inputs, and caps concurrency and daily usage.
