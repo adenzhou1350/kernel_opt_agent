@@ -1,9 +1,9 @@
 {
   "id": "consumer-contract-before-regression",
   "title": "Establish the consumer contract before writing a failing regression",
-  "applies_when": "A candidate alleges a formatting, validation or shape mismatch from a helper name or partial source window, and proposes expected behavior without tracing the producer and consumer.",
-  "lesson": "Trace actual allocation/production, transformations and consumption before choosing expected behavior. DNS-SD instance labels allow punctuation that hostnames do not; applying hostname rules to every label can manufacture a failing test. Likewise, QSA speculative capture creates one metadata row per token, so replay's row count equals captured token capacity, not request count. A test that fabricates inconsistent internal metadata does not establish a reachable defect. Seek a supported input and observable consumer failure before repairing environments or publishing a correction.",
-  "avoid_when": "Do not dismiss reachable malformed host targets, escaping/length violations, or supported callers that mutate shapes or exceed allocation capacity. Static review disproves only the specific alleged mismatch; it is not a native execution test or proof of general correctness.",
+  "applies_when": "A candidate alleges a formatting, validation, shape or backend-support mismatch from a helper name or partial source window, and proposes expected behavior without tracing the producer and consumer.",
+  "lesson": "Trace actual allocation/production, transformations and consumption before choosing expected behavior. DNS-SD instance labels allow punctuation that hostnames do not; applying hostname rules to every label can manufacture a failing test. Likewise, QSA speculative capture creates one metadata row per token, so replay's row count equals captured token capacity, not request count. A test that fabricates inconsistent internal metadata does not establish a reachable defect. Removing a device assertion or changing its error wording also does not establish backend support: require a documented supported caller and native kernel execution with checked outputs. Seek an observable consumer failure before repairing environments or publishing a correction.",
+  "avoid_when": "Do not dismiss reachable malformed host targets, escaping/length violations, or supported callers that mutate shapes or exceed allocation capacity. Error wording may itself be a documented API contract; validate that narrower claim separately rather than inferring backend support. Static review disproves only the specific alleged mismatch; it is not a native execution test or proof of general correctness.",
   "evidence": [
     {
       "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
@@ -20,6 +20,10 @@
     {
       "url": "https://github.com/sgl-project/sglang/blob/53225fadf40428149315d43f53b6df80d12957e0/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py#L884",
       "note": "Speculative capture sets metadata_rows=num_tokens and slices sequence_lengths to that capacity; replay retrieves the captured metadata and derives num_rows from sequence_lengths.numel(). This counters the claim that _stage_extend_lens receives request count instead of captured token capacity for a valid initialized capture. No GPU validation is implied."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/blob/80e5f8a983c28070a8914e911371c4806f362451/megatron/core/inference/contexts/fused_kv_append_kernel.py#L123",
+      "note": "The wrapper's device assertions precede a Triton kernel launch. A CPU/meta test that only checks rejection wording does not reach that launch or validate cache writes on another accelerator. This supports a test-scope caution, not a verdict that another backend is unsupported."
     }
   ],
   "status": "counterexample"

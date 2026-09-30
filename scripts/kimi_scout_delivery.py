@@ -50,6 +50,8 @@ hardcode a verdict, skip cases, mock the function under test, or alter sys.exit.
 Use at least two test methods: the regression and a normal/negative control.
 Assert actual consumer outputs/progress as well as the reported failure. A fixed
 state flag or absence of an exception alone does not prove normal work completes.
+For a newly enabled accelerator/backend, CPU error wording is not a functional
+regression: require its real execution and output evidence, or needs_environment.
 The same test runs in separate before/fixed CPU-only containers with no network,
 credentials, GPU or installation. It may write only private /tmp scratch.
 edits is a list of {old,new} exact UNIQUE string replacements in the supplied

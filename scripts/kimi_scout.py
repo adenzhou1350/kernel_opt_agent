@@ -52,6 +52,9 @@ packet, validate speedups, or contact anyone. Find at most ONE actionable lead;
 no_lead is a valuable result. Prefer an existing production path and a fair
 baseline. Check the supplied related work; an incomplete list is not proof of
 novelty. Separate correctness bugs, API usability, and performance hypotheses.
+Trace a supported caller before defining the regression's expected behavior.
+Changed exception wording does not prove a newly enabled backend works; seek
+observable consumer outputs or request the missing native environment evidence.
 Do not infer hardware throughput from another dtype/SKU. Quote exact supplied
 evidence, give a cheap falsification test, and state missing context. A reported
 speedup is not valid unless work, precision, shapes and execution modes match.
