@@ -243,13 +243,32 @@ class PublicContext:
             scout.write_json(self._cache_path("snapshot", alias), record)
         return value
 
-    def source(self, repo, commit, path, hints="", *, start=None, max_lines=120):
+    def source(
+        self,
+        repo,
+        commit,
+        path,
+        hints="",
+        *,
+        start=None,
+        max_lines=120,
+        exact_hint=None,
+    ):
         repo, commit, path = _repo(repo), _sha(commit), _path(path)
         _number(max_lines, "source line count", 160)
         if start is not None:
             _number(start, "source start line")
         if not isinstance(hints, str):
             raise ValueError("source hints must be text")
+        if exact_hint is not None and (
+            not isinstance(exact_hint, str)
+            or not 1 <= len(exact_hint) <= 512
+            or any(ord(char) < 32 or ord(char) == 127 for char in exact_hint)
+            or start is not None
+        ):
+            raise ValueError(
+                "exact source hint must be a bounded single-line literal without start"
+            )
         snapshot = self.snapshot(repo, ref=commit)
         if path not in snapshot["files"]:
             raise ValueError("source path is absent from the public snapshot")
@@ -266,6 +285,17 @@ class PublicContext:
         if "\x00" in raw:
             raise ValueError("binary source is not supported")
         lines = raw.splitlines()
+        exact_line = next(
+            (
+                i
+                for i, line in enumerate(lines)
+                if exact_hint is not None and exact_hint in line
+            ),
+            None,
+        )
+        if exact_line is not None:
+            offset = max(0, exact_line - min(30, max_lines // 4))
+            start = min(offset, max(0, len(lines) - max_lines)) + 1
         if start is not None and start > max(1, len(lines)):
             raise ValueError("source start line is beyond end of file")
         if start is None:
@@ -291,6 +321,9 @@ class PublicContext:
             total_lines=len(lines),
             truncated=evidence["truncated"] or start > 1 or end < len(lines),
         )
+        if exact_hint is not None:
+            evidence["exact_hint"] = exact_hint
+            evidence["exact_hint_matched"] = exact_hint in evidence["text"]
         return evidence
 
     def issue_page(self, repo, page=1):

@@ -19,6 +19,7 @@ from pathlib import Path
 import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
+from scout_generated_context import contract_requests
 
 SOURCE_SUFFIXES = (
     ".py",
@@ -309,7 +310,11 @@ def retrieval_identity(source):
 
 class ResearchProducer:
     def __init__(
-        self, root, config_path, github_auth=False, context=None,
+        self,
+        root,
+        config_path,
+        github_auth=False,
+        context=None,
         min_free_disk_mb=0,
     ):
         self.root = Path(root)
@@ -508,6 +513,8 @@ class ResearchProducer:
             )
             longest["text"] = longest["text"][: int(len(longest["text"]) * 0.75)]
             longest["truncated"] = True
+            if "exact_hint" in longest:
+                longest["exact_hint_matched"] = longest["exact_hint"] in longest["text"]
         if not packet["sources"] or self.stopped():
             return False
         # Queue admission, job insertion and both dedup keys commit together.
@@ -931,7 +938,10 @@ class ResearchProducer:
                     ):
                         sources.append(definition_source)
             paths = relevant_paths(snapshot, hints)
-            for path in paths[:2]:
+            contracts = contract_requests(packet, snapshot)
+            # Prefer the observed variant's registration/contract over an unrelated
+            # lexical match. Keep one ordinary source window and at most two additions.
+            for path in paths[: 1 if contracts else 2]:
                 if self.stopped():
                     return False
                 try:
@@ -939,6 +949,16 @@ class ResearchProducer:
                         self.context.source(
                             spec["repo"], snapshot["commit"], path, hints=hints
                         )
+                    )
+                except ValueError as exc:
+                    if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
+                        raise
+            for request in contracts:
+                if self.stopped():
+                    return False
+                try:
+                    sources.append(
+                        self.context.source(spec["repo"], snapshot["commit"], **request)
                     )
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
