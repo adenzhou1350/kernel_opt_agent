@@ -32,6 +32,14 @@
     {
       "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_pipeline_a16w16_mono_tile_gfx950.cuh",
       "note": "Both mono_tile headers use padded two-slot A and three-slot B storage formulas. At the ten registered B_K=64 geometries, their declared buffers total 66-148.5 KiB, below the comment's 160 KiB threshold. The excluded B_K=128 examples total 165 and 231 KiB. This is source-derived arithmetic, not compiled HIP resource usage or GPU correctness."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/104283d1a23c4eb7da20b038ee2a497afc86b06a/flashinfer/utils.py#L1507",
+      "note": "The outer backend_requirement wrapper binds positional arguments with sig.bind and applies defaults before passing kwargs_with_defaults to the private problem-size checker. Reading only the helper's kwargs lookup manufactures a default/positional-argument defect. This does not qualify CUDA kernels or the separate skip_check/auto path."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
+      "note": "The shown raw-verify constructor leaves extend_seq_lens at its default None. Its consumer handles None with full_like; the subsequent torch.minimum creates a new tensor before clamp_min_. Fabricating two non-None fields and asserting independent storage does not prove graph replay corruption on this path. Other supported setters still require separate inspection; Tensor.to alone does not guarantee a copy."
     }
   ],
   "status": "counterexample"

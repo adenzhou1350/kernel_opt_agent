@@ -234,6 +234,19 @@ richer feedback did **not** establish better repair success or PR conversion.
 Its bounded registered replay produced no result and remains inconclusive.
 This single exploratory case is not a budget-matched productivity comparison.
 
+An October 1 next-evidence check fed two fresh Scout hypotheses their missing
+caller/consumer source, without providing a repair or claiming tool execution.
+Kimi changed both to `no_lead`: FlashInfer's outer wrapper already binds positional
+arguments and defaults; the shown SGLang raw-verify constructor leaves the alleged
+aliased field `None`, and its consumer constructs derived tensors. The calls used
+4,236 and 3,140 reported tokens. A separate pinned, unmodified FlashInfer decorator
+AST check passed six scalar binding/rejection cases; it is not a CUDA test.
+Original hypotheses remain in the queue history, linked to these follow-ups.
+These owner-selected development cases support evidence-first triage, not a
+prospective success-rate, total-cost or PR-conversion claim. The next comparison
+must select held-out leads before observing their outcomes and charge retrieval,
+environment preparation and failed attempts to both arms.
+
 Reusable controls from the case:
 
 - Keep native runner failure names (unittest, TAP, Vitest and Rust), and test
