@@ -274,6 +274,68 @@ def update(root, job_id, state, reason="", result=None):
         )
 
 
+def park_owner_candidate(root, job_id, reason, evidence_url, reopen_when):
+    """Defer an explicitly reviewed candidate without erasing reproduction evidence."""
+    if not re.fullmatch(r"[0-9a-f]{24}", job_id):
+        raise ValueError("invalid candidate id")
+    if any(
+        not isinstance(text, str) or not text.strip() or len(text) > 1000
+        for text in (reason, reopen_when)
+    ):
+        raise ValueError(
+            "reason and reopening condition must be nonempty, at most 1000 characters"
+        )
+    reason, reopen_when = reason.strip(), reopen_when.strip()
+    if not isinstance(evidence_url, str):
+        raise ValueError("commit-pinned GitHub source evidence is required")
+    match = re.fullmatch(
+        r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/blob/"
+        r"[0-9a-f]{40}/[^?#\s]+(?:#L[1-9][0-9]*(?:-L[1-9][0-9]*)?)?",
+        evidence_url,
+    )
+    if match is None:
+        raise ValueError("commit-pinned GitHub source evidence is required")
+    with database(root) as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT * FROM delivery WHERE id=?", (job_id,)).fetchone()
+        if row is None or row["repo"].casefold() != match[1].casefold():
+            raise ValueError("candidate not found or evidence repository mismatch")
+        result = json.loads(row["result"])
+        if not isinstance(result, dict):
+            raise ValueError("invalid candidate result")
+        decision = {
+            "reason": reason,
+            "evidence_url": evidence_url,
+            "reopen_when": reopen_when,
+        }
+        if row["state"] == "OWNER_PARKED":
+            previous = result.get("owner_disposition", {})
+            if isinstance(previous, dict) and all(
+                previous.get(key) == value for key, value in decision.items()
+            ):
+                return previous
+            raise ValueError("candidate already parked with a different decision")
+        if row["state"] not in (OWNER_STATE, "REPRODUCED", "GPU_REVIEW_REQUIRED"):
+            raise ValueError("only owner-review candidates can be parked")
+        decision.update(
+            prior_state=row["state"],
+            prior_reason=row["reason"],
+            recorded_at=time.time(),
+            claim_boundary="deferred pending evidence; not a no-bug or qualification verdict",
+        )
+        result["owner_disposition"] = decision
+        db.execute(
+            "UPDATE delivery SET state='OWNER_PARKED',reason=?,updated_at=?,result=? WHERE id=?",
+            (
+                "Owner parked: " + reason,
+                decision["recorded_at"],
+                scout.dumps(result),
+                job_id,
+            ),
+        )
+        return decision
+
+
 def retry_preflight_transport(root, job_id):
     """Explicitly retry one source-fetch failure, never a model/test attempt."""
     if not re.fullmatch(r"[0-9a-f]{24}", job_id):
@@ -944,7 +1006,13 @@ class Delivery:
         update(self.root, job["id"], "GPU_REVIEW_REQUIRED", value["reason"], result)
         return "GPU_REVIEW_REQUIRED"
 
-    def publish(self, state):
+    def publish(self, state, *, refresh_only=False):
+        # An owner action refreshes queue data, not the worker's liveness evidence.
+        previous = {}
+        if refresh_only and (self.root / "runtime.json").is_file():
+            previous = json.loads(
+                (self.root / "runtime.json").read_text(encoding="utf-8")
+            )
         with database(self.root) as db:
             counts = dict(
                 db.execute("SELECT state,count(*) FROM delivery GROUP BY state")
@@ -1060,11 +1128,18 @@ class Delivery:
         scout.write_json(
             self.root / "runtime.json",
             {
-                "pid": os.getpid(),
-                "state": state,
-                "heartbeat_at": time.time(),
-                "concurrency": self.args.concurrency,
-                "execution_concurrency": self.args.execution_concurrency,
+                "pid": previous.get("pid") if refresh_only else os.getpid(),
+                "state": previous.get("state", "UNKNOWN") if refresh_only else state,
+                "heartbeat_at": previous.get("heartbeat_at")
+                if refresh_only
+                else time.time(),
+                "snapshot_at": time.time(),
+                "concurrency": previous.get("concurrency")
+                if refresh_only
+                else self.args.concurrency,
+                "execution_concurrency": previous.get("execution_concurrency")
+                if refresh_only
+                else self.args.execution_concurrency,
                 "counts": counts,
                 "publications": publications,
                 "reported_tokens": tokens,
@@ -1141,6 +1216,16 @@ def main():
     parser.add_argument("--root", type=Path, required=True, help="existing scout inbox")
     parser.add_argument("--kimi-python", type=Path)
     parser.add_argument(
+        "--park-owner-job", help="explicitly reviewed candidate to defer"
+    )
+    parser.add_argument("--park-reason", help="why delivery is not currently justified")
+    parser.add_argument(
+        "--park-evidence-url", help="commit-pinned source reviewed by the owner"
+    )
+    parser.add_argument(
+        "--reopen-when", help="concrete evidence needed to revisit the candidate"
+    )
+    parser.add_argument(
         "--stop", action="store_true", help="drain this delivery worker only"
     )
     parser.add_argument(
@@ -1170,6 +1255,55 @@ def main():
         "--max-jobs", type=int, default=0, help="0 continues on new unseen leads"
     )
     args = parser.parse_args()
+    if any(
+        (
+            args.park_owner_job,
+            args.park_reason,
+            args.park_evidence_url,
+            args.reopen_when,
+        )
+    ):
+        if any(
+            getattr(args, name, None)
+            for name in (
+                "stop",
+                "retry_preflight_job",
+                "mark_pr_job",
+                "pr_url",
+                "reject_owner_job",
+                "reject_reason",
+                "reject_evidence_url",
+                "owner_reproduced_after_block",
+                "route_blocked_gpu",
+                "max_jobs",
+            )
+        ):
+            parser.error("owner parking is a separate operation")
+        if not all(
+            (
+                args.park_owner_job,
+                args.park_reason,
+                args.park_evidence_url,
+                args.reopen_when,
+            )
+        ):
+            parser.error(
+                "owner parking requires job, reason, evidence URL and reopening condition"
+            )
+        target = args.root.resolve() / "delivery"
+        if not (target / "delivery.sqlite").is_file():
+            parser.error("no existing delivery queue")
+        with scout.single_runner(target):
+            decision = park_owner_candidate(
+                target,
+                args.park_owner_job,
+                args.park_reason,
+                args.park_evidence_url,
+                args.reopen_when,
+            )
+            Delivery(args).publish(None, refresh_only=True)
+        print(scout.dumps(decision))
+        return
     if args.retry_preflight_job:
         if args.stop:
             parser.error("preflight retry is a separate operation")
