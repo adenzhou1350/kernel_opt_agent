@@ -411,6 +411,28 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(model.call_count, 2)
         self.assertEqual(sandbox.call_count, 2)
 
+    def test_repair_cannot_change_already_executed_assertions(self):
+        changed_test = TEST.replace(
+            "self.assertEqual(subject.value(), 2)",
+            "self.assertEqual(subject.value(), 1)",
+        )
+        self.assertNotEqual(changed_test, TEST)
+        state, row, model, sandbox = self.run_job(
+            [result(1, 1)], [proposal(), {**proposal(), "test_code": changed_test}]
+        )
+        self.assertEqual(state, "INCONCLUSIVE")
+        self.assertIn("repair changed already executed tests", row["reason"])
+        self.assertEqual(model.call_count, 2)
+        self.assertEqual(sandbox.call_count, 1)
+        self.assertFalse(json.loads(row["result"])["qualified"])
+
+    def test_unexecuted_invalid_test_can_be_corrected_once(self):
+        invalid = {**proposal(), "test_code": "import unittest"}
+        state, _, model, sandbox = self.run_job([result()], [invalid, proposal()])
+        self.assertEqual(state, delivery.OWNER_STATE)
+        self.assertEqual(model.call_count, 2)
+        self.assertEqual(sandbox.call_count, 1)
+
     def test_model_rejection_has_no_container_and_is_labeled_advisory(self):
         rejection = {
             "decision": "reject",

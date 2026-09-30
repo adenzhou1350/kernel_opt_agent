@@ -691,9 +691,18 @@ class Delivery:
             ):
                 return self.prepare_gpu(job, work, context, original)
             observed = None
+            executed_test_code = None
             for version in (1, 2):
                 try:
                     fixed = proposal(value, original)
+                    if (
+                        executed_test_code is not None
+                        and value["decision"] == "test"
+                        and value["test_code"] != executed_test_code
+                    ):
+                        raise ValueError(
+                            "repair changed already executed tests; owner review required"
+                        )
                 except (ValueError, SyntaxError) as error:
                     state, reason = "INCONCLUSIVE", "proposal validation: " + str(error)
                     observed = {"inconclusive": True, "error": reason}
@@ -732,6 +741,7 @@ class Delivery:
                         "TESTING",
                         f"isolated CPU before/fixed attempt {version}",
                     )
+                    executed_test_code = value["test_code"]
                     observed = self.sandbox(work, version, profile)
                     state, reason = classify(observed)
                 if (
@@ -746,7 +756,9 @@ class Delivery:
                     "repair",
                     prompt
                     + "\nONE REPAIR: examine actual output and correct the proposal only if justified. "
-                    "Keep the behavioral contract; no weakened assertions. Same JSON response.\n"
+                    "Keep the behavioral contract; no weakened assertions. If tests already ran, "
+                    "return their exact unchanged test_code and repair only source edits, or request "
+                    "context instead. Same JSON response.\n"
                     + scout.dumps(
                         {"previous_proposal": value,
                          "validation_feedback": cpu_feedback(observed)}

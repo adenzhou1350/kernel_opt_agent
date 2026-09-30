@@ -244,3 +244,22 @@ task-local cache per arm plus a cache key binding the pipe/test contents resolve
 the contradiction with the standalone native probe; the final control replay
 still reproduced both failures. Retain the earlier failed result. Non-file
 inputs to compilation are experiment inputs too, not reasons to weaken a test.
+
+October 1 feedback-assisted repair used the same native consumer controls and
+kept the owner's successful experiment out of the model context. The second
+tool-free Kimi call used 8,769 reported tokens and 29.52 s; its revised event/
+next-tick scheme still failed resume-then-pause in the native Node 24.16 owner
+entry, although four other consumer sequences passed. The attempted registered
+replay produced no result within its bounded run and is inconclusive, not a
+second candidate verdict. Richer diagnostics alone did not establish a better
+repair or PR conversion. The current upstream pipe bytes are still unchanged;
+a current-source native host replay remains blocked before worker readiness in
+the cached dependency environment. Preserve that boundary rather than claiming
+the older compatible checkout qualifies current main.
+
+Scout's automatic CPU repair now keeps already executed test bytes unchanged.
+A repair may revise source or request context, but changing those tests requires
+owner review instead of another automatic execution. A malformed proposal that
+never executed may still correct its tests on the one existing repair attempt.
+This keeps before/after evidence interpretable without imposing TIRx or another
+compiler on native project work.
