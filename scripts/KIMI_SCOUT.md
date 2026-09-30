@@ -177,6 +177,15 @@ clipped anchors are explicitly marked. Ambiguous/missing conventions do not
 reject a lead or imply completeness. The registry is not executed and retrieval
 does not establish CUDA correctness, coverage or a useful PR.
 
+Other source follow-ups can replace one lexical match with an observed companion
+test (at most 80 lines), preferring the same component in a monorepo. A quoted
+constant present in both the pinned source and hypothesis anchors the test
+window when available. Foreign/stale source, missing tests or unsupported names
+leave ordinary search intact; generated CUDA registration context keeps priority.
+This adds no source reads. Tests are evidence to inspect, not an automatic veto:
+some intentionally characterize existing buggy behavior, and a green test does
+not prove that the behavior is desirable or that a fix is novel.
+
 The review stage tries to disprove a lead using supplied callers/tests/related
 work; the last stage produces a minimal reproduction **plan**. Neither executes
 model-generated code, marks a PR Ready, or promotes knowledge automatically.
