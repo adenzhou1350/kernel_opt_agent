@@ -40,6 +40,10 @@
     {
       "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
       "note": "The shown raw-verify constructor leaves extend_seq_lens at its default None. Its consumer handles None with full_like; the subsequent torch.minimum creates a new tensor before clamp_min_. Fabricating two non-None fields and asserting independent storage does not prove graph replay corruption on this path. Other supported setters still require separate inspection; Tensor.to alone does not guarantee a copy."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
+      "note": "RadixLinearAttention.__init__ unconditionally assigns self.lower_bound from its optional argument. KDA packed decode's getattr guard followed by a direct attribute read therefore does not establish a missing-attribute defect for this shown constructor. Inspect the correct owning class, not the first same-named __init__ in a source file; fabricated objects without the attribute are not supported-path evidence. This is syntax-only source falsification, not GPU or all-model correctness."
     }
   ],
   "status": "counterexample"

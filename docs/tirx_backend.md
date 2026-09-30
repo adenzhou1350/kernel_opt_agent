@@ -276,3 +276,11 @@ owner review instead of another automatic execution. A malformed proposal that
 never executed may still correct its tests on the one existing repair attempt.
 This keeps before/after evidence interpretable without imposing TIRx or another
 compiler on native project work.
+
+Another October 1 owner-selected SGLang lead alleged that packed KDA decode could
+read a missing `lower_bound` attribute. Its actual layer constructor assigns the
+attribute unconditionally; fabricating an incomplete layer would not prove the
+claim. Scout's source locator now anchors an unambiguous Python `Class.method`
+within its owning class and prefers the last direct definition when duplicated.
+It parses source without executing it and keeps the existing window/cache budget.
+This retrieval correction is not a measured productivity or PR-conversion gain.

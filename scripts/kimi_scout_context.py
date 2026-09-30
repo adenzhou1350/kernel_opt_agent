@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import json
 from pathlib import Path
@@ -65,6 +66,50 @@ def _number(value, label="issue number", maximum=1_000_000_000):
 
 def _text(value):
     return value if isinstance(value, str) else ""
+
+
+def _definition_line(lines, hints):
+    """Prefer a requested Python/JS declaration to incidental keyword mentions.
+
+    Qualified Python class methods use syntax-only ownership when unambiguous.
+    Other declarations retain the lexical fallback; neither proves reachability.
+    """
+    hints = hints[:2000]
+    targets = list(dict.fromkeys(re.findall(
+        r"\b([A-Z][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)\b", hints
+    )))
+    if len(targets) == 1:
+        owner, method = targets[0]
+        try:
+            tree = ast.parse("\n".join(lines))
+        except (SyntaxError, ValueError, RecursionError):
+            pass  # JS/TS and incomplete source still use lexical hints.
+        else:
+            classes = [node for node in ast.walk(tree)
+                       if isinstance(node, ast.ClassDef) and node.name == owner]
+            if len(classes) == 1:
+                methods = [node for node in classes[0].body
+                           if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+                           and node.name == method]
+                # A later unconditional definition shadows the earlier one.
+                return (methods[-1] if methods else classes[0]).lineno - 1
+            if classes:
+                return None  # Identically named classes have no unique owner.
+    names = list(dict.fromkeys(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", hints)))[:32]
+    priority = {name: index for index, name in enumerate(names)}
+    qualified = set(re.findall(r"\.([A-Za-z_][A-Za-z0-9_]{2,})\b", hints))
+    declaration = re.compile(
+        r"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+        r"(?:def|class|function|const|let|var|type|interface|enum)\s+"
+        r"([A-Za-z_]\w*)\b"
+    )
+    matches = []
+    for index, line in enumerate(lines):
+        match = declaration.match(line)
+        if match and match[1] in priority:
+            name = match[1]
+            matches.append((name not in qualified, priority[name], index))
+    return min(matches)[2] if matches else None
 
 
 class IssuePage(list):
@@ -269,6 +314,11 @@ class PublicContext:
         lines = raw.splitlines()
         if start is not None and start > max(1, len(lines)):
             raise ValueError("source start line is beyond end of file")
+        if start is None:
+            definition = _definition_line(lines, hints)
+            if definition is not None:
+                offset = max(0, definition - min(30, max_lines // 4))
+                start = min(offset, max(0, len(lines) - max_lines)) + 1
         if start is None:
             words = list(
                 dict.fromkeys(
