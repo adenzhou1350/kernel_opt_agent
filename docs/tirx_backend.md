@@ -247,6 +247,18 @@ prospective success-rate, total-cost or PR-conversion claim. The next comparison
 must select held-out leads before observing their outcomes and charge retrieval,
 environment preparation and failed attempts to both arms.
 
+The first prospective feasibility draw selected six production Python paths from
+two previously unconfigured repositories (TorchTitan and llm-compressor), using
+tree metadata before source or model outcomes were read. One initial call returned
+`no_lead`; five failed with an unclassified controller-side `OSError` in under a
+second. Only 2,443 actual tokens were observed; the other five usages are unknown,
+not zero and not their admission reservations. No paired routing arms ran, so
+the pilot is inconclusive and establishes no cost or quality improvement. Those
+cases were not redrawn or retried to improve the result. Six parallel no-model
+launch probes later succeeded; contemporaneous memory/connection checks did not
+identify the historical failure's cause. New receipts retain numeric `errno`/
+`winerror` and operation phase without exception messages or private paths.
+
 Reusable controls from the case:
 
 - Keep native runner failure names (unittest, TAP, Vitest and Rust), and test
