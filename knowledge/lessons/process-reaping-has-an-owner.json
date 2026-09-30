@@ -1,0 +1,22 @@
+{
+  "id": "process-reaping-has-an-owner",
+  "title": "Process cleanup must preserve the existing reaping owner",
+  "applies_when": "A Python POSIX process-tree cleanup candidate adds psutil.wait_procs or os.waitpid to eliminate zombies, while callers may own multiprocessing.Process objects or another lifecycle manager.",
+  "lesson": "Trace which object owns child exit status before adding a second waiter. psutil's POSIX wait consumes child status through waitpid; CPython's fork-based multiprocessing owner independently calls waitpid and caches its return code. A second reaper can remove the OS process but leave the original Process object with no exit code. Test owner-visible exitcode, join, is_alive and close after cleanup, not only absence of a zombie PID. Prefer lifecycle cleanup through the owning manager when available. A raw os.fork regression with no manager does not establish that a generic reaping patch preserves supported consumers.",
+  "avoid_when": "This mechanism is scoped to competing POSIX child reapers, not every Windows handle or async process API. A helper that exclusively owns raw children may legitimately reap them. Establish actual callers before claiming application impact or selecting a repair. The linked implementations explain the mechanism, not a particular framework's CI failures, native test result or performance.",
+  "evidence": [
+    {
+      "url": "https://github.com/giampaolo/psutil/blob/release-7.2.2/psutil/_psposix.py#L152",
+      "note": "The POSIX wait wrapper consumes exit status with os.waitpid; the pidfd termination path subsequently invokes this wrapper."
+    },
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.13/Lib/multiprocessing/popen_fork.py#L21",
+      "note": "The fork Popen owner caches returncode only after its own waitpid succeeds; OSError instead leaves poll returning None. This supports the ownership countercondition."
+    },
+    {
+      "url": "https://docs.python.org/3/library/multiprocessing.html#multiprocessing.Process.close",
+      "note": "The public lifecycle contract includes exitcode, join, is_alive and close; close rejects an object considered still running."
+    }
+  ],
+  "status": "validated"
+}
