@@ -14,6 +14,7 @@ from pathlib import Path
 import re
 import threading
 import time
+import urllib.parse
 
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
@@ -106,6 +107,46 @@ def source_paths(snapshot, spec):
         and not p.endswith("__init__.py")
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )
+
+
+def continuation_request(packet, snapshot, analysis):
+    """Honor an explicit tail request only against an observed same-pin window.
+
+    Model text selects no URL or arbitrary line: its requested boundary must
+    equal the recorded end of exactly one truncated public source window.
+    """
+    next_check = analysis.get("next_check", "")
+    if not isinstance(next_check, str):
+        return None
+    boundaries = set()
+    for expression in (
+        r"\bafter\s+line\s+(\d{1,7})\b",
+        r"行\s*(\d{1,7})\s*(?:之后|以后|后)",
+    ):
+        boundaries.update(int(value) for value in re.findall(expression, next_check[:2000], re.I))
+    if len(boundaries) != 1:
+        return None
+    boundary = boundaries.pop()
+    repo, commit = packet.get("repo"), snapshot.get("commit")
+    if not isinstance(repo, str) or not isinstance(commit, str):
+        return None
+    prefix = f"https://raw.githubusercontent.com/{repo}/{commit}/"
+    matches = []
+    for source in packet.get("sources", [])[:8]:
+        url = source.get("url", "")
+        if not isinstance(url, str) or not url.startswith(prefix):
+            continue
+        path = urllib.parse.unquote(url[len(prefix):])
+        start, end, total = (source.get(key) for key in ("start_line", "end_line", "total_lines"))
+        if (
+            path in snapshot.get("files", [])
+            and path.endswith(SOURCE_SUFFIXES)
+            and source.get("truncated") is True
+            and all(type(value) is int for value in (start, end, total))
+            and 1 <= start <= end == boundary < total
+        ):
+            matches.append({"path": path, "start": max(start, end - 19), "max_lines": 120})
+    return matches[0] if len(matches) == 1 else None
 
 
 def relevant_paths(snapshot, hints, exclude=()):
@@ -604,12 +645,17 @@ class ResearchProducer:
                 + [s["url"] + "\n" + s["text"] for s in sources]
             )
             paths = relevant_paths(snapshot, hints)
+            continuation = continuation_request(packet, snapshot, analysis_value)
+            if continuation:
+                paths = [continuation["path"]] + [path for path in paths if path != continuation["path"]]
             for path in paths[:2]:
                 if self.stopped():
                     return False
                 sources.append(
                     self.context.source(
-                        spec["repo"], snapshot["commit"], path, hints=hints
+                        spec["repo"], snapshot["commit"], path, hints=hints,
+                        **({key: continuation[key] for key in ("start", "max_lines")}
+                           if continuation and path == continuation["path"] else {}),
                     )
                 )
             if self.stopped():
