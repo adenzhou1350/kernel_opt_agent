@@ -31,6 +31,53 @@ def excerpt(value):
     return text[:240]
 
 
+def finding_context(value):
+    """Keep native operation sites that a long finding excerpt would cut off.
+
+    Recognize the existing checker operation/access-pair shapes, not arbitrary
+    nested data. This is partial source context, never proof of coverage.
+    """
+    if not isinstance(value, dict):
+        return {}
+    details = value.get("details", {})
+    if not isinstance(details, dict):
+        return {}
+    context = {key: excerpt(details[key]) for key in
+               ("ordering_domain", "ordering_failure", "access_pair", "effect")
+               if isinstance(details.get(key), str)}
+    sites = []
+    for role in ("operation", "prior", "current"):
+        access = details.get(role, {})
+        if not isinstance(access, dict):
+            continue
+        operation = access if role == "operation" else access.get("operation", {})
+        if not isinstance(operation, dict):
+            continue
+        source = operation.get("source", {})
+        if not isinstance(source, dict):
+            continue
+        span = source.get("source_span", {})
+        site = {"role": role}
+        if type(operation.get("source_op_id")) is int:
+            site["source_op_id"] = operation["source_op_id"]
+        if isinstance(span, dict):
+            if isinstance(span.get("source_name"), str):
+                site["source_name"] = excerpt(span["source_name"])
+            for key in ("line", "column", "end_line", "end_column"):
+                if type(span.get(key)) is int:
+                    site[key] = span[key]
+        if isinstance(source.get("source_text"), str):
+            site["source_excerpt"] = excerpt(source["source_text"])
+        if type(access.get("lane")) is int:
+            site["lane"] = access["lane"]
+        if len(site) > 1:
+            sites.append(site)
+    if sites:
+        context["source_sites"] = sites[:2]
+        context["source_sites_omitted"] = max(0, len(sites) - 2)
+    return context
+
+
 def case_feedback(name, case):
     item = {"name": excerpt(name), "declared_status": status(case.get("status"))}
     if "error" in case:
@@ -53,6 +100,11 @@ def case_feedback(name, case):
                 if isinstance(values, list) and values:
                     brief[label] = [excerpt(value) for value in values[:3]]
                     brief[label + "_omitted"] = max(0, len(values) - 3)
+                    contexts = [finding_context(value) for value in values[:3]]
+                    if any(contexts):
+                        # Same order as excerpts, so repeated source sites remain
+                        # attributable to their individual finding/access pair.
+                        brief[label + "_context"] = contexts
             outputs = check.get("outputs", {})
             if isinstance(outputs, dict) and outputs:
                 if any(not isinstance(details, dict) for details in outputs.values()):

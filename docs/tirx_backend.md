@@ -115,6 +115,12 @@ the raw result SHA and a local source identity check. Omitted details are counte
 read the raw result before interpreting a finding. Missing local source remains
 unavailable, not verified. A saved PASS is a reported observation, not a new
 correctness certificate. Foreign/performance result scopes are rejected.
+Long native race/synchronization messages can hide their source spans after
+truncation. The brief separately retains bounded operation sites (at most two
+per finding) and directional ordering/effect fields for the three retained
+findings. These come from the report, not a new source inspection; unknown
+report shapes remain partial. Use the raw report and exact source to interpret
+them, rather than treating an omitted location as evidence of no finding.
 
 Without `--run` it is read-only. With it, an existing worklog receives one
 `correctness` or `inspection` entry per explicit invocation; it does not set

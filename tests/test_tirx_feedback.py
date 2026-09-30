@@ -152,3 +152,45 @@ def test_bounded_read_does_not_accept_oversized_result(tmp_path, monkeypatch):
     monkeypatch.setattr(feedback, "MAX_RESULT_BYTES", 3)
     with pytest.raises(ValueError, match="exceeds"):
         feedback.summarize(path)
+
+
+def test_native_race_sites_survive_long_messages_without_recursive_payloads(tmp_path):
+    _, path, result = saved(tmp_path, "FAIL")
+    def access(lane):
+        return {"lane": lane, "operation": {"source_op_id": 13, "source": {
+            "source_text": 'output[0] = lane',
+            "source_span": {"source_name": "affine_cases.py", "line": 19,
+                            "column": 5, "end_line": 19, "end_column": 21},
+        }}}
+    finding = {"kind": "data_race", "message": "unordered write/write " * 100,
+               "details": {"ordering_domain": "execution",
+                           "ordering_failure": "missing_same_warp_lane_order",
+                           "access_pair": "write_write", "prior": access(10),
+                           "current": access(18), "unrelated_trace": "x" * 100000}}
+    result["cases"]["valid"]["checks"]["racecheck"] = {
+        "status": "FAIL", "report": {"findings": [finding]}}
+    store(path, result)
+    brief = feedback.summarize(path)
+    race = brief["cases"][0]["checks"]["racecheck"]
+    assert 'affine_cases.py' not in race["findings"][0]
+    context = race["findings_context"][0]
+    assert context["ordering_failure"] == "missing_same_warp_lane_order"
+    assert [(site["role"], site["lane"], site["line"]) for site in
+            context["source_sites"]] == [("prior", 10, 19), ("current", 18, 19)]
+    assert context["source_sites"][0]["source_excerpt"] == "output[0] = lane"
+    assert "unrelated_trace" not in json.dumps(brief)
+    assert len(json.dumps(brief)) < 5000
+    assert brief["declared_status"] == "FAIL"
+
+
+def test_sync_operation_sites_and_unknown_shapes_remain_partial():
+    context = feedback.finding_context({"details": {
+        "effect": "mbarrier.arrive", "operation": {"source_op_id": 25,
+        "source": {"source_span": {"line": 29, "column": 9},
+                   "source_text": "x" * 1000}},
+    }})
+    assert context["effect"] == "mbarrier.arrive"
+    assert context["source_sites"][0]["line"] == 29
+    assert len(context["source_sites"][0]["source_excerpt"]) == 240
+    for unknown in ("text report", {"details": []}, {"details": {"operation": []}}):
+        assert feedback.finding_context(unknown) == {}
