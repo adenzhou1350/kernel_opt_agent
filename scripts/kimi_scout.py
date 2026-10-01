@@ -421,6 +421,8 @@ def enqueue(root, packet, *, db=None):
     # Incidental related-PR ordering is not new evidence. Novelty must be checked
     # again by the owner before publication anyway.
     identity.pop("related_open_items_sample", None)
+    # Owner deferral advice alone is not fresh source or a new paid task.
+    identity.pop("owner_deferrals", None)
     identity["sources"] = [
         dict(source, url=re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]))
         for source in packet["sources"]

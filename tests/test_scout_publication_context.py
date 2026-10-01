@@ -202,6 +202,27 @@ class PublicationContextTests(unittest.TestCase):
         self.assertIn("owner_deferrals", packets[1])
         self.assertEqual(packets[1]["sources"], [newer])
 
+    def test_direct_enqueue_deferral_changes_do_not_create_a_new_paid_task(self):
+        scout.initialize(self.root)
+        packet = {
+            "name": "fixture",
+            "question": "inspect contract",
+            "repo": self.repo,
+            "sources": [self.source],
+        }
+        initial = scout.enqueue(self.root, packet)
+        for note in ("old deferral", "new reopening condition"):
+            changed = {**packet, "owner_deferrals": {"items": [note]}}
+            self.assertEqual(scout.enqueue(self.root, changed), initial)
+        with scout.connect(self.root) as db:
+            rows = db.execute("SELECT packet FROM jobs").fetchall()
+        self.assertEqual(len(rows), 1)
+        self.assertNotIn("owner_deferrals", json.loads(rows[0][0]))
+        changed_source = {**self.source, "text": "new source evidence"}
+        self.assertNotEqual(
+            scout.enqueue(self.root, {**packet, "sources": [changed_source]}), initial
+        )
+
     def test_missing_or_unavailable_database_is_optional_and_not_created(self):
         self.assertIsNone(self.read())
         self.assertFalse(self.path.parent.exists())
