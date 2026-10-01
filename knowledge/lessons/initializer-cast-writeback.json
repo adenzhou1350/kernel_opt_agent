@@ -1,0 +1,26 @@
+{
+  "id": "initializer-cast-writeback",
+  "title": "An in-place initializer after a dtype cast may not update the parameter",
+  "applies_when": "Parameter or buffer initialization casts a tensor to a working dtype, applies an in-place initializer, and locally rebinds the result. Same-dtype tests may mask missing write-back.",
+  "lesson": "Trace storage ownership, not just variable names. Tensor.to returns the original tensor when dtype and device already match, but a conversion creates another tensor. Preserve the destination and explicitly copy the initialized working-precision values back when the initialization contract permits it. Test FP16/BF16 alongside an FP32 control, destination storage identity, dtype, initialization gain, and the real constructor's initialization guards.",
+  "avoid_when": "A functional initializer whose caller consumes its returned tensor may intentionally allocate. Do not blindly copy into loaded checkpoints, meta or distributed tensors, tied parameters, or autograd-tracked leaves. This lesson establishes an initialization hazard, not forward/kernel correctness or performance.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.14/generated/torch.Tensor.to.html",
+      "note": "The API documents same-dtype/device self return and a new tensor for conversions; this explains why FP32-only tests can hide the storage hazard."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.14/generated/torch.Tensor.copy_.html",
+      "note": "copy_ writes elements into the destination, including conversion from a different source dtype. Its use still requires the caller's initialization and autograd contract."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/pull/1320",
+      "note": "The proposed RWKV7 fix documents baseline low-precision failures, FP32 controls and CPU regression checks. Publication is not evidence of maintainer acceptance or GPU qualification."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/4cbd912b89b8fcbbc8547c54e926e7ca3d6e5c4f/tests/layers/test_rwkv7_init.py",
+      "note": "Commit-pinned tests exercise tall/wide shapes, two gains, three dtypes, destination storage identity, real attention construction and preservation after repeated module initialization."
+    }
+  ],
+  "status": "validated"
+}
