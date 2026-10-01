@@ -116,3 +116,57 @@ tests per arm: baseline had two errors plus a passing normal control, candidate
 passed all three; both owned containers were removed. A deliberately wrong
 baseline stopped before testing in both arms. These checks establish runnable
 capacity and rejection behavior, not prospective PR conversion or cost savings.
+
+## Windows-native checks of owner-reviewed code
+
+Local WSL is not required to test an already reviewed Python change. Use a fresh
+Windows virtual environment and full source exports for both arms. This is an
+owner-run test route, **not a sandbox for arbitrary Scout-generated code**. Do
+not connect unreviewed queue entries to it or treat Python's `-I` flag as isolation.
+
+For the URL tests, the native environment needs HTTPX's runtime dependencies
+plus the upstream test/conftest dependencies: pytest, Trio, trustme,
+cryptography, uvicorn and sniffio. Install them only into the task-private venv,
+using the repository's tooling pins where present; record the resolved versions.
+Do not silently use a global installed HTTPX in place of the exported package.
+
+Export baseline and candidate with `git -c core.autocrlf=false archive`. Verify
+changed source and test members against raw Git blobs before extracting. Place
+the exact candidate regression test file in both trees; disclose that test-only
+overlay on the baseline, leaving its production files unchanged. From each source
+root, run the same private interpreter in separate processes:
+
+```powershell
+& $taskPython -B -c "import httpx; print(httpx.__file__)"
+& $taskPython -B -m pytest tests/models/test_url.py -q -p no:cacheprovider
+```
+
+Check the reported import path lies inside that arm's source root. Retain both
+results, failures and exact test bytes; a baseline failure unrelated to the
+candidate is not test discrimination. This file-scoped command does not start
+HTTPX's local test servers, run its full suite or establish CI/coverage completion.
+
+At the same baseline `b5addb64` and reviewed bracketed-netloc change, Windows
+CPython 3.12.13 with pytest 8.4.1, Trio 0.31.0, AnyIO 4.15.1 and httpcore 1.0.9
+independently reproduced **14 IPv6 failures / 108 passes** on the baseline and
+**122 passes** on the candidate. The same regression file was used for both
+arms, both imports resolved into their full source exports, and no WSL or GPU
+was used. This confirms that URL-test result across the two observed environments;
+it is not an additional PR, a full-suite pass or a throughput measurement.
+
+## Remote sandbox feasibility before model execution
+
+Before moving automated delivery to a shared Linux worker, check that the
+isolation backend really works, not only that Python or a container command is
+installed. A reachable worker with ample storage is not automatically a verifier.
+Do not install a privileged daemon, mount a host socket into generated tests or
+fall back to running untrusted code directly as the SSH user.
+
+If evaluating a namespace-based alternative, probe the actual namespaces the
+backend requires. An observed worker allowed `unshare --user --map-root-user
+--net true` but rejected the mount namespace with `cannot change root filesystem
+propagation: Permission denied`. The first probe alone would falsely advertise
+usable sandbox capacity. Keep such a worker ineligible for automatic execution
+until a separately reviewed isolation policy and real canaries pass. Resource
+limits, hidden host files/devices, network isolation, child cleanup and output
+bounds remain necessary; namespace availability by itself proves none of them.
