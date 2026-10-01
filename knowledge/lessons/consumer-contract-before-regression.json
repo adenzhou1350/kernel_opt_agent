@@ -1,0 +1,70 @@
+{
+  "id": "consumer-contract-before-regression",
+  "title": "Establish the consumer contract before writing a failing regression",
+  "applies_when": "A candidate alleges a formatting, validation, shape, resource-budget or backend-support mismatch from a helper name, comment or partial source window, and proposes expected behavior without tracing the producer and consumer.",
+  "lesson": "Trace production, allocation, transformations and consumption before choosing expected behavior. Distinguish DNS-SD instance labels from hostnames, captured token capacity from request count, and registered kernel geometry from excluded examples in comments. Fabricated inconsistent internal metadata does not establish a reachable defect. Missing validation alone does not establish the proposed invariant. A device-assertion change is not backend support: require a supported caller and checked native outputs. For an allegedly unguarded fallback, intersect its trigger with native launch constraints before allocating a huge reproduction. Seek an observable consumer failure before environment repair or publication.",
+  "avoid_when": "Reachable malformed inputs, escaping/length violations or supported shape mutations can be real defects. Error wording may have its own documented API contract. Callback stand-ins must preserve backend transformations: RoPE+SDPA may return BHSD from BSHD even when plain SDPA preserves shape. Baseline-fail/patch-pass against an invented callback is insufficient. Static review falsifies a specific claim; it does not prove native or general correctness. External or dynamic callers may remain unobserved.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/flashinfer/comm/trtllm_ar.py#L879",
+      "note": "The small-token guard precedes a fallback requiring >2046 MiB. Ordering alone is not a supported-input failure; combine it with native launch constraints rather than lowering MAX_COMM_SIZE artificially."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/include/flashinfer/comm/trtllm_allreduce_fusion.cuh#L1685",
+      "note": "16-byte accesses, <=8-block clusters and <=1024 threads bound supported ranks 2/4/8/16 with token_num<=world_size to <=32 MiB, below the fallback threshold. This necessary-domain argument refutes that hang hypothesis, not collective correctness or malformed-input diagnostics."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/arg_groups/fields/exec_.py#L428",
+      "note": "CLI choices reach argparse; choices.py exposes plugin registration. Enum CUSTOM fallback alone does not prove typo acceptance. Programmatic consumers need separate evidence; not a server or GPU qualification."
+    },
+    {
+      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/torchao/prototype/attention/shared_utils/attention.py#L122",
+      "note": "RoPE+FP8 SDPA takes BSHD and returns BHSD; its fake implementation permutes accordingly. Plain SDPA differs. A shape-preserving callback misrepresents this backend."
+    },
+    {
+      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/test/prototype/attention/test_rope_fusion_detection.py#L28",
+      "note": "Registered CPU fusion tests use a BHSD-returning RoPE callback matching the backend. Prefer that control; this source does not establish FA3 GPU qualification."
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
+      "note": "DNS-SD instance labels permit non-control punctuation and are limited to 63 octets; this is a protocol requirement, not a measured application result."
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.3",
+      "note": "The standard explicitly distinguishes service instance names from hostnames and their naming restrictions."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8c9040c624d932f665e33f506781c5badee18afa/src/infra/widearea-dns.ts",
+      "note": "One normalizer feeds host labels and service instances. A trailing hyphen in the latter alone does not prove an invalid zone; overrides and resolver behavior need separate evidence."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/53225fadf40428149315d43f53b6df80d12957e0/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py#L884",
+      "note": "Capture sets metadata_rows=num_tokens; replay derives num_rows from captured sequence_lengths.numel(). This refutes the request-count claim for initialized capture, not GPU correctness."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/blob/80e5f8a983c28070a8914e911371c4806f362451/megatron/core/inference/contexts/fused_kv_append_kernel.py#L123",
+      "note": "Device assertions precede Triton launch. CPU/meta rejection-wording tests do not validate another accelerator's cache writes, nor prove that backend unsupported."
+    },
+    {
+      "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_common.py#L843",
+      "note": "The comment excludes B_K=128 variants; registry ids 1400-1404 and 6400-6404 use B_K=64. Asserting their removal does not demonstrate a comment contradiction."
+    },
+    {
+      "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_pipeline_a16w16_mono_tile_gfx950.cuh",
+      "note": "Padded two-slot A/three-slot B formulas give 66-148.5 KiB for registered B_K=64, below 160 KiB; excluded B_K=128 examples give 165/231 KiB. Source arithmetic, not compiled HIP resources or GPU correctness."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/104283d1a23c4eb7da20b038ee2a497afc86b06a/flashinfer/utils.py#L1507",
+      "note": "The outer wrapper uses sig.bind and applies defaults before passing kwargs to the helper. Its isolated kwargs lookup does not prove a positional/default bug; CUDA and skip_check/auto remain unqualified."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
+      "note": "Raw-verify leaves extend_seq_lens=None. Its consumer uses full_like, then torch.minimum creates a new tensor before clamp_min_. Fabricated non-None fields do not prove corruption here; other setters remain unverified and Tensor.to alone need not copy."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
+      "note": "The owning constructor always assigns lower_bound. The later getattr/direct read does not prove a missing attribute for this constructor. Inspect the owning class; fabricated objects are not supported-path evidence. Source falsification, not GPU/all-model correctness."
+    }
+  ],
+  "status": "counterexample"
+}
