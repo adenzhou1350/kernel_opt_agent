@@ -29,6 +29,48 @@ from scout_lesson_context import fit_lesson_context, lesson_suggestions
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def available_memory_mb():
+    """Return host-available physical memory, or None if it cannot be read."""
+    if os.name == "nt":
+        import ctypes
+
+        class MemoryStatus(ctypes.Structure):
+            _fields_ = [
+                ("length", ctypes.c_ulong),
+                ("load", ctypes.c_ulong),
+                *[(name, ctypes.c_ulonglong) for name in (
+                    "total_phys", "avail_phys", "total_page", "avail_page",
+                    "total_virtual", "avail_virtual", "avail_extended",
+                )],
+            ]
+
+        status = MemoryStatus()
+        status.length = ctypes.sizeof(status)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(status)):
+            return None
+        return status.avail_phys // (1024 * 1024)
+    if sys.platform.startswith("linux"):
+        try:
+            for line in Path("/proc/meminfo").read_text(encoding="ascii").splitlines():
+                if line.startswith("MemAvailable:"):
+                    return int(line.split()[1]) // 1024
+        except (OSError, ValueError, IndexError):
+            pass
+    return None
+
+def memory_admits_call(available_mb, reserve_mb, inflight, worker_mb=0):
+    """Reserve startup headroom even before submitted children allocate RAM.
+
+    In-flight allocations may already be in the host reading; reserving them
+    again is intentionally conservative, not a precise process-memory model.
+    """
+    if not (reserve_mb or worker_mb):
+        return True
+    return available_mb is not None and available_mb >= (
+        reserve_mb + (inflight + 1) * worker_mb
+    )
+
+
 def runtime_storage_env(root, environ=None):
     """Keep this scout's child-process scratch and caches inside its run root."""
     storage = Path(root).resolve() / "runtime-storage"
@@ -774,6 +816,8 @@ def run(args):
             "state": "RUNNING",
             "deadline": deadline if args.hours else None,
             "concurrency": args.concurrency,
+            "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),
+            "worker_memory_mb": getattr(args, "worker_memory_mb", 0),
             "daily_max_calls": args.max_jobs or None,
             "daily_token_budget": args.token_budget or None,
             "cooldown_until": None,
@@ -850,6 +894,9 @@ def run(args):
                         collect(root, args.feeds, args.github_auth)
                         next_feed = time.time() + args.poll_seconds
                         publish(next_feed_at=next_feed)
+                    reserve = getattr(args, "min_free_memory_mb", 0)
+                    worker_memory = getattr(args, "worker_memory_mb", 0)
+                    free_mb = available_memory_mb() if reserve or worker_memory else None
                     while (
                         len(running) < args.concurrency
                         and failures < 2
@@ -857,6 +904,10 @@ def run(args):
                         and time.time() < deadline
                         and not (root / "STOP").exists()
                     ):
+                        if not memory_admits_call(
+                            free_mb, reserve, len(running), worker_memory
+                        ):
+                            break
                         job = claim(
                             root,
                             args.max_jobs,
@@ -889,7 +940,16 @@ def run(args):
                             )
                         )
                         attempts += 1
-                    publish(active=len(running))
+                        free_mb = (
+                            available_memory_mb() if reserve or worker_memory else None
+                        )
+                    publish(
+                        active=len(running),
+                        memory_paused=not memory_admits_call(
+                            free_mb, reserve, len(running), worker_memory
+                        ),
+                        available_memory_mb=free_mb,
+                    )
                     if not running:
                         if args.once:
                             break
@@ -957,6 +1017,18 @@ def main(argv=None):
     )
     worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
     worker.add_argument(
+        "--min-free-memory-mb",
+        type=int,
+        default=0,
+        help="pause new calls below this host-available RAM; 0 disables the guard",
+    )
+    worker.add_argument(
+        "--worker-memory-mb",
+        type=int,
+        default=0,
+        help="additional RAM budget per in-flight/new call; 0 preserves the floor-only guard",
+    )
+    worker.add_argument(
         "--review-priority",
         action="store_true",
         help="prefer 3 discovery, 3 skeptical review and 2 reproduction-plan calls per 8 claims; borrow idle capacity",
@@ -1013,6 +1085,8 @@ def main(argv=None):
                 and (args.token_budget == 0 or 1024 <= args.token_budget <= 2_000_000)
                 and 256 <= args.output_tokens <= 4096
                 and 15 <= args.timeout <= 600
+                and 0 <= args.min_free_memory_mb <= 1_048_576
+                and 0 <= args.worker_memory_mb <= 1_048_576
                 and args.poll_seconds >= 300
                 and 60 <= args.error_cooldown_seconds <= 3600
             ):

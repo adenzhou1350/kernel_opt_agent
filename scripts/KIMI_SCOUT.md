@@ -145,6 +145,15 @@ Sixteen working requests establish a tested lower bound, not the provider's
 maximum capacity or a promise of sixteen useful findings. Do not probe higher
 limits by creating duplicate work or bypassing provider backoff.
 
+For RAM-aware admission, `--min-free-memory-mb` keeps host headroom and
+`--worker-memory-mb` optionally budgets each in-flight/new call, including
+submitted children not yet reflected in a memory probe. Unknown available RAM
+pauses new calls when either guard is enabled; in-flight calls still drain.
+Measure the complete child process tree, not only a Windows virtualenv launcher.
+The budget conservatively counts already allocated children again; it is not a
+hard memory cap. Test a small batch before increasing concurrency. Defaults
+remain opt-in, and these fields do not establish useful findings or PR quality.
+
 `templates/kimi-scout-research-wide.json` covers vLLM, SGLang, Quack, FlashInfer,
 TileLang, FlashAttention, Mooncake, Megatron-LM, DeepSpeed and OpenClaw. Source
 sampling includes TypeScript/JavaScript for OpenClaw; these are application
