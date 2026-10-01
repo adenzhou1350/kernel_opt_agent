@@ -425,12 +425,13 @@ python scripts/kimi_scout_delivery.py --root runs/kimi-scout \
 ```
 
 The normal path requires a matching owner-handoff artifact. If the owner instead
-independently reproduced an `ENVIRONMENT_BLOCKED` candidate in a suitable
-environment, add `--owner-reproduced-after-block`. For an explicitly reviewed
+independently reproduced an `ENVIRONMENT_BLOCKED` or `INCONCLUSIVE` candidate in
+a suitable environment, add `--owner-reproduced-after-block`. For an explicitly reviewed
 legacy `REPRODUCED` entry without a handoff, use `--owner-verified-legacy` instead.
-These are separate owner attestations, not automatic evidence upgrades. Prior
-results and reported costs remain intact; neither flag can promote an executing
-candidate. Repeating the same link is idempotent, while a different repository or
+These are separate owner attestations, not automatic evidence upgrades.
+Inconclusive test verdicts are preserved, not rewritten as passing Scout tests.
+Prior results and reported costs remain intact; neither flag can promote an
+executing candidate. Repeating the same link is idempotent, while a different repository or
 replacement PR is rejected. Like parking, publication can be recorded while the
 worker runs without overwriting its snapshots. It makes no model/network/GPU
 calls and implies no CI, maintainer approval or merge.
