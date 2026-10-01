@@ -72,6 +72,33 @@ class PendingCohortTests(unittest.TestCase):
                 self.assertNotIn(forbidden, shown)
             self.assertIn("Available before this decision", shown)
             self.assertEqual(metadata["enrolled"], 2)
+            self.assertEqual(metadata["enrollment"], "unfinished")
+            all_inputs, admission = enroll(
+                path, created_after=10, limit=4, per_repo_cap=4,
+                enrollment="admission_recorded",
+            )
+            self.assertEqual(len(all_inputs), 4)
+            self.assertEqual(admission["scanned_rows"], 4)
+            self.assertIsNone(admission["scanned_unfinished_rows"])
+            self.assertEqual(path.read_bytes(), before)
+            self.assertNotIn("FORBIDDEN_ANSWER", json.dumps(all_inputs))
+            self.assertNotIn("RULE_NOT_A_LABEL", json.dumps(all_inputs))
+            db = sqlite3.connect(path)
+            db.execute("UPDATE jobs SET state='FAILED',finished=40,result='DIFFERENT_OUTCOME'")
+            db.commit()
+            db.close()
+            terminal_bytes = path.read_bytes()
+            terminal_inputs, _ = enroll(
+                path, created_after=10, limit=4, per_repo_cap=4,
+                enrollment="admission_recorded",
+            )
+            self.assertEqual(terminal_inputs, all_inputs)
+            self.assertEqual(path.read_bytes(), terminal_bytes)
+            # Restore the fixture's two unfinished rows for existing checks.
+            db = sqlite3.connect(path)
+            db.execute("UPDATE jobs SET state='PENDING',finished=NULL WHERE id IN ('0','1')")
+            db.commit()
+            db.close()
             self.assertEqual(
                 len(enroll(path, created_after=22, limit=2, per_repo_cap=2)[0]), 0
             )
@@ -117,9 +144,63 @@ class PendingCohortTests(unittest.TestCase):
             {"created_after": -1},
             {"created_after": 0, "limit": 0},
             {"created_after": 0, "scan_limit": 3000},
+            {"created_after": 0, "decision_point": "unknown"},
+            {"created_after": 0, "enrollment": "best_outcomes"},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 enroll(Path("missing"), **kwargs)
+
+    def test_initial_decisions_are_separate_from_followup_cohorts(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "scout.sqlite"
+            db = sqlite3.connect(path)
+            db.executescript("""
+                CREATE TABLE jobs (id TEXT,packet TEXT,created REAL,finished REAL,state TEXT,result TEXT);
+                CREATE TABLE research_action_shadow (job_id TEXT,policy_version TEXT,
+                    packet_sha256 TEXT,recorded_at REAL,suggested_action TEXT,reason TEXT);
+            """)
+            for index, stage in enumerate(("source_audit", "issue_triage", "source_followup")):
+                packet = {
+                    "repo": "owner/repo",
+                    "research": {"stage": stage},
+                    "sources": [{
+                        "url": f"https://raw.githubusercontent.com/owner/repo/{'a' * 40}/{index}.py"
+                    }],
+                }
+                if stage == "source_followup":
+                    packet["research"]["parent_job_id"] = "parent"
+                    packet["untrusted_prior_analysis"] = "Previous hypothesis"
+                raw = json.dumps(packet)
+                db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?)",
+                           (str(index), raw, 20, None, "PENDING", "FORBIDDEN_ANSWER"))
+                db.execute("INSERT INTO research_action_shadow VALUES (?,?,?,?,?,?)",
+                           (str(index), "policy", hashlib.sha256(raw.encode()).hexdigest(),
+                            21, "RULE_NOT_A_LABEL", "reason"))
+            db.commit()
+            db.close()
+            before = path.read_bytes()
+            initial, metadata = enroll(path, created_after=10, limit=3,
+                                       per_repo_cap=3, decision_point="initial")
+            followup, _ = enroll(path, created_after=10, limit=3, per_repo_cap=3)
+            self.assertEqual(len(initial), 2)
+            self.assertEqual(len(followup), 1)
+            self.assertEqual(metadata["decision_point"], "initial")
+            self.assertEqual(path.read_bytes(), before)
+            self.assertNotIn("FORBIDDEN_ANSWER", json.dumps(initial))
+            self.assertNotIn("RULE_NOT_A_LABEL", json.dumps(initial))
+            self.assertNotIn("untrusted_prior_analysis", json.dumps(initial))
+            for field, value in (("parent_job_id", "parent"), ("root_job_id", "root")):
+                db = sqlite3.connect(path)
+                packet = json.loads(db.execute("SELECT packet FROM jobs WHERE id='0'").fetchone()[0])
+                packet["research"][field] = value
+                raw = json.dumps(packet)
+                db.execute("UPDATE jobs SET packet=? WHERE id='0'", (raw,))
+                db.execute("UPDATE research_action_shadow SET packet_sha256=? WHERE job_id='0'",
+                           (hashlib.sha256(raw.encode()).hexdigest(),))
+                db.commit()
+                db.close()
+                self.assertEqual(len(enroll(path, created_after=10, limit=3, per_repo_cap=3,
+                                            decision_point="initial")[0]), 1)
 
 
 if __name__ == "__main__":

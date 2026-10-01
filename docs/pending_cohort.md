@@ -1,7 +1,10 @@
 # Small, unfinished-task shadow cohorts
 
 `scripts/scout_pending_cohort.py` takes a bounded **read-only snapshot** of
-unfinished Scout follow-up/reproduction-plan jobs created after a chosen cutoff.
+unfinished Scout jobs created after a chosen cutoff. The default `followup`
+decision point selects follow-up/reproduction-plan jobs; `--decision-point initial`
+separately selects first source-audit/issue-triage decisions and forbids inherited
+analyses and lineage IDs in their original packets.
 Unlike the historical development sampler, enrollment is not stratified by the
 task's later answer. It checks each packet against the admission-time shadow
 hash, keeps prior hypotheses, and exports no current answer or token charge.
@@ -15,6 +18,9 @@ python scripts/scout_pending_cohort.py --db /path/to/scout.sqlite \
 The output directory must be new. Fewer than the requested number of cases is a
 valid undersized draw, not permission to fill it with successful historical
 examples. The tool neither mutates Scout nor routes, rejects or executes tasks.
+Changing the decision point creates a separate cohort, not a way to fill a sparse
+follow-up draw. Keep the decision point in the outcome-side metadata and report
+the two populations separately.
 
 `blind-inputs.jsonl` contains decision input. `selection-outcome-side.json` holds
 original job IDs, lineage roots and the native rule: keep that second file away
@@ -35,6 +41,27 @@ an independent quality label, or evidence of accuracy, PR conversion or recall.
 An exposed pilot cannot become an untouched holdout. To test utility, compare
 rules, cheap and strong models and the optional scorer under the same complete
 cost budget; include a constant-action baseline and audit missed valuable leads.
+
+## Admission-recorded inputs, including fast-completed tasks
+
+The default unfinished-task snapshot can miss a task that completes between
+admission and manual sampling. For a separately declared cohort, use
+`--enrollment admission_recorded`. It selects chronological, hash-bound inputs
+from the existing admission shadow, regardless of later task state. It never
+reads answers, token charges or terminal-state strata; all existing repository,
+source and decision-point caps still apply. The database stays read-only.
+
+Declare the cutoff, caps, decision point and sampling rule before the intended
+future stream begins, then export to a new directory with that same cutoff.
+Do not move the cutoff or fill the sample from known successful cases.
+`scanned_rows` counts all scanned admission records; `scanned_unfinished_rows`
+is null in this mode rather than implying that tasks were still unfinished.
+
+This removes one duration-related enrollment exclusion, not every selection
+bias. Predictions may be collected after the production worker has finished;
+record their times and keep its answers hidden until predictions are frozen.
+The export cannot prove those precautions, make prior exposed tasks a holdout,
+or establish an online intervention, matched total cost or routing benefit.
 
 ## Initial bounded pilot (2026-09-30)
 

@@ -1,4 +1,4 @@
-"""Freeze unfinished Scout follow-ups without reading their later answers.
+"""Freeze Scout decision inputs without reading their later answers.
 
 This is read-only enrollment for a shadow pilot, not a routing experiment or a
 quality label. The native rule and lineage IDs stay outside model-visible input.
@@ -17,12 +17,21 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 
-def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200):
+DECISION_STAGES = {
+    "initial": frozenset(("source_audit", "issue_triage")),
+    "followup": frozenset(("source_followup", "reproduction_plan")),
+}
+
+
+def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200,
+           decision_point="followup", enrollment="unfinished"):
     if (
         not math.isfinite(created_after)
         or created_after < 0
         or not 1 <= limit <= scan_limit <= 2000
         or not 1 <= per_repo_cap <= limit
+        or decision_point not in DECISION_STAGES
+        or enrollment not in ("unfinished", "admission_recorded")
     ):
         raise ValueError("invalid cutoff or bounded sample caps")
     db = sqlite3.connect(f"file:{Path(db_path).resolve().as_posix()}?mode=ro", uri=True)
@@ -30,12 +39,15 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200):
     try:
         db.execute("BEGIN")
         # Never SELECT result, model answer, charge, or terminal-state strata.
+        unfinished_clause = (
+            "AND j.finished IS NULL AND j.state IN ('PENDING','RUNNING') "
+            if enrollment == "unfinished" else ""
+        )
         rows = db.execute(
             "SELECT j.id,j.packet,j.created,s.policy_version,s.packet_sha256,"
             "s.recorded_at,s.suggested_action,s.reason FROM jobs j "
             "JOIN research_action_shadow s ON s.job_id=j.id "
-            "WHERE j.created>=? AND j.finished IS NULL "
-            "AND j.state IN ('PENDING','RUNNING') "
+            "WHERE j.created>=? " + unfinished_clause +
             "ORDER BY j.created,j.id LIMIT ?",
             (created_after, scan_limit),
         ).fetchall()
@@ -58,11 +70,16 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200):
         research = packet.get("research")
         if (
             not isinstance(research, dict)
-            or research.get("stage") not in ("source_followup", "reproduction_plan")
-            or not research.get("parent_job_id")
-            or not isinstance(packet.get("untrusted_prior_analysis"), str)
+            or research.get("stage") not in DECISION_STAGES[decision_point]
             or not isinstance(packet.get("repo"), str)
         ):
+            continue
+        if decision_point == "initial":
+            if (research.get("parent_job_id") or research.get("root_job_id")
+                    or "untrusted_prior_analysis" in packet):
+                continue
+        elif (not research.get("parent_job_id")
+              or not isinstance(packet.get("untrusted_prior_analysis"), str)):
             continue
         digest = hashlib.sha256(row["packet"].encode("utf-8")).hexdigest()
         if digest != row["packet_sha256"] or digest in packets:
@@ -106,7 +123,7 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200):
             "job_id": row["id"],
             "created": row["created"],
             "lineage_root_job_id": research.get("root_job_id")
-            or research["parent_job_id"],
+            or research.get("parent_job_id") or row["id"],
             "native_rule": {
                 key: row[key]
                 for key in (
@@ -123,16 +140,24 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200):
         if len(inputs) == limit:
             break
     metadata = {
+        "enrollment": enrollment,
+        "decision_point": decision_point,
         "created_after": created_after,
         "snapshot_at": snapshot_at,
-        "scanned_unfinished_rows": len(rows),
+        "scanned_rows": len(rows),
+        "scanned_unfinished_rows": len(rows) if enrollment == "unfinished" else None,
         "requested": limit,
         "enrolled": len(inputs),
         "per_repo_cap": per_repo_cap,
         "repo_counts": dict(counts),
         "selection": selection,
         "limits": [
-            "Unfinished at the read transaction snapshot, not necessarily at later scoring.",
+            (
+                "Unfinished at the read transaction snapshot, not necessarily at later scoring."
+                if enrollment == "unfinished" else
+                "Admission-recorded inputs may already have completed; no later answer or state was used for selection."
+            ),
+            "A predeclared cutoff and predictions frozen before outcome access require separate evidence; this export alone is not prospective execution.",
             "Recent bounded queue slice, not random population sampling.",
             "Exact source URL dedup does not make same-revision cases independent.",
             "Enrollment alone is not budget-matched routing execution or accuracy evidence.",
@@ -150,6 +175,12 @@ def main():
     parser.add_argument("--limit", type=int, default=12)
     parser.add_argument("--per-repo-cap", type=int, default=4)
     parser.add_argument("--scan-limit", type=int, default=200)
+    parser.add_argument("--decision-point", choices=tuple(DECISION_STAGES), default="followup")
+    parser.add_argument(
+        "--enrollment", choices=("unfinished", "admission_recorded"),
+        default="unfinished",
+        help="admission_recorded retains fast-completed tasks without reading their answers",
+    )
     args = parser.parse_args()
     inputs, metadata = enroll(
         args.db,
@@ -157,6 +188,8 @@ def main():
         limit=args.limit,
         per_repo_cap=args.per_repo_cap,
         scan_limit=args.scan_limit,
+        decision_point=args.decision_point,
+        enrollment=args.enrollment,
     )
     args.output_dir.mkdir(parents=True, exist_ok=False)
     body = "".join(
