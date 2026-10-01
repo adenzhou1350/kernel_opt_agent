@@ -76,6 +76,10 @@
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
       "note": "The constructor assigns lower_bound; later getattr/direct reads do not prove it missing here. Fabricated objects are not supported-path evidence. Source falsification, not GPU/all-model correctness."
+    },
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorAdvancedIndexing.cpp#L490-L522",
+      "note": "Advanced indexing explicitly permits CPU indices or indices on the indexed tensor's device. A CPU boolean-mask fallback alone does not prove a CUDA device error. This is API-specific: index_copy_ in the same file requires the index, source and destination on one device; do not transfer either rule to every indexing operation."
     }
   ],
   "status": "counterexample"
