@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from pathlib import Path
 import re
 import time
 import urllib.parse
+from pathlib import Path
 
 import kimi_scout as scout
 
@@ -354,6 +354,19 @@ class PublicContext:
             evidence["exact_hint"] = exact_hint
             evidence["exact_hint_matched"] = exact_hint in evidence["text"]
         return evidence
+
+    def cached_source_text(self, repo, commit, path):
+        """Read a bounded existing pinned source cache; never fill it or fetch."""
+        repo, commit, path = _repo(repo), _sha(commit), _path(path)
+        url = (
+            f"https://raw.githubusercontent.com/{repo}/{commit}/"
+            + urllib.parse.quote(path, safe="/")
+        )
+        cached = self._load(self._cache_path("raw", [repo, commit, path]))
+        raw = cached.get("text") if cached and cached.get("url") == url else None
+        return (
+            raw if isinstance(raw, str) and len(raw.encode("utf-8")) <= 131072 else None
+        )
 
     def issue_page(self, repo, page=1):
         repo = _repo(repo)

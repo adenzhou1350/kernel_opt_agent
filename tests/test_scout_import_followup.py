@@ -1,0 +1,165 @@
+"""Offline real producer integration and cache-only acquisition boundaries."""
+
+import json
+import sys
+import tempfile
+import time
+import unittest
+from pathlib import Path
+from unittest.mock import Mock, patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import kimi_scout as scout
+import kimi_scout_research as research
+from kimi_scout_context import PublicContext
+
+COMMIT = "a" * 40
+
+
+class ImportFollowupTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        scout.initialize(self.root)
+        self.spec = {
+            "repo": "o/r",
+            "source_prefixes": ["src/"],
+            "question": "Find bugs",
+        }
+        self.value = {
+            "objective": "Test acquisition",
+            "queue_target": 4,
+            "repos": [self.spec],
+        }
+        self.config = self.root / "research.json"
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        self.context = Mock()
+        self.context.snapshot.return_value = {
+            "commit": COMMIT,
+            "files": [
+                "src/read.ts",
+                "src/read.test.ts",
+                "src/contracts.ts",
+                "src/version.ts",
+            ],
+        }
+        self.context.cached_source_text.return_value = (
+            'import type {Schema} from "./contracts.js"; '
+            'import {readVersion} from "./version.js";'
+        )
+        self.context.source.side_effect = lambda repo, commit, path, **kw: {
+            "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+            "text": f"1: content from {path}",
+        }
+        self.context.duplicate_sources.return_value = []
+        self.producer = research.ResearchProducer(
+            self.root, self.config, context=self.context
+        )
+        self.producer.emit(
+            "first",
+            self.spec,
+            [
+                {
+                    "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/src/read.ts",
+                    "text": "100: cached rows",
+                }
+            ],
+            "source_audit",
+        )
+
+    def finish(self, decision):
+        with scout.connect(self.root) as db:
+            db.execute(
+                "UPDATE jobs SET state='NEEDS_CONTEXT',finished=?,result=?",
+                (
+                    time.time(),
+                    json.dumps(
+                        {
+                            "analysis": {
+                                "decision": decision,
+                                "title": "cached read",
+                                "hypothesis": "untrusted hypothesis",
+                                "next_check": "Inspect Schema and readVersion",
+                            }
+                        }
+                    ),
+                ),
+            )
+
+    def paths(self):
+        return [
+            call.args[2] if len(call.args) > 2 else call.kwargs["path"]
+            for call in self.context.source.call_args_list
+        ]
+
+    def test_opt_in_missing_context_gets_two_definitions_not_another_test_window(self):
+        self.spec["followup_import_context"] = True
+        self.finish("needs_context")
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual(self.paths(), ["src/contracts.ts", "src/version.ts"])
+        self.context.cached_source_text.assert_called_once_with(
+            "o/r", COMMIT, "src/read.ts"
+        )
+        with scout.connect(self.root) as db:
+            packet = json.loads(
+                db.execute("SELECT packet FROM jobs WHERE state='PENDING'").fetchone()[
+                    0
+                ]
+            )
+        self.assertIn("src/contracts.ts", scout.dumps(packet))
+        self.assertNotIn("src/read.test.ts", scout.dumps(packet))
+        self.assertIn("untrusted_prior_analysis", packet)
+
+    def test_lead_keeps_companion_test_with_one_definition_same_two_read_budget(self):
+        self.spec["followup_import_context"] = True
+        self.finish("lead")
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual(self.paths(), ["src/contracts.ts", "src/read.test.ts"])
+
+    def test_default_is_unchanged_and_does_not_read_import_cache(self):
+        self.finish("needs_context")
+        with patch.object(research, "relevant_paths", return_value=["src/read.ts"]):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual(self.paths(), ["src/read.ts", "src/read.test.ts"])
+        self.context.cached_source_text.assert_not_called()
+
+    def test_absent_import_cache_retains_ordinary_test_path(self):
+        self.spec["followup_import_context"] = True
+        self.context.cached_source_text.return_value = None
+        self.finish("needs_context")
+        with patch.object(research, "relevant_paths", return_value=["src/read.ts"]):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual(self.paths(), ["src/read.ts", "src/read.test.ts"])
+
+    def test_opt_in_must_be_boolean_not_truthy_configuration(self):
+        self.spec["followup_import_context"] = "yes"
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "followup_import_context"):
+            research.configuration(self.config)
+
+    def test_public_context_cache_lookup_never_fetches_or_creates_missing_record(self):
+        context = PublicContext(self.root)
+        path = context._cache_path("raw", ["o/r", COMMIT, "src/read.ts"])
+        with patch.object(scout, "fetch", side_effect=AssertionError("network")):
+            self.assertIsNone(context.cached_source_text("o/r", COMMIT, "src/read.ts"))
+            self.assertFalse(path.exists())
+            scout.write_json(
+                path,
+                {
+                    "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/src/read.ts",
+                    "text": "exact cached text",
+                },
+            )
+            self.assertEqual(
+                context.cached_source_text("o/r", COMMIT, "src/read.ts"),
+                "exact cached text",
+            )
+            scout.write_json(
+                path, {"url": "https://example.com/foreign", "text": "bad"}
+            )
+            self.assertIsNone(context.cached_source_text("o/r", COMMIT, "src/read.ts"))
+
+
+if __name__ == "__main__":
+    unittest.main()
