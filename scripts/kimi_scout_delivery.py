@@ -503,6 +503,12 @@ class Delivery:
     def stopped(self):
         return self.halt.is_set() or (self.root / "STOP").exists()
 
+    def memory_admits_work(self, active):
+        reserve = getattr(self.args, "min_free_memory_mb", 0)
+        worker = getattr(self.args, "worker_memory_mb", 0)
+        free = scout.available_memory_mb() if reserve or worker else None
+        return scout.memory_admits_call(free, reserve, active, worker)
+
     def refill(self, active):
         """Refill drained batches promptly; back off only after exhausting new leads."""
         now = time.time()
@@ -955,6 +961,9 @@ class Delivery:
                 "pid": os.getpid(),
                 "state": state,
                 "heartbeat_at": time.time(),
+                "min_free_memory_mb": getattr(self.args, "min_free_memory_mb", 0),
+                "worker_memory_mb": getattr(self.args, "worker_memory_mb", 0),
+                "memory_paused": state == "MEMORY_PAUSED",
                 "concurrency": self.args.concurrency,
                 "execution_concurrency": self.args.execution_concurrency,
                 "counts": counts,
@@ -996,12 +1005,14 @@ class Delivery:
                         if failures >= 2:
                             cooldown, failures = time.time() + 600, 0
                     capped = self.args.max_jobs and started >= self.args.max_jobs
-                    if not capped:
+                    memory_paused = not self.memory_admits_work(len(running))
+                    if not capped and not memory_paused:
                         self.refill(len(running))
                     while (
                         not capped
                         and time.time() >= cooldown
                         and len(running) < self.args.concurrency
+                        and self.memory_admits_work(len(running))
                     ):
                         if self.halt.is_set() or (self.root / "STOP").exists():
                             break
@@ -1011,10 +1022,16 @@ class Delivery:
                         running.add(pool.submit(self.execute, job))
                         started += 1
                         capped = self.args.max_jobs and started >= self.args.max_jobs
-                    self.publish("COOLDOWN" if time.time() < cooldown else "RUNNING")
+                    self.publish(
+                        "MEMORY_PAUSED"
+                        if memory_paused
+                        else "COOLDOWN"
+                        if time.time() < cooldown
+                        else "RUNNING"
+                    )
                     if capped and not running:
                         break
-                    self.halt.wait(0.5)
+                    self.halt.wait(5 if memory_paused and not running else 0.5)
             finally:
                 self.halt.set()
                 pool.shutdown(wait=True)
@@ -1032,6 +1049,8 @@ def main():
         "--stop", action="store_true", help="drain this delivery worker only"
     )
     parser.add_argument("--concurrency", type=int, choices=range(1, 17), default=16)
+    parser.add_argument("--min-free-memory-mb", type=int, default=2048)
+    parser.add_argument("--worker-memory-mb", type=int, default=256)
     parser.add_argument(
         "--execution-concurrency", type=int, choices=range(1, 5), default=4
     )
@@ -1054,6 +1073,11 @@ def main():
         "--max-jobs", type=int, default=0, help="0 continues on new unseen leads"
     )
     args = parser.parse_args()
+    if not (
+        0 <= args.min_free_memory_mb <= 1_048_576
+        and 0 <= args.worker_memory_mb <= 1_048_576
+    ):
+        parser.error("memory budgets must be between 0 and 1048576 MiB")
     if args.reject_owner_job or args.reject_reason or args.reject_evidence_url:
         if args.stop or args.route_blocked_gpu or args.max_jobs:
             parser.error("source rejection is a separate owner operation")

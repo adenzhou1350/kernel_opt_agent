@@ -89,6 +89,48 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(len(ids), 8)
         self.assertEqual(len(set(ids)), 8)
 
+    def test_memory_admission_reserves_inflight_headroom_and_handles_unknown(self):
+        self.args.min_free_memory_mb = 2048
+        self.args.worker_memory_mb = 256
+        with patch.object(delivery.scout, "available_memory_mb", return_value=2560):
+            self.assertTrue(self.worker.memory_admits_work(0))
+            self.assertTrue(self.worker.memory_admits_work(1))
+            self.assertFalse(self.worker.memory_admits_work(2))
+        with patch.object(delivery.scout, "available_memory_mb", return_value=None):
+            self.assertFalse(self.worker.memory_admits_work(0))
+        self.args.min_free_memory_mb = self.args.worker_memory_mb = 0
+        with patch.object(delivery.scout, "available_memory_mb") as probe:
+            self.assertTrue(self.worker.memory_admits_work(3))
+            probe.assert_not_called()
+
+    def test_memory_pause_does_not_claim_queued_work_and_remains_visible(self):
+        self.args.max_jobs = 0
+        self.args.min_free_memory_mb = 2048
+        self.args.worker_memory_mb = 256
+        delivery.stage(self.worker.root, [lead(1)], 1)
+        with (
+            patch.object(delivery.scout, "available_memory_mb", return_value=1024),
+            patch.object(self.worker, "refill") as refill,
+            patch.object(self.worker, "execute") as execute,
+            patch.object(
+                self.worker.halt, "wait", side_effect=lambda _: self.worker.halt.set()
+            ),
+        ):
+            self.worker.run()
+        refill.assert_not_called()
+        execute.assert_not_called()
+        with delivery.database(self.worker.root) as db:
+            self.assertEqual(
+                db.execute("SELECT state FROM delivery").fetchone()[0], "PENDING"
+            )
+        # Stop is terminal; the explicit pause status can also be observed while live.
+        self.worker.publish("MEMORY_PAUSED")
+        runtime = json.loads(
+            (self.worker.root / "runtime.json").read_text(encoding="utf-8")
+        )
+        self.assertTrue(runtime["memory_paused"])
+        self.assertEqual(runtime["min_free_memory_mb"], 2048)
+
     def test_queue_uses_wal_and_a_bounded_busy_timeout(self):
         with delivery.database(self.worker.root) as db:
             self.assertEqual(db.execute("PRAGMA journal_mode").fetchone()[0], "wal")
