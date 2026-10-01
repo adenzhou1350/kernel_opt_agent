@@ -217,6 +217,7 @@ class DeliveryTests(unittest.TestCase):
         ]
         with (
             patch.object(sys, "argv", arguments),
+            patch.object(delivery, "local_wsl_authorized", return_value=True),
             patch.object(delivery.Delivery, "run", autospec=True) as run,
         ):
             delivery.main()
@@ -634,6 +635,7 @@ class DeliveryTests(unittest.TestCase):
                 self.assertEqual(state, "FAILED")
 
     def test_sandbox_transport_or_cleanup_uncertainty_stops_new_work(self):
+        self.args.allow_local_wsl = True  # subprocess is mocked, not an authorization
         work = self.worker.root / "jobs" / "a"
         work.mkdir()
         for response in (
@@ -653,6 +655,57 @@ class DeliveryTests(unittest.TestCase):
                 except RuntimeError:
                     pass
             self.assertTrue(self.worker.halt.is_set())
+
+    def test_local_wsl_requires_explicit_boolean_opt_in_only_on_windows(self):
+        with patch.object(delivery.os, "name", "nt"):
+            self.assertFalse(delivery.local_wsl_authorized(self.args))
+            self.args.allow_local_wsl = "true"
+            self.assertFalse(delivery.local_wsl_authorized(self.args))
+            self.args.allow_local_wsl = True
+            self.assertTrue(delivery.local_wsl_authorized(self.args))
+        self.args.allow_local_wsl = False
+        with patch.object(delivery.os, "name", "posix"):
+            self.assertTrue(delivery.local_wsl_authorized(self.args))
+
+    def test_unapproved_sandbox_has_no_subprocess_or_storage_side_effect(self):
+        with patch.object(delivery, "local_wsl_authorized", return_value=False), \
+                patch.object(delivery.subprocess, "run") as execute, \
+                patch.object(delivery.scout, "runtime_storage_env") as storage:
+            observed = self.worker.sandbox(self.worker.root, 1, "stdlib")
+        self.assertTrue(observed["inconclusive"])
+        self.assertIn("explicit authorization", observed["error"])
+        self.assertTrue(self.worker.halt.is_set())
+        execute.assert_not_called()
+        storage.assert_not_called()
+        self.assertFalse((self.worker.root / "execution-1.json").exists())
+
+    def test_cli_rejects_unapproved_delivery_before_creating_worker(self):
+        with patch.object(delivery, "local_wsl_authorized", return_value=False), \
+                patch.object(delivery, "Delivery") as worker, \
+                patch.object(sys, "argv", ["delivery", "--root", str(self.inbox)]), \
+                patch("sys.stderr", new_callable=io.StringIO) as errors:
+            with self.assertRaises(SystemExit) as failure:
+                delivery.main()
+        self.assertEqual(failure.exception.code, 2)
+        self.assertIn("--allow-local-wsl", errors.getvalue())
+        worker.assert_not_called()
+
+    def test_cli_stop_does_not_require_wsl_permission(self):
+        with patch.object(delivery, "local_wsl_authorized", return_value=False), \
+                patch.object(delivery, "Delivery") as worker, \
+                patch.object(sys, "argv", ["delivery", "--root", str(self.inbox), "--stop"]):
+            delivery.main()
+        self.assertTrue((self.worker.root / "STOP").is_file())
+        worker.assert_not_called()
+
+    def test_explicit_cli_opt_in_reaches_worker_without_running_it(self):
+        (self.inbox / "scout.sqlite").touch()
+        with patch.object(delivery, "Delivery") as worker, \
+                patch.object(sys, "argv", ["delivery", "--root", str(self.inbox),
+                    "--kimi-python", sys.executable, "--allow-local-wsl"]):
+            delivery.main()
+        self.assertTrue(worker.call_args.args[0].allow_local_wsl)
+        worker.return_value.run.assert_called_once_with()
 
     def test_stop_blocks_new_model_and_container_stages(self):
         (self.worker.root / "STOP").write_text("owner stop", encoding="utf-8")
