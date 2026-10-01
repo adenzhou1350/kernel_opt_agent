@@ -2,12 +2,20 @@
   "id": "consumer-contract-before-regression",
   "title": "Establish the consumer contract before writing a failing regression",
   "applies_when": "A candidate alleges a formatting, validation, shape, resource-budget or backend-support mismatch from a helper name, comment or partial source window, and proposes expected behavior without tracing the producer and consumer.",
-  "lesson": "Trace production, allocation, transformations and consumption before choosing expected behavior. Distinguish DNS-SD instance labels from hostnames, captured token capacity from request count, and registered kernel geometry from excluded examples in comments. Fabricated inconsistent internal metadata does not establish a reachable defect. Passing a shape/dtype validator is not proof that empty or sentinel-only input belongs to the complete contract; inspect downstream edge-count and work-geometry requirements. Missing validation alone does not establish the proposed invariant. A device-assertion change is not backend support: require a supported caller and checked native outputs. For an allegedly unguarded fallback, intersect its trigger with native launch constraints before allocating a huge reproduction. Seek an observable consumer failure before environment repair or publication.",
+  "lesson": "Trace production, allocation, transformations and consumption before choosing expected behavior. Read later assignments too: a suspicious intermediate registry value may be overwritten before consumption. Distinguish DNS-SD instance labels from hostnames, captured token capacity from request count, and registered kernel geometry from excluded examples in comments. Fabricated inconsistent internal metadata does not establish a reachable defect. Passing a shape/dtype validator is not proof that empty or sentinel-only input belongs to the complete contract; inspect downstream edge-count and work-geometry requirements. Missing validation alone does not establish the proposed invariant. A device-assertion change is not backend support: require a supported caller and checked native outputs. For an allegedly unguarded fallback, intersect its trigger with native launch constraints before allocating a huge reproduction. Seek an observable consumer failure before environment repair or publication.",
   "avoid_when": "Reachable malformed inputs, escaping/length violations or supported shape mutations can be real defects. Error wording may have its own documented API contract. Callback stand-ins must preserve backend transformations: RoPE+SDPA may return BHSD from BSHD even when plain SDPA preserves shape. Baseline-fail/patch-pass against an invented callback is insufficient. Static review falsifies a specific claim; it does not prove native or general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
+      "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/src/megatron_fsdp/utils.py#L655-L662",
+      "note": "Later expert registrations overwrite dense entries when the expert mesh contains the same dimensions. Missing dimensions can leave a dense entry; that anomaly alone does not prove a supported training failure."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/mcore_fsdp_adapter.py#L470-L497",
+      "note": "The HSDP adapter constructs matching dense/expert dimension names. A mismatched-mesh regression needs a separate supported caller, not this producer."
+    },
+    {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/240de7a90bd43d663e3eb93429bf47559b50fd5b/flashinfer/msa_ops/_blackwell_sm100_reverse_plan.py#L253",
-      "note": "The analyzer can divide by zero for all-invalid q2k, but the shipped builders require full per-head edges and fixed work geometry. A zero-utilization guard alone cannot establish empty-route kernel support. This leaves a possible standalone diagnostic contract open; not proof that malformed-input behavior is always irrelevant."
+      "note": "All-invalid q2k can divide by zero, but shipped builders require full per-head edges and fixed geometry. A zero guard does not establish empty-route kernel support; the standalone diagnostic contract remains open."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/flashinfer/comm/trtllm_ar.py#L879",
@@ -55,7 +63,7 @@
     },
     {
       "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_pipeline_a16w16_mono_tile_gfx950.cuh",
-      "note": "Padded two-slot A/three-slot B formulas give 66-148.5 KiB for registered B_K=64, below 160 KiB; excluded B_K=128 examples give 165/231 KiB. Source arithmetic, not compiled HIP resources or GPU correctness."
+      "note": "Padded A/B formulas give 66-148.5 KiB for registered B_K=64 (<160 KiB); excluded B_K=128 gives 165/231 KiB. Source arithmetic, not compiled HIP or GPU correctness."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/104283d1a23c4eb7da20b038ee2a497afc86b06a/flashinfer/utils.py#L1507",
@@ -67,7 +75,7 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
-      "note": "The owning constructor always assigns lower_bound. The later getattr/direct read does not prove a missing attribute for this constructor. Inspect the owning class; fabricated objects are not supported-path evidence. Source falsification, not GPU/all-model correctness."
+      "note": "The constructor assigns lower_bound; later getattr/direct reads do not prove it missing here. Fabricated objects are not supported-path evidence. Source falsification, not GPU/all-model correctness."
     }
   ],
   "status": "counterexample"
