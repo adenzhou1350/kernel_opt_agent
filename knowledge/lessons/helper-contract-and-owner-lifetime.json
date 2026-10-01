@@ -38,8 +38,8 @@
       "note": "runPluginDoctorStateMigrationPlans spreads migrated before optionally adding combined notices. With empty collected.notices, migrated.notices remains present; inspecting only the conditional block manufactures a field-loss hypothesis. This is ordered result-expression evidence, not a full Doctor/migration test."
     },
     {
-      "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Spread_syntax",
-      "note": "Object spread copies enumerable own properties; later properties overwrite earlier values. An omitted conditional spread contributes no properties rather than deleting an earlier one. Documentation supports the language mechanism, not a repository-wide correctness result."
+      "url": "https://github.com/openclaw/openclaw/blob/bf3f9d7256f25ef80cde36dbb2c2061d085e9eea/src/infra/update-candidate-canary.ts#L645-L718",
+      "note": "The outer catch converts plugin/runtime JSON.parse errors into candidate failure facts, reports the failed step and returns status=error. A window ending at line 481 omits this handler. Static counterexample to an uncaught-error claim, not native execution or proof that every diagnostic is ideal."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/9deb117bfb8aad2bd08ed781238483be3dec9810/flashinfer/comm/mnnvl_cutedsl/config.py",
