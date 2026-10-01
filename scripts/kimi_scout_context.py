@@ -90,6 +90,14 @@ def _definition_line(lines, hints):
         if match and match[1] in priority:
             name = match[1]
             matches.append((name not in qualified, priority[name], index))
+    # Long issue headers can push the exact class past the generic 32-word
+    # fallback. Prefer one observed class unless a qualified member matched.
+    class_names = set(re.findall(r"\b[A-Z][A-Za-z0-9]{5,127}\b", hints))
+    class_matches = [index for index, line in enumerate(lines)
+                     if (match := re.match(r"^\s*(?:export\s+)?class\s+([A-Za-z_]\w*)\b", line))
+                     and match[1] in class_names]
+    if len(class_matches) == 1 and not any(not match[0] for match in matches):
+        return class_matches[0]
     return min(matches)[2] if matches else None
 
 

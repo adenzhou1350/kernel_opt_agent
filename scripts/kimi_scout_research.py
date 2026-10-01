@@ -388,7 +388,19 @@ def continuation_request(packet, snapshot, analysis):
 
 def relevant_paths(snapshot, hints, exclude=()):
     """Rank *observed tree members*; never interpret hints as a fetch target."""
-    hints = hints.lower()[:16000]
+    hints = hints[:16000]
+    # A report often names FlashInferMLASparseMetadataBuilder, not its
+    # flashinfer_mla_sparse.py module. Keep CamelCase prefix hints weaker than
+    # literal paths/filenames, and require a complete component boundary.
+    class_prefixes = set()
+    for symbol in re.findall(r"\b[A-Z][A-Za-z0-9]{5,127}\b", hints):
+        if not any(char.islower() for char in symbol):
+            continue
+        class_prefixes.update(
+            symbol[:end].lower() for end in range(10, len(symbol) + 1)
+            if end == len(symbol) or symbol[end].isupper()
+        )
+    hints = hints.lower()
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
     ranked = []
     for path in snapshot["files"]:
@@ -405,6 +417,9 @@ def relevant_paths(snapshot, hints, exclude=()):
         score = 100 if exact_path else 50 if name in hints else 0
         if len(stem) >= 5 and stem in words:
             score += 10
+        compact = stem.replace("_", "")
+        if "_" in stem and len(compact) >= 10 and compact in class_prefixes:
+            score += 20 + min(len(compact), 20)
         if score:
             ranked.append((-score, path))
     return [path for _, path in sorted(ranked)]

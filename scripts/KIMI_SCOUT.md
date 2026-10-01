@@ -580,6 +580,13 @@ duplicate declarations and competing imported/local names abstain. Already
 supplied definition windows are not fetched again. Missing context does not
 prove a defect, and selecting a declaration does not resolve every caller.
 
+Issue/source hints also associate bounded CamelCase class prefixes with compound
+snake-case module names already present in the pinned tree. Literal paths and
+filenames rank first. A single exact observed class can anchor a source window
+past long issue headers; qualified methods keep precedence. This is a naming
+heuristic, not a symbol index, and adds no reads or packet budget. Ambiguous
+classes retain lexical selection; inspect the delivered window before testing.
+
 This substitutes at most two definition reads for existing lexical/test reads.
 Import lookup does not fetch or fill the primary cache; selected definitions use
 the ordinary bounded source-acquisition path. It adds no model call, execution
