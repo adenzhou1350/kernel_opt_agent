@@ -1,0 +1,18 @@
+{
+  "id": "scalar-to-broadcast-dtype-promotion",
+  "title": "A scalar-to-broadcast rewrite can change output dtype",
+  "applies_when": "Vectorizing Torch normalization, clipping or per-sample scaling replaces a zero-dimensional reduction or multiplier with a dimensioned broadcast tensor, especially with FP16/BF16 inputs and FP32 statistics.",
+  "lesson": "Check output dtype separately from approximate value equality. A same-category FP32 scalar and a broadcast FP32 tensor can promote low-precision inputs differently. Test supported low-precision dtypes, clamped and unclamped inputs, zeros, and singleton reference behavior. If the contract requires the original output dtype, explicitly restore it at the appropriate arithmetic boundary and verify rounding against the original reference; casting the scale before multiplication is not necessarily equivalent to casting the product afterward. A passing FP32 batch-independence test does not cover this contract.",
+  "avoid_when": "Do not downcast outputs that are intentionally higher precision, generalize Torch promotion rules to other backends without checking them, or infer GPU/image-generation correctness from a CPU component test. Exact singleton parity may require more than restoring the dtype because reduction order and rounding can change.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.14/tensor_attributes.html#torch-dtype",
+      "note": "Official dtype documentation distinguishes zero-dimensional operands from dimensioned operands in arithmetic promotion. This is a mechanism, not a performance result."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/41706#issuecomment-5923385134",
+      "note": "Independent standalone import of exact PR head 5b132fc on Torch 2.13.0+cpu reproduced FP16/BF16 promotion to FP32. Restoring the product dtype passed the reported limited component checks, including singleton reference parity; neither the repository suite nor image generation was tested."
+    }
+  ],
+  "status": "validated"
+}

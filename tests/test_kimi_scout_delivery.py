@@ -62,6 +62,11 @@ def result(before=1, fixed=0, *, count=2, output="", cleanup=True):
 
 
 class DeliveryTests(unittest.TestCase):
+    def test_cpu_prompt_checks_dtype_and_singleton_contract_without_forcing_unsupported_dtypes(self):
+        self.assertIn("broadcasting may change promotion and output dtype", delivery.PROMPT)
+        self.assertIn("singleton reference parity", delivery.PROMPT)
+        self.assertIn("only dtypes actually supported", delivery.PROMPT)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
