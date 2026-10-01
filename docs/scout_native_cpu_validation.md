@@ -209,6 +209,13 @@ budget-matched multi-router result. Strong-model/owner-review costs were not
 independently metered. Keep raw inputs, packages and logs in local runs; do not
 expand continuous admission merely because a native baseline passed.
 
+An exposed development replay found that the existing follow-up selector already
+retrieved the complete reset regression (lines 106–185) and the requested owning
+caller (55–174). One capped Kimi follow-up then returned `NO_LEAD`, using 5,911
+reported tokens in 6.56 seconds. No retrieval-code change was needed for this
+case. This is a falsification check on an already reviewed example, not a held-out
+utility comparison; it does not establish that every initial `NO_LEAD` is correct.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the
