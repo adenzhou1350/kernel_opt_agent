@@ -251,6 +251,21 @@ This release-level check does not qualify current main or the existing
 was opened. Before claiming backend coverage, add a targeted realized-backend
 assertion where wrapper caching can change execution; labels alone are insufficient.
 
+## Keep issue endings visible before planning a competing fix
+
+Long issue bodies now keep literal head/tail excerpts in the existing 5,000-character
+budget, rather than only the beginning. The same rule applies to issue-page intake,
+full-issue follow-ups and later packet-budget trimming. A visible omission marker
+and `truncated` flag preserve the partial-evidence boundary. No extra GET or model
+call is added, and the global input-byte cap is unchanged.
+
+This exposes closing paragraphs that may contain an existing local correction,
+linked work or an author's offer to submit. It does not classify ownership, grant
+permission, guarantee every relevant sentence survives, or replace reading the
+complete current issue/comments before publication. Already clipped historical
+packets cannot recover missing text without fresh evidence. A replay on a case
+used to develop this change is an exposed canary, not a holdout benefit estimate.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the

@@ -22,6 +22,7 @@ from kimi_scout_context import PublicContext
 from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
+from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_publication_context import fit_publication_context, publication_context
 
 SOURCE_SUFFIXES = (
@@ -658,7 +659,12 @@ class ResearchProducer:
                 "_scout_pretrim_sha256",
                 hashlib.sha256(longest["text"].encode("utf-8")).hexdigest(),
             )
-            longest["text"] = longest["text"][: int(len(longest["text"]) * 0.75)]
+            size = int(len(longest["text"]) * 0.75)
+            longest["text"] = (
+                issue_text_excerpt(longest["text"], size)
+                if longest.get("issue_excerpt") == "head-tail"
+                else longest["text"][:size]
+            )
             longest["truncated"] = True
             if "requested_definition_complete" in longest:
                 longest["requested_definition_complete"] = False
@@ -744,10 +750,11 @@ class ResearchProducer:
                 items.pop(0)
                 continue
             sources = [
-                scout.evidence(
+                issue_evidence(
                     item["html_url"],
-                    item["title"] + "\n" + (item.get("body") or ""),
-                    5000,
+                    item["title"],
+                    item.get("body") or "",
+                    already_truncated=item.get("truncated", False),
                 )
             ]
             snapshot = self.current_snapshot(spec)

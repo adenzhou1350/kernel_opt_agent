@@ -10,6 +10,7 @@ import urllib.parse
 from pathlib import Path
 
 import kimi_scout as scout
+from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_requested_definition import requested_function_window
 
 SNAPSHOT_TTL = 900
@@ -418,7 +419,7 @@ class PublicContext:
                 {
                     "number": number,
                     "title": title[:500],
-                    "body": body[:5000],
+                    "body": issue_text_excerpt(body, 5000),
                     "updated_at": _text(item.get("updated_at")),
                     "state": "open",
                     "labels": [
@@ -443,9 +444,7 @@ class PublicContext:
         kind = "pull" if "pull_request" in item else "issues"
         url = f"https://github.com/{repo}/{kind}/{number}"
         result = [
-            scout.evidence(
-                url, _text(item.get("title")) + "\n" + _text(item.get("body")), 5000
-            )
+            issue_evidence(url, _text(item.get("title")), _text(item.get("body")))
         ]
         comments = []
         if item.get("comments") != 0:
