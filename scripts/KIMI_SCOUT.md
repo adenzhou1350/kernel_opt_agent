@@ -409,10 +409,31 @@ python scripts/kimi_scout_delivery.py --root runs/kimi-scout \
 
 `OWNER_PARKED` leaves the current owner queue but preserves tests, source, tokens,
 prior status and the decision in SQLite. It is neither a false-positive verdict
-nor a qualified PR, and does not suppress other hypotheses. The command requires
-an inactive delivery worker, makes no model/network/GPU calls, and refreshes the
-queue snapshot without replacing the worker PID/state/heartbeat. Revisit only
+nor a qualified PR, and does not suppress other hypotheses. The command makes
+no model/network/GPU calls. An immediate database transaction serializes the
+decision with worker writes; active candidates cannot be parked. When the worker
+is idle, it refreshes the queue without replacing its PID/state/heartbeat;
+otherwise the running worker owns the next snapshot refresh. Revisit only
 when the recorded evidence condition is met; no automatic retry is implied.
+
+After independently reviewing and publishing a candidate, link its exact ID to
+the existing PR. This records publication; it does not create or verify the PR:
+
+```sh
+python scripts/kimi_scout_delivery.py --root runs/kimi-scout \
+  --mark-pr-job <candidate-id> --pr-url https://github.com/owner/repo/pull/123
+```
+
+The normal path requires a matching owner-handoff artifact. If the owner instead
+independently reproduced an `ENVIRONMENT_BLOCKED` candidate in a suitable
+environment, add `--owner-reproduced-after-block`. For an explicitly reviewed
+legacy `REPRODUCED` entry without a handoff, use `--owner-verified-legacy` instead.
+These are separate owner attestations, not automatic evidence upgrades. Prior
+results and reported costs remain intact; neither flag can promote an executing
+candidate. Repeating the same link is idempotent, while a different repository or
+replacement PR is rejected. Like parking, publication can be recorded while the
+worker runs without overwriting its snapshots. It makes no model/network/GPU
+calls and implies no CI, maintainer approval or merge.
 The owner queue groups only byte-identical patch files within one repository:
 the displayed entry lists duplicate job IDs found in its bounded scan. Every
 original job and its evidence stays in SQLite. The raw owner-ready count is
