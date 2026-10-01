@@ -111,6 +111,40 @@ class ImportFollowupTests(unittest.TestCase):
         self.assertNotIn("src/read.test.ts", scout.dumps(packet))
         self.assertIn("untrusted_prior_analysis", packet)
 
+    def test_same_file_helper_substitutes_for_another_callsite_window(self):
+        self.spec["followup_import_context"] = True
+        self.context.cached_source_text.return_value = (
+            "\n" * 29
+            + """function readVersion() {
+  return process.platform !== "win32" || inode !== 0n;
+}
+"""
+            + "\n" * 130
+        )
+        self.finish("needs_context")
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertLessEqual(len(self.context.source.call_args_list), 2)
+        call = self.context.source.call_args_list[-1]
+        self.assertEqual(
+            call.kwargs, {"path": "src/read.ts", "start": 22, "max_lines": 80}
+        )
+        self.context.cached_source_text.assert_called_once_with(
+            "o/r", COMMIT, "src/read.ts"
+        )
+
+    def test_lead_local_helper_keeps_companion_test_without_extra_reads(self):
+        self.spec["followup_import_context"] = True
+        self.context.cached_source_text.return_value = (
+            "\n" * 29 + "function readVersion() {}\n" + "\n" * 130
+        )
+        self.finish("lead")
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual(self.paths(), ["src/read.ts", "src/read.test.ts"])
+        self.assertEqual(
+            self.context.source.call_args_list[0].kwargs,
+            {"path": "src/read.ts", "start": 22, "max_lines": 80},
+        )
+
     def test_lead_keeps_companion_test_with_one_definition_same_two_read_budget(self):
         self.spec["followup_import_context"] = True
         self.finish("lead")

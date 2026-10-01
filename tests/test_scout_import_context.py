@@ -12,6 +12,105 @@ COMMIT = "a" * 40
 
 
 class ImportContextTests(unittest.TestCase):
+    def test_requested_same_file_identity_helper_precedes_an_import(self):
+        raw = (
+            'import {Schema} from "./contracts.js";\n'
+            + "\n" * 28
+            + """function sameRuntimeIdentity(expected, current) {
+  return expected !== undefined && expected.dev === current.dev &&
+    (process.platform !== "win32" || current.ino !== 0n);
+}
+"""
+            + "\n" * 130
+            + "sameRuntimeIdentity(previous, previous);\n"
+        )
+        result, cache, _, _ = self.requests(
+            raw, "Inspect sameRuntimeIdentity and Schema"
+        )
+        self.assertEqual(
+            result,
+            [
+                {"path": "src/read.ts", "start": 22, "max_lines": 80},
+                {"path": "src/contracts.ts", "hints": "Schema", "max_lines": 80},
+            ],
+        )
+        cache.assert_called_once_with("o/r", COMMIT, "src/read.ts")
+
+    def test_local_definition_in_supplied_window_does_not_take_another_slot(self):
+        raw = 'import {Schema} from "./contracts.js";\nfunction helper() {}\n'
+        _, _, packet, snapshot = self.requests(raw)
+        packet["sources"][0].update(start_line=1, end_line=2)
+        cache = Mock(return_value=raw)
+        result = import_requests(
+            packet, snapshot, {"next_check": "helper and Schema"}, cache
+        )
+        self.assertEqual(
+            result, [{"path": "src/contracts.ts", "hints": "Schema", "max_lines": 80}]
+        )
+
+    def test_python_local_free_function_uses_ownership_not_another_class_method(self):
+        raw = (
+            "class Owner:\n    def helper(self): pass\n\n"
+            + "\n" * 10
+            + "async def helper():\n    return False\n"
+        )
+        result, _, _, _ = self.requests(
+            raw, "helper", path="pkg/read.py", files=["pkg/read.py"]
+        )
+        self.assertEqual(result, [{"path": "pkg/read.py", "start": 6, "max_lines": 80}])
+        self.assertEqual(
+            self.requests(
+                raw, "Owner.helper", path="pkg/read.py", files=["pkg/read.py"]
+            )[0],
+            [],
+        )
+        self.assertEqual(
+            self.requests(
+                "class Owner:\n    def helper(self): pass\n",
+                "helper",
+                path="pkg/read.py",
+                files=["pkg/read.py"],
+            )[0],
+            [],
+        )
+
+    def test_local_duplicates_overloads_and_import_collisions_abstain(self):
+        for raw in (
+            "function helper() {}\nfunction helper() {}",
+            "function helper(x: string): boolean;\nfunction helper(x) {return true;}",
+            'import {helper} from "./contracts.js";\nfunction helper() {}',
+        ):
+            self.assertEqual(self.requests(raw, "helper")[0], [])
+        self.assertEqual(
+            self.requests(
+                "def helper(): pass\ndef helper(): pass",
+                "helper",
+                path="pkg/read.py",
+                files=["pkg/read.py"],
+            )[0],
+            [],
+        )
+
+    def test_local_comments_literals_nested_functions_and_other_syntax_are_not_hints(
+        self,
+    ):
+        raw = """/*
+function helper() {}
+*/
+const text = `
+function helper() {}
+`;
+function outer() {
+  function helper() {}
+}
+"""
+        self.assertEqual(self.requests(raw, "helper")[0], [])
+        self.assertEqual(self.requests("const helper = () => true;", "helper")[0], [])
+        self.assertEqual(self.requests("function helper() {", "helper")[0], [])
+        self.assertEqual(
+            self.requests("function helper() {}", "Inspect a different name")[0], []
+        )
+
     def requests(
         self,
         raw,

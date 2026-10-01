@@ -527,6 +527,13 @@ Supported syntax is module-level relative Python imports and a conservative
 JS/TS import prefix. Bare packages, wildcards, missing/oversized cache entries,
 ambiguous targets and revision drift retain the ordinary search.
 
+Explicitly requested same-file free functions can also select a definition
+window from that cache. Python uses module-level AST ownership; JS/TS uses
+lexical function-declaration hints, not a complete language parser. Methods,
+duplicate declarations and competing imported/local names abstain. Already
+supplied definition windows are not fetched again. Missing context does not
+prove a defect, and selecting a declaration does not resolve every caller.
+
 This substitutes at most two definition reads for existing lexical/test reads.
 Import lookup does not fetch or fill the primary cache; selected definitions use
 the ordinary bounded source-acquisition path. It adds no model call, execution
