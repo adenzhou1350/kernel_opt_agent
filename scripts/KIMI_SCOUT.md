@@ -513,11 +513,32 @@ are accident-limiting controls, **not network/filesystem isolation**; code revie
 is still required. CLI success means a comparison completed, not that a bug or PR
 has been qualified. Keep the raw result and inspect both arms' tests and cleanup.
 
+For bounded context-acquisition trials, a repository spec may set
+`"followup_import_context": true` (default false). A follow-up's `next_check`
+can then select named relative imports from the already cached, pinned primary
+source. Only unique members of that same observed tree qualify; .js-to-.ts and
+aliases are lookup hints, not proof of runtime resolution or caller reachability.
+Supported syntax is module-level relative Python imports and a conservative
+JS/TS import prefix. Bare packages, wildcards, missing/oversized cache entries,
+ambiguous targets and revision drift retain the ordinary search.
+
+This substitutes at most two definition reads for existing lexical/test reads.
+Import lookup does not fetch or fill the primary cache; selected definitions use
+the ordinary bounded source-acquisition path. It adds no model call, execution
+or publication authority.
+Missing-context decisions prefer definitions; retained lead decisions keep a
+companion test plus at most one definition. Generated-kernel contract acquisition
+is unchanged. This does not find reverse callers or establish a bug from imports.
+Keep the trial opt-in until fresh, budget-matched outcomes justify promotion;
+offline tests establish acquisition boundaries, not improved PR yield or savings.
+
 Offline checks (no network, credentials, or paid model calls):
 
 ```sh
 python -B tests/test_kimi_scout.py
 python -B tests/test_kimi_scout_verify.py
+python -B tests/test_scout_import_context.py
+python -B tests/test_scout_import_followup.py
 <kimi-python> -I -B -X utf8 tests/test_kimi_scout_backend.py
 ```
 

@@ -20,6 +20,7 @@ import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
 from scout_generated_context import contract_requests
+from scout_import_context import import_requests
 from scout_publication_context import fit_publication_context, publication_context
 
 SOURCE_SUFFIXES = (
@@ -243,6 +244,8 @@ def configuration(path):
             raise ValueError("research needs safe explicit source prefixes")
         if not isinstance(spec.get("question"), str):
             raise ValueError("research repository needs a question")
+        if type(spec.get("followup_import_context", False)) is not bool:
+            raise ValueError("followup_import_context must be a boolean")
         roots = spec.get("tree_roots", [])
         if (
             not isinstance(roots, list)
@@ -1022,12 +1025,32 @@ class ResearchProducer:
                 if contracts
                 else followup_test_request(packet, snapshot, analysis_value)
             )
+            imports = []
+            cached_source = getattr(self.context, "cached_source_text", None)
+            if (
+                spec.get("followup_import_context", False)
+                and callable(cached_source)
+                and not contracts
+                and definition_request is None
+            ):
+                # Explicit missing definitions precede another reproduction plan.
+                # Keep the existing two-read ceiling, not another model/source tier.
+                missing_context = analysis_value.get("decision") == "needs_context"
+                imports = import_requests(
+                    packet, snapshot, analysis_value, cached_source,
+                    limit=2 if missing_context else 1,
+                )
+                if imports and missing_context:
+                    test_request = None
+                imported_paths = {request["path"] for request in imports}
+                paths = [path for path in paths if path not in imported_paths]
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]
             # Prefer the observed variant's registration/contract over an unrelated
             # lexical match, or replace one lexical match with a component test.
             # Neither hint increases the ordinary follow-up's source read count.
-            for path in paths[: 1 if contracts or test_request else 2]:
+            lexical_budget = max(0, (1 if contracts or test_request else 2) - len(imports))
+            for path in paths[:lexical_budget]:
                 if self.stopped():
                     return False
                 try:
@@ -1039,7 +1062,7 @@ class ResearchProducer:
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
-            for request in contracts or ([test_request] if test_request else []):
+            for request in contracts or imports + ([test_request] if test_request else []):
                 if self.stopped():
                     return False
                 try:
