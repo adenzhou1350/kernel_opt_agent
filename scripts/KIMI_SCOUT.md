@@ -440,6 +440,18 @@ original job and its evidence stays in SQLite. The raw owner-ready count is
 not a count of distinct fixes, and exact bytes cannot detect semantic duplicates.
 Source and result artifacts are preserved in ignored `delivery/jobs/`; a separate
 small SQLite table records terminal outcomes without rewriting discovery history.
+
+Fresh research packets also carry bounded, read-only `owner_publications` hints
+from this inbox's existing PR links. Same-file entries are shown first, with at
+most three distinct links from the latest 24 published candidate records per
+repository. The summaries are prior untrusted hypotheses, not fetched PR titles
+or proof that a new bug is covered. Inspect the linked PR and actual callers;
+never reject a candidate just because it shares a file. Missing/busy/malformed
+local data is optional, and the memory is dropped before primary evidence would
+be clipped. New publication records alone do not replay identical source jobs.
+Existing packets are unchanged. This reduces repeated context acquisition in
+principle; the implementation tests do not establish improved yield or recall.
+
 Interrupted attempts are not retried. STOP and uncertain container cleanup block
 new execution stages; repeated failures cool down admissions.
 
