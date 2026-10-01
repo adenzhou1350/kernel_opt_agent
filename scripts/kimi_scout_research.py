@@ -314,6 +314,67 @@ def changed_first_paths(paths, current_blobs, previous_blobs, limit=512):
     return changed + [path for path in paths if path not in changed_set], changed
 
 
+def continuation_request(packet, snapshot, analysis):
+    """Honor an explicit tail request only against an observed same-pin window.
+
+    Model text selects no URL or arbitrary line: its requested boundary must
+    equal the recorded end of exactly one truncated public source window.
+    """
+    next_check = analysis.get("next_check", "")
+    if not isinstance(next_check, str):
+        return None
+    boundaries = set()
+    for expression in (
+        r"\bafter\s+line\s+(\d{1,7})\b",
+        r"行\s*(\d{1,7})\s*(?:之后|以后|后)",
+    ):
+        boundaries.update(
+            int(value) for value in re.findall(expression, next_check[:2000], re.IGNORECASE)
+        )
+    ranges = []
+    for expression in (
+        r"\blines?\s+(\d{1,7})\s*[-–—]\s*(\d{1,7})\b",
+        r"(?<!\d)(\d{1,7})\s*[-–—]\s*(\d{1,7})\s*行",
+    ):
+        ranges.extend(
+            (int(first), int(last))
+            for first, last in re.findall(expression, next_check[:2000], re.IGNORECASE)
+        )
+    # A requested interval may describe the missing tail, not an arbitrary
+    # remote source. Require its start to follow an observed window exactly.
+    if any(first < 2 or last < first for first, last in ranges):
+        return None
+    boundaries.update(first - 1 for first, _ in ranges)
+    if len(boundaries) != 1:
+        return None
+    boundary = boundaries.pop()
+    repo, commit = packet.get("repo"), snapshot.get("commit")
+    if not isinstance(repo, str) or not isinstance(commit, str):
+        return None
+    prefix = f"https://raw.githubusercontent.com/{repo}/{commit}/"
+    matches = []
+    for source in packet.get("sources", [])[:8]:
+        url = source.get("url", "")
+        if not isinstance(url, str) or not url.startswith(prefix):
+            continue
+        path = urllib.parse.unquote(url[len(prefix) :])
+        start, end, total = (
+            source.get(key) for key in ("start_line", "end_line", "total_lines")
+        )
+        if (
+            path in snapshot.get("files", [])
+            and path.endswith(SOURCE_SUFFIXES)
+            and source.get("truncated") is True
+            and all(type(value) is int for value in (start, end, total))
+            and 1 <= start <= end == boundary < total
+            and all(last <= total for _, last in ranges)
+        ):
+            matches.append(
+                {"path": path, "start": max(start, end - 19), "max_lines": 120}
+            )
+    return matches[0] if len(matches) == 1 else None
+
+
 def relevant_paths(snapshot, hints, exclude=()):
     """Rank *observed tree members*; never interpret hints as a fetch target."""
     hints = hints.lower()[:16000]
@@ -1022,6 +1083,11 @@ class ResearchProducer:
                     ):
                         sources.append(definition_source)
             paths = relevant_paths(snapshot, hints)
+            continuation = continuation_request(packet, snapshot, analysis_value)
+            if continuation:
+                paths = [continuation["path"]] + [
+                    path for path in paths if path != continuation["path"]
+                ]
             contracts = contract_requests(packet, snapshot)
             test_request = (
                 None
@@ -1034,13 +1100,17 @@ class ResearchProducer:
                 spec.get("followup_import_context", False)
                 and callable(cached_source)
                 and not contracts
+                and not continuation
                 and definition_request is None
             ):
                 # Explicit missing definitions precede another reproduction plan.
                 # Keep the existing two-read ceiling, not another model/source tier.
                 missing_context = analysis_value.get("decision") == "needs_context"
                 imports = import_requests(
-                    packet, snapshot, analysis_value, cached_source,
+                    packet,
+                    snapshot,
+                    analysis_value,
+                    cached_source,
                     limit=2 if missing_context else 1,
                 )
                 if imports and missing_context:
@@ -1052,20 +1122,35 @@ class ResearchProducer:
             # Prefer the observed variant's registration/contract over an unrelated
             # lexical match, or replace one lexical match with a component test.
             # Neither hint increases the ordinary follow-up's source read count.
-            lexical_budget = max(0, (1 if contracts or test_request else 2) - len(imports))
+            lexical_budget = max(
+                0, (1 if contracts or test_request else 2) - len(imports)
+            )
             for path in paths[:lexical_budget]:
                 if self.stopped():
                     return False
                 try:
                     sources.append(
                         self.context.source(
-                            spec["repo"], snapshot["commit"], path, hints=hints
+                            spec["repo"],
+                            snapshot["commit"],
+                            path,
+                            hints=hints,
+                            **(
+                                {
+                                    key: continuation[key]
+                                    for key in ("start", "max_lines")
+                                }
+                                if continuation and path == continuation["path"]
+                                else {}
+                            ),
                         )
                     )
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
-            for request in contracts or imports + ([test_request] if test_request else []):
+            for request in contracts or imports + (
+                [test_request] if test_request else []
+            ):
                 if self.stopped():
                     return False
                 try:
