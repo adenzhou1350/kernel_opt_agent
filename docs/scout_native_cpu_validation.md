@@ -154,6 +154,27 @@ arms, both imports resolved into their full source exports, and no WSL or GPU
 was used. This confirms that URL-test result across the two observed environments;
 it is not an additional PR, a full-suite pass or a throughput measurement.
 
+### Wider Windows suite: retain the baseline failures
+
+The URL-only environment was insufficient for the full offline suite: collection
+first failed because `chardet` was missing. Add the required test dependency and
+declared HTTPX extras to the same task-private environment, retaining the initial
+failure and recording resolved versions rather than suppressing collection.
+Run full-suite arms serially on the host: upstream test fixtures use fixed ports,
+so separate Python processes are not independent server environments. An initial
+concurrent baseline attempt was interrupted and is not a completed test result.
+
+A subsequent serial check of the same two exports and regression-file overlay
+collected 1,445 non-network cases per arm. Baseline: 1,426 passed, 18 failed,
+1 skipped; candidate: 1,440 passed, 4 failed, 1 skipped. The 14 removed failures
+were the IPv6 regressions. Both arms retained `test_download` (Click 8.5.0's
+`isolated_filesystem` deprecation under warnings-as-errors), the text-mode
+temporary-file assertion, and both write-timeout cases. No candidate-only failure
+was observed. Five network-marked tests were deselected. This is paired evidence
+for the scoped change, not full CI, coverage completion, or proof that the shared
+platform/dependency failures are harmless. Both suite invocations took about
+29 seconds combined; failed attempts and dependency setup are additional costs.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the

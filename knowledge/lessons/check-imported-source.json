@@ -2,12 +2,20 @@
   "id": "check-imported-source",
   "title": "Identify the code imported by the benchmark process",
   "applies_when": "Python benchmarks involve editable installs, multiple checkouts, generated modules, native extensions or a long-lived interpreter that may retain an earlier import.",
-  "lesson": "Use the actual benchmark interpreter and environment to inspect module origins, including __file__ or __spec__.origin where available. Check the callable's defining module and the native extension build when relevant. Python's module cache and import search path can make an edited checkout differ from the code being measured; use a fresh process when cached imports obscure the comparison.",
-  "avoid_when": "A matching Python filename does not prove that a compiled extension or captured graph contains the new code. Namespace and built-in modules may have no ordinary source file. Import checks can execute module initialization, so choose a safe diagnostic entry point.",
+  "lesson": "Use the actual benchmark interpreter and environment to inspect module origins, including __file__ or __spec__.origin where available. Check the callable's defining module and the native extension build when relevant. Python's module cache and import search path can make an edited checkout differ from the code being measured; use a fresh process when cached imports obscure the comparison. File-scoped test dependencies need not cover the full suite. Record resolved packages and compare the same tests and failure details on unchanged baseline and candidate before attributing a failure to the patch. Separate processes do not isolate fixed host ports: serialize such native test arms or use genuinely separate network namespaces.",
+  "avoid_when": "A matching Python filename does not prove that a compiled extension or captured graph contains the new code. Namespace and built-in modules may have no ordinary source file. Import checks can execute module initialization, so choose a safe diagnostic entry point. A shared failure name alone does not establish identical cause or make either arm fully qualified; retain details and consider nondeterminism or interactions. A task-private venv is not an untrusted-code sandbox.",
   "evidence": [
     {
       "url": "https://docs.python.org/3/reference/import.html",
       "note": "The Python reference documents the module cache, search path and module specifications. These mechanisms explain source ambiguity; it does not validate any local installation or build."
+    },
+    {
+      "url": "https://github.com/encode/httpx/blob/b5addb64f0161ff6bfe94c124ef76f6a1fba5254/requirements.txt",
+      "note": "The native suite requires chardet, CLI/decoder extras and test tools beyond HTTPX's minimum runtime or focused URL environment. Tooling pins do not pin every runtime dependency; record resolution rather than assuming identical environments."
+    },
+    {
+      "url": "https://github.com/encode/httpx/blob/b5addb64f0161ff6bfe94c124ef76f6a1fba5254/docs/contributing.md#testing-and-linting",
+      "note": "The official test instructions warn that suite servers use fixed ports 8000 and 8001. Independent Python processes on one host do not reserve independent endpoints. This supports a scheduling caution, not a measured throughput or general sandbox claim."
     }
   ],
   "status": "validated"
