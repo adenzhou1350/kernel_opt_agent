@@ -631,3 +631,26 @@ Implementation references: [Kimi CLI](https://github.com/MoonshotAI/kimi-cli),
 [custom-agent/tool behavior](https://moonshotai.github.io/kimi-cli/en/customization/agents.html).
 The version-pinned backend is intentionally separate from the ordinary CLI:
 print mode auto-approves tools, which is inappropriate for an unattended scout.
+
+### Explicit C-family reference context
+
+For missing C/C++/CUDA symbol uses, a `next_check` can ask
+`references(exact_identifier)` (at most two identifiers). The controller uses
+only an existing bounded primary-source cache at the same immutable commit and
+an observed tree path. It replaces the ordinary follow-up reads with at most
+two 80-line windows around the first and last unseen code matches. No extra
+model call, cache-fill step, source execution or source-read budget is added.
+Explicit line continuations and Python kernel-definition requests keep priority.
+
+This is lexical context, not a parser, exhaustive use list or reachability proof.
+Ordinary comments, strings and preprocessor directives are excluded; local
+declarations and inactive conditional branches may remain. C++ raw strings,
+missing cache/symbols, drift or unsupported paths leave the old selection intact.
+Macros, aliases and numeric lowering are not resolved: an offset macro can have
+no references while actual pointer operands use an expanded number. Request the
+actual variable when the supplied source exposes it. Do not infer unused/safe
+code from abstention, nor a race from equal offsets alone.
+
+Offline regression: `python -B -m unittest tests.test_scout_symbol_references`.
+The development CUDA example motivates the helper; it does not measure PR yield,
+false-positive rate, generalization or paid-token savings.

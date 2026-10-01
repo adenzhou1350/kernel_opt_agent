@@ -2,7 +2,7 @@
   "id": "generated-variant-reachability",
   "title": "Check generated variant registration and callers before reproducing a local anomaly",
   "applies_when": "A candidate comes from a partial window of generated, shape- or dtype-specialized kernel code, especially a low-level binding or reusable helper definition.",
-  "lesson": "Retrieve the package registry and host dtype/shape dispatch before treating one physical kernel as the public API contract. Trace the suspected helper to an actual call, and substitute the specialized dimensions into padding/index arithmetic. A bf16-only binding can be correct for its registered key; a constant-false padding branch can be harmless when the dimension is already aligned; an unused helper does not establish an active ordering bug. These checks can refute the particular hypothesis without compiling its target environment.",
+  "lesson": "Retrieve the package registry and host dtype/shape dispatch before treating one physical kernel as the public API contract. Trace the suspected helper to an actual call, and substitute the specialized dimensions into padding/index arithmetic. A bf16-only binding can be correct for its registered key; a constant-false padding branch can be harmless when the dimension is already aligned; an unused helper does not establish an active ordering bug. Equal shared-memory offsets can describe different producer and consumer views of the same data, not independent buffers overwriting each other. Follow actual pointer uses, including lowered numeric offsets, and synchronization before deciding; macro names alone may have no downstream references. These checks can refute a particular premise without compiling its target environment.",
   "avoid_when": "Do not exclude all generated code or assume an unregistered shape is necessarily acceptable API behavior. Reopen with a supported logical key routed to the wrong variant, a reachable consumer of unwritten bytes, or a real helper call and compiler/runtime evidence. Static reachability and arithmetic are not native numerical correctness, performance or portability tests.",
   "evidence": [
     {
@@ -16,6 +16,10 @@
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/d849eca46875d3561fa48f6093936304580a1698/flashinfer/experimental/cake_nvfp4_per_token/csrc/cake_nvfp4_per_token/sm_103a/cake_nvfp4_per_token_28940348cb331972ff2b_kernel.cu",
       "note": "The suspect mbarrier_wait_relaxed_hint appears only as a definition in this complete translation unit, not a call or address reference. This is a scoped counterexample to inferring an active wait-ordering bug from the helper window alone."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/08776e742cf9b07154b36695947a7b6e11c3c29a/flashinfer/experimental/cake_nvfp4_per_token/csrc/cake_nvfp4_per_token/sm_100a/cake_nvfp4_per_token_f0be5b3bf66e17400472_kernel.cu#L623-L691",
+      "note": "The TMA producer writes SFB via smem_v3..v6 addresses; after waiting on tma_full, the MMA role reads scale descriptors via the larger smem_v7/v8 views. Their equal base offsets are used in the same kernel, not mutually exclusive variants. The macros themselves appear only as definitions; actual operands use pointer variables and lowered numbers. This contradicts the premise that simultaneous use of equal offsets necessarily means independent-buffer overwrite, not a native numerical or complete synchronization-safety qualification."
     }
   ],
   "status": "validated"

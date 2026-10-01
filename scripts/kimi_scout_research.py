@@ -22,6 +22,7 @@ from kimi_scout_context import PublicContext
 from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
+from scout_symbol_references import reference_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_publication_context import (
@@ -1136,17 +1137,31 @@ class ResearchProducer:
                 paths = [continuation["path"]] + [
                     path for path in paths if path != continuation["path"]
                 ]
-            contracts = contract_requests(packet, snapshot)
+            cached_source = getattr(self.context, "cached_source_text", None)
+            references = []
+            if (
+                callable(cached_source)
+                and not continuation
+                and definition_request is None
+            ):
+                references = reference_requests(
+                    packet, snapshot, analysis_value, cached_source
+                )
+            # Explicit cached same-file references replace the usual reads,
+            # not an extra tier or a reachability verdict.
+            contracts = [] if references else contract_requests(packet, snapshot)
             test_request = (
                 None
                 if contracts
                 else followup_test_request(packet, snapshot, analysis_value)
             )
+            if references:
+                test_request = None
             imports = []
-            cached_source = getattr(self.context, "cached_source_text", None)
             if (
                 spec.get("followup_import_context", False)
                 and callable(cached_source)
+                and not references
                 and not contracts
                 and not continuation
                 and definition_request is None
@@ -1173,7 +1188,9 @@ class ResearchProducer:
             lexical_budget = max(
                 0, (1 if contracts or test_request else 2) - len(imports)
             )
-            lexical_requests = [{"path": path} for path in paths[:lexical_budget]]
+            lexical_requests = references or [
+                {"path": path} for path in paths[:lexical_budget]
+            ]
             if continuation and lexical_requests:
                 lexical_requests[0].update(
                     {key: continuation[key] for key in ("start", "max_lines")}
