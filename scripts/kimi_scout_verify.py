@@ -21,6 +21,10 @@ import time
 import uuid
 from pathlib import Path
 
+# -I omits the script directory; admit only this controller-owned directory.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import scout_httpx_cpu as httpx_cpu
+
 IMAGE = "sha256:a041b350d5d9483b538d5af07e9553ee8cbc7fc7fa90c2f7d20d93f18ce9bbd1"
 TORCH_CPU_IMAGE = (
     "sha256:83727efdf2e8586e9193b08efb5c334c4b52abae93319c5db3cc34b3bd2295c0"
@@ -28,6 +32,7 @@ TORCH_CPU_IMAGE = (
 PROFILES = {
     "stdlib": (IMAGE, "/usr/local/bin/python3", "512m"),
     "torch-cpu": (TORCH_CPU_IMAGE, "/opt/venv/bin/python", "2g"),
+    httpx_cpu.PROFILE: (httpx_cpu.IMAGE, "/usr/local/bin/python3", "768m"),
 }
 CLAIM_SCOPE = "ADAPTED_SINGLE_MODULE_CPU_SCREEN_NOT_UPSTREAM_SUITE"
 DOCKER = [
@@ -74,11 +79,19 @@ def read_input(value):
     return content
 
 
-def command(subject, test, name, *, profile="stdlib"):
+def command(
+    subject, test, name, *, profile="stdlib", module_path=None, baseline_sha256=None
+):
     if not re.fullmatch(r"kimi-verify-[0-9a-f]{32}", name):
         raise ValueError("container name must be controller-generated")
     if profile not in PROFILES:
-        raise ValueError("profile must be stdlib or torch-cpu")
+        raise ValueError("unknown pinned CPU profile")
+    if profile == httpx_cpu.PROFILE:
+        harness = httpx_cpu.harness(module_path, baseline_sha256, HARNESS)
+    elif module_path is not None:
+        raise ValueError("standalone profile cannot use a package module path")
+    else:
+        harness = HARNESS
     image, python, memory = PROFILES[profile]
     return DOCKER + [
         "run",
@@ -131,11 +144,13 @@ def command(subject, test, name, *, profile="stdlib"):
         "-I",
         "-B",
         "-c",
-        HARNESS,
+        harness,
     ]
 
 
-def run_case(subject, test, timeout, *, profile="stdlib"):
+def run_case(
+    subject, test, timeout, *, profile="stdlib", module_path=None, baseline_sha256=None
+):
     name = "kimi-verify-" + uuid.uuid4().hex
     started = time.monotonic()
     captured = bytearray()
@@ -154,7 +169,14 @@ def run_case(subject, test, timeout, *, profile="stdlib"):
 
     try:
         process = subprocess.Popen(
-            command(subject, test, name, profile=profile),
+            command(
+                subject,
+                test,
+                name,
+                profile=profile,
+                module_path=module_path,
+                baseline_sha256=baseline_sha256,
+            ),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=ENV,
@@ -191,7 +213,9 @@ def run_case(subject, test, timeout, *, profile="stdlib"):
     count = int(counts[-1]) if counts else None
     return {
         "profile": profile,
-        "claim_scope": CLAIM_SCOPE,
+        "claim_scope": httpx_cpu.CLAIM_SCOPE
+        if profile == httpx_cpu.PROFILE
+        else CLAIM_SCOPE,
         "exit_code": None if timed_out else process.returncode,
         "seconds": round(time.monotonic() - started, 3),
         "timed_out": timed_out,
@@ -207,13 +231,30 @@ def run_case(subject, test, timeout, *, profile="stdlib"):
     }
 
 
-def verify(baseline, candidate, test, *, timeout=60, profile="stdlib"):
+def verify(
+    baseline,
+    candidate,
+    test,
+    *,
+    timeout=60,
+    profile="stdlib",
+    module_path=None,
+    source_commit=None,
+):
     if sys.platform != "linux":
         raise ValueError("run this opt-in verifier inside Linux/WSL")
     if type(timeout) not in (int, float) or not 1 <= timeout <= 120:
         raise ValueError("timeout must be 1..120 seconds per run")
     if profile not in PROFILES:
-        raise ValueError("profile must be stdlib or torch-cpu")
+        raise ValueError("unknown pinned CPU profile")
+    if profile == httpx_cpu.PROFILE:
+        if source_commit != httpx_cpu.COMMIT:
+            raise ValueError("HTTPX source revision requires a new reviewed image")
+        httpx_cpu.module_name(module_path)
+    elif module_path is not None or source_commit is not None:
+        raise ValueError(
+            "source commit and module path require the matched HTTPX profile"
+        )
     contents = {
         key: read_input(value)
         for key, value in (
@@ -230,9 +271,15 @@ def verify(baseline, candidate, test, *, timeout=60, profile="stdlib"):
             path.write_bytes(content)
             path.chmod(0o444)
             files[key] = path
-        before = run_case(files["baseline"], files["test"], timeout, profile=profile)
+        options = {"profile": profile}
+        if profile == httpx_cpu.PROFILE:
+            options.update(
+                module_path=module_path,
+                baseline_sha256=hashlib.sha256(contents["baseline"]).hexdigest(),
+            )
+        before = run_case(files["baseline"], files["test"], timeout, **options)
         fixed = (
-            run_case(files["candidate"], files["test"], timeout, profile=profile)
+            run_case(files["candidate"], files["test"], timeout, **options)
             if before["cleanup_ok"]
             else {
                 "exit_code": None,
@@ -243,7 +290,10 @@ def verify(baseline, candidate, test, *, timeout=60, profile="stdlib"):
     return {
         "label": "TEST_RESULT_NOT_PR_READY",
         "profile": profile,
-        "claim_scope": CLAIM_SCOPE,
+        "claim_scope": httpx_cpu.CLAIM_SCOPE
+        if profile == httpx_cpu.PROFILE
+        else CLAIM_SCOPE,
+        **({"source_commit": source_commit} if profile == httpx_cpu.PROFILE else {}),
         "image": PROFILES[profile][0],
         "input_sha256": {
             key: hashlib.sha256(data).hexdigest() for key, data in contents.items()
@@ -262,14 +312,20 @@ def main(argv=None):
     parser.add_argument("--test", type=Path, required=True)
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--profile", choices=tuple(PROFILES), default="stdlib")
+    parser.add_argument("--module-path")
+    parser.add_argument("--source-commit")
     args = parser.parse_args(argv)
     try:
+        options = {"timeout": args.timeout, "profile": args.profile}
+        if args.module_path is not None or args.source_commit is not None:
+            options.update(
+                module_path=args.module_path, source_commit=args.source_commit
+            )
         result = verify(
             args.baseline,
             args.candidate,
             args.test,
-            timeout=args.timeout,
-            profile=args.profile,
+            **options,
         )
     except (OSError, ValueError, subprocess.SubprocessError) as error:
         result = {

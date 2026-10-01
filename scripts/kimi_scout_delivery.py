@@ -24,6 +24,7 @@ from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 import kimi_scout as scout
+import scout_httpx_cpu as httpx_cpu
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 
 
@@ -541,7 +542,13 @@ def proposal(value, source):
     return fixed
 
 
-def choose_profile(source):
+def choose_profile(source, *, httpx_native=False):
+    if httpx_native and source.get("repo") == "encode/httpx":
+        if httpx_cpu.source_supported(source):
+            return httpx_cpu.PROFILE
+        raise UnsupportedEnvironment(
+            "HTTPX source revision needs a new reviewed full-package image"
+        )
     required = set(
         source.get("required_dependency_modules", source.get("dependency_modules", []))
     )
@@ -837,7 +844,7 @@ class Delivery:
             raise RuntimeError("tool-free model completion failed")
         return scout.parse_answer(answer["text"])
 
-    def sandbox(self, work, version, profile):
+    def sandbox(self, work, version, profile, module_path=None, source_commit=None):
         with self.cpu:
             if self.stopped():
                 return {
@@ -860,6 +867,10 @@ class Delivery:
                 "--profile",
                 profile,
             ]
+            if module_path is not None:
+                command += ["--module-path", module_path]
+            if source_commit is not None:
+                command += ["--source-commit", source_commit]
             env = scout.runtime_storage_env(self.args.root)
             if os.name == "nt":
                 command = [
@@ -912,7 +923,13 @@ class Delivery:
                 and (rerouted or "triton" in required)
                 and required <= (TORCH_CPU_IMPORTS | {"triton"})
             )
-            profile = "torch-gpu-review-only" if gpu_only else choose_profile(source)
+            profile = (
+                "torch-gpu-review-only"
+                if gpu_only
+                else choose_profile(
+                    source, httpx_native=getattr(self.args, "httpx_native", False)
+                )
+            )
             scout.write_json(work / "source.json", source)
             original = source["source"]
             (work / "baseline.py").write_bytes(original.encode())
@@ -982,7 +999,12 @@ class Delivery:
                         "TESTING",
                         f"isolated CPU before/fixed attempt {version}",
                     )
-                    observed = self.sandbox(work, version, profile)
+                    if profile == httpx_cpu.PROFILE:
+                        observed = self.sandbox(
+                            work, version, profile, source["path"], source["commit"]
+                        )
+                    else:
+                        observed = self.sandbox(work, version, profile)
                     state, reason = classify(observed)
                 if (
                     state in {"REVIEWING", "ENVIRONMENT_BLOCKED"}
@@ -1233,6 +1255,9 @@ class Delivery:
                 "heartbeat_at": previous.get("heartbeat_at")
                 if refresh_only
                 else time.time(),
+                "httpx_native": previous.get("httpx_native", False)
+                if refresh_only
+                else bool(getattr(self.args, "httpx_native", False)),
                 "snapshot_at": time.time(),
                 "min_free_memory_mb": previous.get("min_free_memory_mb", 0)
                 if refresh_only
@@ -1383,6 +1408,11 @@ def main():
     )
     parser.add_argument("--wsl", default="Ubuntu")
     parser.add_argument("--github-auth", action="store_true")
+    parser.add_argument(
+        "--httpx-native",
+        action="store_true",
+        help="opt in to the cached exact-revision HTTPX CPU package screen; no installation",
+    )
     parser.add_argument(
         "--gpu-proposals",
         action="store_true",

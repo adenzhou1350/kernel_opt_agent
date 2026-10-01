@@ -202,7 +202,7 @@ def select_leads(
     return selected
 
 
-def _import_notes(tree, path, allow_dependencies=False):
+def _import_notes(tree, path, allow_dependencies=False, package_root=None):
     notes = []
     dependencies = set()
     required = set()
@@ -212,9 +212,18 @@ def _import_notes(tree, path, allow_dependencies=False):
         if root in STDLIB_310:
             return
         if name.startswith("."):
-            raise UnsupportedEnvironment(
-                f"relative import requires package context (line {node.lineno})", path
+            if package_root is None:
+                raise UnsupportedEnvironment(
+                    f"relative import requires package context (line {node.lineno})",
+                    path,
+                )
+            dependencies.add(package_root)
+            if not deferred:
+                required.add(package_root)
+            notes.append(
+                f"relative import requires matched {package_root} package context (line {node.lineno})"
             )
+            return
         dependencies.add(root)
         if not deferred:
             required.add(root)
@@ -412,8 +421,17 @@ def load_source(lead, github_auth=False, *, root=None, allow_dependencies=False)
         raise UnsupportedEnvironment(
             "not parseable as Python 3.10 source", path
         ) from exc
-    notes, dependencies, required = _import_notes(tree, path, allow_dependencies)
+    package_root = (
+        "httpx"
+        if allow_dependencies and repo == "encode/httpx" and path.startswith("httpx/")
+        else None
+    )
+    notes, dependencies, required = _import_notes(
+        tree, path, allow_dependencies, package_root=package_root
+    )
     return {
+        "repo": repo,
+        "commit": item["commit"],
         "source": source,
         "sha256": hashlib.sha256(source.encode("utf-8")).hexdigest(),
         "path": path,
@@ -422,4 +440,8 @@ def load_source(lead, github_auth=False, *, root=None, allow_dependencies=False)
         "compatibility_notes": notes,
         "dependency_modules": dependencies,
         "required_dependency_modules": required,
+        "package_context_required": any(
+            isinstance(node, ast.ImportFrom) and node.level > 0
+            for node in ast.walk(tree)
+        ),
     }

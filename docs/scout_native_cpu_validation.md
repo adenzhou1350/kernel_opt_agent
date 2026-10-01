@@ -75,3 +75,44 @@ Discussion before escalation to an Issue/PR; verify current policy before postin
 This optional owner recipe does not add an automated delivery profile, enable
 network in model-generated tests, or promote a candidate to Ready. Native capacity
 and publication quality still require independent evidence for the actual lead.
+
+## Optional delivery use of the reviewed HTTPX image
+
+`kimi_scout_delivery.py --httpx-native` enables a **generated-test package screen**
+for HTTPX only; it is off by default. The cached profile currently binds the
+exact source revision above and image
+`sha256:ad47b9d7b2ed3afc265fdf95732bd35527cdf092362ba4382c722949a36a4309`.
+This is a locally reviewed image ID, not an image available for registry download.
+Use the setup recipe before opting in; a rebuilt image or later source revision
+requires its own reviewed identity rather than silently replacing this profile.
+
+The controller passes the fetched revision, module path and baseline byte digest.
+Each container checks its original module against that digest **before** loading
+any candidate or generated test, copies the complete package into private scratch,
+overlays only the selected file and checks package/subject import paths. Sibling
+modules and dependencies are the same in both arms. Network, credentials, devices,
+installation and host ports remain unavailable; memory is bounded at 768 MiB and
+the delivery timeout remains 30 seconds per arm. Reserve sufficient controller
+memory as well; the memory cap is not a proof of current host headroom.
+
+For a reviewed local pair, the same route can be invoked directly:
+
+```text
+python3 -I -B scripts/kimi_scout_verify.py \
+  --baseline /private/baseline.py --candidate /private/candidate.py \
+  --test /private/test.py --profile httpx-cpu \
+  --module-path httpx/_urlparse.py \
+  --source-commit b5addb64f0161ff6bfe94c124ef76f6a1fba5254 --timeout 30
+```
+
+This is not HTTPX's full native pytest suite. Generated assertions and output
+remain untrusted evidence, requiring owner review of the contract, actual caller,
+duplicates, native tests and contribution policy. Missing images or mismatched
+preimages/imports remain inconclusive, never a pass. Old blocked, reviewed or
+published records are not reset or replayed when enabling the flag.
+
+In an exposed IPv6 development case, the package screen ran three identical
+tests per arm: baseline had two errors plus a passing normal control, candidate
+passed all three; both owned containers were removed. A deliberately wrong
+baseline stopped before testing in both arms. These checks establish runnable
+capacity and rejection behavior, not prospective PR conversion or cost savings.
