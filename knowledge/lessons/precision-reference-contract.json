@@ -1,9 +1,9 @@
 {
   "id": "precision-reference-contract",
   "title": "Keep precision diagnostics separate from the required reference",
-  "applies_when": "Changing batching, reduction order or precision produces a numerical mismatch, especially near an argmax or another discrete decision boundary.",
+  "applies_when": "Changing batching, reduction order or precision produces a numerical mismatch, especially near an argmax or another discrete decision boundary. Also applies when a boundary regression assigns new numerical semantics to an optional score_scale or another scalar.",
   "lesson": "Specify whether correctness means exact output identity, numerical tolerance or a statistical property. Localize the first divergence and compare both arms under that contract. Supplement random unit inputs with baseline-captured activations, learned weights, shapes and epsilon values; replay the unchanged candidate on those inputs before costly performance qualification. Verify that capture does not alter the baseline. A matching argmax does not satisfy a separately required full-output tolerance. A higher-precision side calculation can diagnose sensitivity, but candidate-only recomputation does not establish agreement with a stock low-precision baseline. Test a proposed selective fallback on held-out boundary cases and include detection and replay costs.",
-  "avoid_when": "Do not impose exact token identity on every floating-point or stochastic operator. A small decision margin is a diagnostic clue, not a guarantee that selective recomputation is sufficient or profitable.",
+  "avoid_when": "Do not impose exact token identity on every floating-point or stochastic operator. A small decision margin is a diagnostic clue, not a guarantee that selective recomputation is sufficient or profitable. Read whether a scale is a multiplier or divisor before defining its zero behavior. Optional[float] does not establish that zero is supported, nor that producing NaN/Inf is the correct fix. A before-fail/after-pass test of that newly chosen expectation needs an independent accepted contract or supported caller. An explicit documented zero-input contract can still justify a change; default-only callers do not prove all external uses safe.",
   "evidence": [
     {
       "url": "https://docs.pytorch.org/docs/main/notes/numerical_accuracy.html#batched-computations-or-slice-computations",
@@ -12,6 +12,14 @@
     {
       "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/#reference-comparison",
       "note": "NVIDIA describes reference comparison using the criteria appropriate to the algorithm, including exactness or tolerance. It does not choose the current operator's contract."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/dcf4e182839c2df77f6eaf2c3303b80bcf982bff/python/sglang/srt/layers/attention/qsa/mqa.py#L37-L56",
+      "note": "The Torch QSA reference divides scores by score_scale or sqrt(head_dim); the decode reference and TileLang paths follow the same convention. Replacing the expression for zero would change the numerical contract, not merely distinguish None. Source evidence, not native/GPU validation or a universal zero-input policy."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/dcf4e182839c2df77f6eaf2c3303b80bcf982bff/python/sglang/srt/layers/attention/qsa/qsa_indexer.py#L468-L507",
+      "note": "These indexer prefill/decode calls omit the optional scale. They do not establish a zero-scale production failure or rule out an unobserved external caller."
     }
   ],
   "status": "hypothesis"
