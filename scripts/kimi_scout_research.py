@@ -23,7 +23,11 @@ from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
-from scout_publication_context import fit_publication_context, publication_context
+from scout_publication_context import (
+    fit_publication_context,
+    owner_deferral_context,
+    publication_context,
+)
 
 SOURCE_SUFFIXES = (
     ".py",
@@ -634,6 +638,9 @@ class ResearchProducer:
         publications = publication_context(self.root, spec["repo"], sources)
         if publications:
             packet["owner_publications"] = publications
+        deferrals = owner_deferral_context(self.root, spec["repo"], sources)
+        if deferrals:
+            packet["owner_deferrals"] = deferrals
         fit_publication_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
         while (

@@ -474,6 +474,16 @@ be clipped. New publication records alone do not replay identical source jobs.
 Existing packets are unchanged. This reduces repeated context acquisition in
 principle; the implementation tests do not establish improved yield or recall.
 
+New packets can also carry at most two `owner_deferrals` for the same source
+file, read from the latest 24 owner-parked records per repository. Each includes
+the old hypothesis, pinned public evidence, reason and explicit reopening
+condition. Notes are capped and marked when clipped; raw test logs are not read.
+This is advisory history, **not a no-bug verdict or a rejection filter**. New
+callers, contracts and distinct defects can overturn an earlier deferral. It
+adds no network/model calls, does not replay seen source, and is dropped before
+publication hints or primary source need clipping. Tests verify plumbing and
+resource bounds, not fewer misses, higher PR conversion or model accuracy.
+
 Interrupted attempts are not retried. STOP and uncertain container cleanup block
 new execution stages; repeated failures cool down admissions.
 
