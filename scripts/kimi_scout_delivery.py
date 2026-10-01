@@ -295,8 +295,9 @@ def park_owner_candidate(root, job_id, reason, evidence_url, reopen_when):
     if not isinstance(evidence_url, str):
         raise ValueError("commit-pinned GitHub source evidence is required")
     match = re.fullmatch(
-        r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/blob/"
-        r"[0-9a-f]{40}/[^?#\s]+(?:#L[1-9][0-9]*(?:-L[1-9][0-9]*)?)?",
+        r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/"
+        r"(?:blob/[0-9a-f]{40}/[^?#\s]+(?:#L[1-9][0-9]*(?:-L[1-9][0-9]*)?)?"
+        r"|commit/[0-9a-f]{40})",
         evidence_url,
     )
     if match is None:

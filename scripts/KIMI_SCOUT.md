@@ -420,6 +420,23 @@ is idle, it refreshes the queue without replacing its PID/state/heartbeat;
 otherwise the running worker owns the next snapshot refresh. Revisit only
 when the recorded evidence condition is met; no automatic retry is implied.
 
+Before setting up an environment for an old lead, optionally compare its pinned
+source with the current default branch:
+
+```sh
+python scripts/scout_source_freshness.py --github-auth \
+  https://raw.githubusercontent.com/owner/repo/<40-char-commit>/path.py
+```
+
+The read-only helper accepts at most 32 URLs, resolves each repository's target
+head once, and compares file blob identities. `--target-ref` explicitly selects
+a supported release branch instead. Changed blobs need inspection; absent paths
+may have moved. API failures are `INCONCLUSIVE`, never deletion evidence.
+Unchanged source does not prove reachability, novelty or qualification. It makes
+no model call and does not execute source or change the queue. For an inspected
+removal, owner parking also accepts a same-repository immutable
+`https://github.com/owner/repo/commit/<40-char-commit>` evidence URL.
+
 After independently reviewing and publishing a candidate, link its exact ID to
 the existing PR. This records publication; it does not create or verify the PR:
 

@@ -1,12 +1,12 @@
 """Owner deferral keeps evidence, cost and worker liveness separate."""
 
 import json
+from pathlib import Path
 import subprocess
 import sys
 import tempfile
-import unittest
-from pathlib import Path
 from types import SimpleNamespace
+import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout_delivery as delivery
@@ -81,6 +81,30 @@ class OwnerParkingTests(unittest.TestCase):
             self.park(reason="different explanation")
         self.assertEqual(self.row(), row)
 
+    def test_immutable_deletion_commit_can_support_deferral(self):
+        evidence = "https://github.com/public/project/commit/" + "b" * 40
+        decision = self.park(evidence_url=evidence)
+        self.assertEqual(decision["evidence_url"], evidence)
+        self.assertEqual(self.row()["state"], "OWNER_PARKED")
+        self.assertEqual(
+            json.loads(self.row()["result"])["before"], self.result["before"]
+        )
+
+    def test_commit_evidence_must_be_pinned_unadorned_and_same_repository(self):
+        prefix = "https://github.com/public/project/commit/"
+        for evidence in (
+            prefix + "main",
+            prefix + "b" * 39,
+            prefix + "b" * 40 + "?diff=split",
+            prefix + "b" * 40 + "#diff",
+            prefix.replace("public/project", "other/project") + "b" * 40,
+        ):
+            with self.subTest(evidence=evidence):
+                before = self.row()
+                with self.assertRaises(ValueError):
+                    self.park(evidence_url=evidence)
+                self.assertEqual(self.row(), before)
+
     def test_legacy_and_gpu_proposals_can_be_deferred_without_fake_execution(self):
         for state in ("REPRODUCED", "GPU_REVIEW_REQUIRED"):
             with self.subTest(state=state):
@@ -125,9 +149,6 @@ class OwnerParkingTests(unittest.TestCase):
             "heartbeat_at": 100,
             "concurrency": 16,
             "execution_concurrency": 1,
-            "min_free_memory_mb": 2048,
-            "worker_memory_mb": 256,
-            "memory_paused": True,
         }
         (self.root / "runtime.json").write_text(json.dumps(previous))
         self.park()
@@ -218,18 +239,14 @@ class OwnerParkingTests(unittest.TestCase):
         (self.root / "runtime.json").write_bytes(snapshot)
         (self.root / "owner-queue.json").write_bytes(b'{"items":[]}')
         with delivery.scout.single_runner(self.root):
-            accepted = subprocess.run(
-                command, capture_output=True, text=True, check=False
-            )
+            accepted = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(accepted.returncode, 0, accepted.stderr)
             self.assertEqual(self.row()["state"], "OWNER_PARKED")
             self.assertEqual((self.root / "runtime.json").read_bytes(), snapshot)
             self.assertEqual(
                 (self.root / "owner-queue.json").read_bytes(), b'{"items":[]}'
             )
-            repeated = subprocess.run(
-                command, capture_output=True, text=True, check=False
-            )
+            repeated = subprocess.run(command, capture_output=True, text=True)
             self.assertEqual(repeated.returncode, 0, repeated.stderr)
             self.assertEqual(json.loads(accepted.stdout), json.loads(repeated.stdout))
         self.assertEqual(self.row()["reported_tokens"], 1234)
