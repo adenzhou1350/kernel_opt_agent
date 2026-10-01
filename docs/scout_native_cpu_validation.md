@@ -175,6 +175,40 @@ for the scoped change, not full CI, coverage completion, or proof that the share
 platform/dependency failures are harmless. Both suite invocations took about
 29 seconds combined; failed attempts and dependency setup are additional costs.
 
+## HTTPcore: plugins and behavior-matched test context
+
+At immutable HTTPcore `10a658221deb38a4c5b16db55ab554b0bf731707`, a first
+collection attempt failed because the environment lacked the declared
+`pytest-trio==0.8.0` plugin. Keep `--strict-markers` and warnings-as-errors;
+install the declared plugin rather than suppressing the marker check. See the
+[upstream requirements](https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/requirements.txt)
+and [pytest configuration](https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/pyproject.toml).
+
+A fresh task-private Linux environment with Python 3.12.13, pytest 8.2.2,
+pytest-trio 0.8.0, Trio 0.31.0, AnyIO 4.15.1, h11 0.16.0 and h2 4.4.1 passed
+54 model/sync-HTTP11/async-HTTP11 tests. A separate invocation passed 30 existing
+sync/async HTTP2 tests. The imported package came from the full exact source
+export; all 92 exported files matched raw Git-object bytes before and after.
+No package/system mutation outside the task environment, native build or GPU
+was used. The first remote setup plus 54-test run took 13.79 seconds; the later
+HTTP2 invocation took 1.75 seconds. These are bounded upstream mock-test checks,
+not full CI, external-network coverage or automated untrusted-code isolation.
+
+An isolated four-window Scout admission trial froze source/test bytes, clipping,
+rules and a four-call cap before answers. It used 14,719 reported model tokens:
+three `NO_LEAD` answers and one `REVIEW`. Owner review rejected the reset-leak
+hypothesis after reading the outer shielded cleanup paths and the existing
+[RST_STREAM/reuse test](https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/tests/_async/test_http2.py#L130-L173).
+That test was outside the supplied first-100-line test window. The three
+`NO_LEAD` answers are not independently established negatives.
+
+The resulting next action is to retrieve caller cleanup and behavior-matched
+tests before generating another reproduction. This one old-commit repository
+trial produced no PR; it is not a fresh-change yield, recall, cost-saving or
+budget-matched multi-router result. Strong-model/owner-review costs were not
+independently metered. Keep raw inputs, packages and logs in local runs; do not
+expand continuous admission merely because a native baseline passed.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the
