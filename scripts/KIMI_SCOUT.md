@@ -18,6 +18,13 @@ The runtime's `scout_prompt_sha256` identifies the loaded prompt; editing source
 does not update an already-running process. These are investigation hints, not
 measured precision, cost-saving or PR-conversion claims.
 
+Related-work lookup first samples the title terms; after an empty result it may
+make one broader code-identifier/two-word query, still capped at five items.
+The evidence includes the query used. Neither zero matches nor these samples
+establish novelty: GitHub indexing, terminology and result caps can miss an exact
+fix. Review the actual current-source and PR diff before expensive reproduction
+or publication; do not automatically reject a lead on a keyword match.
+
 ## Safety and cost boundary
 
 - Reuses the existing Kimi Code **1.30.0** default model and API-key configuration.

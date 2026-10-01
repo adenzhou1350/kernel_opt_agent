@@ -427,16 +427,27 @@ class PublicContext:
         self._public(repo)
         # Quoted words cannot inject GitHub search operators or change scope.
         terms = " ".join('"' + word[:32] + '"' for word in words)
-        query = urllib.parse.urlencode(
-            {
-                "q": f"repo:{repo} in:title,body {terms}",
-                "sort": "updated",
-                "per_page": 5,
-            }
+        # Six title words are conjunctive, including incidental prose. An empty
+        # result can hide an exact fix with a differently worded title. Try one
+        # narrower identifier (or two words) only after that empty sample; this
+        # stays bounded and supplies related evidence, never an automatic verdict.
+        identifiers = re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", title[:1000])
+        anchor = next((word for word in identifiers if
+                       "_" in word.strip("_") or
+                       re.search(r"[a-z][A-Z]|[A-Z]{2}[a-z]|[A-Za-z][0-9]", word)), None)
+        fallback = '"' + anchor[:32] + '"' if anchor else " ".join(
+            '"' + word[:32] + '"' for word in words[:2]
         )
-        found = self._json(f"https://api.github.com/search/issues?{query}")
-        if not isinstance(found, dict) or not isinstance(found.get("items"), list):
-            raise ValueError("invalid public duplicate search")
+        for search_terms in dict.fromkeys((terms, fallback)):
+            query_text = f"repo:{repo} in:title,body {search_terms}"
+            query = urllib.parse.urlencode(
+                {"q": query_text, "sort": "updated", "per_page": 5}
+            )
+            found = self._json(f"https://api.github.com/search/issues?{query}")
+            if not isinstance(found, dict) or not isinstance(found.get("items"), list):
+                raise ValueError("invalid public duplicate search")
+            if found["items"]:
+                break
         result = []
         repository_url = f"https://api.github.com/repos/{repo}"
         for item in found["items"][:5]:
@@ -454,6 +465,7 @@ class PublicContext:
                 _text(item.get("title")) + "\n" + _text(item.get("body")),
                 1800,
             )
-            evidence.update(is_pr=is_pr, search_exhaustive=False)
+            evidence.update(is_pr=is_pr, search_exhaustive=False,
+                            search_query=query_text)
             result.append(evidence)
         return result
