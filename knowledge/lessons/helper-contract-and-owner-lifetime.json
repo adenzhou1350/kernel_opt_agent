@@ -1,8 +1,8 @@
 {
   "id": "helper-contract-and-owner-lifetime",
   "title": "Check the caller contract and owner lifetime before repairing a helper",
-  "applies_when": "An isolated reproduction alleges a missing method decorator, script global, cache-key collision, or stale object identity, but omits the interface or owner that invokes the helper.",
-  "lesson": "Read the declared interface, actual invocation, and surrounding ownership before choosing a regression. A Python receiver named cls is still an instance receiver unless the method has a classmethod descriptor. An id-keyed cache can have an apparent reuse hazard that an outer strong reference rules out for the reviewed call sequence; follow creation, replacement and invalidation together. A script can initialize a module global inside its __main__ block before invoking a helper; a truncated excerpt or import-only test omits that supported entry. Fetch the missing tail before repairing its environment. Test the supported entry and an independent normal control rather than inventing a class-only call or dropping references the real owner retains. These source counterexamples change which evidence to acquire next; they do not automatically reject a new hypothesis.",
+  "applies_when": "An isolated reproduction alleges a missing method decorator, script global, cache-key collision, stale object identity, or constant self-comparison, but omits the helper implementation, interface or owner that invokes it.",
+  "lesson": "Read the declared interface, actual invocation, and surrounding ownership before choosing a regression. A Python receiver named cls is still an instance receiver unless the method has a classmethod descriptor. An id-keyed cache can have an apparent reuse hazard that an outer strong reference rules out for the reviewed call sequence; follow creation, replacement and invalidation together. A script can initialize a module global inside its __main__ block before invoking a helper; a truncated excerpt or import-only test omits that supported entry. A custom identity predicate can include platform validity checks, so passing the same object twice need not return true: it can reject unavailable Windows device/inode identities. Read its body before rewriting that call as a stale-snapshot comparison. Fetch missing context before repairing an environment. Test the supported entry and an independent normal control rather than inventing a class-only call or dropping references the real owner retains. These source counterexamples change which evidence to acquire next; they do not automatically reject a new hypothesis.",
   "avoid_when": "A documented standalone/public helper contract can be violated even if internal callers do not exercise that input. Absence of a shipped caller does not disprove an API defect. Strong references prevent identity reuse only for their actual lifetime; they do not prevent mutation, stale metadata, concurrency bugs, or defects after a new caller changes ownership. The cited revisions are source/interface counterexamples, not package, accelerator, or general false-positive-rate measurements.",
   "evidence": [
     {
@@ -20,6 +20,10 @@
     {
       "url": "https://github.com/sgl-project/sglang/blob/99c59a2ea62f32fd5497eceaf2ed18cad33389db/python/sglang/srt/layers/attention/minimax_sparse_backend.py#L1496",
       "note": "forward_extend checks the cached object's identity and retains forward_batch in the outer metadata tuple while resolving the next helper result. An isolated id-reuse test omitting that reference does not establish the alleged production failure. This is a revision-bound source observation, not NPU execution evidence."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/5129c0af2eebd9d8a50a5e01bf976e0502c27161/src/infra/update-runner-git-runtime.ts#L30-L36",
+      "note": "sameRuntimeIdentity also requires nonzero current.dev/current.ino on Windows. Its self-comparison at activation lines 411-416 can therefore fail and reports identity unavailable; assertPrevious then separately checks the retained object after rename. This counters the constant-dead-code hypothesis, not every possible filesystem race or a runtime-platform qualification."
     }
   ],
   "status": "validated"
