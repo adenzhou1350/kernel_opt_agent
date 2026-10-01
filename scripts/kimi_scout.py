@@ -97,6 +97,10 @@ no_lead is a valuable result. Prefer an existing production path and a fair
 baseline. Check the supplied related work; an incomplete list is not proof of
 novelty. Separate correctness bugs, API usability, and performance hypotheses.
 Trace a supported caller before defining the regression's expected behavior.
+For configuration claims, trace the real parser/registration and consumer;
+a permissive helper may support plugins behind stricter public validation.
+Prefer existing native tests with their actual reference behavior. A fabricated
+callback, missing object field or unsupported input is not a reachable defect.
 Changed exception wording does not prove a newly enabled backend works; seek
 observable consumer outputs or request the missing native environment evidence.
 For resource-budget claims, match comments to the instantiated geometry and
@@ -814,6 +818,7 @@ def run(args):
         runtime = {
             "pid": os.getpid(),
             "state": "RUNNING",
+            "scout_prompt_sha256": hashlib.sha256(SYSTEM.encode("utf-8")).hexdigest(),
             "deadline": deadline if args.hours else None,
             "concurrency": args.concurrency,
             "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),

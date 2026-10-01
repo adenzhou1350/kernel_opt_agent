@@ -1,5 +1,6 @@
 """Admission must account for children not yet reflected in host memory."""
 
+import hashlib
 import sys
 from pathlib import Path
 import tempfile
@@ -104,6 +105,10 @@ class MemoryAdmissionTests(unittest.TestCase):
             self.assertEqual(peak, 2)
             self.assertEqual(result["runtime"]["attempted_this_run"], 8)
             self.assertEqual(result["runtime"]["worker_memory_mb"], 256)
+            self.assertEqual(
+                result["runtime"]["scout_prompt_sha256"],
+                hashlib.sha256(scout.SYSTEM.encode("utf-8")).hexdigest(),
+            )
             self.assertTrue(all(j["state"] == "NO_LEAD" for j in result["jobs"]))
 
 

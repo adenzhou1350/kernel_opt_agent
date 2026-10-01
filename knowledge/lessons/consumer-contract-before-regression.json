@@ -6,6 +6,10 @@
   "avoid_when": "Do not dismiss reachable malformed host targets, escaping/length violations, or supported callers that mutate shapes or exceed allocation capacity. Error wording may itself be a documented API contract; validate that narrower claim separately rather than inferring backend support. A callback stand-in must preserve the real backend's layout transformations: RoPE+SDPA may take BSHD and return BHSD even when plain SDPA preserves shape. Baseline-fail/patch-pass against a shape-preserving invented callback is not a defect proof. Static review disproves only the specific alleged mismatch; it is not a native execution test or proof of general correctness.",
   "evidence": [
     {
+      "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/arg_groups/fields/exec_.py#L428",
+      "note": "Linear-attention CLI fields bind registered choices. The native argument builder forwards them to argparse; choices.py exposes plugin registration. Enum CUSTOM fallback alone therefore does not prove that a CLI typo passes validation. Programmatic consumers still need separate evidence; this is not a server or GPU qualification."
+    },
+    {
       "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/torchao/prototype/attention/shared_utils/attention.py#L122",
       "note": "The real RoPE+FP8 SDPA backend explicitly takes BSHD and returns BHSD; its shared fake implementation permutes those dimensions. Plain SDPA's shape-preserving contract is different. This source contract refutes a proposed fake-kernel fix based on a callback that incorrectly preserves BSHD."
     },

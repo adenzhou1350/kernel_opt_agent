@@ -8,6 +8,16 @@ lead per request. Unchanged evidence and incidental PR-title-list churn cost no
 new model call. No ordinary kernel
 work needs this service, and it does not resurrect the historical GPU broker.
 
+Choose the next check from the missing evidence, not from a fixed tool chain:
+trace a real consumer/configuration entry point, use its native reference tests,
+then feed concrete assertion/compiler/numerical/synchronization findings into a
+bounded revision. Use TIRx only for an applicable kernel question. Isolated
+red/green tests do not overrule a native consumer counterexample. Permissive
+helpers may be intentional plugin extension points behind stricter CLI choices.
+The runtime's `scout_prompt_sha256` identifies the loaded prompt; editing source
+does not update an already-running process. These are investigation hints, not
+measured precision, cost-saving or PR-conversion claims.
+
 ## Safety and cost boundary
 
 - Reuses the existing Kimi Code **1.30.0** default model and API-key configuration.

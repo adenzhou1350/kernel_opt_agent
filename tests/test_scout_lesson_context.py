@@ -64,6 +64,18 @@ class LessonContextTests(unittest.TestCase):
         )
         self.assertEqual(result["matches"], [])
 
+    def test_configuration_counterexample_remains_retrievable_and_scoped(self):
+        result = lesson_suggestions("configuration CLI parser plugin consumer backend")
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "consumer-contract-before-regression")
+        self.assertLessEqual(len(json.dumps(lesson, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+        self.assertEqual(lesson["status"], "counterexample")
+        evidence = next(item for item in lesson["evidence"] if "/arg_groups/fields/exec_.py" in item["url"])
+        self.assertIn("plugin registration", evidence["note"])
+        self.assertIn("not a server or GPU qualification", evidence["note"])
+        self.assertIn("Programmatic consumers", evidence["note"])
+
     def test_large_card_is_omitted_not_silently_truncated(self):
         self.save(card("stream-pause", "native stream pause " * MAX_CARD_BYTES))
         result = lesson_suggestions("stream pause", directory=self.root)
