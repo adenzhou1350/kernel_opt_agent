@@ -418,7 +418,8 @@ def mark_pr(
                 raise ValueError("candidate is already linked to another PR")
             return result["pr"]
         blocked_reproduction = (
-            row["state"] == "ENVIRONMENT_BLOCKED" and owner_reproduced_after_block
+            row["state"] in {"ENVIRONMENT_BLOCKED", "INCONCLUSIVE"}
+            and owner_reproduced_after_block
         )
         legacy_publication = row["state"] == "REPRODUCED" and owner_verified_legacy
         if (
@@ -427,7 +428,7 @@ def mark_pr(
             and not legacy_publication
         ):
             raise ValueError(
-                "owner review or explicit reproduction after an environment block is required"
+                "owner review or explicit reproduction after an environment block or inconclusive screen is required"
             )
         if not blocked_reproduction and not legacy_publication:
             handoff = root / "jobs" / job_id / "owner-handoff.json"
@@ -442,8 +443,13 @@ def mark_pr(
             "number": int(match.group(2)),
             "recorded_at": time.time(),
             "claim_boundary": (
-                "owner independently reproduced after Scout environment block; "
-                "PR publication does not imply CI, review or merge"
+                "owner independently reproduced after Scout "
+                + (
+                    "inconclusive screen; "
+                    if row["state"] == "INCONCLUSIVE"
+                    else "environment block; "
+                )
+                + "PR publication does not imply CI, review or merge"
                 if blocked_reproduction
                 else "owner verified publication of legacy candidate; no handoff or new tests inferred"
                 if legacy_publication
@@ -1343,7 +1349,11 @@ def main():
         "--mark-pr-job", help="owner-verified candidate to link to a published PR"
     )
     parser.add_argument("--pr-url", help="exact canonical GitHub PR URL")
-    parser.add_argument("--owner-reproduced-after-block", action="store_true")
+    parser.add_argument(
+        "--owner-reproduced-after-block",
+        action="store_true",
+        help="owner independently reproduced an environment-blocked or inconclusive candidate",
+    )
     parser.add_argument("--owner-verified-legacy", action="store_true")
     parser.add_argument(
         "--park-owner-job", help="explicitly reviewed candidate to defer"
