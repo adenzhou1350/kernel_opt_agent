@@ -5,6 +5,44 @@ source is available. A baseline may reveal a known upstream failure; retain it
 and compare the same affected tests before/after a candidate. Do not suppress
 warnings or weaken assertions to manufacture a green environment.
 
+## Windows-native TypeScript checks without bypassing runtime requirements
+
+Read the reviewed checkout's `package.json` engines and test wrappers before
+running it. A locally installed Node executable can be too old even when its
+major version matches. Use a task-private official portable runtime; check the
+archive against the corresponding [Node release checksums](https://nodejs.org/dist/v24.16.0/SHASUMS256.txt)
+before safe extraction. Do not replace global Node, reconcile shared dependencies
+or launch local WSL as a fallback.
+
+For owner-reviewed OpenClaw code with already-ready dependencies, use its native
+wrapper and one relevant test. Prefix PATH only in that child environment so
+spawned Node processes use the same reviewed runtime. Set TEMP and TMP to a fresh
+task-owned directory on the intended storage drive **before** launch; a D-drive
+checkout alone does not keep generated workers and temporary state off C.
+
+```powershell
+$env:PATH = "$taskNodeDirectory;$env:PATH"  # this test shell only
+$env:TEMP = $taskTempDirectory
+$env:TMP = $taskTempDirectory
+& "$taskNodeDirectory/node.exe" scripts/run-vitest.mjs run src/cron/store.test.ts -t "cascades authority deletion and permits a fresh recapture" --maxWorkers=1
+```
+
+One observed Windows check at OpenClaw `3e49333709714693f39d393f03f0c3ab92cedb74`
+with Node 24.16.0 passed that existing real save/load deletion test (1 pass,
+75 skipped; 41.31 s process wall, including 19.34 s cold worker preparation).
+It emitted retained SQLite-singleton and non-group descendant-cleanup warnings;
+retain those warnings and do not delete a reported namespace solely because the
+parent returned success. This is one historical-checkout result, not current-main,
+full-suite, candidate-discrimination or sandbox evidence.
+
+The separately reviewed source at `bf3f9d7256f25ef80cde36dbb2c2061d085e9eea`
+declares [authority-row cascade](https://github.com/openclaw/openclaw/blob/bf3f9d7256f25ef80cde36dbb2c2061d085e9eea/src/cron/store/runtime-authority-store.ts)
+and [foreign-key connection setup](https://github.com/openclaw/openclaw/blob/bf3f9d7256f25ef80cde36dbb2c2061d085e9eea/src/state/openclaw-state-db-open.ts).
+Inspect both before treating a missing manual child-row DELETE as a bug. A
+different connection, migration or failing supported flow can overturn that
+counterevidence. No autonomous delivery profile or PR promotion is enabled by
+this recipe; arbitrary model-generated code still requires secretless isolation.
+
 ## HTTPX example
 
 The [official contribution guide](https://www.python-httpx.org/contributing/)
