@@ -4,6 +4,7 @@ from pathlib import Path
 import sqlite3
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from scripts.scout_pending_cohort import enroll
 
@@ -83,6 +84,26 @@ class PendingCohortTests(unittest.TestCase):
             self.assertEqual(path.read_bytes(), before)
             self.assertNotIn("FORBIDDEN_ANSWER", json.dumps(all_inputs))
             self.assertNotIn("RULE_NOT_A_LABEL", json.dumps(all_inputs))
+            real_connect = sqlite3.connect
+
+            def deny_later_outcomes(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connection.set_authorizer(
+                    lambda operation, table, column, *unused:
+                    sqlite3.SQLITE_DENY
+                    if operation == sqlite3.SQLITE_READ and table == "jobs"
+                    and column in {"result", "charge", "state", "finished"}
+                    else sqlite3.SQLITE_OK
+                )
+                return connection
+
+            with patch("scripts.scout_pending_cohort.sqlite3.connect",
+                       side_effect=deny_later_outcomes):
+                guarded, _ = enroll(
+                    path, created_after=10, limit=4, per_repo_cap=4,
+                    enrollment="admission_recorded",
+                )
+            self.assertEqual(guarded, all_inputs)
             db = sqlite3.connect(path)
             db.execute("UPDATE jobs SET state='FAILED',finished=40,result='DIFFERENT_OUTCOME'")
             db.commit()
