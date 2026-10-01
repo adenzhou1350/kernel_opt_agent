@@ -494,6 +494,9 @@ New packets can also carry at most two `owner_deferrals` for the same source
 file, read from the latest 24 owner-parked records per repository. Each includes
 the old hypothesis, pinned public evidence, reason and explicit reopening
 condition. Notes are capped and marked when clipped; raw test logs are not read.
+Notes containing recognizable task-local artifact paths are omitted before
+export, without editing the original records. Pinned public repository paths
+remain eligible. This narrow guard is not a complete privacy/secret detector.
 This is advisory history, **not a no-bug verdict or a rejection filter**. New
 callers, contracts and distinct defects can overturn an earlier deferral. It
 adds no network/model calls, does not replay seen source, and is dropped before

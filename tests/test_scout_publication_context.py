@@ -154,6 +154,33 @@ class PublicationContextTests(unittest.TestCase):
             self.defer(id, source=other)
         self.assertIsNone(self.deferrals())
 
+    def test_deferral_local_artifact_locations_are_not_exported_or_erased(self):
+        self.initialize()
+        examples = [
+            "Evidence: runs/private-check/result.json",
+            "Evidence: D:/codes/private/result.json",
+            r"Evidence: C:\Users\someone\private.txt",
+            "Evidence: /workspace/kernel-opt/closures/private",
+            r"Evidence: \\server\share\private.txt",
+            "Reopen with ./raw/private.log",
+            "x" * 600 + " runs/private-after-display-cap/result.json",
+        ]
+        for i, reason in enumerate(examples, 1):
+            self.defer(i, reason=reason)
+        self.defer(20, reopen_when="Read /home/user/private/result.json")
+        self.defer(21, reason="Public src/subject.py contract is incomplete")
+        before = self.path.read_bytes()
+        context = self.deferrals()
+        self.assertEqual(len(context["items"]), 1)
+        self.assertEqual(context["items"][0]["reason"], "Public src/subject.py contract is incomplete")
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_pinned_public_runs_directory_remains_eligible_evidence(self):
+        self.initialize()
+        public = f"https://github.com/{self.repo}/blob/{'a' * 40}/runs/repro.py"
+        self.defer(1, reason="Public reproducer: " + public)
+        self.assertEqual(self.deferrals()["items"][0]["reason"], "Public reproducer: " + public)
+
     def test_deferral_evidence_can_be_an_exact_removal_commit(self):
         self.initialize()
         url = "https://github.com/public/project/commit/" + "b" * 40
