@@ -129,6 +129,16 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   members and bounded related-work search. Model hints cannot introduce arbitrary
   fetch URLs or paths. The final output is a falsification/reproduction **plan**;
   actual tests, GPU validation and PR decisions still belong to the owner.
+- An explicit same-file line interval must start at an observed truncated
+  window's end or its immediate successor, and end within that pinned file.
+  For a long interval, two available ordinary read slots show its head and tail
+  rather than another lexical file match. The raw cache is shared; this adds no
+  read slot or model call. Both excerpts retain their own visible ranges and
+  truncation flags: gaps and packet clipping are not complete-function coverage.
+  If a contract/test read already uses the second slot, it remains reserved.
+  A captured malformed-JSON lead replay now includes its outer error handler
+  within the existing 24,000-byte prompt cap. This is exposed development
+  retrieval evidence, not prospective cost savings or PR-conversion proof.
 - Source-window content and issue evidence are deduplicated. Timestamp-only issue
   updates and unchanged snippets under a new commit do not buy a repeated call.
   No-lead, failed and interrupted calls are not automatically retried.

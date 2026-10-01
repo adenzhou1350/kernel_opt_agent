@@ -334,7 +334,8 @@ def continuation_request(packet, snapshot, analysis):
         r"行\s*(\d{1,7})\s*(?:之后|以后|后)",
     ):
         boundaries.update(
-            int(value) for value in re.findall(expression, next_check[:2000], re.IGNORECASE)
+            int(value)
+            for value in re.findall(expression, next_check[:2000], re.IGNORECASE)
         )
     ranges = []
     for expression in (
@@ -346,13 +347,12 @@ def continuation_request(packet, snapshot, analysis):
             for first, last in re.findall(expression, next_check[:2000], re.IGNORECASE)
         )
     # A requested interval may describe the missing tail, not an arbitrary
-    # remote source. Require its start to follow an observed window exactly.
+    # remote source. Permit only the observed end or its immediate successor.
     if any(first < 2 or last < first for first, last in ranges):
         return None
-    boundaries.update(first - 1 for first, _ in ranges)
-    if len(boundaries) != 1:
+    ranges = set(ranges)
+    if len(boundaries) > 1 or len(ranges) > 1 or not (boundaries or ranges):
         return None
-    boundary = boundaries.pop()
     repo, commit = packet.get("repo"), snapshot.get("commit")
     if not isinstance(repo, str) or not isinstance(commit, str):
         return None
@@ -371,12 +371,17 @@ def continuation_request(packet, snapshot, analysis):
             and path.endswith(SOURCE_SUFFIXES)
             and source.get("truncated") is True
             and all(type(value) is int for value in (start, end, total))
-            and 1 <= start <= end == boundary < total
+            and 1 <= start <= end < total
+            and (not boundaries or boundaries == {end})
+            and all(first in (end, end + 1) for first, _ in ranges)
             and all(last <= total for _, last in ranges)
         ):
-            matches.append(
-                {"path": path, "start": max(start, end - 19), "max_lines": 120}
-            )
+            request = {"path": path, "start": max(start, end - 19), "max_lines": 120}
+            if ranges:
+                last = next(iter(ranges))[1]
+                if last >= request["start"] + 120:
+                    request["tail_start"] = last - 119
+            matches.append(request)
     return matches[0] if len(matches) == 1 else None
 
 
@@ -1145,7 +1150,23 @@ class ResearchProducer:
             lexical_budget = max(
                 0, (1 if contracts or test_request else 2) - len(imports)
             )
-            for path in paths[:lexical_budget]:
+            lexical_requests = [{"path": path} for path in paths[:lexical_budget]]
+            if continuation and lexical_requests:
+                lexical_requests[0].update(
+                    {key: continuation[key] for key in ("start", "max_lines")}
+                )
+                if "tail_start" in continuation and lexical_budget >= 2:
+                    # Replace the second lexical read, never add a third one.
+                    # Visible ranges remain separate; neither claims completeness.
+                    lexical_requests = [
+                        lexical_requests[0],
+                        {
+                            "path": continuation["path"],
+                            "start": continuation["tail_start"],
+                            "max_lines": 120,
+                        },
+                    ]
+            for request in lexical_requests:
                 if self.stopped():
                     return False
                 try:
@@ -1153,17 +1174,9 @@ class ResearchProducer:
                         self.context.source(
                             spec["repo"],
                             snapshot["commit"],
-                            path,
+                            **request,
                             hints=hints,
                             request_hints=analysis_value.get("next_check", "")[:2000],
-                            **(
-                                {
-                                    key: continuation[key]
-                                    for key in ("start", "max_lines")
-                                }
-                                if continuation and path == continuation["path"]
-                                else {}
-                            ),
                         )
                     )
                 except ValueError as exc:

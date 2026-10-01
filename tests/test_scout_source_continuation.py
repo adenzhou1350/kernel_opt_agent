@@ -1,14 +1,15 @@
 """Offline bounded followup regression: model hints never define fetch targets."""
 
-import json
 import sys
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from kimi_scout_research import continuation_request
 import kimi_scout as scout
-from kimi_scout_research import ResearchProducer, continuation_request
+from kimi_scout_research import ResearchProducer
 
 
 class ContinuationTests(unittest.TestCase):
@@ -52,13 +53,18 @@ class ContinuationTests(unittest.TestCase):
                 )
 
     def test_explicit_missing_interval_is_bounded_by_observed_window(self):
-        for hint in ("Read lines 361-537", "获取该文件361–537行"):
+        for hint in ("Read lines 361-537", "获取该文件361–537行", "Read lines 360-537"):
             with self.subTest(hint=hint):
                 self.assertEqual(
                     continuation_request(
                         self.packet, self.snapshot, {"next_check": hint}
                     ),
-                    {"path": "src/worker.ts", "start": 341, "max_lines": 120},
+                    {
+                        "path": "src/worker.ts",
+                        "start": 341,
+                        "max_lines": 120,
+                        "tail_start": 418,
+                    },
                 )
         for hint in (
             "Read lines 362-537",
@@ -111,7 +117,7 @@ class ContinuationTests(unittest.TestCase):
                 calls.append((path, kwargs))
                 return {
                     "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
-                    "text": "369: await worker.close();\n391: worker.createNativeReplacement();",
+                    "text": f"{kwargs['start']}: observed distinct fragment",
                 }
 
             def duplicate_sources(self, repo, title):
@@ -154,10 +160,80 @@ class ContinuationTests(unittest.TestCase):
                     ),
                 )
             self.assertTrue(producer.followup(spec, {}))
-            self.assertEqual(len(calls), 1)
+            self.assertEqual(len(calls), 2)
             self.assertEqual(calls[0][0], "src/worker.ts")
             self.assertEqual(calls[0][1]["start"], 341)
             self.assertEqual(calls[0][1]["max_lines"], 120)
+            self.assertEqual(calls[1][0], "src/worker.ts")
+            self.assertEqual(calls[1][1]["start"], 418)
+            self.assertEqual(calls[1][1]["max_lines"], 120)
+            with scout.connect(root) as db:
+                emitted = json.loads(
+                    db.execute(
+                        "SELECT packet FROM jobs ORDER BY created DESC LIMIT 1"
+                    ).fetchone()[0]
+                )
+            fragments = [
+                s for s in emitted["sources"] if s["url"].endswith("src/worker.ts")
+            ]
+            self.assertTrue(any(s["text"].startswith("341:") for s in fragments))
+            self.assertTrue(any(s["text"].startswith("418:") for s in fragments))
+
+    def test_short_range_and_unbounded_after_do_not_add_tail(self):
+        self.assertEqual(
+            continuation_request(
+                self.packet, self.snapshot, {"next_check": "Read lines 361-400"}
+            ),
+            {"path": "src/worker.ts", "start": 341, "max_lines": 120},
+        )
+        self.assertEqual(
+            continuation_request(
+                self.packet, self.snapshot, {"next_check": "after line 360"}
+            ),
+            {"path": "src/worker.ts", "start": 341, "max_lines": 120},
+        )
+
+    def test_long_requested_tail_exposes_outer_handler_without_completeness_claim(self):
+        from kimi_scout_context import PublicContext
+        from unittest.mock import patch
+
+        self.packet["sources"][0].update(start_line=361, end_line=481, total_lines=718)
+        request = continuation_request(
+            self.packet, self.snapshot, {"next_check": "检查481-718行外层catch"}
+        )
+        self.assertEqual(request["tail_start"], 599)
+        with tempfile.TemporaryDirectory() as directory:
+            ctx = PublicContext(Path(directory))
+            lines = ["// padding"] * 718
+            lines[644] = "} catch (error) {"
+            lines[697] = 'return { status: "error" };'
+            raw = "\n".join(lines)
+            with (
+                patch.object(ctx, "snapshot", return_value=self.snapshot),
+                patch.object(ctx, "_read", return_value=raw) as read,
+            ):
+                head = ctx.source(
+                    "a/b",
+                    self.sha,
+                    request["path"],
+                    start=request["start"],
+                    max_lines=120,
+                )
+                tail = ctx.source(
+                    "a/b",
+                    self.sha,
+                    request["path"],
+                    start=request["tail_start"],
+                    max_lines=120,
+                )
+            self.assertNotIn("catch (error)", head["text"])
+            self.assertIn("catch (error)", tail["text"])
+            self.assertIn('status: "error"', tail["text"])
+            self.assertEqual(
+                read.call_count, 1
+            )  # Second fragment reuses the full raw cache.
+            self.assertTrue(head["truncated"] and tail["truncated"])
+            self.assertNotIn("requested_definition_complete", tail)
 
 
 if __name__ == "__main__":
