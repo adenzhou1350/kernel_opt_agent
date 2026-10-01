@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import difflib
+import errno
 import hashlib
 import json
 import os
@@ -19,7 +20,7 @@ import subprocess
 import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 import kimi_scout as scout
@@ -1327,15 +1328,25 @@ def main():
         target = args.root.resolve() / "delivery"
         if not (target / "delivery.sqlite").is_file():
             parser.error("no existing delivery queue")
-        with scout.single_runner(target):
-            decision = park_owner_candidate(
-                target,
-                args.park_owner_job,
-                args.park_reason,
-                args.park_evidence_url,
-                args.reopen_when,
-            )
-            Delivery(args).publish(None, refresh_only=True)
+        # BEGIN IMMEDIATE serializes this terminal-candidate disposition with
+        # worker writes. It cannot claim or modify an executing candidate.
+        decision = park_owner_candidate(
+            target,
+            args.park_owner_job,
+            args.park_reason,
+            args.park_evidence_url,
+            args.reopen_when,
+        )
+        # The live worker owns snapshots. Refresh immediately only if its lock
+        # is free; otherwise it will pick up the committed decision next tick.
+        with ExitStack() as stack:
+            try:
+                stack.enter_context(scout.single_runner(target))
+            except OSError as error:
+                if error.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+            else:
+                Delivery(args).publish(None, refresh_only=True)
         print(scout.dumps(decision))
         return
     if args.retry_preflight_job:

@@ -8,12 +8,10 @@ from __future__ import annotations
 
 import argparse
 import base64
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
 import contextlib
 import hashlib
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import sqlite3
@@ -24,6 +22,8 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -64,6 +64,19 @@ def available_disk_mb(path):
         return shutil.disk_usage(path).free // (1024 * 1024)
     except OSError:
         return None
+
+
+def memory_admits_call(available_mb, reserve_mb, inflight, worker_mb=0):
+    """Budget startup RAM before submitted children appear in host usage.
+
+    Some in-flight allocations already reduce available_mb, so this deliberately
+    reserves twice rather than pretending to predict exact process memory.
+    """
+    if not (reserve_mb or worker_mb):
+        return True
+    return available_mb is not None and available_mb >= (
+        reserve_mb + (inflight + 1) * worker_mb
+    )
 
 
 def runtime_storage_env(root, environ=None):
