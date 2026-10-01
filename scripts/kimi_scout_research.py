@@ -23,6 +23,7 @@ from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
+from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_publication_context import (
     fit_publication_context,
     owner_deferral_context,
@@ -625,6 +626,12 @@ class ResearchProducer:
             "question": spec["question"] + "\n" + question,
             "sources": sources,
             "reviewed_lessons": self.lessons,
+            "lesson_suggestions": lesson_suggestions(
+                question + " " + " ".join(
+                    s["url"].rsplit("/", 1)[-1] for s in sources
+                ) + " " + spec["question"],
+                exclude=(card["id"] for card in self.lessons),
+            ),
             "research": {
                 "stage": stage,
                 "parent_job_id": parent["id"] if parent else None,
@@ -648,6 +655,7 @@ class ResearchProducer:
             packet["owner_deferrals"] = deferrals
         fit_publication_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
+        fit_lesson_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         while (
             len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
             > scout.MAX_INPUT_BYTES

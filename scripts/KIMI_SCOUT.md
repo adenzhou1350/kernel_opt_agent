@@ -2,11 +2,17 @@
 
 A small **hypothesis inbox**, not an autonomous PR publisher. It polls explicitly
 selected public repositories, supplies unresolved issue reports, short source
-excerpts, related-PR context and three
-reviewed knowledge lessons to the configured Kimi model, and saves at most one
+excerpts, related-PR context and at most one context-matched advisory lesson to
+the configured Kimi model, and saves at most one
 lead per request. Unchanged evidence and incidental PR-title-list churn cost no
 new model call. No ordinary kernel
 work needs this service, and it does not resurrect the historical GPU broker.
+
+Knowledge uses the existing lexical search, not a fixed GPU advice bundle.
+Matches retain applicability, exceptions, evidence and status; a lexical match
+does not prove relevance. Optional advice is omitted before source windows are
+trimmed when the prompt is full. Historical packets are not rewritten, and this
+change alone does not establish higher finding accuracy or PR conversion.
 
 ## Safety and cost boundary
 

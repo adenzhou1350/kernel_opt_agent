@@ -25,6 +25,8 @@ import urllib.request
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
+from scout_lesson_context import fit_lesson_context, lesson_suggestions
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -280,19 +282,8 @@ def evidence(url, text, char_limit=4500):
 
 
 def reviewed_lessons():
-    names = [
-        "production-path-and-impact",
-        "measure-production-execution-mode",
-        "precision-reference-contract",
-    ]
-    return [
-        json.loads(
-            (ROOT / "knowledge" / "lessons" / f"{name}.json").read_text(
-                encoding="utf-8"
-            )
-        )
-        for name in names
-    ]
+    """Legacy packet field; no domain-specific advice is mandatory."""
+    return []
 
 
 def collect_source(spec, github_auth=False):
@@ -377,6 +368,11 @@ def collect_source(spec, github_auth=False):
         "related_open_items_sample": related,
         "duplicate_search_complete": False,
         "reviewed_lessons": reviewed_lessons(),
+        "lesson_suggestions": lesson_suggestions(
+            spec["question"] + " " + " ".join(
+                item.get("path", "") for item in spec.get("files", [])
+            ),
+        ),
     }
     if spec.get("split_reports"):
         # Separate evidence packets keep each call small and parallelizable.
@@ -389,6 +385,7 @@ def collect_source(spec, github_auth=False):
             for report in report_sources
         ]
     packet["sources"] = sources + report_sources
+    fit_lesson_context(packet, MAX_INPUT_BYTES, SYSTEM)
     return packet
 
 
@@ -411,6 +408,7 @@ def enqueue(root, packet, *, db=None):
             )
         if not isinstance(source["text"], str):
             raise ValueError("source text must be a string")
+    fit_lesson_context(packet, MAX_INPUT_BYTES, SYSTEM)
     body = dumps(packet)
     if len((SYSTEM + body).encode("utf-8")) > MAX_INPUT_BYTES:
         raise ValueError("packet exceeds input budget; select narrower source windows")
@@ -423,6 +421,8 @@ def enqueue(root, packet, *, db=None):
     identity.pop("related_open_items_sample", None)
     # Owner deferral advice alone is not fresh source or a new paid task.
     identity.pop("owner_deferrals", None)
+    # Knowledge-only changes are not new source evidence or a paid task.
+    identity.pop("lesson_suggestions", None)
     identity["sources"] = [
         dict(source, url=re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]))
         for source in packet["sources"]

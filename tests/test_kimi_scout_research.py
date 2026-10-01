@@ -748,7 +748,8 @@ class ResearchTests(unittest.TestCase):
         related = [
             {
                 "url": f"https://github.com/a/b/pull/{i}",
-                "text": "s" * 1800,
+                # Overflow from evidence itself, not incidental knowledge cards.
+                "text": "s" * 4000,
                 "search_exhaustive": False,
             }
             for i in range(3)
