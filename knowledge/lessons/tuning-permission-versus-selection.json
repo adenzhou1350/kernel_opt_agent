@@ -1,7 +1,7 @@
 {
   "id": "tuning-permission-versus-selection",
   "title": "A tuning permission is not the selected kernel configuration",
-  "applies_when": "A configuration-validation proposal interprets enable/allow flags as a forced execution path, especially when a separate knobs resolver or autotuner chooses the actual kernel policy.",
+  "applies_when": "A configuration-validation proposal interprets enable/allow flags as a forced execution path, especially when a separate knobs resolver or autotuner chooses the actual kernel policy. For FlashInfer MegaMoeConfig, trace enable_in_kernel_fc2_reduce, combine_dtype and the resolved in_kernel_fc2_reduce separately.",
   "lesson": "Trace permission, resolved knobs and the consuming validator separately before adding an earlier rejection. FlashInfer NVFP4 MegaMoE allows enable_in_kernel_fc2_reduce=True while its default selector turns in_kernel_fc2_reduce off for mxfp8/nvfp4 combine wires and selects reuse_dispatch_warps. A constructor regression demanding rejection conflates permission with selection and can reject an existing permitted-but-unselected configuration. Test that control alongside explicitly incompatible selected knobs; inspect where the latter are already rejected.",
   "avoid_when": "An enable flag can be a mandatory execution choice in another API; establish its contract rather than applying this distinction universally. Explicit selected knobs can still be invalid. These pinned sources establish a default-selection counterexample, not all knob combinations, native kernel correctness, distributed reachability or performance. Inconsistent comments may warrant clarification without changing accepted inputs.",
   "evidence": [

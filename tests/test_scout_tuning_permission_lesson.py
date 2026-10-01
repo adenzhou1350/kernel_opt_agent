@@ -10,6 +10,22 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class TuningPermissionLessonTests(unittest.TestCase):
+    def test_field_names_retrieve_advice_in_mixed_language_queries(self):
+        # Development regressions from owner-reviewed historical candidates,
+        # not a held-out or prospective quality/conversion measurement.
+        queries = (
+            "MegaMoeConfig 缺少 enable_in_kernel_fc2_reduce 与 combine_dtype 的交叉校验 config.py 共60行未截断 __post_init__ 只校验 swiglu 配对 量化 wire 要求 enable_in_kernel_fc2_reduce=False",
+            'config 缺少 enable_in_kernel_fc2_reduce 与 combine_dtype 的交叉校验 apply_topk_in_fc1=True combine_dtype="bf16"',
+            'MegaMoeConfig combine_dtype="nvfp4" enable_in_kernel_fc2_reduce=True 配置层静默通过 下游 shim 是否有同等校验未知',
+        )
+        for query in queries:
+            with self.subTest(query=query):
+                result = lesson_suggestions(query)
+                self.assertEqual(result["status"], "ADVISORY_MATCH")
+                self.assertEqual(
+                    result["matches"][0]["id"], "tuning-permission-versus-selection"
+                )
+
     def test_complete_counterexample_is_retrievable(self):
         result = lesson_suggestions(
             "enable_in_kernel_fc2_reduce tuning permission selected knobs combine wires"
