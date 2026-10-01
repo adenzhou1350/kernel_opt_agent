@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import ast
 import difflib
+import errno
 import hashlib
 import json
 import os
@@ -19,7 +20,7 @@ import subprocess
 import threading
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 import kimi_scout as scout
@@ -91,6 +92,10 @@ credentials, GPU or installation. It may write only private /tmp scratch.
 edits is a list of {old,new} exact UNIQUE string replacements in the supplied
 module (at most 6, at most 120 changed lines). Preserve normal behavior and public
 contracts. No arbitrary filenames, shell commands or invented dependencies.
+For tensor arithmetic or scalar-to-broadcast changes, test supported low-precision
+dtypes as well as values: broadcasting may change promotion and output dtype.
+Check singleton reference parity when batching is changed; FP32-only success is
+not evidence for FP16/BF16. Use only dtypes actually supported by this operator.
 If caller reachability/expected behavior is not supported, say needs_context or
 reject; an undocumented input is NOT automatically a bug. Missing GPU/package
 requirements mean needs_environment. Do not invent an equivalent toy module.
@@ -650,6 +655,12 @@ class Delivery:
     def stopped(self):
         return self.halt.is_set() or (self.root / "STOP").exists()
 
+    def memory_admits_work(self, active):
+        reserve = getattr(self.args, "min_free_memory_mb", 0)
+        worker = getattr(self.args, "worker_memory_mb", 0)
+        free = scout.available_memory_mb() if reserve or worker else None
+        return scout.memory_admits_call(free, reserve, active, worker)
+
     def refill(self, active):
         """Refill drained batches promptly; back off only after exhausting new leads."""
         now = time.time()
@@ -1134,6 +1145,15 @@ class Delivery:
                 if refresh_only
                 else time.time(),
                 "snapshot_at": time.time(),
+                "min_free_memory_mb": previous.get("min_free_memory_mb", 0)
+                if refresh_only
+                else getattr(self.args, "min_free_memory_mb", 0),
+                "worker_memory_mb": previous.get("worker_memory_mb", 0)
+                if refresh_only
+                else getattr(self.args, "worker_memory_mb", 0),
+                "memory_paused": previous.get("memory_paused", False)
+                if refresh_only
+                else state == "MEMORY_PAUSED",
                 "concurrency": previous.get("concurrency")
                 if refresh_only
                 else self.args.concurrency,
@@ -1186,12 +1206,14 @@ class Delivery:
                         if failures >= 2:
                             cooldown, failures = time.time() + 600, 0
                     capped = self.args.max_jobs and started >= self.args.max_jobs
-                    if not capped:
+                    memory_paused = not self.memory_admits_work(len(running))
+                    if not capped and not memory_paused:
                         self.refill(len(running))
                     while (
                         not capped
                         and time.time() >= cooldown
                         and len(running) < self.args.concurrency
+                        and self.memory_admits_work(len(running))
                     ):
                         if self.halt.is_set() or (self.root / "STOP").exists():
                             break
@@ -1201,10 +1223,16 @@ class Delivery:
                         running.add(pool.submit(self.execute, job))
                         started += 1
                         capped = self.args.max_jobs and started >= self.args.max_jobs
-                    self.publish("COOLDOWN" if time.time() < cooldown else "RUNNING")
+                    self.publish(
+                        "MEMORY_PAUSED"
+                        if memory_paused
+                        else "COOLDOWN"
+                        if time.time() < cooldown
+                        else "RUNNING"
+                    )
                     if capped and not running:
                         break
-                    self.halt.wait(0.5)
+                    self.halt.wait(5 if memory_paused and not running else 0.5)
             finally:
                 self.halt.set()
                 pool.shutdown(wait=True)
@@ -1233,6 +1261,8 @@ def main():
         help="explicit one-time retry of an unused source-fetch HTTP failure",
     )
     parser.add_argument("--concurrency", type=int, choices=range(1, 17), default=16)
+    parser.add_argument("--min-free-memory-mb", type=int, default=2048)
+    parser.add_argument("--worker-memory-mb", type=int, default=256)
     parser.add_argument(
         "--execution-concurrency", type=int, choices=range(1, 5), default=4
     )
@@ -1255,6 +1285,11 @@ def main():
         "--max-jobs", type=int, default=0, help="0 continues on new unseen leads"
     )
     args = parser.parse_args()
+    if not (
+        0 <= args.min_free_memory_mb <= 1_048_576
+        and 0 <= args.worker_memory_mb <= 1_048_576
+    ):
+        parser.error("memory budgets must be between 0 and 1048576 MiB")
     if any(
         (
             args.park_owner_job,
@@ -1293,15 +1328,25 @@ def main():
         target = args.root.resolve() / "delivery"
         if not (target / "delivery.sqlite").is_file():
             parser.error("no existing delivery queue")
-        with scout.single_runner(target):
-            decision = park_owner_candidate(
-                target,
-                args.park_owner_job,
-                args.park_reason,
-                args.park_evidence_url,
-                args.reopen_when,
-            )
-            Delivery(args).publish(None, refresh_only=True)
+        # BEGIN IMMEDIATE serializes this terminal-candidate disposition with
+        # worker writes. It cannot claim or modify an executing candidate.
+        decision = park_owner_candidate(
+            target,
+            args.park_owner_job,
+            args.park_reason,
+            args.park_evidence_url,
+            args.reopen_when,
+        )
+        # The live worker owns snapshots. Refresh immediately only if its lock
+        # is free; otherwise it will pick up the committed decision next tick.
+        with ExitStack() as stack:
+            try:
+                stack.enter_context(scout.single_runner(target))
+            except OSError as error:
+                if error.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+            else:
+                Delivery(args).publish(None, refresh_only=True)
         print(scout.dumps(decision))
         return
     if args.retry_preflight_job:

@@ -1,12 +1,12 @@
 """Owner deferral keeps evidence, cost and worker liveness separate."""
 
 import json
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
-from types import SimpleNamespace
 import unittest
+from pathlib import Path
+from types import SimpleNamespace
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout_delivery as delivery
@@ -125,6 +125,9 @@ class OwnerParkingTests(unittest.TestCase):
             "heartbeat_at": 100,
             "concurrency": 16,
             "execution_concurrency": 1,
+            "min_free_memory_mb": 2048,
+            "worker_memory_mb": 256,
+            "memory_paused": True,
         }
         (self.root / "runtime.json").write_text(json.dumps(previous))
         self.park()
@@ -193,7 +196,9 @@ class OwnerParkingTests(unittest.TestCase):
         self.assertFalse((self.root / "STOP").exists())
         self.assertEqual(list((self.root / "jobs").iterdir()), [])
 
-    def test_cli_refuses_to_race_a_live_delivery_worker(self):
+    def test_cli_parks_terminal_candidate_without_overwriting_live_worker_snapshot(
+        self,
+    ):
         command = [
             sys.executable,
             "-B",
@@ -209,11 +214,26 @@ class OwnerParkingTests(unittest.TestCase):
             "--reopen-when",
             "a real consumer reproduces the defect",
         ]
-        before = self.row()
+        snapshot = b'{"state":"RUNNING","pid":123,"heartbeat_at":456}'
+        (self.root / "runtime.json").write_bytes(snapshot)
+        (self.root / "owner-queue.json").write_bytes(b'{"items":[]}')
         with delivery.scout.single_runner(self.root):
-            blocked = subprocess.run(command, capture_output=True, text=True)
-        self.assertNotEqual(blocked.returncode, 0)
-        self.assertEqual(self.row(), before)
+            accepted = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            self.assertEqual(self.row()["state"], "OWNER_PARKED")
+            self.assertEqual((self.root / "runtime.json").read_bytes(), snapshot)
+            self.assertEqual(
+                (self.root / "owner-queue.json").read_bytes(), b'{"items":[]}'
+            )
+            repeated = subprocess.run(
+                command, capture_output=True, text=True, check=False
+            )
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            self.assertEqual(json.loads(accepted.stdout), json.loads(repeated.stdout))
+        self.assertEqual(self.row()["reported_tokens"], 1234)
+        self.assertFalse((self.root / "STOP").exists())
 
 
 if __name__ == "__main__":
