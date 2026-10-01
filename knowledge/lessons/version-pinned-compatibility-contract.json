@@ -1,0 +1,22 @@
+{
+  "id": "version-pinned-compatibility-contract",
+  "title": "Compare compatibility shims with the supported reference version",
+  "applies_when": "A compatibility shim claims to replace a removed upstream helper, and a regression assumes buffer fallback, exception behavior or another contract from an unverified reference version; examples include TensorRT-LLM hf_parameter_utils get_parameter_device/get_parameter_dtype.",
+  "lesson": "Resolve the consumer's supported dependency revision, then read that revision's actual replacement API before designing the expected result. TensorRT-LLM's parameter-only getters match Transformers 5.5.4 ModuleUtilsMixin device/dtype properties, including StopIteration for buffer-only modules. A test demanding buffer fallback therefore does not establish the claimed upstream mismatch. Check both the boundary and a normal control against unchanged reference code; label AST-extracted getter checks as component evidence, not whole-package qualification. If broader fallback is independently required by a supported caller or documented API, propose that behavior change on its own merits.",
+  "avoid_when": "Matching the pinned reference does not prove either implementation meets every caller's needs. A shared upstream defect can still warrant a change. Other dependency versions, overridden properties, quantized module representations and actual model paths need separate evidence. Do not reject a real public API defect solely because internal callers omit the boundary, or claim measured PR-conversion gains from this source counterexample.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/TensorRT-LLM/blob/80509acfc07363fd3e2081864cf6607f1d495dca/requirements.txt#L41",
+      "note": "The reviewed consumer revision pins transformers==5.5.4; an older implementation is not automatically its compatibility reference."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TensorRT-LLM/blob/80509acfc07363fd3e2081864cf6607f1d495dca/tensorrt_llm/_torch/models/hf_parameter_utils.py#L16-L33",
+      "note": "The shim explicitly targets Transformers v5 ModuleUtilsMixin behavior and its getters inspect parameters only."
+    },
+    {
+      "url": "https://github.com/huggingface/transformers/blob/75d3bdcd4b3ba70cee21287218d9764f33da41f0/src/transformers/modeling_utils.py#L843-L856",
+      "note": "Transformers 5.5.4's actual device and dtype properties use the same parameter-only behavior. These pinned sources disprove a buffer-fallback compatibility-mismatch premise; they do not establish full-model correctness."
+    }
+  ],
+  "status": "counterexample"
+}
