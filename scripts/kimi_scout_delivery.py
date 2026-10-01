@@ -91,6 +91,10 @@ credentials, GPU or installation. It may write only private /tmp scratch.
 edits is a list of {old,new} exact UNIQUE string replacements in the supplied
 module (at most 6, at most 120 changed lines). Preserve normal behavior and public
 contracts. No arbitrary filenames, shell commands or invented dependencies.
+For tensor arithmetic or scalar-to-broadcast changes, test supported low-precision
+dtypes as well as values: broadcasting may change promotion and output dtype.
+Check singleton reference parity when batching is changed; FP32-only success is
+not evidence for FP16/BF16. Use only dtypes actually supported by this operator.
 If caller reachability/expected behavior is not supported, say needs_context or
 reject; an undocumented input is NOT automatically a bug. Missing GPU/package
 requirements mean needs_environment. Do not invent an equivalent toy module.
