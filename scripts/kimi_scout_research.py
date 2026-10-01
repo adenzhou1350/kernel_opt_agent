@@ -20,6 +20,7 @@ import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
 from scout_generated_context import contract_requests
+from scout_publication_context import fit_publication_context, publication_context
 
 SOURCE_SUFFIXES = (
     ".py",
@@ -562,6 +563,10 @@ class ResearchProducer:
             packet["research"]["frontier"] = frontier
         if parent:
             packet["untrusted_prior_analysis"] = parent["analysis"][:2500]
+        publications = publication_context(self.root, spec["repo"], sources)
+        if publications:
+            packet["owner_publications"] = publications
+        fit_publication_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
         while (
             len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
