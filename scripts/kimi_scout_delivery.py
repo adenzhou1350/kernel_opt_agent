@@ -384,6 +384,89 @@ def retry_preflight_transport(root, job_id):
             return recorded
 
 
+def mark_pr(
+    root,
+    job_id,
+    pr_url,
+    *,
+    owner_reproduced_after_block=False,
+    owner_verified_legacy=False,
+):
+    """Record an owner-verified publication; never infer it from a similar title."""
+    if owner_reproduced_after_block and owner_verified_legacy:
+        raise ValueError(
+            "legacy publication and blocked reproduction are separate attestations"
+        )
+    if not re.fullmatch(r"[0-9a-f]{24}", job_id):
+        raise ValueError("invalid candidate id")
+    match = re.fullmatch(
+        r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)",
+        pr_url,
+    )
+    if match is None:
+        raise ValueError("expected a canonical GitHub pull request URL")
+    with database(root) as db:
+        db.execute("BEGIN IMMEDIATE")
+        row = db.execute("SELECT * FROM delivery WHERE id=?", (job_id,)).fetchone()
+        if row is None:
+            raise ValueError("candidate not found")
+        if row["repo"].casefold() != match.group(1).casefold():
+            raise ValueError("PR repository does not match candidate")
+        result = json.loads(row["result"])
+        if row["state"] == "PR_OPEN":
+            if result.get("pr", {}).get("url") != pr_url:
+                raise ValueError("candidate is already linked to another PR")
+            return result["pr"]
+        blocked_reproduction = (
+            row["state"] == "ENVIRONMENT_BLOCKED" and owner_reproduced_after_block
+        )
+        legacy_publication = row["state"] == "REPRODUCED" and owner_verified_legacy
+        if (
+            row["state"] != OWNER_STATE
+            and not blocked_reproduction
+            and not legacy_publication
+        ):
+            raise ValueError(
+                "owner review or explicit reproduction after an environment block is required"
+            )
+        if not blocked_reproduction and not legacy_publication:
+            handoff = root / "jobs" / job_id / "owner-handoff.json"
+            if (
+                not handoff.is_file()
+                or json.loads(handoff.read_text(encoding="utf-8")).get("candidate_id")
+                != job_id
+            ):
+                raise ValueError("matching owner handoff is required")
+        recorded = {
+            "url": pr_url,
+            "number": int(match.group(2)),
+            "recorded_at": time.time(),
+            "claim_boundary": (
+                "owner independently reproduced after Scout environment block; "
+                "PR publication does not imply CI, review or merge"
+                if blocked_reproduction
+                else "owner verified publication of legacy candidate; no handoff or new tests inferred"
+                if legacy_publication
+                else "owner-linked PR; CI, review and merge are not implied"
+            ),
+        }
+        if blocked_reproduction or legacy_publication:
+            recorded["prior_state"] = row["state"]
+            recorded["prior_reason"] = row["reason"]
+        result["pr"] = recorded
+        db.execute(
+            "UPDATE delivery SET state='PR_OPEN',reason=?,updated_at=?,result=? "
+            "WHERE id=?",
+            (
+                "Owner linked published PR",
+                recorded["recorded_at"],
+                scout.dumps(result),
+                job_id,
+            ),
+        )
+        return recorded
+
+
 def proposal(value, source):
     if not isinstance(value, dict) or set(value) != {
         "decision",
@@ -1239,10 +1322,29 @@ class Delivery:
                 self.publish("STOPPED")
 
 
+def refresh_owner_snapshots_if_idle(args, target):
+    # The worker owns snapshots while it holds the lock; database decisions
+    # remain safe to commit independently through their immediate transaction.
+    with ExitStack() as stack:
+        try:
+            stack.enter_context(scout.single_runner(target))
+        except OSError as error:
+            if error.errno not in (errno.EACCES, errno.EAGAIN):
+                raise
+        else:
+            Delivery(args).publish(None, refresh_only=True)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True, help="existing scout inbox")
     parser.add_argument("--kimi-python", type=Path)
+    parser.add_argument(
+        "--mark-pr-job", help="owner-verified candidate to link to a published PR"
+    )
+    parser.add_argument("--pr-url", help="exact canonical GitHub PR URL")
+    parser.add_argument("--owner-reproduced-after-block", action="store_true")
+    parser.add_argument("--owner-verified-legacy", action="store_true")
     parser.add_argument(
         "--park-owner-job", help="explicitly reviewed candidate to defer"
     )
@@ -1309,6 +1411,7 @@ def main():
                 "reject_reason",
                 "reject_evidence_url",
                 "owner_reproduced_after_block",
+                "owner_verified_legacy",
                 "route_blocked_gpu",
                 "max_jobs",
             )
@@ -1337,17 +1440,42 @@ def main():
             args.park_evidence_url,
             args.reopen_when,
         )
-        # The live worker owns snapshots. Refresh immediately only if its lock
-        # is free; otherwise it will pick up the committed decision next tick.
-        with ExitStack() as stack:
-            try:
-                stack.enter_context(scout.single_runner(target))
-            except OSError as error:
-                if error.errno not in (errno.EACCES, errno.EAGAIN):
-                    raise
-            else:
-                Delivery(args).publish(None, refresh_only=True)
+        refresh_owner_snapshots_if_idle(args, target)
         print(scout.dumps(decision))
+        return
+    if any(
+        (
+            args.mark_pr_job,
+            args.pr_url,
+            args.owner_reproduced_after_block,
+            args.owner_verified_legacy,
+        )
+    ):
+        if not (args.mark_pr_job and args.pr_url):
+            parser.error("--mark-pr-job and --pr-url are required together")
+        if (
+            args.stop
+            or args.retry_preflight_job
+            or args.route_blocked_gpu
+            or args.max_jobs
+        ):
+            parser.error("publication is a separate operation")
+        if args.owner_reproduced_after_block and args.owner_verified_legacy:
+            parser.error(
+                "legacy publication and blocked reproduction are separate attestations"
+            )
+        target = args.root.resolve() / "delivery"
+        if not (target / "delivery.sqlite").is_file():
+            parser.error("no existing delivery queue")
+        recorded = mark_pr(
+            target,
+            args.mark_pr_job,
+            args.pr_url,
+            owner_reproduced_after_block=args.owner_reproduced_after_block,
+            owner_verified_legacy=args.owner_verified_legacy,
+        )
+        refresh_owner_snapshots_if_idle(args, target)
+        print(scout.dumps(recorded))
         return
     if args.retry_preflight_job:
         if args.stop:
