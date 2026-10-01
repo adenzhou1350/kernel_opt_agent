@@ -654,3 +654,19 @@ code from abstention, nor a race from equal offsets alone.
 Offline regression: `python -B -m unittest tests.test_scout_symbol_references`.
 The development CUDA example motivates the helper; it does not measure PR yield,
 false-positive rate, generalization or paid-token savings.
+
+### Issue comment recency
+
+Issue follow-ups use the last three-comment page implied by the issue's observed
+comment count instead of always reading page one. The existing single comment
+GET (300 kB cap) and three 1,200-character comment excerpts are unchanged.
+This can expose later maintainer decisions or implementation ownership without
+adding another retrieval tier or treating either as automatic authorization.
+
+The sample is partial: a final page may contain only one or two comments,
+older relevant replies can be omitted, and comment deletion/count drift can make
+the selected page stale or empty. Selection/page and truncation are explicit.
+Do not infer that no owner or fix exists from a missing comment; confirm public
+state before implementing or publishing. Offline boundary coverage is in
+`tests/test_kimi_scout_context.py`; development observations are not evidence of
+a measured false-positive reduction or PR-conversion improvement.

@@ -6,6 +6,10 @@
   "avoid_when": "A documented standalone/public helper contract can be violated even if internal callers do not exercise that input. Absence of a shipped caller does not disprove an API defect. Strong references prevent identity reuse only for their actual lifetime; they do not prevent mutation, stale metadata, concurrency bugs, or defects after a new caller changes ownership. Seeing a cleanup handler does not prove it is reached exactly once in every cancellation/concurrency path. Existing tests cover only their actual scenarios; a passing suite alone cannot disprove all leak claims. Earlier spread preservation applies only to enumerable own properties actually present at that point; explicit later undefined values, overwrites and changed producers can still lose data. The cited revisions are scoped source/interface counterexamples, not accelerator or general false-positive-rate measurements.",
   "evidence": [
     {
+      "url": "https://github.com/openclaw/openclaw/blob/2f4808320cf81e6361b9bedd502aa1b9ec1b7ca7/src/infra/deferred-plugin-session-sources.ts#L183-L194",
+      "note": "existingSessionSourcePaths uses archives ?? collectArchivedSources(target, env). The initial missing-index calculation passes a snapshot at line 469, while the recovery recheck omits it at line 477 to reacquire the archive index. The argument difference is not evidence of forgotten archives: unchanged archive-only and missing-source cases agree, while a newly appearing archive invalidates the earlier missing-index view. This supports inspecting optional-argument semantics before making calls identical, not a full migration or concurrency qualification."
+    },
+    {
       "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/httpcore/_async/http2.py#L165-L169",
       "note": "handle_async_request catches BaseException and calls _response_closed under AsyncShieldCancellation. The response-body iterator also closes on an exception at lines 579-585. Reading only _receive_stream_event's StreamReset raise omits those owning cleanup paths."
     },

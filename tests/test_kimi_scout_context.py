@@ -482,7 +482,7 @@ class ContextTests(unittest.TestCase):
             "comments_url": "https://evil/comments",
             "html_url": "https://evil/x",
         }
-        self.routes[API + "/issues/12/comments?per_page=3&page=1"] = [
+        self.routes[API + "/issues/12/comments?per_page=3&page=2"] = [
             {"id": i, "body": "c" * 1500, "html_url": "https://evil/x"}
             for i in range(1, 5)
         ]
@@ -494,6 +494,55 @@ class ContextTests(unittest.TestCase):
         self.assertTrue(sources[0]["comments_truncated"])
         self.assertTrue(sources[-1]["url"].endswith("/issues/12#issuecomment-3"))
         self.assertTrue(all("evil" not in url for url, _, _ in self.calls))
+
+    def test_issue_sample_reads_later_decision_without_an_extra_get(self):
+        self.routes[API + "/issues/12"] = {
+            "number": 12, "title": "reported defect", "body": "report",
+            "comments": 9,
+        }
+        route = API + "/issues/12/comments?per_page=3&page=3"
+        self.routes[route] = [
+            {"id": 7, "body": "This use is unsupported."},
+            {"id": 8, "body": "I am implementing the documentation change."},
+            {"id": 9, "body": "Please keep it scoped to model documentation."},
+        ]
+        sources = self.context.issue_sources(REPO, 12)
+        self.assertIn("unsupported", sources[1]["text"])
+        self.assertIn("implementing", sources[2]["text"])
+        self.assertEqual(sources[0]["comments_page"], 3)
+        self.assertTrue(sources[0]["comments_truncated"])
+        self.assertEqual(
+            sum("/comments?" in url for url, _, _ in self.calls), 1
+        )
+        self.assertIn((route, 300_000, True), self.calls)
+        self.assertEqual(len(sources), 4)
+
+    def test_issue_partial_last_page_does_not_repair_or_retry_the_sample(self):
+        self.routes[API + "/issues/12"] = {
+            "number": 12, "title": "report", "body": "", "comments": 7,
+        }
+        self.routes[API + "/issues/12/comments?per_page=3&page=3"] = [
+            {"id": 7, "body": "Latest observed ownership."},
+        ]
+        sources = self.context.issue_sources(REPO, 12)
+        self.assertEqual(len(sources), 2)
+        self.assertTrue(sources[0]["comments_truncated"])
+        self.assertEqual(sum("/comments?" in u for u, _, _ in self.calls), 1)
+
+    def test_issue_zero_or_unknown_comment_counts_stay_explicit(self):
+        self.routes[API + "/issues/12"] = {
+            "number": 12, "title": "report", "body": "", "comments": 0,
+        }
+        sources = self.context.issue_sources(REPO, 12)
+        self.assertFalse(sources[0]["comments_truncated"])
+        self.assertFalse(any("/comments?" in u for u, _, _ in self.calls))
+        self.routes[API + "/issues/13"] = {
+            "number": 13, "title": "report", "body": "", "comments": True,
+        }
+        self.routes[API + "/issues/13/comments?per_page=3&page=1"] = []
+        sources = self.context.issue_sources(REPO, 13)
+        self.assertTrue(sources[0]["comments_truncated"])
+        self.assertEqual(sources[0]["comments_page"], 1)
 
     def test_duplicate_query_cannot_escape_repo_or_claim_exhaustive_search(self):
         title = 'fix repo:secret/data OR https://evil.example "' + "x" * 1000

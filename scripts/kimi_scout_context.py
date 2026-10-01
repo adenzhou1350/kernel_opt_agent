@@ -454,9 +454,15 @@ class PublicContext:
         result = [
             issue_evidence(url, _text(item.get("title")), _text(item.get("body")))
         ]
+        count = item.get("comments")
+        # A later ownership claim or maintainer decision can supersede the
+        # report. Spend the same one bounded GET / three-comment text budget
+        # on the last page implied by the observed count, not always page 1.
+        # This is a partial sample, not guaranteed fresh or exhaustive.
+        page = (count + 2) // 3 if type(count) is int and count > 0 else 1
         comments = []
-        if item.get("comments") != 0:
-            comments = self._json(api + "/comments?per_page=3&page=1", 300_000)
+        if type(count) is not int or count != 0:
+            comments = self._json(api + f"/comments?per_page=3&page={page}", 300_000)
             if not isinstance(comments, list):
                 raise ValueError("invalid issue comments")
         for comment in comments[:3]:
@@ -466,9 +472,11 @@ class PublicContext:
                     f"{url}#issuecomment-{comment_id}", _text(comment.get("body")), 1200
                 )
             )
-        count = item.get("comments")
+        result[0]["comments_selection"] = "last_page_from_observed_count"
+        result[0]["comments_page"] = page
         result[0]["comments_truncated"] = (
-            type(count) is not int or count > len(result) - 1
+            type(count) is not int or count != len(result) - 1
+            or page > 1 or len(comments) > 3
         )
         return result
 
