@@ -1,0 +1,18 @@
+{
+  "id": "host-known-output-size",
+  "title": "Reuse a valid host-known output size instead of reading a CUDA scalar",
+  "applies_when": "A Torch metadata helper sizes an allocation such as arange from a device cumulative-length scalar, while the real caller already has the exact valid token count in host-side tensor shape or scheduler metadata.",
+  "lesson": "Trace the caller before changing the helper: pass the existing exact host count through the API rather than converting a CUDA scalar or recomputing the count on the device. Test mappings, empty/interior-zero sequences, output dtype/device and the old optional-input behavior. Run the unchanged CUDA path under synchronization detection as a positive control, then the revised path under the same control. Loading a genuinely standalone helper directly can verify its real Torch operations without inventing backend mocks, but report this as component evidence and review the production wiring separately.",
+  "avoid_when": "A padded tensor's capacity, graph bucket size or stale scheduler value may not equal the valid count. Do not silently replace data-dependent lengths with those values. Sync-debug mode is incomplete: passing it does not prove that every operation is asynchronous. A removed scalar read is not a whole-model speedup or proof of production graph-capture compatibility; use matched workload evidence for those claims.",
+  "evidence": [
+    {
+      "url": "https://github.com/InternLM/lmdeploy/pull/5016",
+      "note": "Open, unmerged V4 prefill fix passes input_ids.numel() to the real caller. Reported native Torch 2.11/RTX 4060 helper evidence detects the original CUDA scalar synchronization and passes 26 CPU/CUDA component tests after the change. Full package/serving performance and upstream CI are not established."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.11/generated/torch.cuda.set_sync_debug_mode.html",
+      "note": "Official documentation describes warn/error synchronization detection and warns that some synchronizing operations are not covered. It is a scoped diagnostic, not a completeness certificate."
+    }
+  ],
+  "status": "validated"
+}
