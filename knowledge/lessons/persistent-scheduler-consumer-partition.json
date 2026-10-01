@@ -1,0 +1,18 @@
+{
+  "id": "persistent-scheduler-consumer-partition",
+  "title": "Read consumer offsets before deduplicating persistent scheduler advances",
+  "applies_when": "A persistent GPU kernel appears to advance its work scheduler twice or skip work, especially with multiple compute warp groups and a separate producer.",
+  "lesson": "Inspect scheduler state ownership, each consumer's initial offset and stride, and the producer's sequence together. Two independent consumers starting at offsets zero and one can intentionally advance twice to partition even and odd work positions. Removing a repeated advance can duplicate work or break pipeline ordering. Retrieve initialization and loop entry before spending a GPU run on a local duplicate-call hypothesis; then test actual native coverage if a mismatch remains.",
+  "avoid_when": "Offset/stride arithmetic is not a proof of a real scheduler's semantics, compiler behavior, pipeline synchronization or complete output coverage. Shared mutable scheduler state, a different consumer count, early exits or changed work mappings require their own analysis. Do not generalize a source-bound counterexample into a correctness or performance claim.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/122037aaa23f068578e8a741586de22f42abf27b/flashinfer/gemm/kernels/sm12x_cute/raw.py#L765-L770",
+      "note": "The second compute warp group advances once before entering the loop. This initialization is absent from a source window beginning at line 1081."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/122037aaa23f068578e8a741586de22f42abf27b/flashinfer/gemm/kernels/sm12x_cute/raw.py#L1156-L1161",
+      "note": "The compute loop advances twice before obtaining its next work item; the producer advances once at lines 705-706. Together with eight compute warps and tidx//128 grouping, this supplies a partitioning explanation, not a native GPU qualification."
+    }
+  ],
+  "status": "validated"
+}
