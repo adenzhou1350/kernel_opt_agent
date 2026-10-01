@@ -533,6 +533,25 @@ is unchanged. This does not find reverse callers or establish a bug from imports
 Keep the trial opt-in until fresh, budget-matched outcomes justify promotion;
 offline tests establish acquisition boundaries, not improved PR yield or savings.
 
+Repositories that route bug reports through GitHub Discussions may separately
+opt into `"followup_discussion_context": true` (default false). A follow-up then
+performs one repository-scoped Discussion search using a bounded lexical title
+anchor, retaining at most three reports and three comments per report. It uses
+the controller's configured GitHub auth only after verifying public repository
+visibility, rejects cross-repository results, and caches results for 15 minutes.
+API/auth failures are retrieval failures, not proof that no prior work exists.
+Discussion text remains untrusted evidence and cannot publish or reject a lead.
+An author already offering a tested fix should receive missing validation, not
+a competing PR. Narrow search and clipping are non-exhaustive; owner publication
+review still checks the actual discussion, issue and PR history. This opt-in
+adds no model call, executable code or new delivery qualification rule.
+
+The HTTPX multipart example is a development counterexample: issue/PR-only
+search missed [HTTPX Discussion #3789](https://github.com/encode/httpx/discussions/3789),
+whose author already had the same tested fix.
+Native reproduction confirmed the bug but did not make it novel. This motivates
+the acquisition option; it does not prove improved conversion or token savings.
+
 Offline checks (no network, credentials, or paid model calls):
 
 ```sh
@@ -540,6 +559,7 @@ python -B tests/test_kimi_scout.py
 python -B tests/test_kimi_scout_verify.py
 python -B tests/test_scout_import_context.py
 python -B tests/test_scout_import_followup.py
+python -B tests/test_scout_discussion_context.py
 <kimi-python> -I -B -X utf8 tests/test_kimi_scout_backend.py
 ```
 

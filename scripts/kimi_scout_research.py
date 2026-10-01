@@ -19,6 +19,7 @@ from pathlib import Path
 import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
+from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_publication_context import fit_publication_context, publication_context
@@ -246,6 +247,8 @@ def configuration(path):
             raise ValueError("research repository needs a question")
         if type(spec.get("followup_import_context", False)) is not bool:
             raise ValueError("followup_import_context must be a boolean")
+        if type(spec.get("followup_discussion_context", False)) is not bool:
+            raise ValueError("followup_discussion_context must be a boolean")
         roots = spec.get("tree_roots", [])
         if (
             not isinstance(roots, list)
@@ -1080,6 +1083,8 @@ class ResearchProducer:
                 else json.loads(row["result"])["analysis"]["title"]
             )
             sources.extend(self.context.duplicate_sources(spec["repo"], title))
+            if spec.get("followup_discussion_context", False):
+                sources.extend(discussion_sources(self.context, spec["repo"], title))
             sources = distinct_sources(sources)
             old_evidence = {retrieval_identity(s) for s in packet["sources"]}
             if not any(retrieval_identity(s) not in old_evidence for s in sources):
@@ -1111,7 +1116,7 @@ class ResearchProducer:
                     + "Try to disprove the prior untrusted hypothesis using new source and related items. "
                     "Inspect what tests actually assert: a passing characterization test can document buggy behavior, not endorse it. "
                     "If already fixed or covered by an existing PR, say no_lead; do not propose a competing copy. "
-                    "If the issue author supplied a tested fix and offered a PR, treat it as author-owned work "
+                    "If an issue or discussion author supplied a tested fix and offered a PR, treat it as author-owned work "
                     "and identify missing validation rather than proposing our own PR. "
                     "Give one minimal runnable test PLAN (not a claim of execution), exact source location, expected boundary, and stop condition. "
                     "This chain has at most two followups; remaining environment/GPU questions must be handed to the owner."
