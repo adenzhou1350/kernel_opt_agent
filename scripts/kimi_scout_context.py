@@ -10,6 +10,7 @@ import urllib.parse
 from pathlib import Path
 
 import kimi_scout as scout
+from scout_requested_definition import requested_function_window
 
 SNAPSHOT_TTL = 900
 # Reuse verified visibility with the snapshot; a fresh controller rechecks it.
@@ -277,6 +278,7 @@ class PublicContext:
         start=None,
         max_lines=120,
         exact_hint=None,
+        request_hints="",
     ):
         repo, commit, path = _repo(repo), _sha(commit), _path(path)
         _number(max_lines, "source line count", 160)
@@ -284,6 +286,8 @@ class PublicContext:
             _number(start, "source start line")
         if not isinstance(hints, str):
             raise ValueError("source hints must be text")
+        if not isinstance(request_hints, str) or len(request_hints) > 2000:
+            raise ValueError("source request hints must be bounded text")
         if exact_hint is not None and (
             not isinstance(exact_hint, str)
             or not 1 <= len(exact_hint) <= 512
@@ -309,6 +313,10 @@ class PublicContext:
         if "\x00" in raw:
             raise ValueError("binary source is not supported")
         lines = raw.splitlines()
+        requested = (requested_function_window(lines, request_hints)
+                     if start is None and exact_hint is None else None)
+        if requested is not None:
+            start = requested["start_line"]
         exact_line = next(
             (
                 i
@@ -342,6 +350,8 @@ class PublicContext:
             )
             start = min(offset, max(0, len(lines) - max_lines)) + 1
         end = min(len(lines), start - 1 + max_lines)
+        if requested is not None:
+            end = min(end, requested["end_line"])
         numbered = "\n".join(f"{i + 1}: {lines[i]}" for i in range(start - 1, end))
         evidence = scout.evidence(url, numbered, 9000)
         evidence.update(
@@ -353,6 +363,11 @@ class PublicContext:
         if exact_hint is not None:
             evidence["exact_hint"] = exact_hint
             evidence["exact_hint_matched"] = exact_hint in evidence["text"]
+        if requested is not None:
+            evidence["requested_definition"] = requested
+            evidence["requested_definition_complete"] = (
+                end == requested["end_line"] and evidence["text"] == numbered
+            )
         return evidence
 
     def cached_source_text(self, repo, commit, path):

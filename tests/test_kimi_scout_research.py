@@ -30,7 +30,7 @@ class Context:
             "blobs": {"src/kernel.py": self.blob, "tests/test_kernel.py": "c" * 40},
         }
 
-    def source(self, repo, commit, path, hints="", start=None, max_lines=120):
+    def source(self, repo, commit, path, hints="", start=None, max_lines=120, request_hints=""):
         self.calls.append((repo, commit, path, start))
         start = start or 1
         if start > 10:

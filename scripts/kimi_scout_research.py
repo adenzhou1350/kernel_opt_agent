@@ -647,7 +647,9 @@ class ResearchProducer:
                 if s.get("search_exhaustive") is False and len(s["text"]) >= 300
             ]
             longest = max(
-                peripheral or packet["sources"],
+                peripheral or [s for s in packet["sources"]
+                               if not s.get("requested_definition_complete")
+                               and len(s["text"]) >= 300] or packet["sources"],
                 key=lambda x: len(x["text"].encode("utf-8")),
             )
             if len(longest["text"]) < 300:
@@ -658,6 +660,10 @@ class ResearchProducer:
             )
             longest["text"] = longest["text"][: int(len(longest["text"]) * 0.75)]
             longest["truncated"] = True
+            if "requested_definition_complete" in longest:
+                longest["requested_definition_complete"] = False
+            if "start_line" in longest:
+                longest["end_line"] = longest["start_line"] + len(longest["text"].splitlines()) - 1
             if "exact_hint" in longest:
                 longest["exact_hint_matched"] = longest["exact_hint"] in longest["text"]
         if not packet["sources"] or self.stopped():
@@ -1135,6 +1141,7 @@ class ResearchProducer:
                             snapshot["commit"],
                             path,
                             hints=hints,
+                            request_hints=analysis_value.get("next_check", "")[:2000],
                             **(
                                 {
                                     key: continuation[key]

@@ -216,6 +216,22 @@ reported tokens in 6.56 seconds. No retrieval-code change was needed for this
 case. This is a falsification check on an already reviewed example, not a held-out
 utility comparison; it does not establish that every initial `NO_LEAD` is correct.
 
+## Keep the requested implementation in the delivered context
+
+Follow-up `next_check` hints are evaluated separately from quoted background.
+One unambiguous Python function is selected from the already observed pinned file,
+starting at its declaration; unrelated qualified names cannot displace it.
+Missing, ambiguous and non-Python matches retain the existing selector. Explicit
+line ranges and literal anchors still take precedence. No extra source call or
+larger packet budget is introduced.
+
+During packet fitting, complete requested functions are retained before unrelated
+raw windows, after peripheral search snippets. If the budget eventually forces
+their truncation, `requested_definition_complete` becomes false and the delivered
+line range is updated. Check the actual queued packet, not just the retrieval
+output. Completeness describes a syntax span, not imported behavior, decorator
+semantics, caller reachability, test coverage or candidate quality.
+
 ## Verify realized backends, not parameter labels
 
 A native check of installed AnyIO 4.15.1 with Python 3.12.13, pytest 9.1.1,
