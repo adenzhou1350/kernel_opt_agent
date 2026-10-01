@@ -118,7 +118,9 @@ def _resolve(path, module, files):
 def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Propose <=2 definitions explicitly requested in the prior next_check.
 
-    Named aliases and .js -> .ts are lexical hints only. Ambiguous tree members,
+    Same-file free functions, named aliases and .js -> .ts are hints only.
+    Local JS function declarations are lexical, not a complete language parser.
+    Ambiguous declarations/tree members,
     absent cache, revision drift, bare package imports and wildcard imports abstain.
     The callback must be a read-only cache lookup, not another acquisition step.
     """
@@ -157,9 +159,32 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
         target = _resolve(path, module, files)
         if target:
             bindings.setdefault(local, set()).add((imported, target))
+    declarations = _local_functions(path, raw)
+    qualified = set(re.findall(rf"\.({IDENT})\b", hints[:4000]))
     requests, paths = [], set()
     for symbol in requested:
         candidates = bindings.get(symbol, set())
+        local = declarations.get(symbol, [])
+        if local:
+            # Do not resolve methods, overloads or competing imported/local names.
+            if len(local) != 1 or candidates or symbol in qualified:
+                continue
+            start = max(1, local[0] - 8)
+            end = min(len(raw.splitlines()), start + 79)
+            if path in paths or any(
+                source.get("url") == sources[0]["url"]
+                and type(source.get("start_line")) is int
+                and type(source.get("end_line")) is int
+                and source["start_line"] <= start
+                and source["end_line"] >= end
+                for source in sources
+            ):
+                continue
+            paths.add(path)
+            requests.append({"path": path, "start": start, "max_lines": 80})
+            if len(requests) == limit:
+                break
+            continue
         if len(candidates) != 1:
             continue
         imported, target = next(iter(candidates))
@@ -170,3 +195,44 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
         if len(requests) == limit:
             break
     return requests
+
+
+def _local_functions(path, raw):
+    """Locate free-function declarations without executing or resolving source.
+
+    Python uses AST module ownership. JS/TS masks ordinary comments/literals and
+    tracks lexical braces; unsupported syntax can miss declarations. These are
+    acquisition hints, never proof of binding, reachability or language validity.
+    """
+    found = {}
+    if path.endswith(".py"):
+        try:
+            tree = ast.parse(raw)
+        except (SyntaxError, ValueError, RecursionError):
+            return found
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                found.setdefault(node.name, []).append(node.lineno)
+        return found
+    if not path.endswith(
+        (".ts", ".tsx", ".js", ".jsx", ".mts", ".mjs", ".cts", ".cjs")
+    ):
+        return found
+    literals = re.compile(
+        r"//[^\n]*|/\*[\s\S]*?\*/|"
+        r"'(?:\\[\s\S]|[^'\\])*'|\"(?:\\[\s\S]|[^\"\\])*\"|"
+        r"`(?:\\[\s\S]|[^`\\])*`"
+    )
+    masked = literals.sub(lambda match: re.sub(r"[^\n]", " ", match[0]), raw)
+    declaration = re.compile(
+        rf"^\s*(?:export\s+)?(?:default\s+)?(?:async\s+)?function\s+({IDENT})\s*\("
+    )
+    depth = 0
+    for number, line in enumerate(masked.splitlines(), 1):
+        match = declaration.match(line) if depth == 0 else None
+        if match:
+            found.setdefault(match[1], []).append(number)
+        depth += line.count("{") - line.count("}")
+        if depth < 0:
+            return {}
+    return found if depth == 0 else {}
