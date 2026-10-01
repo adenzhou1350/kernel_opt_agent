@@ -1,0 +1,22 @@
+{
+  "id": "tuning-permission-versus-selection",
+  "title": "A tuning permission is not the selected kernel configuration",
+  "applies_when": "A configuration-validation proposal interprets enable/allow flags as a forced execution path, especially when a separate knobs resolver or autotuner chooses the actual kernel policy.",
+  "lesson": "Trace permission, resolved knobs and the consuming validator separately before adding an earlier rejection. FlashInfer NVFP4 MegaMoE allows enable_in_kernel_fc2_reduce=True while its default selector turns in_kernel_fc2_reduce off for mxfp8/nvfp4 combine wires and selects reuse_dispatch_warps. A constructor regression demanding rejection conflates permission with selection and can reject an existing permitted-but-unselected configuration. Test that control alongside explicitly incompatible selected knobs; inspect where the latter are already rejected.",
+  "avoid_when": "An enable flag can be a mandatory execution choice in another API; establish its contract rather than applying this distinction universally. Explicit selected knobs can still be invalid. These pinned sources establish a default-selection counterexample, not all knob combinations, native kernel correctness, distributed reachability or performance. Inconsistent comments may warrant clarification without changing accepted inputs.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/3ad8127678c24cdfb5e2ccfd9f484116ef90babc/flashinfer/moe_ep/backends/mega/kernel/sm100/nvfp4_nvfp4_bf16_cutedsl/config.py#L32-L56",
+      "note": "The outer config distinguishes permission from knobs that may disable the path. Its wire-format comment alone does not establish that every permitted session selects in-kernel reduction."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/3ad8127678c24cdfb5e2ccfd9f484116ef90babc/flashinfer/moe_ep/kernel_src/sm100/cutedsl_megamoe/shim/tuner.py#L194-L229",
+      "note": "The actual default selector forces the selected reduction off for quantized combine wires, even when the caller granted permission."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/3ad8127678c24cdfb5e2ccfd9f484116ef90babc/flashinfer/moe_ep/kernel_src/sm100/cutedsl_megamoe/shim/nvfp4.py#L184-L205",
+      "note": "The lower-level config rejects incompatible selected reduction, wire format and top-k policies before kernel construction. This is source evidence, not a native GPU qualification."
+    }
+  ],
+  "status": "counterexample"
+}
