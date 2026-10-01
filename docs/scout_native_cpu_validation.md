@@ -1,0 +1,77 @@
+# Native CPU tests before broadening Scout discovery
+
+Add a repository when a supported baseline can actually run, not just because
+source is available. A baseline may reveal a known upstream failure; retain it
+and compare the same affected tests before/after a candidate. Do not suppress
+warnings or weaken assertions to manufacture a green environment.
+
+## HTTPX example
+
+The [official contribution guide](https://www.python-httpx.org/contributing/)
+routes installation through `scripts/install` and tests through `scripts/test`.
+Its CI installs `requirements.txt`; `scripts/test` uses coverage + pytest when
+`GITHUB_ACTIONS=true`. That flag deliberately omits the separate linting and
+coverage-threshold steps. These commands are native tests, not complete CI.
+
+Use a reviewed **full Git source export**, not one module over unrelated installed
+siblings. Export with `git -c core.autocrlf=false archive` on Windows too; verify
+important members against raw Git blobs. Keep `.git`, credentials, local config,
+model weights and unrelated files out of the build context/source export.
+
+Build the [example Dockerfile](../examples/scout-native-httpx/Dockerfile) with a
+`source.tar` in its small task-private build context. The pinned Python 3.10 base
+must already be cached. Installing public dependencies needs network only during
+this secretless setup step; run project code only inside the container. Record
+the resulting image ID and `/opt/dependencies.freeze.txt`. Upstream intentionally
+leaves some dependencies unpinned: rebuilding later need not yield the same image.
+
+For each complete baseline/candidate export, use the same immutable image:
+
+```sh
+docker run --rm --init --pull never --runtime runc \
+  --network none --read-only --user 65534:65534 \
+  --cap-drop ALL --security-opt no-new-privileges=true \
+  --memory 768m --memory-swap 768m --cpus 1 --pids-limit 64 \
+  --tmpfs /tmp:rw,nosuid,nodev,size=256m,mode=1777 \
+  --mount type=bind,src=/absolute/source-export,dst=/input,readonly \
+  --env HOME=/tmp --env GITHUB_ACTIONS=true --env PYTHONDONTWRITEBYTECODE=1 \
+  --entrypoint sh sha256:REVIEWED_IMAGE_ID -c '
+    set -eu
+    cmp /input/requirements.txt /opt/httpx/requirements.txt
+    cmp /input/pyproject.toml /opt/httpx/pyproject.toml
+    cp -R /input /tmp/source
+    cd /tmp/source
+    python -c "import httpx; assert httpx.__file__.startswith(\"/tmp/source/httpx/\")"
+    sh scripts/test -m "not network" -q
+  '
+```
+
+Do not mount the Docker socket, home directory or devices inside the container,
+publish ports, or inherit operator credentials. Track the owned container ID and
+bound its execution; on timeout inspect/stop only that container. HTTPX's local
+test servers then use its private network namespace, not shared host ports.
+Dependency-manifest drift needs a new reviewed environment, not an ignored `cmp`
+failure. Extra candidate regressions can be passed to the native test script;
+keep source/import provenance and both arms' results.
+
+## Observed boundary, not a new bug or throughput claim
+
+At HTTPX `b5addb64f0161ff6bfe94c124ef76f6a1fba5254`, Python 3.10.19,
+pytest 8.4.1, Trio 0.31.0, AnyIO 4.15.1 and httpcore 1.0.9, the unmodified native
+offline suite produced **1,412 passed, 1 failed, 5 deselected**. The failure was
+`test_write_timeout[trio]`: `ByteStream.__aiter__` was finalized before exhaustion.
+[PR #3777](https://github.com/encode/httpx/pull/3777) and
+[PR #3700](https://github.com/encode/httpx/pull/3700) already cover this problem;
+do not open a competing fix. This is not an environment-wide failure or proof of
+an unrelated candidate. Keep the exact baseline failure visible.
+
+The cached native test command took about 8 seconds in that one run; cold image
+setup time was not recorded. This is not cold setup cost, a speedup, or Scout PR
+conversion evidence. Five network-marked cases were not run; external network,
+proxy behavior, other Python versions, lint, package/docs build and the 100%
+coverage threshold remain separate checks. HTTPX generally asks for a prior
+Discussion before escalation to an Issue/PR; verify current policy before posting.
+
+This optional owner recipe does not add an automated delivery profile, enable
+network in model-generated tests, or promote a candidate to Ready. Native capacity
+and publication quality still require independent evidence for the actual lead.
