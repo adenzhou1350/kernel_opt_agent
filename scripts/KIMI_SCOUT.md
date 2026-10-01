@@ -376,8 +376,12 @@ and explicitly requeue that exact unused `FAILED/HTTPError` job once with
 tokens, no job artifacts, and an inactive worker lock; it writes an audit receipt.
 It will not retry a model call, sandbox run, or a second transport failure.
 
-On Windows, use the existing Ubuntu WSL Docker daemon (`--wsl Ubuntu`); Linux
-invokes the same fixed verifier directly. Both cached images use `--pull never`.
+Windows delivery refuses to start by default because its sandbox uses local WSL.
+Only after explicit human authorization for the current task, pass
+`--allow-local-wsl --wsl Ubuntu` to use the existing WSL Docker daemon. Selecting a
+distribution alone is not authorization. Discovery, the dashboard and owner-only
+commands (including `--stop`) do not need this opt-in. Linux invokes the same fixed
+verifier directly. Both cached images use `--pull never`.
 `stdlib` is the Python 3.10 image above; `torch-cpu` is a pinned public vLLM CPU CI
 image with Python 3.12 and CPU Torch. Selection is based on observed required
 imports, not a model instruction. These are **adapted single-module CPU screens**,

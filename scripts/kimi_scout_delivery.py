@@ -851,6 +851,12 @@ class Delivery:
                     "inconclusive": True,
                     "error": "delivery stopped before CPU execution",
                 }
+            if not local_wsl_authorized(self.args):
+                self.halt.set()
+                return {
+                    "inconclusive": True,
+                    "error": "local WSL requires explicit authorization for this task",
+                }
             command = [
                 "/usr/bin/python3",
                 "-I",
@@ -1366,6 +1372,11 @@ def refresh_owner_snapshots_if_idle(args, target):
             Delivery(args).publish(None, refresh_only=True)
 
 
+def local_wsl_authorized(args):
+    """Linux verification is unchanged; Windows WSL is an explicit task opt-in."""
+    return os.name != "nt" or getattr(args, "allow_local_wsl", False) is True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True, help="existing scout inbox")
@@ -1407,6 +1418,11 @@ def main():
         "--owner-queue-limit", type=int, choices=range(1, 257), default=64
     )
     parser.add_argument("--wsl", default="Ubuntu")
+    parser.add_argument(
+        "--allow-local-wsl",
+        action="store_true",
+        help="use local WSL only with explicit human authorization for the current task",
+    )
     parser.add_argument("--github-auth", action="store_true")
     parser.add_argument(
         "--httpx-native",
@@ -1531,6 +1547,12 @@ def main():
             parser.error("no existing delivery queue")
         scout.write_json(target / "STOP", {"requested_at": time.time()})
         return
+    if not local_wsl_authorized(args):
+        parser.error(
+            "Windows delivery uses local WSL; explicit current-task authorization "
+            "and --allow-local-wsl are required. Discovery and owner commands "
+            "do not require WSL."
+        )
     if (
         not (args.root / "scout.sqlite").is_file()
         or args.kimi_python is None
