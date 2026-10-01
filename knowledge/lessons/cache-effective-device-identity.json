@@ -1,0 +1,18 @@
+{
+  "id": "cache-effective-device-identity",
+  "title": "Resolve the effective device before caching capability decisions",
+  "applies_when": "A capability or kernel-dispatch helper defaults to the current accelerator, especially when inputs may be on another device or the current device can change.",
+  "lesson": "A no-argument cache stores the first current-device answer, not a device-independent fact. Resolve the actual device index before the per-device cache and route tensor-dependent dispatch from the tensor's device. Test both switch orders with differing capabilities, explicit-device calls, cache reuse and the non-CUDA fallback. A mocked device-query test can establish cache/key semantics without reserving GPUs; keep native operator qualification separate.",
+  "avoid_when": "One homogeneous single-device process can hide this failure. A stable CUDA ordinal is a process-local identity, not a portable hardware profile or live resource allocation. Simulated capability queries do not prove mixed-hardware kernel execution, PDL compatibility or a performance gain.",
+  "evidence": [
+    {
+      "url": "https://github.com/InternLM/lmdeploy/blob/110965c7706bbbeb31e21df5d7ef2531fe01c935/lmdeploy/pytorch/kernels/cuda/utils.py#L60-L64",
+      "note": "The original supports_pdl has a no-argument lru_cache and queries the current CUDA device, exposing the stale-answer mechanism after a device switch."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/lmdeploy/blob/7f899b5e06e1020753cf7d9e60c9e78204af5bac/tests/pytorch/kernel/test_cuda_kernel_utils.py",
+      "note": "Proposed, unmerged fix includes seven CPU regressions using the real standalone utility module with mocked backend/device queries. Tests cover both switch orders, explicit device indices, property-cache reuse and non-CUDA fallback. They are not native mixed-GPU or operator performance evidence."
+    }
+  ],
+  "status": "validated"
+}
