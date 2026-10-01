@@ -1,0 +1,22 @@
+{
+  "id": "helper-contract-and-owner-lifetime",
+  "title": "Check the caller contract and owner lifetime before repairing a helper",
+  "applies_when": "An isolated reproduction alleges a missing method decorator, cache-key collision, or stale object identity, but omits the interface or owner that invokes the helper.",
+  "lesson": "Read the declared interface, actual invocation, and surrounding ownership before choosing a regression. A Python receiver named cls is still an instance receiver unless the method has a classmethod descriptor. An id-keyed cache can have an apparent reuse hazard that an outer strong reference rules out for the reviewed call sequence; follow creation, replacement and invalidation together. Test the supported entry and an independent normal control rather than inventing a class-only call or dropping references the real owner retains. These source counterexamples change which evidence to acquire next; they do not automatically reject a new hypothesis.",
+  "avoid_when": "A documented standalone/public helper contract can be violated even if internal callers do not exercise that input. Absence of a shipped caller does not disprove an API defect. Strong references prevent identity reuse only for their actual lifetime; they do not prevent mutation, stale metadata, concurrency bugs, or defects after a new caller changes ownership. The cited revisions are source/interface counterexamples, not package, accelerator, or general false-positive-rate measurements.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2ff52e3ceb0bcfdc8ba1dd0367b39ce0370bbfaf/python/sglang/srt/layers/quantization/base_config.py#L165",
+      "note": "QuantizationConfig declares get_supported_act_dtypes as an abstract instance method, independently of the receiver's spelling in an implementation."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2ff52e3ceb0bcfdc8ba1dd0367b39ce0370bbfaf/python/sglang/srt/model_loader/loader.py#L261",
+      "note": "The production loader calls the method on quant_config. A class-only TypeError is not a reproduction of this caller's contract."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/99c59a2ea62f32fd5497eceaf2ed18cad33389db/python/sglang/srt/layers/attention/minimax_sparse_backend.py#L1496",
+      "note": "forward_extend checks the cached object's identity and retains forward_batch in the outer metadata tuple while resolving the next helper result. An isolated id-reuse test omitting that reference does not establish the alleged production failure. This is a revision-bound source observation, not NPU execution evidence."
+    }
+  ],
+  "status": "validated"
+}
