@@ -216,6 +216,25 @@ reported tokens in 6.56 seconds. No retrieval-code change was needed for this
 case. This is a falsification check on an already reviewed example, not a held-out
 utility comparison; it does not establish that every initial `NO_LEAD` is correct.
 
+## Verify realized backends, not parameter labels
+
+A native check of installed AnyIO 4.15.1 with Python 3.12.13, pytest 9.1.1,
+Hypothesis 6.168.3 and Trio 0.34.0 reproduced
+[AnyIO #1353](https://github.com/agronholm/anyio/issues/1353).
+For a Hypothesis test parametrized as asyncio then Trio, the Trio-labelled case
+actually used asyncio. Reversing the order in a fresh process made the
+asyncio-labelled case actually use Trio. Each order had one pass and one failure.
+Non-Hypothesis controls passed both backend cases in both fresh-process orders,
+separating the wrapper problem from missing Trio support.
+
+The first reproduction used a function-scoped fixture and stopped at a Hypothesis
+health check before executing; preserve that failure. The revised test uses a
+session-scoped immutable backend-name fixture, without suppressing health checks.
+This release-level check does not qualify current main or the existing
+[fix PR #1354](https://github.com/agronholm/anyio/pull/1354), and no competing PR
+was opened. Before claiming backend coverage, add a targeted realized-backend
+assertion where wrapper caching can change execution; labels alone are insufficient.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the
