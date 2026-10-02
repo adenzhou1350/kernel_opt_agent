@@ -1,13 +1,26 @@
-"""Bounded C-family lexical reference hints from a cached pinned source.
+"""Bounded C-family/Python reference hints from a cached pinned source.
 
 Never execute source or fetch a model-provided target. References, declarations
 and preprocessor branches are not a call graph or proof of runtime reachability.
 """
 
+import ast
 import re
 from urllib.parse import unquote, urlsplit
 
-SUFFIXES = (".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx", ".cu", ".cuh")
+SUFFIXES = (
+    ".c",
+    ".cc",
+    ".cpp",
+    ".cxx",
+    ".h",
+    ".hh",
+    ".hpp",
+    ".hxx",
+    ".cu",
+    ".cuh",
+    ".py",
+)
 REQUEST = re.compile(r"\breferences\(([A-Za-z_]\w{0,127})\)")
 LITERALS = re.compile(
     r"//[^\n]*|/\*[\s\S]*?(?:\*/|\Z)|"
@@ -19,8 +32,10 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Honor explicit references(NAME), with <=2 existing-tree source windows.
 
     Use only the primary source at the same observed immutable revision. A cache
-    miss, unsupported C++ raw strings, missing symbols or already shown matches
-    abstain. Ordinary comments/literals and directive lines are excluded; local
+    miss, unsupported syntax, missing symbols or already shown matches abstain.
+    Python AST name loads and attributes exclude plain strings, comments and
+    definitions; they are syntactic references, not resolved bindings or calls.
+    C-family comments/literals and directive lines are excluded; local
     declarations may still be included. Macros/aliases are not expanded. Pick the
     first and last unseen match windows, not an exhaustive consumer inventory.
     The callback is a read-only bounded cache lookup, never a new acquisition.
@@ -61,34 +76,52 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     raw = cached_source(repo, commit, path)
     if not isinstance(raw, str) or len(raw.encode("utf-8")) > 131072 or "\x00" in raw:
         return []
-    # Do not pretend ordinary quote masking understands C++ raw-string syntax.
-    if re.search(r'\b(?:u8|u|U|L)?R"', raw):
-        return []
-    if any(
-        m[0].startswith("/*") and not m[0].endswith("*/")
-        for m in LITERALS.finditer(raw)
-    ):
-        return []
-    masked = LITERALS.sub(lambda m: re.sub(r"[^\n]", " ", m[0]), raw)
-    lines = masked.splitlines()
-    # Ignore complete continued preprocessor directives, not just their prefix.
-    directive = False
-    for index, line in enumerate(lines):
-        if directive or line.lstrip().startswith("#"):
-            directive = line.rstrip().endswith("\\")
-            lines[index] = ""
-    hits = []
-    for symbol in symbols:
-        pattern = re.compile(rf"\b{re.escape(symbol)}\b")
-        for number, line in enumerate(lines, 1):
-            if pattern.search(line) and not any(
-                source.get("url") == sources[0]["url"]
-                and type(source.get("start_line")) is int
-                and type(source.get("end_line")) is int
-                and source["start_line"] <= number <= source["end_line"]
-                for source in sources
-            ):
-                hits.append(number)
+    if path.endswith(".py"):
+        try:
+            tree = ast.parse(raw)
+        except (SyntaxError, ValueError, RecursionError):
+            return []
+        occurrences = {
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.Name, ast.Attribute))
+            and isinstance(node.ctx, ast.Load)
+            and (node.id if isinstance(node, ast.Name) else node.attr) in symbols
+        }
+    else:
+        # Do not pretend ordinary quote masking understands C++ raw strings.
+        if re.search(r'\b(?:u8|u|U|L)?R"', raw):
+            return []
+        if any(
+            m[0].startswith("/*") and not m[0].endswith("*/")
+            for m in LITERALS.finditer(raw)
+        ):
+            return []
+        masked = LITERALS.sub(lambda m: re.sub(r"[^\n]", " ", m[0]), raw)
+        lines = masked.splitlines()
+        # Ignore complete continued preprocessor directives, not just the prefix.
+        directive = False
+        for index, line in enumerate(lines):
+            if directive or line.lstrip().startswith("#"):
+                directive = line.rstrip().endswith("\\")
+                lines[index] = ""
+        occurrences = {
+            number
+            for symbol in symbols
+            for number, line in enumerate(lines, 1)
+            if re.search(rf"\b{re.escape(symbol)}\b", line)
+        }
+    hits = [
+        number
+        for number in occurrences
+        if not any(
+            source.get("url") == sources[0]["url"]
+            and type(source.get("start_line")) is int
+            and type(source.get("end_line")) is int
+            and source["start_line"] <= number <= source["end_line"]
+            for source in sources
+        )
+    ]
     if not hits:
         return []
     requests = []

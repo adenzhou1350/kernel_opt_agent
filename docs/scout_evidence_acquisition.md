@@ -137,6 +137,20 @@ the export hook or proof of the installed package's binding.
 
 ## Optional missing-implementation discovery
 
+An explicit `references(identifier)` request now also supports the primary
+cached Python file. AST name loads and attribute reads locate up to two unseen
+80-line windows, replacing ordinary follow-up reads. Plain strings, comments,
+imports, definitions and name stores are not reference hits. The file is parsed,
+never imported or executed. Invalid syntax, a cache miss, a different revision,
+or only already-supplied matches leave the ordinary selection intact. This
+same-file hint does not resolve aliases, attribute owners, conditional execution
+or dynamic string lookups, and must not be treated as a call graph.
+
+The development failure motivating this extension asked for a Python helper's
+callers but reacquired its definition. Offline replay now exposes the cached
+consumer. This establishes acquisition behavior, not reduced false positives,
+PR yield or prospective selector superiority; the known case is not a holdout.
+
 A repository may opt into `followup_code_search=true`. When a needs-context
 follow-up explicitly asks for `references(identifier)` (one or two bounded ASCII
 identifiers or hyphenated reason codes), and no cached reference, import,

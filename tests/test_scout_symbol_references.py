@@ -1,4 +1,4 @@
-"""Offline cached C-family reference hints and actual follow-up packet tests."""
+"""Offline cached C-family/Python references and follow-up packet tests."""
 
 import json
 from pathlib import Path
@@ -95,7 +95,7 @@ class ReferenceTests(unittest.TestCase):
             URL.replace(COMMIT, "b" * 40),
             URL + "?x=1",
             URL.replace("src/kernel.cu", "src/../kernel.cu"),
-            URL.replace("src/kernel.cu", "src/kernel.py"),
+            URL.replace("src/kernel.cu", "src/kernel.ts"),
             URL.replace("raw.githubusercontent.com", "evil.example"),
         ):
             self.packet["sources"][0]["url"] = url
@@ -103,12 +103,70 @@ class ReferenceTests(unittest.TestCase):
             self.assertEqual(self.requests(), [])
             self.cache.assert_not_called()
 
+    def python_source(self, raw):
+        self.path = "src/kernel.py"
+        self.packet["sources"][0]["url"] = URL.replace(PATH, self.path)
+        self.snapshot["files"] = [self.path]
+        self.raw = raw
+
+    def test_python_refs_ignore_docs_definitions_imports_and_stores_without_execution(
+        self,
+    ):
+        self.python_source(
+            'raise RuntimeError("must never execute cached source")\n'
+            '# target\n"""target()"""\nfrom external import target\n'
+            'target = None\ndef target():\n    """target"""\n    pass\n'
+            + "\n" * 200
+            + "def producer():\n    return target()\n"
+            + "\n" * 200
+            + "def consumer():\n    return other.target()\n"
+        )
+        result = self.requests()
+        self.assertEqual([r["start"] for r in result], [202, 404])
+        self.cache.assert_called_once_with(REPO, COMMIT, self.path)
+        self.packet["sources"][0].update(end_line=1000)
+        self.assertEqual(self.requests(), [])
+
+    def test_python_invalid_missing_dynamic_and_unsupported_syntax_abstain(self):
+        for raw in (
+            "def broken(:",
+            'getattr(obj, "target")()\n',
+            'text = f"target()"\n',
+            "target = 1\n",
+            None,
+        ):
+            self.python_source(raw)
+            self.assertEqual(self.requests(), [])
+
+    def test_python_shadowed_and_conditional_refs_are_not_reachability_proof(self):
+        self.python_source(
+            "def f(target):\n    if False:\n        return target()\n"
+            + "\n" * 200
+            + 'def g():\n    return f"{other.target()}"\n'
+        )
+        self.packet["sources"][0].update(start_line=1, end_line=1)
+        self.assertEqual(len(self.requests()), 2)
+
+    def test_python_emitted_followup_supplies_consumer_not_repeat_definition(self):
+        self.python_source(
+            "def target(value):\n    return value\n"
+            + "\n" * 200
+            + "def producer():\n    return target(value)\n"
+            + "\n" * 200
+            + "def consumer():\n    return other.target(value)\n"
+        )
+        self.check_emitted_followup(self.path, ("target(value)", "other.target(value)"))
+
     def test_emitted_followup_replaces_reads_and_keeps_exact_pin_and_bounds(self):
+        self.check_emitted_followup(PATH, ("write(target)", "read(target)"))
+
+    def check_emitted_followup(self, path, expected):
         raw = self.raw
+        url = self.packet["sources"][0]["url"]
 
         class Reader(context.PublicContext):
             def snapshot(self, repo, ref="main"):
-                return {"commit": COMMIT, "files": [PATH], "blobs": {PATH: "b" * 40}}
+                return {"commit": COMMIT, "files": [path], "blobs": {path: "b" * 40}}
 
             def cached_source_text(self, repo, commit, path):
                 return raw
@@ -175,9 +233,9 @@ class ReferenceTests(unittest.TestCase):
                     ]
                 emitted = next(row for row in rows if "untrusted_prior_analysis" in row)
                 evidence = emitted["sources"]
-                self.assertTrue(any("write(target)" in s["text"] for s in evidence))
-                self.assertTrue(any("read(target)" in s["text"] for s in evidence))
-                self.assertTrue(all(s["url"] == URL for s in evidence))
+                self.assertTrue(any(expected[0] in s["text"] for s in evidence))
+                self.assertTrue(any(expected[1] in s["text"] for s in evidence))
+                self.assertTrue(all(s["url"] == url for s in evidence))
                 self.assertTrue(
                     all(len(s["text"].splitlines()) <= 80 for s in evidence[1:])
                 )
