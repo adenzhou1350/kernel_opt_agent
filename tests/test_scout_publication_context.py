@@ -85,6 +85,111 @@ class PublicationContextTests(unittest.TestCase):
     def deferrals(self):
         return memory.owner_deferral_context(self.root, self.repo, [self.source])
 
+    def note(self, **changes):
+        return {
+            "repo": self.repo,
+            "prior_hypothesis": "Wrapper drops a field",
+            "source_url": self.source["url"],
+            "reason": "The producer uses another constructor",
+            "reopen_when": "Show a supported consumer of this helper",
+            "evidence_url": f"https://github.com/{self.repo}/blob/{'a' * 40}/src/subject.py",
+            **changes,
+        }
+
+    def write_notes(self, notes):
+        path = self.root / "owner-source-notes.json"
+        path.write_text(json.dumps(notes), encoding="utf-8")
+        return path
+
+    def test_source_notes_work_without_creating_a_delivery_record(self):
+        path = self.write_notes([self.note()])
+        before = path.read_bytes()
+        result = self.deferrals()
+        self.assertEqual(result["items"][0]["reason"], self.note()["reason"])
+        self.assertIn("Never reject", result["caution"])
+        self.assertFalse(self.path.parent.exists())
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_source_notes_are_optional_bounded_and_require_explicit_fields(self):
+        path = self.write_notes([self.note()])
+        for text in (
+            "{broken",
+            "[]",
+            "[" * 2000,
+            json.dumps({"not": "a list"}),
+            json.dumps([self.note()] * 25),
+            " " * (memory.OWNER_NOTE_LIMIT_BYTES + 1),
+            json.dumps([self.note(private_log="do not export")]),
+        ):
+            with self.subTest(text=text[:30]):
+                path.write_text(text, encoding="utf-8")
+                self.assertIsNone(self.deferrals())
+                self.assertEqual(path.read_text(encoding="utf-8"), text)
+
+    def test_source_notes_deduplicate_with_delivery_and_preserve_scan_caps(self):
+        self.initialize()
+        self.defer(
+            1, reason=self.note()["reason"], reopen_when=self.note()["reopen_when"]
+        )
+        self.write_notes([self.note(), self.note(), self.note(reason="Newest note")])
+        result = self.deferrals()
+        self.assertEqual(len(result["items"]), 2)
+        self.assertEqual(result["items"][0]["reason"], "Newest note")
+        self.assertEqual(result["items"][1]["reason"], self.note()["reason"])
+
+    def test_source_notes_foreign_unpinned_private_and_wrong_file_are_ignored(self):
+        for changes in (
+            {"repo": "other/project"},
+            {"source_url": self.source["url"].replace("subject", "other")},
+            {"source_url": self.source["url"].replace("a" * 40, "main")},
+            {"evidence_url": "https://github.com/other/project/commit/" + "a" * 40},
+            {"evidence_url": "https://github.com/public/project/blob/main/subject.py"},
+            {"reason": "Read D:/codes/private/evidence.json"},
+            {"prior_hypothesis": "Read /workspace/private/log"},
+            {"reopen_when": None},
+            {"reason": "r" * 1001},
+        ):
+            with self.subTest(changes=changes):
+                self.write_notes([self.note(**changes)])
+                self.assertIsNone(self.deferrals())
+
+    def test_source_notes_survive_optional_unavailable_delivery_history(self):
+        self.initialize()
+        with closing(sqlite3.connect(self.path)) as db, db:
+            db.execute("DROP TABLE delivery")
+        before = self.path.read_bytes()
+        self.write_notes([self.note()])
+        self.assertIsNotNone(self.deferrals())
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_source_notes_cannot_create_paid_work_or_suppress_changed_source(self):
+        config = {
+            "objective": "test",
+            "queue_target": 8,
+            "source_windows": 2,
+            "repos": [
+                {"repo": self.repo, "question": "test", "source_prefixes": ["src/"]}
+            ],
+        }
+        scout.initialize(self.root)
+        config_path = self.root / "config.json"
+        config_path.write_text(json.dumps(config), encoding="utf-8")
+        producer = research.ResearchProducer(self.root, config_path, context=object())
+        spec = producer.config["repos"][0]
+        self.assertTrue(producer.emit("before", spec, [self.source], "source_audit"))
+        self.write_notes([self.note()])
+        self.assertFalse(producer.emit("same", spec, [self.source], "source_audit"))
+        newer = {**self.source, "text": "1: new supported caller"}
+        self.assertTrue(producer.emit("new", spec, [newer], "source_audit"))
+        with scout.connect(self.root) as db:
+            rows = db.execute("SELECT packet FROM jobs ORDER BY created,id").fetchall()
+        self.assertEqual(len(rows), 2)
+        packet = json.loads(rows[-1][0])
+        self.assertEqual(packet["sources"], [newer])
+        self.assertEqual(
+            packet["owner_deferrals"]["items"][0]["reason"], self.note()["reason"]
+        )
+
     def test_deferrals_missing_or_unavailable_history_is_optional(self):
         self.assertIsNone(self.deferrals())
         self.assertFalse(self.path.parent.exists())

@@ -503,6 +503,17 @@ adds no network/model calls, does not replay seen source, and is dropped before
 publication hints or primary source need clipping. Tests verify plumbing and
 resource bounds, not fewer misses, higher PR conversion or model accuracy.
 
+For owner-reviewed source leads that never entered delivery, an optional
+`<root>/owner-source-notes.json` list can supply the same advisory history without
+creating a fake execution row. Keep at most 24 notes / 64 KiB total, oldest first.
+Each note has exactly `repo`, `prior_hypothesis` (<=200 characters), `source_url`
+(same-repository raw URL at a 40-hex commit), `reason`, `reopen_when` (<=1000
+characters each), and `evidence_url` (same-repository pinned blob/commit URL).
+Existing same-file, privacy, deduplication and two-note display caps still apply.
+Unknown fields, symlinks, oversized/malformed history and unrelated notes are
+ignored. No raw logs, automatic job suppression, retries, or quality promotion.
+Notes are read for newly admitted packets; changing a note alone buys no call.
+
 Interrupted attempts are not retried. STOP and uncertain container cleanup block
 new execution stages; repeated failures cool down admissions.
 
