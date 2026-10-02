@@ -36,6 +36,9 @@ SOURCE_SUFFIXES = (
     ".cu",
     ".cuh",
     ".cpp",
+    ".cc",
+    ".c",
+    ".cxx",
     ".h",
     ".hpp",
     ".ts",
@@ -116,7 +119,11 @@ def companion_source_paths(path, files):
         # component has the same basename. Keep repository locality primary.
         mirrored = 0
         directories = [
-            [part for part in name.split("/")[:-1] if part not in {"src", "test", "tests"}]
+            [
+                part
+                for part in name.split("/")[:-1]
+                if part not in {"src", "test", "tests"}
+            ]
             for name in (path, candidate)
         ]
         for left, right in zip(*directories):
@@ -254,6 +261,8 @@ def configuration(path):
             raise ValueError("research repository needs a question")
         if type(spec.get("followup_import_context", False)) is not bool:
             raise ValueError("followup_import_context must be a boolean")
+        if type(spec.get("followup_code_search", False)) is not bool:
+            raise ValueError("followup_code_search must be a boolean")
         if type(spec.get("followup_discussion_context", False)) is not bool:
             raise ValueError("followup_discussion_context must be a boolean")
         roots = spec.get("tree_roots", [])
@@ -398,7 +407,8 @@ def relevant_paths(snapshot, hints, exclude=()):
         if not any(char.islower() for char in symbol):
             continue
         class_prefixes.update(
-            symbol[:end].lower() for end in range(10, len(symbol) + 1)
+            symbol[:end].lower()
+            for end in range(10, len(symbol) + 1)
             if end == len(symbol) or symbol[end].isupper()
         )
     hints = hints.lower()
@@ -643,9 +653,11 @@ class ResearchProducer:
             "sources": sources,
             "reviewed_lessons": self.lessons,
             "lesson_suggestions": lesson_suggestions(
-                question + " " + " ".join(
-                    s["url"].rsplit("/", 1)[-1] for s in sources
-                ) + " " + spec["question"],
+                question
+                + " "
+                + " ".join(s["url"].rsplit("/", 1)[-1] for s in sources)
+                + " "
+                + spec["question"],
                 exclude=(card["id"] for card in self.lessons),
             ),
             "research": {
@@ -684,9 +696,14 @@ class ResearchProducer:
                 if s.get("search_exhaustive") is False and len(s["text"]) >= 300
             ]
             longest = max(
-                peripheral or [s for s in packet["sources"]
-                               if not s.get("requested_definition_complete")
-                               and len(s["text"]) >= 300] or packet["sources"],
+                peripheral
+                or [
+                    s
+                    for s in packet["sources"]
+                    if not s.get("requested_definition_complete")
+                    and len(s["text"]) >= 300
+                ]
+                or packet["sources"],
                 key=lambda x: len(x["text"].encode("utf-8")),
             )
             if len(longest["text"]) < 300:
@@ -705,7 +722,9 @@ class ResearchProducer:
             if "requested_definition_complete" in longest:
                 longest["requested_definition_complete"] = False
             if "start_line" in longest:
-                longest["end_line"] = longest["start_line"] + len(longest["text"].splitlines()) - 1
+                longest["end_line"] = (
+                    longest["start_line"] + len(longest["text"].splitlines()) - 1
+                )
             if "exact_hint" in longest:
                 longest["exact_hint_matched"] = longest["exact_hint"] in longest["text"]
         if not packet["sources"] or self.stopped():
@@ -1180,6 +1199,59 @@ class ResearchProducer:
                     test_request = None
                 imported_paths = {request["path"] for request in imports}
                 paths = [path for path in paths if path not in imported_paths]
+            code_requests = []
+            code_lookup = getattr(self.context, "code_search_paths", None)
+            request_text = analysis_value.get("next_check", "")
+            symbols = list(
+                dict.fromkeys(
+                    re.findall(
+                        r"\breferences\(([A-Za-z_][A-Za-z0-9_-]{3,127})\)",
+                        request_text[:2000] if isinstance(request_text, str) else "",
+                    )
+                )
+            )
+            if (
+                spec.get("followup_code_search", False)
+                and callable(code_lookup)
+                and analysis_value.get("decision") == "needs_context"
+                and 1 <= len(symbols) <= 2
+                and not references
+                and not imports
+                and not contracts
+                and not continuation
+                and definition_request is None
+            ):
+                # One current-index discovery query, never a model-provided URL.
+                # Replace ordinary reads; pinned source must contain the literal.
+                progress["code_search_requests"] = (
+                    progress.get("code_search_requests", 0) + 1
+                )
+                try:
+                    found = code_lookup(spec["repo"], snapshot, symbols[0])
+                except (ValueError, OSError) as exc:
+                    progress["code_search_error"] = type(exc).__name__
+                else:
+                    progress.pop("code_search_error", None)
+                    found = [
+                        path
+                        for path in found[:2]
+                        if path in snapshot["files"] and path.endswith(SOURCE_SUFFIXES)
+                    ]
+                    code_requests = [
+                        {"path": path, "max_lines": 80, "exact_hint": symbols[0]}
+                        for path in found
+                    ]
+                    if len(found) == 1 and len(symbols) == 2:
+                        code_requests.append(
+                            {
+                                "path": found[0],
+                                "max_lines": 80,
+                                "exact_hint": symbols[1],
+                            }
+                        )
+                    if code_requests:
+                        test_request = None
+
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]
             # Prefer the observed variant's registration/contract over an unrelated
@@ -1188,9 +1260,11 @@ class ResearchProducer:
             lexical_budget = max(
                 0, (1 if contracts or test_request else 2) - len(imports)
             )
-            lexical_requests = references or [
-                {"path": path} for path in paths[:lexical_budget]
-            ]
+            lexical_requests = (
+                references
+                or code_requests
+                or [{"path": path} for path in paths[:lexical_budget]]
+            )
             if continuation and lexical_requests:
                 lexical_requests[0].update(
                     {key: continuation[key] for key in ("start", "max_lines")}
@@ -1222,6 +1296,15 @@ class ResearchProducer:
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
+                else:
+                    if request in code_requests:
+                        if request["exact_hint"] not in sources[-1]["text"]:
+                            sources.pop()  # Search-index drift, not a new source claim.
+                        else:
+                            sources[-1]["code_search_hint"] = {
+                                "symbol": request["exact_hint"],
+                                "scope": "Non-exhaustive current-index path hint, independently read at the pinned revision; lexical occurrence only.",
+                            }
             for request in contracts or imports + (
                 [test_request] if test_request else []
             ):

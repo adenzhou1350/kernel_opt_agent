@@ -93,9 +93,12 @@ def _definition_line(lines, hints):
     # Long issue headers can push the exact class past the generic 32-word
     # fallback. Prefer one observed class unless a qualified member matched.
     class_names = set(re.findall(r"\b[A-Z][A-Za-z0-9]{5,127}\b", hints))
-    class_matches = [index for index, line in enumerate(lines)
-                     if (match := re.match(r"^\s*(?:export\s+)?class\s+([A-Za-z_]\w*)\b", line))
-                     and match[1] in class_names]
+    class_matches = [
+        index
+        for index, line in enumerate(lines)
+        if (match := re.match(r"^\s*(?:export\s+)?class\s+([A-Za-z_]\w*)\b", line))
+        and match[1] in class_names
+    ]
     if len(class_matches) == 1 and not any(not match[0] for match in matches):
         return class_matches[0]
     return min(matches)[2] if matches else None
@@ -322,8 +325,11 @@ class PublicContext:
         if "\x00" in raw:
             raise ValueError("binary source is not supported")
         lines = raw.splitlines()
-        requested = (requested_function_window(lines, request_hints)
-                     if start is None and exact_hint is None else None)
+        requested = (
+            requested_function_window(lines, request_hints)
+            if start is None and exact_hint is None
+            else None
+        )
         if requested is not None:
             start = requested["start_line"]
         exact_line = next(
@@ -475,10 +481,89 @@ class PublicContext:
         result[0]["comments_selection"] = "last_page_from_observed_count"
         result[0]["comments_page"] = page
         result[0]["comments_truncated"] = (
-            type(count) is not int or count != len(result) - 1
-            or page > 1 or len(comments) > 3
+            type(count) is not int
+            or count != len(result) - 1
+            or page > 1
+            or len(comments) > 3
         )
         return result
+
+    def code_search_paths(self, repo, snapshot, symbol):
+        """Current-index path hints intersected with a pinned tree, not evidence.
+
+        At most one API query returning five hints. Search is not commit-pinned
+        or exhaustive. source() must read the selected immutable revision and
+        the caller must confirm the requested literal in the returned window.
+        """
+        repo = _repo(repo)
+        if not isinstance(snapshot, dict):
+            raise ValueError("invalid bounded code search")
+        commit = _sha(snapshot.get("commit"))
+        if (
+            not isinstance(symbol, str)
+            or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{3,127}", symbol)
+            or not isinstance(snapshot.get("files"), list)
+        ):
+            raise ValueError("invalid bounded code search")
+        self._public(repo)
+        identity = [repo, commit, symbol]
+        cache = self._cache_path("code-search", identity)
+        record = self._load(cache)
+        if (
+            not record
+            or type(record.get("at")) not in (int, float)
+            or not 0 <= time.time() - record["at"] < SNAPSHOT_TTL
+            or not isinstance(record.get("paths"), list)
+            or len(record["paths"]) > 5
+            or any(not isinstance(path, str) for path in record["paths"])
+        ):
+            query = urllib.parse.urlencode(
+                {"q": f'repo:{repo} in:file "{symbol}"', "per_page": 5}
+            )
+            found = self._json(
+                f"https://api.github.com/search/code?{query}", limit=250000
+            )
+            if not isinstance(found, dict) or not isinstance(found.get("items"), list):
+                raise ValueError("invalid public code search")
+            items = []
+            for item in found["items"][:5]:
+                if not isinstance(item, dict):
+                    continue
+                repository = item.get("repository")
+                if (
+                    not isinstance(repository, dict)
+                    or str(repository.get("full_name", "")).casefold()
+                    != repo.casefold()
+                    or repository.get("private") is not False
+                ):
+                    continue
+                try:
+                    path = _path(item.get("path"))
+                except ValueError:
+                    continue
+                items.append(path)
+            record = {"at": time.time(), "paths": items}
+            scout.write_json(cache, record)
+        paths = list(
+            dict.fromkeys(
+                path
+                for path in record.get("paths", [])
+                if isinstance(path, str) and path in snapshot["files"]
+            )
+        )
+
+        # Prefer implementation hints to their tests; neither is a definition.
+        def is_test(path):
+            return (
+                any(
+                    part in {"test", "tests", "testing", "__tests__"}
+                    for part in path.lower().split("/")
+                )
+                or re.search(r"(?:^test_|[._]test[._-])", path.rsplit("/", 1)[-1])
+                is not None
+            )
+
+        return sorted(paths, key=is_test)[:2]
 
     def duplicate_sources(self, repo, title):
         repo = _repo(repo)

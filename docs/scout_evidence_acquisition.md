@@ -134,3 +134,67 @@ and unchanged two-read-per-follow-up ceiling, not native kernel correctness,
 model accuracy, prospective cost savings or PR conversion. The limited cached
 lazy-export hint now covers this source pattern; it is still not evaluation of
 the export hook or proof of the installed package's binding.
+
+## Optional missing-implementation discovery
+
+A repository may opt into `followup_code_search=true`. When a needs-context
+follow-up explicitly asks for `references(identifier)` (one or two bounded ASCII
+identifiers or hyphenated reason codes), and no cached reference, import,
+registration, continuation or kernel-definition read already supplies the next
+step, the controller makes at most one GitHub code-search query. Five current
+default-branch index hits are only path hints: intersect them with the already
+observed immutable source tree, prefer implementations to test paths, then read
+at most two 80-line windows at that fixed commit. A second requested literal can
+use another window in the same cached file. Search results' URLs and contents
+are never trusted as source; a window lacking its requested literal is discarded.
+Unavailable search is observable and falls back to the existing bounded selection.
+The index may be stale or incomplete, and a literal can be a comment/declaration,
+not a definition or reachable caller. No call graph, defect verdict, native
+execution or novelty is inferred. This does not increase the two-source-read
+ceiling, but the discovery API request is an additional cost. Query results are
+cached for the existing 15-minute snapshot TTL, keyed by repository, target
+commit and literal, with tree membership rechecked on reuse.
+
+C-family `.cc`, `.c` and `.cxx` files are included in observed-path selection;
+a tree member with one of these extensions must not be silently excluded.
+
+Offline checks:
+
+```text
+python -B -m unittest tests.test_scout_code_search
+```
+
+Development evidence motivating the opt-in: an unexecuted report
+[TileLang #3381](https://github.com/tile-ai/tilelang/issues/3381) requested
+`LowerToSTGPredicated` / `LowerToLDGPredicated`, but its supplied catalog had
+carver policy and engine entry Python, not
+[the actual pass](https://github.com/tile-ai/tilelang/blob/994b44eca1a83a00d19d926e5264a6c608700656/src/cuda/transform/lower_ldg_stg.cc).
+Independent inspection and a native CPU-only TileLang 0.1.15 IR transform showed
+an outer-store/inner-load predicate discrepancy. This was extra owner work, not
+a selector win, GPU execution or a current-source native rebuild. Current code
+search located the missing observed path. That development check establishes
+feasibility, not prospective conversion/cost superiority.
+
+## Displayed-row review citations (experimental)
+
+`scout_review_citations.citation_view` preserves each bounded excerpt as a rows
+array with a local evidence ID. `resolve_review` accepts one-based excerpt row
+ranges and extracts their exact displayed text, including existing line prefixes,
+instead of requiring a model to reproduce escaped quotes. These are display
+positions, **not** original file line numbers. At most two spans, eight rows and
+1,400 characters per span are allowed. A valid span does not verify the reason,
+producer/consumer contract, execution or candidate quality; independent semantic
+adjudication remains required. This interface is not enabled in live Scout.
+
+```text
+python -B -m unittest tests.test_scout_review_citations
+```
+
+Two fresh, nonrandom follow-up inputs in an interface feasibility pilot still
+had no eligible implementation file in their catalogs. All acquisition selectors
+abstained, with zero GETs. Six reviewer completions correctly described missing
+implementation evidence, but only two respected the citation interface; four
+chose unavailable or over-budget ranges. No incremental verified solve was
+demonstrated. Do not repair those answers into successes or claim cross-cohort
+accuracy from this negative result. Explicit rendered row labels are a candidate
+for a future fresh trial, not a retroactive improvement to this one.
