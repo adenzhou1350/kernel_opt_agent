@@ -86,6 +86,21 @@ module locations, not proof of Python binding or runtime support. An already
 supplied complete export module is not requested again; an explicit observed-tree
 implementation path can then use the remaining ordinary follow-up budget.
 
+For fresh shadow comparisons, `scout_catalog_target.mentioned_catalog_target`
+provides a zero-model, language-neutral file baseline. It uses only the explicit
+next-check text and at most 24 catalog entries: a unique full path outranks a
+bare filename, repeated snippets are deduplicated, and competing paths/revisions
+abstain. Only safe pinned URLs in the packet's repository qualify. Missing files
+are not guessed, and the returned line 1 does not imply that the desired evidence
+is there. Source text can be acquired and windowed with the existing helpers;
+any definition lookup, fallback, or abstention must be declared identically
+before a new comparison. This helper is not enabled in live routing. Offline
+tests establish targeting/boundedness, not useful evidence or model superiority.
+
+```text
+python -B -m unittest tests.test_scout_catalog_target
+```
+
 Development example: at FlashInfer `426d028e`, the
 [wrapper](https://github.com/flashinfer-ai/flashinfer/blob/426d028e18a270b60a1ac72306b29754bf087c67/flashinfer/fused_moe/cudnn_frost_selected.py#L56-L77)
 imports `workspace_size` inside a function. Its
