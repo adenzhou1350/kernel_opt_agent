@@ -65,6 +65,39 @@ class CodeSearchTests(unittest.TestCase):
         result, _ = self.search(response)
         self.assertEqual(result, [PATH])
 
+    def test_dotted_key_is_one_quoted_literal_not_an_expression(self):
+        symbol = "operator.approvals"
+        result, api = self.search({"items": [item(PATH)]}, symbol)
+        self.assertEqual(result, [PATH])
+        query = parse_qs(urlsplit(api.call_args.args[0]).query)
+        self.assertEqual(query["q"], [f'repo:{REPO} in:file "{symbol}"'])
+        self.assertEqual(query["per_page"], ["5"])
+
+    def test_explicit_request_parser_preserves_keys_and_existing_names(self):
+        self.assertEqual(
+            context.code_reference_literals(
+                "Inspect references(operator.approvals) and references(MISSING-SCOPE) "
+                "then references(operator.approvals)"
+            ),
+            ["operator.approvals", "MISSING-SCOPE"],
+        )
+        for request in (
+            None,
+            True,
+            "references(operator..approvals)",
+            "references(operator.)",
+            "references(.approvals)",
+            'references(target" repo:evil/repo)',
+            "references(../target)",
+            "references(target/owner)",
+            "references(op:approval)",
+            "references(target key)",
+            "references(" + "a" * 129 + ")",
+            "x" * 2000 + "references(operator.approvals)",
+        ):
+            with self.subTest(request=request):
+                self.assertEqual(context.code_reference_literals(request), [])
+
     def test_tests_are_hints_not_preferred_implementation(self):
         result, _ = self.search({"items": [item("tests/lower.test.cc"), item(PATH)]})
         self.assertEqual(result, [PATH, "tests/lower.test.cc"])
@@ -93,6 +126,10 @@ class CodeSearchTests(unittest.TestCase):
             'target" repo:evil/repo',
             "../target",
             "a" * 129,
+            "operator..approvals",
+            "operator.",
+            ".approvals",
+            "op:approval",
         ):
             with self.subTest(symbol=symbol), self.assertRaises(ValueError):
                 self.search({"items": []}, symbol)
@@ -116,9 +153,16 @@ class CodeSearchTests(unittest.TestCase):
 
 
 class FollowupCodeSearchTests(unittest.TestCase):
-    def run_followup(self, enabled=True, drift=False, search_error=False):
-        raw = "// filler\n" * 120 + f"void {SYMBOL}() {{}}\n"
-        raw += "// filler\n" * 100 + "void LowerToLDGPredicated() {}\n"
+    def run_followup(
+        self,
+        enabled=True,
+        drift=False,
+        search_error=False,
+        symbol=SYMBOL,
+        second_symbol="LowerToLDGPredicated",
+    ):
+        raw = "// filler\n" * 120 + f'const char* first_name = "{symbol}";\n'
+        raw += "// filler\n" * 100 + f'const char* second_name = "{second_symbol}";\n'
         if drift:
             raw = "// unrelated source at frozen revision\n" * 250
 
@@ -200,7 +244,7 @@ class FollowupCodeSearchTests(unittest.TestCase):
                                         "title": "Missing predicate implementation",
                                         "hypothesis": "Unverified predicate contract",
                                         "decision": "needs_context",
-                                        "next_check": f"Inspect references({SYMBOL}) and references(LowerToLDGPredicated)",
+                                        "next_check": f"Inspect references({symbol}) and references({second_symbol})",
                                         "evidence": [],
                                     }
                                 }
@@ -246,6 +290,22 @@ class FollowupCodeSearchTests(unittest.TestCase):
         self.assertEqual(len(searches), 1)
         self.assertEqual(len(reads), 1)
         self.assertEqual(packets, [])
+
+    def test_dotted_requests_reach_pinned_followup_with_unchanged_query_read_caps(self):
+        searches, reads, packets, progress = self.run_followup(
+            symbol="operator.approvals", second_symbol="operator.read"
+        )
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(len(reads), 1)
+        self.assertEqual(progress["code_search_requests"], 1)
+        self.assertEqual(len(packets), 1)
+        evidence = [s for s in packets[0]["sources"] if "code_search_hint" in s]
+        self.assertEqual(
+            [s["code_search_hint"]["symbol"] for s in evidence],
+            ["operator.approvals", "operator.read"],
+        )
+        self.assertTrue(all(f"/{COMMIT}/{PATH}" in s["url"] for s in evidence))
+        self.assertTrue(all(s["end_line"] - s["start_line"] < 80 for s in evidence))
 
     def test_optional_search_failure_is_bounded_and_observable(self):
         searches, reads, packets, progress = self.run_followup(search_error=True)

@@ -155,7 +155,14 @@ A repository may opt into `followup_code_search=true`. When a needs-context
 follow-up explicitly asks for `references(identifier)` (one or two bounded ASCII
 identifiers or hyphenated reason codes), and no cached reference, import,
 registration, continuation or kernel-definition read already supplies the next
-step, the controller makes at most one GitHub code-search query. Five current
+step, the controller makes at most one GitHub code-search query. Dotted names
+such as `operator.approvals` are accepted as a single quoted literal, not an
+evaluated attribute, executable expression or proof of authorization semantics.
+Each dot must separate nonempty ASCII name segments; quotes, query operators,
+paths and spaces remain invalid. This closes a development failure where an
+explicit dotted-key request was silently excluded before lookup. It does not
+establish that search returns an implementation or resolves the reported issue.
+Five current
 default-branch index hits are only path hints: intersect them with the already
 observed immutable source tree, prefer implementations to test paths, then read
 at most two 80-line windows at that fixed commit. A second requested literal can

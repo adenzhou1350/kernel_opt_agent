@@ -18,7 +18,7 @@ from pathlib import Path
 
 import kimi_scout as scout
 import kimi_scout_shadow as shadow
-from kimi_scout_context import PublicContext
+from kimi_scout_context import PublicContext, code_reference_literals
 from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
@@ -1211,14 +1211,7 @@ class ResearchProducer:
             code_requests = []
             code_lookup = getattr(self.context, "code_search_paths", None)
             request_text = analysis_value.get("next_check", "")
-            symbols = list(
-                dict.fromkeys(
-                    re.findall(
-                        r"\breferences\(([A-Za-z_][A-Za-z0-9_-]{3,127})\)",
-                        request_text[:2000] if isinstance(request_text, str) else "",
-                    )
-                )
-            )
+            symbols = code_reference_literals(request_text)
             if (
                 spec.get("followup_code_search", False)
                 and callable(code_lookup)

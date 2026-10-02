@@ -21,6 +21,24 @@ TREE_LIMIT = 8_000_000
 RAW_LIMIT = 1_000_000
 CACHE_LIMIT = 20_000_000
 SHA = re.compile(r"[0-9a-f]{40}")
+CODE_REFERENCE_LITERAL = re.compile(
+    r"[A-Za-z_][A-Za-z0-9_-]*(?:\.[A-Za-z_][A-Za-z0-9_-]*)*"
+)
+
+
+def code_reference_literals(request):
+    """Bounded explicit names, including dotted keys; no expression evaluation."""
+    if not isinstance(request, str):
+        return []
+    return list(
+        dict.fromkeys(
+            name
+            for name in re.findall(
+                r"\breferences\(([^()\r\n]{1,128})\)", request[:2000]
+            )
+            if 4 <= len(name) <= 128 and CODE_REFERENCE_LITERAL.fullmatch(name)
+        )
+    )
 
 
 def _repo(value):
@@ -501,7 +519,8 @@ class PublicContext:
         commit = _sha(snapshot.get("commit"))
         if (
             not isinstance(symbol, str)
-            or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_-]{3,127}", symbol)
+            or not 4 <= len(symbol) <= 128
+            or not CODE_REFERENCE_LITERAL.fullmatch(symbol)
             or not isinstance(snapshot.get("files"), list)
         ):
             raise ValueError("invalid bounded code search")
