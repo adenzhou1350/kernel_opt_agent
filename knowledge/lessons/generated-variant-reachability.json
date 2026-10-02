@@ -1,10 +1,22 @@
 {
   "id": "generated-variant-reachability",
   "title": "Check generated variant registration and callers before reproducing a local anomaly",
-  "applies_when": "A candidate comes from a partial window of generated, shape- or dtype-specialized kernel code, especially a low-level binding or reusable helper definition.",
-  "lesson": "Retrieve the package registry and host dtype/shape dispatch before treating one physical kernel as the public API contract. Trace the suspected helper to an actual call, and substitute the specialized dimensions into padding/index arithmetic. A bf16-only binding can be correct for its registered key; a constant-false padding branch can be harmless when the dimension is already aligned; an unused helper does not establish an active ordering bug. Equal shared-memory offsets can describe different producer and consumer views of the same data, not independent buffers overwriting each other. Follow actual pointer uses, including lowered numeric offsets, and synchronization before deciding; macro names alone may have no downstream references. These checks can refute a particular premise without compiling its target environment.",
+  "applies_when": "A candidate comes from a partial window of generated, shape- or dtype-specialized kernel code, especially a low-level binding, reusable helper or host wrapper with separate autotuning and execution paths.",
+  "lesson": "Retrieve the package registry and host dtype/shape dispatch before treating one physical kernel as the public API contract. Trace a requested output dtype through allocation, autotuner eligibility and the launch argument: agreeing buffer allocation alone does not prove these stages agree. Read the downstream validator before calling a mismatch memory corruption; it may reject the call before JIT. Trace the suspected helper to an actual call, and substitute the specialized dimensions into padding/index arithmetic. A bf16-only binding can be correct for its registered key; a constant-false padding branch can be harmless when the dimension is already aligned; an unused helper does not establish an active ordering bug. Equal shared-memory offsets can describe different producer and consumer views of the same data, not independent buffers overwriting each other. Follow actual pointer uses, including lowered numeric offsets, and synchronization before deciding; macro names alone may have no downstream references. These checks can refute a particular premise without compiling its target environment.",
   "avoid_when": "Do not exclude all generated code or assume an unregistered shape is necessarily acceptable API behavior. Reopen with a supported logical key routed to the wrong variant, a reachable consumer of unwritten bytes, or a real helper call and compiler/runtime evidence. Static reachability and arithmetic are not native numerical correctness, performance or portability tests.",
   "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1db3fe8ec169056dcd3f0c8bf92845bd76cfbd4c/flashinfer/fused_moe/cute_dsl/fused_moe.py#L552-L585",
+      "note": "The W4A4 host pipeline allocates the requested output dtype but passes a literal BF16 GEMM2 launch dtype. The tuner independently uses BF16 for eligibility; checking just one stage misses the mismatch."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1db3fe8ec169056dcd3f0c8bf92845bd76cfbd4c/flashinfer/fused_moe/cute_dsl/blockscaled_contiguous_grouped_gemm_finalize_fusion.py#L580-L601",
+      "note": "The downstream wrapper rejects a provided output with the wrong dtype before kernel compilation. The source mismatch does not by itself establish memory corruption."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/pull/5276#issuecomment-5943304894",
+      "note": "Scoped CPU metadata regression: three FP16 checks failed while three BF16 controls passed; aligning launch and eligibility dtype passed six checks. Real Torch buffers and real can_implement checks, kernel execution mocked. Existing author already fixes execution; this contributes the remaining tuner finding, not native GPU correctness or performance."
+    },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/d849eca46875d3561fa48f6093936304580a1698/flashinfer/experimental/cake_nvfp4_per_token/cake_jit.py",
       "note": "KERNELS maps architecture and logical dtype/shape/fold keys to physical generated modules. kernel_module_name rejects missing keys before loading a binding; the two inspected K8192 folded quantizers are bf16 keys, not shared fp16 implementations."
