@@ -6,6 +6,10 @@
   "avoid_when": "Even homogeneous GPUs can have different current streams. A stable CUDA ordinal is a process-local identity, not a portable hardware profile or live resource allocation. Simulated capability queries do not prove mixed-hardware execution, PDL compatibility or performance. Real Torch stream selection with the final backend call intercepted is not TileLang kernel numerical or launch-context qualification. A device-scoped query alone does not establish that the native context, allocations and kernel handles agree. Preserve explicit caller streams; CPU, no-tensor and mixed-device input paths need their own contracts.",
   "evidence": [
     {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/experimental/cake_dsa_train/csrc/cake_dsa_h64_train/sm_103a/cake_dsa_h64_train_5b1accdf3cbb4915bed7_binding.cu#L618-L620",
+      "note": "Run constructs ScopedCudaDevice from the input device before attribute caching. Its constructor (lines 43-72) checks cudaSetDevice success and restores the previous device. An isolated cache excerpt misses this guard; static evidence refutes that missing-selection premise, not all cached errors or CUDA correctness."
+    },
+    {
       "url": "https://github.com/InternLM/lmdeploy/blob/110965c7706bbbeb31e21df5d7ef2531fe01c935/lmdeploy/pytorch/kernels/cuda/utils.py#L60-L64",
       "note": "The original supports_pdl has a no-argument lru_cache and queries the current CUDA device, exposing the stale-answer mechanism after a device switch."
     },

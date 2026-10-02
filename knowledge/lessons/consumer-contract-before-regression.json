@@ -6,6 +6,10 @@
   "avoid_when": "Reachable malformed inputs, escaping/length violations or supported shape mutations can be real defects. An empty shape denotes a rank-zero scalar, not zero storage: its one element still contributes dtype bits and vector lanes to view-size checks. Partial initialization may satisfy fragment-only consumers but fail a later full-tensor overflow check: inspect every reader and cross-step buffer reuse, not only the norm or optimizer copy. Establish temporal corruption through a genuine prior operation and a finite public training step; arbitrary scratch poisoning is not reachability proof. Error wording may have its own documented API contract. Callback stand-ins must preserve backend transformations: RoPE+SDPA may return BHSD from BSHD even when plain SDPA preserves shape. Baseline-fail/patch-pass against an invented callback is insufficient. Static review falsifies a specific claim; it does not prove native or general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
+      "url": "https://github.com/sgl-project/sglang/blob/8c9030ce3f58eec16ad3b9912d37480d34d6de52/python/sglang/srt/utils/host_memory.py#L128-L137",
+      "note": "Final RAM budget is min(host available, cgroup headroom); a v1 unlimited sentinel cannot alone inflate it. Source invariant, not Linux runtime qualification."
+    },
+    {
       "url": "https://github.com/deepspeedai/DeepSpeed/pull/8728",
       "note": "Submitted correction with a public DP2 Engine regression: real NaN step then finite steps, all parameters active, BF16/FP16 master variants and FP32 controls. The PR reports old-version finite-update failures and four patched passes on B300. Review/CI acceptance, convergence and performance are not established; the wider no-offload comparison was environment-blocked."
     },
