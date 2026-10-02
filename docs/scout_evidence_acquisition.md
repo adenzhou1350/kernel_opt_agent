@@ -99,8 +99,12 @@ not add a new read tier. It accepts relative-import hints in top-level Python
 free functions, including deferred/conditional imports. Competing targets,
 nested functions/classes, missing cache and revision drift abstain. These are
 module locations, not proof of Python binding or runtime support. An already
-supplied complete export module is not requested again; an explicit observed-tree
-implementation path can then use the remaining ordinary follow-up budget.
+supplied complete export module is not requested again. A fully supplied cached
+Python package with a literal `__all__` and the simple
+`__getattr__ -> relative module import -> getattr(module, name)` pattern can
+provide one observed-tree implementation hint. Missing cache, unsupported hook
+syntax or ambiguous module/package files abstain. The helper does not fetch,
+execute, recursively chase hooks, or expand the existing follow-up read budget.
 
 For fresh shadow comparisons, `scout_catalog_target.mentioned_catalog_target`
 provides a zero-model, language-neutral file baseline. It uses only the explicit
@@ -127,5 +131,6 @@ accepts optional `out`. Five arguments in one wrapper do not establish that
 another wrapper's six-argument call is invalid. The observed previous follow-ups
 missed this interface. Offline producer tests now cover the two-hop acquisition
 and unchanged two-read-per-follow-up ceiling, not native kernel correctness,
-model accuracy, prospective cost savings or PR conversion. Lazy exports are
-not automatically evaluated or recursively resolved by this helper.
+model accuracy, prospective cost savings or PR conversion. The limited cached
+lazy-export hint now covers this source pattern; it is still not evaluation of
+the export hook or proof of the installed package's binding.

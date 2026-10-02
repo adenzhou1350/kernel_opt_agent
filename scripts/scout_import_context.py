@@ -130,13 +130,108 @@ def _resolve(path, module, files):
     return observed[0] if len(observed) == 1 else None
 
 
+def _lazy_export_target(path, raw, symbol, files):
+    """Hint for a literal __all__ / simple getattr-module forwarding package.
+
+    Only a previously supplied, cached package can be followed one step. This
+    is not Python import resolution: unsupported or competing exports abstain.
+    """
+    if not path.endswith("/__init__.py") or not isinstance(raw, str):
+        return None
+    if len(raw.encode("utf-8")) > 131072 or "\x00" in raw:
+        return None
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError, RecursionError):
+        return None
+    declarations = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "__all__" for t in node.targets)
+    ]
+    hooks = [
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef) and node.name == "__getattr__"
+    ]
+    if len(declarations) != 1 or len(hooks) != 1:
+        return None
+    try:
+        exports = ast.literal_eval(declarations[0].value)
+    except (ValueError, TypeError, SyntaxError, RecursionError):
+        return None
+    if not isinstance(exports, (list, tuple)) or symbol not in exports:
+        return None
+    if not all(isinstance(item, str) for item in exports):
+        return None
+    hook = hooks[0]
+    args = hook.args
+    if (
+        args.posonlyargs
+        or len(args.args) != 1
+        or args.vararg
+        or args.kwarg
+        or args.kwonlyargs
+        or args.defaults
+        or len(hook.body) != 2
+        or not isinstance(hook.body[1], ast.Raise)
+    ):
+        return None
+    name = args.args[0].arg
+    branch = hook.body[0]
+    if (
+        not isinstance(branch, ast.If)
+        or branch.orelse
+        or len(branch.body) != 2
+        or ast.dump(branch.test)
+        != ast.dump(ast.parse(f"{name} in __all__", mode="eval").body)
+    ):
+        return None
+    imported, returned = branch.body
+    if (
+        not isinstance(imported, ast.ImportFrom)
+        or not imported.level
+        or len(imported.names) != 1
+        or imported.names[0].name == "*"
+        or not isinstance(returned, ast.Return)
+        or not isinstance(returned.value, ast.Call)
+    ):
+        return None
+    entry = imported.names[0]
+    module_name = entry.asname or entry.name
+    if ast.dump(returned.value) != ast.dump(
+        ast.parse(f"getattr({module_name}, {name})", mode="eval").body
+    ):
+        return None
+    module = "../" * (imported.level - 1) + "./"
+    if imported.module:
+        module += imported.module.replace(".", "/") + "/"
+    module += entry.name
+    return _resolve(path, module, files)
+
+
+def _fully_supplied(sources, url):
+    return any(
+        source.get("url") == url
+        and source.get("truncated") is False
+        and source.get("start_line") == 1
+        and type(source.get("total_lines")) is int
+        and source["total_lines"] > 0
+        and type(source.get("end_line")) is int
+        and source["end_line"] >= source["total_lines"]
+        for source in sources
+    )
+
+
 def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Propose <=2 definitions explicitly requested in the prior next_check.
 
     Same-file free functions, named aliases and .js -> .ts are hints only.
     Local JS function declarations are lexical, not a complete language parser.
     Python free-function relative imports supply module hints, not proof of
-    local-name resolution. A complete module already supplied is not reread.
+    local-name resolution. A complete module already supplied is not requested
+    again; a simple cached package lazy export may point one step further.
     Ambiguous declarations/tree members,
     absent cache, revision drift, bare package imports and wildcard imports abstain.
     The callback must be a read-only cache lookup, not another acquisition step.
@@ -208,17 +303,20 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
         if target in paths:
             continue
         target_url = f"https://raw.githubusercontent.com/{repo}/{commit}/{target}"
-        if any(
-            source.get("url") == target_url
-            and source.get("truncated") is False
-            and source.get("start_line") == 1
-            and type(source.get("total_lines")) is int
-            and source["total_lines"] > 0
-            and type(source.get("end_line")) is int
-            and source["end_line"] >= source["total_lines"]
-            for source in sources
-        ):
-            continue
+        if _fully_supplied(sources, target_url):
+            forwarded = (
+                _lazy_export_target(
+                    target, cached_source(repo, commit, target), imported, files
+                )
+                if target.endswith("/__init__.py")
+                else None
+            )
+            if not forwarded or forwarded in paths:
+                continue
+            target = forwarded
+            target_url = f"https://raw.githubusercontent.com/{repo}/{commit}/{target}"
+            if _fully_supplied(sources, target_url):
+                continue
         paths.add(target)
         requests.append({"path": target, "hints": imported, "max_lines": 80})
         if len(requests) == limit:

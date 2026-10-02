@@ -302,6 +302,132 @@ import { readVersion } from "./version.js";"""
             [{"path": "pkg/exports/__init__.py", "hints": "size", "max_lines": 80}],
         )
 
+    def lazy_requests(self, export, *, files=None, complete=True, limit=2):
+        raw = (
+            "def run():\n    from .exports import size as helper\n    return helper()\n"
+        )
+        files = files or [
+            "pkg/read.py",
+            "pkg/exports/__init__.py",
+            "pkg/exports/bf16/runtime.py",
+        ]
+        _, _, packet, snapshot = self.requests(
+            raw, "helper", path="pkg/read.py", files=files
+        )
+        packet["sources"].append(
+            {
+                "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/pkg/exports/__init__.py",
+                "start_line": 1,
+                "end_line": 20,
+                "total_lines": 20,
+                "truncated": not complete,
+            }
+        )
+        cache = Mock(
+            side_effect=lambda repo, commit, path: (
+                raw if path == "pkg/read.py" else export
+            )
+        )
+        return (
+            import_requests(
+                packet, snapshot, {"next_check": "helper"}, cache, limit=limit
+            ),
+            cache,
+            packet,
+            snapshot,
+        )
+
+    LAZY_EXPORT = (
+        '__all__ = ["size"]\n'
+        "def __getattr__(name):\n"
+        "    if name in __all__:\n"
+        "        from .bf16 import runtime\n"
+        "        return getattr(runtime, name)\n"
+        "    raise AttributeError(name)\n"
+    )
+
+    def test_complete_lazy_export_points_to_observed_module_once(self):
+        requests, cache, _, _ = self.lazy_requests(self.LAZY_EXPORT, limit=1)
+        self.assertEqual(
+            requests,
+            [{"path": "pkg/exports/bf16/runtime.py", "hints": "size", "max_lines": 80}],
+        )
+        self.assertEqual(cache.call_count, 2)
+        cache.assert_any_call("o/r", COMMIT, "pkg/exports/__init__.py")
+
+    def test_lazy_export_not_yet_supplied_remains_first_request(self):
+        requests, cache, _, _ = self.lazy_requests(self.LAZY_EXPORT, complete=False)
+        self.assertEqual(
+            requests,
+            [{"path": "pkg/exports/__init__.py", "hints": "size", "max_lines": 80}],
+        )
+        cache.assert_called_once_with("o/r", COMMIT, "pkg/read.py")
+
+    def test_lazy_export_missing_ambiguous_or_escaping_tree_target_abstains(self):
+        base = ["pkg/read.py", "pkg/exports/__init__.py"]
+        for files in (
+            base,
+            base
+            + ["pkg/exports/bf16/runtime.py", "pkg/exports/bf16/runtime/__init__.py"],
+        ):
+            self.assertEqual(self.lazy_requests(self.LAZY_EXPORT, files=files)[0], [])
+        escape = self.LAZY_EXPORT.replace("from .bf16", "from ....bf16")
+        self.assertEqual(self.lazy_requests(escape)[0], [])
+
+    def test_lazy_export_unsupported_dynamic_or_invalid_source_is_not_guessed(self):
+        variants = [
+            None,
+            "\x00",
+            "x" * 131073,
+            "def broken(:",
+            "",
+            self.LAZY_EXPORT.replace('["size"]', "get_names()"),
+            self.LAZY_EXPORT.replace('["size"]', '["another"]'),
+            self.LAZY_EXPORT.replace("return getattr(runtime, name)", "return"),
+            self.LAZY_EXPORT.replace(
+                "getattr(runtime, name)", "getattr(runtime, name, None)"
+            ),
+            self.LAZY_EXPORT.replace("from .bf16", "from external.bf16"),
+            self.LAZY_EXPORT.replace(
+                "return getattr(runtime, name)", "return globals()[name]"
+            ),
+            self.LAZY_EXPORT.replace("name in __all__", 'name == "size"'),
+            self.LAZY_EXPORT + '__all__ = ["size"]\n',
+            self.LAZY_EXPORT + "def __getattr__(name): return None\n",
+        ]
+        for raw in variants:
+            with self.subTest(raw=str(raw)[:80]):
+                self.assertEqual(self.lazy_requests(raw)[0], [])
+
+    def test_lazy_export_alias_and_relative_module_import_are_hints(self):
+        export = self.LAZY_EXPORT.replace(
+            "from .bf16 import runtime", "from .bf16 import runtime as impl"
+        ).replace("getattr(runtime, name)", "getattr(impl, name)")
+        self.assertEqual(self.lazy_requests(export)[0][0]["hints"], "size")
+        export = self.LAZY_EXPORT.replace(
+            "from .bf16 import runtime", "from . import runtime"
+        )
+        files = ["pkg/read.py", "pkg/exports/__init__.py", "pkg/exports/runtime.py"]
+        self.assertEqual(
+            self.lazy_requests(export, files=files)[0][0]["path"],
+            "pkg/exports/runtime.py",
+        )
+
+    def test_lazy_export_complete_implementation_is_not_requested_again(self):
+        _, cache, packet, snapshot = self.lazy_requests(self.LAZY_EXPORT)
+        packet["sources"].append(
+            {
+                "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/pkg/exports/bf16/runtime.py",
+                "start_line": 1,
+                "end_line": 10,
+                "total_lines": 10,
+                "truncated": False,
+            }
+        )
+        self.assertEqual(
+            import_requests(packet, snapshot, {"next_check": "helper"}, cache), []
+        )
+
     def test_revision_and_url_mismatch_do_not_even_read_cache(self):
         _, _, packet, snapshot = self.requests("")
         for url in (
