@@ -40,6 +40,14 @@
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/moe_ep/kernel_src/sm107/next_cutedsl_megamoe/shim/kernel_helpers.py#L449-L477",
       "note": "The activation helper converts FP8 values directly and the weight helper unpacks FP4 for the same mixed kind. This asymmetry agrees with the bound storage contract; native CPU helper checks are not a whole-package/GPU or cross-format correctness claim."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/experimental/cake_dsa_train/cake_backend.py#L442-L521",
+      "note": "The supported DSA host entry enforces head/token/key-row strides modulo eight BF16 elements and base alignment modulo 16 bytes before architecture-specific binding selection. A generated whole-byte-offset check need not duplicate this complete contract; distinguish bits-to-bytes representability from TMA alignment. This refutes an external-input bypass premise, not every directly invoked raw binding or internal backward layout."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/tests/experimental/test_cake_dsa_train.py#L2107-L2230",
+      "note": "Existing host-validator tests cover legal trainer-strided layouts and rejected unsupported strides/base alignment. These publicly reviewable controls support reading the complete caller contract before reproducing a generated binding anomaly; they do not establish full native GPU correctness."
     }
   ],
   "status": "validated"
