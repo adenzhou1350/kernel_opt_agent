@@ -42,3 +42,24 @@ python -B -m unittest tests.test_scout_evidence_acquisition
 The tests inject controlled responses to cover partial timeout/EOF, HTTP error
 bodies, invalid UTF-8/targets/budgets, byte caps and cache accounting. They test
 the reader's behavior, not remote availability or scientific utility.
+
+## Language-neutral window selection
+
+After a successful fetch, `scripts.scout_source_window.source_window(text,
+anchor="export function example(")` selects up to 80 lines/10,000 characters
+starting at a unique single-line literal. Alternatively pass an exact one-based
+`start_line`. It is standard-library-only and does not execute source. The
+original UTF-8 bytes are hashed; displayed newlines are normalized. Ambiguous,
+missing, beyond-EOF or over-budget targets fail explicitly, with no fallback.
+A comment or string match is only a text location, not a function definition,
+reachable caller or quality verdict. The caller still binds repository/commit
+and judges whether the returned evidence answers the question.
+
+This avoids pretending that a Python-only symbol resolver supports TypeScript
+or C++. It does not infer unknown anchors, find a call graph or fix guessed
+paths. Declare this selector in a fresh comparison before seeing its cases;
+post-trial repaired windows are development checks, not prospective wins.
+
+```text
+python -B -m unittest tests.test_scout_source_window
+```
