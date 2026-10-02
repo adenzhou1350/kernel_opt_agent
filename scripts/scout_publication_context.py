@@ -119,24 +119,69 @@ def source_paths(sources, repo):
     return paths
 
 
-def publication_context(root, repo, sources):
-    """Read at most 24 terminal rows; never create a DB or rewrite worker state."""
-    path = Path(root).resolve() / "delivery" / "delivery.sqlite"
-    if not path.is_file():
-        return None
-    wanted = source_paths(sources, repo)
+def owner_publication_rows(root, repo):
+    """Read source-only owner PR links without manufacturing delivery records."""
+    path = Path(root).resolve() / "owner-publication-notes.json"
     try:
-        with closing(
-            sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.05)
-        ) as db:
-            rows = db.execute(
-                "SELECT substr(title,1,201),substr(result,1,131073),substr(payload,1,131073) "
-                "FROM delivery WHERE repo=? AND state='PR_OPEN' "
-                "ORDER BY updated_at DESC,id LIMIT 24",
-                (repo,),
-            ).fetchall()
+        if path.is_symlink() or not path.is_file():
+            return []
+        with path.open("rb") as stream:
+            raw = stream.read(OWNER_NOTE_LIMIT_BYTES + 1)
+        if len(raw) > OWNER_NOTE_LIMIT_BYTES:
+            return []
+        notes = json.loads(raw)
+        if not isinstance(notes, list) or len(notes) > 24:
+            return []
+    except (OSError, ValueError, RecursionError):
+        return []
+    rows = []
+    required = {"repo", "prior_hypothesis", "source_url", "pr_url"}
+    for note in reversed(notes):
+        if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
+            continue
+        title = note["prior_hypothesis"]
+        url = note["pr_url"]
+        match = PR_URL.fullmatch(url) if isinstance(url, str) else None
+        source = {"url": note["source_url"]}
+        if (
+            not isinstance(title, str)
+            or not 0 < len(title.strip()) <= 200
+            or contains_local_artifact_path(title)
+            or not match
+            or match[1].casefold() != repo.casefold()
+            or not source_paths([source], repo)
+        ):
+            continue
+        rows.append(
+            (
+                title,
+                json.dumps({"pr": {"url": url}}),
+                json.dumps({"packet": {"sources": [source]}}),
+            )
+        )
+    return rows
+
+
+def publication_context(root, repo, sources):
+    """Read <=24 terminal rows and <=24 owner links; never rewrite queue state."""
+    path = Path(root).resolve() / "delivery" / "delivery.sqlite"
+    wanted = source_paths(sources, repo)
+    rows = owner_publication_rows(root, repo)
+    try:
+        if path.is_file():
+            with closing(
+                sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=0.05)
+            ) as db:
+                rows.extend(
+                    db.execute(
+                        "SELECT substr(title,1,201),substr(result,1,131073),substr(payload,1,131073) "
+                        "FROM delivery WHERE repo=? AND state='PR_OPEN' "
+                        "ORDER BY updated_at DESC,id LIMIT 24",
+                        (repo,),
+                    ).fetchall()
+                )
     except (OSError, sqlite3.Error):
-        return None
+        pass  # Independent owner links survive a missing/locked/corrupt DB.
     matches, seen = [], set()
     for title, result, payload in rows:
         if not isinstance(title, str) or not all(

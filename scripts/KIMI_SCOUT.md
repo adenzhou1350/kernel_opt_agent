@@ -502,6 +502,17 @@ be clipped. New publication records alone do not replay identical source jobs.
 Existing packets are unchanged. This reduces repeated context acquisition in
 principle; the implementation tests do not establish improved yield or recall.
 
+An owner can also record a source-only contribution that never entered delivery
+in `<root>/owner-publication-notes.json`. This optional list accepts at most 24
+objects with exactly `repo`, `prior_hypothesis` (<=200 characters), `source_url`
+(same repository, raw.githubusercontent.com with a full commit SHA), and `pr_url`
+(canonical same-repository GitHub PR URL). These links join the same three-item
+advisory hint budget and are deduplicated with delivery links. They do not create
+delivery rows, change old verdicts, imply successful tests or CI, or increase the
+delivery conversion count. Keep local artifact paths and extra status fields out
+of notes. Missing/corrupt notes are ignored; a corrupt delivery DB does not erase
+independent valid owner links. No network or model call is made to read them.
+
 New packets can also carry at most two `owner_deferrals` for the same source
 file, read from the latest 24 owner-parked records per repository. Each includes
 the old hypothesis, pinned public evidence, reason and explicit reopening

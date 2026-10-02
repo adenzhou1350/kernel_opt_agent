@@ -277,14 +277,19 @@ class PublicationContextTests(unittest.TestCase):
         before = self.path.read_bytes()
         context = self.deferrals()
         self.assertEqual(len(context["items"]), 1)
-        self.assertEqual(context["items"][0]["reason"], "Public src/subject.py contract is incomplete")
+        self.assertEqual(
+            context["items"][0]["reason"],
+            "Public src/subject.py contract is incomplete",
+        )
         self.assertEqual(self.path.read_bytes(), before)
 
     def test_pinned_public_runs_directory_remains_eligible_evidence(self):
         self.initialize()
         public = f"https://github.com/{self.repo}/blob/{'a' * 40}/runs/repro.py"
         self.defer(1, reason="Public reproducer: " + public)
-        self.assertEqual(self.deferrals()["items"][0]["reason"], "Public reproducer: " + public)
+        self.assertEqual(
+            self.deferrals()["items"][0]["reason"], "Public reproducer: " + public
+        )
 
     def test_deferral_evidence_can_be_an_exact_removal_commit(self):
         self.initialize()
@@ -455,6 +460,119 @@ class PublicationContextTests(unittest.TestCase):
             "https://github.com/public/project/pull/1",
         )
         self.assertEqual(packets[1]["sources"], [newer])
+
+
+class SourceOnlyPublicationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.repo = "public/project"
+        self.source = {
+            "url": f"https://raw.githubusercontent.com/{self.repo}/{'a' * 40}/src/subject.py"
+        }
+        self.note = {
+            "repo": self.repo,
+            "prior_hypothesis": "Finite update after genuine overflow",
+            "source_url": self.source["url"],
+            "pr_url": "https://github.com/public/project/pull/123",
+        }
+        self.path = self.root / "owner-publication-notes.json"
+
+    def write(self, notes):
+        self.path.write_text(json.dumps(notes), encoding="utf-8")
+
+    def read(self):
+        return memory.publication_context(self.root, self.repo, [self.source])
+
+    def test_source_only_link_without_queue_creates_no_delivery_or_test_verdict(self):
+        self.write([self.note])
+        before = self.path.read_bytes()
+        context = self.read()
+        self.assertEqual(context["items"][0]["url"], self.note["pr_url"])
+        self.assertEqual(context["items"][0]["source_paths"], ["src/subject.py"])
+        self.assertIn("not an exhaustive", context["caution"])
+        self.assertEqual(
+            set(context["items"][0]), {"url", "prior_hypothesis", "source_paths"}
+        )
+        self.assertFalse((self.root / "delivery").exists())
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_independent_note_survives_corrupt_queue(self):
+        self.write([self.note])
+        directory = self.root / "delivery"
+        directory.mkdir()
+        db = directory / "delivery.sqlite"
+        db.write_bytes(b"not a database")
+        self.assertIsNotNone(self.read())
+        self.assertEqual(db.read_bytes(), b"not a database")
+
+    def test_invalid_or_extra_fields_and_private_titles_are_not_exposed(self):
+        for change in (
+            {"repo": "other/project"},
+            {"pr_url": "https://github.com/other/project/pull/123"},
+            {"pr_url": "https://github.com/public/project/issues/123"},
+            {"pr_url": "https://github.com/public/project/pull/123#discussion"},
+            {
+                "source_url": "https://raw.githubusercontent.com/public/project/main/src/subject.py"
+            },
+            {
+                "source_url": "https://raw.githubusercontent.com/other/project/"
+                + "a" * 40
+                + "/src/subject.py"
+            },
+            {"source_url": None},
+            {"prior_hypothesis": "D:/private/run"},
+            {"prior_hypothesis": "x" * 201},
+            {"prior_hypothesis": None},
+            {"correctness": "PASS"},
+        ):
+            with self.subTest(change=change):
+                self.write([{**self.note, **change}])
+                self.assertIsNone(self.read())
+
+    def test_malformed_oversized_and_too_many_notes_are_optional(self):
+        for value in ("null", "{}", "invalid", "[" * 2000, " " * 65537):
+            self.path.write_text(value, encoding="utf-8")
+            self.assertIsNone(self.read())
+        self.write([self.note] * 25)
+        self.assertIsNone(self.read())
+
+    def test_note_and_queue_duplicates_do_not_consume_extra_hint_slots(self):
+        self.write([self.note, self.note])
+        directory = self.root / "delivery"
+        directory.mkdir()
+        with closing(sqlite3.connect(directory / "delivery.sqlite")) as db, db:
+            db.execute(
+                "CREATE TABLE delivery(id,repo,title,state,updated_at,result,payload)"
+            )
+            db.execute(
+                "INSERT INTO delivery VALUES(?,?,?,?,?,?,?)",
+                (
+                    1,
+                    self.repo,
+                    "old summary",
+                    "PR_OPEN",
+                    0,
+                    json.dumps({"pr": {"url": self.note["pr_url"]}}),
+                    json.dumps({"packet": {"sources": [self.source]}}),
+                ),
+            )
+        self.assertEqual(len(self.read()["items"]), 1)
+
+    def test_same_file_first_with_three_hint_cap(self):
+        notes = [
+            {
+                **self.note,
+                "pr_url": f"https://github.com/public/project/pull/{i}",
+                "source_url": self.source["url"].replace("subject.py", f"other{i}.py"),
+            }
+            for i in range(1, 7)
+        ]
+        self.write([self.note, *notes])
+        items = self.read()["items"]
+        self.assertEqual(len(items), 3)
+        self.assertEqual(items[0]["url"], self.note["pr_url"])
 
 
 if __name__ == "__main__":
