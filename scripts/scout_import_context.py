@@ -62,8 +62,23 @@ def _bindings(path, raw):
             tree = ast.parse(raw)
         except (SyntaxError, ValueError, RecursionError):
             return
-        # Only module-level relative imports; no installed-package speculation.
-        for node in tree.body:
+        # Deferred imports are common at GPU wrapper boundaries. Gather hints
+        # from top-level free functions as well as the module, but do not enter
+        # nested functions/classes or pretend conditional imports are bindings.
+        # Competing observed targets still cause import_requests() to abstain.
+        nodes = list(tree.body)
+        for owner in tree.body:
+            if isinstance(owner, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                pending = list(owner.body)
+                while pending:
+                    node = pending.pop()
+                    if isinstance(
+                        node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
+                    ):
+                        continue
+                    nodes.append(node)
+                    pending.extend(ast.iter_child_nodes(node))
+        for node in nodes:
             if (
                 not isinstance(node, ast.ImportFrom)
                 or not node.level
@@ -120,6 +135,8 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
 
     Same-file free functions, named aliases and .js -> .ts are hints only.
     Local JS function declarations are lexical, not a complete language parser.
+    Python free-function relative imports supply module hints, not proof of
+    local-name resolution. A complete module already supplied is not reread.
     Ambiguous declarations/tree members,
     absent cache, revision drift, bare package imports and wildcard imports abstain.
     The callback must be a read-only cache lookup, not another acquisition step.
@@ -189,6 +206,18 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             continue
         imported, target = next(iter(candidates))
         if target in paths:
+            continue
+        target_url = f"https://raw.githubusercontent.com/{repo}/{commit}/{target}"
+        if any(
+            source.get("url") == target_url
+            and source.get("truncated") is False
+            and source.get("start_line") == 1
+            and type(source.get("total_lines")) is int
+            and source["total_lines"] > 0
+            and type(source.get("end_line")) is int
+            and source["end_line"] >= source["total_lines"]
+            for source in sources
+        ):
             continue
         paths.add(target)
         requests.append({"path": target, "hints": imported, "max_lines": 80})

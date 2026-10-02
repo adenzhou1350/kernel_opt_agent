@@ -74,3 +74,27 @@ clipped ranges describe the original snippets. An oversized catalog fails
 explicitly rather than silently excluding a case. Apply it consistently to
 every arm under a new declaration. Better source coverage is not demonstrated
 utility, PR conversion or accuracy.
+
+## Requested Python wrapper interfaces
+
+The live producer's optional per-repository `followup_import_context=true`
+uses `scout_import_context.import_requests` to replace guessed follow-up reads,
+not add a new read tier. It accepts relative-import hints in top-level Python
+free functions, including deferred/conditional imports. Competing targets,
+nested functions/classes, missing cache and revision drift abstain. These are
+module locations, not proof of Python binding or runtime support. An already
+supplied complete export module is not requested again; an explicit observed-tree
+implementation path can then use the remaining ordinary follow-up budget.
+
+Development example: at FlashInfer `426d028e`, the
+[wrapper](https://github.com/flashinfer-ai/flashinfer/blob/426d028e18a270b60a1ac72306b29754bf087c67/flashinfer/fused_moe/cudnn_frost_selected.py#L56-L77)
+imports `workspace_size` inside a function. Its
+[export module](https://github.com/flashinfer-ai/flashinfer/blob/426d028e18a270b60a1ac72306b29754bf087c67/flashinfer/experimental/cudnn_frost_selected_kernels_moe_grouped_gemm/__init__.py#L15-L21)
+defers to `bf16.runtime`; the
+[actual signature](https://github.com/flashinfer-ai/flashinfer/blob/426d028e18a270b60a1ac72306b29754bf087c67/flashinfer/experimental/cudnn_frost_selected_kernels_moe_grouped_gemm/bf16/runtime.py#L235-L252)
+accepts optional `out`. Five arguments in one wrapper do not establish that
+another wrapper's six-argument call is invalid. The observed previous follow-ups
+missed this interface. Offline producer tests now cover the two-hop acquisition
+and unchanged two-read-per-follow-up ceiling, not native kernel correctness,
+model accuracy, prospective cost savings or PR conversion. Lazy exports are
+not automatically evaluated or recursively resolved by this helper.

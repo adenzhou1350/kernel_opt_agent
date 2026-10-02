@@ -220,6 +220,88 @@ import { readVersion } from "./version.js";"""
         )
         self.assertEqual(self.requests("def broken(", path="pkg/read.py")[0], [])
 
+    def test_deferred_relative_import_is_a_hint_not_an_arity_guess(self):
+        raw = (
+            "def helper(a):\n    from .runtime import size\n    return size(a)\n"
+            "def run(a, out):\n    from .runtime import size\n    return size(a, out)\n"
+        )
+        result, cache, _, _ = self.requests(
+            raw,
+            "Inspect size signature",
+            path="pkg/read.py",
+            files=["pkg/read.py", "pkg/runtime.py"],
+        )
+        self.assertEqual(
+            result, [{"path": "pkg/runtime.py", "hints": "size", "max_lines": 80}]
+        )
+        cache.assert_called_once_with("o/r", COMMIT, "pkg/read.py")
+
+    def test_deferred_conditional_aliases_keep_ambiguity_and_scope_boundaries(self):
+        raw = (
+            "def run(flag):\n    if flag:\n        from .a import size\n"
+            "    else:\n        from .b import size\n    return size()\n"
+        )
+        self.assertEqual(
+            self.requests(
+                raw,
+                "size",
+                path="pkg/read.py",
+                files=["pkg/read.py", "pkg/a.py", "pkg/b.py"],
+            )[0],
+            [],
+        )
+        for owner in ("class Owner", "def inner()"):
+            raw = f"def outer():\n    {owner}:\n        from .runtime import size\n"
+            self.assertEqual(
+                self.requests(
+                    raw,
+                    "size",
+                    path="pkg/read.py",
+                    files=["pkg/read.py", "pkg/runtime.py"],
+                )[0],
+                [],
+            )
+        raw = "async def run():\n    try:\n        from .runtime import size as helper\n    except ImportError:\n        raise\n"
+        self.assertEqual(
+            self.requests(
+                raw,
+                "helper",
+                path="pkg/read.py",
+                files=["pkg/read.py", "pkg/runtime.py"],
+            )[0],
+            [{"path": "pkg/runtime.py", "hints": "size", "max_lines": 80}],
+        )
+
+    def test_complete_export_module_is_not_requested_again(self):
+        raw = "def run():\n    from .exports import size\n    return size()\n"
+        _, _, packet, snapshot = self.requests(
+            raw,
+            "size",
+            path="pkg/read.py",
+            files=["pkg/read.py", "pkg/exports/__init__.py"],
+        )
+        supplied = {
+            "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/pkg/exports/__init__.py",
+            "start_line": 1,
+            "end_line": 20,
+            "total_lines": 20,
+            "truncated": False,
+        }
+        packet["sources"].append(supplied)
+        self.assertEqual(
+            import_requests(
+                packet, snapshot, {"next_check": "size"}, Mock(return_value=raw)
+            ),
+            [],
+        )
+        supplied["truncated"] = True
+        self.assertEqual(
+            import_requests(
+                packet, snapshot, {"next_check": "size"}, Mock(return_value=raw)
+            ),
+            [{"path": "pkg/exports/__init__.py", "hints": "size", "max_lines": 80}],
+        )
+
     def test_revision_and_url_mismatch_do_not_even_read_cache(self):
         _, _, packet, snapshot = self.requests("")
         for url in (

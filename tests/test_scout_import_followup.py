@@ -172,6 +172,61 @@ class ImportFollowupTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "followup_import_context"):
             research.configuration(self.config)
 
+    def test_deferred_package_export_then_explicit_runtime_fit_existing_two_reads(self):
+        self.spec["followup_import_context"] = True
+        wrapper, export, runtime = (
+            "src/wrapper.py",
+            "src/exports/__init__.py",
+            "src/exports/runtime.py",
+        )
+        raw = (
+            "def run(a, out):\n    from .exports import size\n    return size(a, out)\n"
+        )
+        self.context.snapshot.return_value = {
+            "commit": COMMIT,
+            "files": [wrapper, export, runtime],
+        }
+        self.context.cached_source_text.return_value = raw
+
+        def source(repo, commit, path, **kw):
+            text = "def size(a, out=None):\n    return 0\n" if path == runtime else raw
+            if path == export:
+                text = "def __getattr__(name):\n    from . import runtime\n    return getattr(runtime, name)\n"
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": text,
+                "start_line": 1,
+                "end_line": len(text.splitlines()),
+                "total_lines": len(text.splitlines()),
+                "truncated": False,
+            }
+
+        self.context.source.side_effect = source
+        with scout.connect(self.root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+            packet["sources"] = [source("o/r", COMMIT, wrapper)]
+            db.execute("UPDATE jobs SET packet=?", (scout.dumps(packet),))
+        self.finish("needs_context")
+        with scout.connect(self.root) as db:
+            result = json.loads(db.execute("SELECT result FROM jobs").fetchone()[0])
+            result["analysis"]["next_check"] = "Read size signature"
+            db.execute("UPDATE jobs SET result=?", (scout.dumps(result),))
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertIn(export, self.paths())
+        self.assertLessEqual(len(self.paths()), 2)
+
+        with scout.connect(self.root) as db:
+            result["analysis"]["next_check"] = f"Inspect {runtime} size signature"
+            db.execute(
+                "UPDATE jobs SET state='NEEDS_CONTEXT',finished=?,result=? WHERE state='PENDING'",
+                (time.time(), scout.dumps(result)),
+            )
+        self.context.source.reset_mock()
+        self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertIn(runtime, self.paths())
+        self.assertNotIn(export, self.paths())
+        self.assertLessEqual(len(self.paths()), 2)
+
     def test_public_context_cache_lookup_never_fetches_or_creates_missing_record(self):
         context = PublicContext(self.root)
         path = context._cache_path("raw", ["o/r", COMMIT, "src/read.ts"])
