@@ -2,12 +2,12 @@
   "id": "consumer-contract-before-regression",
   "title": "Establish the consumer contract before writing a failing regression",
   "applies_when": "A candidate alleges a formatting, validation, shape, resource-budget or backend-support mismatch from a helper name, comment or partial source window, and proposes expected behavior without tracing the producer and consumer.",
-  "lesson": "Trace production, allocation, transformations and consumption before choosing expected behavior. Read later assignments too: a suspicious intermediate registry value may be overwritten before consumption. Distinguish DNS-SD instance labels from hostnames, captured token capacity from request count, and registered kernel geometry from excluded examples in comments. Fabricated inconsistent internal metadata does not establish a reachable defect. Passing a shape/dtype validator is not proof that empty or sentinel-only input belongs to the complete contract; inspect downstream edge-count and work-geometry requirements. Missing validation alone does not establish the proposed invariant. A device-assertion change is not backend support: require a supported caller and checked native outputs. For an allegedly unguarded fallback, intersect its trigger with native launch constraints before allocating a huge reproduction. Seek an observable consumer failure before environment repair or publication.",
+  "lesson": "Trace the producer, allocation, transformations and consumer before inventing expected behavior. Later assignments may overwrite suspicious registry values. Distinguish instance labels from hostnames, captured token capacity from request count, and registered kernel geometry from excluded examples. Inconsistent fabricated metadata is not a reachable defect; shape/dtype acceptance alone does not admit empty or sentinel-only input. Inspect downstream edge counts and work geometry. Missing validation does not prove an invariant, and changing a device assertion does not establish backend support. Intersect a fallback trigger with native launch constraints before allocating a huge reproduction. Require a supported caller and observable native failure before environment repair or publication; the cited counterexamples retain their specific contracts and limits.",
   "avoid_when": "Reachable malformed inputs, escaping/length violations or supported shape mutations can be real defects. Error wording may have its own documented API contract. Callback stand-ins must preserve backend transformations: RoPE+SDPA may return BHSD from BSHD even when plain SDPA preserves shape. Baseline-fail/patch-pass against an invented callback is insufficient. Static review falsifies a specific claim; it does not prove native or general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/src/megatron_fsdp/utils.py#L655-L662",
-      "note": "Later expert registrations overwrite dense entries when the expert mesh contains the same dimensions. Missing dimensions can leave a dense entry; that anomaly alone does not prove a supported training failure."
+      "note": "Expert registration overwrites dense entries for matching mesh dimensions. Missing dimensions can retain a dense entry but do not prove a supported training failure."
     },
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/mcore_fsdp_adapter.py#L470-L497",
@@ -15,7 +15,7 @@
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/240de7a90bd43d663e3eb93429bf47559b50fd5b/flashinfer/msa_ops/_blackwell_sm100_reverse_plan.py#L253",
-      "note": "All-invalid q2k can divide by zero, but shipped builders require full per-head edges and fixed geometry. A zero guard does not establish empty-route kernel support; the standalone diagnostic contract remains open."
+      "note": "All-invalid q2k can divide by zero; shipped builders require full edges and fixed geometry. A zero guard is not empty-route support; the standalone diagnostic contract remains open."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/flashinfer/comm/trtllm_ar.py#L879",
@@ -23,7 +23,7 @@
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/include/flashinfer/comm/trtllm_allreduce_fusion.cuh#L1685",
-      "note": "16-byte accesses, <=8-block clusters and <=1024 threads bound supported ranks 2/4/8/16 with token_num<=world_size to <=32 MiB, below the fallback threshold. This necessary-domain argument refutes that hang hypothesis, not collective correctness or malformed-input diagnostics."
+      "note": "16-byte accesses, <=8-block clusters and <=1024 threads limit supported ranks 2/4/8/16 with token_num<=world_size to <=32 MiB, below the fallback threshold. This refutes the hang hypothesis, not collective correctness or malformed-input diagnostics."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/arg_groups/fields/exec_.py#L428",
@@ -67,7 +67,7 @@
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/104283d1a23c4eb7da20b038ee2a497afc86b06a/flashinfer/utils.py#L1507",
-      "note": "The outer wrapper uses sig.bind and applies defaults before passing kwargs to the helper. Its isolated kwargs lookup does not prove a positional/default bug; CUDA and skip_check/auto remain unqualified."
+      "note": "The wrapper uses sig.bind and applies defaults before forwarding kwargs. Isolated lookup does not prove a positional/default bug; CUDA and skip_check/auto remain unqualified."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
@@ -79,7 +79,7 @@
     },
     {
       "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorAdvancedIndexing.cpp#L490-L522",
-      "note": "Advanced indexing explicitly permits CPU indices or indices on the indexed tensor's device. A CPU boolean-mask fallback alone does not prove a CUDA device error. This is API-specific: index_copy_ in the same file requires the index, source and destination on one device; do not transfer either rule to every indexing operation."
+      "note": "Advanced indexing permits CPU or same-device indices; a CPU boolean mask is not a CUDA device-error proof. index_copy_ instead requires index/source/destination on one device. These API-specific rules do not apply to all indexing operations."
     }
   ],
   "status": "counterexample"

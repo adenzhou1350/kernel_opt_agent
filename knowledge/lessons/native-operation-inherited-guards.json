@@ -1,0 +1,22 @@
+{
+  "id": "native-operation-inherited-guards",
+  "title": "Check inherited native-operation guards before adding wrapper validation",
+  "applies_when": "A tensor-view wrapper uses torch.as_strided without an explicit raw-buffer capacity assertion and a candidate alleges silent storage-out-of-bounds access.",
+  "lesson": "Test the actual pinned wrapper with real Torch before assuming as_strided is unchecked. PyTorch's concrete TensorImpl path calls setStrided, which checks the requested size/stride/storage_offset against storage capacity before constructing the view. Contrast an exact-fit control with an undersized buffer through the same wrapper; preserve the native exception rather than replacing Torch with a permissive stand-in. This can refute a missing-capacity-guard hypothesis without building a model or using a GPU.",
+  "avoid_when": "Storage capacity is not the same as the wrapper's logical subregion or ownership boundary: a larger backing storage can admit a view that escapes an intended slice. In-bounds overlapping views, wrong offsets, unchecked custom kernels, meta/symbolic paths and other backends need separate evidence. A clearer public error contract may still justify wrapper validation. Do not treat this mechanism as proof that every tensor view or caller is correct.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/Resize.h#L83-L124",
+      "note": "checkInBoundsForStorage computes required bytes including storage offset and rejects a request exceeding backing storage. This is a version-specific native mechanism, not an application-wide safety proof."
+    },
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorShape.cpp#L1415-L1422",
+      "note": "The concrete as_strided_tensorimpl path invokes setStrided; Resize.h lines 184-203 in turn invoke the storage-capacity check. Meta and unchecked helper paths must not inherit this conclusion blindly."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/67eab57057062e05eabd4227a943b1aa777e563f/python/sglang/srt/mem_cache/layout/token_major.py#L214-L270",
+      "note": "Mamba conv and temporal views are created through real torch.as_strided. Absence of a wrapper assertion alone does not bypass the native check; logical subregions and valid caller invariants remain separate questions."
+    }
+  ],
+  "status": "counterexample"
+}
