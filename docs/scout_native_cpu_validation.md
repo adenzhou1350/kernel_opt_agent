@@ -320,3 +320,23 @@ usable sandbox capacity. Keep such a worker ineligible for automatic execution
 until a separately reviewed isolation policy and real canaries pass. Resource
 limits, hidden host files/devices, network isolation, child cleanup and output
 bounds remain necessary; namespace availability by itself proves none of them.
+
+Distinguish namespace creation from the setup operation that failed. A later
+CPU-only B300-worker probe passed user+network, user+PID and
+`unshare --user --map-root-user --mount --propagation unchanged true`.
+The default mount probe still failed at root-filesystem propagation. Thus the
+observed error does **not** prove that creating a mount namespace is forbidden;
+the successful `true` also does not prove mounts, a hidden host filesystem or a
+usable sandbox. A separate shared SM120 worker had a zero user-namespace quota
+and rejected even the user-namespace probe. These are worker-local observations,
+not architecture limitations. Do not change shared quotas or mount propagation
+to make a test pass.
+
+Neither worker had Docker, Podman or bubblewrap. One owner-stopped attempt to fetch a
+distribution bubblewrap package for a task-private **trusted-`true` capacity
+probe** stalled before package extraction and was terminated; no sandbox command
+or project code ran. It did not establish a usable bubblewrap version or policy.
+Keep automated generated-code execution disabled. Already owner-reviewed native
+tests remain a distinct route; they are not evidence of untrusted-code isolation.
+Put an external process-wall bound around tool acquisition too: a socket timeout
+does not reliably bound DNS resolution or the complete setup process.
