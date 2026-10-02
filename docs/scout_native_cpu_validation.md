@@ -332,6 +332,50 @@ and rejected even the user-namespace probe. These are worker-local observations,
 not architecture limitations. Do not change shared quotas or mount propagation
 to make a test pass.
 
+## Small owner-reviewed C++ translation units
+
+Do not substitute a Python arithmetic model for a native compiler pass or
+protocol implementation. First check whether the exact reviewed translation
+unit and its compatible headers/libraries can run in a task-private build.
+This can answer a narrow native question without rebuilding the whole project.
+It is an owner-reviewed route, not an automatic executor for generated code.
+
+For a plain POSIX helper, compile the unchanged raw Git-blob source and header
+with a small caller using the actual public entry. Record hashes before compiling,
+a bounded build/test command, stderr and the observed return values. Avoid
+changing shared packages or launching local WSL. Use an authorized Linux worker
+for Linux-only system calls. Windows text-mode writes can translate LF into CRLF;
+verify staged bytes against the original source digest before any execution.
+
+For a registered compiler pass, a probe may need mechanical factory/registry
+renaming so both baseline and candidate can be loaded without collisions.
+Document exactly those changes, leave the actual pass logic intact, and run
+each arm in a fresh process against the same dependency closure and test bytes.
+Packaged headers alone do not establish ABI compatibility: check header versions,
+runtime libraries, compile definitions and symbol resolution. Keep environment
+failures separate from candidate failures; a private compatible header overlay is
+not a full current-main dependency qualification.
+
+[TileLang #3390](https://github.com/tile-ai/tilelang/pull/3390) used actual C++
+pass translation units against packaged TileLang 0.1.15 dependencies. The same
+new CPU-native IR regressions produced 9 failures/8 passes on baseline and
+17 passes on candidate; 13 existing pure-IR cases passed on both. Fifteen
+CUDA-marked pytest cases stayed skipped. This establishes scoped transformed-IR
+discrimination, not a full current-main compiler build, GPU execution or speedup.
+
+A separate owner audit of TransformerEngine
+[ipcsocket.cc](https://github.com/NVIDIA/TransformerEngine/blob/f38a1fce7f2396d6b39aa368a4497e7f82baa4f2/transformer_engine/common/comm_gemm_overlap/userbuffers/ipcsocket.cc)
+and its
+[real callers](https://github.com/NVIDIA/TransformerEngine/blob/f38a1fce7f2396d6b39aa368a4497e7f82baa4f2/transformer_engine/common/comm_gemm_overlap/userbuffers/userbuffers-host.cpp)
+rejected a proposed successful-partial-stream-write defect: the socket is
+SOCK_DGRAM and ipcSocketSendFd supplies one byte plus SCM_RIGHTS. An unchanged
+native helper check completed 1,024 descriptor round trips across blocking/
+nonblocking modes and four rank boundaries. That check is not a proof of all IPC
+behavior, queue-pressure/cancellation safety or the full TransformerEngine stack.
+Reopen only with a distinct supported path or protocol failure; do not create a
+competing partial-write patch from missing initial context.
+
+
 Neither worker had Docker, Podman or bubblewrap. One owner-stopped attempt to fetch a
 distribution bubblewrap package for a task-private **trusted-`true` capacity
 probe** stalled before package extraction and was terminated; no sandbox command
