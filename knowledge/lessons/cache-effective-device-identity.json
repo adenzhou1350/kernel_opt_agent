@@ -1,9 +1,9 @@
 {
   "id": "cache-effective-device-identity",
-  "title": "Resolve the effective device before caching capability decisions",
-  "applies_when": "A capability or kernel-dispatch helper defaults to the current accelerator, especially when inputs may be on another device or the current device can change.",
-  "lesson": "A no-argument cache stores the first current-device answer, not a device-independent fact. Resolve the actual device index before the per-device cache and route tensor-dependent dispatch from the tensor's device. Test both switch orders with differing capabilities, explicit-device calls, cache reuse and the non-CUDA fallback. A mocked device-query test can establish cache/key semantics without reserving GPUs; keep native operator qualification separate.",
-  "avoid_when": "One homogeneous single-device process can hide this failure. A stable CUDA ordinal is a process-local identity, not a portable hardware profile or live resource allocation. Simulated capability queries do not prove mixed-hardware kernel execution, PDL compatibility or a performance gain.",
+  "title": "Resolve the effective device before capability caching or CUDA stream dispatch",
+  "applies_when": "A capability, current_stream or kernel-dispatch helper defaults to the current accelerator, especially when tensors may be on a noncurrent device or the current device can change.",
+  "lesson": "A no-argument cache stores the first current-device answer, not a device-independent fact. Resolve the actual device index before the per-device cache and route tensor-dependent dispatch from the tensor's device. Test both switch orders with differing capabilities, explicit-device calls, cache reuse and the non-CUDA fallback. CUDA current-stream state is also per device: current_stream() queries the process's current device, not the input tensor's device. Use distinct nondefault streams on two devices to expose that mismatch; default stream handles alone can hide it. Check same-device and explicit-stream controls and record the backend's device_id with the stream. A mocked query or intercepted launch can establish selection semantics; keep native operator qualification separate.",
+  "avoid_when": "Even homogeneous GPUs can have different current streams. A stable CUDA ordinal is a process-local identity, not a portable hardware profile or live resource allocation. Simulated capability queries do not prove mixed-hardware execution, PDL compatibility or performance. Real Torch stream selection with the final backend call intercepted is not TileLang kernel numerical or launch-context qualification. A device-scoped query alone does not establish that the native context, allocations and kernel handles agree. Preserve explicit caller streams; CPU, no-tensor and mixed-device input paths need their own contracts.",
   "evidence": [
     {
       "url": "https://github.com/InternLM/lmdeploy/blob/110965c7706bbbeb31e21df5d7ef2531fe01c935/lmdeploy/pytorch/kernels/cuda/utils.py#L60-L64",
@@ -12,6 +12,14 @@
     {
       "url": "https://github.com/adenzhou1350/lmdeploy/blob/7f899b5e06e1020753cf7d9e60c9e78204af5bac/tests/pytorch/kernel/test_cuda_kernel_utils.py",
       "note": "Proposed, unmerged fix includes seven CPU regressions using the real standalone utility module with mocked backend/device queries. Tests cover both switch orders, explicit device indices, property-cache reuse and non-CUDA fallback. They are not native mixed-GPU or operator performance evidence."
+    },
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/torch/cuda/__init__.py#L1178-L1193",
+      "note": "The exact Torch API documents device=None as the current CUDA device and passes the resolved device index to _cuda_getCurrentStream; it does not infer a tensor device."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3359#issuecomment-5956886017",
+      "note": "Contributor-tested exact PR wrapper methods on two RTX5090s with Torch2.11 native tensors/streams: both noncurrent-device cases select the other device's stream; same-device, explicit-stream and device-scoped controls agree. Final backend calls were intercepted. No compiled TileLang kernel, numerical qualification, full current-main build or author acceptance is claimed."
     }
   ],
   "status": "validated"
