@@ -1,0 +1,22 @@
+{
+  "id": "ir-identity-before-generated-parameter-names",
+  "title": "Preserve IR variable identity and reserve wrapper-owned names in generated signatures",
+  "applies_when": "A host wrapper, launcher, cache or dynamic-shape binding turns scalar Var name_hint values into Python/C++ parameter names, especially distinct Vars with the same hint or names such as stream, kernels and device_id.",
+  "lesson": "A printable name_hint is not IR variable identity or a unique generated identifier. Inspect the real Var objects and compile generated host source with both same-hint and distinct-name controls. Also test names reserved by each backend's wrapper. Removing a repeated entry loses a positional input; renaming only the declaration can leave expression, shape, descriptor and device-call references pointing at another input. Any repair needs consistent identity-based mapping across these uses while reserving wrapper-owned names, rather than a string-level deduplication. Prefer a native lowering plus the complete wrapper constructor where available.",
+  "avoid_when": "The demonstrated failure is generated Python signature compilation, not a GPU numerical or launch qualification. Source-generation fixtures alone do not establish actual lowering reachability. Backend-specific reserved names differ. The public reproduction used release 0.1.15 native dependencies and byte-identical pinned current-main wrapper Python, not a full current-main native rebuild. Do not reject all same-hint IR, assume a naming repair is complete, or copy its identifiers into other backends without matching their contracts.",
+  "evidence": [
+    {
+      "url": "https://github.com/tile-ai/tilelang/issues/3413#issuecomment-5957506375",
+      "note": "Native Var/PrimFunc and Python compiler checks: 10 source-generation cases cover duplicate n, distinct n/m and stream/kernels/device_id collisions with backend-specific passing controls. An additional real TIR-lowering/full-NVRTC-constructor pair reproduces the duplicate signature versus a valid control. CUDA hidden; no generated module execution, binary compilation or numerical GPU test."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/b95ee4ffb52ae26e15619cad38c6f41e7e0a2b46/tilelang/jit/adapter/cutedsl/wrapper.py#L1107-L1140",
+      "note": "Scalar arguments use raw param.name; dynamic-symbol name deduplication is separate. The generated call also adds stream and device_id, so only checking distinct user names is insufficient."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/b95ee4ffb52ae26e15619cad38c6f41e7e0a2b46/tilelang/jit/adapter/nvrtc/wrapper.py#L317-L340",
+      "note": "NVRTC prepends kernels, appends the implicit stream argument, and collects raw scalar names. The same string can collide with wrapper state even when user scalar names are distinct."
+    }
+  ],
+  "status": "validated"
+}
