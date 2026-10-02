@@ -1,0 +1,22 @@
+{
+  "id": "preserve-enclosing-guards-in-predicated-loads",
+  "title": "Preserve enclosing guards when lowering nested predicated loads",
+  "applies_when": "A compiler lowers control flow or zero-else conditional loads into predicated memory intrinsics, especially when the load is the value of a predicated store.",
+  "lesson": "A guarded store does not make the load computing its value safe. Conjoin the enclosing guard with the load's own predicate before replacing nested control flow, and restore predicate context before processing subsequent statements. Assert the exact transformed load and store predicates using the actual native pass. Include scalar/vectorized cases, option combinations, standalone controls and a subsequent load that must not inherit the previous guard.",
+  "avoid_when": "This addresses control-flow preservation, not a general license to hoist loads. Native IR checks do not establish generated GPU code, hardware execution or performance. A single translation-unit probe with packaged compiler dependencies is narrower than a full current-main compiler build.",
+  "evidence": [
+    {
+      "url": "https://github.com/tile-ai/tilelang/issues/3381",
+      "note": "Prior public source-level report by dajiaohuang identifies a nested load whose predicate loses the enclosing store guard. Report ownership is preserved; the original report was unexecuted."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/af153a79816472875e9dc1a6cec2cfcfa1ef89ae/src/cuda/transform/lower_ldg_stg.cc",
+      "note": "Four-line fix conjoins the existing enclosing predicate before lowering the conditional global load; standalone loads and store predicates remain unchanged."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3390",
+      "note": "Independent CPU-native translation-unit comparison: baseline 9 failures/8 passes, candidate 17 new regression passes; 13 existing pure-IR cases pass on both arms. Fifteen CUDA-marked pytest cases remain skipped. Open Ready PR, not GPU qualification or maintainer acceptance."
+    }
+  ],
+  "status": "validated"
+}
