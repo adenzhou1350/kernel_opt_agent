@@ -340,3 +340,15 @@ Keep automated generated-code execution disabled. Already owner-reviewed native
 tests remain a distinct route; they are not evidence of untrusted-code isolation.
 Put an external process-wall bound around tool acquisition too: a socket timeout
 does not reliably bound DNS resolution or the complete setup process.
+
+A subsequent trusted B300 canary went beyond namespace creation: a bind mount of
+`/usr` into a fresh task-owned directory, inside the new user/mount namespace with
+unchanged propagation, failed (util-linux exit 32, `bind /usr failed`). The message
+did not report a syscall errno. The parent mount namespace stayed unchanged, no
+probe mount appeared there, and the empty task directory was removed. Do not
+reinterpret the earlier successful `true` as proof of working filesystem mounts.
+Cached apt package metadata also did not guarantee acquisition: its exact legacy
+archive filename returned 404; no package was extracted or executed. Two other
+authorized workers had no Docker, Podman or bubblewrap executable either. Tool
+absence is not an architecture limitation, and these observations do not justify
+weakening isolation or installing a privileged daemon on shared machines.
