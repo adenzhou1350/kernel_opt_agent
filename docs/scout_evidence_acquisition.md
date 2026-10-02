@@ -35,6 +35,22 @@ miss rate, dollar savings, or superiority to a strong-model/rules comparator.
 
 Offline transport/accounting checks:
 
+For a future utility study, include a no-additional-acquisition arm as well as
+rules and model-selected evidence. Give each downstream reviewer the same
+original input, frozen model/version, stopping rule and total resource cap;
+charge target selection, failed reads, review and native verification to the
+acquisition arms. Identical GET/window caps alone do not match total budgets.
+Judge the incremental verified decision or reproduction, not window validity.
+The present small acquisition trials do not satisfy this study design.
+
+This is our experimental-design inference, informed by
+[Scrouting (sections 6–9)](https://arxiv.org/html/2608.04804v1): its no-router,
+cheap-fixer-plus-verified-handoff ablation ties the routed system on its measured
+benchmark. It also explicitly lacks an unverified-handoff pass-through ablation,
+so the verification guard's effect on final solves was not isolated. Neither
+result proves a Scout-specific evidence selector helps. Treat verified handoff
+and routing as separate interventions, with separate ablations.
+
 ```text
 python -B -m unittest tests.test_scout_evidence_acquisition
 ```
