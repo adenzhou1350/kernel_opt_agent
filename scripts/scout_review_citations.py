@@ -68,6 +68,70 @@ def numbered_citation_view(sources):
     ]
 
 
+def line_citation_view(sources):
+    """Offer exact single-row IDs without asking a model to count a range.
+
+    This optional presentation restricts a citation to one displayed row; it
+    retains all excerpt text and the original IDs/digests. It is not enabled in
+    live Scout and must be declared before any new interface comparison.
+    """
+    return [
+        {
+            **source,
+            "rows": [
+                {"citation_id": f"{source['evidence_id']}:r{number}", "text": text}
+                for number, text in enumerate(source["rows"], 1)
+            ],
+        }
+        for source in citation_view(sources)
+    ]
+
+
+def resolve_line_review(text, displayed):
+    """Resolve exact supplied single-row IDs, with no guessed-range repair.
+
+    The original explanation, count, quote-size and decisive-citation limits
+    still apply. Locating a row is not semantic adjudication or a solved case.
+    """
+    try:
+        value = json.loads(text)
+    except (TypeError, ValueError):
+        return {"valid": False, "error": "INVALID_JSON"}
+    if not isinstance(value, dict) or set(value) != {
+        "decision",
+        "reason",
+        "citations",
+        "next_verification",
+    }:
+        return {"valid": False, "error": "INVALID_FIELDS"}
+    refs = value["citations"]
+    if not isinstance(refs, list) or len(refs) > 2:
+        return {"valid": False, "error": "INVALID_CITATION_COUNT"}
+    resolved = []
+    for ref in refs:
+        if not isinstance(ref, str):
+            return {"valid": False, "error": "INVALID_CITATION_ID"}
+        matches = [
+            {
+                "evidence_id": source["evidence_id"],
+                "first_row": number,
+                "last_row": number,
+            }
+            for source in displayed
+            for number in range(1, len(source["rows"]) + 1)
+            if ref == f"{source['evidence_id']}:r{number}"
+        ]
+        if len(matches) != 1:
+            return {"valid": False, "error": "UNKNOWN_OR_AMBIGUOUS_CITATION_ID"}
+        resolved.append(matches[0])
+    result = resolve_review(json.dumps({**value, "citations": resolved}), displayed)
+    if result["valid"]:
+        # Preserve the actual model answer rather than presenting the controller
+        # conversion as if the model had returned row ranges.
+        result["parsed"] = value
+    return result
+
+
 def resolve_review(text, displayed):
     """Accept exact row references and extract their text, never repair guesses.
 

@@ -3,7 +3,9 @@ import unittest
 
 from scripts.scout_review_citations import (
     citation_view,
+    line_citation_view,
     numbered_citation_view,
+    resolve_line_review,
     resolve_review,
 )
 
@@ -147,6 +149,91 @@ class ReviewCitationTests(unittest.TestCase):
             self.assertFalse(resolve_review(text, self.view)["valid"])
         self.review["decision"] = []
         self.assertFalse(self.resolve()["valid"])
+
+
+class LineCitationTests(unittest.TestCase):
+    def setUp(self):
+        self.sources = [
+            {"url": "same", "text": ""},
+            {"url": "same", "text": '900: x="\\n"\r\n901: 判断="\u2028"'},
+        ]
+        self.displayed = citation_view(self.sources)
+        self.answer = {
+            "decision": "SUPPORTED_STATIC_DEFECT",
+            "reason": "Unverified semantic assertion.",
+            "citations": ["s1:r1", "s1:r2"],
+            "next_verification": "Check the native consumer.",
+        }
+
+    def resolve(self):
+        return resolve_line_review(json.dumps(self.answer), self.displayed)
+
+    def test_rendering_preserves_all_text_and_identity_without_mutation(self):
+        original = json.loads(json.dumps(self.sources))
+        rendered = line_citation_view(self.sources)
+        self.assertEqual(self.sources, original)
+        self.assertEqual(rendered[0]["rows"], [])
+        self.assertEqual(
+            rendered[1]["rows"][0],
+            {"citation_id": "s1:r1", "text": '900: x="\\n"'},
+        )
+        for plain, labeled in zip(self.displayed, rendered):
+            self.assertEqual(plain["display_sha256"], labeled["display_sha256"])
+            self.assertEqual(plain["rows"], [row["text"] for row in labeled["rows"]])
+
+    def test_resolver_extracts_exact_rows_and_preserves_actual_answer(self):
+        result = self.resolve()
+        self.assertTrue(result["valid"])
+        self.assertEqual(result["parsed"], self.answer)
+        self.assertEqual(result["resolved_citations"][0]["quote"], '900: x="\\n"')
+        self.assertEqual(result["resolved_citations"][1]["quote"], '901: 判断="\u2028"')
+
+    def test_unknown_ids_are_not_normalized_into_known_ids(self):
+        for ref in ("s0:r1", "s1:r0", "s1:r3", "s1:r01", "s1:r900", " s1:r1", "S1:r1"):
+            self.answer["citations"] = [ref]
+            self.assertEqual(
+                self.resolve()["error"], "UNKNOWN_OR_AMBIGUOUS_CITATION_ID"
+            )
+        for ref in (
+            True,
+            1,
+            {"evidence_id": "s1", "first_row": 1, "last_row": 1},
+        ):
+            self.answer["citations"] = [ref]
+            self.assertEqual(self.resolve()["error"], "INVALID_CITATION_ID")
+
+    def test_duplicate_or_ambiguous_ids_fail(self):
+        self.answer["citations"] = ["s1:r1", "s1:r1"]
+        self.assertEqual(self.resolve()["error"], "DUPLICATE_CITATION")
+        self.displayed.append(dict(self.displayed[1]))
+        self.assertEqual(
+            self.resolve()["error"], "UNKNOWN_OR_AMBIGUOUS_CITATION_ID"
+        )
+
+    def test_unchanged_reason_count_and_decisive_limits(self):
+        self.answer["reason"] = "x" * 601
+        self.assertEqual(self.resolve()["error"], "INVALID_EXPLANATION")
+        self.answer["reason"] = "Not adjudicated."
+        self.answer["citations"] = ["s1:r1"] * 3
+        self.assertEqual(self.resolve()["error"], "INVALID_CITATION_COUNT")
+        self.answer["citations"] = []
+        self.assertEqual(self.resolve()["error"], "DECISIVE_WITHOUT_CITATION")
+        self.answer["decision"] = "INSUFFICIENT"
+        self.assertTrue(self.resolve()["valid"])
+
+    def test_long_or_blank_rows_remain_visible_but_not_valid_quotes(self):
+        self.displayed = citation_view([{"url": "a", "text": " \n" + "x" * 1401}])
+        rendered = line_citation_view([{"url": "a", "text": " \n" + "x" * 1401}])
+        self.assertEqual(len(rendered[0]["rows"][1]["text"]), 1401)
+        for ref in ("s0:r1", "s0:r2"):
+            self.answer["citations"] = [ref]
+            self.assertEqual(self.resolve()["error"], "EMPTY_OR_OVERSIZE_CITATION")
+
+    def test_malformed_answer_and_false_reason_are_not_repaired(self):
+        for text in ("invalid", "null", "[]", '{"citations": ["s1:r1"]}'):
+            self.assertFalse(resolve_line_review(text, self.displayed)["valid"])
+        # Exact location alone still accepts an unadjudicated semantic claim.
+        self.assertTrue(self.resolve()["valid"])
 
 
 if __name__ == "__main__":

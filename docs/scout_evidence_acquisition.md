@@ -246,6 +246,24 @@ Explicit labels alone did not eliminate invalid ranges. Owner review is not an
 independent human judgment; vendor-document browsing is separate from model GET
 cost. Raw private experiment records remain local.
 
+### Optional single-line citation IDs
+
+`line_citation_view` renders each row with an exact ID such as `s0:r17`.
+`resolve_line_review` accepts zero to two of those IDs and extracts the original
+displayed rows. It retains the explanation/count/quote-size checks, rejects
+unknown, duplicate, ambiguous, blank or oversized citations, and preserves the
+actual model answer alongside controller-resolved text. It never guesses a
+range or repairs an invalid answer. A decisive judgment still needs a citation;
+INSUFFICIENT may abstain. This is an alternative experimental interface, not
+live routing or evidence that model judgments improved.
+
+Single-line citations deliberately lose the former eight-row-span facility;
+all source text remains displayed. Declare this changed interface before fresh
+cases, charge presentation overhead and invalid completions, and independently
+adjudicate any decisive claim. A located row does not establish its explanation,
+reachability, native correctness or a useful PR. Historical invalid reviews stay
+invalid; do not rescore them under this interface.
+
 ### Keep related work separate from candidate ownership
 
 A source follow-up retains its original source lineage. A related issue found
