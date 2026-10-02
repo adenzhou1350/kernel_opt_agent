@@ -37,6 +37,32 @@ class NativeBindingLessonTests(unittest.TestCase):
         )
         self.assertNotIn("qualified", result)
 
+    def test_tma_encoding_advice_does_not_qualify_generated_kernels(self):
+        result = lesson_suggestions(
+            "cuTensorMapEncodeTiled boxDim globalDim TMA descriptor"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        card = result["matches"][0]
+        self.assertEqual(
+            card["id"], "native-binding-semantics-before-field-inference"
+        )
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertLessEqual(
+            len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        self.assertIn("native descriptor-only call", card["lesson"])
+        self.assertIn("Descriptor acceptance does not prove", card["avoid_when"])
+        self.assertIn(
+            "other generated variants or target architectures", card["avoid_when"]
+        )
+        self.assertTrue(
+            any(
+                "cuda/archive/13.0.1/cuda-driver-api" in e["url"]
+                for e in card["evidence"]
+            )
+        )
+        self.assertNotIn("qualified", result)
+
     def test_split_retains_existing_api_specific_evidence(self):
         root = Path(__file__).resolve().parents[1] / "knowledge" / "lessons"
         card = json.loads(
