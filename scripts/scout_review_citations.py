@@ -8,7 +8,6 @@ A valid citation locates supplied text; it does not prove the explanation is tru
 import hashlib
 import json
 
-
 DECISIONS = frozenset(("STOP_REFUTED", "SUPPORTED_STATIC_DEFECT", "INSUFFICIENT"))
 
 
@@ -42,10 +41,31 @@ def citation_view(sources):
                 "display_sha256": hashlib.sha256(
                     normalized.encode("utf-8")
                 ).hexdigest(),
-                "scope": "Rows index this displayed excerpt, not original file lines; text may be clipped.",
+                "scope": (
+                    "Rows index this displayed excerpt, not original file lines; "
+                    "text may be clipped."
+                ),
             }
         )
     return result
+
+
+def numbered_citation_view(sources):
+    """Render explicit row labels for the model; resolve against citation_view.
+
+    Numbered rows distinguish excerpt positions from embedded file-line prefixes.
+    This changes presentation only, not evidence selection or semantic judgment.
+    """
+    return [
+        {
+            **source,
+            "rows": [
+                {"row": number, "text": text}
+                for number, text in enumerate(source["rows"], 1)
+            ],
+        }
+        for source in citation_view(sources)
+    ]
 
 
 def resolve_review(text, displayed):

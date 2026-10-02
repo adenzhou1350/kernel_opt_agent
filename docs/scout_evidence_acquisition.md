@@ -198,3 +198,29 @@ chose unavailable or over-budget ranges. No incremental verified solve was
 demonstrated. Do not repair those answers into successes or claim cross-cohort
 accuracy from this negative result. Explicit rendered row labels are a candidate
 for a future fresh trial, not a retroactive improvement to this one.
+
+
+`numbered_citation_view` offers an optional model-facing rendering with explicit
+`{"row": 1, "text": "315: ..."}` labels. Preserve the plain `citation_view` as
+resolver input: rendering does not change normalized text, IDs or digests. It
+performs no fetch or live routing change.
+
+A subsequent predeclared recent-follow-up trial requested four cases but enrolled
+only one; the three empty slots were not replaced after inspection. All three
+arms used the numbered interface. No-additional and the explicit-file rule
+returned valid INSUFFICIENT reviews; the rule abstained. The model selected one
+80-line pinned window containing the missing encoder, but its review cited 13
+rows against the frozen eight-row cap and was rejected, without retry or repair.
+Reported total tokens were 2,636 / 2,582 / 7,388 respectively (four calls total);
+only the model arm made a source GET (21,857 body bytes). These are observed
+reported token costs, not dollar or cached-latency savings.
+
+After predictions were sealed, six separate pinned owner source reads found
+small-M caller reachability but no demonstrated runtime defect; the owner label
+remained INSUFFICIENT pending applicable TMA-store semantics/native verification.
+This is unresolved, not a negative bug label. There were zero incremental
+owner-supported decisive solves. The one-case underfilled, nonrandom trial does
+not establish citation-accuracy improvement, acquisition superiority or PR yield.
+Explicit labels alone did not eliminate invalid ranges. Owner review is not an
+independent human judgment; vendor-document browsing is separate from model GET
+cost. Raw private experiment records remain local.
