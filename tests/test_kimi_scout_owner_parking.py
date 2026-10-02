@@ -175,10 +175,26 @@ class OwnerParkingTests(unittest.TestCase):
                     json.loads(self.row()["result"])["fixed"], self.result["fixed"]
                 )
 
-    def test_active_published_negative_and_blocked_states_are_not_silently_changed(
+    def test_owner_can_defer_environment_blocked_lead_without_claiming_execution(self):
+        blocked = {"attempt": {"state": "NOT_RUN", "error": "missing package"}}
+        delivery.update(self.root, self.job, "ENVIRONMENT_BLOCKED", "prior", blocked)
+        before = self.row()
+        decision = self.park(reason="existing author owns the documented fix")
+        after = self.row()
+        self.assertEqual(decision["prior_state"], "ENVIRONMENT_BLOCKED")
+        self.assertEqual(decision["prior_reason"], "prior")
+        self.assertEqual(after["reported_tokens"], before["reported_tokens"])
+        self.assertEqual(after["payload"], before["payload"])
+        stored = json.loads(after["result"])
+        stored.pop("owner_disposition")
+        self.assertEqual(stored, blocked)
+        self.assertNotIn("fixed", stored)
+        self.assertEqual(list((self.root / "jobs").iterdir()), [])
+
+    def test_active_published_negative_and_failed_states_are_not_silently_changed(
         self,
     ):
-        for state in ("PENDING", "TESTING", "PR_OPEN", "NO_BUG", "ENVIRONMENT_BLOCKED"):
+        for state in ("PENDING", "TESTING", "PR_OPEN", "NO_BUG", "FAILED"):
             with self.subTest(state=state):
                 delivery.update(self.root, self.job, state, "prior", self.result)
                 before = self.row()

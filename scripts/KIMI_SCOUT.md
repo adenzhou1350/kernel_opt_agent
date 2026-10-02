@@ -436,6 +436,12 @@ is idle, it refreshes the queue without replacing its PID/state/heartbeat;
 otherwise the running worker owns the next snapshot refresh. Revisit only
 when the recorded evidence condition is met; no automatic retry is implied.
 
+An owner may also park a terminal `ENVIRONMENT_BLOCKED` lead after reviewing
+public counterevidence or existing author-owned work. This retains the failed or
+not-run attempt exactly; it does not pretend an environment was repaired, a test
+executed or the bug disproved. Active, published and negative verdicts remain
+ineligible for this operation.
+
 Repeating the command with only a corrected line fragment on the same pinned
 document updates that locator and retains the previous link in a bounded history.
 It preserves the decision, original timestamp, reproduction evidence and costs.

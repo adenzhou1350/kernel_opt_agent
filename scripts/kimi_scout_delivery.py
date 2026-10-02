@@ -351,7 +351,12 @@ def park_owner_candidate(root, job_id, reason, evidence_url, reopen_when):
                 )
                 return corrected
             raise ValueError("candidate already parked with a different decision")
-        if row["state"] not in (OWNER_STATE, "REPRODUCED", "GPU_REVIEW_REQUIRED"):
+        if row["state"] not in (
+            OWNER_STATE,
+            "REPRODUCED",
+            "GPU_REVIEW_REQUIRED",
+            "ENVIRONMENT_BLOCKED",
+        ):
             raise ValueError("only owner-review candidates can be parked")
         decision.update(
             prior_state=row["state"],
