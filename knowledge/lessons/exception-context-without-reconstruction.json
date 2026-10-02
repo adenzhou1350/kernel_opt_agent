@@ -1,0 +1,22 @@
+{
+  "id": "exception-context-without-reconstruction",
+  "title": "Preserve native exception payloads when adding wrapper context",
+  "applies_when": "A Python factory or wrapper catches a constructor failure and rebuilds type(error) from a formatted string solely to add diagnostic context, in a project supporting Python 3.11 or later.",
+  "lesson": "Reproduce with real operations, such as invalid bytes.decode and a missing file read, before relying on invented multi-argument exception classes. Reconstructing from str(error) can itself raise TypeError or discard errno, filename, arguments, explicit cause and notes. Adding a module note and using bare raise preserves the original instance while keeping context in the standard traceback. Test identity, structured fields, nested notes, explicit causes and a successful-call control. Search existing tests for exact diagnostic-string assertions: notes change traceback presentation, not str(error). A missing __cause__ alone does not prove lost causality; Python also keeps implicit __context__.",
+  "avoid_when": "Do not replace an intentional public exception translation or a documented exact-message contract without reviewing compatibility. add_note requires Python 3.11+. Arbitrary custom exceptions can override its behavior. This is a diagnostic correctness lesson, not a training or performance claim. Scoped native tests excluding parent fixtures are not full repository CI, and the referenced proposal is still a Draft.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3/library/exceptions.html#BaseException.add_note",
+      "note": "Documents structured exception arguments, implicit versus explicit chaining, and traceback notes introduced in Python 3.11."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/blob/1b3e04143c20c2e300d65752e71f333b777b7819/megatron/core/transformer/spec_utils.py#L125",
+      "note": "Pinned build_module handler reconstructs constructor errors from one string. This source establishes the mechanism, not arbitrary caller reachability."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/pull/7820",
+      "note": "Draft reports real decode/file regressions, independent Windows/Linux leaf checks, and a single-rank real-package test-file comparison of 4 failures/10 passes versus 14 passes. Parent fixtures and full CI were not run."
+    }
+  ],
+  "status": "validated"
+}
