@@ -426,7 +426,16 @@ def relevant_paths(snapshot, hints, exclude=()):
         ):
             continue
         score = 100 if exact_path else 50 if name in hints else 0
-        if len(stem) >= 5 and stem in words:
+        # Generic prose (for example an OS "build" number) is not evidence
+        # that a build script or fixture owns the reported behavior. Explicit
+        # filenames/paths remain useful, including explicitly requested tests.
+        weak_candidate = (
+            stem not in {"build", "index", "main"}
+            and not {"test", "tests", "__tests__", "fixtures"}.intersection(
+                path.lower().split("/")[:-1]
+            )
+        )
+        if weak_candidate and len(stem) >= 5 and stem in words:
             score += 10
         compact = stem.replace("_", "")
         if "_" in stem and len(compact) >= 10 and compact in class_prefixes:

@@ -508,6 +508,62 @@ class ResearchTests(unittest.TestCase):
             ["src/kernel.py", "src/utils.py"],
         )
 
+    def test_weak_issue_words_do_not_select_build_scripts_or_fixtures(self):
+        snapshot = {"files": [
+            "apps/client/native/build.mjs",
+            "apps/vis/test/fixtures/build.ts",
+            "src/index.ts",
+            "src/main.py",
+            "tests/fixtures/serialization.ts",
+            "src/serialization.ts",
+        ]}
+        self.assertEqual(
+            research.relevant_paths(
+                snapshot, "Windows build 19045: main index loses serialization arguments"
+            ),
+            ["src/serialization.ts"],
+        )
+        self.assertEqual(research.relevant_paths(snapshot, "Windows build 19045"), [])
+
+    def test_explicit_build_and_fixture_names_remain_eligible(self):
+        snapshot = {"files": [
+            "scripts/build.mjs", "tests/fixtures/build.ts", "src/index.ts"
+        ]}
+        self.assertEqual(
+            research.relevant_paths(snapshot, "inspect build.mjs and index.ts"),
+            ["scripts/build.mjs", "src/index.ts"],
+        )
+        self.assertEqual(
+            research.relevant_paths(snapshot, "inspect tests/fixtures/build.ts"),
+            ["tests/fixtures/build.ts"],
+        )
+        self.assertEqual(
+            research.relevant_paths(snapshot, "inspect build.ts", exclude=["tests/fixtures/build.ts"]),
+            [],
+        )
+
+    def test_issue_keeps_report_without_fetching_weak_build_match(self):
+        report = {
+            "number": 42,
+            "title": "Desktop tool arguments lost",
+            "body": "Windows build 19045; tool arguments are empty",
+            "updated_at": "first",
+            "html_url": "https://github.com/a/b/issues/42",
+        }
+        snapshot = {
+            "commit": self.context.revision,
+            "files": ["scripts/build.mjs", "tests/fixtures/build.ts"],
+        }
+        with patch.object(self.context, "issue_page", return_value=[report]), patch.object(
+            self.context, "snapshot", return_value=snapshot
+        ), patch.object(self.context, "source") as source:
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        source.assert_not_called()
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["research"]["stage"], "issue_triage")
+        self.assertEqual(len(packet["sources"]), 1)
+        self.assertIn("tool arguments are empty", packet["sources"][0]["text"])
+
     def test_same_file_kernel_definition_request_is_bounded_to_observed_path(self):
         url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
         packet = {
