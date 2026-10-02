@@ -1,0 +1,22 @@
+{
+  "id": "runtime-address-vector-alignment",
+  "title": "Prove byte-address alignment separately from vectorized element indices",
+  "applies_when": "A compiler widens global memory accesses based on loop indices while buffer base pointers, declared alignment or matched views may have weaker runtime alignment than the instruction width requires.",
+  "lesson": "An element index divisible by the lane count does not prove that the final byte address is aligned to the access size. Check the declared buffer alignment and the lowered address, including view offsets, then inspect the generated instruction/helper. Reproduce with an explicitly supported alignment contract and independent source/destination offsets; an arbitrary misaligned call that violates the API contract is not a bug. When stronger alignment is not proven, an address-checked wide fast path can reuse a narrower aligned fallback. Validate enabled/disabled predicates, untouched destination sentinels and architecture/toolkit branches; retain a native aligned control alongside the fault or incorrect result.",
+  "avoid_when": "A compiler or API may already prove or require the stronger alignment; do not impose runtime checks universally. The TileLang fix covers 16-byte versus 32-byte alignment, not arbitrary byte alignment. Native SM120 correctness and SM89 PTX compilation do not establish B200 execution, full compiler correctness or the performance cost of the extra branch. Expected device faults belong in bounded owned processes; do not repeat a poisoned-context experiment on shared devices merely to increase test counts.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/cuda/parallel-thread-execution/#addresses-as-operands",
+      "note": "PTX specifies natural alignment to the total access size and undefined behavior for misaligned accesses. This documents the instruction contract, not the reachability of a particular compiler path."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/issues/3399",
+      "note": "The source investigation distinguishes element-index planning from runtime buffer addresses and corrects the earlier claim that public vectorized loops bypass legalization. Its matched-view route remains source evidence rather than an independent GPU result."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3405",
+      "note": "Reports an aligned native control, a 16-modulo-32 misaligned-address failure, identical generated source for explicit align=16, two fresh four-case candidate regressions, and 32 predicate/L2 helper controls on RTX 5090. Testing uses the existing compiler with the exact changed header; no full-current-main build, B200 or performance claim."
+    }
+  ],
+  "status": "validated"
+}
