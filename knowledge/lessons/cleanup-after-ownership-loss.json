@@ -1,0 +1,26 @@
+{
+  "id": "cleanup-after-ownership-loss",
+  "title": "Do not restore recursive cleanup after filesystem ownership is lost",
+  "applies_when": "A leak candidate proposes unconditional rollback or recursive removal after a canonical install root, directory identity or mutation owner changes; for example install-package-dir.ts's INSTALL_BASE_CHANGED error path.",
+  "lesson": "Trace the safety predicate before turning an omitted cleanup into a bug. OpenClaw's pinned installer records the canonical root and directory identity, checks them before publication/removal, and deliberately skips rollback/stage cleanup when the install base changes. A lexical path can now resolve into a replacement tree that the task no longer owns. Adjacent ordinary-failure tests requiring an empty stage directory do not impose that same contract on a rebound root. Pair normal owned cleanup with a real root rename/rebind and an outside sentinel. A fabricated error message plus a desired zero-directory assertion does not establish that unconditional deletion is safe or required.",
+  "avoid_when": "A retained temporary directory can still have a real operational cost. This source counterexample does not prove every leak is acceptable, eliminate races, or qualify native installation behavior. Safe descriptor/identity-bound cleanup might be possible, but it needs an explicit contract and independently demonstrated ownership; do not infer permission from the old pathname. The linked tests are source evidence, not a claim they were executed in this lesson's environment.",
+  "evidence": [
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.ts#L141-L159",
+      "note": "assertInstallBaseStable checks the current real path. cleanupInstallTempDir recursively removes a pathname; its existence alone does not establish authority after root replacement."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.ts#L308-L350",
+      "note": "The installer retains root identity and validates owner/root/directory identities before ordinary mutation and removal. This is the missing ownership context."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.ts#L416-L431",
+      "note": "The install-base-changed failure warns rather than executing the ordinary rollback and stage deletion branch. The policy distinction is explicit, not proof of a generic forgotten finally."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.test.ts#L637-L656",
+      "note": "The rebound-root test checks that the outside target remains untouched and the warning is returned; its assertions differ from ordinary stage-cleanup controls. No runtime execution is claimed here."
+    }
+  ],
+  "status": "counterexample"
+}
