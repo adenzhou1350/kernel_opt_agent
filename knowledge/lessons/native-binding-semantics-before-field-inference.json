@@ -1,0 +1,50 @@
+{
+  "id": "native-binding-semantics-before-field-inference",
+  "title": "Check the exact native binding and constructor before inferring API semantics from fields",
+  "applies_when": "A cross-language constructor, wrapper, indexing operation or callback appears wrong from stored field names, a partial source excerpt, or another API with a similar signature.",
+  "lesson": "Inspect the exact version's constructor implementation and binding before inventing expected behavior. TVM C++ Range(begin, end) computes extent=end-begin; FromMinExtent is separate. T.Pipelined(start, stop) therefore does not become a min/extent API because its For consumer reads those fields. Check actual frontend IR with nonzero, equal and one-bound controls. Apply the same API-specific discipline to PyTorch advanced indexing versus index_copy_, signature binding/defaults, view bit counts and backend layout transformations. Prefer real native operations and matching registered tests over stand-ins that silently change the contract.",
+  "avoid_when": "Constructor correctness does not prove later pipeline lowering or GPU execution. Python and C++ bindings, dependency revisions and neighboring operations may differ. A documented device guard does not qualify an alternative accelerator. A rank-zero shape still has one element times dtype bits and lanes, not zero storage. RoPE+SDPA may return BHSD from BSHD while plain SDPA preserves shape; a shape-preserving callback is not the same backend. Reopen with a supported caller and native failure at the actual failing stage; do not dismiss all constructor, indexing or layout bugs.",
+  "evidence": [
+    {
+      "url": "https://github.com/TileLang/tvm/blob/4211874e9e4b8770fd20ad0d98ab80afd1df5028/src/ir/expr.cc#L194-L195",
+      "note": "Pinned vendored C++ Range constructor explicitly computes end-begin, except the equivalent zero-begin shortcut. Stored min/extent fields do not define the constructor's argument semantics."
+    },
+    {
+      "url": "https://github.com/TileLang/tvm/blob/4211874e9e4b8770fd20ad0d98ab80afd1df5028/include/tvm/ir/expr.h#L698-L709",
+      "note": "Declares Range(begin,end) and a separate FromMinExtent; the min/extent constructor was removed to preserve the conventional range(begin,end) meaning."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/issues/3411#issuecomment-5956746991",
+      "note": "Contributor checked pinned current-main source and four CPU-only native frontend controls on TileLang 0.1.15: nonzero/default and staged loops min=3,extent=2; one-bound 0,5; equal-bound 3,0. Not a current-main rebuild, lowering or GPU qualification."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3382",
+      "note": "Submitted repair of the already reported scalar view bug (#3378): current-main Python utility and registered CPU tests on release 0.1.15 TVM/TIRx bindings yield 7 baseline failures versus 16 patched passes. Includes scalar dtype/lane rejection and valid scalar/tensor rank changes. No GPU kernels, full source rebuild, performance or independent review acceptance is claimed."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/994b44eca1a83a00d19d926e5264a6c608700656/tilelang/language/customize.py#L128-L134",
+      "note": "The actual view consumer requires equal logical bit counts. Returning 1 before applying dtype bits and lanes for a rank-zero shape bypasses invalid-width rejection and rejects equal-bit-count scalar/tensor views; this is distinct from a zero-extent buffer."
+    },
+    {
+      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/torchao/prototype/attention/shared_utils/attention.py#L122",
+      "note": "RoPE+FP8 SDPA takes BSHD and returns BHSD; its fake implementation permutes accordingly. Plain SDPA differs. A shape-preserving callback misrepresents this backend."
+    },
+    {
+      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/test/prototype/attention/test_rope_fusion_detection.py#L28",
+      "note": "Registered CPU fusion tests use a BHSD-returning RoPE callback matching the backend. Prefer that control; this source does not establish FA3 GPU qualification."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/blob/80e5f8a983c28070a8914e911371c4806f362451/megatron/core/inference/contexts/fused_kv_append_kernel.py#L123",
+      "note": "Device assertions precede Triton launch. CPU/meta rejection-wording tests do not validate another accelerator's cache writes, nor prove that backend unsupported."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/104283d1a23c4eb7da20b038ee2a497afc86b06a/flashinfer/utils.py#L1507",
+      "note": "The wrapper uses sig.bind and applies defaults before forwarding kwargs. Isolated lookup does not prove a positional/default bug; CUDA and skip_check/auto remain unqualified."
+    },
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorAdvancedIndexing.cpp#L490-L522",
+      "note": "Advanced indexing permits CPU or same-device indices; a CPU boolean mask is not a CUDA device-error proof. index_copy_ instead requires index/source/destination on one device. These API-specific rules do not apply to all indexing operations."
+    }
+  ],
+  "status": "counterexample"
+}

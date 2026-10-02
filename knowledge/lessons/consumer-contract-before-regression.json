@@ -6,14 +6,6 @@
   "avoid_when": "Reachable malformed inputs, escaping/length violations or supported shape mutations can be real defects. An empty shape denotes a rank-zero scalar, not zero storage: its one element still contributes dtype bits and vector lanes to view-size checks. Partial initialization may satisfy fragment-only consumers but fail a later full-tensor overflow check: inspect every reader and cross-step buffer reuse, not only the norm or optimizer copy. Establish temporal corruption through a genuine prior operation and a finite public training step; arbitrary scratch poisoning is not reachability proof. Error wording may have its own documented API contract. Callback stand-ins must preserve backend transformations: RoPE+SDPA may return BHSD from BSHD even when plain SDPA preserves shape. Baseline-fail/patch-pass against an invented callback is insufficient. Static review falsifies a specific claim; it does not prove native or general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
-      "url": "https://github.com/tile-ai/tilelang/pull/3382",
-      "note": "Submitted repair of the already reported scalar view bug (#3378): current-main Python utility and registered CPU tests on release 0.1.15 TVM/TIRx bindings yield 7 baseline failures versus 16 patched passes. Includes scalar dtype/lane rejection and valid scalar/tensor rank changes. No GPU kernels, full source rebuild, performance or independent review acceptance is claimed."
-    },
-    {
-      "url": "https://github.com/tile-ai/tilelang/blob/994b44eca1a83a00d19d926e5264a6c608700656/tilelang/language/customize.py#L128-L134",
-      "note": "The actual view consumer requires equal logical bit counts. Returning 1 before applying dtype bits and lanes for a rank-zero shape bypasses invalid-width rejection and rejects equal-bit-count scalar/tensor views; this is distinct from a zero-extent buffer."
-    },
-    {
       "url": "https://github.com/deepspeedai/DeepSpeed/pull/8728",
       "note": "Submitted correction with a public DP2 Engine regression: real NaN step then finite steps, all parameters active, BF16/FP16 master variants and FP32 controls. The PR reports old-version finite-update failures and four patched passes on B300. Review/CI acceptance, convergence and performance are not established; the wider no-offload comparison was environment-blocked."
     },
@@ -46,14 +38,6 @@
       "note": "CLI choices reach argparse; choices.py exposes plugin registration. Enum CUSTOM fallback alone does not prove typo acceptance. Programmatic consumers need separate evidence; not a server or GPU qualification."
     },
     {
-      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/torchao/prototype/attention/shared_utils/attention.py#L122",
-      "note": "RoPE+FP8 SDPA takes BSHD and returns BHSD; its fake implementation permutes accordingly. Plain SDPA differs. A shape-preserving callback misrepresents this backend."
-    },
-    {
-      "url": "https://github.com/pytorch/ao/blob/f104221cc98f072fde56c7e4abb0690db484f011/test/prototype/attention/test_rope_fusion_detection.py#L28",
-      "note": "Registered CPU fusion tests use a BHSD-returning RoPE callback matching the backend. Prefer that control; this source does not establish FA3 GPU qualification."
-    },
-    {
       "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
       "note": "DNS-SD instance labels permit non-control punctuation and are limited to 63 octets; this is a protocol requirement, not a measured application result."
     },
@@ -70,10 +54,6 @@
       "note": "Capture sets metadata_rows=num_tokens; replay derives num_rows from captured sequence_lengths.numel(). This refutes the request-count claim for initialized capture, not GPU correctness."
     },
     {
-      "url": "https://github.com/NVIDIA/Megatron-LM/blob/80e5f8a983c28070a8914e911371c4806f362451/megatron/core/inference/contexts/fused_kv_append_kernel.py#L123",
-      "note": "Device assertions precede Triton launch. CPU/meta rejection-wording tests do not validate another accelerator's cache writes, nor prove that backend unsupported."
-    },
-    {
       "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_common.py#L843",
       "note": "The comment excludes B_K=128 variants; registry ids 1400-1404 and 6400-6404 use B_K=64. Asserting their removal does not demonstrate a comment contradiction."
     },
@@ -82,20 +62,12 @@
       "note": "Padded A/B formulas give 66-148.5 KiB for registered B_K=64 (<160 KiB); excluded B_K=128 gives 165/231 KiB. Source arithmetic, not compiled HIP or GPU correctness."
     },
     {
-      "url": "https://github.com/flashinfer-ai/flashinfer/blob/104283d1a23c4eb7da20b038ee2a497afc86b06a/flashinfer/utils.py#L1507",
-      "note": "The wrapper uses sig.bind and applies defaults before forwarding kwargs. Isolated lookup does not prove a positional/default bug; CUDA and skip_check/auto remain unqualified."
-    },
-    {
       "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
       "note": "Raw-verify leaves extend_seq_lens=None. Its consumer uses full_like, then torch.minimum creates a new tensor before clamp_min_. Fabricated non-None fields do not prove corruption here; other setters remain unverified and Tensor.to alone need not copy."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
       "note": "The constructor assigns lower_bound; later getattr/direct reads do not prove it missing here. Fabricated objects are not supported-path evidence. Source falsification, not GPU/all-model correctness."
-    },
-    {
-      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorAdvancedIndexing.cpp#L490-L522",
-      "note": "Advanced indexing permits CPU or same-device indices; a CPU boolean mask is not a CUDA device-error proof. index_copy_ instead requires index/source/destination on one device. These API-specific rules do not apply to all indexing operations."
     }
   ],
   "status": "counterexample"
