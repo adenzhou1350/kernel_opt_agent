@@ -63,3 +63,14 @@ post-trial repaired windows are development checks, not prospective wins.
 ```text
 python -B -m unittest tests.test_scout_source_window
 ```
+
+For acquisition-only shadow comparisons,
+`scout_pending_cohort.compact_acquisition_view(packet)` offers a shared input
+under 6,500 serialized characters. It retains a catalog of up to 24 source
+URLs/ranges, discloses omissions, and allocates text to three snippets, pinned
+code first in original order. It does not rank candidate merit, consult later
+answers or change the live Scout prompt. Catalog-only entries have empty text;
+clipped ranges describe the original snippets. An oversized catalog fails
+explicitly rather than silently excluding a case. Apply it consistently to
+every arm under a new declaration. Better source coverage is not demonstrated
+utility, PR conversion or accuracy.

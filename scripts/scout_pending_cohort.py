@@ -16,6 +16,11 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlsplit
 
+try:
+    from .scout_evidence_acquisition import pinned_raw_url
+except ImportError:
+    from scout_evidence_acquisition import pinned_raw_url
+
 
 DECISION_STAGES = {
     "initial": frozenset(("source_audit", "issue_triage")),
@@ -23,8 +28,97 @@ DECISION_STAGES = {
 }
 
 
-def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200,
-           decision_point="followup", enrollment="unfinished"):
+def compact_acquisition_view(packet):
+    """Optional <=6500-character shared input for acquisition-only comparisons.
+
+    Include a bounded source catalog before allocating snippet text. Prioritize
+    pinned code in original order, not candidate scores or observed outcomes.
+    This is not the live Scout prompt or a definition/relevance resolver.
+    """
+    if not isinstance(packet, dict) or not isinstance(packet.get("sources"), list):
+        raise ValueError("invalid input packet")
+    try:
+        prior = json.loads(packet.get("untrusted_prior_analysis", "{}"))
+    except (ValueError, TypeError) as error:
+        raise ValueError("invalid untrusted prior") from error
+    if not isinstance(prior, dict):
+        raise ValueError("invalid untrusted prior")
+    sources = []
+    for index, source in enumerate(packet["sources"][:24]):
+        if (
+            not isinstance(source, dict)
+            or not isinstance(source.get("url"), str)
+            or len(source["url"]) > 2048
+            or not isinstance(source.get("text"), str)
+            or any(
+                source.get(key) is not None and type(source.get(key)) is not int
+                for key in ("start_line", "end_line")
+            )
+        ):
+            raise ValueError("invalid source catalog entry")
+        sources.append(
+            {
+                "url": source["url"],
+                "original_index": index,
+                "start_line": source.get("start_line"),
+                "end_line": source.get("end_line"),
+                "original_chars": len(source["text"]),
+                "text": "",
+                "clipped": bool(source["text"]),
+            }
+        )
+    view = {
+        "repo": str(packet.get("repo", ""))[:200],
+        "question": str(packet.get("question", ""))[:300],
+        "hypothesis_unverified": str(prior.get("hypothesis", ""))[:800],
+        "next_check_unverified": str(prior.get("next_check", ""))[:500],
+        "uncertainty": str(prior.get("uncertainty", ""))[:250],
+        "sources": sources,
+        "catalog_omitted": max(0, len(packet["sources"]) - len(sources)),
+        "scope": "Untrusted partial source and earlier hypothesis; not correctness evidence. Ranges describe original snippets, not clipped text. Empty text is catalog-only.",
+    }
+
+    def fits():
+        return len(json.dumps(view, ensure_ascii=False, sort_keys=True)) <= 6500
+
+    if not fits():
+        raise ValueError("source catalog exceeds shared view budget")
+    order = sorted(
+        range(len(sources)),
+        key=lambda i: (not pinned_raw_url(sources[i]["url"]), i),
+    )[:3]
+    # Allocate evenly across chosen snippets, measuring actual serialized size
+    # (quotes/backslashes can expand it). No tail clipping of the finished JSON.
+    low, high = 0, 1100
+
+    def fill(width):
+        for index in order:
+            sources[index]["text"] = packet["sources"][index]["text"][:width]
+            sources[index]["clipped"] = (
+                len(sources[index]["text"]) < sources[index]["original_chars"]
+            )
+
+    while low < high:
+        width = (low + high + 1) // 2
+        fill(width)
+        if fits():
+            low = width
+        else:
+            high = width - 1
+    fill(low)
+    return view
+
+
+def enroll(
+    db_path,
+    *,
+    created_after,
+    limit=12,
+    per_repo_cap=4,
+    scan_limit=200,
+    decision_point="followup",
+    enrollment="unfinished",
+):
     if (
         not math.isfinite(created_after)
         or created_after < 0
@@ -41,14 +135,16 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200,
         # Never SELECT result, model answer, charge, or terminal-state strata.
         unfinished_clause = (
             "AND j.finished IS NULL AND j.state IN ('PENDING','RUNNING') "
-            if enrollment == "unfinished" else ""
+            if enrollment == "unfinished"
+            else ""
         )
         rows = db.execute(
             "SELECT j.id,j.packet,j.created,s.policy_version,s.packet_sha256,"
             "s.recorded_at,s.suggested_action,s.reason FROM jobs j "
             "JOIN research_action_shadow s ON s.job_id=j.id "
-            "WHERE j.created>=? " + unfinished_clause +
-            "ORDER BY j.created,j.id LIMIT ?",
+            "WHERE j.created>=? "
+            + unfinished_clause
+            + "ORDER BY j.created,j.id LIMIT ?",
             (created_after, scan_limit),
         ).fetchall()
         snapshot_at = time.time()
@@ -75,11 +171,15 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200,
         ):
             continue
         if decision_point == "initial":
-            if (research.get("parent_job_id") or research.get("root_job_id")
-                    or "untrusted_prior_analysis" in packet):
+            if (
+                research.get("parent_job_id")
+                or research.get("root_job_id")
+                or "untrusted_prior_analysis" in packet
+            ):
                 continue
-        elif (not research.get("parent_job_id")
-              or not isinstance(packet.get("untrusted_prior_analysis"), str)):
+        elif not research.get("parent_job_id") or not isinstance(
+            packet.get("untrusted_prior_analysis"), str
+        ):
             continue
         digest = hashlib.sha256(row["packet"].encode("utf-8")).hexdigest()
         if digest != row["packet_sha256"] or digest in packets:
@@ -123,7 +223,8 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200,
             "job_id": row["id"],
             "created": row["created"],
             "lineage_root_job_id": research.get("root_job_id")
-            or research.get("parent_job_id") or row["id"],
+            or research.get("parent_job_id")
+            or row["id"],
             "native_rule": {
                 key: row[key]
                 for key in (
@@ -154,8 +255,8 @@ def enroll(db_path, *, created_after, limit=12, per_repo_cap=4, scan_limit=200,
         "limits": [
             (
                 "Unfinished at the read transaction snapshot, not necessarily at later scoring."
-                if enrollment == "unfinished" else
-                "Admission-recorded inputs may already have completed; no later answer or state was used for selection."
+                if enrollment == "unfinished"
+                else "Admission-recorded inputs may already have completed; no later answer or state was used for selection."
             ),
             "A predeclared cutoff and predictions frozen before outcome access require separate evidence; this export alone is not prospective execution.",
             "Recent bounded queue slice, not random population sampling.",
@@ -175,9 +276,12 @@ def main():
     parser.add_argument("--limit", type=int, default=12)
     parser.add_argument("--per-repo-cap", type=int, default=4)
     parser.add_argument("--scan-limit", type=int, default=200)
-    parser.add_argument("--decision-point", choices=tuple(DECISION_STAGES), default="followup")
     parser.add_argument(
-        "--enrollment", choices=("unfinished", "admission_recorded"),
+        "--decision-point", choices=tuple(DECISION_STAGES), default="followup"
+    )
+    parser.add_argument(
+        "--enrollment",
+        choices=("unfinished", "admission_recorded"),
         default="unfinished",
         help="admission_recorded retains fast-completed tasks without reading their answers",
     )
