@@ -1,0 +1,22 @@
+{
+  "id": "one-physical-block-barrier-leader",
+  "title": "Elect one physical block leader and test unequal grid-barrier arrivals",
+  "applies_when": "A CUDA block-level arrival protocol is emitted for multidimensional thread blocks, especially a cooperative grid barrier that publishes one arrival per block.",
+  "lesson": "Check all thread dimensions when electing the one physical block leader: tid.x == 0 alone also selects threads with nonzero y or z. A balanced one-dimensional control may hide duplicate arrivals. Add native multidimensional controls with a finite device-side delay before one block arrives, assert cross-block visibility, and repeat barrier reuse. When replacing an external DSL helper, isolate or disable compiled-kernel caches so the tested cubin actually includes that helper revision.",
+  "avoid_when": "Warp-scoped or intentionally multi-participant protocols may require different leader rules. Correct block leader election does not establish concurrent-launch state isolation, correct memory fencing, or a performance gain. The cited native regression is scoped to CuTeDSL cooperative launch; it is not a full current-main compiler rebuild or a proof for other backends.",
+  "evidence": [
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/994b44eca1a83a00d19d926e5264a6c608700656/tilelang/contrib/cutedsl/grid_sync.py",
+      "note": "The baseline PTX elects arrivals by tid.x alone; source evidence of the multidimensional leader defect."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/tilelang/blob/71bc243943ab7df33f1c9250db2e9206f718ec16/testing/python/language/test_tilelang_language_cooperative_cutedsl.py",
+      "note": "The native regression covers one-dimensional and y/z-dimensional blocks, delays one block using the device clock, checks visibility and repeats barrier reuse."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3400",
+      "note": "Reports baseline [1, 3] instead of [3, 3], followed by two fresh candidate runs passing all four thread shapes on RTX 5090 with private CuTeDSL 4.7. It discloses existing TileLang compiler use, cache isolation and absence of concurrency/performance claims."
+    }
+  ],
+  "status": "validated"
+}
