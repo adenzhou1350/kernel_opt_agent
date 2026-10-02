@@ -245,3 +245,14 @@ not establish citation-accuracy improvement, acquisition superiority or PR yield
 Explicit labels alone did not eliminate invalid ranges. Owner review is not an
 independent human judgment; vendor-document browsing is separate from model GET
 cost. Raw private experiment records remain local.
+
+### Keep related work separate from candidate ownership
+
+A source follow-up retains its original source lineage. A related issue found
+by duplicate search is context, not a new `focus_issue`: adopting it would change
+the next retrieval, duplicate-search title and follow-up dedup key together.
+Explicit issue-focused chains continue to read their declared report. Initial
+issue triage may infer a missing focus from its primary report, never a secondary
+search hit. Legacy multi-report packets remain ineligible for inferred ownership.
+This preserves the two-hop and ordinary source-read caps; it does not decide
+whether the original candidate or a separately discovered issue is valid.

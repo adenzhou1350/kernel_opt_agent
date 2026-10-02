@@ -402,6 +402,61 @@ class ResearchTests(unittest.TestCase):
         self.finish(root)
         self.assertFalse(self.producer.followup(self.spec, {}))
 
+    def test_source_followup_does_not_adopt_related_issue_as_focus(self):
+        source = self.context.source("a/b", "a" * 40, "src/kernel.py")
+        related = {
+            "url": "https://github.com/a/b/issues/42",
+            "text": "Unrelated broad support audit",
+            "search_exhaustive": False,
+        }
+        self.producer.emit(
+            "source-with-related-issue", self.spec, [source, related],
+            "source_followup",
+            parent={"id": "original", "root": "source-root", "depth": 0,
+                    "analysis": "{}"},
+        )
+        self.finish(self.jobs()[0])
+        self.context.blob = "d" * 40  # New evidence, not a rephrasing retry.
+        with patch.object(self.context, "issue_sources") as issue_reads:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        issue_reads.assert_not_called()
+        child = json.loads(self.jobs()[-1]["packet"])
+        self.assertNotIn("focus_issue", child)
+        self.assertEqual(child["sources"][0], source)
+        self.assertEqual(child["research"]["root_job_id"], "source-root")
+        self.assertEqual(child["research"]["depth"], 2)
+        self.assertEqual(len(self.context.calls), 3)  # Initial + two ordinary reads.
+
+    def test_explicit_issue_focus_survives_source_first_packet(self):
+        source = self.context.source("a/b", "a" * 40, "src/kernel.py")
+        self.producer.emit(
+            "explicit-issue", self.spec, [source], "source_followup",
+            focus_issue=42,
+            parent={"id": "original", "root": "issue-root", "depth": 0,
+                    "analysis": "{}"},
+        )
+        self.finish(self.jobs()[0])
+        with patch.object(self.context, "issue_sources",
+                          wraps=self.context.issue_sources) as issue_reads:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        issue_reads.assert_called_once_with("a/b", 42)
+        child = json.loads(self.jobs()[-1]["packet"])
+        self.assertEqual(child["focus_issue"], 42)
+        self.assertEqual(child["sources"][0]["url"], "https://github.com/a/b/issues/42")
+
+    def test_issue_triage_infers_only_its_primary_report(self):
+        source = self.context.source("a/b", "a" * 40, "src/kernel.py")
+        report = {"url": "https://github.com/a/b/issues/42", "text": "Main report"}
+        other = {"url": "https://github.com/a/b/issues/43", "text": "Related report"}
+        self.producer.emit("primary-issue", self.spec, [report, source, other],
+                           "issue_triage")
+        self.finish(self.jobs()[0])
+        with patch.object(self.context, "issue_sources",
+                          wraps=self.context.issue_sources) as issue_reads:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        issue_reads.assert_called_once_with("a/b", 42)
+        self.assertEqual(json.loads(self.jobs()[-1]["packet"])["focus_issue"], 42)
+
     def test_no_lead_does_not_spawn(self):
         self.producer.issue(self.spec, {})
         self.finish(self.jobs()[0], "no_lead")

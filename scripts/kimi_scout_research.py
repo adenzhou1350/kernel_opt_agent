@@ -1101,9 +1101,18 @@ class ResearchProducer:
             root = research.get("root_job_id") or row["id"]
             number = packet.get("focus_issue")
             if not number:
+                issue_candidates = packet["sources"]
+                if research:
+                    # Related-work hits are not candidate ownership. A source
+                    # chain must not become an issue chain on its next hop.
+                    issue_candidates = (
+                        issue_candidates[:1]
+                        if research.get("stage") == "issue_triage"
+                        else []
+                    )
                 matches = {
                     int(m.group(1))
-                    for s in packet["sources"]
+                    for s in issue_candidates
                     if (
                         m := re.fullmatch(
                             r"https://github\.com/"
