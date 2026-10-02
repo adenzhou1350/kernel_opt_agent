@@ -1,0 +1,22 @@
+{
+  "id": "generated-template-name-hygiene",
+  "title": "Rename generated AST templates before inserting user nodes",
+  "applies_when": "A Python DSL/JIT frontend creates builder, source-span, kwargs, branch, loop or unpacking locals in a user function's lexical scope while accepting ordinary Python parameter names and captured values.",
+  "lesson": "Reserve names from the original AST, globals and closure before allocating generated identifiers, including companion iterator names. Rewrite only generated templates before substituting user AST; renaming the final tree can silently rename user arguments or assignments. Keep original keyword names and closure binding names intact. Test the actual frontend and public decorator with collisions, not merely a string-generation helper: cover parameters, free variables, globals, metadata and control flow. A fixed double-underscore prefix is not a fresh namespace.",
+  "avoid_when": "If the language already supplies hygienic macros or explicitly documented reserved identifiers, evaluate that contract instead of assuming every name must be accepted. These Python frontend checks do not establish native GPU execution, performance, other languages' lexical semantics or upstream acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/tile-ai/tilelang/issues/3379",
+      "note": "Prior public source-level report identifies collisions among legal parameters and eager generated names. The original report was unexecuted; report ownership is preserved."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/7d3e0de2e6982d4ba5b8399b0f53f8d59e964a24/tilelang/language/eager/ast.py",
+      "note": "Scoped implementation reserves user names and renames generated templates before QuoteVisitor substitutes user nodes; captured argument names and tuple assignment targets are kept outside that rewrite."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3384",
+      "note": "Submitted native frontend regression reports 17 failures on the unchanged baseline, then 141 passes over current eager Python modules and TileLang 0.1.15 bindings, with 60 CUDA-marked skips. Includes public T.prim_func buffer-identity tests. The PR is open; neither full GPU qualification nor maintainer acceptance is established."
+    }
+  ],
+  "status": "validated"
+}
