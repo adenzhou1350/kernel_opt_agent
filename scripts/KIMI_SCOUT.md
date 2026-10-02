@@ -436,6 +436,12 @@ is idle, it refreshes the queue without replacing its PID/state/heartbeat;
 otherwise the running worker owns the next snapshot refresh. Revisit only
 when the recorded evidence condition is met; no automatic retry is implied.
 
+Repeating the command with only a corrected line fragment on the same pinned
+document updates that locator and retains the previous link in a bounded history.
+It preserves the decision, original timestamp, reproduction evidence and costs.
+A different document/revision, reason or reopening condition is not a locator
+correction and is rejected; it must not be smuggled in as an idempotent repeat.
+
 Before setting up an environment for an old lead, optionally compare its pinned
 source with the current default branch:
 

@@ -90,6 +90,67 @@ class OwnerParkingTests(unittest.TestCase):
             json.loads(self.row()["result"])["before"], self.result["before"]
         )
 
+    def test_same_document_line_correction_preserves_decision_and_old_link(self):
+        first = self.park()
+        before = self.row()
+        evidence = self.evidence.replace("#L4", "#L6-L8")
+        corrected = self.park(evidence_url=evidence)
+        self.assertEqual(corrected["evidence_url"], evidence)
+        self.assertEqual(
+            corrected["evidence_url_history"][0]["evidence_url"], self.evidence
+        )
+        for key in (
+            "reason",
+            "reopen_when",
+            "prior_state",
+            "prior_reason",
+            "recorded_at",
+            "claim_boundary",
+        ):
+            self.assertEqual(corrected[key], first[key])
+        after = self.row()
+        for key in ("state", "reason", "reported_tokens", "payload", "source_job_id"):
+            self.assertEqual(after[key], before[key])
+        result = json.loads(after["result"])
+        result.pop("owner_disposition")
+        self.assertEqual(result, self.result)
+        self.assertEqual(self.park(evidence_url=evidence), corrected)
+        self.assertEqual(self.row(), after)
+
+    def test_locator_correction_cannot_change_document_revision_or_decision(self):
+        self.park()
+        for change in (
+            {"evidence_url": self.evidence.replace("module.py", "other.py")},
+            {"evidence_url": self.evidence.replace("b" * 40, "c" * 40)},
+            {
+                "evidence_url": self.evidence.replace("#L4", "#L6"),
+                "reason": "different",
+            },
+            {
+                "evidence_url": self.evidence.replace("#L4", "#L6"),
+                "reopen_when": "different",
+            },
+        ):
+            before = self.row()
+            with self.assertRaisesRegex(ValueError, "different decision"):
+                self.park(**change)
+            self.assertEqual(self.row(), before)
+
+    def test_locator_correction_history_is_bounded_and_validated(self):
+        for history in ("malformed", [{}] * 16):
+            self.park()
+            result = json.loads(self.row()["result"])
+            result["owner_disposition"]["evidence_url_history"] = history
+            with delivery.database(self.root) as db:
+                db.execute(
+                    "UPDATE delivery SET result=? WHERE id=?",
+                    (json.dumps(result), self.job),
+                )
+            before = self.row()
+            with self.assertRaisesRegex(ValueError, "locator history"):
+                self.park(evidence_url=self.evidence.replace("#L4", "#L6"))
+            self.assertEqual(self.row(), before)
+
     def test_commit_evidence_must_be_pinned_unadorned_and_same_repository(self):
         prefix = "https://github.com/public/project/commit/"
         for evidence in (

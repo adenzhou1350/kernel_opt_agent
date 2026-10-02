@@ -321,6 +321,35 @@ def park_owner_candidate(root, job_id, reason, evidence_url, reopen_when):
                 previous.get(key) == value for key, value in decision.items()
             ):
                 return previous
+            # Correct a line locator without changing the decision or its pinned
+            # source. Preserve old links rather than forcing a fake state reset.
+            if (
+                isinstance(previous, dict)
+                and previous.get("reason") == reason
+                and previous.get("reopen_when") == reopen_when
+                and isinstance(previous.get("evidence_url"), str)
+                and previous["evidence_url"].split("#", 1)[0]
+                == evidence_url.split("#", 1)[0]
+            ):
+                history = previous.get("evidence_url_history", [])
+                if not isinstance(history, list) or len(history) >= 16:
+                    raise ValueError("invalid or full evidence locator history")
+                corrected_at = time.time()
+                corrected = dict(previous)
+                corrected["evidence_url_history"] = [
+                    *history,
+                    {
+                        "evidence_url": previous["evidence_url"],
+                        "corrected_at": corrected_at,
+                    },
+                ]
+                corrected["evidence_url"] = evidence_url
+                result["owner_disposition"] = corrected
+                db.execute(
+                    "UPDATE delivery SET updated_at=?,result=? WHERE id=?",
+                    (corrected_at, scout.dumps(result), job_id),
+                )
+                return corrected
             raise ValueError("candidate already parked with a different decision")
         if row["state"] not in (OWNER_STATE, "REPRODUCED", "GPU_REVIEW_REQUIRED"):
             raise ValueError("only owner-review candidates can be parked")
