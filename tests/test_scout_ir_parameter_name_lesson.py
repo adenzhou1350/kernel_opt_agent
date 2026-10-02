@@ -25,6 +25,9 @@ class IRParameterNameLessonTests(unittest.TestCase):
         self.assertTrue(
             any("issuecomment-5957506375" in e["url"] for e in card["evidence"])
         )
+        self.assertIn("each lowered host call site", card["lesson"])
+        self.assertIn("not TMA GPU launch", card["avoid_when"])
+        self.assertTrue(any("/pull/3414" in e["url"] for e in card["evidence"]))
         self.assertNotIn("qualified", result)
 
 

@@ -2,8 +2,8 @@
   "id": "ir-identity-before-generated-parameter-names",
   "title": "Preserve IR variable identity and reserve wrapper-owned names in generated signatures",
   "applies_when": "A host wrapper, launcher, cache or dynamic-shape binding turns scalar Var name_hint values into Python/C++ parameter names, especially distinct Vars with the same hint or names such as stream, kernels and device_id.",
-  "lesson": "A printable name_hint is not IR variable identity or a unique generated identifier. Inspect the real Var objects and compile generated host source with both same-hint and distinct-name controls. Also test names reserved by each backend's wrapper. Removing a repeated entry loses a positional input; renaming only the declaration can leave expression, shape, descriptor and device-call references pointing at another input. Any repair needs consistent identity-based mapping across these uses while reserving wrapper-owned names, rather than a string-level deduplication. Prefer a native lowering plus the complete wrapper constructor where available.",
-  "avoid_when": "The demonstrated failure is generated Python signature compilation, not a GPU numerical or launch qualification. Source-generation fixtures alone do not establish actual lowering reachability. Backend-specific reserved names differ. The public reproduction used release 0.1.15 native dependencies and byte-identical pinned current-main wrapper Python, not a full current-main native rebuild. Do not reject all same-hint IR, assume a naming repair is complete, or copy its identifiers into other backends without matching their contracts.",
+  "lesson": "A printable name_hint is not IR variable identity or a unique generated identifier. Inspect the real Var objects and compile generated host source with both same-hint and distinct-name controls. Also test names reserved by each backend's wrapper. Removing a repeated entry loses a positional input; renaming only the declaration can leave expression, shape, descriptor and device-call references pointing at another input. Any repair needs consistent identity-based mapping across these uses while reserving wrapper-owned names, rather than a string-level deduplication. Bind device launch expressions from each lowered host call site: repeated calls of the same kernel can supply different Vars, so a single global device-to-host alias map is insufficient. Prefer native lowering and the complete wrapper constructor, followed by actual execution of the affected argument paths.",
+  "avoid_when": "The initial public source-generation reproduction is not a GPU numerical or launch qualification. Follow-up native GPU evidence covers NVRTC/CuTeDSL scalar and dynamic-shape paths on RTX 5090, not TMA GPU launch, every backend or every IR call expression. Source-generation fixtures alone do not establish actual lowering reachability. Backend-specific reserved names differ. Validation used release 0.1.15 native dependencies, pinned main Python and reviewed child-only candidate modules, not a full current-main native rebuild. Do not reject all same-hint IR, assume a naming repair is complete, or transfer it without matching the destination contracts.",
   "evidence": [
     {
       "url": "https://github.com/tile-ai/tilelang/issues/3413#issuecomment-5957506375",
@@ -16,6 +16,14 @@
     {
       "url": "https://github.com/tile-ai/tilelang/blob/b95ee4ffb52ae26e15619cad38c6f41e7e0a2b46/tilelang/jit/adapter/nvrtc/wrapper.py#L317-L340",
       "note": "NVRTC prepends kernels, appends the implicit stream argument, and collects raw scalar names. The same string can collide with wrapper state even when user scalar names are distinct."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3414",
+      "note": "Owner-reported matched native regressions: distinct same-hint Vars and reserved wrapper names; NVRTC 26 focused tests and CuTeDSL 30 focused tests pass. CuTeDSL baseline has seven CPU failures versus zero with the tested repair, including repeated kernel calls with swapped scalar bindings. TMA evidence remains native lowering/host generation only; no performance or full-suite claim."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/tilelang/blob/70669c257e52bb9d644c5440c115223d86da9a29/testing/python/jit/test_tilelang_jit_cutedsl_parameter_identity.py",
+      "note": "Pinned regressions construct distinct same-hint native Vars, check each host call site's launch expression, run CUDA scalar/dimension cases, reject ambiguous symbolic fallback and avoid duplicating explicit shape scalars in the implicit ABI."
     }
   ],
   "status": "validated"
