@@ -332,6 +332,28 @@ and rejected even the user-namespace probe. These are worker-local observations,
 not architecture limitations. Do not change shared quotas or mount propagation
 to make a test pass.
 
+
+Neither worker had Docker, Podman or bubblewrap. One owner-stopped attempt to fetch a
+distribution bubblewrap package for a task-private **trusted-`true` capacity
+probe** stalled before package extraction and was terminated; no sandbox command
+or project code ran. It did not establish a usable bubblewrap version or policy.
+Keep automated generated-code execution disabled. Already owner-reviewed native
+tests remain a distinct route; they are not evidence of untrusted-code isolation.
+Put an external process-wall bound around tool acquisition too: a socket timeout
+does not reliably bound DNS resolution or the complete setup process.
+
+A subsequent trusted B300 canary went beyond namespace creation: a bind mount of
+`/usr` into a fresh task-owned directory, inside the new user/mount namespace with
+unchanged propagation, failed (util-linux exit 32, `bind /usr failed`). The message
+did not report a syscall errno. The parent mount namespace stayed unchanged, no
+probe mount appeared there, and the empty task directory was removed. Do not
+reinterpret the earlier successful `true` as proof of working filesystem mounts.
+Cached apt package metadata also did not guarantee acquisition: its exact legacy
+archive filename returned 404; no package was extracted or executed. Two other
+authorized workers had no Docker, Podman or bubblewrap executable either. Tool
+absence is not an architecture limitation, and these observations do not justify
+weakening isolation or installing a privileged daemon on shared machines.
+
 ## Small owner-reviewed C++ translation units
 
 Do not substitute a Python arithmetic model for a native compiler pass or
@@ -374,25 +396,3 @@ nonblocking modes and four rank boundaries. That check is not a proof of all IPC
 behavior, queue-pressure/cancellation safety or the full TransformerEngine stack.
 Reopen only with a distinct supported path or protocol failure; do not create a
 competing partial-write patch from missing initial context.
-
-
-Neither worker had Docker, Podman or bubblewrap. One owner-stopped attempt to fetch a
-distribution bubblewrap package for a task-private **trusted-`true` capacity
-probe** stalled before package extraction and was terminated; no sandbox command
-or project code ran. It did not establish a usable bubblewrap version or policy.
-Keep automated generated-code execution disabled. Already owner-reviewed native
-tests remain a distinct route; they are not evidence of untrusted-code isolation.
-Put an external process-wall bound around tool acquisition too: a socket timeout
-does not reliably bound DNS resolution or the complete setup process.
-
-A subsequent trusted B300 canary went beyond namespace creation: a bind mount of
-`/usr` into a fresh task-owned directory, inside the new user/mount namespace with
-unchanged propagation, failed (util-linux exit 32, `bind /usr failed`). The message
-did not report a syscall errno. The parent mount namespace stayed unchanged, no
-probe mount appeared there, and the empty task directory was removed. Do not
-reinterpret the earlier successful `true` as proof of working filesystem mounts.
-Cached apt package metadata also did not guarantee acquisition: its exact legacy
-archive filename returned 404; no package was extracted or executed. Two other
-authorized workers had no Docker, Podman or bubblewrap executable either. Tool
-absence is not an architecture limitation, and these observations do not justify
-weakening isolation or installing a privileged daemon on shared machines.
