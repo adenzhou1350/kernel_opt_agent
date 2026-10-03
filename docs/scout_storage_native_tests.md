@@ -14,6 +14,43 @@ equivalent to validating the commit and path.
 This note records a bounded environment entrance and a scoped native regression
 example, not automatic Scout execution, full-suite qualification or performance.
 
+### Count saved native results before calling them verified
+
+`scripts/scout_native_results.py` reads a bounded saved log (2 MiB maximum) and
+an observed process exit code. It never fetches, imports or executes project code.
+For Go, use [test2json events](https://pkg.go.dev/cmd/test2json) from `go test -json`
+and an exact package. For Rust, use complete, verbose
+[libtest](https://doc.rust-lang.org/rustc/tests/index.html) batches, not a tail
+excerpt or arbitrary custom harness output. Supply exact expected test names:
+
+```sh
+python scripts/scout_native_results.py --format go-json --log go-tests.jsonl \
+  --exit-code 0 --package github.com/juicedata/juicefs/pkg/sync --expect-test TestSync
+python scripts/scout_native_results.py --format rust-libtest --log rust-tests.log \
+  --exit-code 0 --expect-test remote::table::tests::test_query_plain
+```
+
+The tool reports passed/failed/skipped observations, missing expected targets and
+incomplete/contradictory terminals. Zero executed tests, all ignored tests, a
+different target, Go's replayed cached output, or a timeout cannot produce PASS.
+Go counts include parent tests, subtests and repeats; they are not assertion or
+independent-case counts. Rust measured/compact/custom batches are unsupported.
+CLI exits are 0 for observed tests passing, 1 for observed test failures and 2
+for inconclusive input. This does not change a delivery state or PR readiness.
+
+The implementation was checked against saved native JuiceFS output (52 passing
+terminal test events) and LanceDB output (266 passes, 1232 filtered). Two fresh
+native commands deliberately matching no test both returned process exit zero;
+both were rejected as INCONCLUSIVE. Unit controls also cover truncation, skipped
+targets, contradictory counts/status, duplicated events and process failure.
+Those controls prove accounting behavior, not better PR conversion or recall.
+
+Logs can be forged and Rust output can interleave under `--nocapture`: ambiguous
+or incomplete batches must stay inconclusive. Independently capture and bind
+both arms' full output, source/runtime/command identities and exit status before
+using this summary. It is not a sandbox, authenticity proof, oracle-quality
+check, whole-workload measurement or permission to run unreviewed model code.
+
 ### Native declarations before incidental mentions
 
 Recognizing `.go` and `.rs` is insufficient if bounded source-window selection
