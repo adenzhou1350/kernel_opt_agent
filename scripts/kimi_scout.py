@@ -104,6 +104,11 @@ Prefer existing native tests with their actual reference behavior. A fabricated
 callback, missing object field or unsupported input is not a reachable defect.
 Changed exception wording does not prove a newly enabled backend works; seek
 observable consumer outputs or request the missing native environment evidence.
+For missing C-family/Python/JS/TS symbol uses, next_check may request
+references(NAME) for at most two exact identifiers in the same cached file.
+These syntactic excerpts do not resolve bindings or prove reachability.
+When a claim depends on unseen caller arguments or conversions, prefer
+needs_context with references(CALLEE) over a test of an invented direct call.
 For resource-budget claims, match comments to the instantiated geometry and
 implementation storage formulas before proposing removal of working variants.
 Do not infer hardware throughput from another dtype/SKU. Quote exact supplied
