@@ -14,6 +14,24 @@ equivalent to validating the commit and path.
 This note records a bounded environment entrance and a scoped native regression
 example, not automatic Scout execution, full-suite qualification or performance.
 
+### Native declarations before incidental mentions
+
+Recognizing `.go` and `.rs` is insufficient if bounded source-window selection
+only recognizes Python/JS declarations. The selector now also recognizes Go
+functions/receiver methods and common Rust function modifiers. Native functions
+take priority over same-named local `let`/`var` bindings. Explicit start lines
+still take precedence, and the source/revision, line and byte bounds are unchanged.
+
+In a five-target development audit of pinned JuiceFS/LanceDB source, old windows
+missed JuiceFS `Sync`, `startProducer` and LanceDB's remote `query` implementation;
+the last window centered on a local `let query`, not the function. Updated windows
+contain all five requested function declarations. The other two old windows
+already contained their targets. This is inspected development evidence, not a
+held-out retrieval-accuracy, model-quality, cost-saving or PR-conversion result.
+Lexical matching is not a compiler/parser or call-graph proof: ambiguous receiver/
+impl ownership, multiline declarations, macros and a truncated function still
+require caller context or explicit source lines.
+
 ## JuiceFS: reusable Linux Go entrance
 
 At [JuiceFS adcca1cc](https://github.com/juicedata/juicefs/tree/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5),

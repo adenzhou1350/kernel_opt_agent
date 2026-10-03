@@ -69,7 +69,7 @@ def _text(value):
 
 
 def _definition_line(lines, hints):
-    """Prefer a requested Python/JS declaration to incidental keyword mentions.
+    """Prefer a requested declaration to incidental keyword mentions.
 
     Qualified Python class methods use syntax-only ownership when unambiguous.
     Other declarations retain the lexical fallback; neither proves reachability.
@@ -103,12 +103,24 @@ def _definition_line(lines, hints):
         r"(?:def|class|function|const|let|var|type|interface|enum)\s+"
         r"([A-Za-z_]\w*)\b"
     )
+    native_declarations = (
+        re.compile(r"^\s*func\s+(?:\([^()\n]*\)\s*)?([A-Za-z_]\w*)\s*(?:\[|\()"),
+        re.compile(r'^\s*(?:pub(?:\([^()\n]*\))?\s+)?(?:const\s+)?(?:async\s+)?'
+                   r'(?:unsafe\s+)?(?:extern(?:\s+"[^"\n]+")?\s+)?fn\s+([A-Za-z_]\w*)\b'),
+    )
     matches = []
+    native_matches = []
     for index, line in enumerate(lines):
         match = declaration.match(line)
+        native_match = next((match for pattern in native_declarations
+                             if (match := pattern.match(line))), None)
+        match = native_match or match
         if match and match[1] in priority:
             name = match[1]
-            matches.append((name not in qualified, priority[name], index))
+            selected = native_matches if native_match else matches
+            selected.append((name not in qualified, priority[name], index))
+    if native_matches:
+        return min(native_matches)[2]
     return min(matches)[2] if matches else None
 
 
