@@ -118,8 +118,26 @@ files-from input, checkpoint restoration and destination content, not only a
 flat work counter. Exact-head `pkg/sync` tests and isolated bound/nested race
 checks passed. A combined race run found existing shared-error and progress
 lifecycle races; keep those findings and baseline controls rather than calling
-the whole package race-clean. Its cold race build cost about 129 seconds, so
-budget compilation separately from the roughly 4–10 second warm isolated checks.
+the whole package race-clean. Its cold race invocation, including compilation
+and tests, cost about 129 seconds; do not label that as isolated compiler time.
+Budget cold setup separately from the roughly 4–10 second warm isolated checks.
+
+### Separate a new concurrency regression from existing lifecycle races
+
+[JuiceFS #7606](https://github.com/juicedata/juicefs/pull/7606) fixes a separate
+`--files-from` worker error race: assigning each listing result to the outer
+`err` from opening the input file allows concurrent workers to overwrite it
+before checking or logging it. A worker-local result removes that sharing.
+The regression uses 128 independent prefixes, eight workers, flat listing and
+one `Sync` per process; it checks actual destination bytes. Unchanged main
+reports two race warnings, while the fixed exact commit passes the isolated
+race test and normal `pkg/sync` suite.
+
+Use unchanged production plus the same regression as the negative control.
+If a combined suite exposes a different global progress lifecycle race across
+repeated `Sync` calls, preserve that result and isolate the relevant scenario
+in fresh processes. Isolation narrows attribution; it does not prove the full
+suite race-clean or justify removing concurrent work from the target test.
 
 ## LanceDB: not yet a verified entrance
 
