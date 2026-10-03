@@ -1,0 +1,26 @@
+{
+  "id": "sqlite-catalog-identifier-semantics",
+  "title": "Bind SQLite catalog relationships using SQLite identifier semantics",
+  "applies_when": "A SQLite schema inspector groups trigger or index catalog rows by table name and compares them with table definitions, especially when CREATE TABLE and ON target spellings differ in ASCII case.",
+  "lesson": "Related sqlite_schema text fields need not have identical spelling even when SQLite resolves them to the same object. Records and ON records can identify one table while tbl_name retains the target spelling; an exact-string map silently omits its triggers. Resolve the relationship to the table's catalog spelling with SQLite's built-in ASCII NOCASE comparison, and use the same comparison in fallback queries. Preserve explicit main-schema selection so temp objects cannot redirect inspection. Test clean, missing, changed and extra triggers, PRAGMA-shadow fallback, and non-ASCII-distinct tables. After upstream refactors, review both optimized and fallback producer/consumer paths and retain query-count guards rather than mechanically taking either conflict side.",
+  "avoid_when": "Built-in NOCASE is not Unicode case folding: JavaScript toLowerCase can merge identifiers SQLite keeps separate. Application data may require binary, locale-specific, ICU or custom collation rules; this lesson does not choose them. Native schema-owner tests do not establish full Doctor/update workflow, concurrency, all-platform or performance qualification.",
+  "evidence": [
+    {
+      "url": "https://www.sqlite.org/datatype3.html#collation",
+      "note": "Official documentation defines built-in NOCASE as folding only the 26 ASCII uppercase letters, not general Unicode normalization."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/2918067880d051624d344646b8121725d79be0cd/src/infra/sqlite-schema-contract.ts",
+      "note": "Submitted schema-owner repair joins trigger targets to table catalog spelling using NOCASE; the separate fallback query follows the same rule. Not evidence of merge or full-workflow success."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/2918067880d051624d344646b8121725d79be0cd/src/infra/sqlite-schema-contract.test.ts",
+      "note": "Registered tests cover clean/missing/drifted/extra triggers, ASCII target spellings, PRAGMA-shadow fallback, cached/uncached connections, non-ASCII-distinct tables and the upstream metadata-query-count guard."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/pull/163923",
+      "note": "Exact-head conflict refresh records native Linux Node 24.16 owner proof: 117 passes, 2 existing version-related skips, and 10 expected current-main regression failures with unchanged tests and dependencies. Prepared private dependencies were reused; hosted CI installation failed before tests on HTTP 503. Not full-package or all-platform proof."
+    }
+  ],
+  "status": "validated"
+}
