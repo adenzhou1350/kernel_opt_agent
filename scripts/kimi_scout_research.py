@@ -1168,7 +1168,7 @@ class ResearchProducer:
                 )
             # Explicit cached same-file references replace the usual reads,
             # not an extra tier or a reachability verdict.
-            contracts = [] if references else contract_requests(packet, snapshot)
+            contracts = [] if references else contract_requests(packet, snapshot, hints=hints)
             test_request = (
                 None
                 if contracts
