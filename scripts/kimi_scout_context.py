@@ -404,6 +404,20 @@ class PublicContext:
             comments = self._json(api + "/comments?per_page=3&page=1", 300_000)
             if not isinstance(comments, list):
                 raise ValueError("invalid issue comments")
+        # Keep lifecycle facts from the GET already performed. An old report
+        # body can remain unchanged after a fix; closed is not itself proof
+        # that this target revision is fixed or that a linked PR was merged.
+        state = item.get("state")
+        reason = item.get("state_reason")
+        result[0].update(
+            observed_report_kind="pull_request" if kind == "pull" else "issue",
+            observed_report_state=state if state in ("open", "closed") else "unknown",
+            observed_report_state_reason=reason
+            if reason in ("completed", "not_planned", "reopened", "duplicate")
+            else None,
+            lifecycle_observed_at=time.time(),
+            lifecycle_scope="Report state only, not fix, merge, release inclusion or regression proof.",
+        )
         for comment in comments[:3]:
             comment_id = _number(comment.get("id"), "comment id", 10**18)
             result.append(

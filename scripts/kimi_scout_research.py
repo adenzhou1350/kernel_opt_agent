@@ -198,8 +198,32 @@ def distinct_sources(sources):
     return list(unique.values())
 
 
+def _report_lifecycle_identity(source):
+    """Only bounded report-state changes, not observation timestamps, are evidence."""
+    match = re.fullmatch(
+        r"https://github\.com/[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+/(issues|pull)/[1-9][0-9]*",
+        source["url"],
+    )
+    kind = source.get("observed_report_kind")
+    state = source.get("observed_report_state")
+    if (
+        match is None
+        or kind != ("issue" if match[1] == "issues" else "pull_request")
+        or state not in ("open", "closed")
+    ):
+        return None
+    reason = source.get("observed_report_state_reason")
+    return [kind, state, reason if reason in (
+        "completed", "not_planned", "reopened", "duplicate"
+    ) else None]
+
+
 def evidence_identity(source):
-    return re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]), source["text"]
+    lifecycle = _report_lifecycle_identity(source)
+    text = source["text"]
+    if lifecycle is not None:
+        text = scout.dumps([text, lifecycle])
+    return re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]), text
 
 
 def retrieval_identity(source):
@@ -208,6 +232,9 @@ def retrieval_identity(source):
     digest = source.get("_scout_pretrim_sha256")
     if not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest):
         digest = hashlib.sha256(source["text"].encode("utf-8")).hexdigest()
+    lifecycle = _report_lifecycle_identity(source)
+    if lifecycle is not None:
+        digest = hashlib.sha256(scout.dumps([digest, lifecycle]).encode("utf-8")).hexdigest()
     return evidence_identity(source)[0], digest
 
 
