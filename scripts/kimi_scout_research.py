@@ -19,6 +19,7 @@ import urllib.parse
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
+from scout_file_mentions import filename_mentions
 from scout_audit_context import contextual_audit_tail
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_publication_context import (
@@ -162,6 +163,7 @@ def relevant_paths(snapshot, hints, exclude=()):
     hints = hints.lower()[:16000]
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
     ranked = []
+    filenames = filename_mentions(hints)
     for path in snapshot["files"]:
         if path in exclude or not path.endswith(SOURCE_SUFFIXES):
             continue
@@ -173,7 +175,7 @@ def relevant_paths(snapshot, hints, exclude=()):
             and not exact_path
         ):
             continue
-        score = 100 if exact_path else 50 if name in hints else 0
+        score = 100 if exact_path else 50 if name in filenames else 0
         if len(stem) >= 5 and stem in words:
             score += 10
         if score:
