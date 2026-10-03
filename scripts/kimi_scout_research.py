@@ -18,6 +18,7 @@ import urllib.parse
 
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
+from scout_audit_context import contextual_audit_tail
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 
 SOURCE_SUFFIXES = (
@@ -538,6 +539,9 @@ class ResearchProducer:
                 self.remember(key)
                 progress["source_cursor"] = (cursor // windows + 1) * windows
                 continue
+            source = contextual_audit_tail(
+                self.context, spec["repo"], snapshot["commit"], path, source
+            )
             sources = [source]
             if self.stopped():
                 return False
@@ -562,7 +566,8 @@ class ResearchProducer:
                 sources,
                 "source_audit",
                 question=(
-                    f"Review only this supplied source window ({path}:{start}) and any supplied tests. "
+                    f"Review only this supplied source window ({path}:{source.get('start_line', start)}) and any supplied tests. "
+                    "A tiny EOF discovery window may overlap preceding lines; its numbered bounds are explicit. "
                     "Find at most one concrete boundary/correctness/production-impact gap. Missing surrounding code is uncertainty, not a bug. Prefer no_lead to speculative refactoring. Do not call it novel; later stages check related work."
                 ),
             )

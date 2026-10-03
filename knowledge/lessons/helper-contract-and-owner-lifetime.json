@@ -1,0 +1,62 @@
+{
+  "id": "helper-contract-and-owner-lifetime",
+  "title": "Check the caller contract and owner lifetime before repairing a helper",
+  "applies_when": "An isolated reproduction alleges a missing method decorator, script global, cache-key collision, stale object identity, constant self-comparison, returned-field loss or exception-path resource leak, but omits the full helper implementation, ordered result assembly, interface or owner that invokes it.",
+  "lesson": "Read the declared interface, actual invocation and owner lifetime before choosing a regression. A receiver named cls is not a classmethod without its descriptor. Follow id-cache creation, strong references, replacement and invalidation together. Check __main__ global initialization and platform-validity predicates before inventing import-only or constant-self-comparison failures. Outer request/stream handlers may shield cleanup after a throwing helper. Fetch the relevant reset/reuse tests, not just their first window. Inspect every earlier spread and later overwrite before alleging returned-field loss: skipping a conditional spread does not remove ...result's fields. Test empty/nonempty contributions and the supported entry with a normal control. Acquire missing context before installing dependencies; do not remove references the real owner retains. An absent newly invented method proves a feature delta, not a regression. Read feature-request alternatives: static profile matching is not capacity, runtime or topology support. Use the scoped source counterexamples to select evidence, not automatically reject new hypotheses.",
+  "avoid_when": "A documented standalone/public helper contract can be violated even if internal callers do not exercise that input. Absence of a shipped caller does not disprove an API defect. Strong references prevent identity reuse only for their actual lifetime; they do not prevent mutation, stale metadata, concurrency bugs, or defects after a new caller changes ownership. Seeing a cleanup handler does not prove it is reached exactly once in every cancellation/concurrency path. Existing tests cover only their actual scenarios; a passing suite alone cannot disprove all leak claims. Earlier spread preservation applies only to enumerable own properties actually present at that point; explicit later undefined values, overwrites and changed producers can still lose data. The cited revisions are scoped source/interface counterexamples, not accelerator or general false-positive-rate measurements.",
+  "evidence": [
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/b1a22b83d878d2f5dfe713f8e15cbe271fdce40c/src/infra/restart-request.ts#L57-L120",
+      "note": "Coalesced request authority and acknowledgement ownership are independent here. Rejecting a second session's hooks does not revoke its admitted request. Native leaf-class controls cover revocation and one-shot acknowledgement, not actual service restarts or all caller timelines."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/2f4808320cf81e6361b9bedd502aa1b9ec1b7ca7/src/infra/deferred-plugin-session-sources.ts#L183-L194",
+      "note": "existingSessionSourcePaths uses archives ?? collectArchivedSources(target, env). The initial missing-index calculation passes a snapshot at line 469, while the recovery recheck omits it at line 477 to reacquire the archive index. The argument difference is not evidence of forgotten archives: unchanged archive-only and missing-source cases agree, while a newly appearing archive invalidates the earlier missing-index view. This supports inspecting optional-argument semantics before making calls identical, not a full migration or concurrency qualification."
+    },
+    {
+      "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/httpcore/_async/http2.py#L165-L169",
+      "note": "handle_async_request catches BaseException and calls _response_closed under AsyncShieldCancellation. The response-body iterator also closes on an exception at lines 579-585. Reading only _receive_stream_event's StreamReset raise omits those owning cleanup paths."
+    },
+    {
+      "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/tests/_async/test_http2.py#L130-L173",
+      "note": "The native RST_STREAM regression follows the rejected first request with a successful second request on the same connection. A first-100-line test excerpt omits it. This public source supplies a relevant control, not a universal semaphore/cancellation proof."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/f45c004e18d22222356928eac0a5c26d7af3398f/examples/checkpoint_engine/update.py",
+      "note": "The documented torchrun entry initializes global rank before join/update_weights call check_sglang_ready. A first-120-line excerpt misses that initialization; importing and invoking the helper alone is not this shipped execution path. Static counterexample only, not distributed execution evidence."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2ff52e3ceb0bcfdc8ba1dd0367b39ce0370bbfaf/python/sglang/srt/layers/quantization/base_config.py#L165",
+      "note": "QuantizationConfig declares get_supported_act_dtypes as an abstract instance method, independently of the receiver's spelling in an implementation."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2ff52e3ceb0bcfdc8ba1dd0367b39ce0370bbfaf/python/sglang/srt/model_loader/loader.py#L261",
+      "note": "The production loader calls the method on quant_config. A class-only TypeError is not a reproduction of this caller's contract."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/99c59a2ea62f32fd5497eceaf2ed18cad33389db/python/sglang/srt/layers/attention/minimax_sparse_backend.py#L1496",
+      "note": "forward_extend checks the cached object's identity and retains forward_batch in the outer metadata tuple while resolving the next helper result. An isolated id-reuse test omitting that reference does not establish the alleged production failure. This is a revision-bound source observation, not NPU execution evidence."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/5129c0af2eebd9d8a50a5e01bf976e0502c27161/src/infra/update-runner-git-runtime.ts#L30-L36",
+      "note": "sameRuntimeIdentity also requires nonzero current.dev/current.ino on Windows. Its self-comparison at activation lines 411-416 can therefore fail and reports identity unavailable; assertPrevious then separately checks the retained object after rename. This counters the constant-dead-code hypothesis, not every possible filesystem race or a runtime-platform qualification."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/c4f5599a74a857013af36a8538bb6b8668779c8b/src/infra/state-migrations.plugin-doctor.ts#L267-L277",
+      "note": "runPluginDoctorStateMigrationPlans spreads migrated before optionally adding combined notices. With empty collected.notices, migrated.notices remains present; inspecting only the conditional block manufactures a field-loss hypothesis. This is ordered result-expression evidence, not a full Doctor/migration test."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/bf3f9d7256f25ef80cde36dbb2c2061d085e9eea/src/infra/update-candidate-canary.ts#L645-L718",
+      "note": "The outer catch converts plugin/runtime JSON.parse errors into candidate failure facts, reports the failed step and returns status=error. A window ending at line 481 omits this handler. Static counterexample to an uncaught-error claim, not native execution or proof that every diagnostic is ideal."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/9deb117bfb8aad2bd08ed781238483be3dec9810/flashinfer/comm/mnnvl_cutedsl/config.py",
+      "note": "MNNVLCuteDSLConfig.resolve matches static shapes then validates capacity. A new shape-only supports method does not replace those checks or prove hardware support."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/issues/5325",
+      "note": "The request allows a support-query OR documented fallback and also requires validated new profiles. It does not mandate an invented method or establish backend correctness."
+    }
+  ],
+  "status": "validated"
+}

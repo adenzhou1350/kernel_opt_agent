@@ -133,6 +133,35 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(len(self.jobs()), 1)
         self.assertEqual(self.context.calls[0][-1], 1)
 
+    def test_discovery_tiny_tail_is_contextualized_without_changing_seen_keys(self):
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+
+        def source(repo, commit, path, hints="", start=None, max_lines=120):
+            start = start or 1
+            end = min(241, start + max_lines - 1)
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": "\n".join(f"{i}: " + ("}" if i == 241 else "statement;")
+                                  for i in range(start, end + 1)),
+                "start_line": start, "end_line": end, "total_lines": 241,
+            }
+
+        with patch.object(self.context, "source", side_effect=source) as acquire:
+            for _ in range(3):
+                self.assertTrue(self.producer.source_audit(self.spec, progress))
+            packet = json.loads(self.jobs()[-1]["packet"])
+            tail = packet["sources"][0]
+            self.assertEqual((tail["start_line"], tail["end_line"]), (122, 241))
+            self.assertTrue(tail["text"].endswith("241: }"))
+            self.assertIn("src/kernel.py:122", packet["question"])
+            self.assertTrue(self.producer.seen(
+                f"source:a/b:src/kernel.py:{self.context.blob}:241"
+            ))
+            count = acquire.call_count
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+            self.assertEqual(acquire.call_count, count)
+        self.assertEqual(len(self.jobs()), 3)
+
     def test_only_changed_blob_creates_fresh_source_work(self):
         self.assertTrue(self.producer.source_audit(self.spec, {}))
         self.context.revision = "d" * 40

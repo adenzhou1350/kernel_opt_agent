@@ -132,6 +132,13 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   120-line windows per eligible file in configured source prefixes, with related
   tests where identifiable. **This is partial sampling, not complete code review.**
   Repository snapshots, exact source blobs and public evidence are cached locally.
+- A discovery window with fewer than 24 lines at EOF can use an overlapping
+  final 120-line excerpt from that same cached immutable file. It is accepted
+  only if its explicit numbered range and text retain the entire original tail;
+  character clipping or unavailable context keeps the original. No file or
+  nontrivial tail is suppressed. Explicit follow-up selectors are unchanged.
+  This avoids observed single-brace prompts; it does not establish improved
+  discovery yield or PR conversion.
 - Leads and context requests receive at most two follow-ups, only when new public
   evidence is available. The controller can add issue comments, observed tree
   members and bounded related-work search. Model hints cannot introduce arbitrary
