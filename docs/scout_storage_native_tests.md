@@ -157,7 +157,7 @@ repeated `Sync` calls, preserve that result and isolate the relevant scenario
 in fresh processes. Isolation narrows attribution; it does not prove the full
 suite race-clean or justify removing concurrent work from the target test.
 
-## LanceDB: tool and compile-check entrance, execution still unverified
+## LanceDB: reusable native query-test entrance
 
 At [LanceDB 0be3ae96](https://github.com/lancedb/lancedb/tree/0be3ae960eb39b43faad5685cd381c5126a305c5),
 `rust-toolchain.toml` pins Rust 1.97.0; the workspace's 1.91.0 minimum is not that
@@ -189,9 +189,32 @@ Keep credentials disabled for these public dependency fetches; do not infer a
 missing revision from a network failure. The compiled/check cache occupied about
 974 MB at that point. This is one environment observation, not a transport speedup.
 
-This does **not** establish an executed Rust test, a rebuilt Python/PyO3 or
-TypeScript binding, local/remote database correctness, full CI or candidate
-qualification. Start with a bounded test of the actual affected API in a private
+The same pinned source subsequently executed a native Rust query test, followed
+by all fifteen matching query tests with the populated cache:
+
+```sh
+cargo test --profile ci --locked -p lancedb --no-default-features --features remote \
+  --lib remote::table::tests::test_query_plain -- --exact --nocapture
+cargo test --offline --profile ci --locked -p lancedb --no-default-features --features remote \
+  --lib remote::table::tests::test_query_ -- --nocapture
+```
+
+The first invocation passed one test and took about 465 seconds including native
+code generation/linking; the test body took 0.05 seconds. The cached invocation
+passed fifteen tests and took about 0.84 seconds overall, with 0.07 seconds in the
+tests. The compiler cache then occupied about 4.6 GB. These are sequential setup
+observations, not a benchmark or a model-efficiency claim. Preserve the preceding
+tool/download/check costs when accounting for a new environment.
+
+These tests exercise the actual remote query implementation against mocked HTTP
+responses, including vector/FTS request serialization and result decoding. They
+do **not** qualify a live cloud service, a rebuilt Python/PyO3 or TypeScript
+binding, the full Rust suite or a new candidate. Check that the result names the
+expected tests and has a nonzero executed count: an exit-zero invocation with all
+tests filtered out is not verification. `--offline` prevents Cargo dependency
+fetches; it is not an OS network sandbox for arbitrary test code.
+
+Start a candidate with a bounded test of its actual affected API in a private
 temporary dataset, rebuilding bindings when required. Keep LanceDB wrapper
 defects separate from Lance-engine defects and native backends separate from
 cloud API behavior. Budget cold code generation/linking separately: successful
