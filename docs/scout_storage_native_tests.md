@@ -179,6 +179,36 @@ repeated `Sync` calls, preserve that result and isolate the relevant scenario
 in fresh processes. Isolation narrows attribution; it does not prove the full
 suite race-clean or justify removing concurrent work from the target test.
 
+### Follow the lifecycle failure without broadening the earlier fix
+
+The progress race preserved above became a separate, independently reproduced
+fix in [JuiceFS #7608](https://github.com/juicedata/juicefs/pull/7608). Every `Sync`
+started an endless pending-progress updater; eight completed sequential calls
+left eight goroutines behind (8 to 16 in the isolated control). Old updaters
+also read the next call's replacement global bar. Concurrent calls are not
+needed to reproduce this history-dependent failure.
+
+The change captures the invocation's bar, cancels and joins its updater on
+return, and joins before final progress accounting. At exact fix commit
+`3f34b252081de3be3669e8539ec63a409bb66c47`, the normal `pkg/sync` suite and the
+following repeated native race tests pass:
+
+```sh
+go test -race -count=3 -timeout=60s ./pkg/sync -run '^TestSyncStopsPendingProgress$' -v
+go test -race -count=3 -timeout=60s ./pkg/sync -run '^TestSync$' -v
+```
+
+The new goroutine regression fails with unchanged production. The second
+command is an existing upstream test; it independently reports the progress
+race on unchanged main. This is stronger attribution than merely suppressing
+a combined race test or running each invocation in a new process. Capturing a
+bar alone would address stale-global reads but would still leak the updater;
+cancellation without joining would not prove quiescence before reuse.
+
+Keep this lifecycle fix separate from producer backpressure and worker-local
+errors. It does not make simultaneous `Sync` calls supported, repair all other
+background loops/error-path cleanup, or prove the full package race-clean.
+
 ## LanceDB: reusable native query-test entrance
 
 At [LanceDB 0be3ae96](https://github.com/lancedb/lancedb/tree/0be3ae960eb39b43faad5685cd381c5126a305c5),
