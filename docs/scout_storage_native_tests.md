@@ -394,3 +394,21 @@ three repeated race runs pass, including the unrelated-key control. This is
 SQLite-backed source evidence, not live MySQL/PostgreSQL, full-suite or
 performance qualification. Check the actual pinned ORM rather than inferring
 semantics from another version or an API name.
+
+## Peer-backend comparisons still need an explicit contract
+
+For an implementation of a shared API, apply the same small boundary matrix to
+an established peer backend and the candidate backend. This can distinguish a
+backend divergence from a fixture misunderstanding, but the peer is not a
+universal oracle: inspect the caller and API meaning before treating parity as
+required. Keep explicit expected results rather than copying arbitrary peer
+output as the truth.
+
+[JuiceFS #7614](https://github.com/juicedata/juicefs/pull/7614) checks an inclusive
+prefix separately from an exclusive marker. Memory passes the common matrix;
+unchanged SQLite omits the exact-prefix key and can stop on a nonmatching key
+after an earlier marker. Cover missing/earlier/equal/later markers, an empty
+match set, and concatenated one-key pages. Fixing the first page with `>=`
+everywhere would instead duplicate explicit marker keys. Native SQLite and
+memory regression/race checks do not qualify live MySQL/PostgreSQL or prove a
+model-efficiency gain.
