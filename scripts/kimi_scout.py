@@ -412,6 +412,9 @@ def enqueue(root, packet, *, db=None):
     # Incidental related-PR ordering is not new evidence. Novelty must be checked
     # again by the owner before publication anyway.
     identity.pop("related_open_items_sample", None)
+    # Owner history advice alone is not fresh source or a new paid task.
+    identity.pop("owner_deferrals", None)
+    identity.pop("owner_publications", None)
     # New optional advice is not new public-source evidence.
     identity.pop("lesson_suggestions", None)
     identity["sources"] = [

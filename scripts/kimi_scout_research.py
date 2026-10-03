@@ -21,6 +21,11 @@ from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
 from scout_audit_context import contextual_audit_tail
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
+from scout_publication_context import (
+    fit_publication_context,
+    owner_deferral_context,
+    publication_context,
+)
 
 SOURCE_SUFFIXES = (
     ".py",
@@ -364,6 +369,13 @@ class ResearchProducer:
             packet["focus_issue"] = focus_issue
         if parent:
             packet["untrusted_prior_analysis"] = parent["analysis"][:2500]
+        publications = publication_context(self.root, spec["repo"], sources)
+        if publications:
+            packet["owner_publications"] = publications
+        deferrals = owner_deferral_context(self.root, spec["repo"], sources)
+        if deferrals:
+            packet["owner_deferrals"] = deferrals
+        fit_publication_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
         fit_lesson_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         while (
