@@ -63,18 +63,30 @@ data/mocks; never mount, repair, delete or write shared user data.
 
 ### Native SDK request regression
 
-[JuiceFS #7604](https://github.com/juicedata/juicefs/pull/7604) supplies a small
-real-SDK recording-transport test for KS3 Copy/UploadPartCopy and IBM COS Copy.
-On unchanged production source, its three ordinary-key controls pass and fifteen
-special-key operation checks fail; the exact fix commit
-`e199d0bf0134d89681813f2f70d2fbd7f6a0144e` passes all eighteen. This is request-wire
-evidence without cloud credentials, not a live-provider round-trip result.
+[JuiceFS #7604](https://github.com/juicedata/juicefs/pull/7604) supplies small
+real-SDK recording-transport tests for KS3, IBM COS and QingStor copy operations.
+The original KS3/IBM control has three ordinary-key passes and fifteen special-key
+failures on unchanged production source. QingStor independently has six plain-key/
+Unicode passes and eight ASCII special-key failures. Exact fix commit
+`f260bd5f7d51c58713ebcf6d31ccd83200740071` passes all thirty-two checks in a clean
+Linux checkout. This is request-wire evidence without cloud credentials, not a
+live-provider round-trip result.
 
 Use the same private environment with `go test -count=1 ./pkg/object -run
-'^TestOtherSDKCopySourceEncoding$'`. Check each SDK's serialization and signing:
+'^(TestOtherSDKCopySourceEncoding|TestQingStorCopySourceEncoding)$'`.
+Check each SDK's serialization and signing:
 the pinned KS3 V2 signer lowercases header map keys, so a recording transport
 must compare header names case-insensitively rather than interpret a failed
 `Header.Get` as a missing request header. Preserve the negative capture attempt.
+
+QingStor SDK v4.4.1 escapes headers only when they contain a non-ASCII character,
+so a Unicode-only test can pass while literal ASCII `%41`, `%2F`, `?` or spaces
+are still sent unescaped. Include ordinary, ASCII-reserved, Unicode, and mixed
+Unicode/reserved controls when checking an encoding boundary. Its
+[Copy Object API](https://docsv4.qingcloud.com/user_guide/development_docs/api/api_list/storage/object_storage/object/basic_opt/copy/)
+requires an encoded source. The recording response must match the SDK's actual
+operation status codes: both QingStor operations expect 201; a mock 200 response
+caused unrelated multipart failures and was corrected before drawing conclusions.
 
 Do not disable unrelated object backends merely to make compilation smaller:
 existing package tests reference some of their types unconditionally. That tag
