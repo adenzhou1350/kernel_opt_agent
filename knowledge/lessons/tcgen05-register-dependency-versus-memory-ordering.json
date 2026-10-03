@@ -1,0 +1,18 @@
+{
+  "id": "tcgen05-register-dependency-versus-memory-ordering",
+  "title": "tcgen05.ld register dependencies are not TMEM memory ordering",
+  "applies_when": "Reviewing PTX tcgen05.ld synchronization in a Blackwell TMEM kernel, especially a missing-wait claim based only on same-thread arithmetic reading loaded registers.",
+  "lesson": "PTX guarantees intra-thread true register dependency ordering for tcgen05.ld even without other synchronization. A following reduction or conversion that reads the load's output registers is therefore not itself proof that tcgen05.wait::ld is missing. Separately trace memory reuse, anti-dependencies and cross-thread handoff: register ordering does not establish those memory orderings, and the specified wait/fence/execution-order mechanisms may still be necessary. Read the exact producer-to-consumer chain before adding a broad wait or declaring a race.",
+  "avoid_when": "Do not infer complete kernel correctness from this register rule. It does not make .sync a load-completion fence, excuse an independent TMEM overwrite or deallocation, or replace cross-thread synchronization. Inline-assembly operand bindings and intervening transformations must actually preserve the true dependency. Source review is not target-native execution, generated SASS inspection or performance qualification; SM103 results do not automatically validate an SM100-only path.",
+  "evidence": [
+    {
+      "url": "https://docs.nvidia.com/cuda/archive/13.0.0/parallel-thread-execution/index.html",
+      "note": "PTX ISA 9.0 canonical pattern 9.7.16.6.4.5 guarantees true register dependency ordering and explicitly distinguishes memory ordering and anti-dependency hazards. Documented semantics, not a measured GPU result."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/experimental/minimax_h3_varlen_attention/csrc/cake_minimax_h3_varlen_attention/cake_minimax_h3_varlen_attention_4e6602e44a81b36f88ed_kernel.cu#L479-L528",
+      "note": "Pinned BF16 SM100 branch binds tcgen05.ld output to sv registers then reduces those values. This is a counterexample to the proposed missing-wait explanation for that same-thread reduction, not proof of the entire scheduler or native execution. SM103 uses a different reduction lowering."
+    }
+  ],
+  "status": "counterexample"
+}
