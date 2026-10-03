@@ -35,6 +35,8 @@ SOURCE_SUFFIXES = (
     ".cpp",
     ".h",
     ".hpp",
+    ".go",
+    ".rs",
     ".ts",
     ".tsx",
     ".js",
@@ -67,8 +69,8 @@ def configuration(path):
     if type(refill_batch) is not int or not 1 <= refill_batch <= 16:
         raise ValueError("research refill_batch must be 1..16")
     repos = value.get("repos")
-    if not isinstance(repos, list) or not 1 <= len(repos) <= 24:
-        raise ValueError("research needs 1..24 explicit public repositories")
+    if not isinstance(repos, list) or not 1 <= len(repos) <= 32:
+        raise ValueError("research needs 1..32 explicit public repositories")
     names = set()
     for spec in repos:
         repo = scout.public_repo(spec["repo"])
@@ -114,6 +116,7 @@ def source_paths(snapshot, spec):
         if any(p.startswith(prefix) for prefix in spec["source_prefixes"])
         and p.endswith(SOURCE_SUFFIXES)
         and not p.endswith("__init__.py")
+        and not p.endswith("_test.go")
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )
 

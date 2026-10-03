@@ -6,6 +6,20 @@
   "source_windows": 12,
   "repos": [
     {
+      "repo": "juicedata/juicefs",
+      "ref": "main",
+      "tree_roots": ["pkg", "sdk", "cmd"],
+      "source_prefixes": ["pkg/chunk/", "pkg/meta/", "pkg/object/", "pkg/vfs/", "sdk/"],
+      "question": "Find small supported filesystem/cache/object-storage correctness or resource-lifetime bugs with an exact current caller and native Go/SDK regression. Check existing issues, PRs and contribution rules first. Reproduce using task-private temporary data or mocks; never mount, delete, repair or mutate shared user data. Distinguish local cache, metadata and storage-provider semantics; no throughput claims without a matched real workload. Outputs are unvalidated leads only."
+    },
+    {
+      "repo": "lancedb/lancedb",
+      "ref": "main",
+      "tree_roots": ["rust", "python", "nodejs"],
+      "source_prefixes": ["rust/lancedb/src/", "python/python/lancedb/", "nodejs/lancedb/"],
+      "question": "Find bounded supported query/index, schema, Python/TypeScript binding or async resource-lifetime correctness gaps with a cheap native regression and actual caller. Check duplicate work and contribution rules. Separate LanceDB API behavior from the underlying Lance engine; do not assign an engine bug to this repository without evidence. Use task-private temporary datasets and preserve transaction/concurrency semantics; no performance claim from isolated helper timing. Outputs are unvalidated leads only."
+    },
+    {
       "repo": "vllm-project/vllm",
       "ref": "main",
       "source_prefixes": [

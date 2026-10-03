@@ -597,18 +597,18 @@ class ResearchTests(unittest.TestCase):
         self.assertNotIn("sources_after", progress)
 
     def test_repository_count_bounds(self):
-        for count in (0, 1, 12, 24, 25):
+        for count in (0, 1, 12, 24, 25, 32, 33):
             with self.subTest(count=count):
                 self.value["repos"] = [
                     dict(self.spec, repo=f"owner/repo{i}") for i in range(count)
                 ]
                 self.config.write_text(json.dumps(self.value))
-                if 1 <= count <= 24:
+                if 1 <= count <= 32:
                     self.assertEqual(
                         len(research.configuration(self.config)["repos"]), count
                     )
                 else:
-                    with self.assertRaisesRegex(ValueError, "1..24"):
+                    with self.assertRaisesRegex(ValueError, "1..32"):
                         research.configuration(self.config)
 
     def test_ten_repository_frontier_visits_every_repository(self):
@@ -647,6 +647,34 @@ class ResearchTests(unittest.TestCase):
         self.assertNotIn(
             paths[0],
             research.relevant_paths(snapshot, " ".join(paths), exclude=[paths[0]]),
+        )
+
+    def test_go_and_rust_observed_source_paths(self):
+        paths = ["src/cache.go", "src/query.rs"]
+        snapshot = {
+            "files": paths + ["src/cache_test.go", "src/vendor/query.rs", "docs/cache.go"]
+        }
+        self.assertEqual(research.source_paths(snapshot, self.spec), paths)
+        self.assertEqual(
+            research.relevant_paths(
+                {"files": paths}, "src/cache.go src/query.rs src/missing.go"
+            ),
+            paths,
+        )
+
+    def test_go_source_audit_includes_observed_related_test(self):
+        paths = ["src/cache.go", "src/cache_test.go"]
+        snapshot = {
+            "commit": self.context.revision,
+            "files": paths,
+            "blobs": {path: self.context.blob for path in paths},
+        }
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(
+            [source["url"].rsplit("/", 1)[-1] for source in packet["sources"]],
+            ["cache.go", "cache_test.go"],
         )
 
     def test_typescript_source_audit_includes_observed_related_test(self):
