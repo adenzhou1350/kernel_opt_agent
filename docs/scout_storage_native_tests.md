@@ -3,8 +3,8 @@
 Adding a repository or recognizing `.go` / `.rs` source does not supply a native
 verifier. Go/Rust leads must not be recast as Python leads because their packets
 contain a companion Python test. Keep them available for matching native review.
-This note records a bounded environment entrance, not automatic Scout execution,
-a bug discovery, full-suite qualification or a performance result.
+This note records a bounded environment entrance and a scoped native regression
+example, not automatic Scout execution, full-suite qualification or performance.
 
 ## JuiceFS: reusable Linux Go entrance
 
@@ -57,6 +57,29 @@ Use native before/after tests at the candidate's exact source revision. These
 four utility tests do not qualify metadata-engine parity, filesystem mounts,
 object-store behavior, distributed correctness or a new revision. Use temporary
 data/mocks; never mount, repair, delete or write shared user data.
+
+### Native SDK request regression
+
+[JuiceFS #7604](https://github.com/juicedata/juicefs/pull/7604) supplies a small
+real-SDK recording-transport test for KS3 Copy/UploadPartCopy and IBM COS Copy.
+On unchanged production source, its three ordinary-key controls pass and fifteen
+special-key operation checks fail; the exact fix commit
+`e199d0bf0134d89681813f2f70d2fbd7f6a0144e` passes all eighteen. This is request-wire
+evidence without cloud credentials, not a live-provider round-trip result.
+
+Use the same private environment with `go test -count=1 ./pkg/object -run
+'^TestOtherSDKCopySourceEncoding$'`. Check each SDK's serialization and signing:
+the pinned KS3 V2 signer lowercases header map keys, so a recording transport
+must compare header names case-insensitively rather than interpret a failed
+`Header.Get` as a missing request header. Preserve the negative capture attempt.
+
+Do not disable unrelated object backends merely to make compilation smaller:
+existing package tests reference some of their types unconditionally. That tag
+combination failed to compile, while the default package compiled and ran the
+targeted test. Its cold invocation cost about eighty-one seconds, versus about
+five seconds with the populated cache; neither is a throughput speedup claim.
+Review supported build combinations separately (`go build -tags nos3 ./pkg/object`
+passed for this fix), and distinguish a package build from a full test suite.
 
 ## LanceDB: not yet a verified entrance
 
