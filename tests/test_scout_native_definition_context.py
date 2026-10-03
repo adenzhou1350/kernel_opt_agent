@@ -11,6 +11,13 @@ import kimi_scout_context as context
 
 
 class NativeDefinitionTests(unittest.TestCase):
+    def test_existing_python_and_typescript_declarations_are_preserved(self):
+        for declaration, name in (("def query(input):", "query"),
+                                  ("const SAFE_NETWORK_CODES = new Set();", "SAFE_NETWORK_CODES"),
+                                  ("export function query(input) {", "query")):
+            with self.subTest(declaration=declaration):
+                self.assertEqual(context._definition_line(["// incidental " + name, declaration], name), 1)
+
     def test_go_function_and_receiver_method(self):
         for declaration in (
             "func produceFromList(tasks chan<- Object) error {",

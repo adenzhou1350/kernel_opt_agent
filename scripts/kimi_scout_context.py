@@ -112,8 +112,8 @@ def _definition_line(lines, hints):
     native_matches = []
     for index, line in enumerate(lines):
         match = declaration.match(line)
-        native_match = next((match for pattern in native_declarations
-                             if (match := pattern.match(line))), None)
+        native_match = next((native for pattern in native_declarations
+                             if (native := pattern.match(line))), None)
         match = native_match or match
         if match and match[1] in priority:
             name = match[1]
