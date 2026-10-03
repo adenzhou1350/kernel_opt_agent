@@ -1,0 +1,75 @@
+# Storage-repository native verification
+
+Adding a repository or recognizing `.go` / `.rs` source does not supply a native
+verifier. Go/Rust leads must not be recast as Python leads because their packets
+contain a companion Python test. Keep them available for matching native review.
+This note records a bounded environment entrance, not automatic Scout execution,
+a bug discovery, full-suite qualification or a performance result.
+
+## JuiceFS: reusable Linux Go entrance
+
+At [JuiceFS adcca1cc](https://github.com/juicedata/juicefs/tree/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5),
+`go.mod` requires Go 1.25.10. The tested toolchain was the official Linux/amd64
+archive, 59,844,667 bytes, SHA256
+`42d4f7a32316aa66591eca7e89867256057a4264451aca10570a715b3637ba70`.
+Check [official download metadata](https://go.dev/dl/?mode=json&include=all)
+before reusing or updating a toolchain; do not infer compatibility from its name.
+
+Use a fresh task-private directory on a filesystem with enough actual free
+space. Check the output directory itself, not only `/`: a home directory or
+cache may be a separate nearly-full mount. Bind tool, source, module cache,
+build cache and temporary files to that directory. A `/tmp` environment is
+ephemeral; its continued existence and identity require checking before reuse.
+Do not install globally, change persistent `go env` settings or use shared model
+storage for compiler caches.
+
+In the pinned clean Linux checkout, with `TASK_ROOT` pointing to the private
+environment and the official archive extracted as `TASK_ROOT/go`:
+
+```sh
+CUDA_VISIBLE_DEVICES='' GOENV=off GOTOOLCHAIN=local \
+GOMAXPROCS=2 GOMEMLIMIT=1024MiB GOFLAGS='-p=2 -mod=readonly' \
+GOCACHE="$TASK_ROOT/build-cache" GOPATH="$TASK_ROOT/gopath" \
+GOMODCACHE="$TASK_ROOT/modules" TMPDIR="$TASK_ROOT/tmp" \
+GOPROXY=https://goproxy.cn GOSUMDB=sum.golang.org \
+GONOSUMDB='' GONOPROXY='' GOPRIVATE='' \
+"$TASK_ROOT/go/bin/go" test -json -count=1 -timeout=120s ./pkg/utils \
+  -run '^(TestBuffer|TestSetBytes|TestNativeBuffer|TestAlloc)$'
+```
+
+Provision the directories first. `GOMEMLIMIT` is a soft runtime target, not a
+hard process-memory sandbox. Apply a separate controller wall deadline covering
+dependency download and compilation; Go's test timeout alone covers neither.
+Track and terminate only owned child processes if that deadline is reached.
+
+This exact invocation passed all four registered tests, with unchanged tracked
+source. The successful invocation took about 10 seconds including its remaining
+dependency/compile work. An earlier default-proxy invocation was stopped after
+about 245 seconds without test results, after an independent connectivity check
+found `proxy.golang.org` unavailable on that host. Preserve that failed attempt
+and setup cost; do not report ten seconds as total environment acquisition cost
+or a proxy speedup estimate. Keep checksum-database verification enabled when
+changing transport; do not set `GOSUMDB=off` or silently fall back to direct fetch.
+
+For a real candidate, inspect its current caller, test side effects and relevant
+[contribution rules](https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/AGENTS.md).
+Use native before/after tests at the candidate's exact source revision. These
+four utility tests do not qualify metadata-engine parity, filesystem mounts,
+object-store behavior, distributed correctness or a new revision. Use temporary
+data/mocks; never mount, repair, delete or write shared user data.
+
+## LanceDB: not yet a verified entrance
+
+At [LanceDB 0be3ae96](https://github.com/lancedb/lancedb/tree/0be3ae960eb39b43faad5685cd381c5126a305c5),
+`rust-toolchain.toml` pins Rust 1.97.0; the workspace's 1.91.0 minimum is not that
+pin. Python uses PyO3 and TypeScript uses napi-rs bindings. Follow its native
+bootstrap instructions and matching lockfile; a released wheel with unrelated
+Rust siblings is not exact-source verification of a binding change.
+
+No native LanceDB environment or regression has been validated by this probe.
+Start with a bounded test of the actual affected API in a private temporary
+dataset, rebuilding bindings when required. Keep LanceDB wrapper defects separate
+from Lance-engine defects and native backends separate from cloud API behavior.
+Do not launch a broad Rust build or populate a large discovery queue merely to
+fill concurrency; first establish a reusable relevant test entrance and budget
+its cold setup cost.
