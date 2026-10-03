@@ -314,3 +314,27 @@ temporary dataset, rebuilding bindings when required. Keep LanceDB wrapper
 defects separate from Lance-engine defects and native backends separate from
 cloud API behavior. Budget cold code generation/linking separately: successful
 `cargo check` artifacts do not mean a native test binary is already built.
+
+## Lifecycle cleanup must preserve streaming exits
+
+For a listing/worker leak, exercise error paths **and** a caller's successful
+early exit. A finite in-memory fixture can conceal a change that waits for all
+listing input after reaching a copy limit. Use a paused native listing stream:
+make enough objects available to reach the limit, hold EOF behind a test-owned
+gate, and require the operation to return before releasing that gate. Always
+release and join the fixture even when the assertion fails.
+
+In the investigation of [JuiceFS #7609](https://github.com/juicedata/juicefs/issues/7609),
+an unconditional-drain trial passed the normal sync package, but failed that
+paired limit control; unchanged production passed it. The revised trial drains
+error paths while preserving the successful short circuit. Error regressions
+also cover initial source/destination failures, a recursive producer wider than
+the prefix buffer, and a streamed failure with pending copies. Count specific
+worker stacks or observe owned completion signals rather than claiming every
+background goroutine is gone.
+
+Keep composed race checks separate from standalone-head checks: tests with an
+additional pending-progress fix do not prove that fix was part of the published
+worker-error head. These controls support that scoped change, not a general
+cancellation protocol, stalled-I/O recovery, performance improvement or a
+prospective model-efficiency result.
