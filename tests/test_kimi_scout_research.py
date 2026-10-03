@@ -170,6 +170,25 @@ class ResearchTests(unittest.TestCase):
         self.assertTrue(self.producer.source_audit(self.spec, {}))
         self.assertEqual(len(self.jobs()), 2)
 
+    def test_followup_related_work_uses_visible_title_mentioned_definition(self):
+        source = {
+            "url": f"https://raw.githubusercontent.com/a/b/{'a' * 40}/src/kernel.py",
+            "text": "10: def unpermute(\n11:     x,\n12: ):\n13:     return x",
+            "requested_definition": {"name": "unpermute", "start_line": 10},
+        }
+        self.producer.emit("definition-anchor", self.spec, [source], "source_audit")
+        root = self.jobs()[0]
+        self.finish(root)
+        with scout.connect(self.root) as db:
+            result = json.loads(db.execute("SELECT result FROM jobs WHERE id=?", (root["id"],)).fetchone()[0])
+            result["analysis"]["title"] = "MoE unpermute 确定性分配"
+            db.execute("UPDATE jobs SET result=? WHERE id=?", (json.dumps(result), root["id"]))
+        with patch.object(self.context, "source", return_value=source), patch.object(
+            self.context, "duplicate_sources", wraps=self.context.duplicate_sources
+        ) as lookup:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        lookup.assert_called_once_with("a/b", "unpermute")
+
     def test_no_rephrasing_followup_and_two_step_cap(self):
         self.assertTrue(self.producer.issue(self.spec, {}))
         self.finish(self.jobs()[0])

@@ -144,6 +144,14 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   members and bounded related-work search. Model hints cannot introduce arbitrary
   fetch URLs or paths. The final output is a falsification/reproduction **plan**;
   actual tests, GPU validation and PR decisions still belong to the owner.
+- Follow-up related-work lookup can instead use one title-mentioned Python
+  declaration visible in a same-repository, commit-pinned numbered source.
+  Selection metadata, when present, must match the visible declaration line;
+  distinct declarations or clipped/missing evidence retain the title search.
+  This replaces the query rather than adding a search tier. A lexical declaration
+  is not production reachability, and a matching PR still requires diff review.
+  An exposed Megatron replay retrieved an existing fix missed by the generic
+  `MoE` fallback; prospective recall, cost and conversion gains remain unproven.
 - Source-window content and issue evidence are deduplicated. Timestamp-only issue
   updates and unchanged snippets under a new commit do not buy a repeated call.
   No-lead, failed and interrupted calls are not automatically retried.

@@ -18,6 +18,7 @@ import urllib.parse
 
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
+from scout_duplicate_query import source_duplicate_title
 from scout_audit_context import contextual_audit_tail
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 
@@ -678,7 +679,9 @@ class ResearchProducer:
                 if number
                 else json.loads(row["result"])["analysis"]["title"]
             )
-            sources.extend(self.context.duplicate_sources(spec["repo"], title))
+            sources.extend(self.context.duplicate_sources(
+                spec["repo"], source_duplicate_title(spec["repo"], title, sources)
+            ))
             sources = distinct_sources(sources)
             old_evidence = {retrieval_identity(s) for s in packet["sources"]}
             if not any(retrieval_identity(s) not in old_evidence for s in sources):
