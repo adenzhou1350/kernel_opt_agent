@@ -338,3 +338,23 @@ additional pending-progress fix do not prove that fix was part of the published
 worker-error head. These controls support that scoped change, not a general
 cancellation protocol, stalled-I/O recovery, performance improvement or a
 prospective model-efficiency result.
+
+## Wait for this submission, not a same-named old artifact
+
+A replacement's resource name is not its operation identity. When an API returns
+a job ID, test that its bounded wait follows that ID rather than an existing
+same-named index, file or deployment. A useful adversarial mock keeps the old
+artifact fully ready while the new job first reports `IN_PROGRESS`, then reaches
+`DONE`, `FAILED` or `CANCELLED`. Assert the polled endpoint and job ID as well as
+the returned value/error; a success-only mock can hide the wrong wait path.
+
+For [LanceDB #4402](https://github.com/lancedb/lancedb/issues/4402), native Rust
+HTTP-mock regressions on `0be3ae96` demonstrate early success without polling the
+returned index job. Cover a still-running job's deadline, failure details,
+cancellation, no explicit wait, the existing maximum timeout, and the legacy
+server response without a job ID. Keep explicit job waiting and older
+name-based compatibility paths separate. An initial mock incorrectly expected
+`replace=true` on the wire; production omits that default. That fixture failure
+is not a product regression and is retained separately from the corrected
+before/after run. These tests do not establish live-cloud or language-binding
+qualification, synchronous server validation, or a performance improvement.
