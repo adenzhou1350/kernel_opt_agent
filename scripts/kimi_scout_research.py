@@ -121,15 +121,56 @@ def source_paths(snapshot, spec):
     )
 
 
+def native_declaration_request(packet, snapshot, request):
+    """Select only a native declaration line already supplied by the controller."""
+    requested = re.findall(r"\bdeclaration\s+(?:at\s+)?line\s+(\d{1,7})\b", request[:2000], re.I)
+    if len(requested) != 1 or re.search(
+        r"https?://|\bafter\s+line\b|\blines?\s+\d+\s*[-–—]|"
+        r"行\s*\d+\s*(?:之后|以后|后)|\d+\s*[-–—]\s*\d+\s*行", request[:2000], re.I
+    ):
+        return None
+    line = int(requested[0])
+    repo, commit = packet.get("repo"), snapshot.get("commit")
+    if not isinstance(repo, str) or not isinstance(commit, str) or not re.fullmatch(r"[0-9a-f]{40}", commit):
+        return None
+    prefix = f"https://raw.githubusercontent.com/{repo}/{commit}/"
+    matches = []
+    for source in packet.get("sources", [])[:8]:
+        url = source.get("url", "")
+        if not isinstance(url, str) or not url.startswith(prefix):
+            continue
+        path = urllib.parse.unquote(url[len(prefix):])
+        choice = source.get("definition_selection")
+        start, end, total = (source.get(key) for key in ("start_line", "end_line", "total_lines"))
+        if not isinstance(choice, dict) or not all(type(n) is int for n in (start, end, total)):
+            continue
+        candidates = choice.get("candidate_lines")
+        selected, symbol = choice.get("selected_line"), choice.get("symbol")
+        if (
+            path in snapshot.get("files", []) and path.endswith((".go", ".rs"))
+            and 1 <= start <= end <= total
+            and type(selected) is int and start <= selected <= end
+            and isinstance(symbol, str) and re.fullmatch(r"[A-Za-z_]\w{0,127}", symbol)
+            and isinstance(candidates, list) and 2 <= len(candidates) <= 5
+            and all(type(n) is int and 1 <= n <= total for n in candidates)
+            and candidates == sorted(set(candidates)) and selected in candidates
+            and line in candidates and not start <= line <= end
+        ):
+            matches.append({"path": path, "start": line, "max_lines": 120})
+    return matches[0] if len(matches) == 1 else None
+
+
 def continuation_request(packet, snapshot, analysis):
-    """Honor an explicit tail request only against an observed same-pin window.
+    """Honor explicit tails or native declaration choices at the observed pin.
 
     Model text selects no URL or arbitrary line: its requested boundary must
-    equal the recorded end of exactly one truncated public source window.
+    equal an observed window end or one recorded native declaration alternative.
     """
     next_check = analysis.get("next_check", "")
     if not isinstance(next_check, str):
         return None
+    if re.search(r"\bdeclaration\s+(?:at\s+)?line\b", next_check[:2000], re.I):
+        return native_declaration_request(packet, snapshot, next_check)
     boundaries = set()
     for expression in (
         r"\bafter\s+line\s+(\d{1,7})\b",

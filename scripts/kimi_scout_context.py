@@ -98,8 +98,8 @@ def _native_definition_choices(lines, selected, language):
         "candidate_lines": positions[:5],
         "omitted": max(0, len(positions) - 5),
         "caution": "Same-name lexical declarations, not resolved owners or reachability. "
-                   "The selected window is unchanged; inspect the intended impl/receiver "
-                   "with an explicit source start before inferring behavior.",
+                   "The selected window is unchanged. Request 'declaration line N' for "
+                   "a listed line outside it to inspect the intended impl/receiver.",
     }
 
 
