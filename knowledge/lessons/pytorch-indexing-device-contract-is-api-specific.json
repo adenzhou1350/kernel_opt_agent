@@ -1,0 +1,18 @@
+{
+  "id": "pytorch-indexing-device-contract-is-api-specific",
+  "title": "Check Torch bool-mask advanced indexing separately from index_copy_",
+  "applies_when": "A PyTorch tensor CPU/CUDA device-mismatch claim concerns a bool or boolean mask, index tensor, tensor[mask], or index_copy_.",
+  "lesson": "Match the exact API and version before adding a device guard. PyTorch advanced indexing accepts CPU or same-device indices: a CPU boolean mask alone does not establish a CUDA device error. index_copy_ instead requires the index, source and destination to share a device. examples/native_torch_indexing_contract.py supplies real all-true, all-false, mixed and empty CPU-mask controls plus invalid CPU-index and valid CUDA-index index_copy_ controls on one explicitly selected GPU. Run it in an existing authorized environment; do not emulate indexing in a stand-in that rejects supported inputs.",
+  "avoid_when": "This does not rule out wrong mask shapes, dtype, other-device indices, numerical bugs, host overhead, or defects in other indexing APIs. A source contract or one native indexing test does not qualify a complete attention backend, a different PyTorch version, or whole-model performance. Keep a reachable caller and matched operation when reopening the claim.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorAdvancedIndexing.cpp#L463-L493",
+      "note": "check_indices_on_cpu_or_selfdevice explicitly accepts CPU indices and is called by the index.Tensor meta function. This is API-specific source evidence, not a new GPU measurement."
+    },
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/TensorAdvancedIndexing.cpp#L294-L301",
+      "note": "The index_copy meta function separately checks that self, index and source share a device. Do not transfer that stricter contract to tensor[mask]."
+    }
+  ],
+  "status": "counterexample"
+}
