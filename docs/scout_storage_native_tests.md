@@ -32,6 +32,28 @@ Lexical matching is not a compiler/parser or call-graph proof: ambiguous receive
 impl ownership, multiline declarations, macros and a truncated function still
 require caller context or explicit source lines.
 
+### An open report can already have an open fix
+
+A title-only duplicate query can return the original issue and therefore miss a
+fix with a different title. For an observed issue number, a bounded same-repository
+PR-body search adds useful evidence: inspect explicit `#number` or full issue-URL
+references, not incidental numeric matches. Keep the sample bound, observation
+scope and unknowns; compare the actual reported mechanism before proposing work.
+An explicit reference does not prove that a PR fixes the issue, passed tests or
+merged, and an empty or partial search does not prove that no fix exists.
+
+In four selected known-positive LanceDB development cases, the title queries
+returned no PR, while the existing issue-reference lookup found related work:
+[FTS-language panic #4369](https://github.com/lancedb/lancedb/pull/4369),
+[nonfinite vectors #4410](https://github.com/lancedb/lancedb/pull/4410),
+[projection order #4292](https://github.com/lancedb/lancedb/pull/4292) and
+[all-null vectors #4034](https://github.com/lancedb/lancedb/pull/4034).
+The unresolved [drop-table policy #4398](https://github.com/lancedb/lancedb/issues/4398)
+returned no explicit PR in the bounded sample and remains a maintainer-design
+question, not permission to change server semantics or perform a racy client
+preflight. These selected examples are not held-out precision/recall,
+model-quality, cost-efficiency or PR-conversion measurements.
+
 ## JuiceFS: reusable Linux Go entrance
 
 At [JuiceFS adcca1cc](https://github.com/juicedata/juicefs/tree/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5),
@@ -205,6 +227,12 @@ passed fifteen tests and took about 0.84 seconds overall, with 0.07 seconds in t
 tests. The compiler cache then occupied about 4.6 GB. These are sequential setup
 observations, not a benchmark or a model-efficiency claim. Preserve the preceding
 tool/download/check costs when accounting for a new environment.
+
+The same cached binary also passed all 266 tests selected by
+`--lib remote::table::tests:: -- --nocapture`, using the same locked/offline profile
+and features above. That invocation took about 4.3 seconds, including 3.53 seconds
+in tests. It broadens the mocked remote-table regression baseline, not live-server
+or binding qualification; it is still not the full Rust workspace suite.
 
 These tests exercise the actual remote query implementation against mocked HTTP
 responses, including vector/FTS request serialization and result decoding. They
