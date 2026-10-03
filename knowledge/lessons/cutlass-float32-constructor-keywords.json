@@ -1,0 +1,18 @@
+{
+  "id": "cutlass-float32-constructor-keywords",
+  "title": "CuTe CUTLASS Float32 constructor accepts loc and ip keywords",
+  "applies_when": "A CuTe DSL lead claims Float32(value, loc=loc, ip=ip) necessarily raises TypeError because another call attaches those keywords to ir_value instead.",
+  "lesson": "Check the pinned dependency's Float constructor and Float32 inheritance before changing the call. The referenced CUTLASS implementation accepts keyword-only loc and ip; different valid spellings elsewhere do not establish an invalid constructor. A cheap installed-native signature bind and construction with a Python float and None metadata can discriminate the unsupported-keyword hypothesis without allocating a GPU or compiling a kernel. Confirm the dependency version and a live caller before proposing a repair.",
+  "avoid_when": "This establishes accepted keyword names, not equivalence of metadata propagation or emitted IR. None metadata and a Python float do not exercise an actual MLIR Value, inline assembly, SASS, synchronization or kernel numerics. An older installed DSL does not qualify a newer FlashAttention dependency closure; verify exact versions when behavior matters. Reopen on a real constructor/IR failure in a supported caller, not merely a stylistic difference.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/cutlass/blob/0b55a2f691d69981583568fd9eb69687b1f0de8a/python/CuTeDSL/cutlass/base_dsl/typing.py",
+      "note": "Pinned Float.__init__ declares keyword-only loc and ip; Float32 inherits Float. This is an API-source counterexample, not a kernel execution result."
+    },
+    {
+      "url": "https://github.com/Dao-AILab/flash-attention/blob/e9515d5dee6ade134a33d6020d38d01ef0596996/flash_attn/cute/utils.py#L807",
+      "note": "e2e_asm2 uses Float32 with loc/ip constructor keywords. The presence of another ir_value spelling does not establish this call is invalid."
+    }
+  ],
+  "status": "counterexample"
+}
