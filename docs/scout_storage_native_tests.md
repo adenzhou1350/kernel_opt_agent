@@ -3,6 +3,9 @@
 Adding a repository or recognizing `.go` / `.rs` source does not supply a native
 verifier. Go/Rust leads must not be recast as Python leads because their packets
 contain a companion Python test. Keep them available for matching native review.
+The Python delivery selector filters native-primary packets before its bounded
+scan, and its source loader rejects a companion-test substitution before fetching
+or running anything. This prevents misrouting; it is not a Go/Rust executor.
 This note records a bounded environment entrance and a scoped native regression
 example, not automatic Scout execution, full-suite qualification or performance.
 

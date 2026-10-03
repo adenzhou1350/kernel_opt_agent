@@ -18,6 +18,11 @@ import kimi_scout as scout
 
 SOURCE_LIMIT = 100_000
 CACHE_LIMIT = 1_000_000
+CODE_SUFFIXES = (
+    ".py", ".pyi", ".go", ".rs", ".cu", ".cuh", ".hip", ".c", ".cc",
+    ".cpp", ".cxx", ".h", ".hpp", ".hxx", ".ts", ".tsx", ".js", ".jsx",
+    ".mjs", ".cjs",
+)
 # Explicit Python 3.10 top-level stdlib names, not the controller interpreter's
 # sys.stdlib_module_names (which would admit newer modules such as tomllib).
 # Platform-specific modules and newer APIs within these modules still need the
@@ -93,13 +98,21 @@ def _raw_sources(packet, repo):
         yield {"url": url, "commit": commit, "path": path}
 
 
+def _first_code_source(packet, repo):
+    return next(
+        (s for s in _raw_sources(packet, repo) if s["path"].endswith(CODE_SUFFIXES)),
+        None,
+    )
+
+
 def select_leads(
     root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None
 ):
-    """Return terminal REVIEW leads fairly across repos; no DB/cache writes.
+    """Return Python-primary REVIEW leads fairly across repos; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
+    Other-language leads stay in the research DB for a matching native verifier.
     """
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
@@ -131,11 +144,26 @@ def select_leads(
             unstaged = ""
         # NOT IN materializes the parent set once, avoiding a correlated scan
         # over the entire job history for every REVIEW row.
+        url_expr = (
+            "CASE WHEN json_valid(source.value) "
+            "THEN json_extract(source.value,'$.url') END"
+        )
+        code_filter = " OR ".join(
+            f"{url_expr} GLOB '*{suffix}'" for suffix in CODE_SUFFIXES
+        )
         query = f"""SELECT id,packet,result FROM jobs
             WHERE state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
+            AND (
+              SELECT {url_expr}
+              FROM json_each(jobs.packet,'$.sources') AS source
+              WHERE {url_expr} GLOB ('https://raw.githubusercontent.com/' ||
+                  json_extract(jobs.packet,'$.repo') || '/*')
+                AND ({code_filter})
+              ORDER BY CAST(source.key AS INTEGER) LIMIT 1
+            ) GLOB 'https://raw.githubusercontent.com/*.py'
             {unstaged}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
@@ -151,9 +179,9 @@ def select_leads(
                 repo = _repo(packet["repo"])
                 if not isinstance(analysis, dict):
                     continue
-                sources = list(_raw_sources(packet, repo))
-                primary = sources[0] if sources else None
-                python = next((s for s in sources if s["path"].endswith(".py")), None)
+                primary = _first_code_source(packet, repo)
+                if primary is None or not primary["path"].endswith(".py"):
+                    continue
                 text = analysis.get("hypothesis") or analysis.get("title") or row["id"]
                 if not isinstance(text, str):
                     continue
@@ -175,7 +203,7 @@ def select_leads(
                 {
                     "id": row["id"],
                     "repo": repo,
-                    "commit": (python or primary or {}).get("commit"),
+                    "commit": primary["commit"],
                     "packet": packet,
                     "analysis": analysis,
                     "canonical_key": key,
@@ -361,12 +389,14 @@ def load_source(lead, github_auth=False, *, root=None, allow_dependencies=False)
     packet = lead["packet"]
     if packet.get("repo") != repo:
         raise UnsupportedEnvironment("lead/packet repository mismatch")
-    item = next(
-        (s for s in _raw_sources(packet, repo) if s["path"].endswith(".py")), None
-    )
+    item = _first_code_source(packet, repo)
     if item is None:
         raise UnsupportedEnvironment(
             "no immutable same-repository Python source URL in packet"
+        )
+    if not item["path"].endswith(".py"):
+        raise UnsupportedEnvironment(
+            "primary source requires matching native verification", item["path"]
         )
     path = item["path"]
     if lead.get("commit") is not None and lead["commit"] != item["commit"]:

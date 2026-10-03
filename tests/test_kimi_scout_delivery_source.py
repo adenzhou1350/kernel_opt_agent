@@ -26,7 +26,7 @@ def packet(repo=REPO, sources=None, parent=None, stage="reproduction_plan"):
         "repo": repo,
         "sources": sources
         if sources is not None
-        else [{"url": RAW, "text": "1: pass"}],
+        else [{"url": RAW.replace(REPO, repo), "text": "1: pass"}],
         "research": {"stage": stage, "parent_job_id": parent},
     }
 
@@ -140,6 +140,23 @@ class SelectionTests(unittest.TestCase):
         self.assertTrue(all(len(row["canonical_key"]) == 64 for row in rows))
         self.assertTrue(all(isinstance(row["analysis"], dict) for row in rows))
 
+    def test_native_primary_with_python_companion_stays_out_of_python_queue(self):
+        for suffix in (".go", ".rs", ".cu", ".cpp", ".ts", ".pyi"):
+            self.add(
+                "native" + suffix,
+                packet(sources=[
+                    {"url": RAW.replace(".py", suffix), "text": "native implementation"},
+                    {"url": RAW.replace(PATH, "tests/test_binding.py"), "text": "companion"},
+                ]),
+                finished=2,
+            )
+        self.add("python", finished=1)
+        before = (self.root / "scout.sqlite").read_bytes()
+        selected = delivery.select_leads(self.root, 1, scan_limit=1)
+        self.assertEqual([row["id"] for row in selected], ["python"])
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+        self.assertEqual(self.db.execute("SELECT count(*) FROM jobs").fetchone()[0], 7)
+
     def test_missing_database_not_created_and_existing_is_unchanged(self):
         missing = self.root / "absent"
         with self.assertRaises(sqlite3.OperationalError):
@@ -204,6 +221,24 @@ class SourceTests(unittest.TestCase):
         loaded["context"]["sources"].clear()
         self.assertTrue(original["packet"]["sources"])
         self.assertEqual(self.calls, [(API, 100000, True), (RAW, 100000, False)])
+
+    def test_native_primary_cannot_be_replaced_by_companion_python_test(self):
+        for suffix in (".go", ".rs", ".cu", ".cpp", ".ts", ".pyi"):
+            with self.subTest(suffix=suffix), self.assertRaises(delivery.UnsupportedEnvironment):
+                delivery.load_source(lead(packet(sources=[
+                    {"url": RAW.replace(".py", suffix), "text": "implementation"},
+                    {"url": RAW, "text": "Python companion"},
+                ])))
+        self.assertEqual(self.calls, [])
+
+    def test_issue_docs_and_foreign_code_do_not_displace_python_subject(self):
+        loaded = delivery.load_source(lead(packet(sources=[
+            {"url": f"https://github.com/{REPO}/issues/42", "text": "issue"},
+            {"url": RAW.replace(PATH, "docs/README.md"), "text": "documentation"},
+            {"url": RAW.replace(REPO, "another/project").replace(".py", ".rs"), "text": "comparison"},
+            {"url": RAW, "text": "implementation"},
+        ])))
+        self.assertEqual(loaded["url"], RAW)
 
     def test_validated_cache_avoids_raw_fetch_and_is_not_written(self):
         cached = self.cache("import json\nvalue = 2\n")
@@ -289,10 +324,10 @@ class SourceTests(unittest.TestCase):
                 delivery.load_source(lead(packet(sources=[{"url": url, "text": "x"}])))
         self.assertEqual(self.calls, [])
 
-    def test_first_eligible_python_source_not_model_suggested_url(self):
+    def test_packet_python_subject_not_model_suggested_url(self):
         value = packet(
             sources=[
-                {"url": RAW.replace(".py", ".cu"), "text": "x"},
+                {"url": RAW.replace(PATH, "docs/usage.md"), "text": "x"},
                 {"url": RAW, "text": "x"},
             ]
         )
