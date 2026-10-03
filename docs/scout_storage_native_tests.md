@@ -101,6 +101,26 @@ five seconds with the populated cache; neither is a throughput speedup claim.
 Review supported build combinations separately (`go build -tags nos3 ./pkg/object`
 passed for this fix), and distinguish a package build from a full test suite.
 
+### Recursive scanner backpressure
+
+[JuiceFS #7605](https://github.com/juicedata/juicefs/pull/7605) demonstrates why
+acquiring a semaphore inside every newly created goroutine bounds active work,
+not the number of waiting goroutines. With 2048 in-memory child directories and
+two listing threads, unchanged source added 2068 goroutines; the fix added about
+24–26 and still copied all files. This is a controlled waiting-goroutine test,
+not million-directory RSS or remote-store throughput qualification.
+
+For recursive producers, blocking on the same producer limit while holding a
+parent slot can deadlock. The tested change tries asynchronous admission before
+spawning, processes a child inline under backpressure, and releases the parent's
+delimiter-listing slot before waiting for children. Check nested trees, filters,
+files-from input, checkpoint restoration and destination content, not only a
+flat work counter. Exact-head `pkg/sync` tests and isolated bound/nested race
+checks passed. A combined race run found existing shared-error and progress
+lifecycle races; keep those findings and baseline controls rather than calling
+the whole package race-clean. Its cold race build cost about 129 seconds, so
+budget compilation separately from the roughly 4–10 second warm isolated checks.
+
 ## LanceDB: not yet a verified entrance
 
 At [LanceDB 0be3ae96](https://github.com/lancedb/lancedb/tree/0be3ae960eb39b43faad5685cd381c5126a305c5),
