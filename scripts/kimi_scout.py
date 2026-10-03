@@ -25,6 +25,7 @@ import urllib.parse
 import urllib.request
 
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
+from scout_launch_policy import application_control_denied
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -855,6 +856,7 @@ def run(args):
         heartbeat_thread = threading.Thread(target=heartbeat, daemon=True)
         heartbeat_thread.start()
         reason = "stop, deadline, or --once queue drained"
+        policy_blocked = False
         try:
             if producer:
                 producer.start()
@@ -871,6 +873,20 @@ def run(args):
                             key=lambda r: r["finished"],
                         )
                         for receipt in receipts:
+                            if application_control_denied(receipt):
+                                policy_blocked = True
+                                reason = (
+                                    "Windows application control blocked the configured "
+                                    "backend launcher (4551); policy review is required "
+                                    "before explicitly clearing STOP and restarting"
+                                )
+                                # Preserve evidence and prevent future retries. Never
+                                # switch launchers or change the security policy.
+                                (root / "STOP").touch(exist_ok=True)
+                                publish(
+                                    state="BLOCKED_APPLICATION_CONTROL",
+                                    reason=reason,
+                                )
                             if (
                                 receipt["state"] == "FAILED"
                                 and receipt.get("failure_scope") != "answer"
@@ -881,6 +897,8 @@ def run(args):
                                 answer_failures += 1
                             else:
                                 failures, answer_failures, error_cycles = 0, 0, 0
+                    if policy_blocked:
+                        break
                     if failures >= 2 or answer_failures >= 8:
                         error_cycles += 1
                         cooldown_until = time.time() + min(
@@ -968,7 +986,8 @@ def run(args):
             heartbeat_stop.set()
             heartbeat_thread.join()
             publish(
-                state="STOPPED",
+                state="BLOCKED_APPLICATION_CONTROL" if policy_blocked else "STOPPED",
+                active=0,
                 finished=time.time(),
                 cooldown_until=None,
                 next_feed_at=None,

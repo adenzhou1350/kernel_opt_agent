@@ -16,6 +16,7 @@ from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "kimi_scout.py"
+sys.path.insert(0, str(SCRIPT.parent))
 SPEC = importlib.util.spec_from_file_location("kimi_scout", SCRIPT)
 scout = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scout)
@@ -408,6 +409,34 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(current["runtime"]["state"], "STOPPED")
         self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 3)
+
+    def test_application_control_denial_stops_without_cooldown_or_new_claims(self):
+        for i in range(3):
+            self.add(str(i))
+
+        def denied(root, job, *unused):
+            with scout.connect(root) as db:
+                db.execute("UPDATE jobs SET state='FAILED' WHERE id=?", (job["id"],))
+            return {
+                "state": "FAILED",
+                "finished": time.time(),
+                "os_error": {"operation": "run_backend", "winerror": 4551},
+            }
+
+        with (
+            patch.object(scout, "execute", side_effect=denied) as execute,
+            patch.object(scout.time, "sleep") as sleep,
+        ):
+            current = scout.run(self.run_args(concurrency=1, once=False))
+        self.assertEqual(execute.call_count, 1)
+        sleep.assert_not_called()
+        self.assertEqual(current["runtime"]["state"], "BLOCKED_APPLICATION_CONTROL")
+        self.assertEqual(current["runtime"]["active"], 0)
+        self.assertIsNone(current["runtime"]["cooldown_until"])
+        self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 2)
+        self.assertTrue((self.root / "STOP").exists())
+        with self.assertRaisesRegex(ValueError, "STOP exists"):
+            scout.run(self.run_args())
 
     def test_persistent_bad_answers_have_separate_circuit_breaker(self):
         for i in range(10):
