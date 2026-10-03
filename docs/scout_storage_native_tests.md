@@ -1,5 +1,10 @@
 # Storage-repository native verification
 
+The wide-research template includes JuiceFS storage/cache/metadata, SDK and sync
+sources, plus LanceDB core, Python/TypeScript APIs and both native Rust bridges.
+These prefixes select evidence, not executable tests or permission to run a model.
+Keep the local runtime configuration in sync when changing the shipped template.
+
 Adding a repository or recognizing `.go` / `.rs` source does not supply a native
 verifier. Go/Rust leads must not be recast as Python leads because their packets
 contain a companion Python test. Keep them available for matching native review.
