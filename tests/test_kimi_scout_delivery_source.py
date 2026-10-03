@@ -157,6 +157,36 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
         self.assertEqual(self.db.execute("SELECT count(*) FROM jobs").fetchone()[0], 7)
 
+    def test_selection_ignores_the_same_invalid_urls_as_source_loading(self):
+        native = RAW.replace(".py", ".rs")
+        for index, invalid in enumerate(
+            (
+                native.replace(COMMIT, "main"),
+                native.replace(COMMIT, "a" * 39),
+                native.replace(COMMIT, "z" * 40),
+                native.replace(PATH.replace(".py", ".rs"), "../escape.rs"),
+                native.replace(PATH.replace(".py", ".rs"), "src//check.rs"),
+                native.replace(PATH.replace(".py", ".rs"), "src/%2e%2e/check.rs"),
+            )
+        ):
+            self.add(
+                "valid-python-" + str(index),
+                packet(sources=[{"url": invalid}, {"url": RAW}]),
+            )
+        selected = delivery.select_leads(self.root, 6)
+        self.assertEqual(len(selected), 6)
+        self.assertEqual({row["commit"] for row in selected}, {COMMIT})
+
+    def test_invalid_python_packet_does_not_consume_the_bounded_scan(self):
+        self.add(
+            "invalid",
+            packet(sources=[{"url": RAW.replace(COMMIT, "main")}]),
+            finished=2,
+        )
+        self.add("fresh", finished=1)
+        selected = delivery.select_leads(self.root, 1, scan_limit=1)
+        self.assertEqual([row["id"] for row in selected], ["fresh"])
+
     def test_missing_database_not_created_and_existing_is_unchanged(self):
         missing = self.root / "absent"
         with self.assertRaises(sqlite3.OperationalError):

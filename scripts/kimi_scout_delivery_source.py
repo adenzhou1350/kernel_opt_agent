@@ -105,6 +105,16 @@ def _first_code_source(packet, repo):
     )
 
 
+def _python_primary_packet(raw_packet):
+    """SQLite admission uses the loader's exact URL validation, before LIMIT."""
+    try:
+        packet = json.loads(raw_packet)
+        item = _first_code_source(packet, _repo(packet["repo"]))
+        return int(item is not None and item["path"].endswith(".py"))
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return 0
+
+
 def select_leads(
     root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None
 ):
@@ -130,6 +140,9 @@ def select_leads(
     excluded_ids = set(exclude_source_ids)
     try:
         connection.execute("PRAGMA query_only=ON")
+        connection.create_function(
+            "scout_python_primary", 1, _python_primary_packet, deterministic=True
+        )
         delivery_db = Path(root) / "delivery" / "delivery.sqlite"
         if delivery_db.is_file():
             connection.execute(
@@ -144,26 +157,12 @@ def select_leads(
             unstaged = ""
         # NOT IN materializes the parent set once, avoiding a correlated scan
         # over the entire job history for every REVIEW row.
-        url_expr = (
-            "CASE WHEN json_valid(source.value) "
-            "THEN json_extract(source.value,'$.url') END"
-        )
-        code_filter = " OR ".join(
-            f"{url_expr} GLOB '*{suffix}'" for suffix in CODE_SUFFIXES
-        )
         query = f"""SELECT id,packet,result FROM jobs
             WHERE state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
-            AND (
-              SELECT {url_expr}
-              FROM json_each(jobs.packet,'$.sources') AS source
-              WHERE {url_expr} GLOB ('https://raw.githubusercontent.com/' ||
-                  json_extract(jobs.packet,'$.repo') || '/*')
-                AND ({code_filter})
-              ORDER BY CAST(source.key AS INTEGER) LIMIT 1
-            ) GLOB 'https://raw.githubusercontent.com/*.py'
+            AND scout_python_primary(packet)=1
             {unstaged}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""

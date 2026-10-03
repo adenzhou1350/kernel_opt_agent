@@ -6,6 +6,11 @@ contain a companion Python test. Keep them available for matching native review.
 The Python delivery selector filters native-primary packets before its bounded
 scan, and its source loader rejects a companion-test substitution before fetching
 or running anything. This prevents misrouting; it is not a Go/Rust executor.
+Admission and source loading share the exact immutable-URL validator. Invalid
+native URLs cannot hide a later valid Python source, and invalid Python URLs
+cannot consume the bounded admission scan. Check both rejection and these
+acceptance cases when changing routing; a stricter-looking SQL URL glob is not
+equivalent to validating the commit and path.
 This note records a bounded environment entrance and a scoped native regression
 example, not automatic Scout execution, full-suite qualification or performance.
 
