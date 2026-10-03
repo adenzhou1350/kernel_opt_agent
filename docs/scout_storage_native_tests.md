@@ -69,6 +69,22 @@ Lexical matching is not a compiler/parser or call-graph proof: ambiguous receive
 impl ownership, multiline declarations, macros and a truncated function still
 require caller context or explicit source lines.
 
+### Same-file native names are not unique implementations
+
+For an automatically selected Go/Rust declaration, `definition_selection`
+lists at most five same-name lexical declaration lines from already-read bytes,
+with an omitted count. It does not change the selected window, resolve receiver/
+impl ownership, fetch another file, or prove reachability. Use an explicit start
+to inspect the intended implementation; unique names and explicit starts retain
+their existing result shape. Multiline declarations/macros remain unsupported.
+
+A development replay at pinned LanceDB `0be3ae96` found `NativeTable.query`
+selected a trait declaration at line 605, not its implementation at 3582.
+`create_index` and `wait_for_index` have the same three-declaration pattern.
+The advisory adds 302–311 serialized bytes in these examples. All three windows
+and an explicit query-body followup used one cached source read. This is a
+retrospective acquisition control, not measured model recall, cost or PR benefit.
+
 ### A basename is not a namespace or symbol owner
 
 Initial issue triage still reads one ranked source file. When several ranked

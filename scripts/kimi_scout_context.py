@@ -68,6 +68,41 @@ def _text(value):
     return value if isinstance(value, str) else ""
 
 
+_NATIVE_DECLARATIONS = {
+    ".go": re.compile(r"^\s*func\s+(?:\([^()\n]*\)\s*)?([A-Za-z_]\w*)\s*(?:\[|\()"),
+    ".rs": re.compile(r'^\s*(?:pub(?:\([^()\n]*\))?\s+)?(?:const\s+)?(?:async\s+)?'
+                      r'(?:unsafe\s+)?(?:extern(?:\s+"[^"\n]+")?\s+)?fn\s+([A-Za-z_]\w*)\b'),
+}
+
+
+def _native_declaration(line, language=None):
+    patterns = (_NATIVE_DECLARATIONS.values() if language is None else
+                [_NATIVE_DECLARATIONS[language]] if language in _NATIVE_DECLARATIONS else [])
+    return next((match for pattern in patterns if (match := pattern.match(line))), None)
+
+
+def _native_definition_choices(lines, selected, language):
+    """Bounded lexical alternatives in already-read bytes, not an owner resolver."""
+    if language not in _NATIVE_DECLARATIONS:
+        return None
+    match = _native_declaration(lines[selected], language)
+    if not match or len(match[1]) > 128:
+        return None
+    positions = [index + 1 for index, line in enumerate(lines)
+                 if (other := _native_declaration(line, language)) and other[1] == match[1]]
+    if len(positions) < 2:
+        return None
+    return {
+        "symbol": match[1],
+        "selected_line": selected + 1,
+        "candidate_lines": positions[:5],
+        "omitted": max(0, len(positions) - 5),
+        "caution": "Same-name lexical declarations, not resolved owners or reachability. "
+                   "The selected window is unchanged; inspect the intended impl/receiver "
+                   "with an explicit source start before inferring behavior.",
+    }
+
+
 def _definition_line(lines, hints, language=None):
     """Prefer a requested declaration to incidental keyword mentions.
 
@@ -103,20 +138,11 @@ def _definition_line(lines, hints, language=None):
         r"(?:def|class|function|const|let|var|type|interface|enum)\s+"
         r"([A-Za-z_]\w*)\b"
     )
-    native_declarations = (
-        re.compile(r"^\s*func\s+(?:\([^()\n]*\)\s*)?([A-Za-z_]\w*)\s*(?:\[|\()"),
-        re.compile(r'^\s*(?:pub(?:\([^()\n]*\))?\s+)?(?:const\s+)?(?:async\s+)?'
-                   r'(?:unsafe\s+)?(?:extern(?:\s+"[^"\n]+")?\s+)?fn\s+([A-Za-z_]\w*)\b'),
-    )
-    if language is not None:
-        native_declarations = ({".go": native_declarations[:1],
-                                ".rs": native_declarations[1:]}.get(language, ()))
     matches = []
     native_matches = []
     for index, line in enumerate(lines):
         match = declaration.match(line)
-        native_match = next((native for pattern in native_declarations
-                             if (native := pattern.match(line))), None)
+        native_match = _native_declaration(line, language)
         match = native_match or match
         if match and match[1] in priority:
             name = match[1]
@@ -329,9 +355,11 @@ class PublicContext:
         lines = raw.splitlines()
         if start is not None and start > max(1, len(lines)):
             raise ValueError("source start line is beyond end of file")
+        definition_selection = None
         if start is None:
             definition = _definition_line(lines, hints, language=Path(path).suffix)
             if definition is not None:
+                definition_selection = _native_definition_choices(lines, definition, Path(path).suffix)
                 offset = max(0, definition - min(30, max_lines // 4))
                 start = min(offset, max(0, len(lines) - max_lines)) + 1
         if start is None:
@@ -357,6 +385,8 @@ class PublicContext:
             total_lines=len(lines),
             truncated=evidence["truncated"] or start > 1 or end < len(lines),
         )
+        if definition_selection is not None:
+            evidence["definition_selection"] = definition_selection
         return evidence
 
     def issue_page(self, repo, page=1):
