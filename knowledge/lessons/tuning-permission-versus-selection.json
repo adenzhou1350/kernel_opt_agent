@@ -1,0 +1,34 @@
+{
+  "id": "tuning-permission-versus-selection",
+  "title": "A tuning permission is not the selected kernel configuration",
+  "applies_when": "A configuration-validation proposal interprets enable/allow flags or a planner's coarse cost prediction as the final execution path, especially when a separate knobs resolver or launch plan chooses actual policy. For FlashInfer MegaMoeConfig, trace enable_in_kernel_fc2_reduce, combine_dtype and resolved in_kernel_fc2_reduce; for Cake sampling, distinguish _launch_is_two_kernels from _launch_plan, vocabulary and one_launch.",
+  "lesson": "Trace permission, resolved knobs and the consuming validator separately before adding an earlier rejection. FlashInfer NVFP4 MegaMoE allows enable_in_kernel_fc2_reduce=True while its default selector turns in_kernel_fc2_reduce off for mxfp8/nvfp4 combine wires and selects reuse_dispatch_warps. A constructor regression demanding rejection conflates permission with selection and can reject an existing permitted-but-unselected configuration. Test that control alongside explicitly incompatible selected knobs; inspect where the latter are already rejected. Likewise, Cake sampling's architecture-only two-kernel prediction feeds cost ranking, but the final _launch_plan rechecks _fuse_block_tail with vocabulary and capability. Its one_launch output controls whether stage 2/3 executes. A missing vocabulary argument in the cost predictor alone does not prove the final launch omits stage 2/3. Read the final plan and consumer before changing execution.",
+  "avoid_when": "An enable flag can be a mandatory execution choice in another API; establish its contract rather than applying this distinction universally. Explicit selected knobs can still be invalid. These pinned sources establish a default-selection counterexample, not all knob combinations, native kernel correctness, distributed reachability or performance. A coarse cost model can still rank variants poorly even when final execution is correct; that needs matched timing rather than a missing-launch assertion. Inconsistent comments may warrant clarification without changing accepted inputs.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/3ad8127678c24cdfb5e2ccfd9f484116ef90babc/flashinfer/moe_ep/backends/mega/kernel/sm100/nvfp4_nvfp4_bf16_cutedsl/config.py#L32-L56",
+      "note": "The outer config distinguishes permission from knobs that may disable the path. Its wire-format comment alone does not establish that every permitted session selects in-kernel reduction."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/3ad8127678c24cdfb5e2ccfd9f484116ef90babc/flashinfer/moe_ep/kernel_src/sm100/cutedsl_megamoe/shim/tuner.py#L194-L229",
+      "note": "The actual default selector forces the selected reduction off for quantized combine wires, even when the caller granted permission."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/3ad8127678c24cdfb5e2ccfd9f484116ef90babc/flashinfer/moe_ep/kernel_src/sm100/cutedsl_megamoe/shim/nvfp4.py#L184-L205",
+      "note": "The lower-level config rejects incompatible selected reduction, wire format and top-k policies before kernel construction. This is source evidence, not a native GPU qualification."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/cake_sampling.py#L1087",
+      "note": "Final _launch_plan passes vocab and capability to _fuse_block_tail, unlike the coarse cost-ranking predicate. This refutes the no-reachable-vocabulary-consumer premise; it does not validate cost-model performance."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/cake_sampling.py#L398",
+      "note": "The original pure host policy rejects whole-CTA tail for capability (10,3) above vocab 196608. Source-isolated policy controls using the exact registered manifest check the boundary and a bound-removal counterexample; no CUDA or full package execution."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/cake_sampling.py#L1353",
+      "note": "The actual pipeline returns after stage 1 only when plan.one_launch is true; otherwise it calls sparse_topp_sample. Inspecting a planner estimate alone misses this consumer."
+    }
+  ],
+  "status": "counterexample"
+}
