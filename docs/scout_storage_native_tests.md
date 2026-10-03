@@ -375,3 +375,22 @@ name-based compatibility paths separate. An initial mock incorrectly expected
 is not a product regression and is retained separately from the corrected
 before/after run. These tests do not establish live-cloud or language-binding
 qualification, synchronous server validation, or a performance improvement.
+
+## Zero-valued replacements are not omitted fields
+
+When storage uses an ORM, test nonempty-to-empty overwrites, a shorter nonempty
+replacement, returned metadata, and an unrelated key. A successful update count
+alone does not establish that zero-length data and size replaced the old values.
+Inspect both UPDATE-column selection and WHERE-condition construction: an API
+that forces zero-valued columns may also force zero predicates in a condition
+bean, turning a proposed fix into a no-match update.
+
+In [JuiceFS #7612](https://github.com/juicedata/juicefs/pull/7612), native SQLite
+controls reproduce retained old bytes/size for empty and nil replacements.
+An initial `MustCols` trial also affected condition construction and failed;
+`Cols("size", "data")` explicitly updates the replacement without changing the
+key predicate or automatic modification time. The final focused tests and
+three repeated race runs pass, including the unrelated-key control. This is
+SQLite-backed source evidence, not live MySQL/PostgreSQL, full-suite or
+performance qualification. Check the actual pinned ORM rather than inferring
+semantics from another version or an API name.
