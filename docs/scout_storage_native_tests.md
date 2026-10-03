@@ -69,6 +69,23 @@ Lexical matching is not a compiler/parser or call-graph proof: ambiguous receive
 impl ownership, multiline declarations, macros and a truncated function still
 require caller context or explicit source lines.
 
+### A basename is not a namespace or symbol owner
+
+Initial issue triage still reads one ranked source file. When several ranked
+observed-tree members share its basename and the report has not uniquely named
+that full path, `path_selection` now exposes at most five candidates and an
+omission count. These are unfetched naming hints, not symbol definitions or new
+evidence. Request the actual path/import/definition before reasoning from a
+same-named unrelated implementation; do not automatically download every match.
+
+In the inspected [vLLM #58178](https://github.com/vllm-project/vllm/issues/58178)
+development case, lexical ranking selected `fused_moe/oracle/mxfp4.py`, while the
+named quantization method was in `quantization/mxfp4.py`. A retrospective replay
+using the saved acquired paths now exposes both choices with 438 additional
+serialized UTF-8 bytes and zero additional GETs. The first read is unchanged;
+this is not demonstrated model-selection accuracy, cost saving, held-out
+retrieval utility or PR-conversion improvement.
+
 ### An open report can already have an open fix
 
 A title-only duplicate query can return the original issue and therefore miss a

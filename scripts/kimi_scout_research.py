@@ -186,6 +186,35 @@ def relevant_paths(snapshot, hints, exclude=()):
     return [path for _, path in sorted(ranked)]
 
 
+def same_name_choices(paths, hints):
+    """Expose bounded naming ambiguity, not searched symbol definitions.
+
+    Call only with ranked observed-tree members. Keep the ordinary first read;
+    these unfetched alternatives help a reviewer request the right namespace.
+    """
+    if not paths:
+        return None
+    selected = paths[0]
+    name = selected.rsplit("/", 1)[-1].casefold()
+    choices = list(dict.fromkeys(
+        path for path in paths if path.rsplit("/", 1)[-1].casefold() == name
+    ))
+    if len(choices) < 2:
+        return None
+    hints = hints[:16000].casefold()
+    explicit = [path for path in choices if path.casefold() in hints]
+    if explicit == [selected]:
+        return None
+    return {
+        "selected_path": selected,
+        "same_name_candidates": choices[:5],
+        "omitted_candidates": max(0, len(choices) - 5),
+        "scope": "Observed-tree naming hints only; alternatives are not read. "
+                 "The selected file is not proof of symbol ownership. Request "
+                 "an exact path or use existing symbol/import context if needed.",
+    }
+
+
 def distinct_sources(sources):
     """Keep distinct code windows, but prefer full issue context over search snippets."""
     unique = {}
@@ -520,6 +549,10 @@ class ResearchProducer:
                         hints=sources[0]["text"],
                     )
                 )
+            if matches and len(sources) > 1:
+                choices = same_name_choices(matches, sources[0]["text"])
+                if choices:
+                    sources[-1]["path_selection"] = choices
             created = self.emit(
                 key,
                 spec,
