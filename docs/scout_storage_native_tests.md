@@ -157,7 +157,7 @@ repeated `Sync` calls, preserve that result and isolate the relevant scenario
 in fresh processes. Isolation narrows attribution; it does not prove the full
 suite race-clean or justify removing concurrent work from the target test.
 
-## LanceDB: not yet a verified entrance
+## LanceDB: tool and compile-check entrance, execution still unverified
 
 At [LanceDB 0be3ae96](https://github.com/lancedb/lancedb/tree/0be3ae960eb39b43faad5685cd381c5126a305c5),
 `rust-toolchain.toml` pins Rust 1.97.0; the workspace's 1.91.0 minimum is not that
@@ -165,10 +165,34 @@ pin. Python uses PyO3 and TypeScript uses napi-rs bindings. Follow its native
 bootstrap instructions and matching lockfile; a released wheel with unrelated
 Rust siblings is not exact-source verification of a binding change.
 
-No native LanceDB environment or regression has been validated by this probe.
-Start with a bounded test of the actual affected API in a private temporary
-dataset, rebuilding bindings when required. Keep LanceDB wrapper defects separate
-from Lance-engine defects and native backends separate from cloud API behavior.
-Do not launch a broad Rust build or populate a large discovery queue merely to
-fill concurrency; first establish a reusable relevant test entrance and budget
-its cold setup cost.
+The pinned Rust 1.97.0 compiler, Cargo, standard library and rustfmt were installed
+under a task-private Linux directory from official standalone archives, each
+checked against the exact release manifest's SHA256. No global rustup/toolchain
+configuration was changed. Protoc 24.4 follows the pinned repository's Linux
+wheel workflow; its downloaded digest was recorded, but was not checked against
+a separate publisher checksum. Check the current repository's requirements
+before reusing these versions.
+
+With a full LF Git export of the pinned source, this bounded compile check passed:
+
+```sh
+cargo check --profile ci --locked -p lancedb --no-default-features --features remote --tests
+```
+
+Use task-private `CARGO_HOME`, `RUSTUP_HOME`, `CARGO_TARGET_DIR`, `TMPDIR`, HOME and
+PATH, exact protoc, two build jobs and an external wall timeout. An initial
+libgit2 fetch of the locked Lance Git dependency timed out after about 48 seconds,
+before compilation. A separate attempt with Cargo's supported
+`CARGO_NET_GIT_FETCH_WITH_CLI=true` succeeded without changing source, lockfile or
+features, taking about 347 seconds including dependency setup and compilation.
+Keep credentials disabled for these public dependency fetches; do not infer a
+missing revision from a network failure. The compiled/check cache occupied about
+974 MB at that point. This is one environment observation, not a transport speedup.
+
+This does **not** establish an executed Rust test, a rebuilt Python/PyO3 or
+TypeScript binding, local/remote database correctness, full CI or candidate
+qualification. Start with a bounded test of the actual affected API in a private
+temporary dataset, rebuilding bindings when required. Keep LanceDB wrapper
+defects separate from Lance-engine defects and native backends separate from
+cloud API behavior. Budget cold code generation/linking separately: successful
+`cargo check` artifacts do not mean a native test binary is already built.

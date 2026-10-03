@@ -18,6 +18,12 @@ class NativeDefinitionTests(unittest.TestCase):
             with self.subTest(declaration=declaration):
                 self.assertEqual(context._definition_line(["// incidental " + name, declaration], name), 1)
 
+    def test_python_docstring_native_example_cannot_replace_python_definition(self):
+        lines = ['"""Example:', 'pub async fn query() {', '"""', 'def query():', '    return None']
+        self.assertEqual(context._definition_line(lines, "query", language=".py"), 3)
+        self.assertIsNone(context._definition_line(["func query() {}"], "query", language=".rs"))
+        self.assertIsNone(context._definition_line(["fn query() {}"], "query", language=".go"))
+
     def test_go_function_and_receiver_method(self):
         for declaration in (
             "func produceFromList(tasks chan<- Object) error {",

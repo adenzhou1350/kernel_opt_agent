@@ -68,7 +68,7 @@ def _text(value):
     return value if isinstance(value, str) else ""
 
 
-def _definition_line(lines, hints):
+def _definition_line(lines, hints, language=None):
     """Prefer a requested declaration to incidental keyword mentions.
 
     Qualified Python class methods use syntax-only ownership when unambiguous.
@@ -108,6 +108,9 @@ def _definition_line(lines, hints):
         re.compile(r'^\s*(?:pub(?:\([^()\n]*\))?\s+)?(?:const\s+)?(?:async\s+)?'
                    r'(?:unsafe\s+)?(?:extern(?:\s+"[^"\n]+")?\s+)?fn\s+([A-Za-z_]\w*)\b'),
     )
+    if language is not None:
+        native_declarations = ({".go": native_declarations[:1],
+                                ".rs": native_declarations[1:]}.get(language, ()))
     matches = []
     native_matches = []
     for index, line in enumerate(lines):
@@ -327,7 +330,7 @@ class PublicContext:
         if start is not None and start > max(1, len(lines)):
             raise ValueError("source start line is beyond end of file")
         if start is None:
-            definition = _definition_line(lines, hints)
+            definition = _definition_line(lines, hints, language=Path(path).suffix)
             if definition is not None:
                 offset = max(0, definition - min(30, max_lines // 4))
                 start = min(offset, max(0, len(lines) - max_lines)) + 1
