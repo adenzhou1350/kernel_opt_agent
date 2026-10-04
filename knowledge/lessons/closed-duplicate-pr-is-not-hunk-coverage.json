@@ -1,0 +1,26 @@
+{
+  "id": "closed-duplicate-pr-is-not-hunk-coverage",
+  "title": "A closed duplicate PR is not proof that every bundled fix landed",
+  "applies_when": "An existing PR bundles distinct changes and is closed as duplicate, superseded or partly replaced, while a candidate is being rejected as already fixed.",
+  "lesson": "Follow the maintainer's replacement link, compare the exact affected function/hunk with current source, and run the real consumer if coverage remains uncertain. A duplicate label applies to the discussed overlap, not automatically to every bundled hunk. Preserve original authorship; an untreated hunk can justify supplemental evidence or a coordinated narrow follow-up, not claiming a new discovery or automatically opening a competing PR.",
+  "avoid_when": "Do not revive a rejected behavior change merely because it is absent from main. An active author-owned replacement remains their work. Respect explicit maintainer decisions, security-reporting rules and repository contribution policy. Source comparison proves presence or absence of a guard, not production prevalence, exploitability, full CI or publication permission.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7441",
+      "note": "The bundled local-object and ciphertext-boundary proposal includes nonce-length validation and was closed with a duplicate #7425 comment. Closure alone does not say each change was merged."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7425",
+      "note": "The merged replacement's four-file scope is filestore key-path containment, not encrypted-object nonce handling."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/d85800b65c34e190a058d6662251666cc58357c7/pkg/object/encrypt.go#L280",
+      "note": "Original author's unmerged hunk rejects a nonce length different from the cipher's NonceSize before AEAD.Open."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/pkg/object/encrypt.go#L279",
+      "note": "This later main snapshot still calls AEAD.Open without that guard. It supports this specific hunk-coverage distinction; source alone is not a live service or security qualification."
+    }
+  ],
+  "status": "validated"
+}
