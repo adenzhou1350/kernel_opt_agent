@@ -1,5 +1,38 @@
 # Storage-repository native verification
 
+## Bounded Go/Rust owner-review selection
+
+The ordinary delivery worker still selects Python primary sources. For explicit
+native CPU review, use the same read-only selector without staging a Python
+proposal or pretending another-language source has been reproduced:
+
+```python
+from pathlib import Path
+from kimi_scout_delivery_source import select_leads
+
+leads = select_leads(
+    Path("/path/to/private/scout-run"),
+    limit=6, scan_limit=200, native_cpu=True,
+)
+for lead in leads:
+    print(lead["id"], lead["repo"], lead["commit"], lead["verification_route"])
+```
+
+Only immutable same-repository Go/Rust **primary** source URLs are selected; a
+later Python companion does not change the primary language. The language
+filter runs before the SQL scan limit. Existing parent and staged-job exclusion,
+exact-key deduplication and repository round-robin still apply. `scan_limit`
+caps matching rows considered, not total SQL work or elapsed time.
+
+`OWNER_NATIVE_CPU_REVIEW_ONLY` means review source, caller contract, duplicates,
+baseline and target toolchain before a scoped native test. It is not an
+architecture assertion, sandbox, compile request, queue state, reproduction or
+publication approval. The Python loader still rejects these leads. Empty
+selection is legitimate; do not relabel old jobs or invent results to keep a
+queue busy. The existing native log/run tools require a reviewed command and a
+separately authorized compatible worker.
+
+
 The wide-research template includes JuiceFS storage/cache/metadata, SDK and sync
 sources, plus LanceDB core, Python/TypeScript APIs and both native Rust bridges.
 These prefixes select evidence, not executable tests or permission to run a model.

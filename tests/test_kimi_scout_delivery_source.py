@@ -61,6 +61,87 @@ class SelectionTests(unittest.TestCase):
         )
         self.db.commit()
 
+    def test_native_review_keeps_primary_language_and_python_default(self):
+        self.add("python", finished=20)
+        for index, suffix in enumerate((".go", ".rs", ".cu", ".ts")):
+            self.add(suffix, packet(sources=[
+                {"url": RAW.replace(".py", suffix)}, {"url": RAW}
+            ]), finished=index)
+        normal = delivery.select_leads(self.root)
+        self.assertEqual([row["id"] for row in normal], ["python"])
+        self.assertNotIn("verification_route", normal[0])
+        native = delivery.select_leads(self.root, native_cpu=True)
+        self.assertEqual({row["id"] for row in native}, {".go", ".rs"})
+        self.assertEqual({row["verification_route"] for row in native},
+                         {"OWNER_NATIVE_CPU_REVIEW_ONLY"})
+        for row in native:
+            with self.assertRaises(delivery.UnsupportedEnvironment):
+                delivery.load_source(row, root=self.root)
+
+    def test_native_language_filter_precedes_scan_limit(self):
+        for index in range(12):
+            self.add("python-" + str(index), finished=100 + index)
+        self.add("native", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
+        selected = delivery.select_leads(self.root, 1, scan_limit=1, native_cpu=True)
+        self.assertEqual([row["id"] for row in selected], ["native"])
+
+    def test_native_review_retains_fairness_dedup_and_parent_exclusion(self):
+        def native(repo=REPO, parent=None):
+            return packet(repo=repo, parent=parent, sources=[
+                {"url": RAW.replace(REPO, repo).replace(".py", ".rs")}
+            ])
+        for index in range(12):
+            self.add("busy-" + str(index), native(), finished=100 + index)
+        self.add("other", native("another/project"))
+        self.add("parent", native(), finished=200)
+        self.add("child", native(parent="parent"), state="PENDING")
+        first = delivery.select_leads(self.root, 2, native_cpu=True)
+        self.assertEqual({row["repo"] for row in first}, {REPO, "another/project"})
+        self.assertNotIn("parent", {row["id"] for row in first})
+        remaining = delivery.select_leads(
+            self.root, 2, native_cpu=True,
+            exclude_source_ids=(first[0]["id"],),
+            exclude_keys=(first[1]["canonical_key"],),
+        )
+        self.assertFalse({row["id"] for row in remaining} &
+                         {row["id"] for row in first})
+
+    def test_native_review_uses_immutable_valid_urls_and_is_read_only(self):
+        self.add("mutable", packet(sources=[{
+            "url": RAW.replace(COMMIT, "main").replace(".py", ".go")
+        }]), finished=9)
+        self.add("valid", packet(sources=[{"url": RAW.replace(".py", ".rs")}]))
+        path = self.root / "scout.sqlite"
+        before = path.read_bytes()
+        first = delivery.select_leads(self.root, 1, scan_limit=1, native_cpu=True)
+        self.assertEqual([row["id"] for row in first], ["valid"])
+        self.assertEqual(first, delivery.select_leads(
+            self.root, 1, scan_limit=1, native_cpu=True))
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse((self.root / "delivery").exists())
+
+    def test_native_staged_exclusion_precedes_scan_limit(self):
+        source = packet(sources=[{"url": RAW.replace(".py", ".go")}])
+        self.add("staged-native", source, finished=2)
+        self.add("fresh-native", source, finished=1)
+        target = self.root / "delivery"
+        target.mkdir()
+        db = sqlite3.connect(target / "delivery.sqlite")
+        try:
+            db.execute("CREATE TABLE delivery (source_job_id TEXT UNIQUE)")
+            db.execute("INSERT INTO delivery VALUES ('staged-native')")
+            db.commit()
+        finally:
+            db.close()
+        selected = delivery.select_leads(
+            self.root, 1, scan_limit=1, native_cpu=True)
+        self.assertEqual([row["id"] for row in selected], ["fresh-native"])
+
+    def test_native_review_flag_is_not_truthy_permission(self):
+        for value in (1, "true", None):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                delivery.select_leads(self.root, native_cpu=value)
+
     def test_children_in_every_state_exclude_parent(self):
         for index, state in enumerate(
             ("FAILED", "PENDING", "RUNNING", "NO_LEAD", "NEEDS_CONTEXT")

@@ -105,27 +105,41 @@ def _first_code_source(packet, repo):
     )
 
 
-def _python_primary_packet(raw_packet):
-    """SQLite admission uses the loader's exact URL validation, before LIMIT."""
+def _primary_packet_suffix(raw_packet, suffixes):
+    """SQLite admission uses exact immutable URL validation, before LIMIT."""
     try:
         packet = json.loads(raw_packet)
         item = _first_code_source(packet, _repo(packet["repo"]))
-        return int(item is not None and item["path"].endswith(".py"))
+        return int(item is not None and item["path"].endswith(suffixes))
     except (ValueError, TypeError, KeyError, AttributeError):
         return 0
 
 
+def _python_primary_packet(raw_packet):
+    return _primary_packet_suffix(raw_packet, ".py")
+
+
+def _native_cpu_primary_packet(raw_packet):
+    return _primary_packet_suffix(raw_packet, (".go", ".rs"))
+
+
 def select_leads(
-    root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None
+    root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None,
+    native_cpu=False,
 ):
-    """Return Python-primary REVIEW leads fairly across repos; no DB/cache writes.
+    """Return primary-language REVIEW leads fairly; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
-    Other-language leads stay in the research DB for a matching native verifier.
+    native_cpu=True selects Go/Rust primary sources for OWNER REVIEW ONLY.
+    It does not load, compile, stage or execute them. Automatic Python delivery
+    stays unchanged. Both routes share the bounded, read-only selection.
     """
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
+    if type(native_cpu) is not bool:
+        raise ValueError("native_cpu must be a boolean")
+    suffixes = (".go", ".rs") if native_cpu else ".py"
     if scan_limit is not None and (
         type(scan_limit) is not int or not 1 <= scan_limit <= 10_000
     ):
@@ -141,7 +155,9 @@ def select_leads(
     try:
         connection.execute("PRAGMA query_only=ON")
         connection.create_function(
-            "scout_python_primary", 1, _python_primary_packet, deterministic=True
+            "scout_selected_primary", 1,
+            _native_cpu_primary_packet if native_cpu else _python_primary_packet,
+            deterministic=True,
         )
         delivery_db = Path(root) / "delivery" / "delivery.sqlite"
         if delivery_db.is_file():
@@ -162,7 +178,7 @@ def select_leads(
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
-            AND scout_python_primary(packet)=1
+            AND scout_selected_primary(packet)=1
             {unstaged}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
@@ -179,7 +195,7 @@ def select_leads(
                 if not isinstance(analysis, dict):
                     continue
                 primary = _first_code_source(packet, repo)
-                if primary is None or not primary["path"].endswith(".py"):
+                if primary is None or not primary["path"].endswith(suffixes):
                     continue
                 text = analysis.get("hypothesis") or analysis.get("title") or row["id"]
                 if not isinstance(text, str):
@@ -206,6 +222,8 @@ def select_leads(
                     "packet": packet,
                     "analysis": analysis,
                     "canonical_key": key,
+                    **({"verification_route": "OWNER_NATIVE_CPU_REVIEW_ONLY"}
+                       if native_cpu else {}),
                 }
             )
     finally:
