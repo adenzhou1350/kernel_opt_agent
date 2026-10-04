@@ -218,6 +218,18 @@ question, not permission to change server semantics or perform a racy client
 preflight. These selected examples are not held-out precision/recall,
 model-quality, cost-efficiency or PR-conversion measurements.
 
+The existing optional `owner-source-notes.json` also accepts a same-repository
+GitHub PR URL as its `evidence_url`, alongside commit-pinned blob/commit URLs.
+Its `source_url` must still pin a raw source file. This lets a reviewed
+duplicate-coverage explanation survive without inventing a delivery record.
+Links are advisory data, not current ownership, CI, merge or quality verdicts:
+inspect the actual PR and current source before deciding what is covered.
+The 64 KiB input, 24 recent distinct rows per repository and two same-file
+prompt hints remain bounded. Foreign/private URLs and private artifact paths
+are excluded. Advice neither replays identical source nor suppresses changed
+source. This reader change does not relax the source-pinned owner-parking
+command or restore a blocked model runtime; no conversion benefit is measured.
+
 ## JuiceFS: reusable Linux Go entrance
 
 At [JuiceFS adcca1cc](https://github.com/juicedata/juicefs/tree/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5),

@@ -23,7 +23,8 @@ SOURCE_URL = re.compile(
 )
 DEFERRAL_CAUTION = (
     "Same-file owner deferrals and rejected explanations only, not a no-bug "
-    "verdict for the current source or an exhaustive history. "
+    "verdict for the current source or an exhaustive history. PR links are "
+    "coverage hints, not current CI/review/merge state. "
     "Inspect the old hypothesis, evidence and reopening condition against the new "
     "source. New callers, contracts or distinct defects can invalidate a deferral. "
     "Never reject a lead from this memory alone; do not repeat an unsupported "
@@ -35,6 +36,13 @@ REJECTION_REOPEN = (
 )
 
 OWNER_NOTE_LIMIT_BYTES = 65536
+
+
+def advisory_evidence_match(url):
+    """Pinned source or a public PR hint; neither establishes current coverage."""
+    if not isinstance(url, str):
+        return None
+    return SOURCE_URL.fullmatch(url) or PR_URL.fullmatch(url)
 
 
 def owner_note_rows(root, repo):
@@ -75,7 +83,7 @@ def owner_note_rows(root, repo):
         reason, reopen, url = (
             note[key] for key in ("reason", "reopen_when", "evidence_url")
         )
-        match = SOURCE_URL.fullmatch(url) if isinstance(url, str) else None
+        match = advisory_evidence_match(url)
         if (
             not isinstance(title, str)
             or not 0 < len(title.strip()) <= 200
@@ -314,7 +322,7 @@ def owner_deferral_context(root, repo, sources):
             continue
         if any(contains_local_artifact_path(x) for x in (title, reason, reopen)):
             continue
-        match = SOURCE_URL.fullmatch(url) if isinstance(url, str) else None
+        match = advisory_evidence_match(url)
         if not match or match[1].casefold() != repo.casefold():
             continue
         key = (url, reason, reopen)

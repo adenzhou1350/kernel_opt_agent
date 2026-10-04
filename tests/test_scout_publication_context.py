@@ -110,6 +110,37 @@ class PublicationContextTests(unittest.TestCase):
         self.assertFalse(self.path.parent.exists())
         self.assertEqual(path.read_bytes(), before)
 
+    def test_same_repo_pr_is_advisory_evidence_not_a_quality_or_state_verdict(self):
+        url = f"https://github.com/{self.repo}/pull/123"
+        path = self.write_notes([self.note(evidence_url=url)])
+        before = path.read_bytes()
+        self.assertEqual(len(memory.owner_note_rows(self.root, self.repo)), 1)
+        hint = self.deferrals()
+        self.assertEqual(hint["items"][0]["evidence_url"], url)
+        self.assertIn("Never reject", hint["caution"])
+        self.assertIn("current CI/review/merge", hint["caution"])
+        self.assertNotIn("quality", hint["items"][0])
+        self.assertFalse(self.path.parent.exists())
+        self.assertEqual(path.read_bytes(), before)
+
+    def test_pr_advice_rejects_foreign_private_and_ambiguous_evidence_urls(self):
+        for url in (
+            "https://github.com/other/project/pull/123",
+            f"https://github.com/{self.repo}/issues/123",
+            f"https://github.com/{self.repo}/pull/0",
+            f"https://github.com/{self.repo}/pull/123/files",
+            f"https://github.com/{self.repo}/pull/123#discussion",
+            f"https://github.com/{self.repo}/pull/123?token=private",
+            "http://github.com/public/project/pull/123",
+            "https://github.com.evil.test/public/project/pull/123",
+            "D:/private/evidence.json",
+            None,
+        ):
+            with self.subTest(url=url):
+                self.write_notes([self.note(evidence_url=url)])
+                self.assertEqual(memory.owner_note_rows(self.root, self.repo), [])
+                self.assertIsNone(self.deferrals())
+
     def test_source_notes_are_optional_bounded_and_require_explicit_fields(self):
         path = self.write_notes([self.note()])
         for text in (
@@ -216,7 +247,8 @@ class PublicationContextTests(unittest.TestCase):
         producer = research.ResearchProducer(self.root, config_path, context=object())
         spec = producer.config["repos"][0]
         self.assertTrue(producer.emit("before", spec, [self.source], "source_audit"))
-        self.write_notes([self.note()] * 25)
+        note = self.note(evidence_url=f"https://github.com/{self.repo}/pull/123")
+        self.write_notes([note] * 25)
         self.assertFalse(producer.emit("same", spec, [self.source], "source_audit"))
         newer = {**self.source, "text": "1: new supported caller"}
         self.assertTrue(producer.emit("new", spec, [newer], "source_audit"))
@@ -227,6 +259,10 @@ class PublicationContextTests(unittest.TestCase):
         self.assertEqual(packet["sources"], [newer])
         self.assertEqual(
             packet["owner_deferrals"]["items"][0]["reason"], self.note()["reason"]
+        )
+        self.assertEqual(
+            packet["owner_deferrals"]["items"][0]["evidence_url"],
+            note["evidence_url"],
         )
 
     def test_deferrals_missing_or_unavailable_history_is_optional(self):
