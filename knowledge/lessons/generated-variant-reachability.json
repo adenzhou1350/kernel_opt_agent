@@ -1,0 +1,62 @@
+{
+  "id": "generated-variant-reachability",
+  "title": "Check generated variant registration and callers before reproducing a local anomaly",
+  "applies_when": "A candidate comes from a partial window of generated, shape- or dtype-specialized kernel code, especially a low-level binding, reusable helper or host wrapper with separate autotuning and execution paths.",
+  "lesson": "Trace registry and host dtype/shape dispatch before treating a physical kernel as the API contract. Follow output dtype through allocation, autotuner eligibility and launch; a downstream validator may reject a mismatch before JIT, so it is not yet memory corruption. Require an actual helper call and substitute specialized dimensions into padding/index arithmetic: bf16 keys, aligned padding and unused helpers can refute a local premise. Equal shared-memory bases may be synchronized producer/consumer views of one buffer. Trace real pointer uses and lowered offsets, not unreferenced macros. A reduction stride may depend on fixed grid, partial allocation and final fold: changing one breaks the contract. Follow scales through final store conversion, not shuffled variable names. Static checks refute only their scoped premise, not native execution.",
+  "avoid_when": "Do not exclude all generated code or assume an unregistered shape is necessarily acceptable API behavior. A shared quantization kind need not imply symmetric weight/activation storage: MXFP4/MXFP8 can use packed FP4 weights with unpacked E4M3 activations. Read the role-specific dtype/shape table and staging allocation before borrowing another role's unpacking path. Reopen with a supported logical key routed to the wrong variant, a reachable consumer of unwritten bytes, or a real helper call and compiler/runtime evidence. Static reachability and arithmetic are not native numerical correctness, performance or portability tests.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/experimental/minimax_h3_varlen_attention/cake_backend.py#L941-L965",
+      "note": "The supported MiniMax-H3 fp8pv amax stage launches 512 CTAs. Its 512-entry partial allocation and quantizer's two 256-entry reads agree with the generated chunk stride; a gridDim local unused by that loop does not establish skipped work. Static caller/consumer evidence, not a native GPU correctness claim."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/experimental/minimax_h3_varlen_attention/csrc/cake_minimax_h3_varlen_attention/cake_minimax_h3_varlen_attention_f3e0c2ed3c60f798ede5_kernel.cu#L383-L493",
+      "note": "Normalization decodes the E4M3-rounded scale; shuffled raw float scales are converted with the same E4M3 rounding opcode before packing/storing. This refutes the unrounded-scale-storage premise, not every lane layout, numerical error or consumer behavior."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1db3fe8ec169056dcd3f0c8bf92845bd76cfbd4c/flashinfer/fused_moe/cute_dsl/fused_moe.py#L552-L585",
+      "note": "The W4A4 host pipeline allocates the requested output dtype but passes a literal BF16 GEMM2 launch dtype. The tuner independently uses BF16 for eligibility; checking just one stage misses the mismatch."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/1db3fe8ec169056dcd3f0c8bf92845bd76cfbd4c/flashinfer/fused_moe/cute_dsl/blockscaled_contiguous_grouped_gemm_finalize_fusion.py#L580-L601",
+      "note": "The downstream wrapper rejects a provided output with the wrong dtype before kernel compilation. The source mismatch does not by itself establish memory corruption."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/pull/5276#issuecomment-5943304894",
+      "note": "Scoped CPU metadata regression: three FP16 checks failed while three BF16 controls passed; aligning launch and eligibility dtype passed six checks. Real Torch buffers and real can_implement checks, kernel execution mocked. Existing author already fixes execution; this contributes the remaining tuner finding, not native GPU correctness or performance."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/d849eca46875d3561fa48f6093936304580a1698/flashinfer/experimental/cake_nvfp4_per_token/cake_jit.py",
+      "note": "KERNELS maps architecture and logical dtype/shape/fold keys to physical generated modules. kernel_module_name rejects missing keys before loading a binding; the two inspected K8192 folded quantizers are bf16 keys, not shared fp16 implementations."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/d849eca46875d3561fa48f6093936304580a1698/flashinfer/experimental/cake_nvfp4_per_token/cake_backend.py",
+      "note": "prepare_nvfp4_per_token_quantize derives the logical key from the actual input dtype. padded_sf_cols and the fixed K=8192 generated quantizer explain why a scale-column padding branch can be empty without missing required columns."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/d849eca46875d3561fa48f6093936304580a1698/flashinfer/experimental/cake_nvfp4_per_token/csrc/cake_nvfp4_per_token/sm_103a/cake_nvfp4_per_token_28940348cb331972ff2b_kernel.cu",
+      "note": "The suspect mbarrier_wait_relaxed_hint appears only as a definition in this complete translation unit, not a call or address reference. This is a scoped counterexample to inferring an active wait-ordering bug from the helper window alone."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/08776e742cf9b07154b36695947a7b6e11c3c29a/flashinfer/experimental/cake_nvfp4_per_token/csrc/cake_nvfp4_per_token/sm_100a/cake_nvfp4_per_token_f0be5b3bf66e17400472_kernel.cu#L623-L691",
+      "note": "TMA writes SFB through smem_v3..v6; after tma_full, MMA reads larger smem_v7/v8 views at the same base. They coexist in one kernel; macro names are unreferenced while operands use pointers/lowered offsets. Same base is not necessarily independent-buffer overwrite. Static evidence, not native numerical or full synchronization-safety qualification."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/moe_ep/kernel_src/sm107/next_cutedsl_megamoe/shim/block_scaled.py#L44-L52",
+      "note": "The mixed mxfp4_mxfp8 kind maps activation storage to E4M3 with per-32 E8M0 scales. Its role-specific properties and workspace retain full hidden-width activations, while weight shapes use half width. This contradicts inferring packed FP4 activations from packed weights; it is not a native SM107 kernel qualification."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/moe_ep/kernel_src/sm107/next_cutedsl_megamoe/shim/kernel_helpers.py#L449-L477",
+      "note": "The activation helper converts FP8 values directly and the weight helper unpacks FP4 for the same mixed kind. This asymmetry agrees with the bound storage contract; native CPU helper checks are not a whole-package/GPU or cross-format correctness claim."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/experimental/cake_dsa_train/cake_backend.py#L442-L521",
+      "note": "The supported DSA host entry enforces head/token/key-row strides modulo eight BF16 elements and base alignment modulo 16 bytes before architecture-specific binding selection. A generated whole-byte-offset check need not duplicate this complete contract; distinguish bits-to-bytes representability from TMA alignment. This refutes an external-input bypass premise, not every directly invoked raw binding or internal backward layout."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/tests/experimental/test_cake_dsa_train.py#L2107-L2230",
+      "note": "Existing host-validator tests cover legal trainer-strided layouts and rejected unsupported strides/base alignment. These publicly reviewable controls support reading the complete caller contract before reproducing a generated binding anomaly; they do not establish full native GPU correctness."
+    }
+  ],
+  "status": "validated"
+}

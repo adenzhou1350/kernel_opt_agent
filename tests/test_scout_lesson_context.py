@@ -96,6 +96,30 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("blocked", retry["note"])
         self.assertNotIn("qualified", result)
 
+    def test_generated_variant_advice_retains_registration_and_native_limits(self):
+        result = lesson_suggestions(
+            "Check generated variant registration and callers before reproducing a local anomaly"
+        )
+        value = result["matches"][0]
+        self.assertEqual(value["id"], "generated-variant-reachability")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertIn("autotuner", value["lesson"])
+        self.assertIn("synchronized producer/consumer", value["lesson"])
+        self.assertIn("native numerical correctness", value["avoid_when"])
+        geometry = next(item for item in value["evidence"] if "#L941-L965" in item["url"])
+        self.assertIn("512 CTAs", geometry["note"])
+        self.assertIn("not a native GPU correctness claim", geometry["note"])
+        self.assertNotIn("qualified", result)
+
+    def test_default_library_cards_fit_the_existing_advisory_budget(self):
+        root = Path(__file__).resolve().parents[1] / "knowledge" / "lessons"
+        for path in root.glob("*.json"):
+            with self.subTest(card=path.name):
+                value = json.loads(path.read_text(encoding="utf-8"))
+                self.assertLessEqual(
+                    len(json.dumps(value, ensure_ascii=False).encode()), MAX_CARD_BYTES
+                )
+
     def test_large_card_is_omitted_not_silently_truncated(self):
         self.save(card("stream-pause", "native stream pause " * MAX_CARD_BYTES))
         result = lesson_suggestions("stream pause", directory=self.root)
