@@ -627,12 +627,47 @@ class SourceOnlyPublicationTests(unittest.TestCase):
                 self.write([{**self.note, **change}])
                 self.assertIsNone(self.read())
 
-    def test_malformed_oversized_and_too_many_notes_are_optional(self):
+    def test_malformed_and_oversized_notes_are_optional(self):
         for value in ("null", "{}", "invalid", "[" * 2000, " " * 65537):
             self.path.write_text(value, encoding="utf-8")
             self.assertIsNone(self.read())
+
+    def test_many_duplicates_keep_one_hint_without_discarding_history(self):
         self.write([self.note] * 25)
-        self.assertIsNone(self.read())
+        before = self.path.read_bytes()
+        self.assertEqual(
+            [item["url"] for item in self.read()["items"]], [self.note["pr_url"]]
+        )
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_other_repositories_do_not_erase_the_current_repository_hint(self):
+        others = [
+            {
+                **self.note,
+                "repo": "other/project",
+                "source_url": self.source["url"].replace(self.repo, "other/project"),
+                "pr_url": f"https://github.com/other/project/pull/{i}",
+            }
+            for i in range(1, 25)
+        ]
+        self.write([self.note, *others])
+        self.assertEqual(self.read()["items"][0]["url"], self.note["pr_url"])
+        self.assertFalse((self.root / "delivery").exists())
+
+    def test_reader_bounds_recent_distinct_valid_rows_per_repository(self):
+        notes = [
+            {**self.note, "pr_url": f"https://github.com/public/project/pull/{i}"}
+            for i in range(1, 41)
+        ]
+        self.write([*notes, {"invalid": True}, notes[-1]])
+        rows = memory.owner_publication_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 24)
+        urls = [json.loads(result)["pr"]["url"] for _, result, _ in rows]
+        self.assertEqual(
+            urls,
+            [f"https://github.com/public/project/pull/{i}" for i in range(40, 16, -1)],
+        )
+        self.assertEqual(len(self.read()["items"]), 3)
 
     def test_note_and_queue_duplicates_do_not_consume_extra_hint_slots(self):
         self.write([self.note, self.note])

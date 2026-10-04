@@ -125,7 +125,11 @@ def source_paths(sources, repo):
 
 
 def owner_publication_rows(root, repo):
-    """Read source-only owner PR links without manufacturing delivery records."""
+    """Read <=24 recent distinct links per repo from a <=64 KiB note file.
+
+    Larger histories do not erase every hint. Invalid, duplicate and other-repo
+    entries consume no returned slots; no history or delivery state is changed.
+    """
     path = Path(root).resolve() / "owner-publication-notes.json"
     try:
         if path.is_symlink() or not path.is_file():
@@ -135,11 +139,11 @@ def owner_publication_rows(root, repo):
         if len(raw) > OWNER_NOTE_LIMIT_BYTES:
             return []
         notes = json.loads(raw)
-        if not isinstance(notes, list) or len(notes) > 24:
+        if not isinstance(notes, list):
             return []
     except (OSError, ValueError, RecursionError):
         return []
-    rows = []
+    rows, seen = [], set()
     required = {"repo", "prior_hypothesis", "source_url", "pr_url"}
     for note in reversed(notes):
         if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
@@ -155,8 +159,10 @@ def owner_publication_rows(root, repo):
             or not match
             or match[1].casefold() != repo.casefold()
             or not source_paths([source], repo)
+            or url.casefold() in seen
         ):
             continue
+        seen.add(url.casefold())
         rows.append(
             (
                 title,
@@ -164,6 +170,8 @@ def owner_publication_rows(root, repo):
                 json.dumps({"packet": {"sources": [source]}}),
             )
         )
+        if len(rows) == 24:
+            break
     return rows
 
 

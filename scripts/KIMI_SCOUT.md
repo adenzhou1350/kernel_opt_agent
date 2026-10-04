@@ -461,3 +461,22 @@ Implementation references: [Kimi CLI](https://github.com/MoonshotAI/kimi-cli),
 [custom-agent/tool behavior](https://moonshotai.github.io/kimi-cli/en/customization/agents.html).
 The version-pinned backend is intentionally separate from the ordinary CLI:
 print mode auto-approves tools, which is inappropriate for an unattended scout.
+
+## Optional owner publication memory
+
+`scout_publication_context.publication_context(root, repo, sources)` reads public
+PR hints without manufacturing delivery records. A missing/corrupt history is
+optional, not a suppression or qualification decision. The owner can keep
+`<root>/owner-publication-notes.json` as a JSON list bounded to 64 KiB. Each object
+has exactly `repo`, `prior_hypothesis` (<=200 characters), `source_url` (same-repo
+raw.githubusercontent.com URL with a full commit SHA), and `pr_url` (canonical
+same-repo GitHub PR URL). Do not put private paths or status claims into hints.
+
+The reader considers newest entries first, retains at most 24 distinct valid
+links per repository, and exposes at most three advisory links with same-file
+matches first. Other repositories, duplicates and invalid entries do not consume
+returned slots; longer in-budget history does not discard every hint. Existing
+delivery links remain deduplicated with these links. Reading makes no network or
+model call, rewrites no note/job and does not increase delivery conversion counts.
+Inspect the actual PR: a shared file is not evidence that a distinct bug is fixed,
+and a recorded link does not establish current CI, review, merge or useful yield.
