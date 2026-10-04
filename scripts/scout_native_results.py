@@ -40,6 +40,10 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         raise ValueError("Go requires an exact expected package")
     issues, seen, active = [], set(), set()
     counts = {"passed": 0, "failed": 0, "skipped": 0}
+    expected_results = {
+        name: {"passed": 0, "failed": 0, "skipped": 0}
+        for name in sorted(set(expected_tests))
+    }
     batches, terminal, started = 0, None, False
     filtered = 0
     rust_running = None
@@ -84,9 +88,12 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
                 else:
                     if name not in active:
                         issue("test terminal without start")
-                    else:
-                        active.remove(name)
-                    counts[{"pass": "passed", "fail": "failed", "skip": "skipped"}[action]] += 1
+                        continue
+                    active.remove(name)
+                    outcome = {"pass": "passed", "fail": "failed", "skip": "skipped"}[action]
+                    counts[outcome] += 1
+                    if name in expected_results:
+                        expected_results[name][outcome] += 1
                     if action != "skip":
                         seen.add(name)
             elif action in {"pass", "fail", "skip"} and not name:
@@ -121,6 +128,10 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
                     counts[key] += count
                 filtered += int(summary[6])
                 seen.update(name for name, status in rust_cases.items() if status != "ignored")
+                for name, result in rust_cases.items():
+                    if name in expected_results:
+                        outcome = {"ok": "passed", "FAILED": "failed", "ignored": "skipped"}[result]
+                        expected_results[name][outcome] += 1
                 batches += 1
                 rust_running, rust_cases = None, {}
                 terminal = "fail" if failed or terminal == "fail" else "pass"
@@ -134,6 +145,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         issue("no non-skipped tests executed")
     if bool(exit_code) != (terminal == "fail"):
         issue("process exit and test terminal disagree")
+    if format == "go-json" and counts["failed"] and terminal == "pass":
+        issue("package passed despite reported test failures")
     status = "INCONCLUSIVE" if issues else ("TESTS_FAILED" if counts["failed"] else "TESTS_PASSED")
     if not issues and terminal != "pass" and status == "TESTS_PASSED":
         status = "INCONCLUSIVE"
@@ -142,6 +155,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
             "package": package if format == "go-json" else None,
             **counts, "executed": executed, "batches": batches,
             "filtered": filtered if format == "rust-libtest" else None,
+            "expected_test_results": expected_results,
             "missing_expected_tests": missing, "issues": issues,
             "log_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             "boundary": "Observed log accounting only; not authenticity, test quality, "

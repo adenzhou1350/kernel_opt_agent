@@ -56,6 +56,30 @@ class NativeResultsTests(unittest.TestCase):
         text = go_log([event("run", "TestSync"), *go_test("TestSync/a"), event("pass", "TestSync")], go_test())
         self.assertEqual(self.go(text)["passed"], 3)
 
+    def test_expected_details_do_not_count_parent_or_unrequested_tests(self):
+        text = go_log([event("run", "TestSync"), *go_test("TestSync/a"),
+                       *go_test("TestSync/b", terminal="skip"), event("pass", "TestSync")],
+                      go_test("TestSync/a"), go_test("TestOther"))
+        value = self.go(text, expected_tests=("TestSync/a", "TestSync/b", "TestMissing"))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual(value["passed"], 4)
+        self.assertEqual(value["expected_test_results"], {
+            "TestSync/a": {"passed": 2, "failed": 0, "skipped": 0},
+            "TestSync/b": {"passed": 0, "failed": 0, "skipped": 1},
+            "TestMissing": {"passed": 0, "failed": 0, "skipped": 0},
+        })
+
+    def test_go_failed_case_in_passing_package_is_contradictory(self):
+        value = self.go(go_log(go_test(terminal="fail")))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertIn("package passed despite reported test failures", value["issues"])
+        self.assertEqual(value["expected_test_results"]["TestSync"]["failed"], 1)
+
+    def test_go_unstarted_terminal_does_not_inflate_expected_counts(self):
+        value = self.go(go_log(go_test()) + "\n" + event("pass", "TestSync"))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual(value["expected_test_results"]["TestSync"]["passed"], 1)
+
     def test_go_paused_parallel_test(self):
         text = go_log([event("run", "TestSync"), event("pause", "TestSync"),
                        event("cont", "TestSync"), event("pass", "TestSync")])
@@ -109,6 +133,16 @@ class NativeResultsTests(unittest.TestCase):
         text = rust_log("test table::query ... FAILED", status="FAILED", failed=1)
         self.assertEqual(self.rust(text, 101)["status"], "TESTS_FAILED")
         self.assertEqual(self.rust(text)["status"], "INCONCLUSIVE")
+
+    def test_rust_expected_details_across_failed_and_passing_batches(self):
+        text = rust_log("test table::query ... FAILED", status="FAILED", failed=1)
+        text += "\n" + rust_log("test table::query ... ok", "test table::ignored ... ignored", ignored=1)
+        value = self.rust(text, 101, expected_tests=("table::query", "table::ignored"))
+        self.assertEqual(value["status"], "INCONCLUSIVE")  # ignored expected target
+        self.assertEqual(value["expected_test_results"], {
+            "table::query": {"passed": 1, "failed": 1, "skipped": 0},
+            "table::ignored": {"passed": 0, "failed": 0, "skipped": 1},
+        })
 
     def test_rust_zero_filtered_or_only_ignored(self):
         for text in (rust_log(), rust_log("test table::query ... ignored", ignored=1)):

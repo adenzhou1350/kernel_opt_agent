@@ -92,6 +92,13 @@ incomplete/contradictory terminals. Zero executed tests, all ignored tests, a
 different target, Go's replayed cached output, or a timeout cannot produce PASS.
 Go counts include parent tests, subtests and repeats; they are not assertion or
 independent-case counts. Rust measured/compact/custom batches are unsupported.
+`expected_test_results` also counts pass/fail/skip observations for each exact
+requested name, with zero counts for missing targets. To distinguish regression
+cases from a parent or repeated executions, request the reviewed full subtest
+names and compare their observations in matched baseline/fixed logs. A count
+is still not an assertion count or a semantic independence proof. Details from
+an INCONCLUSIVE result do not qualify execution; a reported failing Go test in
+a passing package is a contradictory terminal, not a successful reproduction.
 CLI exits are 0 for observed tests passing, 1 for observed test failures and 2
 for inconclusive input. This does not change a delivery state or PR readiness.
 
@@ -659,6 +666,17 @@ JuiceFS forwarding context to List does not fix those operations. Do not invent
 WithContext methods or return early while leaving an unowned request running.
 Choose a reviewed dependency extension or a separately tested context-aware API
 integration, preserving endpoints, credentials, metadata and error semantics.
+
+The [separately tested existing typed-API integration](https://github.com/adenzhou1350/juicefs/blob/79205416364f19a9e31bbac5c0ec7757670d7f42/pkg/object/qiniu_context_cancellation_test.go)
+uses the same pinned SDK rather than adding a dependency version. Twelve exact
+Head/Copy/Delete cancellation/deadline cases fail on unchanged production and
+pass after context forwarding; nine 200/612/403 controls pass on both versions.
+Five focused race repeats pass. The fixture also checks the actual `Qiniu`
+authorization scheme; an earlier `QBox` expectation was a fixture failure,
+not a changed authentication contract. A broad package race run exposes an
+independently reproduced existing delimiter-list race, while ordinary package
+tests pass with the disclosed baseline TestDisk2 exclusion. Do not call this
+a full race-suite, live-cloud or performance qualification.
 
 ## Backend cancellation is not pipeline cancellation
 
