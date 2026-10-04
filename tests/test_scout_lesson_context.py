@@ -125,6 +125,20 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("not a native GPU correctness claim", geometry["note"])
         self.assertNotIn("qualified", result)
 
+    def test_shared_stop_advice_keeps_synchronization_and_lifetime_limits(self):
+        result = lesson_suggestions("Go prefetch worker mutex shared error stop data race")
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "shared-stop-signal-needs-shared-synchronization")
+        self.assertLessEqual(len(json.dumps(lesson).encode()), MAX_CARD_BYTES)
+        self.assertIn("Different per-worker mutexes", lesson["lesson"])
+        self.assertIn("not joining", lesson["lesson"])
+        self.assertIn("immutable", lesson["avoid_when"])
+        self.assertIn("failing package/process", lesson["avoid_when"])
+        self.assertTrue(any("185d0df3" in e["url"] for e in lesson["evidence"]))
+        self.assertNotIn("qualified", result)
+
     def test_default_library_cards_fit_the_existing_advisory_budget(self):
         root = Path(__file__).resolve().parents[1] / "knowledge" / "lessons"
         for path in root.glob("*.json"):

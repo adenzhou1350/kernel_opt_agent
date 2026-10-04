@@ -678,6 +678,32 @@ independently reproduced existing delimiter-list race, while ordinary package
 tests pass with the disclosed baseline TestDisk2 exclusion. Do not call this
 a full race-suite, live-cloud or performance qualification.
 
+## Worker-local locks do not protect shared traversal state
+
+Trace which synchronization object orders each read and write. Several workers
+holding their own mutexes do not protect a stop/error variable written by the
+parent traversal. In the
+[JuiceFS delimiter walker](https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/pkg/object/object_storage.go#L245-L327),
+that mistaken sharing triggers the native race detector. The proposed fix keeps
+the traversal error local and uses a walk-owned atomic stop signal instead.
+
+The [matched regression](https://github.com/adenzhou1350/juicefs/blob/185d0df3c62d9a618442fe1c31e4fa010f31a4d7/pkg/object/object_storage_test.go#L1129-L1221)
+uses the actual memory backend with concurrent nested directories, complete and
+bounded output, deep starts and initial/child/grandchild failures. Unchanged
+production reproduces the race; the exact fixed head passes five focused race
+repeats and the object-package race selection with the already disclosed
+TestDisk2 exclusion and environment skips. A stop flag is not proof of joined
+workers or cancellation of an in-flight backend request.
+
+An extra matched sync selection reports five passing leaf tests but fails at
+package level with progress-bar races on both unchanged and fixed source.
+Preserve that failure: do not claim a passing package from leaf counts, fold it
+into this patch's causality, or silently change the recorded command. Isolate a
+new mechanism in a separate matched check. Neither this proposed fix nor its
+knowledge lesson qualifies full upstream CI or a performance/model-cost gain.
+The reusable synchronization lesson is separate from the existing
+helper-contract/owner-lifetime card; frozen study records are not rescored.
+
 ## Backend cancellation is not pipeline cancellation
 
 Follow the request and the outer producer separately. In
