@@ -1,0 +1,32 @@
+diff --git a/src/transformers/generation/continuous_batching/continuous_api.py b/src/transformers/generation/continuous_batching/continuous_api.py
+index b9561b7..b16e434 100644
+--- a/src/transformers/generation/continuous_batching/continuous_api.py
++++ b/src/transformers/generation/continuous_batching/continuous_api.py
+@@ -108,22 +108,21 @@ class OutputRouter:
+             self.output_queue.put(output)
+ 
+     def deliver_batch(self, outputs: list[GenerationOutput]) -> None:
+-        """Route a batch of outputs, using a single ``call_soon_threadsafe`` to minimize cross-thread overhead.
++        """Route a batch of outputs, using one ``call_soon_threadsafe`` per registered event loop.
+ 
+         Outputs without a registered handler fall back to the shared ``output_queue``.
+         """
+-        callbacks: list[tuple[Callable, GenerationOutput]] = []
+-        loop = None
++        callbacks: dict[asyncio.AbstractEventLoop, list[tuple[Callable, GenerationOutput]]] = {}
+         with self._lock:
+             for output in outputs:
+                 entry = self.result_handlers.get(output.request_id)
+                 if entry is not None:
+                     callback, loop = entry
+-                    callbacks.append((callback, output))
++                    callbacks.setdefault(loop, []).append((callback, output))
+                 else:
+                     self.output_queue.put(output)
+-        if callbacks and loop is not None:
++        for loop, batch in callbacks.items():
+ 
+-            def _run_batch(batch=callbacks):
++            def _run_batch(batch=batch):
+                 for cb, out in batch:
+                     cb(out)

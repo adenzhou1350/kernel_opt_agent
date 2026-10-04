@@ -811,3 +811,22 @@ do not qualify live Cloud or rebuilt Python/Node bindings, add view-type server
 support, or prove performance. A serializer limitation, server error mapping,
 and binding exception translation are separate contracts. Inspect prior work
 for each before opening another fix.
+
+## Preserve callback ownership when batching
+
+The next useful evidence can be a public registration path, not another GPU run.
+[Transformers' pinned router](https://github.com/huggingface/transformers/blob/469230357aab0f2b303b0d638c1f8d06edb14184/src/transformers/generation/continuous_batching/continuous_api.py#L87-L131)
+stores a loop per handler but batch delivery schedules every callback on the last
+loop. The [native CPU example](../examples/scout-native-transformers/README.md)
+initializes a real tiny model/manager and registers on two actual debug-mode loops.
+Reversed-order paired tests fail unchanged and pass when callbacks are grouped by
+owner loop; single-output, one-loop streaming, cleanup and queue fallback remain
+controls. This establishes a routing component failure, not generated-token
+correctness, production prevalence or performance. The target's autonomous-agent
+publication restriction remains a separate stop, even after a reproduced fix.
+
+The scoped `batch-by-executor-affinity` lesson is optional searchable advice.
+Source review should still establish whether the next router permits several
+loops; a single-loop enforcement or explicit proxy can make the analogy invalid.
+These retrospective cases do not rescore the frozen prospective study or establish
+better PR conversion, model cost or a publishable research result.

@@ -1,0 +1,18 @@
+{
+  "id": "batch-by-executor-affinity",
+  "title": "Batch callbacks by their registered event loop, not the last owner",
+  "applies_when": "An asynchronous request router captures a callback and event loop at registration, then batches outputs from several requests to reduce cross-thread scheduling overhead.",
+  "lesson": "Trace registration and delivery together: a batch optimization must retain each callback's owner loop. Group callbacks by registered loop, preserve order within each group, and bind each scheduled closure to its own group. Verify with two real debug-mode asyncio loops in separate threads, public registration, reversed output orders and an actual loop-owned Future; a single mock loop cannot expose misrouting. Keep individual delivery, one-loop batching, streaming cleanup and queue fallback as controls. Drain scheduled wrappers before asserting cleanup state.",
+  "avoid_when": "The public API enforces one loop or delegates cross-loop delivery through an explicit safe proxy. Per-loop grouping does not guarantee cross-loop ordering, closed-loop recovery or exception isolation. An injected output batch tests routing, not model generation or production prevalence. CPU routing checks are not CUDA, throughput, full-CI or publication qualification; obey the target repository's contributor rules separately.",
+  "evidence": [
+    {
+      "url": "https://github.com/huggingface/transformers/blob/469230357aab0f2b303b0d638c1f8d06edb14184/src/transformers/generation/continuous_batching/continuous_api.py#L87-L131",
+      "note": "The single-output route keeps each entry's loop; the batch route overwrites loop and sends the entire callback list to the final owner. Public register_result_handler captures asyncio.get_running_loop independently for each request. Native CPU paired routing reproduction is supplied in examples/scout-native-transformers, not a whole-model performance claim."
+    },
+    {
+      "url": "https://docs.python.org/3/library/asyncio-dev.html#concurrency-and-multithreading",
+      "note": "Official asyncio documentation describes thread-owned event loops, non-thread-safe objects, cross-thread scheduling through the correct loop and debug-mode checks. Mechanism evidence, not a target-framework deployment result."
+    }
+  ],
+  "status": "validated"
+}
