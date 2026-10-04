@@ -647,3 +647,26 @@ is not complete upstream CI, live-GCS validation or measured throughput. The
 existing owner-lifetime lesson incorporates the abort/commit distinction; no
 new card or mandatory workflow is needed, and automatic Scout conversion or
 model-cost benefit remains unmeasured.
+
+The submitted [GCS PR #7617](https://github.com/juicedata/juicefs/pull/7617)
+and [Qiniu List PR #7618](https://github.com/juicedata/juicefs/pull/7618)
+are public reproductions, not merge or CI guarantees. The latter distinguishes
+caller-context forwarding from outer retry lifetime; neither fixes every
+operation of its backend.
+
+## Reject unsupported wire types through the real native API
+
+An Arrow type being valid in memory does not mean a remote wire serializer can
+represent it. Call the actual public operation with supported and unsupported
+types before changing the protocol or rebuilding every language binding.
+[LanceDB PR #4430](https://github.com/lancedb/lancedb/pull/4430) exercises
+`alter_columns` with Utf8View, BinaryView and a nested view: all three panic on
+unchanged production, while the scoped fix returns `InvalidInput` before any
+HTTP request. Existing supported-type payload tests stay passing.
+
+The Rust remote-table selection has 269 passing tests, with locked offline
+dependencies, Clippy and formatting checks. These native API/HTTP-mock results
+do not qualify live Cloud or rebuilt Python/Node bindings, add view-type server
+support, or prove performance. A serializer limitation, server error mapping,
+and binding exception translation are separate contracts. Inspect prior work
+for each before opening another fix.
