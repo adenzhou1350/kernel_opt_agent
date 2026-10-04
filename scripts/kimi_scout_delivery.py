@@ -127,8 +127,15 @@ def initialize(root):
         )
 
 
-def stage(root, leads, limit=32):
-    """Bounded admission with exact-key dedup, not a semantic uniqueness claim."""
+def stage(root, leads, limit=32, *, owner_review=False):
+    """Admit unseen leads; explicit owner intake never schedules model work.
+
+    Owner review is an unverified handoff, not a reproduction or rejection.
+    Existing rows and evidence are unchanged on duplicate admission.
+    """
+    if type(owner_review) is not bool:
+        raise ValueError("owner_review must be a boolean")
+    state = OWNER_STATE if owner_review else "PENDING"
     made = 0
     with database(root) as db:
         for lead in leads:
@@ -139,13 +146,14 @@ def stage(root, leads, limit=32):
             cursor = db.execute(
                 "INSERT OR IGNORE INTO delivery "
                 "(id,source_job_id,dedup_key,repo,title,state,updated_at,payload) "
-                "VALUES(?,?,?,?,?,'PENDING',?,?)",
+                "VALUES(?,?,?,?,?,?,?,?)",
                 (
                     job_id,
                     lead["id"],
                     key,
                     lead["repo"],
                     lead["analysis"].get("title", ""),
+                    state,
                     time.time(),
                     scout.dumps(lead),
                 ),

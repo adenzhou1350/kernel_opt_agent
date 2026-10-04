@@ -844,3 +844,33 @@ An unrelated official-suite import failure remains NOT_RUN, not an excuse to
 call a narrower component check full CI. The existing helper-contract lesson
 already covers this decision; no duplicate knowledge card or mandatory gate is
 needed. This post-outcome NO_LEAD audit does not prove zero misses or model value.
+
+## Record source review without a redundant model call
+
+For a bounded set of already inspected `select_leads` results, the existing Python
+API supports `stage(delivery_root, leads, owner_review=True)`. New rows go directly
+to `OWNER_REVIEW_REQUIRED`; automatic `claim()` cannot execute them. This is an
+unverified handoff with empty results and zero reported model tokens, not a test
+pass, human signoff or rejection. Existing rows, observations and dispositions
+are never overwritten by repeated intake. Record the source-review decision in
+the existing owner workflow; the selector then excludes the admitted source IDs.
+The normal default still schedules unseen leads for model work. Exact-key/source
+deduplication does not prove semantic uniqueness or measured conversion savings.
+
+Two concrete omitted-context controls illustrate when this helps:
+
+- [SGLang's root initialization](https://github.com/sgl-project/sglang/blob/50be533d09bde329bface6f1ac0631af93b528bf/python/sglang/srt/mem_cache/radix_cache.py#L333)
+  sets root lock_ref to one, and reference updates stop before the root. A proposed
+  root-eviction failure that assumes zero misses this owner invariant.
+- [TensorRT-LLM's constructor](https://github.com/NVIDIA/TensorRT-LLM/blob/80f1809362f1a1e5d5eafc5ac0e744b98e13f271/tensorrt_llm/_torch/pyexecutor/scheduler/scheduler_v2.py#L216)
+  sets max_context_length from max_num_tokens; the scheduling loop creates a new
+  BudgetTracker each iteration. Repeating a helper with a fixed depleted budget
+  does not reproduce permanent total-budget starvation. This does not resolve
+  the separate unit-rounded-block extent problem: an upstream test that asserts
+  one SKIP is not proof of eventual progress. Keep that native-caller question
+  inconclusive instead of treating all deferral as either a bug or a no-bug result.
+
+These are revision-bound source controls, not full runtime qualification. The
+existing helper-contract lesson applies; no duplicate card or required phase is
+needed. Use `tests/test_scout_owner_intake.py` for native offline queue/claim,
+duplicate-preservation and selector integration checks.
