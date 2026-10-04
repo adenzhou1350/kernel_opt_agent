@@ -122,6 +122,13 @@ timeouts and a pipe-holding descendant; Windows controls prove no child is start
 These are runner/reuse checks, not a new repository correctness result, autonomous
 Scout execution, model-cost improvement or PR-conversion measurement.
 
+For a native SDK pagination control, see
+[`examples/scout-native-juicefs`](../examples/scout-native-juicefs/README.md).
+It independently reproduces the existing JuiceFS #7578 fix with the real GCS
+iterator. Small HTTP pages were an invalid first prototype because the SDK
+aggregates them inside one `List` call; use full requested pages to reach the
+outer retry boundary. The failed prototype remains private negative evidence.
+
 The implementation was checked against saved native JuiceFS output (52 passing
 terminal test events) and LanceDB output (266 passes, 1232 filtered). Two fresh
 native commands deliberately matching no test both returned process exit zero;
