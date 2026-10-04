@@ -1,0 +1,26 @@
+{
+  "id": "transport-error-is-not-domain-error",
+  "title": "Do not infer domain exception classes from a transport status alone",
+  "applies_when": "Aligning local and remote SDK exception behavior or converting structured HTTP errors across Rust and Python/Node bindings.",
+  "lesson": "Trace the server envelope, transport variant and language bridge separately. Test two different domain failures sharing a status/code, malformed bodies and non-target statuses. Preserve request ID, status, cause and body when changing classification. HTTP 400 or an application code is not a domain enum unless its documented contract distinguishes the relevant failures; blanket ValueError inheritance or message substring matching can misclassify conflicts and hide diagnostics.",
+  "avoid_when": "A versioned server contract may provide an unambiguous typed discriminator; test and use that instead. Synthetic native HTTP mocks establish client behavior, not live-server semantics or cross-language runtime qualification. A confirmed parity gap can remain real even when a proposed broad repair is unsafe. Team-input issues need a contract decision, not automatic rejection or a competing speculative PR.",
+  "evidence": [
+    {
+      "url": "https://github.com/lancedb/lancedb/issues/4394",
+      "note": "Reported local invalid-input ValueError and tag-conflict RuntimeError both arrive remotely as HttpError with HTTP400/code13. This is an issue report asking for team input, not our live Cloud measurement."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/7f5933594f42eeeec1ce73a7ce8e0cd0113cbd82/rust/lancedb/src/remote/client.rs",
+      "note": "check_response retains unsuccessful response text, request ID and status in Error::Http. The accompanying repository example exercises this unchanged native client with four synthetic diagnostic cases, not a repaired server."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/7f5933594f42eeeec1ce73a7ce8e0cd0113cbd82/python/src/error.rs",
+      "note": "The bridge maps Http to HttpError and InvalidInput to ValueError. Native Rust mock results do not qualify a rebuilt PyO3 package."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/7f5933594f42eeeec1ce73a7ce8e0cd0113cbd82/rust/lancedb/src/error.rs",
+      "note": "InvalidInput carries only message, unlike Http's request_id/status/source; a direct variant swap would lose diagnostics unless the contract is redesigned."
+    }
+  ],
+  "status": "counterexample"
+}
