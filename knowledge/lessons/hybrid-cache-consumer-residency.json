@@ -1,0 +1,18 @@
+{
+  "id": "hybrid-cache-consumer-residency",
+  "title": "Hybrid cache offload follows consumer synchronization, not inheritance symmetry",
+  "applies_when": "A cache combines KV attention with convolution or recurrent states and a proposed offload/prefetch repair calls every parent method, especially dynamic/static sliding-window subclasses.",
+  "lesson": "Trace each state's consumer and its stream-wait protocol separately. A KV prefetch wait does not make a linear-state consumer offload-aware. In the cited hybrid cache fix, only KV moves to CPU and back; conv/recurrent states stay on GPU. Explicitly dispatch the KV parent for sliding classes and exclude all hybrid variants from linear-only cache classification. Check actual state devices and unchanged values across a real offload/prefetch round trip, with matched parent/fix sources and full/sliding, dynamic/static coverage. Similar method names or symmetric parent calls are not sufficient evidence.",
+  "avoid_when": "A different cache may synchronize every consumer or intentionally support linear-state offload. This does not prohibit that design. The tiny synchronized round-trip check does not prove asynchronous race freedom, model generation correctness, transfer overlap, throughput, or all cache implementations. An existing author's closed PR is still prior work; coordinate rather than claiming its repair as a new discovery.",
+  "evidence": [
+    {
+      "url": "https://github.com/huggingface/transformers/commit/de3cc934ce5e203822c27aee2e2bbbca522f5ea9",
+      "note": "Author-owned GH-48947 fix changes KV dispatch/resident linear states and classification for four hybrid cache classes. Independent tiny real-CUDA check on the direct parent fails all four class contracts; this fix passes all four with exact KV/linear values. This is component evidence, not model, timing or upstream acceptance."
+    },
+    {
+      "url": "https://github.com/huggingface/transformers/pull/48971",
+      "note": "The repair is prior work in a larger PR. Its other changes and publication status are not qualified by the independent cache check."
+    }
+  ],
+  "status": "counterexample"
+}

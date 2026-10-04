@@ -47,3 +47,32 @@ This finding does not authorize publication. Transformers' pinned
 asks autonomous agents not to open PRs/issues and requires coordination and human
 review. Keep the patch as independent evidence unless those requirements are
 actually satisfied; a confirmed component bug is not a Ready-PR decision.
+
+## Hybrid KV/linear state residency (real CUDA)
+
+`check_hybrid_cache_offload.py` is an independent tiny component check, not a
+replacement patch. Select an authorized, sufficiently free GPU externally and
+use an existing compatible Torch/Transformers dependency environment:
+
+```sh
+python check_hybrid_cache_offload.py --source /path/to/clean/transformers --device cuda:0
+```
+
+Run in separate fresh processes on the direct parent
+`a9e93f404aceca1c9a011afd72f12e2e11ad4af1` and the original author's fix
+[`de3cc934ce5e203822c27aee2e2bbbca522f5ea9`](https://github.com/huggingface/transformers/commit/de3cc934ce5e203822c27aee2e2bbbca522f5ea9).
+No weights, model download, dependency installation, mocks or source edits are
+used. The source argument must precede imports; the actual imported module and
+hash are checked/reported. On native Windows/Torch 2.11.0+cu128/RTX4060 Laptop,
+all four parent class contracts fail and all four repaired contracts pass;
+peak Torch allocation is 8,704 bytes. The sanitized script exits 1/0 respectively.
+
+The original repair dispatches **only KV** offload/prefetch and leaves small
+conv/recurrent states resident: their consumers do not share the KV prefetch-wait
+protocol. Calling both parents is not a correct symmetric substitute. Static and
+sliding hybrids also need correct non-linear-only classification. Device and
+exact-value checks after synchronization establish the round-trip contract, not
+asynchronous race freedom, generation, performance, every device or full CI.
+This existing author's repair in [PR48971](https://github.com/huggingface/transformers/pull/48971)
+must not be republished as a competing original fix. Upstream contribution and
+coordination requirements still apply.
