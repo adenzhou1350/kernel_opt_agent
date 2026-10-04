@@ -455,3 +455,36 @@ match set, and concatenated one-key pages. Fixing the first page with `>=`
 everywhere would instead duplicate explicit marker keys. Native SQLite and
 memory regression/race checks do not qualify live MySQL/PostgreSQL or prove a
 model-efficiency gain.
+
+## Native row-ID reads: membership is not occurrence-preserving take
+
+The proposed direct-read route in [LanceDB #4429](https://github.com/lancedb/lancedb/issues/4429)
+needs a compatibility check before performance work. At
+[LanceDB 0be3ae96](https://github.com/lancedb/lancedb/tree/0be3ae960eb39b43faad5685cd381c5126a305c5),
+a native stable-ID fixture requests `[5, 1, 5]`: public `Table::take_row_ids`
+returns membership `[1, 5]`, while underlying `Dataset::take_rows` retains
+occurrences `[5, 1, 5]`. Ordering is not promised by the public API; losing or
+adding occurrences is a separate question. Empty requests, unsorted IDs, misses,
+deletes and checked-out historical versions are independent controls.
+
+The small [native probe](../examples/scout-native-lancedb/take-row-id-contract.patch)
+adds one Rust test with six explicit cases and a non-executing plan explanation
+to that exact upstream checkout. It changes no production implementation.
+Apply only to a separate clean checkout at the pinned commit, then use its
+declared toolchain/dependencies:
+
+```sh
+git apply /path/to/kernel_opt_agent/examples/scout-native-lancedb/take-row-id-contract.patch
+cargo fmt --all
+cargo test --profile ci --locked -p lancedb --no-default-features --features remote \
+  --lib test_probe_native_take_row_id_contract -- --nocapture
+```
+
+Keep the actual query's projection, snapshot and logical read routing in any
+eligible fast path. In this pin, [native query planning](https://github.com/lancedb/lancedb/blob/0be3ae960eb39b43faad5685cd381c5126a305c5/rust/lancedb/src/table/query.rs#L170-L191)
+can include un-compacted MemWAL data; a base-dataset shortcut needs an explicit
+compatible route or fallback. That is source evidence, not an executed MemWAL
+test. The probe uses different projections for the two readers and the `ci`
+profile is unoptimized: neither its runtime nor the older downstream benchmark
+qualifies a current-main performance gain. Compaction, metadata projections,
+legacy IDs, remote execution and additional builder features remain untested.

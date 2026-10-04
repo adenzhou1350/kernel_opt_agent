@@ -1,0 +1,109 @@
+diff --git a/rust/lancedb/src/query.rs b/rust/lancedb/src/query.rs
+index c8b19f0..9d6fca4 100644
+--- a/rust/lancedb/src/query.rs
++++ b/rust/lancedb/src/query.rs
+@@ -3819,2 +3819,104 @@ mod tests {
+     }
++
++    // Investigation only: this is not an implementation of issue #4429.
++    #[tokio::test]
++    async fn test_probe_native_take_row_id_contract() {
++        fn values(batches: &[RecordBatch]) -> Vec<i32> {
++            batches
++                .iter()
++                .flat_map(|batch| batch["id"].as_primitive::<Int32Type>().values().to_vec())
++                .collect()
++        }
++
++        let tmp_dir = tempdir().unwrap();
++        let conn = connect(tmp_dir.path().to_str().unwrap())
++            .execute()
++            .await
++            .unwrap();
++        let table = conn
++            .create_table("stable", make_non_empty_batches())
++            .write_options(crate::table::WriteOptions {
++                lance_write_params: Some(lance::dataset::WriteParams {
++                    enable_stable_row_ids: true,
++                    ..Default::default()
++                }),
++            })
++            .execute()
++            .await
++            .unwrap();
++        let original_version = table.version().await.unwrap();
++        for (name, requested, expected, direct_expected) in [
++            ("empty", vec![], vec![], vec![]),
++            ("unsorted", vec![5, 1, 17], vec![1, 5, 17], vec![5, 1, 17]),
++            ("duplicate", vec![5, 1, 5], vec![1, 5], vec![5, 1, 5]),
++            ("unknown", vec![5, 10000, 1], vec![1, 5], vec![5, 1]),
++        ] {
++            let public = table
++                .take_row_ids(requested.clone())
++                .select(Select::columns(&["id"]))
++                .execute()
++                .await
++                .unwrap()
++                .try_collect::<Vec<_>>()
++                .await
++                .unwrap();
++            let dataset = table.dataset().unwrap().get().await.unwrap();
++            let direct = dataset
++                .take_rows(&requested, dataset.schema().clone())
++                .await;
++            let public = values(&public);
++            let mut sorted = public.clone();
++            sorted.sort();
++            assert_eq!(sorted, expected, "{name}");
++            let direct = values(&[direct.expect("direct lookup should succeed")]);
++            println!(
++                "TAKE_PROBE {name}: requested={requested:?} public={public:?} direct={direct:?}"
++            );
++            assert_eq!(direct, direct_expected, "{name}");
++        }
++
++        println!(
++            "TAKE_PLAN {}",
++            table
++                .take_row_ids(vec![5, 1, 5])
++                .select(Select::columns(&["id"]))
++                .explain_plan(false)
++                .await
++                .unwrap()
++        );
++
++        table.delete("id = 5").await.unwrap();
++        for (name, expected, direct_expected) in [
++            ("deleted", vec![1], vec![1]),
++            ("historical", vec![1, 5], vec![5, 1, 5]),
++        ] {
++            if name == "historical" {
++                table.checkout(original_version).await.unwrap();
++            }
++            let requested = vec![5, 1, 5];
++            let public = table
++                .take_row_ids(requested.clone())
++                .select(Select::columns(&["id"]))
++                .execute()
++                .await
++                .unwrap()
++                .try_collect::<Vec<_>>()
++                .await
++                .unwrap();
++            let dataset = table.dataset().unwrap().get().await.unwrap();
++            let direct = dataset
++                .take_rows(&requested, dataset.schema().clone())
++                .await
++                .expect("direct lookup should succeed");
++            let direct = values(&[direct]);
++            let public = values(&public);
++            let mut sorted = public.clone();
++            sorted.sort();
++            assert_eq!(sorted, expected, "{name}");
++            assert_eq!(direct, direct_expected, "{name}");
++            println!(
++                "TAKE_PROBE {name}: requested={requested:?} public={public:?} direct={direct:?}"
++            );
++        }
++    }
+ }
