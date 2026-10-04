@@ -23,6 +23,13 @@ CODE_SUFFIXES = (
     ".cpp", ".cxx", ".h", ".hpp", ".hxx", ".ts", ".tsx", ".js", ".jsx",
     ".mjs", ".cjs",
 )
+OWNER_LANGUAGE_SUFFIXES = {
+    "python": (".py",),
+    "go": (".go",),
+    "rust": (".rs",),
+    "typescript": (".ts", ".tsx"),
+    "javascript": (".js", ".jsx", ".mjs", ".cjs"),
+}
 # Explicit Python 3.10 top-level stdlib names, not the controller interpreter's
 # sys.stdlib_module_names (which would admit newer modules such as tomllib).
 # Platform-specific modules and newer APIs within these modules still need the
@@ -125,13 +132,15 @@ def _native_cpu_primary_packet(raw_packet):
 
 def select_leads(
     root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None,
-    native_cpu=False,
+    native_cpu=False, owner_language=None,
 ):
     """Return primary-language REVIEW leads fairly; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
     native_cpu=True selects Go/Rust primary sources for OWNER REVIEW ONLY.
+    owner_language selects one supported language for OWNER REVIEW ONLY,
+    including TypeScript/JavaScript. It cannot be combined with native_cpu.
     It does not load, compile, stage or execute them. Automatic Python delivery
     stays unchanged. Both routes share the bounded, read-only selection.
     """
@@ -139,7 +148,18 @@ def select_leads(
         raise ValueError("limit must be an integer between 0 and 10000")
     if type(native_cpu) is not bool:
         raise ValueError("native_cpu must be a boolean")
-    suffixes = (".go", ".rs") if native_cpu else ".py"
+    if owner_language is not None and (
+        not isinstance(owner_language, str)
+        or owner_language not in OWNER_LANGUAGE_SUFFIXES
+        or native_cpu
+    ):
+        raise ValueError("owner_language must name a supported language without native_cpu")
+    owner_only = native_cpu or owner_language is not None
+    suffixes = (
+        OWNER_LANGUAGE_SUFFIXES[owner_language]
+        if owner_language is not None
+        else (".go", ".rs") if native_cpu else (".py",)
+    )
     if scan_limit is not None and (
         type(scan_limit) is not int or not 1 <= scan_limit <= 10_000
     ):
@@ -156,7 +176,7 @@ def select_leads(
         connection.execute("PRAGMA query_only=ON")
         connection.create_function(
             "scout_selected_primary", 1,
-            _native_cpu_primary_packet if native_cpu else _python_primary_packet,
+            lambda packet: _primary_packet_suffix(packet, suffixes),
             deterministic=True,
         )
         delivery_db = Path(root) / "delivery" / "delivery.sqlite"
@@ -223,7 +243,7 @@ def select_leads(
                     "analysis": analysis,
                     "canonical_key": key,
                     **({"verification_route": "OWNER_NATIVE_CPU_REVIEW_ONLY"}
-                       if native_cpu else {}),
+                       if owner_only else {}),
                 }
             )
     finally:

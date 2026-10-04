@@ -100,6 +100,31 @@ class OwnerIntakeTests(unittest.TestCase):
             self.assertTrue(all(future.result() is None for future in futures[1:]))
         self.assertEqual({row["state"] for row in self.rows()}, {delivery.OWNER_STATE})
 
+    def test_native_language_intake_cannot_enter_automatic_python_queue(self):
+        with closing(sqlite3.connect(self.root / "scout.sqlite")) as db:
+            value = dict(self.leads[0]["packet"])
+            value["sources"] = [{
+                "url": "https://raw.githubusercontent.com/owner/project/"
+                + "a" * 40 + "/src/check.ts",
+            }]
+            db.execute("INSERT INTO jobs VALUES (?,?,?,?,?)", (
+                "typescript", "REVIEW", json.dumps(value),
+                json.dumps({"analysis": {"title": "ts", "hypothesis": "ts"}}), 9,
+            ))
+            db.commit()
+        native = select_leads(self.root, owner_language="typescript", scan_limit=1)
+        self.assertEqual([row["id"] for row in native], ["typescript"])
+        # Rejection rolls back the earlier Python insertion in the same batch.
+        with self.assertRaisesRegex(ValueError, "owner_review=True"):
+            delivery.stage(self.queue, [self.leads[0], *native])
+        self.assertEqual(self.rows(), [])
+        self.assertEqual(delivery.stage(self.queue, native, owner_review=True), 1)
+        row = self.rows()[0]
+        self.assertEqual(row["state"], delivery.OWNER_STATE)
+        self.assertEqual(json.loads(row["payload"]), native[0])
+        self.assertIsNone(delivery.claim(self.queue))
+        self.assertEqual(select_leads(self.root, owner_language="typescript"), [])
+
     def test_limit_and_invalid_mode_are_not_implicit_truthiness(self):
         for mode in (1, "false", None):
             with self.assertRaisesRegex(ValueError, "boolean"):

@@ -85,6 +85,39 @@ class SelectionTests(unittest.TestCase):
         selected = delivery.select_leads(self.root, 1, scan_limit=1, native_cpu=True)
         self.assertEqual([row["id"] for row in selected], ["native"])
 
+    def test_owner_languages_preserve_primary_source_before_scan_limit(self):
+        for index, (language, suffixes) in enumerate(delivery.OWNER_LANGUAGE_SUFFIXES.items()):
+            for suffix in suffixes:
+                self.add(suffix, packet(sources=[
+                    {"url": RAW.replace(".py", suffix)}, {"url": RAW},
+                ]), finished=100 + index, hypothesis=suffix)
+        self.add("mutable", packet(sources=[{
+            "url": RAW.replace(COMMIT, "main").replace(".py", ".ts"),
+        }]), finished=1000)
+        before = (self.root / "scout.sqlite").read_bytes()
+        for language, suffixes in delivery.OWNER_LANGUAGE_SUFFIXES.items():
+            with self.subTest(language=language):
+                selected = delivery.select_leads(
+                    self.root, owner_language=language, scan_limit=len(suffixes),
+                )
+                self.assertEqual({row["id"] for row in selected}, set(suffixes))
+                self.assertEqual({row["verification_route"] for row in selected},
+                                 {"OWNER_NATIVE_CPU_REVIEW_ONLY"})
+                if language != "python":
+                    for row in selected:
+                        with self.assertRaises(delivery.UnsupportedEnvironment):
+                            delivery.load_source(row, root=self.root)
+        self.assertEqual((self.root / "scout.sqlite").read_bytes(), before)
+        self.assertFalse((self.root / "delivery").exists())
+        self.assertEqual([row["id"] for row in delivery.select_leads(self.root)], [".py"])
+
+    def test_owner_language_rejects_invalid_or_ambiguous_modes_before_io(self):
+        for value in (True, 1, [], {}, "", "TypeScript", "cuda", "../../typescript"):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                delivery.select_leads(self.root, owner_language=value)
+        with self.assertRaises(ValueError):
+            delivery.select_leads(self.root, native_cpu=True, owner_language="rust")
+
     def test_native_review_retains_fairness_dedup_and_parent_exclusion(self):
         def native(repo=REPO, parent=None):
             return packet(repo=repo, parent=parent, sources=[

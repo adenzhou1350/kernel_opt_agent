@@ -2,6 +2,19 @@
 
 ## Bounded Go/Rust owner-review selection
 
+For another supported language, pass `owner_language="typescript"` (including
+`.tsx`) or `owner_language="javascript"` (including `.jsx`, `.mjs`, `.cjs`).
+Explicit `python`, `go`, and `rust` selections are also available. This mode is
+owner-review-only, cannot be combined with `native_cpu=True`, and does not
+change the automatic Python selector. It validates the immutable primary URL
+before applying `scan_limit`, not a companion test's language. Match the actual
+upstream toolchain and caller before running reviewed native tests.
+
+Stage these leads only with `stage(delivery_root, leads, owner_review=True)`.
+Automatic admission rejects the owner-only route and rolls back its batch;
+workers cannot claim `OWNER_REVIEW_REQUIRED` rows. This is source admission,
+not a native executor or evidence that a lead is correct.
+
 The ordinary delivery worker still selects Python primary sources. For explicit
 native CPU review, use the same read-only selector without staging a Python
 proposal or pretending another-language source has been reproduced:
