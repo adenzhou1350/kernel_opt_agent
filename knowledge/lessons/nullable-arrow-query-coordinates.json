@@ -1,0 +1,18 @@
+{
+  "id": "nullable-arrow-query-coordinates",
+  "title": "Validate logical Arrow coordinates before serializing physical values",
+  "applies_when": "A public numeric query is serialized from an Arrow array whose coordinates must all be present, but implementation code iterates raw value buffers.",
+  "lesson": "Arrow validity is separate from physical values. Trace the real public query through serialization, vary finite bytes beneath the same null slot, and retain all-valid and sliced-null-outside controls. Reject a required coordinate's null before reading its physical value; this is distinct from non-finite-number validation. Identical logical data must not produce different requests solely because hidden null-slot bytes differ.",
+  "avoid_when": "Do not reject every explicit validity bitmap: an all-valid array may have one, and a null outside the logical slice is irrelevant. Nullable-coordinate APIs may intentionally define another contract. Remote-query evidence does not qualify local-query semantics, rebuilt bindings, live Cloud, throughput or maintainer acceptance.",
+  "evidence": [
+    {
+      "url": "https://arrow.apache.org/docs/format/Columnar.html#validity-bitmaps",
+      "note": "Validity is separate from physical value storage; a zero null count may still have an explicit all-valid bitmap. This is a format contract, not application qualification."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/lancedb/commit/1f68d2f1c4f6f1a50aa990c7355f05a5c7ad71bc",
+      "note": "Native remote-table/public-query regression: identical logical [0.1, null] with backing values 0 or 123 sends different numeric requests on unchanged main (four failures). The remote-only null guard passes 10 focused cases and 277 remote table tests, including all-valid and sliced controls. HTTP is mocked; live Cloud, rebuilt bindings, local-query semantics and performance are unqualified. Fork publication is not maintainer acceptance."
+    }
+  ],
+  "status": "validated"
+}

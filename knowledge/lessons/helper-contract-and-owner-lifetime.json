@@ -1,45 +1,45 @@
 {
   "id": "helper-contract-and-owner-lifetime",
   "title": "Check the caller contract and owner lifetime before repairing a helper",
-  "applies_when": "An excerpt alleges descriptor/global, identity/cache, self-comparison, field-loss or cleanup defects but omits the helper, ordered result assembly, interface or invoking owner.",
-  "lesson": "Read the caller contract and owner lifetime first. Check descriptors, __main__, platform predicates, strong references and invalidation; inspect cleanup/reset tests beyond the excerpt. Skipping a spread does not remove ...result's fields. Test empty/nonempty and success paths. SDK cancellation can leave an outer retry alive. Failed upload Writers need abort, not partial-data commit: cancel an upload-owned context, preserving caller authority and successful Close. An admission-only legacy guard can allow lifecycle work that clears pending state before final verification; trace that transition. Invented APIs are feature changes; profile matching is not topology support. Use evidence to choose the next check, not blanket rejection.",
-  "avoid_when": "Public helpers can be defective without shipped callers. Strong references prevent identity reuse, not mutation/stale metadata/concurrency. Passing cleanup tests prove reached scenarios only. Spreads preserve present enumerable properties; later overwrites or changed producers can lose data. Do not transfer upload abort to caller-owned successful streams. SDK-internal stack checks are revision-bound. These cases do not measure accelerator performance or general false-positive rates.",
+  "applies_when": "Descriptor/global, identity/cache, self-comparison, field-loss or cleanup claims omit caller, helper or result assembly.",
+  "lesson": "Trace caller, descriptors, __main__, platform predicates, strong references/invalidation, cleanup/reset and ordered result assembly. Skipping a spread need not remove ...result fields. Check empty/nonempty and success controls. SDK cancellation can leave outer retries alive. Failed upload Writers need abort via an upload-owned context, preserving caller authority and successful Close. Admission guards may allow lifecycle work that clears pending state before final verification. Invented APIs are feature changes; profile matching is not topology support. Choose the next check, not blanket rejection.",
+  "avoid_when": "Public helpers may fail without shipped callers. Strong references do not prevent mutation, stale metadata or concurrency bugs. Cleanup tests cover reached scenarios only. Spreads preserve present enumerable properties, not later overwrites or producer changes. Upload abort must not close caller-owned successful streams. SDK stack checks are revision-bound; no accelerator performance or general false-positive rate is established.",
   "evidence": [
     {
       "url": "https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/internal/clientv2/interceptor_anti_hijacking.go",
-      "note": "v7.26.8 rejects responses without x-reqid/x-log as ErrMaliciousResponse. Supply valid fixture headers: plain200/JSON is not an SDK success. Do not disable validation or attribute fixture retries to production."
+      "note": "v7.26.8 requires x-reqid/x-log, otherwise ErrMaliciousResponse. Plain200/JSON is not SDK success; fix fixtures, not validation."
     },
     {
       "url": "https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/storage/bucket.go",
-      "note": "v7.26.8 Stat/StatWithOpts, Copy/Delete use Background with no context argument. List forwarding cannot fix them. Separately test a context-aware API integration; no invented WithContext or detached early return."
+      "note": "v7.26.8 Stat/StatWithOpts, Copy/Delete use Background with no context argument. List forwarding cannot fix them; test real context-aware integration, not invented WithContext or detached returns."
     },
     {
       "url": "https://github.com/adenzhou1350/juicefs/blob/8e7be7b2e810b833df95eb0cc8c57269ed383c0b/pkg/object/gs_upload_test.go",
-      "note": "Real GCS SDK/local HTTP: Reader errors before/after a chunk leak Writer monitors; child-context cancellation aborts without partial commit or caller cancellation. Empty/small/multi-chunk success remains. Native/race checks use an SDK-internal stack frame, not live GCS or throughput qualification."
+      "note": "Real GCS SDK/local HTTP: Reader errors leak Writer monitors; child cancellation aborts without partial commit or caller cancellation. Empty/small/multi-chunk success controls pass. Native/race uses an SDK-internal frame, not live GCS or throughput."
     },
     {
       "url": "https://github.com/adenzhou1350/juicefs/blob/c136a937ebf46e08b375022782cee3a3f4122adf/pkg/object/download_body_test.go",
-      "note": "Qiniu/Dragonfly reject 404/416/500 with nil body: callers cannot close the response. Held-open HTTP tests reproduce missing cleanup; rejected-only Close fixes it while 200/206 streams remain caller-owned. Blanket defer would break success. Native/race coverage is local HTTP, not cloud accounts, connection reuse, all statuses or performance."
+      "note": "Qiniu/Dragonfly reject 404/416/500 with nil body, hiding ownership from callers. Held-open HTTP tests require rejected-only Close; 200/206 remain caller-owned. Blanket defer breaks success. Native/race is local HTTP, not cloud, connection reuse, all statuses or performance."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/b1a22b83d878d2f5dfe713f8e15cbe271fdce40c/src/infra/restart-request.ts#L57-L120",
-      "note": "Request authority and acknowledgement ownership differ: rejecting a second session's hooks does not revoke its admitted request. Native controls cover revocation/one-shot acknowledgement, not service restarts/all timelines."
+      "note": "Rejecting a second session's hooks does not revoke its admitted request. Native revocation/one-shot-ack controls do not cover service restarts/all timelines."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/2f4808320cf81e6361b9bedd502aa1b9ec1b7ca7/src/infra/deferred-plugin-session-sources.ts#L183-L194",
-      "note": "Initial snapshot L469 is reacquired at L477. Unchanged archive-only/missing-source controls agree; a new archive invalidates the old view. Deliberate freshness, not forgotten archives; not full migration/concurrency qualification."
+      "note": "Snapshot L469 is reacquired at L477. Archive-only/missing-source controls agree; a new archive invalidates the old view. Deliberate freshness, not full migration/concurrency qualification."
     },
     {
       "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/httpcore/_async/http2.py#L165-L169",
-      "note": "handle_async_request catches BaseException and shields _response_closed; the iterator also closes on exception at L579-585. A StreamReset-only excerpt omits owning cleanup."
+      "note": "handle_async_request shields _response_closed on BaseException; the iterator closes at L579-585. StreamReset-only excerpts omit owning cleanup."
     },
     {
       "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/tests/_async/test_http2.py#L130-L173",
-      "note": "The native RST_STREAM test follows rejection with a successful same-connection request, beyond the first 100 lines. Relevant control, not universal semaphore/cancellation proof."
+      "note": "Native RST_STREAM rejection then same-connection success lies beyond line100. Not universal semaphore/cancellation proof."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/f45c004e18d22222356928eac0a5c26d7af3398f/examples/checkpoint_engine/update.py",
-      "note": "torchrun initializes global rank before join/update_weights call check_sglang_ready. An import-only call or first-120-line excerpt misses the supported entry. Static, not distributed execution evidence."
+      "note": "torchrun initializes global rank before join/update_weights calls check_sglang_ready. Import-only/120-line windows miss this entry; not distributed execution."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/2ff52e3ceb0bcfdc8ba1dd0367b39ce0370bbfaf/python/sglang/srt/layers/quantization/base_config.py#L165",
@@ -51,47 +51,47 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/99c59a2ea62f32fd5497eceaf2ed18cad33389db/python/sglang/srt/layers/attention/minimax_sparse_backend.py#L1496",
-      "note": "forward_extend retains forward_batch in outer metadata while checking identity/resolving the next result. Omitting that reference fabricates id reuse. Revision-bound source evidence, not NPU execution."
+      "note": "forward_extend retains forward_batch during identity checks/result resolution; omitting that reference fabricates id reuse. Source evidence, not NPU execution."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/5129c0af2eebd9d8a50a5e01bf976e0502c27161/src/infra/update-runner-git-runtime.ts#L30-L36",
-      "note": "Windows sameRuntimeIdentity requires nonzero dev/ino: self-comparison can fail for unavailable identity. assertPrevious checks the retained object after rename. Not dead code or all-platform/filesystem-race qualification."
+      "note": "Windows sameRuntimeIdentity requires nonzero dev/ino, so self-comparison can fail. assertPrevious checks retained identity after rename; not dead code or all-platform race qualification."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/c4f5599a74a857013af36a8538bb6b8668779c8b/src/infra/state-migrations.plugin-doctor.ts#L267-L277",
-      "note": "migrated spreads before combined notices. Empty collected.notices preserves migrated.notices; the conditional alone fabricates field loss. Ordered-expression evidence, not full Doctor/migration coverage."
+      "note": "migrated spreads before combined notices; empty collected.notices preserves migrated.notices. The conditional alone fabricates field loss; not full migration coverage."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/bf3f9d7256f25ef80cde36dbb2c2061d085e9eea/src/infra/update-candidate-canary.ts#L645-L718",
-      "note": "The outer catch records plugin/runtime JSON.parse failures, failed step and status=error. Ending at L481 omits it. Static counterexample, not native coverage or ideal diagnostics."
+      "note": "The outer catch records JSON.parse failures, failed step and status=error. A window ending at L481 omits it; source counterexample, not native coverage."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/9deb117bfb8aad2bd08ed781238483be3dec9810/flashinfer/comm/mnnvl_cutedsl/config.py",
-      "note": "resolve matches shapes then validates capacity; a shape-only supports method cannot replace capacity checks or prove hardware support."
+      "note": "resolve matches shape then validates capacity. Shape-only supports cannot replace capacity checks or prove hardware support."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/issues/5325",
-      "note": "The request permits support-query OR documented fallback plus validated profiles; no invented API mandate or backend-correctness proof."
+      "note": "Support-query OR documented fallback with validated profiles is permitted, not an invented API mandate or backend proof."
     },
     {
       "url": "https://github.com/adenzhou1350/juicefs/blob/eff22d2d246f97934b99d8dd8e847693a14dca3e/pkg/object/listall_context_cancellation_test.go",
-      "note": "Real S3 SDK requests stop on cancellation, but ListAll's outer page retry survives. Cancel/deadline/backoff negatives and a transient 503 recovery control test the separate producer lifetime. Proposed narrow fix covers draining receivers and nil failure sentinel; not blocked consumers, token recovery, delimiter/sharded paths or all backends. Native/race tests, no performance claim."
+      "note": "Real S3 SDK cancellation does not stop ListAll's outer retry. Cancel/deadline/backoff and transient 503 recovery controls check producer lifetime. Native/race covers draining receivers and nil failure sentinel, not blocked consumers, token recovery, delimiter/sharded paths, all backends or performance."
     },
     {
       "url": "https://github.com/juicedata/juicefs/pull/7136",
-      "note": "Earlier closed, unmerged pagination proposal already covers retry cancellation plus token recovery/backoff. Do not claim the mechanism is new or ignore prior work; the narrow regression above does not qualify those broader changes."
+      "note": "Closed/unmerged prior work covers retry cancellation, token recovery/backoff. No novelty or broader-patch qualification from the narrow test."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/src/infra/package-update-steps.ts#L529",
-      "note": "The 2026.8.1 guard exception admits lifecycle execution, not final validation. Recollecting all errors is not resurrection if intervening work removed their cause."
+      "note": "The 2026.8.1 exception admits lifecycle, not final validation. Recollecting errors after their cause is cleared is not resurrection."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/src/infra/package-lifecycle.ts#L418",
-      "note": "Completion promotes the legacy marker, runs pre/postinstall, then refuses any remaining pending marker before verification. Matching native lifecycle tests pass nine cases including legacy interruption/retry; not a published-package or full CLI upgrade proof."
+      "note": "Completion promotes legacy state, runs pre/postinstall, then rejects pending markers. Nine native interruption/retry cases, not published-package/full-CLI proof."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/scripts/preinstall-package-manager-warning.mjs#L342",
-      "note": "Real preinstall removes the legacy guard only after its Node runtime check succeeds. A regression runner that leaves it intact cannot assume successful lifecycle completion. Trace the transition rather than permanently waiving the final inventory error."
+      "note": "Preinstall removes the guard only after Node validation. A fixture retaining it cannot assume success; trace removal, not waive final inventory errors."
     }
   ],
   "status": "validated"

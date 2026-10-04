@@ -1,0 +1,18 @@
+{
+  "id": "sparse-checkout-before-missing-source",
+  "title": "Check the pinned Git tree before treating a sparse-checkout file as missing",
+  "applies_when": "A source review or native import preflight cannot find contribution instructions, a companion Python package, or another tracked file in a sparse checkout.",
+  "lesson": "Inspect git sparse-checkout list and git ls-tree at the exact commit, then read the existing blob with git show. Files excluded from the working tree are not absent from the repository. This can avoid recreating a compatibility shim or ignoring review guidance. Explicitly select and hash an existing same-source companion package when testing it; record its module origin separately from installed distribution metadata.",
+  "avoid_when": "A missing object in a partial clone, Git submodule, generated build output, or genuinely absent pinned-tree path needs different handling. Finding source does not prove installed dependencies, binary compatibility, native execution or PR readiness. Do not alter another task's sparse patterns or shared installation to make a diagnostic pass.",
+  "evidence": [
+    {
+      "url": "https://git-scm.com/docs/git-sparse-checkout",
+      "note": "Git documents that sparse checkout materializes only a subset of tracked files; list reports the selected directories or patterns. This supports source-location diagnosis, not a performance claim."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/ac30bfabfc40cca1971bea7a41ac10e6960d6bfd/flashinfer-jit-cache/flashinfer_jit_cache/__init__.py",
+      "note": "The pinned tree contains the provider-discovery shim. Inspecting its Git blob identifies existing source even when that companion directory is excluded locally; using it does not qualify the rest of FlashInfer."
+    }
+  ],
+  "status": "validated"
+}

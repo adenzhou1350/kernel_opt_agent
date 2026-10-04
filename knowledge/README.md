@@ -45,6 +45,20 @@ new evidence. Conflicting same-ID edits need `--replace`; replacements that
 duplicate another card are rejected. Git already provides revision history.
 The tool is intended for one writer at a time.
 
+Scout's advisory reader currently admits one complete card up to 8,192 serialized
+UTF-8 JSON bytes; an oversized card is omitted, not clipped. Keep shared advice
+concise. When unrelated case details make a card too large, extract a scoped
+lesson with its conditions, exceptions and evidence links rather than increasing
+every prompt's allowance. Recheck retrieval after edits:
+
+```sh
+python -B -m unittest tests.test_scout_lesson_context
+```
+
+The generic `knowledge check` validates structure, not this Scout context budget
+or scientific truth. Passing retrieval tests demonstrates available advice,
+not improved bug detection or PR yield.
+
 Search returns JSON with deterministic lexical scores, source paths, complete
 cards and a scope caution. Scores rank word overlap, not evidence strength or
 applicability. Unmatched queries return no cards. Read the public sources and
