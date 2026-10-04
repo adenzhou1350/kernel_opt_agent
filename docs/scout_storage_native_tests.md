@@ -19,6 +19,25 @@ equivalent to validating the commit and path.
 This note records a bounded environment entrance and a scoped native regression
 example, not automatic Scout execution, full-suite qualification or performance.
 
+### Keep the rules comparator language-aware
+
+The optional `scripts/kimi_scout_shadow.py` admission helper recognizes pinned
+Go/Rust and C-family source as well as Python, CUDA and TypeScript. A `.go` or
+`.rs` URL must not be reported as missing source simply because a legacy
+extension list omits it. Same-repository and exact-commit checks still apply;
+test-looking paths are only catalog hints, not proof of a registered test.
+
+The `predecision-native-test-baseline-v2` version records the extension coverage
+change for new admissions. Existing records use INSERT OR IGNORE and are not
+backfilled or relabeled. If a study re-extracts development source clusters with
+this helper, declare the helper/version anew; do not silently rescore a frozen
+cohort. Recognition is not execution, correctness or an acquisition-benefit win.
+The helper uses no model/network and cannot advance a candidate or dispatch work.
+
+```text
+python -B -m unittest tests.test_kimi_scout_shadow
+```
+
 ### Count saved native results before calling them verified
 
 `scripts/scout_native_results.py` reads a bounded saved log (2 MiB maximum) and
