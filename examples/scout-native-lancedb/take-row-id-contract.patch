@@ -1,9 +1,113 @@
+warning: in the working copy of 'rust/lancedb/src/query.rs', LF will be replaced by CRLF the next time Git touches it
 diff --git a/rust/lancedb/src/query.rs b/rust/lancedb/src/query.rs
-index c8b19f0..9d6fca4 100644
+index c8b19f0..66513c4 100644
 --- a/rust/lancedb/src/query.rs
 +++ b/rust/lancedb/src/query.rs
-@@ -3819,2 +3819,104 @@ mod tests {
+@@ -3819,2 +3819,207 @@ mod tests {
      }
++
++    // Investigation only: do not infer timing from the ci-profile test runtime.
++    #[tokio::test]
++    async fn test_probe_take_row_ids_physical_read_work() {
++        fn count(plan: &Arc<dyn ExecutionPlan>, name: &str) -> usize {
++            let local = plan
++                .metrics()
++                .and_then(|metrics| metrics.sum_by_name(name))
++                .map(|value| value.as_usize())
++                .unwrap_or_default();
++            local
++                + plan
++                    .children()
++                    .iter()
++                    .map(|child| count(child, name))
++                    .sum::<usize>()
++        }
++
++        for stable in [false, true] {
++            for rows in [512i32, 65536] {
++                let tmp_dir = tempdir().unwrap();
++                let conn = connect(tmp_dir.path().to_str().unwrap())
++                    .execute()
++                    .await
++                    .unwrap();
++                let schema = Arc::new(ArrowSchema::new(vec![ArrowField::new(
++                    "id",
++                    DataType::Int32,
++                    false,
++                )]));
++                let batch = RecordBatch::try_new(
++                    schema.clone(),
++                    vec![Arc::new(Int32Array::from_iter_values(0..rows))],
++                )
++                .unwrap();
++                let table = conn
++                    .create_table(
++                        "work",
++                        Box::new(RecordBatchIterator::new(vec![Ok(batch)], schema))
++                            as Box<dyn arrow_array::RecordBatchReader + Send>,
++                    )
++                    .write_options(crate::table::WriteOptions {
++                        lance_write_params: Some(lance::dataset::WriteParams {
++                            enable_stable_row_ids: stable,
++                            ..Default::default()
++                        }),
++                    })
++                    .execute()
++                    .await
++                    .unwrap();
++                let request = table
++                    .take_row_ids(vec![5, 1, 5, 17])
++                    .select(Select::columns(&["id"]));
++                let plan = request
++                    .create_plan(QueryExecutionOptions::default())
++                    .await
++                    .unwrap();
++                let explanation = DisplayableExecutionPlan::new(plan.as_ref())
++                    .indent(true)
++                    .to_string();
++                println!("TAKE_WORK_PLAN stable={stable} rows={rows}: {explanation}");
++                let batches = execute_plan(plan.clone(), Default::default())
++                    .unwrap()
++                    .try_collect::<Vec<_>>()
++                    .await
++                    .unwrap();
++                let mut values: Vec<i32> = batches
++                    .iter()
++                    .flat_map(|b| b["id"].as_primitive::<Int32Type>().values().to_vec())
++                    .collect();
++                values.sort_unstable();
++                assert_eq!(values, vec![1, 5, 17]);
++                let selected_scanned = count(&plan, "rows_scanned");
++                assert_eq!(
++                    selected_scanned, 3,
++                    "selected physical rows, stable={stable} table rows={rows}"
++                );
++                let full = table
++                    .query()
++                    .select(Select::columns(&["id"]))
++                    .create_plan(QueryExecutionOptions::default())
++                    .await
++                    .unwrap();
++                let all = execute_plan(full.clone(), Default::default())
++                    .unwrap()
++                    .try_collect::<Vec<_>>()
++                    .await
++                    .unwrap();
++                assert_eq!(
++                    all.iter().map(RecordBatch::num_rows).sum::<usize>(),
++                    rows as usize
++                );
++                let full_scanned = count(&full, "rows_scanned");
++                assert_eq!(
++                    full_scanned, rows as usize,
++                    "full-scan positive counter control"
++                );
++                println!(
++                    "TAKE_WORK stable={stable} table_rows={rows} selected_rows_scanned={selected_scanned} full_rows_scanned={full_scanned}"
++                );
++            }
++        }
++    }
 +
 +    // Investigation only: this is not an implementation of issue #4429.
 +    #[tokio::test]

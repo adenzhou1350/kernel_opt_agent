@@ -1,0 +1,26 @@
+{
+  "id": "logical-filter-is-not-full-scan",
+  "title": "Verify physical read work before claiming scan elimination",
+  "applies_when": "A storage optimization replaces a high-level row-ID predicate with a lower-level take, or imports an older-version speedup attributed to eliminating a scan.",
+  "lesson": "Resolve the actual locked dependency and inspect its planner before estimating saved work. LanceDB 0be3ae96 pins Lance e5a3553b, whose scanner lowers positive row-ID membership into a mask-based take. The reusable native probe executes legacy/stable ID requests against 512/65,536-row tables and asserts three reader rows versus full-scan positive controls. This refutes the full-row-scan premise for that route, not all possible direct-read optimizations. Next measure matched planning/materialization costs instead of assuming the logical filter implies linear work. Preserve membership, projection, snapshot and buffered-data semantics before benchmarking.",
+  "avoid_when": "rows_scanned counts batches returned by the fragment reader; it does not measure fetched bytes, page decompression, cold IO or a physical performance ceiling. Four small same-schema cases do not qualify MemWAL, remote execution, compaction or all builder features. No current latency or Scout conversion benefit is established. Other versions may choose different plans.",
+  "evidence": [
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/0be3ae960eb39b43faad5685cd381c5126a305c5/Cargo.lock#L5145-L5147",
+      "note": "Exact dependency pin; older downstream benchmarks are not automatically current-API evidence."
+    },
+    {
+      "url": "https://github.com/lance-format/lance/blob/e5a3553b1699a7062ff7afe4ee268d596bbf2e0d/rust/lance/src/dataset/scanner.rs#L3318-L3338",
+      "note": "The scanner recognizes take-shaped predicates and dispatches to take_source rather than treating every filter as a full scan."
+    },
+    {
+      "url": "https://github.com/lance-format/lance/blob/e5a3553b1699a7062ff7afe4ee268d596bbf2e0d/rust/lance/src/io/exec/filtered_read.rs#L1555-L1567",
+      "note": "Defines the reader-row counter's scope; not a bytes or timing counter."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/codex/scout-storage-repositories/examples/scout-native-lancedb/take-row-id-contract.patch",
+      "note": "Reusable native contract and physical-work assertions for the exact LanceDB pin; requires unchanged production and declared dependencies. No benchmark."
+    }
+  ],
+  "status": "counterexample"
+}

@@ -477,7 +477,7 @@ declared toolchain/dependencies:
 git apply /path/to/kernel_opt_agent/examples/scout-native-lancedb/take-row-id-contract.patch
 cargo fmt --all
 cargo test --profile ci --locked -p lancedb --no-default-features --features remote \
-  --lib test_probe_native_take_row_id_contract -- --nocapture
+  --lib test_probe_ -- --nocapture
 ```
 
 Keep the actual query's projection, snapshot and logical read routing in any
@@ -487,4 +487,25 @@ compatible route or fallback. That is source evidence, not an executed MemWAL
 test. The probe uses different projections for the two readers and the `ci`
 profile is unoptimized: neither its runtime nor the older downstream benchmark
 qualifies a current-main performance gain. Compaction, metadata projections,
-legacy IDs, remote execution and additional builder features remain untested.
+legacy-ID deletion/snapshot cases, remote execution and additional builder
+features remain untested.
+
+### Check the physical work before attributing scan savings
+
+The same probe now includes one physical-work test: two table sizes (512 and
+65,536 rows), each with legacy and stable row IDs. A membership request
+`[5, 1, 5, 17]` projects only `id`, returns three distinct rows, and records
+`rows_scanned=3` in all four cases. A same-projection full-scan control records
+512 and 65,536 respectively. This qualifies the row-reader counter at this pin,
+not bytes fetched, page decompression, cold-storage cost or a latency speedup.
+
+The lock pins [Lance e5a3553b](https://github.com/lancedb/lancedb/blob/0be3ae960eb39b43faad5685cd381c5126a305c5/Cargo.lock#L5145-L5147).
+Its [scanner](https://github.com/lance-format/lance/blob/e5a3553b1699a7062ff7afe4ee268d596bbf2e0d/rust/lance/src/dataset/scanner.rs#L3318-L3338)
+recognizes the row-ID predicate and invokes a take source; the
+[mask/read path](https://github.com/lance-format/lance/blob/e5a3553b1699a7062ff7afe4ee268d596bbf2e0d/rust/lance/src/dataset/scanner.rs#L3839-L3908)
+preserves membership rather than duplicate occurrences. Thus a current-version
+fast-path proposal cannot attribute its gain to removing a full-row scan that
+is not occurring. Planning/materialization overhead may still matter; isolate
+that mechanism with matched API, projection, snapshot and an optimized profile.
+Neither the older downstream result nor an unoptimized test runtime supplies
+that measurement.
