@@ -830,3 +830,17 @@ Source review should still establish whether the next router permits several
 loops; a single-loop enforcement or explicit proxy can make the analogy invalid.
 These retrospective cases do not rescore the frozen prospective study or establish
 better PR conversion, model cost or a publishable research result.
+
+## A failed helper assumption is not yet a failed consumer
+
+The [native TorchTitan example](../examples/scout-native-torchtitan/README.md)
+checks real cleanup and tensor-wrapper consumers without replacing project
+modules. In the observed runtime, detached FSDP wrappers report no alias even
+though their inner tensors share storage; ModelWrapper's copy fallback still
+preserves cache storage and current/loaded values. Test that consequence before
+turning a helper predicate into a corruption claim. Real one-rank CPU DTensor
+controls are useful but do not qualify distributed staging or full checkpoints.
+An unrelated official-suite import failure remains NOT_RUN, not an excuse to
+call a narrower component check full CI. The existing helper-contract lesson
+already covers this decision; no duplicate knowledge card or mandatory gate is
+needed. This post-outcome NO_LEAD audit does not prove zero misses or model value.
