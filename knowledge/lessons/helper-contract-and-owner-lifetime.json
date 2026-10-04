@@ -2,7 +2,7 @@
   "id": "helper-contract-and-owner-lifetime",
   "title": "Check the caller contract and owner lifetime before repairing a helper",
   "applies_when": "An excerpt alleges descriptor/global, identity/cache, self-comparison, field-loss or cleanup defects but omits the helper, ordered result assembly, interface or invoking owner.",
-  "lesson": "Read the caller contract and owner lifetime first. Check descriptors, __main__, platform predicates, strong references and invalidation; inspect cleanup/reset tests beyond the excerpt. Skipping a spread does not remove ...result's fields. Test empty/nonempty and success paths. SDK cancellation can leave an outer retry alive. Failed upload Writers need abort, not partial-data commit: cancel an upload-owned context, preserving caller authority and successful Close. Invented APIs are feature changes; profile matching is not topology support. Use evidence to choose the next check, not blanket rejection.",
+  "lesson": "Read the caller contract and owner lifetime first. Check descriptors, __main__, platform predicates, strong references and invalidation; inspect cleanup/reset tests beyond the excerpt. Skipping a spread does not remove ...result's fields. Test empty/nonempty and success paths. SDK cancellation can leave an outer retry alive. Failed upload Writers need abort, not partial-data commit: cancel an upload-owned context, preserving caller authority and successful Close. An admission-only legacy guard can allow lifecycle work that clears pending state before final verification; trace that transition. Invented APIs are feature changes; profile matching is not topology support. Use evidence to choose the next check, not blanket rejection.",
   "avoid_when": "Public helpers can be defective without shipped callers. Strong references prevent identity reuse, not mutation/stale metadata/concurrency. Passing cleanup tests prove reached scenarios only. Spreads preserve present enumerable properties; later overwrites or changed producers can lose data. Do not transfer upload abort to caller-owned successful streams. SDK-internal stack checks are revision-bound. These cases do not measure accelerator performance or general false-positive rates.",
   "evidence": [
     {
@@ -80,6 +80,18 @@
     {
       "url": "https://github.com/juicedata/juicefs/pull/7136",
       "note": "Earlier closed, unmerged pagination proposal already covers retry cancellation plus token recovery/backoff. Do not claim the mechanism is new or ignore prior work; the narrow regression above does not qualify those broader changes."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/src/infra/package-update-steps.ts#L529",
+      "note": "The 2026.8.1 guard exception admits lifecycle execution, not final validation. Recollecting all errors is not resurrection if intervening work removed their cause."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/src/infra/package-lifecycle.ts#L418",
+      "note": "Completion promotes the legacy marker, runs pre/postinstall, then refuses any remaining pending marker before verification. Matching native lifecycle tests pass nine cases including legacy interruption/retry; not a published-package or full CLI upgrade proof."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/scripts/preinstall-package-manager-warning.mjs#L342",
+      "note": "Real preinstall removes the legacy guard only after its Node runtime check succeeds. A regression runner that leaves it intact cannot assume successful lifecycle completion. Trace the transition rather than permanently waiving the final inventory error."
     }
   ],
   "status": "validated"
