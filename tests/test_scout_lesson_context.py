@@ -76,6 +76,26 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("not a server or GPU qualification", evidence["note"])
         self.assertIn("Programmatic consumers", evidence["note"])
 
+    def test_owner_lifetime_lesson_is_retrievable_with_its_native_scope(self):
+        result = lesson_suggestions(
+            "helper contract owner lifetime HTTP response body cancellation"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "helper-contract-and-owner-lifetime")
+        self.assertEqual(lesson["status"], "validated")
+        self.assertLessEqual(
+            len(json.dumps(lesson, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        body = next(item for item in lesson["evidence"] if "download_body_test.go" in item["url"])
+        self.assertIn("200/206", body["note"])
+        self.assertIn("not cloud", body["note"])
+        retry = next(item for item in lesson["evidence"] if "listall_context_cancellation_test.go" in item["url"])
+        self.assertIn("draining", retry["note"])
+        self.assertIn("503", retry["note"])
+        self.assertIn("blocked", retry["note"])
+        self.assertNotIn("qualified", result)
+
     def test_large_card_is_omitted_not_silently_truncated(self):
         self.save(card("stream-pause", "native stream pause " * MAX_CARD_BYTES))
         result = lesson_suggestions("stream pause", directory=self.root)
