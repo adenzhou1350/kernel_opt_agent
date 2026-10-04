@@ -14,8 +14,11 @@ import kimi_scout_research as research  # noqa: E402
 import kimi_scout_delivery as delivery  # noqa: E402
 from scout_lesson_context import (  # noqa: E402
     MAX_CARD_BYTES,
+    MAX_QUERY_CHARS,
+    MAX_SOURCE_CHARS,
     fit_lesson_context,
     lesson_suggestions,
+    source_api_query,
 )
 
 
@@ -109,6 +112,45 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("control passes on both", native["note"])
         self.assertIn("not all JuiceFS packages", native["note"])
         self.assertNotIn("qualified", result)
+
+    def test_go_imports_offer_api_anchors_without_receiver_guessing(self):
+        self.assertEqual(source_api_query('import "net/http"\nhttp.DefaultClient.Do(req)'),
+                         "defaultclient do http")
+        self.assertEqual(source_api_query('17: import (\n18: h "net/http"\n19: )\n20: h.DefaultClient.Do(req)'),
+                         "defaultclient do http")
+        self.assertEqual(source_api_query('import (\n _ "net/http"\n . "net/http"\n)\nrow.Name; http.DefaultClient.Do(req)'), "")
+        self.assertEqual(source_api_query("row.Name; http.DefaultClient.Do(req)"), "")
+        self.assertEqual(source_api_query("x" * MAX_SOURCE_CHARS + '\nimport "net/http"\nhttp.DefaultClient.Do(req)'), "")
+        query = source_api_query('import h "net/http"\n' + " ".join(f"h.API{i}" for i in range(3000)))
+        self.assertLessEqual(len(query), MAX_QUERY_CHARS)
+
+    def test_go_source_advice_reaches_emitter_without_qualification_or_new_fetch(self):
+        source = {"url": "https://raw.githubusercontent.com/a/b/" + "a" * 40 + "/pkg/usage/usage.go",
+                  "text": '17: import (\n18: "net/http"\n19: )\n20: resp, err := http.DefaultClient.Do(req)'}
+        scout.initialize(self.root)
+        config = self.root / "go-config.json"
+        spec = {"repo": "a/b", "source_prefixes": ["pkg/"], "question": "Find small correctness opportunities"}
+        config.write_text(json.dumps({"objective": "Public source", "queue_target": 4, "repos": [spec]}), encoding="utf-8")
+        producer = research.ResearchProducer(self.root, config, context=object())
+        with patch.object(scout, "fetch", side_effect=AssertionError("no advice fetch")):
+            self.assertTrue(producer.emit("go-api-source", spec, [source], "source_audit"))
+        with scout.connect(self.root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+        self.assertEqual(packet["sources"], [source])
+        advice = packet["lesson_suggestions"]
+        self.assertTrue(advice["source_query_used"])
+        self.assertEqual(advice["matches"][0]["id"], "http-body-close-is-not-connection-reuse")
+        self.assertEqual(advice["matches"][0]["status"], "counterexample")
+        self.assertNotIn("qualified", advice)
+        excluded = lesson_suggestions("unmatchedzzzzz", source_text=source["text"],
+                                      exclude=("http-body-close-is-not-connection-reuse",))
+        self.assertNotIn("http-body-close-is-not-connection-reuse", [card["id"] for card in excluded["matches"]])
+        issue = {"url": "https://github.com/a/b/issues/1", "text": source["text"]}
+        self.assertTrue(producer.emit("go-issue-only", spec, [issue], "issue_triage"))
+        with scout.connect(self.root) as db:
+            packets = [json.loads(row[0]) for row in db.execute("SELECT packet FROM jobs")]
+        issue_packet = next(packet for packet in packets if packet["sources"] == [issue])
+        self.assertFalse(issue_packet.get("lesson_suggestions", {}).get("source_query_used", False))
 
     def test_failed_upload_advice_distinguishes_abort_from_commit(self):
         result = lesson_suggestions("helper owner lifetime failed upload Writer cancellation")

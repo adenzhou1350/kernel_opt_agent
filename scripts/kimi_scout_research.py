@@ -459,6 +459,10 @@ class ResearchProducer:
                     s["url"].rsplit("/", 1)[-1] for s in sources
                 ) + " " + spec["question"],
                 exclude=(card["id"] for card in self.lessons),
+                source_text="\n".join(
+                    s["text"] for s in sources
+                    if s["url"].startswith("https://raw.githubusercontent.com/")
+                ),
             ),
             "research": {
                 "stage": stage,

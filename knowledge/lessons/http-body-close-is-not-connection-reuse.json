@@ -1,6 +1,6 @@
 {
   "id": "http-body-close-is-not-connection-reuse",
-  "title": "Separate HTTP response body ownership from connection reuse",
+  "title": "Go HTTP Client.Do response body ownership versus connection reuse",
   "applies_when": "A Go net/http resource-lifetime lead claims a missing response Body.Close necessarily opens a new TCP connection on every call, or proposes cleanup inside a helper that returns a live body to its caller.",
   "lesson": "Trace who owns the response and test Close separately from connection reuse. After successful Client.Do, a helper consuming or rejecting the response owns cleanup; defer Close before status/read-error returns. Reading a successful body to EOF can already permit keep-alive reuse, so a real missing Close does not establish the claimed throughput or connection-growth mechanism. Use actual httptest HTTP responses with a close tracker for success, empty, non-200 and truncated reads, plus a two-request connection-count control. Preserve the valid cleanup finding while correcting the unsupported explanation.",
   "avoid_when": "If a helper returns the successful body, its caller may own Close; unconditional defer would invalidate that API. The observed EOF/reuse control is Go 1.25.10 HTTP/1.1 with a local server, not all transports, streaming bodies, live cloud behavior or a memory/throughput measurement. A Close count proves only the reached response paths. PR publication is not maintainer acceptance or full-repository qualification.",
