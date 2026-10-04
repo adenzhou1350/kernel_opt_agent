@@ -78,7 +78,7 @@ class LessonContextTests(unittest.TestCase):
 
     def test_owner_lifetime_lesson_is_retrievable_with_its_native_scope(self):
         result = lesson_suggestions(
-            "helper contract owner lifetime HTTP response body cancellation"
+            "helper contract owner lifetime GCS Writer abort SDK retry cancellation"
         )
         self.assertEqual(result["status"], "ADVISORY_MATCH")
         lesson = result["matches"][0]
@@ -94,6 +94,20 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("draining", retry["note"])
         self.assertIn("503", retry["note"])
         self.assertIn("blocked", retry["note"])
+        self.assertNotIn("qualified", result)
+
+    def test_http_body_ownership_is_not_a_connection_reuse_claim(self):
+        result = lesson_suggestions("Go net/http HTTP response Body.Close connection reuse EOF")
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "http-body-close-is-not-connection-reuse")
+        self.assertEqual(lesson["status"], "counterexample")
+        self.assertLessEqual(len(json.dumps(lesson, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+        self.assertIn("caller may own Close", lesson["avoid_when"])
+        self.assertIn("not all transports", lesson["avoid_when"])
+        native = next(item for item in lesson["evidence"] if "usage_test.go" in item["url"])
+        self.assertIn("control passes on both", native["note"])
+        self.assertIn("not all JuiceFS packages", native["note"])
         self.assertNotIn("qualified", result)
 
     def test_failed_upload_advice_distinguishes_abort_from_commit(self):

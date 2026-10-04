@@ -1,0 +1,26 @@
+{
+  "id": "http-body-close-is-not-connection-reuse",
+  "title": "Separate HTTP response body ownership from connection reuse",
+  "applies_when": "A Go net/http resource-lifetime lead claims a missing response Body.Close necessarily opens a new TCP connection on every call, or proposes cleanup inside a helper that returns a live body to its caller.",
+  "lesson": "Trace who owns the response and test Close separately from connection reuse. After successful Client.Do, a helper consuming or rejecting the response owns cleanup; defer Close before status/read-error returns. Reading a successful body to EOF can already permit keep-alive reuse, so a real missing Close does not establish the claimed throughput or connection-growth mechanism. Use actual httptest HTTP responses with a close tracker for success, empty, non-200 and truncated reads, plus a two-request connection-count control. Preserve the valid cleanup finding while correcting the unsupported explanation.",
+  "avoid_when": "If a helper returns the successful body, its caller may own Close; unconditional defer would invalidate that API. The observed EOF/reuse control is Go 1.25.10 HTTP/1.1 with a local server, not all transports, streaming bodies, live cloud behavior or a memory/throughput measurement. A Close count proves only the reached response paths. PR publication is not maintainer acceptance or full-repository qualification.",
+  "evidence": [
+    {
+      "url": "https://pkg.go.dev/net/http#Client.Do",
+      "note": "The standard library assigns response-body cleanup to the caller of a successful Do. Its reuse guidance is not a guarantee that every missing Close prevents reuse."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/pkg/usage/usage.go",
+      "note": "sendUsage consumes or rejects the response internally and never returns its body; non-200 returns before reading. ReportUsage invokes this helper periodically, not on every filesystem operation."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/juicefs/blob/041decc313fce10c2bacc27f9c58b80e8ca8883a/pkg/usage/usage_test.go",
+      "note": "Real HTTP/native Go: four Close-count cases fail on unchanged production and pass with the one-line fix; the successful EOF connection-reuse control passes on both. Full usage package and focused five-repeat race checks pass, not all JuiceFS packages."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7624",
+      "note": "Published Ready cleanup correction with reproduction scope and omitted full-suite/lint checks disclosed. No measured throughput or whole-system resource-growth claim."
+    }
+  ],
+  "status": "counterexample"
+}
