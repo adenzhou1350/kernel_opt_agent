@@ -1,0 +1,26 @@
+{
+  "id": "failed-host-port-parse-does-not-preserve-host",
+  "title": "Go net SplitHostPort and JoinHostPort: retain input on parse failure",
+  "applies_when": "Go endpoint normalization adds a default port after net.SplitHostPort returns an error, especially when a short declaration shadows the original host.",
+  "lesson": "Do not use the failed parser's host output as the original address. Retain the input separately and inspect the endpoint stored by the real client, not a copied normalization expression. For already URL-validated bracketed IPv6 inputs, remove the existing brackets before JoinHostPort so brackets are not duplicated. Include explicit-port controls and mixed endpoint lists. A matching error symptom in an issue is not causal evidence: inspect its exact supplied address and advertised endpoints before linking a fix.",
+  "avoid_when": "An explicit port bypasses this default-port branch. JuiceFS issue6057 already uses :2379 and advertises 0.0.0.0, so it does not validate the omitted-port diagnosis. Bracket trimming is not general malformed-address validation. These tests construct and close the actual etcd client but do not prove live cluster connectivity, metadata transactions, all core tests, or maintainer acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/pkg/meta/tkv_etcd.go#L324-L329",
+      "note": "Unchanged producer overwrites the loop host with SplitHostPort's failed output before adding 2379."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/juicefs/blob/5479c12d8b61ef60f8ebe512d1fab7d3b592b7d8/pkg/meta/tkv_test.go#L317-L344",
+      "note": "Seven actual-client endpoint cases: five fail with unchanged production, two explicit-port controls pass before and after; all pass after, including five race repeats on Linux/Go1.25.10. Full core testing was blocked by absent Redis."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/issues/6057",
+      "note": "The reporter provides an explicit port and an all-interface advertised address. This contradicts using that issue as proof of the omitted-port bug; it does not resolve the reported connectivity problem."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7626",
+      "note": "Submitted correction and English/Chinese default-port documentation. Publication is not CI/review acceptance or a performance result."
+    }
+  ],
+  "status": "validated"
+}

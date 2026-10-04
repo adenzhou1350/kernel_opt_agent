@@ -113,6 +113,18 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("not all JuiceFS packages", native["note"])
         self.assertNotIn("qualified", result)
 
+    def test_default_port_advice_uses_actual_client_and_rejects_issue_causality(self):
+        result = lesson_suggestions("small correctness opportunity",
+                                   source_text='import "net"\nnet.SplitHostPort(h)\nnet.JoinHostPort(h, "2379")')
+        self.assertTrue(result["source_query_used"])
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "failed-host-port-parse-does-not-preserve-host")
+        self.assertLessEqual(len(json.dumps(lesson, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+        self.assertIn("explicit port bypasses", lesson["avoid_when"])
+        self.assertIn("not causal evidence", lesson["lesson"])
+        self.assertIn("Full core testing was blocked", str(lesson["evidence"]))
+        self.assertNotIn("qualified", result)
+
     def test_go_imports_offer_api_anchors_without_receiver_guessing(self):
         self.assertEqual(source_api_query('import "net/http"\nhttp.DefaultClient.Do(req)'),
                          "defaultclient do http")
