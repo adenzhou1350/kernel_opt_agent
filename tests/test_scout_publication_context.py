@@ -117,7 +117,6 @@ class PublicationContextTests(unittest.TestCase):
             "[]",
             "[" * 2000,
             json.dumps({"not": "a list"}),
-            json.dumps([self.note()] * 25),
             " " * (memory.OWNER_NOTE_LIMIT_BYTES + 1),
             json.dumps([self.note(private_log="do not export")]),
         ):
@@ -125,6 +124,46 @@ class PublicationContextTests(unittest.TestCase):
                 path.write_text(text, encoding="utf-8")
                 self.assertIsNone(self.deferrals())
                 self.assertEqual(path.read_text(encoding="utf-8"), text)
+
+    def test_growing_source_memory_retains_advice_without_erasing_history(self):
+        notes = [self.note(reason=f"Supported-path audit {i}") for i in range(40)]
+        path = self.write_notes(notes)
+        before = path.read_bytes()
+        rows = memory.owner_note_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 24)
+        self.assertEqual(
+            [json.loads(row[1])["reason"] for row in rows],
+            [f"Supported-path audit {i}" for i in range(39, 15, -1)],
+        )
+        result = self.deferrals()
+        self.assertEqual(len(result["items"]), 2)
+        self.assertEqual(result["items"][0]["reason"], "Supported-path audit 39")
+        self.assertIn("Never reject", result["caution"])
+        self.assertEqual(path.read_bytes(), before)
+        self.assertFalse(self.path.parent.exists())
+
+    def test_other_repositories_and_duplicate_or_invalid_notes_consume_no_slots(self):
+        notes = [
+            self.note(
+                repo="other/project",
+                source_url=self.source["url"].replace(self.repo, "other/project"),
+            )
+            for _ in range(25)
+        ]
+        valid = self.note()
+        invalid = [
+            self.note(reason=None),
+            self.note(reason="Read D:/private/run.json"),
+            self.note(evidence_url="https://github.com/other/project/commit/" + "a" * 40),
+            self.note(source_url=self.source["url"].replace("a" * 40, "main")),
+            self.note(private_log="do not export"),
+        ]
+        path = self.write_notes([valid, *notes, *([valid] * 25), *invalid])
+        before = path.read_bytes()
+        rows = memory.owner_note_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(self.deferrals()["items"][0]["reason"], valid["reason"])
+        self.assertEqual(path.read_bytes(), before)
 
     def test_source_notes_deduplicate_with_delivery_and_preserve_scan_caps(self):
         self.initialize()
@@ -177,7 +216,7 @@ class PublicationContextTests(unittest.TestCase):
         producer = research.ResearchProducer(self.root, config_path, context=object())
         spec = producer.config["repos"][0]
         self.assertTrue(producer.emit("before", spec, [self.source], "source_audit"))
-        self.write_notes([self.note()])
+        self.write_notes([self.note()] * 25)
         self.assertFalse(producer.emit("same", spec, [self.source], "source_audit"))
         newer = {**self.source, "text": "1: new supported caller"}
         self.assertTrue(producer.emit("new", spec, [newer], "source_audit"))

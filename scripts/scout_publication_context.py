@@ -38,11 +38,13 @@ OWNER_NOTE_LIMIT_BYTES = 65536
 
 
 def owner_note_rows(root, repo):
-    """Optional reviewed notes for source leads that never entered delivery.
+    """Read <=24 recent distinct valid notes per repo from a <=64 KiB file.
 
     Read one bounded local JSON file; never create history or change job state.
     Only the same small public fields accepted from parked delivery rows are
     exposed. Notes remain untrusted advisory data, not suppression rules.
+    Other repositories, duplicates and invalid rows consume no returned slots;
+    growth beyond 24 historical entries does not erase all advisory context.
     """
     path = Path(root).resolve() / "owner-source-notes.json"
     try:
@@ -53,11 +55,11 @@ def owner_note_rows(root, repo):
         if len(raw) > OWNER_NOTE_LIMIT_BYTES:
             return []
         notes = json.loads(raw)
-        if not isinstance(notes, list) or len(notes) > 24:
+        if not isinstance(notes, list):
             return []
     except (OSError, ValueError, RecursionError):
         return []
-    rows = []
+    rows, seen = [], set()
     required = {
         "repo",
         "prior_hypothesis",
@@ -70,8 +72,27 @@ def owner_note_rows(root, repo):
         if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
             continue
         title = note["prior_hypothesis"]
-        if not isinstance(title, str) or not 0 < len(title.strip()) <= 200:
+        reason, reopen, url = (
+            note[key] for key in ("reason", "reopen_when", "evidence_url")
+        )
+        match = SOURCE_URL.fullmatch(url) if isinstance(url, str) else None
+        if (
+            not isinstance(title, str)
+            or not 0 < len(title.strip()) <= 200
+            or not all(
+                isinstance(text, str) and 0 < len(text.strip()) <= 1000
+                for text in (reason, reopen)
+            )
+            or any(contains_local_artifact_path(text) for text in (title, reason, reopen))
+            or not match
+            or match[1].casefold() != repo.casefold()
+            or not source_paths([{"url": note["source_url"]}], repo)
+        ):
             continue
+        key = (note["source_url"], reason, reopen, url)
+        if key in seen:
+            continue
+        seen.add(key)
         rows.append(
             (
                 title,
@@ -84,6 +105,8 @@ def owner_note_rows(root, repo):
                 json.dumps({"packet": {"sources": [{"url": note["source_url"]}]}}),
             )
         )
+        if len(rows) == 24:
+            break
     return rows
 
 
