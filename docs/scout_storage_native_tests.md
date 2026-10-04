@@ -637,6 +637,29 @@ controls read the bytes and observe cancellation only after caller Close. Always
 release the fixture on assertion failure. Repeated native/race checks qualify
 this ownership boundary, not cloud credentials, connection reuse or throughput.
 
+## Positive HTTP controls must satisfy the SDK protocol
+
+A status-200 JSON fixture is not necessarily a successful SDK request. In
+[Qiniu v7.26.8's interceptor](https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/internal/clientv2/interceptor_anti_hijacking.go#L19-L29),
+responses with neither a request-ID nor a log header are rejected as potentially
+hijacked. Its retry classifier treats that error as retryable. A local success
+fixture needs a valid operation response and an appropriate `X-Reqid` or
+`X-Log` header; do not disable production validation to make the test pass.
+Check the real verb too: this revision uses GET for Stat and POST for Copy/Delete.
+
+Run a successful request control before attributing a cancellation timeout to
+production. Use nonblocking fixture notifications, bounded clients, and release
+held requests on every failure path; retries can invoke the handler more than
+once. Keep invalid-fixture failures separate from reproduced contract defects.
+
+Then inspect the exact dependency interface. This pin's
+[Stat/Copy/Delete wrappers](https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/storage/bucket.go#L533-L601)
+take no context and call the underlying API with `context.Background()`.
+JuiceFS forwarding context to List does not fix those operations. Do not invent
+WithContext methods or return early while leaving an unowned request running.
+Choose a reviewed dependency extension or a separately tested context-aware API
+integration, preserving endpoints, credentials, metadata and error semantics.
+
 ## Backend cancellation is not pipeline cancellation
 
 Follow the request and the outer producer separately. In

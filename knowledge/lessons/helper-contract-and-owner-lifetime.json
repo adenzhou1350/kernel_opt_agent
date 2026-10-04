@@ -6,6 +6,14 @@
   "avoid_when": "A documented public helper can be defective without shipped callers. Strong references prevent identity reuse only during their lifetime, not mutation, stale metadata or concurrency. A cleanup handler or passing suite proves only reached scenarios, not every leak path. Earlier spreads preserve only present enumerable own properties; later undefined values, overwrites or changed producers can lose data. Close semantics vary by resource: do not transfer upload abort to successful caller-owned streams. SDK-internal stack assertions are revision-bound, not stable API guarantees. These scoped counterexamples do not measure accelerator performance or general false-positive rates.",
   "evidence": [
     {
+      "url": "https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/internal/clientv2/interceptor_anti_hijacking.go",
+      "note": "Static v7.26.8 SDK contract: response lacking both x-reqid and x-log becomes ErrMaliciousResponse. A plain 200/JSON mock is not a successful native SDK control. Supply protocol-valid fixture headers; do not disable production validation or attribute fixture retries to the target bug."
+    },
+    {
+      "url": "https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/storage/bucket.go",
+      "note": "Static v7.26.8: Stat/StatWithOpts, Copy and Delete pass context.Background to the internal API, and expose no caller-context argument. A List context-forwarding fix does not transfer to these wrappers. Dependency extension or API migration needs separate semantics tests; no invented WithContext call or detached early-return workaround."
+    },
+    {
       "url": "https://github.com/adenzhou1350/juicefs/blob/8e7be7b2e810b833df95eb0cc8c57269ed383c0b/pkg/object/gs_upload_test.go",
       "note": "Real GCS SDK/local HTTP: Reader errors before/after a chunk leak Writer monitors; child-context cancellation aborts without partial commit or caller cancellation. Empty/small/multi-chunk success remains. Native/race checks use an SDK-internal stack frame, not live GCS or throughput qualification."
     },
