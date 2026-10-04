@@ -62,6 +62,66 @@ independent-case counts. Rust measured/compact/custom batches are unsupported.
 CLI exits are 0 for observed tests passing, 1 for observed test failures and 2
 for inconclusive input. This does not change a delivery state or PR readiness.
 
+### Optional worker-side execution entrance
+
+`scripts/scout_native_run.py` captures one **already reviewed** CPU test command
+on an authorized POSIX worker. It is not an SSH dispatcher, environment builder,
+model launcher, queue consumer or mandatory validation route. It refuses to run
+on Windows; do not start local WSL to work around that refusal. Use the existing
+authorized remote environment and its native tools instead.
+
+For example, substitute the reviewed Git-blob hashes and actual private paths:
+
+```sh
+python /path/to/kernel_opt_agent/scripts/scout_native_run.py \
+  --cwd /path/to/juicefs --output /path/to/private/fresh-result \
+  --format go-json --package github.com/juicedata/juicefs/pkg/utils \
+  --expect-test TestBuffer --timeout 120 \
+  --source 'pkg/utils/buffer.go=REVIEWED_SHA256' \
+  --source 'pkg/utils/buffer_test.go=REVIEWED_SHA256' \
+  --source 'go.mod=REVIEWED_SHA256' --source 'go.sum=REVIEWED_SHA256' \
+  --env GOENV=off --env GOTOOLCHAIN=local --env GOPROXY=off \
+  --env GOCACHE=/path/to/private/build-cache \
+  --env GOMODCACHE=/path/to/private/modules \
+  -- /path/to/pinned/go/bin/go test -json -count=1 -timeout=60s \
+     ./pkg/utils -run '^TestBuffer$'
+```
+
+For Rust, use `--format rust-libtest`, an exact expected libtest name, and the
+repository's native Cargo command/profile or an independently source-bound test
+binary. Pin and verify the full source, build inputs and environment separately;
+selected file hashes alone cannot establish that a cached binary came from them.
+Run the before/after commands into separate fresh output directories and retain
+failing controls. The output directory's parent must already exist.
+
+The entrance checks 1–64 selected regular source files (8 MiB maximum each)
+before and after execution, records the resolved executable/content hash, hides
+CUDA, and delegates complete log counting to the existing native-results parser.
+Its command deadline includes compilation, child exit and output-pipe closure;
+both command and overall invocation wall time are recorded. It caps captured
+output at 2 MiB on disk, not an unbounded in-memory `capture_output`. Timeout,
+overflow, changed inputs/tool or invalid UTF-8 cannot produce a partial-log PASS.
+Timeout/overflow cleanup signals only its child's process group, including a
+child that retains stdout after the original parent exits. This is not containment
+of processes that deliberately escape that group, nor a filesystem/network/GPU
+security sandbox; only reviewed commands belong here. Tests may still change
+other files or use networks. No source patching, download or global install is
+performed by this tool itself.
+
+Only explicit environment overrides are value-hashed in the result; inherited
+environment, dependencies and compiler caches are **not** attested. Keep raw
+commands, paths and output private. No test counts or exit codes automatically
+qualify a candidate, prove a useful oracle, or advance Scout/PR state.
+
+Development validation used a previously built, independently checked LanceDB
+binary: six registered alteration tests pass, while an exit-zero selector matching
+no native test stays INCONCLUSIVE. The same CLI executes one registered JuiceFS
+`TestBuffer` with exact selected source hashes and an existing offline Go cache.
+Linux process controls cover source/tool changes, oversized output, invalid UTF-8,
+timeouts and a pipe-holding descendant; Windows controls prove no child is started.
+These are runner/reuse checks, not a new repository correctness result, autonomous
+Scout execution, model-cost improvement or PR-conversion measurement.
+
 The implementation was checked against saved native JuiceFS output (52 passing
 terminal test events) and LanceDB output (266 passes, 1232 filtered). Two fresh
 native commands deliberately matching no test both returned process exit zero;
