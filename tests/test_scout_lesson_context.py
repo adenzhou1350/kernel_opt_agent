@@ -136,6 +136,7 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("not joining", lesson["lesson"])
         self.assertIn("immutable", lesson["avoid_when"])
         self.assertIn("failing package/process", lesson["avoid_when"])
+        self.assertIn("do not promote the combined result", lesson["avoid_when"])
         self.assertTrue(any("185d0df3" in e["url"] for e in lesson["evidence"]))
         self.assertNotIn("qualified", result)
 

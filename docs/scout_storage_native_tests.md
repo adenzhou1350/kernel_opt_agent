@@ -704,6 +704,14 @@ knowledge lesson qualifies full upstream CI or a performance/model-cost gain.
 The reusable synchronization lesson is separate from the existing
 helper-contract/owner-lifetime card; frozen study records are not rescored.
 
+The independent progress race already has [PR #7608](https://github.com/juicedata/juicefs/pull/7608);
+do not rediscover it as another candidate. A fresh composition of delimiter head
+`185d0df` and progress head `3f34b25`, both based on `adcca1c`, passes
+six selected sync tests under `-race -count=3` (18 executions), including the
+pending-progress lifecycle regression. The composition used raw Git-blob bytes,
+offline native Go 1.25.10 and explicit source hashes. This resolves the observed
+focused blocker, not full sync CI or either PR's standalone race-suite coverage.
+
 ## Backend cancellation is not pipeline cancellation
 
 Follow the request and the outer producer separately. In
