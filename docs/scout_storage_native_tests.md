@@ -71,6 +71,39 @@ The helper uses no model/network and cannot advance a candidate or dispatch work
 python -B -m unittest tests.test_kimi_scout_shadow
 ```
 
+### Deliver exact source without whole-archive RAM copies
+
+Reuse `qualification-source-bundle` when a native reproduction needs committed
+bytes on another host. It reads Git objects, not a dirty or CRLF-converted checkout;
+it does not apply `export-ignore` or `export-subst` transformations. A normal
+`git archive` is not evidence of raw-blob equality. This tool rejects Git submodules
+rather than silently omitting their source.
+
+```sh
+python scripts/kernel_opt.py qualification-source-bundle --build \
+  --repo /path/to/repo --commit EXACT_COMMIT --repository-url PUBLIC_REPOSITORY \
+  --archive /private/source.tar.gz --manifest /private/source.manifest.json
+python scripts/kernel_opt.py qualification-source-bundle --verify \
+  --archive /private/source.tar.gz --manifest /private/source.manifest.json \
+  --extract-root /private/fresh-source
+```
+
+The CLI streams blob contents and uses temporary disk files beside the archive,
+so that directory must be writable with room for compressed and uncompressed
+scratch data, plus any extracted source. Manifest/path metadata still scales with
+file count. Verification hashes one captured snapshot and rejects changed inputs
+before extraction or publishing a receipt. Existing archive/manifest/extraction
+targets are not overwritten. The legacy Python `verify_bundle()` byte-returning
+API still materializes the tar; use the CLI or `verify_bundle_into()` with a
+seekable disk-backed scratch stream for low-memory verification.
+
+An offline Windows Python 3.12 comparison of the exact JuiceFS `185d0df` source
+(1,113 files, 51,223,760 raw bytes) preserved the old archive and manifest bytes.
+Python allocation peaks changed from approximately 131/197 MiB to 3.8/6.0 MiB
+for build/verify-and-extract. This is not RSS or Git-child memory, a sustained
+throughput result, automatic Scout recovery, or a PR-conversion gain. The disk
+tradeoff matters; keep source identity separate from native correctness and CI.
+
 ### Count saved native results before calling them verified
 
 `scripts/scout_native_results.py` reads a bounded saved log (2 MiB maximum) and

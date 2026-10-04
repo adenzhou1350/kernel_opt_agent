@@ -25,10 +25,6 @@ SCHEMA_VERSION = "qualification-source-bundle-v1"
 GIT_SHA1_PATTERN = "0123456789abcdef"
 
 
-def sha256_bytes(data: bytes) -> str:
-    return hashlib.sha256(data).hexdigest()
-
-
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -69,9 +65,8 @@ def read_exact(handle: BinaryIO, size: int) -> bytes:
     return data
 
 
-def git_tree_blobs(repo: Path, commit: str) -> list[tuple[str, int, bytes]]:
-    """Return tracked paths, modes, and exact blob bytes without a checkout."""
-
+def git_tree_entries(repo: Path, commit: str) -> list[tuple[str, str, str]]:
+    """List identities without loading the committed file contents."""
     records = git(repo, "ls-tree", "-rz", "--full-tree", "-r", commit).split(b"\0")
     identities: list[tuple[str, str, str]] = []
     for record in records:
@@ -95,85 +90,137 @@ def git_tree_blobs(repo: Path, commit: str) -> list[tuple[str, int, bytes]]:
         identities.append((path, mode, object_id))
     if not identities:
         raise ValueError("source bundle must contain at least one Git blob")
-
-    process = subprocess.Popen(
-        ["git", "-C", str(repo), "cat-file", "--batch"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    request = b"".join(
-        object_id.encode("ascii") + b"\n" for _, _, object_id in identities
-    )
-    stdout, stderr = process.communicate(request)
-    if process.returncode != 0:
-        detail = stderr.decode("utf-8", errors="replace").strip()
-        raise ValueError(f"git cat-file --batch failed: {detail}")
-
-    stream = io.BytesIO(stdout)
-    result: list[tuple[str, int, bytes]] = []
-    for path, mode_text, object_id in identities:
-        header = stream.readline().rstrip(b"\n").decode("ascii", errors="replace")
-        parts = header.split(" ")
-        if len(parts) != 3 or parts[0] != object_id or parts[1] != "blob":
-            raise ValueError(f"unexpected git cat-file header for {path!r}: {header!r}")
-        try:
-            size = int(parts[2])
-        except ValueError as error:
-            raise ValueError(f"invalid Git blob size for {path!r}") from error
-        data = read_exact(stream, size)
-        if stream.read(1) != b"\n":
-            raise ValueError(f"invalid Git blob delimiter for {path!r}")
-        result.append((path, int(mode_text, 8), data))
-    if stream.read(1):
-        raise ValueError("git cat-file returned trailing data")
-    return result
+    return identities
 
 
-def deterministic_tar(
-    blobs: list[tuple[str, int, bytes]], prefix: str
-) -> tuple[bytes, list[dict]]:
+class _BlobReader:
+    """Read exactly one batch blob while hashing tarfile's bounded reads."""
+
+    def __init__(self, handle: BinaryIO, size: int) -> None:
+        self.handle = handle
+        self.remaining = size
+        self.digest = hashlib.sha256()
+
+    def read(self, size: int) -> bytes:
+        if size < 0 or size > self.remaining:
+            raise ValueError("Git blob read exceeds its declared size")
+        data = read_exact(self.handle, size)
+        self.remaining -= len(data)
+        self.digest.update(data)
+        return data
+
+
+def write_git_tar(
+    repo: Path, identities: list[tuple[str, str, str]], prefix: str, output: BinaryIO
+) -> list[dict]:
+    """Stream raw Git files into the same deterministic tar layout."""
+
     directories = {prefix}
-    for path, _, _ in blobs:
+    for path, _, _ in identities:
         parts = PurePosixPath(path).parts
         for index in range(1, len(parts)):
             directories.add(PurePosixPath(prefix, *parts[:index]).as_posix())
-
-    output = io.BytesIO()
-    with tarfile.open(fileobj=output, mode="w:", format=tarfile.PAX_FORMAT) as archive:
-        for path in sorted(directories):
-            info = tarfile.TarInfo(path + "/")
-            info.type = tarfile.DIRTYPE
-            info.mode = 0o755
-            info.mtime = 0
-            info.uid = info.gid = 0
-            info.uname = info.gname = ""
-            archive.addfile(info)
-        for path, git_mode, data in sorted(blobs):
-            archive_path = PurePosixPath(prefix, path).as_posix()
-            info = tarfile.TarInfo(archive_path)
-            info.mtime = 0
-            info.uid = info.gid = 0
-            info.uname = info.gname = ""
-            if git_mode == 0o120000:
-                try:
-                    target = data.decode("utf-8")
-                except UnicodeDecodeError as error:
-                    raise ValueError(
-                        f"symlink target at {path!r} is not UTF-8"
-                    ) from error
-                safe_symlink_target(PurePosixPath(archive_path), target, prefix)
-                info.type = tarfile.SYMTYPE
-                info.mode = 0o777
-                info.linkname = target
-                archive.addfile(info)
-            else:
-                info.type = tarfile.REGTYPE
-                info.mode = 0o755 if git_mode == 0o100755 else 0o644
-                info.size = len(data)
-                archive.addfile(info, io.BytesIO(data))
-    tar_bytes = output.getvalue()
-    return tar_bytes, entries_from_tar(tar_bytes, prefix)
+    entries: list[dict] = []
+    # stderr is disk-backed: it cannot fill a pipe while a blob is being read.
+    with tempfile.TemporaryFile() as errors:
+        process = subprocess.Popen(
+            ["git", "-C", str(repo), "cat-file", "--batch"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=errors,
+        )
+        try:
+            assert process.stdin is not None and process.stdout is not None
+            with tarfile.open(
+                fileobj=output, mode="w|", format=tarfile.PAX_FORMAT
+            ) as archive:
+                for path in sorted(directories):
+                    info = tarfile.TarInfo(path + "/")
+                    info.type = tarfile.DIRTYPE
+                    info.mode = 0o755
+                    archive.addfile(info)
+                    entries.append(
+                        {"mode": info.mode, "path": path, "type": "directory"}
+                    )
+                for path, mode_text, object_id in sorted(identities):
+                    process.stdin.write(object_id.encode("ascii") + b"\n")
+                    process.stdin.flush()
+                    header = (
+                        process.stdout.readline(1024)
+                        .rstrip(b"\n")
+                        .decode("ascii", errors="replace")
+                    )
+                    parts = header.split(" ")
+                    if len(parts) != 3 or parts[:2] != [object_id, "blob"]:
+                        raise ValueError(
+                            f"unexpected git cat-file header for {path!r}: {header!r}"
+                        )
+                    try:
+                        size = int(parts[2])
+                    except ValueError as error:
+                        raise ValueError(
+                            f"invalid Git blob size for {path!r}"
+                        ) from error
+                    if size < 0:
+                        raise ValueError(f"invalid Git blob size for {path!r}")
+                    archive_path = PurePosixPath(prefix, path).as_posix()
+                    info = tarfile.TarInfo(archive_path)
+                    if mode_text == "120000":
+                        try:
+                            target = read_exact(process.stdout, size).decode("utf-8")
+                        except UnicodeDecodeError as error:
+                            raise ValueError(
+                                f"symlink target at {path!r} is not UTF-8"
+                            ) from error
+                        safe_symlink_target(PurePosixPath(archive_path), target, prefix)
+                        info.type = tarfile.SYMTYPE
+                        info.mode = 0o777
+                        info.linkname = target
+                        archive.addfile(info)
+                        entries.append(
+                            {
+                                "mode": info.mode,
+                                "path": archive_path,
+                                "type": "symlink",
+                                "target": target,
+                            }
+                        )
+                    else:
+                        info.mode = 0o755 if mode_text == "100755" else 0o644
+                        info.size = size
+                        reader = _BlobReader(process.stdout, size)
+                        archive.addfile(info, reader)
+                        if reader.remaining:
+                            raise ValueError(
+                                f"Git blob was not completely read: {path!r}"
+                            )
+                        entries.append(
+                            {
+                                "mode": info.mode,
+                                "path": archive_path,
+                                "type": "file",
+                                "size": size,
+                                "sha256": reader.digest.hexdigest(),
+                            }
+                        )
+                    if process.stdout.read(1) != b"\n":
+                        raise ValueError(f"invalid Git blob delimiter for {path!r}")
+            process.stdin.close()
+            trailing = process.stdout.read(1)
+            if process.wait() != 0:
+                errors.seek(0)
+                detail = errors.read().decode("utf-8", errors="replace").strip()
+                raise ValueError(f"git cat-file --batch failed: {detail}")
+            if trailing:
+                raise ValueError("git cat-file returned trailing data")
+        finally:
+            if process.poll() is None:
+                process.terminate()
+            process.wait()
+            for pipe in (process.stdin, process.stdout):
+                if pipe is not None:
+                    pipe.close()
+    return entries
 
 
 def validate_prefix(prefix: str) -> str:
@@ -211,10 +258,14 @@ def safe_symlink_target(member_path: PurePosixPath, target: str, prefix: str) ->
 
 
 def entries_from_tar(tar_bytes: bytes, prefix: str) -> list[dict]:
+    return entries_from_tar_stream(io.BytesIO(tar_bytes), prefix)
+
+
+def entries_from_tar_stream(tar_stream: BinaryIO, prefix: str) -> list[dict]:
     entries: list[dict] = []
     seen: set[str] = set()
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as archive:
-        for member in archive.getmembers():
+    with tarfile.open(fileobj=tar_stream, mode="r|") as archive:
+        for member in archive:
             path = safe_member_path(member.name, prefix)
             normalized = path.as_posix()
             if normalized in seen:
@@ -227,13 +278,17 @@ def entries_from_tar(tar_bytes: bytes, prefix: str) -> list[dict]:
                 handle = archive.extractfile(member)
                 if handle is None:
                     raise ValueError(f"cannot read archive member: {normalized}")
-                data = handle.read()
+                digest = hashlib.sha256()
+                size = 0
+                for block in iter(lambda: handle.read(1024 * 1024), b""):
+                    digest.update(block)
+                    size += len(block)
                 entries.append(
                     {
                         **base,
                         "type": "file",
-                        "size": len(data),
-                        "sha256": sha256_bytes(data),
+                        "size": size,
+                        "sha256": digest.hexdigest(),
                     }
                 )
             elif member.issym():
@@ -274,14 +329,26 @@ def build_bundle(
     )
     if not full_sha1(resolved_commit) or not full_sha1(tree):
         raise ValueError("Git commit and tree must use full SHA-1 identities")
-    tar_bytes, entries = deterministic_tar(
-        git_tree_blobs(repo, resolved_commit), prefix
-    )
-
-    compressed = io.BytesIO()
-    with gzip.GzipFile(filename="", mode="wb", fileobj=compressed, mtime=0) as handle:
-        handle.write(tar_bytes)
-    archive_bytes = compressed.getvalue()
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    # Stage beside the output, not in the system temp directory. Source contents
+    # and compressed output never accumulate in Python memory.
+    with tempfile.TemporaryFile(dir=archive_path.parent) as compressed:
+        with gzip.GzipFile(
+            filename="", mode="wb", fileobj=compressed, mtime=0
+        ) as handle:
+            entries = write_git_tar(
+                repo, git_tree_entries(repo, resolved_commit), prefix, handle
+            )
+        archive_size = compressed.tell()
+        compressed.seek(0)
+        digest = hashlib.sha256()
+        for block in iter(lambda: compressed.read(1024 * 1024), b""):
+            digest.update(block)
+        archive_digest = digest.hexdigest()
+        compressed.seek(0)
+        with archive_path.open("xb") as output:
+            shutil.copyfileobj(compressed, output)
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "source": {
@@ -290,17 +357,15 @@ def build_bundle(
             "repository": repository_url.strip(),
         },
         "archive": {
-            "bytes": len(archive_bytes),
+            "bytes": archive_size,
             "construction": "raw Git blobs -> deterministic POSIX tar -> gzip(mtime=0)",
             "prefix": prefix,
-            "sha256": sha256_bytes(archive_bytes),
+            "sha256": archive_digest,
         },
         "entries": entries,
     }
-    archive_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    archive_path.write_bytes(archive_bytes)
-    manifest_path.write_bytes(canonical_json(manifest))
+    with manifest_path.open("xb") as output:
+        output.write(canonical_json(manifest))
     return manifest
 
 
@@ -314,6 +379,18 @@ def read_manifest(path: Path) -> dict:
 
 
 def verify_bundle(archive_path: Path, manifest_path: Path) -> tuple[dict, bytes]:
+    """Compatibility byte API; CLI verification uses a disk-backed tar instead."""
+
+    output = io.BytesIO()
+    manifest = verify_bundle_into(archive_path, manifest_path, output)
+    return manifest, output.getvalue()
+
+
+def verify_bundle_into(
+    archive_path: Path, manifest_path: Path, tar_output: BinaryIO
+) -> dict:
+    """Verify into a seekable scratch stream, replacing any prior contents."""
+
     manifest = read_manifest(manifest_path)
     archive_record = manifest.get("archive")
     source = manifest.get("source")
@@ -344,34 +421,55 @@ def verify_bundle(archive_path: Path, manifest_path: Path) -> tuple[dict, bytes]
         or not source["repository"].strip()
     ):
         raise ValueError("source.repository must be a non-empty logical identity")
-    archive_bytes = archive_path.read_bytes()
-    if archive_record.get("bytes") != len(archive_bytes):
-        raise ValueError("archive byte count does not match manifest")
-    if archive_record.get("sha256") != sha256_bytes(archive_bytes):
-        raise ValueError("archive SHA-256 does not match manifest")
-    if len(archive_bytes) < 10 or archive_bytes[:3] != b"\x1f\x8b\x08":
-        raise ValueError("archive is not a gzip stream")
-    if archive_bytes[4:8] != b"\x00\x00\x00\x00":
-        raise ValueError("gzip header mtime must be zero")
     prefix = validate_prefix(str(archive_record.get("prefix", "")))
-    try:
-        tar_bytes = gzip.decompress(archive_bytes)
-    except (EOFError, OSError) as error:
-        raise ValueError(f"invalid gzip archive: {error}") from error
-    observed = entries_from_tar(tar_bytes, prefix)
+    tar_output.seek(0)
+    tar_output.truncate()
+    # Verify one captured compressed snapshot. Reopening the source after hashing
+    # would let concurrent file replacement change the bytes being extracted.
+    with tempfile.TemporaryFile(dir=archive_path.parent) as compressed:
+        digest = hashlib.sha256()
+        size = 0
+        with archive_path.open("rb") as source:
+            for block in iter(lambda: source.read(1024 * 1024), b""):
+                digest.update(block)
+                size += len(block)
+                compressed.write(block)
+        if archive_record.get("bytes") != size:
+            raise ValueError("archive byte count does not match manifest")
+        if archive_record.get("sha256") != digest.hexdigest():
+            raise ValueError("archive SHA-256 does not match manifest")
+        compressed.seek(0)
+        header = compressed.read(10)
+        if len(header) < 10 or header[:3] != b"\x1f\x8b\x08":
+            raise ValueError("archive is not a gzip stream")
+        if header[4:8] != b"\x00\x00\x00\x00":
+            raise ValueError("gzip header mtime must be zero")
+        compressed.seek(0)
+        try:
+            with gzip.GzipFile(fileobj=compressed, mode="rb") as source:
+                shutil.copyfileobj(source, tar_output, length=1024 * 1024)
+        except (EOFError, OSError) as error:
+            raise ValueError(f"invalid gzip archive: {error}") from error
+    tar_output.seek(0)
+    observed = entries_from_tar_stream(tar_output, prefix)
     if observed != entries:
         raise ValueError("archive entries do not exactly match the manifest")
-    return manifest, tar_bytes
+    tar_output.seek(0)
+    return manifest
 
 
-def extract_bundle(tar_bytes: bytes, manifest: dict, target: Path) -> None:
+def extract_bundle(tar_bytes: bytes | BinaryIO, manifest: dict, target: Path) -> None:
     target = target.resolve()
     if target.exists():
         raise ValueError(f"extract target must not already exist: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
     try:
-        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as archive:
+        tar_stream = (
+            io.BytesIO(tar_bytes) if isinstance(tar_bytes, bytes) else tar_bytes
+        )
+        tar_stream.seek(0)
+        with tarfile.open(fileobj=tar_stream, mode="r:") as archive:
             members = {
                 member.name.rstrip("/"): member for member in archive.getmembers()
             }
@@ -468,20 +566,26 @@ def main() -> int:
                 raise ValueError(
                     "--repo, --commit, and --repository-url are valid only with --build"
                 )
-            manifest, tar_bytes = verify_bundle(args.archive, args.manifest)
-            if args.extract_root is not None:
-                extract_bundle(tar_bytes, manifest, args.extract_root)
+            manifest_digest = sha256_file(args.manifest)
+            with tempfile.TemporaryFile(dir=args.archive.parent) as tar_stream:
+                manifest = verify_bundle_into(args.archive, args.manifest, tar_stream)
+                if sha256_file(args.archive) != manifest["archive"]["sha256"]:
+                    raise ValueError("source archive changed during verification")
+                if sha256_file(args.manifest) != manifest_digest:
+                    raise ValueError("source manifest changed during verification")
+                if args.extract_root is not None:
+                    extract_bundle(tar_stream, manifest, args.extract_root)
             receipt = {
                 "schema_version": "qualification-source-bundle-verification-result-v1",
                 "status": "PASS",
                 "archive": {
                     "path": str(args.archive.resolve()),
-                    "sha256": sha256_file(args.archive),
-                    "bytes": args.archive.stat().st_size,
+                    "sha256": manifest["archive"]["sha256"],
+                    "bytes": manifest["archive"]["bytes"],
                 },
                 "manifest": {
                     "path": str(args.manifest.resolve()),
-                    "sha256": sha256_file(args.manifest),
+                    "sha256": manifest_digest,
                     "entries": len(manifest["entries"]),
                 },
                 "source": manifest["source"],
