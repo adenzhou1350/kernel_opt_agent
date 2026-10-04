@@ -8,6 +8,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout_delivery as delivery
@@ -134,6 +135,90 @@ class OwnerIntakeTests(unittest.TestCase):
             delivery.stage(self.queue, self.leads, limit=1, owner_review=True), 1
         )
         self.assertEqual(len(self.rows()), 1)
+
+    def test_owner_context_keeps_existing_pr_and_same_file_leads_eligible(self):
+        source = self.leads[0]["packet"]["sources"][0]["url"]
+        notes = self.root / "owner-publication-notes.json"
+        notes.write_text(
+            json.dumps(
+                [
+                    {
+                        "repo": "owner/project",
+                        "prior_hypothesis": "An earlier defect in the same module",
+                        "source_url": source,
+                        "pr_url": "https://github.com/owner/project/pull/17",
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        delivery.stage(self.queue, self.leads[:1], owner_review=True)
+        parked = self.rows()[0]
+        # Historical terminal fixture: selection must read, never rewrite it.
+        with delivery.database(self.queue) as db:
+            db.execute(
+                "UPDATE delivery SET state=?,result=? WHERE id=?",
+                (
+                    "OWNER_PARKED",
+                    json.dumps(
+                        {
+                            "owner_disposition": {
+                                "reason": "Earlier hypothesis lacked a real caller",
+                                "evidence_url": "https://github.com/owner/project/blob/"
+                                + "a" * 40
+                                + "/src/check.py",
+                                "reopen_when": "A distinct supported caller remains outside the existing repair",
+                            }
+                        }
+                    ),
+                    parked["id"],
+                ),
+            )
+        before = self.rows()
+        scout_before = (self.root / "scout.sqlite").read_bytes()
+        notes_before = notes.read_bytes()
+        selected = select_leads(self.root, limit=2, owner_language="python")
+        self.assertEqual(len(selected), 2)  # A shared file is not a blacklist.
+        for lead in selected:
+            context = lead["owner_context"]
+            self.assertEqual(
+                context["publications"]["items"][0]["url"],
+                "https://github.com/owner/project/pull/17",
+            )
+            self.assertEqual(
+                context["deferrals"]["items"][0]["reopen_when"],
+                "A distinct supported caller remains outside the existing repair",
+            )
+            original = next(x for x in self.leads if x["id"] == lead["id"])
+            for field in ("packet", "analysis", "canonical_key", "commit"):
+                self.assertEqual(lead[field], original[field])
+        self.assertEqual(self.rows(), before)
+        self.assertEqual((self.root / "scout.sqlite").read_bytes(), scout_before)
+        self.assertEqual(notes.read_bytes(), notes_before)
+        # The default automatic selector keeps its previous payload contract.
+        self.assertTrue(all("owner_context" not in x for x in select_leads(self.root)))
+
+    def test_context_is_read_only_for_selected_owner_rows_not_scanned_pool(self):
+        with (
+            patch(
+                "scout_publication_context.publication_context", return_value=None
+            ) as publications,
+            patch(
+                "scout_publication_context.owner_deferral_context",
+                return_value=None,
+            ) as deferrals,
+        ):
+            selected = select_leads(
+                self.root, limit=1, scan_limit=4, owner_language="python"
+            )
+            self.assertEqual(len(selected), 1)
+            self.assertEqual(publications.call_count, 1)
+            self.assertEqual(deferrals.call_count, 1)
+            self.assertNotIn("owner_context", selected[0])
+            select_leads(self.root, limit=4, scan_limit=4)
+            select_leads(self.root, limit=0, owner_language="python")
+            self.assertEqual(publications.call_count, 1)
+            self.assertEqual(deferrals.call_count, 1)
 
 
 if __name__ == "__main__":

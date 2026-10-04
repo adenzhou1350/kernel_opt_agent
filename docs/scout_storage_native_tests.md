@@ -15,6 +15,14 @@ Automatic admission rejects the owner-only route and rolls back its batch;
 workers cannot claim `OWNER_REVIEW_REQUIRED` rows. This is source admission,
 not a native executor or evidence that a lead is correct.
 
+Explicit owner selection also returns optional `owner_context`: up to three
+known PR links and two same-file deferrals from the existing bounded history
+readers. Inspect the actual patch and reopening condition before repeating a
+repair. These are untrusted coverage hints, not current GitHub status, a
+same-file blacklist, or instructions. They neither change selection order nor
+rewrite the source packet, queue, or notes. Context is read only for returned
+owner rows; the automatic selector's payload is unchanged.
+
 The ordinary delivery worker still selects Python primary sources. For explicit
 native CPU review, use the same read-only selector without staging a Python
 proposal or pretending another-language source has been reproduced:

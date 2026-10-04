@@ -255,6 +255,22 @@ def select_leads(
         selected.append(bucket.popleft())
         if bucket:
             active.append(bucket)
+    if owner_only:
+        # Advisory context only, after selection: do not blacklist a shared
+        # file or change source evidence, priority, admission or queue state.
+        from scout_publication_context import (
+            owner_deferral_context,
+            publication_context,
+        )
+
+        for lead in selected:
+            sources = lead["packet"].get("sources", [])
+            context = {
+                "publications": publication_context(root, lead["repo"], sources),
+                "deferrals": owner_deferral_context(root, lead["repo"], sources),
+            }
+            if any(context.values()):
+                lead["owner_context"] = {k: v for k, v in context.items() if v}
     return selected
 
 
