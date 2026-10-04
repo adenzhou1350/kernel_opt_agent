@@ -460,9 +460,16 @@ class ResearchTests(unittest.TestCase):
             }
             for i in range(3)
         ]
-        self.producer.emit(
-            "large_windows", self.spec, code + related, "source_followup"
-        )
+        # Isolate source-trimming priority from growth of the real knowledge
+        # catalog. Catalog payload fitting has its own budget tests.
+        with patch.object(self.producer, "lessons", []), patch.object(
+            research, "lesson_suggestions", return_value={"status": "NO_MATCH"}
+        ), patch.object(
+            scout, "MAX_INPUT_BYTES", 20000
+        ):
+            self.producer.emit(
+                "large_windows", self.spec, code + related, "source_followup"
+            )
         packet = json.loads(self.jobs()[0]["packet"])
         self.assertEqual(packet["sources"][:2], code)
         self.assertTrue(any(s.get("truncated") for s in packet["sources"][2:]))

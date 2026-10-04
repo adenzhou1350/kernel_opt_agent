@@ -19,6 +19,7 @@ import urllib.parse
 import kimi_scout as scout
 from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
+from scout_cited_issue import cited_issue_number
 from scout_file_mentions import filename_mentions
 from scout_audit_context import contextual_audit_tail
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
@@ -426,7 +427,8 @@ class ResearchProducer:
         )
 
     def emit(
-        self, key, spec, sources, stage, *, parent=None, focus_issue=None, question=""
+        self, key, spec, sources, stage, *, parent=None, focus_issue=None,
+        issue_pr_lookup=None, question=""
     ):
         if self.stopped() or self.seen(key):
             return False
@@ -469,6 +471,8 @@ class ResearchProducer:
         }
         if focus_issue:
             packet["focus_issue"] = focus_issue
+        if issue_pr_lookup is not None:
+            packet["issue_pr_lookup"] = issue_pr_lookup
         if parent:
             packet["untrusted_prior_analysis"] = parent["analysis"][:2500]
         publications = publication_context(self.root, spec["repo"], sources)
@@ -701,6 +705,22 @@ class ResearchProducer:
             return created
         return False
 
+    def issue_pr_context(self, repo, number):
+        lookup = getattr(self.context, "issue_pr_context", None)
+        if not callable(lookup):
+            return {"sources": [], "status": "UNAVAILABLE", "search_exhaustive": False}
+        try:
+            result = lookup(repo, number)
+            if not isinstance(result, dict) or not isinstance(result.get("sources"), list):
+                raise ValueError("invalid issue PR context")
+            return result
+        except (ValueError, OSError) as exc:
+            # Optional lookup failure is not evidence that no existing PR exists.
+            return {
+                "sources": [], "status": "ERROR", "error": type(exc).__name__,
+                "search_exhaustive": False,
+            }
+
     def followup(self, spec, progress):
         with scout.connect(self.root) as db:
             rows = list(
@@ -738,9 +758,18 @@ class ResearchProducer:
             root = research.get("root_job_id") or row["id"]
             number = packet.get("focus_issue")
             if not number:
+                issue_candidates = packet["sources"]
+                if research:
+                    # Related-work hits are not candidate ownership. Keep source
+                    # chains on their original identity and two-followup budget.
+                    issue_candidates = (
+                        issue_candidates[:1]
+                        if research.get("stage") == "issue_triage"
+                        else []
+                    )
                 matches = {
                     int(m.group(1))
-                    for s in packet["sources"]
+                    for s in issue_candidates
                     if (
                         m := re.fullmatch(
                             r"https://github\.com/"
@@ -797,9 +826,24 @@ class ResearchProducer:
                 if number
                 else json.loads(row["result"])["analysis"]["title"]
             )
-            sources.extend(self.context.duplicate_sources(
-                spec["repo"], source_duplicate_title(spec["repo"], title, sources)
-            ))
+            lookup_number = number or cited_issue_number(
+                spec["repo"], packet["sources"], analysis_value
+            )
+            related_prs = (
+                self.issue_pr_context(spec["repo"], lookup_number)
+                if lookup_number else None
+            )
+            if related_prs is not None and not number:
+                related_prs = {
+                    **related_prs, "related_issue": lookup_number,
+                    "candidate_focus_adopted": False,
+                }
+            if related_prs and related_prs["sources"]:
+                sources.extend(related_prs["sources"])
+            else:
+                sources.extend(self.context.duplicate_sources(
+                    spec["repo"], source_duplicate_title(spec["repo"], title, sources)
+                ))
             sources = distinct_sources(sources)
             old_evidence = {retrieval_identity(s) for s in packet["sources"]}
             if not any(retrieval_identity(s) not in old_evidence for s in sources):
@@ -814,6 +858,10 @@ class ResearchProducer:
                 sources,
                 stage,
                 focus_issue=number,
+                issue_pr_lookup=(
+                    {k: v for k, v in related_prs.items() if k != "sources"}
+                    if related_prs else None
+                ),
                 parent={
                     "id": row["id"],
                     "root": root,

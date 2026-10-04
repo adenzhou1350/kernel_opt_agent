@@ -480,3 +480,19 @@ delivery links remain deduplicated with these links. Reading makes no network or
 model call, rewrites no note/job and does not increase delivery conversion counts.
 Inspect the actual PR: a shared file is not evidence that a distinct bug is fixed,
 and a recorded link does not establish current CI, review, merge or useful yield.
+
+## Cited-issue related work
+
+An existing source follow-up may query one same-repository issue number when
+the issue URL was already displayed and the worker quotes its displayed text
+exactly. The controller checks at most five citations and 25 bounded excerpts;
+ambiguous or invented citations abstain. This never adopts that issue as the
+source chain's focus or extends the existing two-follow-up limit.
+
+The optional cached API search reads at most five PR-body hits, verifies their
+repository identities and literal issue references, and labels the result
+non-exhaustive. A transport/validation error stays visible as `ERROR`; it is not
+an empty-success novelty claim. Without usable hits, the existing title search
+remains the fallback. Inspect the actual author diff before deciding overlap.
+These retrieval checks do not execute target source, prove correctness, or
+establish higher PR yield; measure that separately on prospective cases.

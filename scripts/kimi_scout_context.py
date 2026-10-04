@@ -11,6 +11,7 @@ import time
 import urllib.parse
 
 import kimi_scout as scout
+from scout_issue_excerpt import issue_evidence
 
 SNAPSHOT_TTL = 900
 # Reuse verified visibility with the snapshot; a fresh controller rechecks it.
@@ -475,6 +476,86 @@ class PublicContext:
             type(count) is not int or count > len(result) - 1
         )
         return result
+
+    def issue_pr_context(self, repo, number):
+        """One cached, bounded PR-body search for an observed issue number.
+
+        Explicit references are related-work evidence, not a duplicate verdict.
+        No pagination, source execution or inference of merge/CI status.
+        """
+        repo, number = _repo(repo), _number(number)
+        self._public(repo)
+        query_text = f"repo:{repo} is:pr in:body {number}"
+        cache = self._cache_path("issue-pr", [repo, number])
+        record = self._load(cache)
+        def valid_search(found):
+            return (
+                isinstance(found, dict)
+                and isinstance(found.get("items"), list)
+                and type(found.get("total_count")) is int
+                and found["total_count"] >= len(found["items"])
+                and type(found.get("incomplete_results")) is bool
+            )
+
+        if (
+            not record
+            or type(record.get("at")) not in (int, float)
+            or not 0 <= time.time() - record["at"] < SNAPSHOT_TTL
+            or not valid_search(record.get("found"))
+        ):
+            query = urllib.parse.urlencode(
+                {"q": query_text, "sort": "updated", "per_page": 5}
+            )
+            found = self._json(
+                f"https://api.github.com/search/issues?{query}", limit=300_000
+            )
+            if not valid_search(found):
+                raise ValueError("invalid issue PR search")
+            record = {"at": time.time(), "found": found}
+            scout.write_json(cache, record)
+        found = record.get("found")
+        reference = re.compile(
+            rf"https://github\.com/{re.escape(repo)}/issues/{number}(?![0-9A-Za-z_/])"
+            rf"|(?<![\w/#])#{number}(?![0-9A-Za-z_])"
+        )
+        result = []
+        for item in found["items"][:5]:
+            if not isinstance(item, dict):
+                continue
+            pr = item.get("number")
+            link = item.get("pull_request")
+            body = item.get("body")
+            title = item.get("title")
+            if (
+                type(pr) is not int or not 1 <= pr <= 1_000_000_000
+                or not isinstance(link, dict)
+                or link.get("url") != f"https://api.github.com/repos/{repo}/pulls/{pr}"
+                or item.get("html_url") != f"https://github.com/{repo}/pull/{pr}"
+                or item.get("repository_url") != f"https://api.github.com/repos/{repo}"
+                or not isinstance(body, str) or not isinstance(title, str)
+                or item.get("state") not in ("open", "closed")
+            ):
+                continue
+            match = reference.search(body)
+            if match is None:
+                continue  # A bare digit substring is not an issue reference.
+            source = issue_evidence(item["html_url"], title, body, limit=2200)
+            source.update(
+                is_pr=True, search_exhaustive=False, search_query=query_text,
+                referenced_issue=number, observed_pr_state=item["state"],
+                reference_literal=match[0],
+            )
+            result.append(source)
+        return {
+            "sources": result,
+            "query": query_text,
+            "status": "PARTIAL_SEARCH",
+            "search_exhaustive": False,
+            "incomplete_results": found.get("incomplete_results"),
+            "total_count": found.get("total_count"),
+            "returned_items": len(found["items"][:5]),
+            "scope": "At most five PR-body hits; explicit issue references only. Neither a fix/merge verdict nor proof that an empty sample excludes existing work.",
+        }
 
     def duplicate_sources(self, repo, title):
         repo = _repo(repo)
