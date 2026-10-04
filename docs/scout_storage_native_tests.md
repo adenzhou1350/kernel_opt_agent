@@ -524,3 +524,22 @@ running (404/416/500); the scoped two-line fix releases them. Positive 200/206
 controls read the bytes and observe cancellation only after caller Close. Always
 release the fixture on assertion failure. Repeated native/race checks qualify
 this ownership boundary, not cloud credentials, connection reuse or throughput.
+
+## Backend cancellation is not pipeline cancellation
+
+Follow the request and the outer producer separately. In
+[JuiceFS adcca1cc](https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/pkg/object/sharding.go#L145-L155),
+the S3 SDK stops a canceled next-page HTTP request, but the ListAll loop keeps
+retrying the resulting error every 100ms. A local HTTP fixture using the actual
+SDK distinguishes request cancellation, deadline expiry and cancellation during
+retry backoff; a 503-then-success control protects ordinary transient retries.
+
+The [paired regression and proposed scoped fix](https://github.com/adenzhou1350/juicefs/tree/eff22d2d246f97934b99d8dd8e847693a14dca3e)
+retain the nil failure sentinel while the consumer drains output. Teardown
+bypasses the failed backend only to join the unchanged producer after a failing
+assertion; it is not the tested fix. This does not qualify blocked-output,
+delimiter/sharded or context-ignoring backend cancellation. Those need distinct
+consumer/producer controls. Related closed, unmerged
+[PR #7136](https://github.com/juicedata/juicefs/pull/7136) already proposed broader
+retry changes: acknowledge that prior work, and do not label this mechanism a
+new discovery or the local tests as cloud/performance qualification.
