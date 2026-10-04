@@ -509,3 +509,18 @@ is not occurring. Planning/materialization overhead may still matter; isolate
 that mechanism with matched API, projection, snapshot and an optimized profile.
 Neither the older downstream result nor an unoptimized test runtime supplies
 that measurement.
+
+## Rejected responses and returned streams have different owners
+
+Follow both exits of an HTTP-backed storage method. When an error returns a nil
+body, the method must release the acquired response; the caller cannot do so.
+When success returns a body, ownership transfers to the caller. An unconditional
+deferred Close would break that successful streaming contract.
+
+The [JuiceFS native regression](https://github.com/adenzhou1350/juicefs/blob/c136a937ebf46e08b375022782cee3a3f4122adf/pkg/object/download_body_test.go)
+holds a real HTTP response open after flushing headers and four body bytes.
+Across Qiniu and Dragonfly, unchanged code leaves six rejected-status requests
+running (404/416/500); the scoped two-line fix releases them. Positive 200/206
+controls read the bytes and observe cancellation only after caller Close. Always
+release the fixture on assertion failure. Repeated native/race checks qualify
+this ownership boundary, not cloud credentials, connection reuse or throughput.

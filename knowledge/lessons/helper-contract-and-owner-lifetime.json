@@ -6,6 +6,10 @@
   "avoid_when": "A documented standalone/public helper contract can be violated even if internal callers do not exercise that input. Absence of a shipped caller does not disprove an API defect. Strong references prevent identity reuse only for their actual lifetime; they do not prevent mutation, stale metadata, concurrency bugs, or defects after a new caller changes ownership. Seeing a cleanup handler does not prove it is reached exactly once in every cancellation/concurrency path. Existing tests cover only their actual scenarios; a passing suite alone cannot disprove all leak claims. Earlier spread preservation applies only to enumerable own properties actually present at that point; explicit later undefined values, overwrites and changed producers can still lose data. The cited revisions are scoped source/interface counterexamples, not accelerator or general false-positive-rate measurements.",
   "evidence": [
     {
+      "url": "https://github.com/adenzhou1350/juicefs/blob/c136a937ebf46e08b375022782cee3a3f4122adf/pkg/object/download_body_test.go",
+      "note": "A matched ownership counterexample: Qiniu and Dragonfly reject 404/416/500 with a nil returned body, so no caller can close that response. A real held-open HTTP response reproduces the missing cleanup; closing only rejected bodies passes while 200/206 remain readable until caller Close. Check both exits before adding a blanket defer, which would prematurely close a successful returned stream. Repeated native and race tests cover these local HTTP cases, not cloud accounts, connection reuse, all statuses or performance."
+    },
+    {
       "url": "https://github.com/openclaw/openclaw/blob/b1a22b83d878d2f5dfe713f8e15cbe271fdce40c/src/infra/restart-request.ts#L57-L120",
       "note": "Coalesced request authority and acknowledgement ownership are independent here. Rejecting a second session's hooks does not revoke its admitted request. Native leaf-class controls cover revocation and one-shot acknowledgement, not actual service restarts or all caller timelines."
     },
