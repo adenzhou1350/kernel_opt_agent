@@ -96,6 +96,20 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("blocked", retry["note"])
         self.assertNotIn("qualified", result)
 
+    def test_failed_upload_advice_distinguishes_abort_from_commit(self):
+        result = lesson_suggestions("helper owner lifetime failed upload Writer cancellation")
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "helper-contract-and-owner-lifetime")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertIn("abort", lesson["lesson"])
+        upload = next(item for item in lesson["evidence"] if "gs_upload_test.go" in item["url"])
+        self.assertIn("partial", upload["note"])
+        self.assertIn("caller", upload["note"])
+        self.assertIn("SDK-internal", upload["note"])
+        self.assertIn("not live", upload["note"])
+        self.assertNotIn("qualified", result)
+
     def test_generated_variant_advice_retains_registration_and_native_limits(self):
         result = lesson_suggestions(
             "Check generated variant registration and callers before reproducing a local anomaly"

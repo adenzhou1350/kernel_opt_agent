@@ -622,3 +622,28 @@ consumer/producer controls. Related closed, unmerged
 [PR #7136](https://github.com/juicedata/juicefs/pull/7136) already proposed broader
 retry changes: acknowledge that prior work, and do not label this mechanism a
 new discovery or the local tests as cloud/performance qualification.
+
+## Failed uploads need abort, not successful finalization
+
+A resource's Close is not always failure cleanup. For a GCS upload Writer,
+Close finalizes the object. When the input Reader fails, cancel an upload-owned
+child context instead of unconditionally calling Close or canceling the caller.
+Successful uploads must still finish through Close.
+
+The [real-SDK regression and proposed fix](https://github.com/adenzhou1350/juicefs/tree/8e7be7b2e810b833df95eb0cc8c57269ed383c0b)
+cover errors before/after one full chunk, then empty, small and multi-chunk
+success. Both errors leave SDK cancellation monitors running on unchanged
+production; the child-context fix releases them without committing failed
+uploads or changing the caller context. The monitor assertion observes a
+revision-specific internal stack frame, not a public SDK guarantee. The fixture
+uses HTTP200 plus X-Http-Status-Code-Override=308 for unfinished chunks because
+the pinned client requests that protocol; literal HTTP308 was an invalid first
+fixture, not a target failure. Cancel and join fixture work even on assertion
+failure so one case cannot mask the next.
+
+Focused tests and three race repeats pass. The object-package run explicitly
+excludes baseline-failing root-permission TestDisk2 and has skipped tests; this
+is not complete upstream CI, live-GCS validation or measured throughput. The
+existing owner-lifetime lesson incorporates the abort/commit distinction; no
+new card or mandatory workflow is needed, and automatic Scout conversion or
+model-cost benefit remains unmeasured.
