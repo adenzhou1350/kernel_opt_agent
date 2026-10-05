@@ -58,6 +58,19 @@ global.document = {
   };
   $('repoCards').children[0].events.click();
   live.search = $('search').value;
+  state.runtime.disk_paused = true;
+  state.runtime.available_disk_mb = 67;
+  state.runtime.min_free_disk_mb = 4096;
+  renderBriefing();
+  const diskPaused = $('flowStatus').textContent;
+  state.runtime.disk_paused = false;
+  state.runtime.memory_paused = true;
+  state.runtime.available_memory_mb = 2000;
+  renderBriefing();
+  const memoryPaused = $('flowStatus').textContent;
+  state.runtime.memory_paused = false;
+  renderBriefing();
+  const resumed = $('flowStatus').textContent;
   state.runtime.heartbeat_at = 1;
   renderBriefing();
   const stale = {meter:$('capacityMeter').value,flow:$('flowStatus').textContent};
@@ -68,7 +81,7 @@ global.document = {
     leaves:$('leafReviews').textContent,completed:$('recentCompleted').textContent,
     flow:$('flowStatus').textContent,
   };
-  process.stdout.write(JSON.stringify({live,stale,missing}));
+  process.stdout.write(JSON.stringify({live,diskPaused,memoryPaused,resumed,stale,missing}));
 })();
 """
         result = subprocess.run(
@@ -89,6 +102,10 @@ global.document = {
         self.assertEqual(values["live"]["cards"], 1)
         self.assertEqual(values["live"]["search"], "org/<script>not-html</script>")
         self.assertIn("空槽不代表模型限流", values["live"]["flow"])
+        self.assertIn("磁盘保护暂停", values["diskPaused"])
+        self.assertIn("67 MB / 需要 4,096 MB", values["diskPaused"])
+        self.assertIn("内存保护暂停", values["memoryPaused"])
+        self.assertEqual(values["resumed"], values["live"]["flow"])
         self.assertEqual(values["stale"]["meter"], 0)
         self.assertIn("心跳待确认", values["stale"]["flow"])
         self.assertEqual(values["missing"]["leaves"], "—")

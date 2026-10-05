@@ -327,6 +327,8 @@
     let flow = "运行中 · 已排队 " + number(counts.PENDING || 0) + " 个任务";
     if (!runtime.alive) flow = "Scout 离线 · 当前显示已保存的记录";
     else if (!heartbeatFresh) flow = "心跳待确认 · 不把保存状态当作实时运行";
+    else if (runtime.disk_paused) flow = "磁盘保护暂停分配 · 可用 " + number(runtime.available_disk_mb) + " MB / 需要 " + number(runtime.min_free_disk_mb) + " MB，在途继续，空间恢复后自动分配";
+    else if (runtime.memory_paused) flow = "内存保护暂停分配 · 可用 " + number(runtime.available_memory_mb) + " MB，在途继续，内存恢复后自动分配";
     else if (runtime.state === "COOLDOWN") flow = "服务退避中 · 冷却至 " + time(runtime.cooldown_until);
     else if (runtime.state !== "RUNNING") flow = "进程状态：" + (labels[runtime.state] || runtime.state || "未知");
     else if (!counts.PENDING && research.phase === "REFILLING") flow = "正在补充源码材料 · 暂无排队任务，空槽不代表模型限流";
@@ -411,9 +413,10 @@
     text("tokenCoverage", "已知用量 " + number(summary.usage_known_jobs || 0) + " 个任务");
     const isAlive = runtime.alive === true;
     const runtimeState = isAlive ? runtime.state : "STOPPED";
+    const resourcePause = isAlive && runtimeState === "RUNNING" ? (runtime.disk_paused ? "磁盘保护暂停分配" : runtime.memory_paused ? "内存保护暂停分配" : null) : null;
     $("runtimeBadge").className = "badge " + (runtimeState === "COOLDOWN" ? "cooldown" : isAlive ? "running" : "");
-    text("runtimeLabel", isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
-    $("runtimeBadge").firstElementChild.className = "dot" + (isAlive && runtimeState === "RUNNING" ? " live" : "");
+    text("runtimeLabel", resourcePause || (isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行"));
+    $("runtimeBadge").firstElementChild.className = "dot" + (isAlive && runtimeState === "RUNNING" && !resourcePause ? " live" : "");
     const runtimeParts = ["搜索 / 反证并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
     if (runtime.queue_policy === "review_weighted") runtimeParts.push("调度偏好：发现 3 / 复核 3 / 复现计划 2，空位借用");
     if (runtime.pid) runtimeParts.unshift("PID " + runtime.pid);
