@@ -1,0 +1,22 @@
+{
+  "id": "lexer-rule-precedence-with-identifier-controls",
+  "title": "Ordered lexer rules need keyword precedence and qualified identifier controls",
+  "applies_when": "A first-match regex lexer classifies a clause keyword immediately before a parenthesis as a function name, while the same valid SQL with whitespace has a different token or group tree.",
+  "lesson": "Reproduce with the real tokenizer and parser, then identify the first matching rule rather than adding a downstream grouping workaround. For sqlparse JOIN(subquery), move the existing compound JOIN rule ahead of the generic function-name lookahead but keep dotted-name guards before it. Pair a valid complete SQL query with spaced/unspaced and mixed-case forms, inspect the resulting clause keyword and subquery alias, and preserve ordinary function names and schema-qualified identifiers. A tiny lexer reorder can affect more consumers than its line count suggests; run the native regression suite.",
+  "avoid_when": "Do not turn every keyword before '(' into a reserved token: ANY/UNNEST and dialect-specific function names need separate caller contracts. sqlparse is non-validating; acceptance of malformed SQL is not itself a defect. These checks establish a JOIN tokenization repair on the pinned source, not all dialects, formatting equivalence, performance or upstream acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/issues/615",
+      "note": "Public no-space JOIN example and discussion distinguish clause tokenization from broader keyword/function questions."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/blob/60cdc649726bf1bc4f1b336050560b336da715ec/sqlparse/keywords.py",
+      "note": "Pinned baseline places the generic function-name lookahead before JOIN recognition, while dotted-name guards precede both."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/pull/919",
+      "note": "Open Ready proposal moves the existing rule, with 10 native parser/function/qualified-name controls. The unchanged baseline fails 2 controls; the patch passes all 10 and the 516-test suite, retaining its existing xfail/xpass outcomes. Local correctness evidence, not maintainer acceptance."
+    }
+  ],
+  "status": "validated"
+}
