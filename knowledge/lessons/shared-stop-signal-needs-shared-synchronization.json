@@ -1,8 +1,8 @@
 {
   "id": "shared-stop-signal-needs-shared-synchronization",
-  "title": "Per-worker mutexes do not synchronize a shared stop signal",
-  "applies_when": "A Go producer or recursive walker captures a shared error or stop variable that several prefetch workers read while holding different worker mutexes, especially after an early traversal error.",
-  "lesson": "Trace every read and write of the shared variable, not just whether each worker holds some lock. Different per-worker mutexes do not synchronize the traversal's write. Keep the traversal error owner-local and use a shared atomic or a common synchronization protocol for worker termination. Test normal output, early errors and bounds on the real backend with matched before/after race runs. A deferred stop covers both error and successful early return; stopping future prefetch is not joining an already-running backend call.",
+  "title": "Shared mutable state needs common synchronization, not just some mutex",
+  "applies_when": "A Go producer or recursive walker shares an error/stop variable across prefetch workers with different mutexes, or a background monitor updates a mutable policy such as disk-cache freeRatio while fullness/cleanup readers run outside the owner mutex.",
+  "lesson": "Trace every read and write of the shared variable, not just whether each worker holds some lock. Different per-worker mutexes do not synchronize the traversal's write. A cache owner mutex also cannot protect a policy reader that runs outside it: use the same synchronization protocol for every runtime read/write and take one local snapshot per calculation. Keep traversal errors owner-local and use a shared atomic or common protocol for worker termination. Test the actual writer and real backend with matched before/after race runs. Keep reader results observable and confirm the regression detects the unchanged source; an initial baseline PASS is inconclusive, not qualification. A deferred stop covers error and successful early return; stopping future prefetch is not joining an already-running backend call.",
   "avoid_when": "A common lock or channel protocol already orders all relevant accesses, or the value is immutable. An atomic flag alone does not unblock stalled I/O or output, join goroutines, or make several related fields a consistent snapshot. Race-detector success covers only exercised schedules. Separate unrelated package-level races from the candidate by running the same command on unchanged source; passing leaf cases cannot override a failing package/process. A composition with an independent baseline fix is a separate source variant: record both exact changes and do not promote the combined result into standalone qualification.",
   "evidence": [
     {
@@ -12,6 +12,10 @@
     {
       "url": "https://github.com/adenzhou1350/juicefs/blob/185d0df3c62d9a618442fe1c31e4fa010f31a4d7/pkg/object/object_storage_test.go#L1129-L1221",
       "note": "Real in-memory nested listing tests cover all/deep/bounded output and initial/child/grandchild errors. Exact fixed source passes five focused race repeats and an object-package race run with disclosed TestDisk2 exclusion and environment skips. Proposed fix uses a walk-owned atomic stop; not full CI, cloud, joined-I/O or performance qualification."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7628",
+      "note": "The real ten-second cache lock checker raises freeRatio after its own temporary lock is removed. Matched native Linux Go runs report DATA RACE before the common-lock fix; six focused cases pass four race repeats after it, and the full chunk package passes without -race. Initial reader-only variants failed to detect the race and were not accepted as regression evidence. This is a proposed correctness fix, not full CI or a performance claim."
     }
   ],
   "status": "validated"

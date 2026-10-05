@@ -208,6 +208,19 @@ class LessonContextTests(unittest.TestCase):
         self.assertTrue(any("185d0df3" in e["url"] for e in lesson["evidence"]))
         self.assertNotIn("qualified", result)
 
+    def test_mutable_cache_policy_reuses_common_synchronization_advice(self):
+        result = lesson_suggestions("Go disk cache freeRatio background monitor fullness cleanup mutex")
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "shared-stop-signal-needs-shared-synchronization")
+        self.assertIn("every runtime read/write", lesson["lesson"])
+        self.assertIn("baseline PASS is inconclusive", lesson["lesson"])
+        evidence = next(item for item in lesson["evidence"] if "/pull/7628" in item["url"])
+        self.assertIn("without -race", evidence["note"])
+        self.assertIn("not full CI or a performance claim", evidence["note"])
+        self.assertNotIn("qualified", result)
+
     def test_default_library_cards_fit_the_existing_advisory_budget(self):
         root = Path(__file__).resolve().parents[1] / "knowledge" / "lessons"
         for path in root.glob("*.json"):
