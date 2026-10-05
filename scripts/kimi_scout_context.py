@@ -569,8 +569,8 @@ class PublicContext:
         terms = " ".join('"' + word[:32] + '"' for word in words)
         # Six title words are conjunctive, including incidental prose. An empty
         # result can hide an exact fix with a differently worded title. Try one
-        # narrower identifier (or two words) only after that empty sample; this
-        # stays bounded and supplies related evidence, never an automatic verdict.
+        # narrower identifier (or two words) after an empty/issue-only sample;
+        # this stays bounded and supplies related evidence, never a verdict.
         identifiers = re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", title[:1000])
         anchor = next((word for word in identifiers if
                        "_" in word.strip("_") or
@@ -578,34 +578,53 @@ class PublicContext:
         fallback = '"' + anchor[:32] + '"' if anchor else " ".join(
             '"' + word[:32] + '"' for word in words[:2]
         )
-        for search_terms in dict.fromkeys((terms, fallback)):
-            query_text = f"repo:{repo} in:title,body {search_terms}"
+        query_text = f"repo:{repo} in:title,body {terms}"
+        result = []
+        repository_url = f"https://api.github.com/repos/{repo}"
+        for attempt in range(2):
             query = urllib.parse.urlencode(
                 {"q": query_text, "sort": "updated", "per_page": 5}
             )
             found = self._json(f"https://api.github.com/search/issues?{query}")
             if not isinstance(found, dict) or not isinstance(found.get("items"), list):
                 raise ValueError("invalid public duplicate search")
-            if found["items"]:
+            hits = []
+            for item in found["items"][:5]:
+                if (
+                    not isinstance(item, dict)
+                    or _text(item.get("repository_url", repository_url)).lower()
+                    != repository_url.lower()
+                ):
+                    continue
+                number = _number(item.get("number"))
+                is_pr = isinstance(item.get("pull_request"), dict)
+                if " is:pr " in query_text and not is_pr:
+                    continue
+                kind = "pull" if is_pr else "issues"
+                evidence = scout.evidence(
+                    f"https://github.com/{repo}/{kind}/{number}",
+                    _text(item.get("title")) + "\n" + _text(item.get("body")),
+                    1800,
+                )
+                evidence.update(is_pr=is_pr, search_exhaustive=False,
+                                search_query=query_text)
+                hits.append(evidence)
+            known = {source["url"] for source in result}
+            for source in hits:
+                if source["url"] not in known:
+                    result.append(source)
+                    known.add(source["url"])
+            if attempt or any(source["is_pr"] for source in hits):
                 break
-        result = []
-        repository_url = f"https://api.github.com/repos/{repo}"
-        for item in found["items"][:5]:
-            if (
-                not isinstance(item, dict)
-                or _text(item.get("repository_url", repository_url)).lower()
-                != repository_url.lower()
-            ):
-                continue
-            number = _number(item.get("number"))
-            is_pr = "pull_request" in item
-            kind = "pull" if is_pr else "issues"
-            evidence = scout.evidence(
-                f"https://github.com/{repo}/{kind}/{number}",
-                _text(item.get("title")) + "\n" + _text(item.get("body")),
-                1800,
-            )
-            evidence.update(is_pr=is_pr, search_exhaustive=False,
-                            search_query=query_text)
-            result.append(evidence)
-        return result
+            # A title search often rediscovers its own issue. That is useful
+            # context, but must not hide a differently titled fix PR. Use the
+            # existing second-query allowance, retaining the original issue
+            # sample. Empty searches keep the original broader fallback.
+            scope = " is:pr" if hits else ""
+            next_query = f"repo:{repo}{scope} in:title,body {fallback}"
+            if next_query == query_text:
+                break
+            query_text = next_query
+        # Same five-excerpt budget; fix candidates before issue context. A hit
+        # remains partial related-work evidence, never a suppression verdict.
+        return sorted(result, key=lambda source: not source["is_pr"])[:5]

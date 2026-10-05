@@ -407,5 +407,62 @@ class ContextTests(unittest.TestCase):
         self.assertLess(len(query["q"][0]), 500)
 
 
+    def duplicate_search(self, title, responses):
+        original = self.fake_fetch
+        queries = []
+
+        def search_fetch(url, limit=1_000_000, github_auth=False):
+            if url.startswith("https://api.github.com/search/issues?"):
+                queries.append(parse_qs(urlsplit(url).query))
+                return json.dumps({"items": responses[len(queries) - 1]})
+            return original(url, limit, github_auth)
+
+        with patch.object(context.scout, "fetch", side_effect=search_fetch):
+            sources = self.context.duplicate_sources(REPO, title)
+        return sources, queries
+
+    def test_issue_self_hit_does_not_hide_differently_titled_pr(self):
+        issue = {"number": 3203, "title": "Feature: Ability to set `skip_auto_cleanup`",
+                 "body": "Rust SDK write option"}
+        pr = {"number": 3389, "title": "Surface skip_auto_cleanup on add and merge insert",
+              "body": "Commit was discarding WriteParams.skip_auto_cleanup",
+              "pull_request": {}}
+        sources, queries = self.duplicate_search(issue["title"], [[issue], [pr]])
+        self.assertEqual(len(queries), 2)
+        self.assertEqual(queries[1]["q"], [f'repo:{REPO} is:pr in:title,body "skip_auto_cleanup"'])
+        self.assertEqual([s["url"] for s in sources], [
+            f"https://github.com/{REPO}/pull/3389", f"https://github.com/{REPO}/issues/3203"])
+        self.assertTrue(all(s["search_exhaustive"] is False for s in sources))
+        self.assertNotEqual(sources[0]["search_query"], sources[1]["search_query"])
+
+    def test_one_identifier_issue_still_gets_different_scope_not_third_query(self):
+        issue = {"number": 1, "title": "skip_auto_cleanup", "body": "report"}
+        sources, queries = self.duplicate_search("skip_auto_cleanup", [[issue], []])
+        self.assertEqual(len(queries), 2)
+        self.assertEqual(sources[0]["url"], f"https://github.com/{REPO}/issues/1")
+        self.assertFalse(sources[0]["search_exhaustive"])
+        sources, queries = self.duplicate_search("skip_auto_cleanup", [[]])
+        self.assertEqual((sources, len(queries)), ([], 1))
+
+    def test_pr_fallback_retains_five_excerpt_cap_and_ignores_issue_hits(self):
+        issues = [{"number": n, "title": "flag_name report", "body": "x" * 4000}
+                  for n in range(1, 6)]
+        pr = {"number": 9, "title": "Fix", "body": "x" * 4000, "pull_request": {}}
+        sources, queries = self.duplicate_search("flag_name report", [issues, [issues[0], pr, pr]])
+        self.assertEqual(len(queries), 2)
+        self.assertEqual(len(sources), 5)
+        self.assertEqual(sum(s["is_pr"] for s in sources), 1)
+        self.assertEqual(sources[0]["url"], f"https://github.com/{REPO}/pull/9")
+        self.assertTrue(all(len(s["text"]) <= 1800 for s in sources))
+
+    def test_foreign_issue_hit_cannot_force_pr_only_scope(self):
+        foreign = {"number": 1, "title": "flag_name", "body": "report",
+                   "repository_url": "https://api.github.com/repos/other/private"}
+        sources, queries = self.duplicate_search("flag_name report", [[foreign], []])
+        self.assertEqual(sources, [])
+        self.assertEqual(len(queries), 2)
+        self.assertNotIn("is:pr", queries[1]["q"][0])
+
+
 if __name__ == "__main__":
     unittest.main()

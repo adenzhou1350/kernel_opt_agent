@@ -19,7 +19,10 @@ does not update an already-running process. These are investigation hints, not
 measured precision, cost-saving or PR-conversion claims.
 
 Related-work lookup first samples the title terms; after an empty result it may
-make one broader code-identifier/two-word query, still capped at five items.
+make one broader code-identifier/two-word query. If the first sample contains
+only issues, the second query searches PRs so rediscovering the report itself
+does not hide a differently titled repair. Original issue context is retained,
+with PRs first and still at most five excerpts and two search requests.
 The evidence includes the query used. Neither zero matches nor these samples
 establish novelty: GitHub indexing, terminology and result caps can miss an exact
 fix. Review the actual current-source and PR diff before expensive reproduction
