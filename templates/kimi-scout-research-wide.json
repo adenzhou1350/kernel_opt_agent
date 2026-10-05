@@ -199,6 +199,13 @@
       "ref": "master",
       "source_prefixes": ["src/", "ggml/src/", "common/"],
       "question": "Find small production-reachable inference, quantization, batching, cache or backend-selection correctness gaps. Check existing issues and cross-platform contracts; avoid broad rewrites and unmeasured micro-optimizations."
+    },
+    {
+      "repo": "andialbrecht/sqlparse",
+      "ref": "master",
+      "tree_roots": ["sqlparse", "tests"],
+      "source_prefixes": ["sqlparse/lexer.py", "sqlparse/engine/", "sqlparse/sql.py", "sqlparse/filters/"],
+      "question": "Find bounded parse/split/format or token-parent correctness gaps through real public APIs and native pytest. This is intentionally a non-validating SQL parser: accepting invalid SQL or lacking a dialect grammar is not itself a bug. Preserve existing depth/token guards, quoting, comments and delimiter semantics; no unbounded stress inputs or unmeasured scaling claims. Compare the exact current source, existing tests and open repairs before proposing a small regression. The owner can run a complete source-package CPU baseline without GPU or native compilation; drift and existing xfail/xpass results must be retained, not attributed to a candidate. Follow CONTRIBUTING.md and the PR template. Output an unverified hypothesis, not a test/Ready claim."
     }
   ]
 }
