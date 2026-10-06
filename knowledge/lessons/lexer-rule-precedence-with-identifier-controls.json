@@ -1,9 +1,9 @@
 {
   "id": "lexer-rule-precedence-with-identifier-controls",
-  "title": "Ordered lexer rules need keyword precedence and qualified identifier controls",
-  "applies_when": "A first-match regex lexer classifies a clause keyword immediately before a parenthesis as a function name, while the same valid SQL with whitespace has a different token or group tree.",
-  "lesson": "Reproduce with the real tokenizer and parser, then identify the first matching rule rather than adding a downstream grouping workaround. For sqlparse JOIN(subquery), move the existing compound JOIN rule ahead of the generic function-name lookahead but keep dotted-name guards before it. Pair a valid complete SQL query with spaced/unspaced and mixed-case forms, inspect the resulting clause keyword and subquery alias, and preserve ordinary function names and schema-qualified identifiers. A tiny lexer reorder can affect more consumers than its line count suggests; run the native regression suite.",
-  "avoid_when": "Do not turn every keyword before '(' into a reserved token: ANY/UNNEST and dialect-specific function names need separate caller contracts. sqlparse is non-validating; acceptance of malformed SQL is not itself a defect. These checks establish a JOIN tokenization repair on the pinned source, not all dialects, formatting equivalence, performance or upstream acceptance.",
+  "title": "Ordered lexer rules need grammar boundaries and native controls",
+  "applies_when": "A first-match regex lexer misclassifies a clause keyword before a parenthesis, or splits a documented multi-character operator so formatting inserts whitespace inside it.",
+  "lesson": "Reproduce with the real tokenizer and parser, then identify the first matching rule rather than adding a downstream grouping or output workaround. For sqlparse JOIN(subquery), move compound JOIN recognition ahead of the generic function-name lookahead but retain dotted-name guards. For PostgreSQL pattern operators, recognize the four documented star-suffixed comparisons before the generic comparison prefix; do not add '*' to a broad operator character class. Pair complete SQL with spaced/unspaced forms, inspect tokens and groups, and preserve ordinary functions, qualified identifiers, multiplication, wildcards and quoted text. Whitespace or a comment between symbols is a lexical boundary, not permission to fuse them. Run the same regressions against original and repaired imports plus the native suite.",
+  "avoid_when": "Do not reserve every keyword before '(' or merge every punctuation run: dialect functions, custom operators and placeholders need separate contracts. sqlparse is non-validating; malformed SQL acceptance is not itself a defect. Current source already handles some cases in old issues: '<@' works on the pinned base even though issue 613 reports otherwise. Read existing PR hunks to distinguish complementary changes from duplicates. Local lexer/formatter checks do not prove database execution, all dialects, other-platform CI, performance or upstream acceptance.",
   "evidence": [
     {
       "url": "https://github.com/andialbrecht/sqlparse/issues/615",
@@ -16,6 +16,14 @@
     {
       "url": "https://github.com/andialbrecht/sqlparse/pull/919",
       "note": "Open Ready proposal moves the existing rule, with 10 native parser/function/qualified-name controls. The unchanged baseline fails 2 controls; the patch passes all 10 and the 516-test suite, retaining its existing xfail/xpass outcomes. Local correctness evidence, not maintainer acceptance."
+    },
+    {
+      "url": "https://www.postgresql.org/docs/current/functions-matching.html",
+      "note": "Documents ~*, !~*, ~~* and !~~* as case-insensitive regex/LIKE operators; this is a syntax contract, not a sqlparse performance result."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/pull/924",
+      "note": "Ready proposal recognizes those four comparisons as complete tokens. Identical native Windows/Python 3.14 tests give original 13 failures and 4 passes versus repaired 17 passes; repaired full suite 523 passes with existing xfail/xpass unchanged. 64 formatting controls preserve lexical tokens and are idempotent. Independent of PR920's JSON-path operator change; not maintainer acceptance."
     }
   ],
   "status": "validated"
