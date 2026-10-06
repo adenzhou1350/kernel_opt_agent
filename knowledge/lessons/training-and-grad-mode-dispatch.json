@@ -1,0 +1,22 @@
+{
+  "id": "training-and-grad-mode-dispatch",
+  "title": "Check module training state separately from gradient-mode dispatch",
+  "applies_when": "A PyTorch layer chooses a training or inference implementation from is_grad_enabled(), input length, or an optional shared-memory branch.",
+  "lesson": "Module train/eval state and autograd recording are independent. Disabling gradients does not establish that the module is evaluating. Read the implementation's supported modes and real caller before selecting an inference fast path. Test supported train/eval and grad/no-grad combinations around dispatch boundaries, including optional branches: a correct top-level guard does not protect a second dispatch inside a shared branch. Preserve normal training outputs and gradients and evaluation behavior with actual native calls, not only a mocked selected-mode assertion.",
+  "avoid_when": "Do not impose a universal chunk-mode requirement: a recurrent implementation may support training in another operator. A caller may legitimately restrict mode combinations. One small layer test does not qualify checkpoint recomputation, full-model training, other dtypes or accelerators. Matched outputs and gradients within existing numerical checks are not necessarily bitwise-gradient identity or a performance result.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.11/notes/autograd.html#evaluation-mode-nn-module-eval",
+      "note": "PyTorch documents module.eval()/module.train(False) as independent of no-grad and inference modes. This is the mechanism, not evidence that any particular dispatch is wrong."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/b8ff848705a8f7685770273452f2c8d8dcf40621/fla/layers/mom.py#L693-L701",
+      "note": "At this exact baseline, shared_o chooses fused_recurrent for short no-grad inputs before asserting training requires chunk. The top-level forward already checks not self.training at the same boundary."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/pull/1333",
+      "note": "Proposed, unmerged correction: six real RTX5090/float32 layer cases give two short shared-memory training failures before and six passes after; dependent tests give 238 passes and eight existing skips. Twelve matched ordinary training/eval cases have exact outputs and gradients within FLA's existing numerical check, not bitwise gradients. Existing skipped MoM model tests do not establish full-model validation."
+    }
+  ],
+  "status": "validated"
+}
