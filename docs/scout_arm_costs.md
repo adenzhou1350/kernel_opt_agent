@@ -29,6 +29,16 @@ counterfactual uncached latency. Body bytes are not wire traffic. GPU seconds
 must use the same device-count convention for every arm. Token counts with
 different providers/cache rates are not interchangeable dollars.
 
+Keep prompt UTF-8 bytes separate from provider-reported model tokens. A
+byte-based pre-call reserve may conservatively reject a call, but that is not
+an observed provider token overrun. A serialized-input byte cap and output-token
+limit are observable controls; checking reported token usage after a call is
+not a hard input-token limit. Record unknown usage or overruns explicitly.
+Show an excerpt once rather than duplicating it in both metadata and citation
+rows; retain clipping markers, source identity and exact citation mapping.
+Changing presentation or targeting on exposed cases is an operational replay,
+not a repaired prospective quality result.
+
 No winner or matched-budget claim is produced. Those require a predeclared
 resource cap, comparable inputs and execution conditions, independently judged
 utility and suitable uncertainty estimates. Existing exposed development cases
