@@ -45,18 +45,22 @@ def advisory_evidence_match(url):
     return SOURCE_URL.fullmatch(url) or PR_URL.fullmatch(url)
 
 
-def owner_note_rows(root, repo):
-    """Read <=24 recent distinct valid notes per repo from a <=64 KiB file.
+def owner_source_note_path(root, repo):
+    """One literal filename per repository, with no index or directory scan."""
+    if not isinstance(repo, str) or not re.fullmatch(
+        r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo
+    ):
+        return None
+    # Percent is not admitted in repo names; the literal %2F is unambiguous
+    # and keeps Windows reserved names and slash traversal out of filenames.
+    name = repo.casefold().replace("/", "%2F") + ".json"
+    return Path(root).resolve() / "owner-source-notes" / name
 
-    Read one bounded local JSON file; never create history or change job state.
-    Only the same small public fields accepted from parked delivery rows are
-    exposed. Notes remain untrusted advisory data, not suppression rules.
-    Other repositories, duplicates and invalid rows consume no returned slots;
-    growth beyond 24 historical entries does not erase all advisory context.
-    """
-    path = Path(root).resolve() / "owner-source-notes.json"
+
+def read_owner_notes(path):
+    """Optional <=64 KiB list; one bad file must not erase another's advice."""
     try:
-        if path.is_symlink() or not path.is_file():
+        if path.parent.is_symlink() or path.is_symlink() or not path.is_file():
             return []
         with path.open("rb") as stream:
             raw = stream.read(OWNER_NOTE_LIMIT_BYTES + 1)
@@ -67,6 +71,21 @@ def owner_note_rows(root, repo):
             return []
     except (OSError, ValueError, RecursionError):
         return []
+    return notes
+
+
+def owner_note_rows(root, repo):
+    """Read <=24 recent distinct valid notes; exposed hint limits stay unchanged.
+
+    Read only the requested repository file and the optional legacy list, each
+    bounded to 64 KiB. New repository notes take precedence over legacy copies.
+    No directory scan, history rewrite, network, model call or job mutation.
+    """
+    path = owner_source_note_path(root, repo)
+    if path is None:
+        return []
+    notes = read_owner_notes(Path(root).resolve() / "owner-source-notes.json")
+    notes += read_owner_notes(path)
     rows, seen = [], set()
     required = {
         "repo",

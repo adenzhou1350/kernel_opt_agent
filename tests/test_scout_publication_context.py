@@ -101,6 +101,62 @@ class PublicationContextTests(unittest.TestCase):
         path.write_text(json.dumps(notes), encoding="utf-8")
         return path
 
+    def write_repository_notes(self, notes, repo=None):
+        path = memory.owner_source_note_path(self.root, repo or self.repo)
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(json.dumps(notes), encoding="utf-8")
+        return path
+
+    def test_repository_notes_survive_oversized_legacy_without_modifying_it(self):
+        legacy = self.write_notes([])
+        legacy.write_text(" " * (memory.OWNER_NOTE_LIMIT_BYTES + 1), encoding="utf-8")
+        path = self.write_repository_notes([self.note()])
+        before = {p: p.read_bytes() for p in (legacy, path)}
+        self.assertEqual(self.deferrals()["items"][0]["reason"], self.note()["reason"])
+        self.assertEqual({p: p.read_bytes() for p in before}, before)
+        self.assertFalse(self.path.parent.exists())
+
+    def test_bad_repository_file_falls_back_to_legacy(self):
+        self.write_notes([self.note()])
+        path = self.write_repository_notes([])
+        for text in ("invalid", " " * (memory.OWNER_NOTE_LIMIT_BYTES + 1)):
+            with self.subTest(text=text[:20]):
+                path.write_text(text, encoding="utf-8")
+                self.assertEqual(len(memory.owner_note_rows(self.root, self.repo)), 1)
+
+    def test_repository_notes_precede_and_deduplicate_legacy_with_same_caps(self):
+        self.write_notes([self.note(), self.note(reason="Legacy note")])
+        self.write_repository_notes([self.note(), self.note(reason="New note")])
+        rows = memory.owner_note_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 3)
+        self.assertEqual(json.loads(rows[0][1])["reason"], "New note")
+        self.assertEqual(len(self.deferrals()["items"]), 2)
+        self.write_repository_notes([self.note(reason=f"New {i}") for i in range(40)])
+        self.assertEqual(len(memory.owner_note_rows(self.root, self.repo)), 24)
+
+    def test_only_the_requested_repository_file_is_read(self):
+        self.write_repository_notes([self.note()])
+        foreign = self.write_repository_notes([], repo="other/project")
+        foreign.write_text("invalid", encoding="utf-8")
+        from unittest.mock import patch
+
+        with patch.object(Path, "iterdir", side_effect=AssertionError("directory scan")):
+            self.assertIsNotNone(self.deferrals())
+        self.assertEqual(foreign.read_text(encoding="utf-8"), "invalid")
+
+    def test_repository_filename_is_unambiguous_and_rejects_unsafe_input(self):
+        path = memory.owner_source_note_path(self.root, "Public/Project")
+        self.assertEqual(path.name, "public%2Fproject.json")
+        self.assertEqual(path.parent, self.root / "owner-source-notes")
+        self.assertNotEqual(
+            memory.owner_source_note_path(self.root, "a--b/c"),
+            memory.owner_source_note_path(self.root, "a/b--c"),
+        )
+        for repo in ("a/b/c", "a\\b", "a/%2F", "a/b?x", "a/b:stream", None):
+            with self.subTest(repo=repo):
+                self.assertIsNone(memory.owner_source_note_path(self.root, repo))
+                self.assertEqual(memory.owner_note_rows(self.root, repo), [])
+
     def test_source_notes_work_without_creating_a_delivery_record(self):
         path = self.write_notes([self.note()])
         before = path.read_bytes()

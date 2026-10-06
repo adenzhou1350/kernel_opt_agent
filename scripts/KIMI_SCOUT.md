@@ -497,8 +497,16 @@ Inspect the actual PR: a shared file is not evidence that a distinct bug is fixe
 and a recorded link does not establish current CI, review, merge or useful yield.
 
 For reviewed source leads that never entered delivery, optional
-`<root>/owner-source-notes.json` provides deferral advice without a fake execution
-row. Keep the JSON list within 64 KiB, oldest first. Each entry has exactly
+`<root>/owner-source-notes/<owner>%2F<repository>.json` provides deferral advice
+without a fake execution row. Use lowercase repository names in the filename
+(for example `public%2Fproject.json`); `%2F` is a literal filename component,
+not a nested path. `owner_source_note_path(root, repo)` derives that path without
+creating it. Keep each repository's JSON list within 64 KiB, oldest first.
+The legacy `<root>/owner-source-notes.json` list remains optional and readable;
+no migration is required. The reader opens only that bounded legacy file and the
+requested repository file, never scanning other repositories. New repository
+notes precede legacy copies; duplicates retain one slot. An oversized or corrupt
+file does not erase valid advice in the other file. Each entry has exactly
 `repo`, `prior_hypothesis` (<=200 characters), `source_url` (same-repository raw
 URL at a full commit SHA), `reason`, `reopen_when` (<=1000 characters each), and
 `evidence_url` (same-repository pinned source or public PR URL). No private logs.
