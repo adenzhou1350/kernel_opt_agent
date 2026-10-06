@@ -186,6 +186,47 @@ class ProcessTests(unittest.TestCase):
         self.assertIsNone(result["summary"])
         self.assert_child_stopped(int((self.root / "child.pid").read_text()))
 
+    def test_closed_descendant_output_does_not_hide_background_process(self):
+        import signal
+
+        failure = PASS.replace("... ok", "... FAILED").replace(
+            "result: ok. 1 passed; 0 failed", "result: FAILED. 0 passed; 1 failed")
+        for exit_code, text in ((0, PASS), (1, failure)):
+            with self.subTest(exit_code=exit_code):
+                code = (
+                    "import subprocess,sys; from pathlib import Path; "
+                    "p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)'],"
+                    "stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "
+                    "Path('child.pid').write_text(str(p.pid)); print(" + repr(text) + "); "
+                    "sys.exit(" + str(exit_code) + ")"
+                )
+                try:
+                    result = self.execute(code, output=self.root / f"output{exit_code}")
+                    self.assertEqual(result["status"], "INCONCLUSIVE")
+                    self.assertIsNone(result["summary"])
+                    self.assert_child_stopped(int((self.root / "child.pid").read_text()))
+                finally:
+                    # Preserve safe teardown even when replayed against the old runner.
+                    pid_file = self.root / "child.pid"
+                    if pid_file.exists():
+                        try:
+                            os.kill(int(pid_file.read_text()), signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+
+    def test_success_does_not_signal_a_process_outside_owned_group(self):
+        import subprocess
+
+        other = subprocess.Popen([sys.executable, "-B", "-c", "import time; time.sleep(30)"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            result = self.execute("print(" + repr(PASS) + ")")
+            self.assertEqual(result["status"], "TESTS_PASSED")
+            self.assertIsNone(other.poll())
+        finally:
+            other.terminate()
+            other.wait(timeout=5)
+
     def test_non_utf8_log_has_no_verdict(self):
         result = self.execute("import sys; sys.stdout.buffer.write(bytes([255]))")
         self.assertEqual(result["status"], "INCONCLUSIVE")

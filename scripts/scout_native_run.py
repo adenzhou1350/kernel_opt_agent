@@ -137,6 +137,17 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         finally:
             if process.poll() is None:
                 stop_group(process)
+            else:
+                # EOF and a reaped leader do not prove descendants have exited:
+                # a background child may close or redirect its output descriptors.
+                # Only query/signal the session group created for this invocation.
+                try:
+                    os.killpg(process.pid, 0)
+                except ProcessLookupError:
+                    pass
+                else:
+                    reason = reason or "owned process group remains after command exit"
+                    stop_group(process)
             process.stdout.close()
     command_wall_seconds = time.monotonic() - started
     issues = [reason] if reason else []

@@ -244,8 +244,12 @@ Its command deadline includes compilation, child exit and output-pipe closure;
 both command and overall invocation wall time are recorded. It caps captured
 output at 2 MiB on disk, not an unbounded in-memory `capture_output`. Timeout,
 overflow, changed inputs/tool or invalid UTF-8 cannot produce a partial-log PASS.
-Timeout/overflow cleanup signals only its child's process group, including a
-child that retains stdout after the original parent exits. This is not containment
+Cleanup signals only its child's process group, including a child that retains
+stdout after the original parent exits. Even with complete output and a reaped
+parent, a remaining owned process group invalidates the verdict and is stopped;
+redirecting child output to a file or `/dev/null` cannot hide background work.
+This is a conservative group-existence check, not proof that every remaining
+member was doing useful work. This is not containment
 of processes that deliberately escape that group, nor a filesystem/network/GPU
 security sandbox; only reviewed commands belong here. Tests may still change
 other files or use networks. No source patching, download or global install is
