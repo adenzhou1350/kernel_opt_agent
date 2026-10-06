@@ -21,6 +21,7 @@ from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
 from scout_cited_issue import cited_issue_number
 from scout_file_mentions import filename_mentions
+from scout_symbol_references import reference_requests
 from scout_audit_context import contextual_audit_tail
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_publication_context import (
@@ -813,14 +814,20 @@ class ResearchProducer:
             continuation = continuation_request(packet, snapshot, analysis_value)
             if continuation:
                 paths = [continuation["path"]] + [path for path in paths if path != continuation["path"]]
-            for path in paths[:2]:
+            cached_source = getattr(self.context, "cached_source_text", None)
+            references = (reference_requests(packet, snapshot, analysis_value, cached_source)
+                          if callable(cached_source) and not continuation else [])
+            # Explicit references replace the existing reads; no extra source tier.
+            requests = references or [{"path": path,
+                **({key: continuation[key] for key in ("start", "max_lines")}
+                   if continuation and path == continuation["path"] else {})}
+                for path in paths[:2]]
+            for request in requests:
                 if self.stopped():
                     return False
                 sources.append(
                     self.context.source(
-                        spec["repo"], snapshot["commit"], path, hints=hints,
-                        **({key: continuation[key] for key in ("start", "max_lines")}
-                           if continuation and path == continuation["path"] else {}),
+                        spec["repo"], snapshot["commit"], **request, hints=hints,
                     )
                 )
             if self.stopped():

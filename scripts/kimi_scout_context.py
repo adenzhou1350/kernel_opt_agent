@@ -391,6 +391,15 @@ class PublicContext:
             evidence["definition_selection"] = definition_selection
         return evidence
 
+    def cached_source_text(self, repo, commit, path):
+        """Read an existing bounded pinned cache; never acquire new source."""
+        repo, commit, path = _repo(repo), _sha(commit), _path(path)
+        url = (f"https://raw.githubusercontent.com/{repo}/{commit}/"
+               + urllib.parse.quote(path, safe="/"))
+        cached = self._load(self._cache_path("raw", [repo, commit, path]))
+        raw = cached.get("text") if cached and cached.get("url") == url else None
+        return raw if isinstance(raw, str) and len(raw.encode("utf-8")) <= 131072 else None
+
     def issue_page(self, repo, page=1):
         repo = _repo(repo)
         _number(page, "issue page", 10000)

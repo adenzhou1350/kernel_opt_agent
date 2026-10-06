@@ -88,7 +88,9 @@ def _javascript_code(raw):
 def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Honor explicit references(NAME), with <=2 existing-tree source windows.
 
-    Use only the primary source at the same observed immutable revision. A cache
+    Use the primary source, or one explicitly named already-supplied source,
+    at the same observed immutable revision. A basename must identify only one
+    supplied path. Ambiguous or drifted named sources abstain. A cache
     miss, unsupported syntax, missing symbols or already shown matches abstain.
     Python AST name loads and attributes exclude plain strings, comments and
     definitions; they are syntactic references, not resolved bindings or calls.
@@ -114,7 +116,26 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     repo, commit = packet.get("repo", ""), snapshot.get("commit", "")
     if not repo or not re.fullmatch(r"[a-f0-9]{40}", commit):
         return []
-    url = urlsplit(sources[0].get("url", ""))
+    # The model can choose among observed files, not introduce a fetch target.
+    # Follow-ups often ask about a secondary definition/consumer. Looking only
+    # in sources[0] then falls back to another search of the wrong file.
+    observed = {}
+    for source in sources[:8]:
+        parsed = urlsplit(source.get("url", ""))
+        match = re.fullmatch(rf"/{re.escape(repo)}/[a-f0-9]{{40}}/(.+)", parsed.path)
+        if match:
+            observed.setdefault(unquote(match[1]), source)
+
+    def mentioned(value):
+        return bool(re.search(rf"(?<![\w./-]){re.escape(value)}(?![\w./-])", request[:2000]))
+
+    named = [path for path in observed
+             if mentioned(path) or mentioned(path.rsplit('/', 1)[-1])]
+    if len(named) > 1:
+        return []
+    selected = observed[named[0]] if named else sources[0]
+    selected_url = selected.get("url", "")
+    url = urlsplit(selected_url)
     prefix = f"/{repo}/{commit}/"
     if (
         url.scheme != "https"
@@ -189,7 +210,7 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
         number
         for number in occurrences
         if not any(
-            source.get("url") == sources[0]["url"]
+            source.get("url") == selected_url
             and type(source.get("start_line")) is int
             and type(source.get("end_line")) is int
             and source["start_line"] <= number <= source["end_line"]
