@@ -598,8 +598,11 @@ def execute(root, job, python, timeout, output_tokens):
     backend_process = None
     os_error = None
     operation = "prepare_request"
+    work_identity = None
     try:
         work.mkdir(exist_ok=False)
+        created = work.stat()
+        work_identity = (created.st_dev, created.st_ino)
         write_json(root / "results" / f"{job['id']}.request.json", request)
         operation = "run_backend"
         proc = subprocess.run(
@@ -751,6 +754,19 @@ def execute(root, job, python, timeout, output_tokens):
             )
 
     retry_locked(persist_receipt)
+    # Results live elsewhere. Do not retain one empty cwd per finished request.
+    # Remove only our unchanged empty directory; preserve files/replacements.
+    if work_identity is not None and work_identity[1]:
+        try:
+            observed = work.lstat()
+            if (
+                not work.is_symlink()
+                and work.resolve() == work
+                and (observed.st_dev, observed.st_ino) == work_identity
+            ):
+                work.rmdir()
+        except OSError:
+            pass  # Cleanup must not alter a persisted execution result.
     return receipt
 
 

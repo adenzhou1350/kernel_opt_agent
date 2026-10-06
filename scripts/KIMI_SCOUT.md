@@ -255,6 +255,11 @@ in `results/*.answer.json` (including parse failures), worker state/deadline in
 inbox's `STOP` file explicitly before restarting. Restarting does not reset the
 rolling daily budget. Raising limits is a deliberate operator action.
 
+After its receipt and queue state are persisted, a completed request removes only
+the empty `work/<id>` directory it created, if its directory identity is unchanged.
+Files, replacement directories and pre-existing paths are retained; cleanup errors
+do not change the execution verdict. Historical work directories are not pruned.
+
 For ad-hoc cheap review, `add packet.json` accepts a small, **already reviewed
 public-only** JSON packet with `name`, `question`, and `sources` containing
 `{url,text}`. A public URL alone does not prove arbitrary pasted text is public:
