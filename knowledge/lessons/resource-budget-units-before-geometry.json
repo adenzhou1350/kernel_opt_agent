@@ -1,0 +1,26 @@
+{
+  "id": "resource-budget-units-before-geometry",
+  "title": "Convert fractional resource budgets to integer allocation geometry at the consumer boundary",
+  "applies_when": "A host_size, cache capacity or memory-budget lead treats a floating-point GB share as a tensor shape, or proposes integer coercion before inspecting the budget's units and its final allocation consumer.",
+  "lesson": "Follow the unit conversion, not just the annotation. SGLang splits hicache_size into proportional floating-point GB budgets; HostKVCache and MambaPoolHost convert each positive budget with int(host_size * 1e9 // size_per_token) before deriving integer token/page geometry. A fractional budget is not itself an invalid shape. Coercing the GB share to int earlier can turn a positive sub-GB budget into zero and select the ratio-based sizing branch instead. Inspect the last budget-to-bytes-to-elements conversion, then test fractional shares and a normal control before investing in an allocator environment or a type repair.",
+  "avoid_when": "Units may be bytes, GiB, tokens or pages in another API; do not assume this GB conversion. Fractional rounding, page alignment, aggregate over-budget allocation, zero-byte denominators, distributed minimum-capacity synchronization and mixed-pool invariants still need their own reachable tests. Source and extracted arithmetic refute the integer-only premise here, not native SGLang initialization, QSA draft compatibility, memory safety, performance or every caller.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/60878c3fba50f50978c8a38c8ea3346022bf355e/python/sglang/srt/mem_cache/hybrid_cache/hybrid_pool_assembler.py#L183-L198",
+      "note": "_split_hicache_size returns proportional float shares; build_kv_host_pool explicitly accepts Optional[float]. These are budgets, not tensor dimensions."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/60878c3fba50f50978c8a38c8ea3346022bf355e/python/sglang/srt/mem_cache/pool_host/base.py#L211-L218",
+      "note": "Positive fixed GB sizing is converted to an integer token capacity before page alignment; nonpositive host_size selects ratio-based sizing. Source contract, not native/distributed qualification."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/60878c3fba50f50978c8a38c8ea3346022bf355e/python/sglang/srt/mem_cache/pool_host/mamba.py#L125-L136",
+      "note": "Mamba host allocation uses the same GB-to-integer-token conversion. Its int annotation does not impose an integer-only runtime budget."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/60878c3fba50f50978c8a38c8ea3346022bf355e/test/registered/unit/mem_cache/test_hybrid_pool_assembler.py#L108-L124",
+      "note": "Official source examples expect float two/three-pool budget shares. Reading these tests is not a claim that the registered SGLang suite ran."
+    }
+  ],
+  "status": "counterexample"
+}
