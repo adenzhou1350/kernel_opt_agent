@@ -11,6 +11,7 @@ import time
 import urllib.parse
 
 import kimi_scout as scout
+from scout_public_cache import read_cache
 from scout_issue_excerpt import issue_evidence
 
 SNAPSHOT_TTL = 900
@@ -214,13 +215,10 @@ class PublicContext:
 
     def _load(self, path):
         try:
-            with path.open("rb") as stream:
-                data = stream.read(CACHE_LIMIT + 1)
-            if len(data) > CACHE_LIMIT:
-                return None
+            data = read_cache(path, CACHE_LIMIT)
             value = json.loads(data)
             return value if isinstance(value, dict) else None
-        except (OSError, ValueError):
+        except (OSError, ValueError, EOFError):
             return None
 
     def snapshot(self, repo, ref="main"):

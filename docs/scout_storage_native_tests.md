@@ -1,5 +1,11 @@
 # Storage-repository native verification
 
+## Public-context cache maintenance
+
+With the Scout controller stopped, `python scripts/scout_public_cache.py --cache /path/to/run/public-cache --seconds 60` losslessly compresses bounded JSON entries. The public reader accepts `.json.gz` when no current plain entry exists; a refreshed plain entry takes precedence over an older compressed alias. Each replacement must round-trip to the exact original bytes and leave the source unchanged before removal. Decompression keeps the existing 20MB read bound, and corrupt entries remain cache misses.
+
+Maintenance preserves evidence, but is not a disk-rescue guarantee: NTFS may already compress a file, and logical byte savings do not equal physical space recovered. Inspect the reported before/after free space; the tool stops below 40MB temporary headroom or on a disk-full error. Do not run database VACUUM on a full volume or disable Scout's resource floors to force a restart. The maintenance command neither restarts Scout nor proves the cause of Windows nonpaged-pool growth.
+
 ## Bounded Go/Rust owner-review selection
 
 For another supported language, pass `owner_language="typescript"` (including
