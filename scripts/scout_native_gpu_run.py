@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 import re
 import sys
 import time
@@ -37,8 +37,20 @@ for name in json.loads(modules):
     if not path.is_relative_to(root):
         raise RuntimeError("import outside selected checkout: " + name)
     imports[name] = dict(path=str(path.relative_to(root)), sha256=hashlib.sha256(path.read_bytes()).hexdigest())
+runtime = {}
+for name in ('torch', 'triton'):
+    module = sys.modules.get(name)
+    if module is None:
+        runtime[name] = None
+        continue
+    path = pathlib.Path(module.__file__).resolve(strict=True)
+    runtime[name] = dict(version=str(module.__version__), path=str(path),
+                         sha256=hashlib.sha256(path.read_bytes()).hexdigest())
 record = dict(uuid=actual, visible_devices=1, memory_limit_mib=int(memory_mib),
-              torch_version=torch.__version__, torch_path=torch.__file__, imports=imports)
+              torch_version=torch.__version__, torch_path=torch.__file__, imports=imports,
+              runtime=runtime, cuda_runtime=torch.version.cuda,
+              device=dict(name=properties.name, compute_capability=[properties.major, properties.minor],
+                          total_memory_bytes=properties.total_memory))
 print("SCOUT_NATIVE_GPU_IDENTITY=" + json.dumps(record), flush=True)
 import pytest
 code = pytest.main(sys.argv[4:])
@@ -63,6 +75,22 @@ def identity(log, uuid, memory_mib, modules, source_hashes):
                 or item.get("sha256") != source_hashes.get(item["path"])
                 or item["path"] not in source_hashes):
             raise ValueError("observed import is not one of the reviewed source files")
+    # Older evidence remains readable; runtime observations do not establish a
+    # complete dependency lock or prove which compiler executed a test kernel.
+    if "runtime" in record:
+        runtime = record["runtime"]
+        if not isinstance(runtime, dict) or set(runtime) != {"torch", "triton"} or runtime["torch"] is None:
+            raise ValueError("malformed in-process runtime observations")
+        for item in runtime.values():
+            if item is not None and (
+                not isinstance(item, dict) or not isinstance(item.get("version"), str) or not item["version"]
+                or not isinstance(item.get("path"), str)
+                or not (PurePosixPath(item["path"]).is_absolute() or PureWindowsPath(item["path"]).is_absolute())
+                or not isinstance(item.get("sha256"), str) or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+            ):
+                raise ValueError("malformed in-process runtime observations")
+        if runtime["torch"]["version"] != record.get("torch_version"):
+            raise ValueError("Torch version observations disagree")
     return record
 
 

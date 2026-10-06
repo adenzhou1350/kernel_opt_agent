@@ -49,6 +49,25 @@ class Controls(unittest.TestCase):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 runner.identity(text, UUID, 4096, ["subject"], dict(self.options["sources"]))
 
+    def test_runtime_metadata_is_optional_but_not_arbitrary(self):
+        torch = dict(version="2.11.0", path=str(self.root / "torch.py"), sha256=self.sha)
+        self.record.update(torch_version="2.11.0", runtime=dict(torch=torch, triton=None))
+        valid = runner.identity(runner.MARKER + json.dumps(self.record), UUID, 4096,
+                                ["subject"], dict(self.options["sources"]))
+        self.assertIsNone(valid["runtime"]["triton"])
+        for absolute in ("/opt/runtime/torch/__init__.py", "C:/runtime/torch/__init__.py"):
+            self.record["runtime"]["torch"] = {**torch, "path": absolute}
+            runner.identity(runner.MARKER + json.dumps(self.record), UUID, 4096,
+                            ["subject"], dict(self.options["sources"]))
+        invalid = [None, [], {}, dict(torch=None, triton=None),
+                   dict(torch={**torch, "version": "2.12.0"}, triton=None),
+                   dict(torch={**torch, "path": "relative/torch.py"}, triton=None),
+                   dict(torch=torch, triton={**torch, "sha256": "bad"})]
+        for runtime in invalid:
+            with self.subTest(runtime=runtime), self.assertRaisesRegex(ValueError, "runtime|disagree"):
+                runner.identity(runner.MARKER + json.dumps({**self.record, "runtime": runtime}), UUID, 4096,
+                                ["subject"], dict(self.options["sources"]))
+
     def test_invalid_inputs_never_lock_or_execute(self):
         for override in (dict(gpu_uuid="0"), dict(memory_mib=8192), dict(timeout=0),
                          dict(python="python"), dict(modules=[]), dict(modules=["a;code"]),
@@ -141,6 +160,35 @@ class Controls(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("UUID mismatch", result.stderr)
         self.assertNotIn("source executed", result.stderr)
+
+    def test_bootstrap_observes_loaded_runtime_not_distribution_guess(self):
+        # Fake modules prove metadata collection only, not CUDA correctness.
+        (self.root / "torch.py").write_text(
+            "__version__='2.11.test'\n"
+            "version=type('V',(),{'cuda':'13.0'})()\n"
+            "class CUDA:\n"
+            " def device_count(self): return 1\n"
+            " def get_device_properties(self,n): return type('P',(),"
+            f"{{'uuid':{UUID!r},'total_memory':32000*1024*1024,'major':12,'minor':0,'name':'fake GPU'}})()\n"
+            " def set_device(self,n): pass\n"
+            " def set_per_process_memory_fraction(self,f,n): pass\n"
+            " def synchronize(self): pass\n"
+            "cuda=CUDA()\n", encoding="utf-8")
+        (self.root / "triton.py").write_text("__version__='3.7.test'\n", encoding="utf-8")
+        (self.root / "subject.py").write_text("import triton\n", encoding="utf-8")
+        (self.root / "pytest.py").write_text("def main(args): return 0\n", encoding="utf-8")
+        process = subprocess.run([sys.executable, "-B", "-c", runner.BOOTSTRAP, UUID, "4096", '["subject"]'],
+                                 cwd=self.root, capture_output=True, text=True, timeout=10,
+                                 env={**os.environ, "CUDA_VISIBLE_DEVICES": ""})
+        self.assertEqual(process.returncode, 0, process.stderr)
+        record = runner.identity(process.stdout, UUID, 4096, ["subject"],
+                                 {"subject.py": runner.native.digest(self.root / "subject.py")})
+        self.assertEqual(record["runtime"]["torch"]["version"], "2.11.test")
+        self.assertEqual(record["runtime"]["triton"]["version"], "3.7.test")
+        self.assertEqual(record["runtime"]["triton"]["sha256"], runner.native.digest(self.root / "triton.py"))
+        self.assertEqual(Path(record["runtime"]["triton"]["path"]), (self.root / "triton.py").resolve())
+        self.assertEqual(record["cuda_runtime"], "13.0")
+        self.assertEqual(record["device"]["compute_capability"], [12, 0])
 
 
 if __name__ == "__main__":

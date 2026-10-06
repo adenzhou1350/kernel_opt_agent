@@ -48,7 +48,14 @@ Outputs reuse `terminal.log`, owned `junit.xml` and `result.json`. Exact expecte
 JUnit case identities must execute; skips, setup errors, signals, truncated logs,
 changed selected source/tool bytes and abnormal exits cannot qualify a pass.
 The added GPU record captures device mapping, imported module paths/digests and
-pre/post inventory. It does not prove the whole dependency closure, every
+pre/post inventory. Before pytest it also records the loaded Torch and, if already
+loaded by the reviewed source imports, Triton versions, resolved module paths and
+entry-module digests, plus Torch's CUDA runtime version and device capacity/compute
+capability. A null Triton observation means it was not loaded at that point, not
+that no test later used Triton. These are runtime observations, not whole-wheel or
+compiled-kernel hashes; preserve exact dependency/binary evidence separately when
+needed. Older saved identities without these fields remain readable. The record
+does not prove the whole dependency closure, every
 transitive import, a semantically adequate oracle, actual kernels in every test,
 performance improvement or upstream readiness. Inspect before/after results and
 the target repository's contribution rules before publication.
@@ -77,3 +84,9 @@ controller invocation took about 263 seconds, including both runs and checks.
 This is an exposed positive integration control for the runner, not another PR,
 cross-framework validation, a performance comparison or a prospective cost/yield
 experiment. Broader FLA qualification is recorded on that PR separately.
+
+A separate one-case RTX 5090 integration check observed Torch 2.11.0+cu130 and
+the actual task-private Triton 3.7.1 import while executing a registered LightNet
+cached-padding gradient test. It confirms the new metadata reaches the real
+pytest process; it does not resolve the H100/Torch 2.12 CI failure discussed in
+[FLA #1334](https://github.com/fla-org/flash-linear-attention/pull/1334#issuecomment-6023097969).

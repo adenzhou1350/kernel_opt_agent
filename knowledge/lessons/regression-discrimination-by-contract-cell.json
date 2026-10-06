@@ -14,8 +14,8 @@
       "note": "Independent real-layer/Triton validation of exact head 5fd4d711 against parent 954438d1 on RTX5090, Torch 2.11.0+cu130, Triton 3.6.0 and Python 3.12.13. Original BF16 checks pass before repair despite relative errors 0.008699/0.014372; deterministic paired equality discriminates all four cells. No monkeypatch, performance or full-suite claim."
     },
     {
-      "url": "https://github.com/fla-org/flash-linear-attention/pull/1334",
-      "note": "Cached-padding repair with 22 registered FP16/BF16 layer cases, including empty-prefix short/chunk forward and backward, plus 10 selected caller/config/generation controls: 32 passed on RTX5090/Torch 2.11/Triton 3.6. Public diff shows the prefill-policy reuse and zero-state precondition. H100/Torch 2.12/Triton 3.7.1 smoke subsequently failed with illegal memory access in the T=80 backward case; root cause remains unresolved. Local success is not cross-architecture/compiler qualification, a prospective policy comparison or a performance claim."
+      "url": "https://github.com/fla-org/flash-linear-attention/pull/1334#issuecomment-6023097969",
+      "note": "Cached-padding repair with 22 registered FP16/BF16 layer cases, including empty-prefix short/chunk forward and backward, plus 10 selected caller/config/generation controls: 32 passed on RTX5090/Torch 2.11/Triton 3.6. Public diff shows the prefill-policy reuse and zero-state precondition. H100/Torch 2.12/Triton 3.7.1 smoke subsequently failed with illegal memory access in the T=80 backward case. A cold-cache RTX5090/Torch 2.11 diagnostic with Triton 3.7.1 and synchronous CUDA launches passed all eight selected gradient cases, but H100/Torch 2.12 root cause remains unresolved. Isolating one compiler-version change does not reproduce another architecture/runtime combination. Local success is not cross-architecture qualification, a prospective policy comparison or a performance claim."
     }
   ],
   "status": "validated"
