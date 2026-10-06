@@ -57,6 +57,15 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn('not a general license', advice['avoid_when'])
         self.assertLessEqual(len(json.dumps(advice).encode('utf-8')), MAX_CARD_BYTES)
 
+    def test_runner_registration_advice_keeps_admission_and_execution_limits(self):
+        result = lesson_suggestions("GoRaven Query runner registration completion lifecycle")
+        advice = result['matches'][0]
+        self.assertEqual(advice['id'], 'native-events-versus-consumer-progress')
+        self.assertIn('before launch', advice['lesson'])
+        self.assertIn('configuration failure', advice['lesson'])
+        self.assertIn('not atomic concurrent-start admission', advice['avoid_when'])
+        self.assertLessEqual(len(json.dumps(advice).encode('utf-8')), MAX_CARD_BYTES)
+
     def test_one_complete_card_preserves_scope_and_status(self):
         first = card("stream-pause")
         self.save(first)
