@@ -1,0 +1,26 @@
+{
+  "id": "logger-disabled-control-realization",
+  "title": "DeepSpeed comms_logger enabled is runtime state, not section presence",
+  "applies_when": "A DeepSpeed comms_logger disabled/enabled comparison, logger synchronization proposal or repeated engine initialization assumes that declared configuration equals the global runtime state.",
+  "lesson": "Assert the realized enabled flag after engine/configuration initialization and before collecting timing or synchronization counts. At pinned DeepSpeed b90283d5, DeepSpeedCommsConfig records whether the comms_logger section exists; CommsLogger.configure uses that presence as enabled, ignoring the parsed nested enabled=false. An empty section also turns logging on, while an omitted section can leave an earlier global setting in place. The explicit comm.configure(enabled=False) API does disable it, but silently applying that repair after initialization masks a configuration regression. Distinguish a deliberately reset control from testing the configuration contract itself. Retain absent, empty, explicit false and true cases, both initial states, and a selected-logging positive control. examples/native_deepspeed_comms_config.py exercises real configuration objects without launching a GPU workload; require a valid CONFIG_MISMATCH report before classifying its exit 1 as a contract mismatch, not a dependency failure.",
+  "avoid_when": "This pinned mechanism is not a rule that every configuration is sticky or that a logger causes every missing-overlap report. Do not disable instrumentation merely to obtain a favorable comparison. A configuration probe does not establish collective correctness, ZeRO-2 overlap, MPI behavior, convergence or a performance gain. Recheck current source before transfer; a closed issue alone is not proof of a fix.",
+  "evidence": [
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/b90283d51ade18fc6b8f46b26b64141be44023a1/deepspeed/comm/config.py",
+      "note": "The parsed nested enabled field defaults to false, but comms_logger_enabled represents section presence. Source mechanism, not a training measurement."
+    },
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/b90283d51ade18fc6b8f46b26b64141be44023a1/deepspeed/utils/comms_logging.py#L78-L84",
+      "note": "CommsLogger.configure sets enabled from section presence rather than the nested parsed flag."
+    },
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/b90283d51ade18fc6b8f46b26b64141be44023a1/deepspeed/comm/comm.py#L72-L96",
+      "note": "Config-file application skips absent sections; the explicit enabled argument updates the global logger independently."
+    },
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/issues/2861#issuecomment-1483228812",
+      "note": "The old enabled=false report was closed for lack of response, not with a linked fix. This does not prove the historical overlap claim or current performance."
+    }
+  ],
+  "status": "validated"
+}
