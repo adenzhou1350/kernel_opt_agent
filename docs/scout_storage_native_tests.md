@@ -202,6 +202,16 @@ For Rust, use `--format rust-libtest`, an exact expected libtest name, and the
 repository's native Cargo command/profile or an independently source-bound test
 binary. Pin and verify the full source, build inputs and environment separately;
 selected file hashes alone cannot establish that a cached binary came from them.
+In particular, two archived Rust source arms with the same package identity can
+reuse one test binary when they share a Cargo target and preserve old mtimes.
+A fresh process or fresh result directory does not isolate that build cache.
+Prefer an arm-specific Cargo target; reuse dependency caches separately. If a
+reviewed experiment deliberately shares its own target to save dependency builds,
+clean only the affected package/profile before changing arms and verify that the
+compiler rebuilt that package from the selected root. Retain an observable
+before/after regression; a cached PASS or FAIL is not source attribution. Never
+clean another task's target. Cargo documents [target-directory configuration](https://doc.rust-lang.org/cargo/reference/build-cache.html)
+and [package/profile-scoped cleaning](https://doc.rust-lang.org/cargo/commands/cargo-clean.html).
 Run the before/after commands into separate fresh output directories and retain
 failing controls. The output directory's parent must already exist.
 
