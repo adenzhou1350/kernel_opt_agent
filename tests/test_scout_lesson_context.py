@@ -114,6 +114,24 @@ class LessonContextTests(unittest.TestCase):
         self.assertIn("blocked", retry["note"])
         self.assertNotIn("qualified", result)
 
+    def test_public_api_binding_advice_refines_inputs_without_dismissing_the_bug(self):
+        result = lesson_suggestions(
+            "LanceDB public API raw native binding read_consistency_interval timedelta"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "public-api-versus-native-binding-inputs")
+        self.assertLessEqual(
+            len(json.dumps(lesson, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        self.assertIn("negative timedelta", lesson["lesson"])
+        self.assertIn("invalid proposed test need not invalidate", lesson["lesson"])
+        self.assertIn("separately at the raw PyO3 binding", lesson["lesson"])
+        self.assertIn("packaging", lesson["avoid_when"])
+        self.assertTrue(any("/pull/4454" in e["url"] for e in lesson["evidence"]))
+        self.assertNotIn("qualified", result)
+
     def test_http_body_ownership_is_not_a_connection_reuse_claim(self):
         result = lesson_suggestions("Go net/http HTTP response Body.Close connection reuse EOF")
         self.assertEqual(result["status"], "ADVISORY_MATCH")

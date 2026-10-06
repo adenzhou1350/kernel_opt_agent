@@ -1,0 +1,18 @@
+{
+  "id": "public-api-versus-native-binding-inputs",
+  "title": "Separate public API inputs from raw native binding inputs",
+  "applies_when": "A Python/Rust or other cross-language regression proposes direct scalar inputs to a public wrapper that converts an object before calling the native binding, such as LanceDB read_consistency_interval timedelta to seconds.",
+  "lesson": "Trace the wrapper conversion before choosing the reproduction. In LanceDB, public connection APIs accept timedelta and call total_seconds(); passing a float there fails in Python before the Rust Duration conversion and cannot reproduce its panic. A negative timedelta reaches that conversion through supported public sync/async and namespace paths. Test NaN, infinity and overflow separately at the raw PyO3 binding, and label that scope explicitly. Exercise the actual namespace client, not an arbitrary stand-in. Use identical committed regressions with separately rebuilt native baselines/candidates, fresh imports and valid None/zero/positive controls. An invalid proposed test need not invalidate the underlying bug: refine the input and test the real boundary.",
+  "avoid_when": "Do not claim that every raw-binding input is reachable from the public API. Other wrappers, versions and serializers may admit different inputs; inspect them independently. Source-tree test metadata does not qualify wheel/editable packaging, and focused native passes do not establish full CI, live cloud or performance. A published PR is not maintainer acceptance. This advice is a scoped reuse of the broader consumer-contract lesson, not a rule to reject all low-level validation defects.",
+  "evidence": [
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/81d52a98f881491f7872d3c097537e1d6174a3e5/python/python/lancedb/__init__.py#L446-L567",
+      "note": "Public connect_async declares Optional[timedelta] and invokes total_seconds before lancedb_connect. This is the input-conversion contract, not a runtime result."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/pull/4454",
+      "note": "Submitted native validation fix with public negative timedelta and raw-binding non-finite/overflow tests: unchanged native baseline 22 failed/4 passed, rebuilt candidate 26 passed plus two existing regressions. Source-tree test version metadata was supplied explicitly; full packaging/cloud CI and performance were not tested."
+    }
+  ],
+  "status": "validated"
+}
