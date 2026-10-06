@@ -1,0 +1,22 @@
+{
+  "id": "comment-transparent-comparison-grouping",
+  "title": "Inspect comparison grouping before repairing comment-induced indentation",
+  "applies_when": "A SQL formatter indents later SELECT columns progressively farther right when comments occur between comparison operators and operands, even after comments are stripped.",
+  "lesson": "Compare the real token/group tree with and without the comment before changing indentation or filter order. In sqlparse, a comment blocking operand discovery leaves the comparison ungrouped and creates nested IdentifierLists. Skip comment tokens when identifying comparison operands, but keep those tokens within the resulting group. Limit the change to that grouping pass; test original text preservation, block and line comments, retained hints, nested expressions, numeric/string/function/NULL operands and statement boundaries. Run the same native regressions against unchanged and repaired sources to distinguish an actual repair from a chosen new output expectation.",
+  "avoid_when": "Comments can be semantically meaningful hints; transparent operand discovery does not authorize deleting or moving them. Existing operand identifiers can themselves contain comments, so their full value need not equal the bare identifier name. Do not infer nested-comment dialect support, all formatter modes, cross-platform CI, performance or upstream approval from this repair.",
+  "evidence": [
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/issues/604",
+      "note": "Public multiline-comment SELECT example reports drifting indentation with and without comment stripping."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/blob/60cdc649726bf1bc4f1b336050560b336da715ec/sqlparse/engine/grouping.py",
+      "note": "Pinned original comparison pass searches adjacent non-whitespace tokens but does not skip comments when locating operands."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/pull/922",
+      "note": "Open Ready repair preserves comment tokens and confines transparent discovery to comparisons. Local Windows/Python 3.14 focused tests: original 14 failures versus repaired 180 passes; full repaired suite 521 passes with existing xfail/xpass unchanged. Not a maintainer-acceptance or multi-platform CI claim."
+    }
+  ],
+  "status": "validated"
+}
