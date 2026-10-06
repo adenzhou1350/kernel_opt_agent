@@ -1,0 +1,18 @@
+{
+  "id": "stochastic-conversion-representability",
+  "title": "Test exact representability before stochastic conversion distributions",
+  "applies_when": "A stochastic low-precision conversion is supposed to preserve target-format values rather than intentionally flush subnormals, and ordinary random inputs mostly exercise normal values.",
+  "lesson": "Lift finite target-format bit patterns exactly into the wider input format and require bitwise preservation for representative random words. For FP16, enumerating both signs of every finite value is small enough for a focused native test. Add explicit signed zeros, subnormal boundaries, underflow and carry into the smallest normal value; sweep the finite noise domain when affordable. Compare boundary outputs against an independent fixed-ULP reference, not a copy of the candidate's bit manipulations. Exercise public scalar/packed software wrappers as well as the helper. Keep hardware parity, package integration and model behavior as separate claims.",
+  "avoid_when": "An explicit FTZ contract may permit flushing. Not every stochastic operator preserves individual samples; establish the conversion's numerical contract first. A valid software reference does not prove native hardware cvt.rs parity or unbiasedness below a finite random-bit resolution. Enumeration is practical for small formats, not all FP32 inputs. More checks alone do not establish lower research cost or higher PR yield.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/pull/6114",
+      "note": "Exact-head c55ec7ef isolated native CUDA 13.0.88 / RTX5090 paired validation: unchanged header fails 15 assertion tests; fix passes all 15 with no errors/skips. Three software conversion paths cover 761856 finite-value checks and 1228800 boundary/noise checks. The PR reports no hardware cvt.rs, repository-wide or model/performance qualification; open is not merged acceptance."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/c55ec7ef4b3cbb15cb3f5b3a9383fbd9ae1dca96/tests/mamba/test_fp16_stochastic_rounding_sw.py",
+      "note": "Public reproduction enumerates FP16 bit patterns and uses CPU FP64 arithmetic in fixed subnormal ULPs as the boundary reference. Hardware-path wrapper cases are skipped on SM10x; direct software cases remain independent of native cvt.rs."
+    }
+  ],
+  "status": "validated"
+}
