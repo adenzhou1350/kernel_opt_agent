@@ -496,6 +496,19 @@ model call, rewrites no note/job and does not increase delivery conversion count
 Inspect the actual PR: a shared file is not evidence that a distinct bug is fixed,
 and a recorded link does not establish current CI, review, merge or useful yield.
 
+For reviewed source leads that never entered delivery, optional
+`<root>/owner-source-notes.json` provides deferral advice without a fake execution
+row. Keep the JSON list within 64 KiB, oldest first. Each entry has exactly
+`repo`, `prior_hypothesis` (<=200 characters), `source_url` (same-repository raw
+URL at a full commit SHA), `reason`, `reopen_when` (<=1000 characters each), and
+`evidence_url` (same-repository pinned source or public PR URL). No private logs.
+The reader selects at most 24 recent distinct valid notes per repository and
+exposes at most two same-file hints. Older history may remain within the byte
+cap; unrelated, invalid and duplicate entries do not consume returned slots.
+These are untrusted advisory observations, not automatic suppression or no-bug
+verdicts. New callers or contracts can overturn a deferral. No model call or
+queue mutation is caused merely by adding a note.
+
 ## Cited-issue related work
 
 An existing source follow-up may query one same-repository issue number when
