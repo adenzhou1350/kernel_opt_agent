@@ -30,6 +30,30 @@ def source_api_query(source_text):
             if match:
                 aliases.add(match.group(2) or match.group(1))
     aliases.update(re.findall(r"\bimport\s+\*\s+as\s+(\w+)\s+from\b", source))
+    # Constant dynamic imports only. These are lexical hints, never eval/JS execution.
+    assignment = (
+        r"(?m)^\s*(?:\d+:\s*)?(?:(?:const|let|var)\s+)?"
+        r"([A-Za-z_]\w*)\s*=\s*(?:await\s+)?"
+    )
+    module = r"[@A-Za-z0-9_./-]+"
+    js_imports = [
+        (alias, package)
+        for alias, _, package in re.findall(
+            assignment + r"import\s*\(\s*(['\"])(" + module
+            + r")\2\s*\)\s*(?:;|$)", source
+        )
+    ]
+    js_imports.extend(
+        (alias, double_quoted or single_quoted)
+        for alias, double_quoted, single_quoted in re.findall(
+            assignment + r"eval\s*\(\s*(?:'import\(\"(" + module
+            + r")\"\)'|\"import\('(" + module + r")'\)\")\s*\)\s*(?:;|$)", source
+        )
+    )
+    js_namespaces = {
+        alias: package.rsplit("/", 1)[-1] for alias, package in js_imports
+    }
+    aliases.update(js_namespaces)
     go_imports = re.findall(
         r'(?m)^\s*(?:\d+:\s*)?import\s+(?:(\w+|\.)\s+)?"([\w./-]+)"', source
     )
@@ -44,15 +68,16 @@ def source_api_query(source_text):
         for alias, module in go_imports if alias not in ("_", ".")
     }
     aliases.update(go_namespaces)
+    namespaces = {**go_namespaces, **js_namespaces}
     names = re.findall(r"\b[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+", source)
     terms = sorted({
         term.casefold()
         for name in names if name.split(".")[0] in aliases
         for term in name.split(".") if len(term) > 1
     } | {
-        go_namespaces[name.split(".")[0]].casefold()
-        for name in names if name.split(".")[0] in go_namespaces
-        and re.fullmatch(r"[A-Za-z_]\w*", go_namespaces[name.split(".")[0]])
+        namespaces[name.split(".")[0]].casefold()
+        for name in names if name.split(".")[0] in namespaces
+        and re.fullmatch(r"[A-Za-z_]\w*", namespaces[name.split(".")[0]])
     })
     selected, size = [], 0
     for term in terms:

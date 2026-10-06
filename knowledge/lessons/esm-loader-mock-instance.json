@@ -1,0 +1,22 @@
+{
+  "id": "esm-loader-mock-instance",
+  "title": "Transformers AutoTokenizer loader mocks must reach the real ESM instance",
+  "applies_when": "Testing JavaScript/TypeScript initialization that dynamically imports an ESM dependency from a CommonJS package, especially @huggingface/transformers AutoModel/AutoTokenizer loaders.",
+  "lesson": "A mock declaration is not evidence that the production caller used it. Trace the actual import path, disable local/remote model loading before exercising initialization, and assert calls on the dependency instance reached by that caller. For the LanceDB eval-import path, the public regression fixture runs in an isolated native Node child, imports the real Transformers module, and replaces only its external model/tokenizer loaders; it does not replace the embedding function or registry. Rebuild compiled TypeScript before each baseline/candidate run when the fixture imports dist. Check default, explicit and registry-resolved options plus loader errors, preserving serialized input. This establishes option-to-loader routing, not inference accuracy.",
+  "avoid_when": "Do not generalize this case into a ban on Jest mocks: its ESM mocking API may fit another project's loader. Class-method replacement works here but is not a promise that arbitrary ESM namespace exports are writable or that differently resolved packages share one instance. Real inference, packaging, Rust/native API changes and whole-model performance require their own evidence. Reusing an integrity-verified same-version released binding can isolate unchanged TypeScript behavior, but cannot qualify a modified native surface or full upstream CI.",
+  "evidence": [
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/dcfaec0ef1c8ce019543d57856dcd6bbd01429ea/nodejs/lancedb/embedding/transformers.ts",
+      "note": "The real init uses eval-import to retain native ESM loading through CommonJS transpilation; AutoModel and AutoTokenizer routing is the tested subject."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/dcfaec0ef1c8ce019543d57856dcd6bbd01429ea/nodejs/__test__/fixtures/transformers_tokenizer.cjs",
+      "note": "Public five-case fixture disables local/remote model access, replaces external loaders and asserts calls plus toJSON on the real compiled class/registry. The accompanying Jest wrapper isolates each case in a native child. No real model/tokenizer inference is performed."
+    },
+    {
+      "url": "https://jestjs.io/docs/29.7/ecmascript-modules",
+      "note": "Versioned official documentation distinguishes ESM import evaluation and module mocking from CommonJS hoisting; it explains a mechanism, not a measurement of Scout cost or PR yield."
+    }
+  ],
+  "status": "validated"
+}

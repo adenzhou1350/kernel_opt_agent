@@ -966,3 +966,31 @@ These are revision-bound source controls, not full runtime qualification. The
 existing helper-contract lesson applies; no duplicate card or required phase is
 needed. Use `tests/test_scout_owner_intake.py` for native offline queue/claim,
 duplicate-preservation and selector integration checks.
+
+## Verify the ESM loader instance before reproducing option routing
+
+[LanceDB's pinned initialization](https://github.com/lancedb/lancedb/blob/dcfaec0ef1c8ce019543d57856dcd6bbd01429ea/nodejs/lancedb/embedding/transformers.ts)
+uses a native ESM import hidden from CommonJS transpilation. A CommonJS mock that
+does not intercept that import can accidentally start a real model download;
+the declaration alone does not establish which dependency instance was called.
+[Jest 29.7's ESM documentation](https://jestjs.io/docs/29.7/ecmascript-modules)
+explains its separate import/mocking rules, not a universal inability to mock ESM.
+
+The [public five-case fixture](https://github.com/lancedb/lancedb/blob/dcfaec0ef1c8ce019543d57856dcd6bbd01429ea/nodejs/__test__/fixtures/transformers_tokenizer.cjs)
+runs in an isolated native Node child, disables local/remote model loading and
+replaces only external loaders on the actual imported module. It exercises the
+real compiled embedding class and registry, including defaults, a custom
+tokenizer, a registry variable and loader errors. Recompile `dist` before each
+baseline/candidate run; otherwise a source change may never reach the fixture.
+This is initialization routing, not real inference or tokenizer correctness.
+
+For an unchanged native surface, an integrity-verified same-version official
+binding can separate a TypeScript regression from a costly Rust build. Disclose
+that reuse and check the real binding import; never use it to qualify modified
+Rust/native interfaces, packaging or full CI. The optional
+`esm-loader-mock-instance` lesson carries these limits. Source advice recognizes
+only constant dynamic-import assignments (including the exact eval-import
+form), within existing source/query budgets; it is not a JavaScript parser and
+does not execute eval. Retrieval tests establish availability of the advice, not
+measured savings or better PR conversion. This post-outcome case is not part of
+a frozen prospective efficacy study.

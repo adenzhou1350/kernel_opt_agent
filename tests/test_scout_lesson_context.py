@@ -197,6 +197,81 @@ class LessonContextTests(unittest.TestCase):
         issue_packet = next(packet for packet in packets if packet["sources"] == [issue])
         self.assertFalse(issue_packet.get("lesson_suggestions", {}).get("source_query_used", False))
 
+    def test_literal_js_dynamic_imports_offer_bounded_api_anchors(self):
+        expected = "autotokenizer from_pretrained transformers"
+        for assignment in (
+            'const transformers = await import("@huggingface/transformers");',
+            "17: let transformers = import('@huggingface/transformers');",
+            "18: transformers = await eval('import(\"@huggingface/transformers\")');",
+            'transformers = eval("import(\'@huggingface/transformers\')");',
+        ):
+            with self.subTest(assignment=assignment):
+                self.assertEqual(source_api_query(
+                    assignment + "\ntransformers.AutoTokenizer.from_pretrained(name)"
+                ), expected)
+        for assignment in (
+            "const transformers = await import(moduleName);",
+            "transformers = eval(expression);",
+            "transformers = eval('import(moduleName)');",
+            "transformers = eval('import(\"@huggingface/transformers\"); run()');",
+            'const transformers = await import("@huggingface/" + packageName);',
+        ):
+            with self.subTest(assignment=assignment):
+                self.assertEqual(source_api_query(
+                    assignment + "\ntransformers.AutoTokenizer.from_pretrained(name)"
+                ), "")
+        source = 'const transformers = await import("@huggingface/transformers");\n'
+        self.assertEqual(source_api_query(
+            'const hf = await import("@huggingface/transformers");\n'
+            'hf.AutoTokenizer.from_pretrained(name)'
+        ), "autotokenizer from_pretrained hf transformers")
+        self.assertEqual(source_api_query("x" * MAX_SOURCE_CHARS + "\n" + source
+                                         + "transformers.AutoTokenizer.from_pretrained(name)"), "")
+        self.assertLessEqual(len(source_api_query(
+            source + " ".join(f"transformers.API{i}" for i in range(3000))
+        )), MAX_QUERY_CHARS)
+
+    def test_esm_source_advice_reaches_emitter_without_qualification_or_fetch(self):
+        source = {
+            "url": "https://raw.githubusercontent.com/lancedb/lancedb/"
+                   "dcfaec0ef1c8ce019543d57856dcd6bbd01429ea/nodejs/lancedb/embedding/transformers.ts",
+            "text": "95: transformers = await eval('import(\"@huggingface/transformers\")');\n"
+                    "114: this.#tokenizer = await transformers.AutoTokenizer.from_pretrained(name);",
+        }
+        scout.initialize(self.root)
+        config = self.root / "esm-config.json"
+        spec = {"repo": "lancedb/lancedb", "source_prefixes": ["nodejs/"],
+                "question": "Find small correctness opportunities"}
+        config.write_text(json.dumps({"objective": "Public source", "queue_target": 4,
+                                      "repos": [spec]}), encoding="utf-8")
+        producer = research.ResearchProducer(self.root, config, context=object())
+        with patch.object(scout, "fetch", side_effect=AssertionError("no advice fetch")):
+            self.assertTrue(producer.emit("esm-api-source", spec, [source], "source_audit"))
+        with scout.connect(self.root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+        self.assertEqual(packet["sources"], [source])
+        advice = packet["lesson_suggestions"]
+        self.assertTrue(advice["source_query_used"])
+        lesson = advice["matches"][0]
+        self.assertEqual(lesson["id"], "esm-loader-mock-instance")
+        self.assertEqual(lesson["status"], "validated")
+        self.assertIn("not inference accuracy", lesson["lesson"])
+        self.assertIn("modified native surface", lesson["avoid_when"])
+        self.assertLessEqual(len(json.dumps(lesson).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", advice)
+        alias_advice = lesson_suggestions(
+            "unmatchedzzzz", source_text=source["text"].replace("transformers =", "hf =")
+            .replace("transformers.AutoTokenizer", "hf.AutoTokenizer")
+        )
+        self.assertTrue(alias_advice["source_query_used"])
+        self.assertEqual(alias_advice["matches"][0]["id"], "esm-loader-mock-instance")
+        issue = {"url": "https://github.com/lancedb/lancedb/issues/1", "text": source["text"]}
+        self.assertTrue(producer.emit("esm-issue-only", spec, [issue], "issue_triage"))
+        with scout.connect(self.root) as db:
+            packets = [json.loads(row[0]) for row in db.execute("SELECT packet FROM jobs")]
+        issue_packet = next(p for p in packets if p["sources"] == [issue])
+        self.assertFalse(issue_packet.get("lesson_suggestions", {}).get("source_query_used", False))
+
     def test_failed_upload_advice_distinguishes_abort_from_commit(self):
         result = lesson_suggestions("helper owner lifetime failed upload Writer cancellation")
         self.assertEqual(result["status"], "ADVISORY_MATCH")
