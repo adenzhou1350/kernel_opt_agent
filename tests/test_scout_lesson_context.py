@@ -49,6 +49,14 @@ class LessonContextTests(unittest.TestCase):
         path = self.root / (value["id"] + ".json")
         path.write_text(json.dumps(value), encoding="utf-8")
 
+    def test_lightnet_sentinel_advice_is_retrievable_and_scoped(self):
+        result = lesson_suggestions("LightNet empty-prefix cached log-normalizer chunk")
+        self.assertEqual(result['matches'][0]['id'], 'regression-discrimination-by-contract-cell')
+        advice = result['matches'][0]
+        self.assertIn('zero-state invariant', advice['lesson'])
+        self.assertIn('not a general license', advice['avoid_when'])
+        self.assertLessEqual(len(json.dumps(advice).encode('utf-8')), MAX_CARD_BYTES)
+
     def test_one_complete_card_preserves_scope_and_status(self):
         first = card("stream-pause")
         self.save(first)
