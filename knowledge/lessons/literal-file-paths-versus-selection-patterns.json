@@ -1,0 +1,26 @@
+{
+  "id": "literal-file-paths-versus-selection-patterns",
+  "title": "A filename argument can still be interpreted as a selection pattern",
+  "applies_when": "A Git wrapper stages a previously filtered set of file paths or displays a user-selected file's diff, especially with brackets, wildcard characters or a leading pathspec-magic prefix in legal filenames.",
+  "lesson": "Separate three contracts: shell interpretation, option parsing and the called program's path-selection language. Passing an argv array and adding -- prevents neither Git glob matching nor pathspec magic. For interfaces that accept filenames rather than user patterns, use Git's --literal-pathspecs before the subcommand. Verify the files actually committed or displayed, not just the list returned by an earlier size filter. Use real disposable repositories with a small pattern-like filename and a matching file; make the matching file exceed the filter for staging tests. Run identical regressions on original source and repair, with ordinary and unfiltered operations as controls. Record the Git version and legal filename rules of the tested OS instead of treating one platform's result as universal.",
+  "avoid_when": "Do not disable deliberate pattern-selection APIs or transfer this Git option to another program. Literal pathspecs do not establish filesystem containment, resolve symlink races, exclude files already staged before the operation, or repair status parsing. A Windows-illegal colon filename needs an explicit skip or a different platform case, not a fabricated cross-platform pass. Package-level reproduction is not a running-server, performance, merge or Scout-yield result.",
+  "evidence": [
+    {
+      "url": "https://git-scm.com/docs/git#Documentation/git.txt---literal-pathspecs",
+      "note": "Git's documented global option disables both glob matching and pathspec magic. This explains the selection mechanism, not another program's API or an application-level qualification."
+    },
+    {
+      "url": "https://git-scm.com/docs/gitglossary#def_pathspec",
+      "note": "The glossary describes pathspec patterns and colon-prefixed magic. A pathname carried after the option separator can still be a pathspec."
+    },
+    {
+      "url": "https://github.com/8treenet/goraven/pull/35",
+      "note": "Native Go 1.25.5/Git 2.34.1 complete util/git package: unchanged master fails the pathspec-magic staging case and both single-file diff cases; the three-command repair passes the identical tests and vet. The report states package scope and the Windows colon-filename exclusion. This is an authored open PR, not proof of merge or automated discovery benefit."
+    },
+    {
+      "url": "https://github.com/8treenet/goraven/blob/ee4ede0d984cb7c11565abd8fe0cc625e16aa954/util/git/pathspec_test.go",
+      "note": "Pinned regression tests check that an oversized matching file remains outside the commit, literal working-tree/commit diffs omit its changes, and unfiltered diffs retain them. Tests invoke the real Git executor, not a ported parser or mocked command result."
+    }
+  ],
+  "status": "validated"
+}
