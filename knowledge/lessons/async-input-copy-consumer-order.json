@@ -1,0 +1,26 @@
+{
+  "id": "async-input-copy-consumer-order",
+  "title": "Trace async input copies and the actual consumer before alleging a mutation race",
+  "applies_when": "An async submit is followed by in-place tensor masking, and a candidate alleges that a delayed CPU worker will read the changed GPU input.",
+  "lesson": "Inspect the real submit implementation, selected backend overrides, copy destination, task pointer and stream ordering before building a reproduction or adding a clone. Async CPU execution does not necessarily delay the read of the original tensor. In the cited KT inference path, preparation queues expert-ID copies into pinned CPU buffers before scheduling the host callback; forward_task consumes those pinned buffers. Under the same CUDA stream, later GPU masking follows that copy, so the claimed late read of original topk_ids is not established. A CPU mock that merely retains the original tensor invents a different producer. Mutation of the original IDs is real, but independently alleging alias corruption requires a supported downstream consumer and its ownership contract.",
+  "avoid_when": "Not a native KT correctness result or a blanket claim that asynchronous mutation is safe. Reopen for different copy/mutation streams without a dependency, a wrapper override retaining original IDs, host writes before an async transfer completes, pinned-buffer reuse before consumption, or a demonstrated downstream consumer requiring original IDs. Verify exact installed versions and graph behavior separately; the cited source pair does not qualify every SGLang/KT combination, NPU path or CPU-only backend.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/b524de2de6890b5d343f17d7c6f5b1cc6b5e35c4/python/sglang/srt/layers/moe/kt_ep_wrapper.py#L276-L377",
+      "note": "The caller submits before masking and passes the device's current CUDA stream. The mask really is in-place; that fact alone does not establish a delayed CPU read."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/ktransformers/blob/a5d7ad90479c9e8bdee491c16bfd563fa9d70262/kt-kernel/python/experts_base.py#L542-L818",
+      "note": "Preparation copies into pinned expert-ID buffers; the task receives their data pointers. The inspected AMX, Native, Llamafile and General inference wrappers inherit these methods without overrides. Static source mechanism, not execution evidence."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/ktransformers/blob/a5d7ad90479c9e8bdee491c16bfd563fa9d70262/kt-kernel/cpu_backend/cpuinfer.h#L88-L99",
+      "note": "submit_with_cuda_stream uses cudaLaunchHostFunc on the supplied stream."
+    },
+    {
+      "url": "https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__EXECUTION.html",
+      "note": "cudaLaunchHostFunc runs after preceding work in its stream. Independent streams without an explicit ordering dependency do not share this guarantee."
+    }
+  ],
+  "status": "validated"
+}
