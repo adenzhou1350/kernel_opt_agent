@@ -67,6 +67,21 @@ class LessonContextTests(unittest.TestCase):
         )
         self.assertEqual(result["matches"], [])
 
+    def test_volume_cleanup_lesson_retains_its_fail_fast_countercondition(self):
+        result = lesson_suggestions(
+            "cleanupTokens ListTokens volumes empty token cleanup return continue"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "per-item-maintenance-pass")
+        self.assertEqual(lesson["status"], "validated")
+        self.assertLessEqual(len(json.dumps(lesson).encode()), MAX_CARD_BYTES)
+        self.assertIn("global invariant", lesson["avoid_when"])
+        self.assertIn("map", lesson["lesson"])
+        self.assertIn("25 race-enabled repetitions", lesson["lesson"])
+        self.assertTrue(any("/pull/7631" in e["url"] for e in lesson["evidence"]))
+        self.assertNotIn("qualified", result)
+
     def test_configuration_counterexample_remains_retrievable_and_scoped(self):
         result = lesson_suggestions("configuration CLI parser plugin consumer backend")
         self.assertEqual(result["status"], "ADVISORY_MATCH")

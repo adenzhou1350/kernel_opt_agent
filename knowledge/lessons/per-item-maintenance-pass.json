@@ -1,0 +1,18 @@
+{
+  "id": "per-item-maintenance-pass",
+  "title": "Per-volume no-op must not end an independent maintenance pass",
+  "applies_when": "A periodic maintenance loop snapshots multiple independently owned volumes or clients and performs cleanup per item; a candidate alleges that an empty result or one client's failure prevents later clients from being visited.",
+  "lesson": "First prove that a supported caller can register multiple clients in one process and that the stop condition is item-local. Distinguish return from continue at the owning loop, including error branches. For unordered Go maps, avoid a regression that succeeds or fails only when one specially chosen item happens to come first. Give every item the same no-op or failure condition and assert every client is visited; separately keep real-work and deletion-failure controls. JuiceFS's cleanupTokens reproduction used empty, unexpired-only and ListTokens-error volumes: unchanged source visits only one client, while the two return-to-continue changes visit all. Native focused tests and 25 race-enabled repetitions passed after the fix; unrelated existing package/vet failures were preserved rather than silently repaired or counted as candidate failures.",
+  "avoid_when": "A failure invalidates the shared root, ownership, authorization, transaction or global invariant, or the API deliberately promises fail-fast processing. Do not change every loop return mechanically. Visiting all clients is not proof of concurrent mutation safety, actual deployment frequency, authentication validity or performance. Synthetic metadata clients test the production loop contract, not a Hadoop/KDC or real metadata-service integration. A shared package failure must still be disclosed; passing focused tests does not establish full CI success.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5/sdk/java/libjfs/kerberos.go#L563-L644",
+      "note": "Pinned original cleanupTokens snapshots k.vols, then returns on a per-volume list error or no expired tokens. loadConf registers each named volume separately. Source mechanism and reachability, not an authentication bypass claim."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7631",
+      "note": "Two-line production repair plus map-order-independent regressions and deletion controls. Reports matched native before/after tests and 25 race-enabled repetitions, with original TestPush and Go 1.25 vet failures explicitly disclosed. Open proposal, not evidence of maintainer acceptance or merge."
+    }
+  ],
+  "status": "validated"
+}
