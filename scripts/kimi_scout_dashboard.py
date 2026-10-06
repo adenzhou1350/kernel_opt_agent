@@ -13,6 +13,7 @@ import ctypes
 import json
 import os
 import re
+import shutil
 import sqlite3
 import threading
 import time
@@ -40,7 +41,7 @@ def read_artifact(root, relative):
         path = (root / relative).resolve(strict=True)
         if not path.is_relative_to(root) or path.stat().st_size > MAX_FILE_BYTES:
             return {}
-        return json_object(path.read_text(encoding="utf-8"))
+        return json_object(path.read_text(encoding="utf-8-sig"))
     except (OSError, ValueError, RuntimeError):
         return {}
 
@@ -78,6 +79,43 @@ def process_alive(pid):
         return False
     except PermissionError:
         return True
+
+
+def resource_observation(root, runtime, now):
+    """Observe viewer-host disk; keep saved runtime values and stop history separate.
+
+    This is not a restart approval: memory, backend and other checks are outside
+    this read-only view. A supervisor record is shown only for its saved PID.
+    """
+    try:
+        free = shutil.disk_usage(root).free // (1024 * 1024)
+    except OSError:
+        free = None
+    floor = runtime.get("min_free_disk_mb")
+    if type(floor) is not int or floor < 0:
+        floor = None
+    supervisor = read_artifact(root, "low-memory-supervision.json")
+    reason = supervisor.get("stop_reason")
+    matching_stop = (
+        runtime.get("alive") is False
+        and type(runtime.get("pid")) is int
+        and runtime["pid"] > 0
+        and type(supervisor.get("scout_pid")) is int
+        and supervisor.get("scout_pid") == runtime["pid"]
+        and isinstance(reason, str)
+        and bool(reason.strip())
+    )
+    return {
+        "observed_at": now,
+        "disk_free_mb": free,
+        "min_free_disk_mb": floor,
+        "below_disk_floor": free < floor
+        if free is not None and floor is not None
+        else None,
+        "recorded_stop_reason": reason.strip()[:256] if matching_stop else None,
+        "recorded_stop_at": supervisor.get("observed_at") if matching_stop else None,
+        "scope": "viewer-host disk only; saved stop history is not current resource usage or restart authorization",
+    }
 
 
 def valid_usage(value):
@@ -358,6 +396,7 @@ class Inbox:
         return {
             "now": now,
             "runtime": runtime,
+            "resources": resource_observation(self.root, runtime, now),
             "research": research,
             "delivery": delivery,
             "delivery_gpu": delivery_gpu,

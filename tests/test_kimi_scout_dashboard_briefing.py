@@ -81,7 +81,15 @@ global.document = {
     leaves:$('leafReviews').textContent,completed:$('recentCompleted').textContent,
     flow:$('flowStatus').textContent,
   };
-  process.stdout.write(JSON.stringify({live,diskPaused,memoryPaused,resumed,stale,missing}));
+  state.resources = {disk_free_mb:100,min_free_disk_mb:4096,below_disk_floor:true,
+    recorded_stop_reason:'pool growth'};
+  renderBriefing();
+  const stoppedDisk = $('flowStatus').textContent;
+  state.resources.disk_free_mb = 5000;
+  state.resources.below_disk_floor = false;
+  renderBriefing();
+  const diskOnly = $('flowStatus').textContent;
+  process.stdout.write(JSON.stringify({live,diskPaused,memoryPaused,resumed,stale,missing,stoppedDisk,diskOnly}));
 })();
 """
         result = subprocess.run(
@@ -111,6 +119,10 @@ global.document = {
         self.assertEqual(values["missing"]["leaves"], "—")
         self.assertEqual(values["missing"]["completed"], "—")
         self.assertIn("离线", values["missing"]["flow"])
+        self.assertIn("当前磁盘 100 MB / 运行门槛 4,096 MB", values["stoppedDisk"])
+        self.assertIn("上次保护记录：pool growth", values["stoppedDisk"])
+        self.assertIn("需腾出空间再启动", values["stoppedDisk"])
+        self.assertIn("仅磁盘检查，不代表可以启动", values["diskOnly"])
 
 
 if __name__ == "__main__":

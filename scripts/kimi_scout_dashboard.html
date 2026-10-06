@@ -325,7 +325,16 @@
     text("capacityValue", live ? Math.round(100 * occupied / limit) + "%" : "未确认在线");
     $("capacityMeter").max = limit; $("capacityMeter").value = occupied;
     let flow = "运行中 · 已排队 " + number(counts.PENDING || 0) + " 个任务";
-    if (!runtime.alive) flow = "Scout 离线 · 当前显示已保存的记录";
+    if (!runtime.alive) {
+      flow = "Scout 离线 · 当前显示已保存的记录";
+      const resources = state.resources || {};
+      if (typeof resources.disk_free_mb === "number") {
+        flow += " · 当前磁盘 " + number(resources.disk_free_mb) + " MB";
+        if (typeof resources.min_free_disk_mb === "number") flow += " / 运行门槛 " + number(resources.min_free_disk_mb) + " MB";
+        flow += resources.below_disk_floor === true ? "（不足；需腾出空间再启动）" : "（仅磁盘检查，不代表可以启动）";
+      }
+      if (typeof resources.recorded_stop_reason === "string") flow += " · 上次保护记录：" + resources.recorded_stop_reason;
+    }
     else if (!heartbeatFresh) flow = "心跳待确认 · 不把保存状态当作实时运行";
     else if (runtime.disk_paused) flow = "磁盘保护暂停分配 · 可用 " + number(runtime.available_disk_mb) + " MB / 需要 " + number(runtime.min_free_disk_mb) + " MB，在途继续，空间恢复后自动分配";
     else if (runtime.memory_paused) flow = "内存保护暂停分配 · 可用 " + number(runtime.available_memory_mb) + " MB，在途继续，内存恢复后自动分配";
