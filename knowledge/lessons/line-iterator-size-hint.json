@@ -1,0 +1,22 @@
+{
+  "id": "line-iterator-size-hint",
+  "title": "One-record iteration cannot assume a size-hinted batch contains one line",
+  "applies_when": "Reviewing Python file-like wrappers whose next/__next__ implementation calls readlines(hint) and returns only the first element; especially buffered streams and consecutive empty lines.",
+  "lesson": "A readlines hint is a byte/character size hint, not a line count. readlines(1) can consume two newline-only lines before exceeding its hint; returning only the first silently drops the other. Use readline() for a one-line iterator, or retain every consumed batch member. Probe the actual buffered and raw wrappers with consecutive empty lines, bare CR/CRLF, final partial lines and EOF. Check both the returned sequence and the remaining stream position; a normal multi-byte first line alone masks the error.",
+  "avoid_when": "Do not transfer this rule to APIs that explicitly define their argument as a record count. Binary and text newline rules differ. Fixing iterator consumption does not establish complete readlines size-hint conformance, distributed-backend parity, performance, or upstream acceptance.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3.12/library/io.html#io.IOBase.readlines",
+      "note": "The file-like interface defines hint in bytes/characters, not number of lines; binary readline terminates on a newline byte. This is an API contract, not performance evidence."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/f412338da6ddb54af860f557220c8217c334a36c/sdk/python/juicefs/juicefs/juicefs.py",
+      "note": "File.next delegates to readline instead of consuming readlines(1) and discarding all but its first element."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7629",
+      "note": "The published reproduction includes buffered/unbuffered consecutive-empty-line iteration. The author reports matched focused SQLite/libjfs tests (previous head 59/60, fixed 60/60); this is not independent maintainer CI or the full metadata-engine matrix."
+    }
+  ],
+  "status": "validated"
+}
