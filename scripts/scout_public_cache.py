@@ -63,6 +63,7 @@ def compress_entry(path):
     before = path.stat()
     if not 0 < before.st_size <= LIMIT or before.st_nlink > 1:
         return 0
+    original_allocated = allocated_bytes(path)
     original = read_cache(path)
     if not isinstance(json.loads(original), dict):
         raise ValueError("cache entry must be a JSON object")
@@ -72,7 +73,7 @@ def compress_entry(path):
     # A gzip can be larger than an already filesystem-compressed original.
     # Round conservatively for a typical allocation unit; verify free space
     # independently in the CLI rather than claiming physical savings.
-    if ((len(packed) + 4095) // 4096) * 4096 >= allocated_bytes(path):
+    if ((len(packed) + 4095) // 4096) * 4096 >= original_allocated:
         return 0
     destination = path.with_suffix(".json.gz")
     temporary = None
