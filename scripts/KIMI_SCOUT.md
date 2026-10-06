@@ -30,6 +30,13 @@ or publication; do not automatically reject a lead on a keyword match.
 
 ## Safety and cost boundary
 
+- Tree snapshots addressed by a full commit SHA are reused after the ordinary
+  snapshot TTL. Branch names still refresh after 15 minutes. Every new controller
+  rechecks repository visibility before reading cached evidence; commit, path and
+  blob-ID checks are retained. This avoids repeat tree requests for fixed-source
+  follow-ups, not a claim about model quality or PR conversion. Old immutable
+  snapshots are therefore not disposable solely because of their age. This
+  change does not delete or migrate historical cache entries.
 - Reuses the existing Kimi Code **1.30.0** default model and API-key configuration.
   No key is copied into this repository, a prompt, a subprocess command, or logs.
   OAuth and other CLI versions fail with a specific error until reviewed.

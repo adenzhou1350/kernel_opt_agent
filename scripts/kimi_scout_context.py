@@ -231,9 +231,10 @@ class PublicContext:
         path = self._cache_path("snapshot", identity)
         cached = self._load(path)
         cached_at = cached.get("at") if cached else None
-        if (
-            type(cached_at) in {int, float}
-            and 0 <= time.time() - cached_at < SNAPSHOT_TTL
+        # Commit-addressed trees do not expire; branch heads still do. Public
+        # visibility is checked above, and cached identity/path checks remain.
+        if type(cached_at) in {int, float} and (
+            SHA.fullmatch(ref) or 0 <= time.time() - cached_at < SNAPSHOT_TTL
         ):
             value = cached.get("snapshot")
             if (
