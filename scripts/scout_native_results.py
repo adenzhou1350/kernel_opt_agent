@@ -96,6 +96,9 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     Go counts include parent tests/subtests and repeats, not assertion counts.
     Rust compact/JSON/bench/custom harness formats are deliberately unsupported.
     Missing/truncated/contradictory observations must never produce PASS.
+    A negative subprocess return code denotes signal termination, not a normal
+    test failure. Preserve observed assertions but classify the run inconclusive.
+    Shell-normalized positive codes do not reliably identify a signal.
     """
     if format not in {"go-json", "rust-libtest", "pytest-junit"}:
         raise ValueError("unsupported native test format")
@@ -123,6 +126,9 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     def issue(message):
         if message not in issues and len(issues) < 16:
             issues.append(message)
+
+    if exit_code < 0:
+        issue("process terminated by signal")
 
     if format == "pytest-junit":
         counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue)

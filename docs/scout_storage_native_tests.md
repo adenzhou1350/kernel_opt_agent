@@ -158,6 +158,21 @@ a passing package is a contradictory terminal, not a successful reproduction.
 CLI exits are 0 for observed tests passing, 1 for observed test failures and 2
 for inconclusive input. This does not change a delivery state or PR readiness.
 
+Preserve the actual subprocess return code, not just `bool(exit_code)`. A negative
+POSIX return code denotes signal termination. Even if Go/libtest already printed
+a complete failure summary, that interrupted invocation is INCONCLUSIVE; its
+observed failure counts remain available but do not qualify a normal completed
+run. Positive shell-normalized codes alone do not reliably identify a signal;
+retain the original direct-child status when available. A controller deadline
+or source mutation remains independently disqualifying.
+
+An owner-reviewed native control used Go 1.25.10 and Rust 1.97.0, with one passing
+and one intentionally failing fixture per tool. Normal pass/failure classifications
+were unchanged; two wrappers that ran the failing native test, emitted its output,
+then terminated themselves with SIGTERM retained one failure each but became
+INCONCLUSIVE instead of TESTS_FAILED. This validates that accounting distinction,
+not a discovered project bug, sandbox, selector benefit or PR conversion gain.
+
 For Python tests, retain the complete UTF-8 XML from `pytest --junitxml=report.xml`
 and the actual pytest exit code separately. The saved-report reader accepts flat
 `testsuite`/`testsuites` reports and identifies cases by exact

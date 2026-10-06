@@ -215,6 +215,24 @@ class NativeResultsTests(unittest.TestCase):
         self.assertEqual(value["status"], "TESTS_FAILED")
         self.assertEqual(value["failed"], 1)
 
+    def test_signal_termination_preserves_counts_but_is_inconclusive(self):
+        go = go_log(go_test(terminal="fail"), terminal="fail")
+        rust = rust_log("test table::query ... FAILED", status="FAILED", failed=1)
+        for format, text, target, package in (
+            ("go-json", go, "TestSync", PACKAGE),
+            ("rust-libtest", rust, "table::query", None),
+            ("pytest-junit", junit(("test_case", "failure")),
+             "tests.test_contract::test_case", None),
+        ):
+            for code in (-1, -9, -15):
+                with self.subTest(format=format, exit_code=code):
+                    value = native.summarize(text, format=format, exit_code=code,
+                                             expected_tests=[target], package=package)
+                    self.assertEqual(value["status"], "INCONCLUSIVE")
+                    self.assertEqual(value["failed"], 1)
+                    self.assertEqual(value["expected_test_results"][target]["failed"], 1)
+                    self.assertIn("process terminated by signal", value["issues"])
+
     def test_go_filtered_or_all_skipped_not_pass(self):
         for text in (go_log(), go_log(go_test(terminal="skip"), terminal="skip")):
             self.assertEqual(self.go(text)["status"], "INCONCLUSIVE")

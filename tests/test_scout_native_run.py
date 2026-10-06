@@ -150,6 +150,17 @@ class ProcessTests(unittest.TestCase):
         result = self.execute("import sys; print(" + repr(text) + "); sys.exit(1)")
         self.assertEqual(result["status"], "TESTS_FAILED")
 
+    def test_failed_summary_followed_by_signal_is_inconclusive(self):
+        text = PASS.replace("... ok", "... FAILED").replace(
+            "result: ok. 1 passed; 0 failed", "result: FAILED. 0 passed; 1 failed")
+        code = ("import os,signal; print(" + repr(text) + ",flush=True); "
+                "os.kill(os.getpid(),signal.SIGTERM)")
+        result = self.execute(code)
+        self.assertEqual(result["exit_code"], -15)
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertEqual(result["summary"]["failed"], 1)
+        self.assertIn("process terminated by signal", result["summary"]["issues"])
+
     def test_source_mutation_invalidates_pass(self):
         result = self.execute("from pathlib import Path; Path('source.rs').write_text('changed'); print(" + repr(PASS) + ")")
         self.assertEqual(result["status"], "INCONCLUSIVE")
