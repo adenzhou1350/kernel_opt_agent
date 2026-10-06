@@ -1,0 +1,18 @@
+{
+  "id": "tensor-subclass-saving-branch-reachability",
+  "title": "Check Torch Tensor subclass membership before a compiler saving branch",
+  "applies_when": "A prepare_for_saving or restore_from_saved hypothesis alleges missing shape metadata for a Tensor wrapper in an elif torch.compiler.is_compiling branch.",
+  "lesson": "Intersect the suspect branch with preceding guards and the actual class hierarchy before constructing a regression or building an accelerator environment. A Tensor subclass still satisfies isinstance(value, torch.Tensor). In the cited TransformerEngine helper, that first branch saves the wrapper directly with a None object marker; it never constructs _SavedQuantizedTensor for that wrapper. The alleged is_tensor=True reconstruction with outer_size=None therefore does not follow from the normal save path. Read the missing class declaration and metadata producer, not only the reconstruction expression. For this specific path, static source can falsify the premise before FP8 setup.",
+  "avoid_when": "This does not validate TransformerEngine, Dynamo compilation, FP8 numerics or every custom storage protocol. A non-Tensor storage may have a different flatten/unflatten contract; manually forged saved records do not establish a supported producer. Reopen when a genuine caller or changed class/guard protocol creates is_tensor=True metadata in the suspect branch. Public restore helpers may also have a separate documented input contract. Keep both branches distinct rather than rejecting all shape-metadata concerns.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/8cd5e2064397be8340b8bc46264af6297fb8e82d/transformer_engine/pytorch/quantized_tensor.py#L291-L343",
+      "note": "prepare_for_saving handles torch.Tensor before the compiler elif, storing a None marker. restore_from_saved handles that marker by returning the saved Tensor, not by unflattening it. Source reachability evidence, not native execution."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/8cd5e2064397be8340b8bc46264af6297fb8e82d/transformer_engine/pytorch/quantized_tensor.py#L724",
+      "note": "QuantizedTensor derives from torch.Tensor. Storage flatten at lines 245-256 sets is_tensor using isinstance(self, QuantizedTensor), linking the alleged wrapper metadata to the earlier Tensor guard."
+    }
+  ],
+  "status": "counterexample"
+}
