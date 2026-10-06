@@ -10,6 +10,7 @@ import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
 from copy import deepcopy
+from datetime import date
 from pathlib import Path
 import re
 import threading
@@ -50,6 +51,29 @@ SOURCE_SUFFIXES = (
 
 class QueueFull(Exception):
     """Defer a fetched packet without advancing its evidence cursor."""
+
+
+def tracker_observation(item):
+    """Summarize declared tracker dates without deciding a failure is resolved."""
+    body = item.get("body") or ""
+    if "ci-failure-tracker" not in body:
+        return None
+    dates = set()
+    for match in re.finditer(r'"last_seen"\s*:\s*"(\d{4}-\d{2}-\d{2})"', body):
+        try:
+            dates.add(date.fromisoformat(match[1]).isoformat())
+        except ValueError:
+            continue
+    return {
+        "declared_last_seen_min": min(dates) if dates else None,
+        "declared_last_seen_max": max(dates) if dates else None,
+        "body_truncated": bool(item.get("truncated", False)),
+        "scope": "Body-declared dates across the captured tracker, not verified "
+        "run dates or the date of a specific failing test. An updated tracker "
+        "can retain old failures. Before reproduction, compare the cited failing "
+        "run/source revision with current input producers and consumers. Missing "
+        "or old dates alone do not prove resolution; do not discard the report.",
+    }
 
 
 def configuration(path):
@@ -586,6 +610,10 @@ class ResearchProducer:
                     5000,
                 )
             ]
+            observation = tracker_observation(item)
+            if observation:
+                # Advisory metadata is not fresh source evidence for dedup.
+                sources[0]["tracker_observation"] = observation
             snapshot = self.snapshot(spec, progress)
             if self.stopped():
                 return False
