@@ -256,6 +256,17 @@ environment, dependencies and compiler caches are **not** attested. Keep raw
 commands, paths and output private. No test counts or exit codes automatically
 qualify a candidate, prove a useful oracle, or advance Scout/PR state.
 
+Git-sensitive fixtures need repository isolation as well as fresh files. A temp
+directory inside a checkout can inherit its enclosing repository through Git's
+upward discovery, invalidating a test intended to exercise a non-Git directory.
+Check the runtime's actual temporary root, inherited Git directory/work-tree
+variables and discovery from the fixture before attributing a failure. Keep the
+same environment for baseline and candidate. Prefer a verified non-repository
+temp root for those cases; do not change tests intentionally probing nesting or
+globally suppress Git discovery. Preserve confounded attempts separately.
+See the scoped `git-sensitive-temporary-fixture-isolation` lesson and
+[Git's discovery rules](https://git-scm.com/docs/git#Documentation/git.txt-GITDISCOVERYACROSSFILESYSTEM).
+
 Development validation used a previously built, independently checked LanceDB
 binary: six registered alteration tests pass, while an exit-zero selector matching
 no native test stays INCONCLUSIVE. The same CLI executes one registered JuiceFS
