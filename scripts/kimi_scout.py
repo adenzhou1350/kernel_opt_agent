@@ -80,6 +80,7 @@ def runtime_storage_env(root, environ=None):
         "TMP": storage / "tmp",
         "TMPDIR": storage / "tmp",
         "UV_CACHE_DIR": storage / "cache" / "uv",
+        "PIP_CACHE_DIR": storage / "cache" / "pip",
         "XDG_CACHE_HOME": storage / "cache" / "xdg",
         "HF_HOME": storage / "cache" / "huggingface",
     }

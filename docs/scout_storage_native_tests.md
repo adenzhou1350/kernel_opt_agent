@@ -410,6 +410,17 @@ are excluded. Advice neither replays identical source nor suppresses changed
 source. This reader change does not relax the source-pinned owner-parking
 command or restore a blocked model runtime; no conversion benefit is measured.
 
+## Child-process pip cache placement
+
+`runtime_storage_env` sets `PIP_CACHE_DIR` alongside UV, temporary-file and
+model-cache locations. Each child receives a pip cache under the run root;
+the parent environment and existing caches are not changed. UV and XDG cache
+settings alone do not establish where pip writes on Windows. A real Windows
+`python -m pip cache dir` check observed the user cache without this override
+and the run-scoped directory with it. Explicit child command-line overrides
+can still choose another location. This is cache placement, not cache eviction,
+memory-pressure repair or a measured PR-conversion improvement.
+
 ## JuiceFS: reusable Linux Go entrance
 
 At [JuiceFS adcca1cc](https://github.com/juicedata/juicefs/tree/adcca1cc61bb4d668a945d64b2e176b44ac8e5b5),
