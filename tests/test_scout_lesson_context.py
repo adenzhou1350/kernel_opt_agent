@@ -67,6 +67,26 @@ class LessonContextTests(unittest.TestCase):
         )
         self.assertEqual(result["matches"], [])
 
+    def test_regression_discrimination_advice_preserves_per_cell_scope(self):
+        result = lesson_suggestions(
+            "regression discrimination padding masked content warm cache BF16 tolerance"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        lesson = result["matches"][0]
+        self.assertEqual(lesson["id"], "regression-discrimination-by-contract-cell")
+        self.assertEqual(lesson["status"], "validated")
+        self.assertLessEqual(
+            len(json.dumps(lesson, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        self.assertIn("legitimate unchanged controls", lesson["lesson"])
+        self.assertIn("not a universal bitwise policy", lesson["avoid_when"])
+        self.assertIn("use_short_conv=False", lesson["avoid_when"])
+        self.assertTrue(any(
+            "issuecomment-6021199300" in item["url"]
+            for item in lesson["evidence"]
+        ))
+        self.assertNotIn("qualified", result)
+
     def test_volume_cleanup_lesson_retains_its_fail_fast_countercondition(self):
         result = lesson_suggestions(
             "cleanupTokens ListTokens volumes empty token cleanup return continue"

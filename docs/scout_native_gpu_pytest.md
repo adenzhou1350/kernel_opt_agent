@@ -53,6 +53,17 @@ transitive import, a semantically adequate oracle, actual kernels in every test,
 performance improvement or upstream readiness. Inspect before/after results and
 the target repository's contribution rules before publication.
 
+Check **regression discrimination per claimed affected dtype/path**, not only
+that every candidate test ran successfully. Use identical test bytes on the
+known-bad parent; unchanged controls may legitimately pass in both arms. In
+[FLA #1273](https://github.com/fla-org/flash-linear-attention/pull/1273#issuecomment-6021199300),
+the original BF16 tolerance hid both padding regressions on the parent, while
+paired exact invariance discriminated all four FP16/BF16 cases. Establish the
+consumer contract first: ignored-content invariance in deterministic paired
+calls does not impose bitwise equality on stochastic or kernel/reference tests.
+Scout can retrieve the scoped `regression-discrimination-by-contract-cell`
+lesson as advice; retrieval does not qualify a candidate or prove higher yield.
+
 ## Observed integration control
 
 A native RTX 5090 replay used FLA baseline
