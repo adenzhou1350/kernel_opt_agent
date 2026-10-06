@@ -1,4 +1,4 @@
-"""Capture one reviewed Go/Rust CPU test command on an authorized POSIX worker.
+"""Capture one reviewed Go/Rust/pytest CPU command on an authorized POSIX worker.
 
 No downloads, environment provisioning, SSH, model calls or queue mutations.
 This is execution/log accounting, not a sandbox or a PR qualification oracle.
@@ -76,6 +76,11 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if not command or not Path(command[0]).is_absolute():
         raise ValueError("use an absolute path to the reviewed test executable")
     executable = Path(command[0]).resolve(strict=True)
+    command = list(command)
+    if format == "pytest-junit" and any(
+        arg.startswith(("--junitxml", "--junit-xml")) for arg in command[1:]
+    ):
+        raise ValueError("the runner owns the fresh pytest JUnit report path")
     before = source_identities(cwd, sources)
     # Validate accounting inputs before executing anything, including empty targets.
     native.summarize("", format=format, exit_code=0,
@@ -89,8 +94,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         raise ValueError("this entrance is CPU-only; use a separately reviewed GPU runner")
     environment["CUDA_VISIBLE_DEVICES"] = ""
     tool_hash = digest(executable)
-    output = Path(output)
+    output = Path(output).resolve()
     output.mkdir(parents=False, exist_ok=False)
+    if format == "pytest-junit":
+        command.append(f"--junitxml={output / 'junit.xml'}")
     started = time.monotonic()
     reason, written = None, 0
     # Keep output off RAM; cap both the file and the later parser input.
@@ -143,20 +150,34 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
             issues.append("test executable changed during execution")
     except OSError as error:
         issues.append(str(error))
-    summary = None
+    summary, report = None, None
     if not issues:
         try:
-            summary = native.summarize((output / "terminal.log").read_text(encoding="utf-8"),
-                                       format=format, exit_code=process.returncode,
+            text = (output / "terminal.log").read_text(encoding="utf-8")
+            if format == "pytest-junit":
+                report_path = output / "junit.xml"
+                if report_path.is_symlink() or not report_path.is_file():
+                    raise ValueError("missing or non-regular pytest JUnit report")
+                with report_path.open("rb") as stream:
+                    raw = stream.read(native.MAX_BYTES + 1)
+                if len(raw) > native.MAX_BYTES:
+                    raise ValueError("JUnit report exceeds 2 MiB; no partial-report verdict")
+                text = raw.decode("utf-8")
+                report = {"path": str(report_path), "sha256": hashlib.sha256(raw).hexdigest()}
+            summary = native.summarize(text, format=format, exit_code=process.returncode,
                                        expected_tests=expected_tests, package=package)
         except UnicodeError:
-            issues.append("log is not UTF-8")
+            issues.append("log or test report is not UTF-8")
+        except (OSError, ValueError) as error:
+            issues.append(str(error))
     result = {"status": "INCONCLUSIVE" if issues else summary["status"],
               "issues": issues, "summary": summary, "exit_code": process.returncode,
               "wall_seconds": time.monotonic() - invocation_started,
               "command_wall_seconds": command_wall_seconds, "cwd": str(cwd),
               "command": list(command), "tool_path": str(executable), "tool_sha256": tool_hash,
               "source_before": before, "source_after": after,
+              "terminal_log_sha256": digest(output / "terminal.log"),
+              "test_report": report,
               "environment_sha256": {key: hashlib.sha256(value.encode()).hexdigest()
                                      for key, value in sorted(environment.items())},
               "boundary": "Reviewed command only; selected file/tool observations do not prove "
@@ -180,7 +201,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cwd", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--format", choices=("go-json", "rust-libtest"), required=True)
+    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit"), required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)
     parser.add_argument("--source", action="append", required=True)

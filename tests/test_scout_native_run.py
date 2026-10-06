@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import scout_native_run as runner
 
 PASS = "running 1 test\ntest contract ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+JUNIT_PASS = '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="tests.test_contract" name="test_case"/></testsuite>'
 
 
 class InputTests(unittest.TestCase):
@@ -81,6 +82,69 @@ class ProcessTests(unittest.TestCase):
     def test_exit_zero_without_registered_target_is_inconclusive(self):
         self.assertEqual(self.execute("print('nothing ran')")["status"], "INCONCLUSIVE")
 
+    def execute_junit(self, code, **overrides):
+        options = dict(format="pytest-junit", expected_tests=["tests.test_contract::test_case"])
+        options.update(overrides)
+        return self.execute(code, **options)
+
+    def write_junit(self, text):
+        return ("import sys; from pathlib import Path; "
+                "Path(sys.argv[-1].split('=',1)[1]).write_text(" + repr(text) + ",encoding='utf-8'); ")
+
+    def test_junit_capture_owns_report_and_preserves_stdout(self):
+        result = self.execute_junit(self.write_junit(JUNIT_PASS) + "print('assertion diagnostics')")
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        self.assertEqual(result["summary"]["expected_test_results"]["tests.test_contract::test_case"]["passed"], 1)
+        report = self.root / "output/junit.xml"
+        self.assertEqual(result["test_report"], {"path": str(report), "sha256": runner.digest(report)})
+        self.assertEqual(result["command"][-1], "--junitxml=" + str(report))
+        self.assertIn("assertion diagnostics", (self.root / "output/terminal.log").read_text())
+        self.assertEqual(result["terminal_log_sha256"], runner.digest(self.root / "output/terminal.log"))
+
+    def test_junit_assertion_failure_remains_a_test_failure(self):
+        text = JUNIT_PASS.replace('failures="0"', 'failures="1"').replace('/>', '><failure message="regression"/></testcase>')
+        result = self.execute_junit(self.write_junit(text) + "sys.exit(1)")
+        self.assertEqual(result["status"], "TESTS_FAILED")
+        self.assertEqual(result["summary"]["failed"], 1)
+
+    def test_junit_missing_truncated_large_or_symlink_has_no_pass(self):
+        cases = [
+            "print('4 passed')",
+            self.write_junit(JUNIT_PASS[:-20]) + "print('4 passed')",
+            "import sys; from pathlib import Path; Path(sys.argv[-1].split('=',1)[1]).write_text('x' * (2*1024*1024+1))",
+            "import sys; from pathlib import Path; Path(sys.argv[-1].split('=',1)[1]).symlink_to(Path('source.rs').resolve())",
+        ]
+        for index, code in enumerate(cases):
+            with self.subTest(index=index):
+                result = self.execute_junit(code, output=self.root / ("output" + str(index)))
+                self.assertEqual(result["status"], "INCONCLUSIVE")
+                if index == 1:
+                    self.assertTrue(result["summary"]["issues"])
+                else:
+                    self.assertIsNone(result["summary"])
+
+    def test_junit_report_cannot_bypass_timeout_or_source_change(self):
+        cases = [
+            "import time; time.sleep(30)",
+            "Path('source.rs').write_text('changed')",
+        ]
+        for index, code in enumerate(cases):
+            with self.subTest(index=index):
+                result = self.execute_junit(self.write_junit(JUNIT_PASS) + code,
+                    output=self.root / ("output" + str(index)), timeout=0.3)
+                self.assertEqual(result["status"], "INCONCLUSIVE")
+                self.assertIsNone(result["summary"])
+
+    def test_preexisting_junit_output_argument_rejected_before_launch(self):
+        from unittest.mock import patch
+        for flag in ("--junitxml=old.xml", "--junit-xml=old.xml", "--junitxml", "--junit-xml"):
+            with self.subTest(flag=flag), patch.object(runner.subprocess, "Popen") as child:
+                with self.assertRaisesRegex(ValueError, "runner owns"):
+                    self.execute_junit("print('do not run')",
+                        command=[sys.executable, "-m", "pytest", flag])
+                child.assert_not_called()
+            self.assertFalse((self.root / "output").exists())
+
     def test_failed_test_is_not_process_failure_only(self):
         text = PASS.replace("... ok", "... FAILED").replace("result: ok. 1 passed; 0 failed", "result: FAILED. 0 passed; 1 failed")
         result = self.execute("import sys; print(" + repr(text) + "); sys.exit(1)")
@@ -129,7 +193,7 @@ class ProcessTests(unittest.TestCase):
 
     def test_changed_executable_has_no_verdict(self):
         from unittest.mock import patch
-        with patch.object(runner, "digest", side_effect=[self.sha, "a" * 64, self.sha, "b" * 64]):
+        with patch.object(runner, "digest", side_effect=[self.sha, "a" * 64, self.sha, "b" * 64, "c" * 64]):
             result = self.execute("print(" + repr(PASS) + ")")
         self.assertEqual(result["status"], "INCONCLUSIVE")
         self.assertIsNone(result["summary"])

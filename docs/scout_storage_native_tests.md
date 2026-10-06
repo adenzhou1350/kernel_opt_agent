@@ -171,7 +171,8 @@ For a matched regression, request the reviewed case set in both reports, verify
 the same selected cases ran, and inspect which assertions failed before and passed
 after. XML accounting does not bind the report to source, runtime or a native
 library; preserve those identities and full integration evidence separately.
-This extends saved-result accounting only, not the Go/Rust worker launcher.
+The saved-result reader never executes tests. The optional worker entrance below
+can capture fresh pytest reports separately.
 
 ### Optional worker-side execution entrance
 
@@ -215,6 +216,27 @@ and [package/profile-scoped cleaning](https://doc.rust-lang.org/cargo/commands/c
 Run the before/after commands into separate fresh output directories and retain
 failing controls. The output directory's parent must already exist.
 
+For an already prepared Python/native-binding test environment, use
+`--format pytest-junit`. The runner appends
+`--junitxml=FRESH_OUTPUT/junit.xml` to the reviewed pytest command and rejects
+an existing JUnit output argument before launch. It retains stdout separately,
+reads only the fresh regular report with a 2 MiB cap, and records both hashes.
+Missing, malformed, oversized, skipped-target or setup-error reports cannot pass;
+a report written before a command timeout does not bypass that timeout.
+
+```sh
+python /path/to/kernel_opt_agent/scripts/scout_native_run.py \
+  --cwd /path/to/project --output /path/to/private/fresh-pytest-result \
+  --format pytest-junit --expect-test 'tests.test_contract::test_case' \
+  --source 'tests/test_contract.py=REVIEWED_SHA256' \
+  -- /path/to/venv/bin/python -B -m pytest -q tests/test_contract.py
+```
+
+Use the actual qualified names from the selected repository's pytest report.
+This does not install dependencies, build extensions or select the right native
+source automatically. Bind imported module/extension identity and reproduce the
+same failing and passing cases separately; a report alone proves none of those.
+
 The entrance checks 1–64 selected regular source files (8 MiB maximum each)
 before and after execution, records the resolved executable/content hash, hides
 CUDA, and delegates complete log counting to the existing native-results parser.
@@ -242,6 +264,13 @@ Linux process controls cover source/tool changes, oversized output, invalid UTF-
 timeouts and a pipe-holding descendant; Windows controls prove no child is started.
 These are runner/reuse checks, not a new repository correctness result, autonomous
 Scout execution, model-cost improvement or PR-conversion measurement.
+
+The pytest entrance was also replayed with separately verified native PyO3
+bindings and all four [LanceDB #4455](https://github.com/lancedb/lancedb/pull/4455)
+regressions: the unchanged arm reports two failures/two controls passing, and
+the fixed arm reports four passes. Imported source/extension paths and binary
+hashes were checked independently of the report parser. This is reuse of an
+existing qualification, not another PR, a packaging test or policy-effect evidence.
 
 For a native SDK pagination control, see
 [`examples/scout-native-juicefs`](../examples/scout-native-juicefs/README.md).
