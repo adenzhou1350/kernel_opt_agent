@@ -11,6 +11,7 @@ import hashlib
 import json
 import re
 from pathlib import Path
+from xml.etree import ElementTree
 
 MAX_BYTES = 2 * 1024 * 1024
 RUST_SUMMARY = re.compile(
@@ -19,14 +20,84 @@ RUST_SUMMARY = re.compile(
 )
 
 
+def _junit(text, exit_code, expected_results, issue):
+    """Conservative flat pytest JUnit accounting, with qualified case names."""
+    counts = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0}
+    seen, names = set(), set()
+    suites = []
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", text, re.IGNORECASE):
+        issue("JUnit DTD/entity declarations are unsupported")
+        return counts, seen, 0, None
+    try:
+        root = ElementTree.fromstring(text)
+    except (ElementTree.ParseError, ValueError, RecursionError):
+        issue("malformed or truncated JUnit XML")
+        return counts, seen, 0, None
+    if root.tag == "testsuite":
+        suites = [root]
+    elif root.tag == "testsuites" and all(child.tag == "testsuite" for child in root):
+        suites = list(root)
+    else:
+        issue("unsupported JUnit root or nested suites")
+
+    def check_totals(element, actual):
+        for attribute, key in (("tests", None), ("failures", "failed"),
+                               ("errors", "errors"), ("skipped", "skipped")):
+            value = element.get(attribute, "")
+            total = sum(actual.values()) if key is None else actual[key]
+            if not re.fullmatch(r"[0-9]{1,8}", value) or int(value) != total:
+                issue("JUnit case/summary cardinality mismatch")
+
+    for suite in suites:
+        observed = dict.fromkeys(counts, 0)
+        for case in suite:
+            if case.tag in {"properties", "system-out", "system-err"}:
+                continue
+            if case.tag != "testcase":
+                issue("unsupported JUnit suite child")
+                continue
+            classname, name = case.get("classname", ""), case.get("name", "")
+            qualified = f"{classname}::{name}"
+            if not classname or not name or len(qualified) > 512 or qualified in names:
+                issue("missing, overlong or duplicate JUnit case identity")
+            if "status" in case.attrib:
+                issue("non-pytest JUnit status attributes are unsupported")
+            names.add(qualified)
+            outcomes = [child.tag for child in case if child.tag in {"failure", "error", "skipped"}]
+            if len(outcomes) > 1 or any(child.tag not in {
+                "failure", "error", "skipped", "properties", "system-out", "system-err"
+            } for child in case):
+                issue("unsupported or contradictory JUnit case outcomes")
+            outcome = {"failure": "failed", "error": "errors", "skipped": "skipped"}.get(
+                outcomes[0] if outcomes else None, "passed")
+            observed[outcome] += 1
+            if outcome in {"passed", "failed"}:
+                seen.add(qualified)
+            if qualified in expected_results and outcome != "errors":
+                expected_results[qualified][outcome] += 1
+        check_totals(suite, observed)
+        for key in counts:
+            counts[key] += observed[key]
+    if sum(1 for _ in root.iter("testcase")) != sum(counts.values()):
+        issue("JUnit contains cases outside supported suite structure")
+    if root.tag == "testsuites" and any(key in root.attrib for key in ("tests", "failures", "errors", "skipped")):
+        check_totals(root, counts)
+    if counts["errors"]:
+        issue("JUnit setup/collection/teardown errors are not assertion-failure reproductions")
+    if exit_code not in {0, 1}:
+        issue("pytest did not exit normally with pass or test-failure status")
+    terminal = "fail" if counts["failed"] or counts["errors"] else "pass"
+    return counts, seen, len(suites), terminal
+
+
 def summarize(text, *, format, exit_code, expected_tests, package=None):
-    """Count Go test2json events or complete Rust libtest verbose batches.
+    """Count Go events, Rust verbose batches or saved flat pytest JUnit reports.
 
     Go counts include parent tests/subtests and repeats, not assertion counts.
     Rust compact/JSON/bench/custom harness formats are deliberately unsupported.
     Missing/truncated/contradictory observations must never produce PASS.
     """
-    if format not in {"go-json", "rust-libtest"}:
+    if format not in {"go-json", "rust-libtest", "pytest-junit"}:
         raise ValueError("unsupported native test format")
     if type(exit_code) is not int:
         raise ValueError("exit code must be an observed integer")
@@ -53,7 +124,10 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         if message not in issues and len(issues) < 16:
             issues.append(message)
 
-    for line in text.splitlines():
+    if format == "pytest-junit":
+        counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue)
+
+    for line in text.splitlines() if format != "pytest-junit" else ():
         if format == "go-json":
             if not line.lstrip().startswith("{"):
                 continue  # compiler/SSH diagnostics are not test events
@@ -165,7 +239,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)
-    parser.add_argument("--format", choices=("go-json", "rust-libtest"), required=True)
+    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit"), required=True)
     parser.add_argument("--exit-code", type=int, required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)

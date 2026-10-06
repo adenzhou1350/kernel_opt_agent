@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import scout_native_results as native
@@ -36,6 +37,19 @@ def rust_log(*cases, status="ok", passed=None, failed=0, ignored=0, filtered=19)
         f"0 measured; {filtered} filtered out; finished in 0.01s"])
 
 
+def junit(*cases):
+    root = ET.Element("testsuites")
+    suite = ET.SubElement(root, "testsuite", name="pytest", tests=str(len(cases)),
+                          failures=str(sum(outcome == "failure" for _, outcome in cases)),
+                          errors=str(sum(outcome == "error" for _, outcome in cases)),
+                          skipped=str(sum(outcome == "skipped" for _, outcome in cases)))
+    for name, outcome in cases:
+        case = ET.SubElement(suite, "testcase", classname="tests.test_contract", name=name)
+        if outcome:
+            ET.SubElement(case, outcome)
+    return ET.tostring(root, encoding="unicode")
+
+
 class NativeResultsTests(unittest.TestCase):
     def go(self, text, exit_code=0, expected_tests=("TestSync",)):
         return native.summarize(text, format="go-json", exit_code=exit_code,
@@ -44,6 +58,117 @@ class NativeResultsTests(unittest.TestCase):
     def rust(self, text, exit_code=0, expected_tests=("table::query",)):
         return native.summarize(text, format="rust-libtest", exit_code=exit_code,
                                 expected_tests=expected_tests)
+
+    def junit(self, text, exit_code=0, expected_tests=("tests.test_contract::test_case",)):
+        return native.summarize(text, format="pytest-junit", exit_code=exit_code,
+                                expected_tests=expected_tests)
+
+    def test_junit_matched_baseline_failure_and_candidate_pass(self):
+        before = self.junit(junit(("test_case", "failure"), ("test_other", None)), 1)
+        after = self.junit(junit(("test_case", None), ("test_other", None)))
+        self.assertEqual(before["status"], "TESTS_FAILED")
+        self.assertEqual((before["passed"], before["failed"], before["errors"]), (1, 1, 0))
+        self.assertEqual(after["status"], "TESTS_PASSED")
+        self.assertEqual(after["executed"], 2)
+        self.assertEqual(before["expected_test_results"]["tests.test_contract::test_case"]["failed"], 1)
+        self.assertEqual(after["expected_test_results"]["tests.test_contract::test_case"]["passed"], 1)
+
+    def test_junit_single_suite_and_parameterized_names(self):
+        text = junit(("test_case[a&b]", None), ("test_other", "skipped"))
+        suite = ET.fromstring(text)[0]
+        value = self.junit(ET.tostring(suite, encoding="unicode"),
+                           expected_tests=("tests.test_contract::test_case[a&b]",))
+        self.assertEqual(value["status"], "TESTS_PASSED")
+        self.assertEqual((value["passed"], value["skipped"], value["batches"]), (1, 1, 1))
+
+    def test_junit_multiple_flat_suites_without_name_collision(self):
+        root = ET.fromstring(junit(("test_case", None)))
+        second = ET.fromstring(junit(("test_case", None)))[0]
+        second[0].set("classname", "tests.second")
+        root.append(second)
+        value = self.junit(ET.tostring(root, encoding="unicode"))
+        self.assertEqual((value["status"], value["passed"], value["batches"]), ("TESTS_PASSED", 2, 2))
+
+    def test_junit_optional_root_totals_are_checked(self):
+        root = ET.fromstring(junit(("test_case", None)))
+        root.attrib.update(tests="1", failures="0", errors="0", skipped="0")
+        self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"], "TESTS_PASSED")
+        root.set("tests", "2")
+        self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"], "INCONCLUSIVE")
+
+    def test_junit_setup_errors_do_not_reproduce_an_assertion_failure(self):
+        value = self.junit(junit(("test_case", "error")), 1)
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual((value["errors"], value["failed"], value["executed"]), (1, 0, 0))
+        self.assertEqual(value["missing_expected_tests"], ["tests.test_contract::test_case"])
+
+    def test_junit_expected_skip_missing_or_wrong_module_is_not_pass(self):
+        for text in (junit(), junit(("test_case", "skipped")), junit(("test_other", None)),
+                     junit(("test_case", None)).replace("tests.test_contract", "tests.other")):
+            self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
+
+    def test_junit_exit_consistency_and_pytest_abnormal_exit(self):
+        for text, code in ((junit(("test_case", None)), 1),
+                           (junit(("test_case", "failure")), 0),
+                           (junit(("test_case", "failure")), 2),
+                           (junit(("test_case", "failure")), -9)):
+            self.assertEqual(self.junit(text, code)["status"], "INCONCLUSIVE")
+
+    def test_junit_summary_cannot_hide_or_invent_failures(self):
+        text = junit(("test_case", None))
+        for changed in (text.replace('tests="1"', 'tests="2"'),
+                        text.replace('failures="0"', 'failures="1"'),
+                        text.replace('errors="0"', 'errors="-1"'),
+                        text.replace('skipped="0"', 'skipped="0.0"'),
+                        text.replace('tests="1"', ''),
+                        junit(("test_case", "failure")).replace('failures="1"', 'failures="0"')):
+            self.assertEqual(self.junit(changed)["status"], "INCONCLUSIVE")
+
+    def test_junit_duplicate_or_missing_identity_is_not_pass(self):
+        valid = junit(("test_case", None))
+        for text in (junit(("test_case", None), ("test_case", None)),
+                     valid.replace('classname="tests.test_contract"', ''),
+                     valid.replace('name="test_case"', 'name=""')):
+            self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
+
+    def test_junit_non_pytest_notrun_status_cannot_be_counted_as_pass(self):
+        root = ET.fromstring(junit(("test_case", None)))
+        root[0][0].set("status", "notrun")
+        self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"], "INCONCLUSIVE")
+
+    def test_junit_contradictory_outcomes_and_unknown_elements_are_rejected(self):
+        for child in ("failure", "error", "skipped", "rerunFailure", "testsuite"):
+            root = ET.fromstring(junit(("test_case", "failure")))
+            ET.SubElement(root[0][0], child)
+            self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"), 1)["status"], "INCONCLUSIVE")
+
+    def test_junit_nested_or_hidden_cases_are_rejected(self):
+        valid = junit(("test_case", None))
+        root = ET.fromstring(valid)
+        properties = ET.SubElement(root[0], "properties")
+        ET.SubElement(properties, "testcase", name="test_hidden", classname="tests.hidden")
+        hidden = ET.tostring(root, encoding="unicode")
+        nested = f'<testsuites><testsuite tests="1" failures="0" errors="0" skipped="0">{valid}</testsuite></testsuites>'
+        for text in (hidden, nested, '<unknown/>'):
+            self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
+
+    def test_junit_malformed_and_entities_are_rejected(self):
+        valid = junit(("test_case", None))
+        for text in (valid[:-12], "", valid + "junk",
+                     '<!DOCTYPE testsuites [<!ENTITY data "expanded">]>' + valid,
+                     '<!DOCTYPE testsuites SYSTEM "file:///private">' + valid):
+            self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
+
+    def test_junit_cli_reads_saved_xml(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "report.xml"
+            path.write_text(junit(("test_case", "failure")), encoding="utf-8")
+            result = subprocess.run([sys.executable, "-B", str(Path(native.__file__)), "--log", str(path),
+                                     "--format", "pytest-junit", "--exit-code", "1",
+                                     "--expect-test", "tests.test_contract::test_case"],
+                                    capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual(json.loads(result.stdout)["failed"], 1)
 
     def test_go_real_events_not_output_pass_text(self):
         text = go_log(go_test())

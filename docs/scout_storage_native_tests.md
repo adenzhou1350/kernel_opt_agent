@@ -139,6 +139,8 @@ python scripts/scout_native_results.py --format go-json --log go-tests.jsonl \
   --exit-code 0 --package github.com/juicedata/juicefs/pkg/sync --expect-test TestSync
 python scripts/scout_native_results.py --format rust-libtest --log rust-tests.log \
   --exit-code 0 --expect-test remote::table::tests::test_query_plain
+python scripts/scout_native_results.py --format pytest-junit --log report.xml \
+  --exit-code 0 --expect-test 'tests.test_contract::test_case'
 ```
 
 The tool reports passed/failed/skipped observations, missing expected targets and
@@ -155,6 +157,21 @@ an INCONCLUSIVE result do not qualify execution; a reported failing Go test in
 a passing package is a contradictory terminal, not a successful reproduction.
 CLI exits are 0 for observed tests passing, 1 for observed test failures and 2
 for inconclusive input. This does not change a delivery state or PR readiness.
+
+For Python tests, retain the complete UTF-8 XML from `pytest --junitxml=report.xml`
+and the actual pytest exit code separately. The saved-report reader accepts flat
+`testsuite`/`testsuites` reports and identifies cases by exact
+`classname::name`, including parameterized suffixes. It checks case outcomes
+against suite totals and rejects duplicate identities, unexpected structure,
+DTD/entities, and contradictory process exits. Setup/collection/teardown errors
+are INCONCLUSIVE, not proof that the candidate reproduces an assertion failure.
+An expected skipped or xfailed case does not qualify as executed. Some richer
+JUnit dialects or duplicate teardown-error cases are deliberately unsupported.
+For a matched regression, request the reviewed case set in both reports, verify
+the same selected cases ran, and inspect which assertions failed before and passed
+after. XML accounting does not bind the report to source, runtime or a native
+library; preserve those identities and full integration evidence separately.
+This extends saved-result accounting only, not the Go/Rust worker launcher.
 
 ### Optional worker-side execution entrance
 
