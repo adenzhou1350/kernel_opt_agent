@@ -1,0 +1,22 @@
+{
+  "id": "formatter-break-ownership-under-aliases",
+  "title": "Trace nested formatter newline ownership before removing blank lines",
+  "applies_when": "A tree-based formatter adds an empty line before a parenthesized subquery only when an alias wraps that subquery in another group.",
+  "lesson": "Reproduce the complete reported query through the public formatter and compare aliased, unaliased and ordinary-expression controls. Locate both newline producers in the real group tree. In sqlparse, IdentifierList and a query Parenthesis each insert a leading break; an alias introduces the nested Identifier that exposes the duplicate. Let the query parenthesis own its existing break rather than stripping blank lines from the final output. Test indentation widths, tabs, column indentation, comma-first and wrapping options, plus deliberate blank lines between statements. Run identical native regressions against original and repaired imports.",
+  "avoid_when": "Not every consecutive newline is redundant: statement separators and user layout can be intentional. This repair retains the old subquery indentation; it is not a new alignment style or a general formatter-idempotence fix. Preserve comments and non-whitespace SQL tokens. SQLite checks of one complete query do not qualify other dialects, platforms, performance or upstream acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/issues/334",
+      "note": "The original complete SELECT reports a blank line introduced only when its scalar subquery has an alias."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/blob/60cdc649726bf1bc4f1b336050560b336da715ec/sqlparse/filters/reindent.py",
+      "note": "Pinned original identifier-list and query-parenthesis handlers both insert a leading newline."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/pull/923",
+      "note": "Ready repair: local Windows/Python 3.14 regression/control suite has 8 failures on unchanged source and 14 passes after repair; full repaired suite 520 passed with existing xfail/xpass unchanged. A separate 60-case option matrix retains non-whitespace tokens; the original query preserves SQLite results. Publication is not maintainer acceptance or other-platform CI."
+    }
+  ],
+  "status": "validated"
+}
