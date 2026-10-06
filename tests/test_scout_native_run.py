@@ -257,7 +257,8 @@ class ProcessTests(unittest.TestCase):
     def test_prelaunch_mismatch_gpu_and_environment_rejected(self):
         for overrides in ({"sources": [("source.rs", "0" * 64)]}, {"environment": {"CUDA_VISIBLE_DEVICES": "0"}},
                           {"environment": {"BAD=KEY": "value"}}, {"command": ["python3"]},
-                          {"expected_tests": []}, {"timeout": 0}):
+                          {"expected_tests": []}, {"timeout": 0}, {"_gpu_uuid": "0"},
+                          {"_gpu_uuid": "GPU-00000000-0000-0000-0000-000000000000"}):
             with self.subTest(overrides=overrides), self.assertRaises(ValueError):
                 self.execute("print('should not run')", **overrides)
             self.assertFalse((self.root / "output").exists())

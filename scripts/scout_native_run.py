@@ -64,7 +64,7 @@ def stop_group(process):
 
 
 def run(*, cwd, output, command, sources, format, expected_tests, package=None,
-        timeout=120, environment=None):
+        timeout=120, environment=None, _gpu_uuid=None):
     invocation_started = time.monotonic()
     if os.name != "posix":
         raise ValueError("execute on an authorized POSIX worker; do not start local WSL")
@@ -90,9 +90,16 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
            or not isinstance(value, str) or "\0" in value
            for key, value in environment.items()):
         raise ValueError("invalid process environment override")
-    if environment.get("CUDA_VISIBLE_DEVICES", "") != "":
+    # Only the owner-reviewed GPU companion uses this library hook. The CLI
+    # remains CPU-only; device admission/locking is the companion's responsibility.
+    visible = "" if _gpu_uuid is None else _gpu_uuid
+    if _gpu_uuid is not None and (format != "pytest-junit" or not isinstance(visible, str)
+                                 or not re.fullmatch(
+                                     r"GPU-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", visible)):
+        raise ValueError("GPU library hook requires pytest and a full GPU UUID")
+    if environment.get("CUDA_VISIBLE_DEVICES", visible) != visible:
         raise ValueError("this entrance is CPU-only; use a separately reviewed GPU runner")
-    environment["CUDA_VISIBLE_DEVICES"] = ""
+    environment["CUDA_VISIBLE_DEVICES"] = visible
     tool_hash = digest(executable)
     output = Path(output).resolve()
     output.mkdir(parents=False, exist_ok=False)

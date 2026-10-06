@@ -191,6 +191,11 @@ can capture fresh pytest reports separately.
 
 ### Optional worker-side execution entrance
 
+For owner-reviewed NVIDIA repository pytest, the separate
+[native GPU entrance](scout_native_gpu_pytest.md) adds same-process UUID/import
+checks and uses the site's existing allocator. It does not change the CPU CLI
+below or enable automatic execution of unreviewed Scout output.
+
 `scripts/scout_native_run.py` captures one **already reviewed** CPU test command
 on an authorized POSIX worker. It is not an SSH dispatcher, environment builder,
 model launcher, queue consumer or mandatory validation route. It refuses to run
