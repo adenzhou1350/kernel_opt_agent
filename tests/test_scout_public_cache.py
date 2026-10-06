@@ -80,6 +80,12 @@ class CacheTests(unittest.TestCase):
                 compress_entry(self.path)
         self.assertEqual(self.context._load(self.path), {'new': True})
 
+    def test_existing_filesystem_compression_does_not_grow_allocation(self):
+        with patch('scout_public_cache.allocated_bytes', return_value=1):
+            self.assertEqual(compress_entry(self.path), 0)
+        self.assertEqual(self.path.read_bytes(), self.raw)
+        self.assertFalse(self.path.with_suffix('.json.gz').exists())
+
 
 if __name__ == "__main__":
     unittest.main()

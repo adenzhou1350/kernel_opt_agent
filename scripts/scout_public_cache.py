@@ -10,11 +10,32 @@ import os
 from pathlib import Path
 import re
 import shutil
+import sys
 import tempfile
 import time
 
 LIMIT = 20_000_000
 NAME = re.compile(r"[a-z][a-z-]*-[0-9a-f]{64}\.json")
+
+
+def allocated_bytes(path):
+    """Account for NTFS compression instead of treating logical size as space."""
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        query = kernel.GetCompressedFileSizeW
+        query.argtypes = [wintypes.LPCWSTR, ctypes.POINTER(wintypes.DWORD)]
+        query.restype = wintypes.DWORD
+        high = wintypes.DWORD()
+        ctypes.set_last_error(0)
+        low = query(str(Path(path).resolve()), ctypes.byref(high))
+        if low == 0xFFFFFFFF and ctypes.get_last_error():
+            raise ctypes.WinError(ctypes.get_last_error())
+        return (high.value << 32) | low
+    status = Path(path).stat()
+    return getattr(status, "st_blocks", (status.st_size + 511) // 512) * 512
 
 
 def read_cache(path, limit=LIMIT):
@@ -40,13 +61,18 @@ def compress_entry(path):
     if not NAME.fullmatch(path.name) or path.is_symlink():
         raise ValueError("not a regular public-cache entry")
     before = path.stat()
-    if not 0 < before.st_size <= LIMIT:
+    if not 0 < before.st_size <= LIMIT or before.st_nlink > 1:
         return 0
     original = read_cache(path)
     if not isinstance(json.loads(original), dict):
         raise ValueError("cache entry must be a JSON object")
     packed = gzip.compress(original, compresslevel=6, mtime=0)
     if len(packed) >= len(original):
+        return 0
+    # A gzip can be larger than an already filesystem-compressed original.
+    # Round conservatively for a typical allocation unit; verify free space
+    # independently in the CLI rather than claiming physical savings.
+    if ((len(packed) + 4095) // 4096) * 4096 >= allocated_bytes(path):
         return 0
     destination = path.with_suffix(".json.gz")
     temporary = None
