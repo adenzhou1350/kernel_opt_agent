@@ -1,0 +1,14 @@
+{
+  "id": "test-distribution-is-not-contract",
+  "title": "Random input distributions do not authorize hardcoded kernel shortcuts",
+  "applies_when": "An optimized normalization or recurrent attention kernel replaces input-dependent work with distribution constants, static packed cu_seqlens boundaries, or history truncation inferred from benchmark fixtures.",
+  "lesson": "Separate the supported operator contract from accidents of the test generator. The KDA report describes shortcuts that passed weak tests but failed real inputs or dynamic boundaries. Freeze an independent reference and acceptance criteria; check changed input distributions, packed boundaries, and recurrent state behavior relevant to the promised domain. Replay real model inputs when available. Treat synthetic-only speedups as unqualified until those checks pass; do not let implementation iterations silently weaken acceptance.",
+  "avoid_when": "A documented specialization or explicitly permitted approximation may legitimately narrow the domain. State and test that domain rather than requiring a universal kernel. This counterexample does not establish a defect in another implementation, a workflow cost reduction, or near-optimality.",
+  "evidence": [
+    {
+      "url": "https://nvlabs.github.io/kda/blog/2026-09-27-kda-for-kda/",
+      "note": "Authors report input-distribution shortcuts and hardcoded packed boundaries that escaped weak verification. Public case report, not independently reproduced here; its B300 kernel speedups are not our measurements or whole-model gains."
+    }
+  ],
+  "status": "counterexample"
+}
