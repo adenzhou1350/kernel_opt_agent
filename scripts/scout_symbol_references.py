@@ -25,7 +25,19 @@ SUFFIXES = (
     ".cjs",
     ".ts",
 )
-REQUEST = re.compile(r"\breferences\(([A-Za-z_]\w{0,127})\)")
+REQUEST = re.compile(
+    r"\breferences\(([A-Za-z_][A-Za-z0-9_]{0,127}"
+    r"(?:\.[A-Za-z_][A-Za-z0-9_]{0,127}){0,4})\)"
+)
+PYTHON_CACHE_LIMIT = 1_000_000
+LEXICAL_CACHE_LIMIT = 131072
+
+
+def reference_cache_limit(path):
+    """Reuse the existing Python source-read budget; keep lexical scans small."""
+    return PYTHON_CACHE_LIMIT if path.endswith(".py") else LEXICAL_CACHE_LIMIT
+
+
 LITERALS = re.compile(
     r"//[^\n]*|/\*[\s\S]*?(?:\*/|\Z)|"
     r"'(?:\\[\s\S]|[^'\\])*'|\"(?:\\[\s\S]|[^\"\\])*\""
@@ -100,8 +112,10 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     at the same observed immutable revision. A basename must identify only one
     supplied path. Ambiguous or drifted named sources abstain. A cache
     miss, unsupported syntax, missing symbols or already shown matches abstain.
-    Python AST name loads and attributes exclude plain strings, comments and
-    definitions; they are syntactic references, not resolved bindings or calls.
+    Qualified requests use their terminal identifier as a hint, not a resolved
+    receiver. Python AST loads and literal getattr/hasattr calls exclude other
+    strings, comments and definitions; built-in names may themselves be shadowed.
+    These are syntactic references, not resolved bindings or runtime calls.
     C-family comments/literals and directive lines are excluded; local
     declarations may still be included. Macros/aliases are not expanded. Pick the
     first and last unseen match windows, not an exhaustive consumer inventory.
@@ -115,7 +129,10 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     request = analysis.get("next_check", "")
     if not isinstance(request, str):
         return []
-    symbols = list(dict.fromkeys(REQUEST.findall(request[:2000])))
+    names = list(dict.fromkeys(REQUEST.findall(request[:2000])))
+    if not 1 <= len(names) <= 2:
+        return []
+    symbols = list(dict.fromkeys(name.rsplit(".", 1)[-1] for name in names))
     if not 1 <= len(symbols) <= 2:
         return []
     sources = packet.get("sources", [])
@@ -168,7 +185,11 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     ):
         return []
     raw = cached_source(repo, commit, path)
-    if not isinstance(raw, str) or len(raw.encode("utf-8")) > 131072 or "\x00" in raw:
+    if (
+        not isinstance(raw, str)
+        or len(raw.encode("utf-8")) > reference_cache_limit(path)
+        or "\x00" in raw
+    ):
         return []
     reference_scan = None
     if path.endswith(".py"):
@@ -183,6 +204,17 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             and isinstance(node.ctx, ast.Load)
             and (node.id if isinstance(node, ast.Name) else node.attr) in symbols
         }
+        occurrences.update(
+            node.lineno
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"getattr", "hasattr"}
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and isinstance(node.args[1].value, str)
+            and node.args[1].value in symbols
+        )
     elif path.endswith((".js", ".mjs", ".cjs", ".ts")):
         masked = _javascript_code(raw, prefix_on_unsupported=True)
         if masked is None:

@@ -10,6 +10,7 @@ import urllib.parse
 from pathlib import Path
 
 import kimi_scout as scout
+from scout_symbol_references import reference_cache_limit
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_requested_definition import requested_function_window
 
@@ -395,7 +396,7 @@ class PublicContext:
         cached = self._load(self._cache_path("raw", [repo, commit, path]))
         raw = cached.get("text") if cached and cached.get("url") == url else None
         return (
-            raw if isinstance(raw, str) and len(raw.encode("utf-8")) <= 131072 else None
+            raw if isinstance(raw, str) and len(raw.encode("utf-8")) <= reference_cache_limit(path) else None
         )
 
     def issue_page(self, repo, page=1):
