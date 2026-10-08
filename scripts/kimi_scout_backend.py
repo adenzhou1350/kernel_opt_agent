@@ -9,6 +9,8 @@ Stdin is one JSON object with ``prompt`` and optional ``max_output_tokens``
 Only the default configured Kimi API-key provider is supported. OAuth is rejected
 instead of migrating or refreshing shared credentials. No Kimi agent, plugins,
 MCP, hooks, skills, workspace scan, session, or tool dispatcher is instantiated.
+Usage preserves unreported cache counters as null, not measured zero. Cached
+input is already included in input/total tokens; no monetary cost is inferred.
 """
 
 from __future__ import annotations
@@ -292,12 +294,13 @@ async def _complete(request: dict, provider_config: dict, progress) -> dict:
                 details = raw_usage.prompt_tokens_details
                 cached = getattr(raw_usage, "cached_tokens", None)
                 if cached is None:
-                    cached = details.cached_tokens if details is not None else 0
+                    cached = details.cached_tokens if details is not None else None
                 usage = {
                     "input_tokens": raw_usage.prompt_tokens,
                     "output_tokens": raw_usage.completion_tokens,
-                    "cached_input_tokens": cached or 0,
-                    "cache_creation_input_tokens": 0,
+                    "cached_input_tokens": cached,
+                    # This provider usage interface reports no creation counter.
+                    "cache_creation_input_tokens": None,
                     "total_tokens": raw_usage.prompt_tokens
                     + raw_usage.completion_tokens,
                 }
