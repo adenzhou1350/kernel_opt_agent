@@ -162,27 +162,43 @@ def initialize(root):
         )
 
 
-def stage(root, leads, limit=32):
-    """Bounded admission with exact-key dedup, not a semantic uniqueness claim."""
+def stage(root, leads, limit=32, *, owner_review=False):
+    """Admit unseen leads; explicit owner intake never schedules model work.
+
+    Owner intake is unverified, not a reproduction or rejection. Exact-key
+    duplicate admission leaves existing state and evidence unchanged.
+    """
+    if type(owner_review) is not bool:
+        raise ValueError("owner_review must be a boolean")
+    state = OWNER_STATE if owner_review else "PENDING"
     made = 0
     with database(root) as db:
         for lead in leads:
             if made >= limit:
                 break
+            if (
+                lead.get("verification_route") == "OWNER_NATIVE_CPU_REVIEW_ONLY"
+                and not owner_review
+            ):
+                raise ValueError("native owner-review leads require owner_review=True")
             key = lead["canonical_key"]
             job_id = hashlib.sha256(key.encode()).hexdigest()[:24]
             cursor = db.execute(
                 "INSERT OR IGNORE INTO delivery "
-                "(id,source_job_id,dedup_key,repo,title,state,updated_at,payload) "
-                "VALUES(?,?,?,?,?,'PENDING',?,?)",
+                "(id,source_job_id,dedup_key,repo,title,state,updated_at,payload,result) "
+                "VALUES(?,?,?,?,?,?,?,?,?)",
                 (
                     job_id,
                     lead["id"],
                     key,
                     lead["repo"],
                     lead["analysis"].get("title", ""),
+                    state,
                     time.time(),
                     scout.dumps(lead),
+                    scout.dumps(
+                        {"intake": "owner_review_unverified"} if owner_review else {}
+                    ),
                 ),
             )
             made += cursor.rowcount
@@ -459,6 +475,10 @@ def mark_pr(
             and owner_reproduced_after_block
         )
         legacy_publication = row["state"] == "REPRODUCED" and owner_verified_legacy
+        owner_intake = (
+            row["state"] == OWNER_STATE
+            and result.get("intake") == "owner_review_unverified"
+        )
         if (
             row["state"] != OWNER_STATE
             and not blocked_reproduction
@@ -467,7 +487,7 @@ def mark_pr(
             raise ValueError(
                 "owner review or explicit reproduction after an environment block or inconclusive screen is required"
             )
-        if not blocked_reproduction and not legacy_publication:
+        if not blocked_reproduction and not legacy_publication and not owner_intake:
             handoff = root / "jobs" / job_id / "owner-handoff.json"
             if (
                 not handoff.is_file()
@@ -493,6 +513,12 @@ def mark_pr(
                 else "owner-linked PR; CI, review and merge are not implied"
             ),
         }
+        if owner_intake:
+            recorded["intake"] = "owner_review_unverified"
+            recorded["claim_boundary"] = (
+                "owner linked an explicitly published PR after direct intake; "
+                "no automatic reproduction, human signoff, CI, review or merge inferred"
+            )
         if blocked_reproduction or legacy_publication:
             recorded["prior_state"] = row["state"]
             recorded["prior_reason"] = row["reason"]

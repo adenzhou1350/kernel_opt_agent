@@ -666,6 +666,27 @@ Implementation references: [Kimi CLI](https://github.com/MoonshotAI/kimi-cli),
 The version-pinned backend is intentionally separate from the ordinary CLI:
 print mode auto-approves tools, which is inappropriate for an unattended scout.
 
+### Direct owner intake
+
+An owner can admit already selected leads without scheduling model or sandbox
+work: `kimi_scout_delivery.stage(delivery_root, leads, owner_review=True)`.
+It uses the existing `OWNER_REVIEW_REQUIRED` state and records only
+`{"intake": "owner_review_unverified"}`. Automatic workers claim only `PENDING`
+rows. Default admission is unchanged; duplicate admission never migrates or
+overwrites state, evidence or token accounting. Leads labeled
+`OWNER_NATIVE_CPU_REVIEW_ONLY` must use this explicit route.
+
+After independently reviewing, validating and actually publishing a change,
+the owner may link its exact same-repository PR with the existing `mark_pr`
+operation. Direct intake does not require an automatic executor's
+`owner-handoff.json`, because that executor never ran. Publication preserves
+the unverified intake marker and prior evidence; it does not infer reproduction,
+human signoff, CI, review, merge or performance. Ordinary automatic owner rows
+still require their matching handoff. No historical record is rewritten, no
+GitHub operation is performed, and admission cannot itself create a publication.
+
+Offline checks: `python -B -m unittest discover -s tests -p test_scout_direct_owner_intake.py`.
+
 ### Explicit cached reference context
 
 For missing C-family/Python/JavaScript/TypeScript symbol uses, a `next_check` can ask
