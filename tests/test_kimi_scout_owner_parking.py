@@ -191,6 +191,27 @@ class OwnerParkingTests(unittest.TestCase):
         self.assertNotIn("fixed", stored)
         self.assertEqual(list((self.root / "jobs").iterdir()), [])
 
+    def test_inconclusive_attempt_can_be_deferred_without_a_no_bug_verdict(self):
+        attempt = {
+            "inconclusive": True,
+            "qualified": False,
+            "before": {"exit_code": 1, "output": "original failure"},
+        }
+        delivery.update(self.root, self.job, "INCONCLUSIVE", "old attempt", attempt)
+        before = self.row()
+        decision = self.park(reason="upstream source now covers historical defect")
+        after = self.row()
+        self.assertEqual(after["state"], "OWNER_PARKED")
+        self.assertEqual(decision["prior_state"], "INCONCLUSIVE")
+        self.assertEqual(decision["prior_reason"], "old attempt")
+        for key in ("reported_tokens", "payload", "source_job_id"):
+            self.assertEqual(after[key], before[key])
+        stored = json.loads(after["result"])
+        stored.pop("owner_disposition")
+        self.assertEqual(stored, attempt)
+        self.assertNotIn("owner_rejection", stored)
+        self.assertEqual(list((self.root / "jobs").iterdir()), [])
+
     def test_active_published_negative_and_failed_states_are_not_silently_changed(
         self,
     ):
