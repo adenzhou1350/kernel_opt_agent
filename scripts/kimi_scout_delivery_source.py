@@ -206,6 +206,12 @@ def _import_notes(tree, path, allow_dependencies=False, package_root=None):
     notes = []
     dependencies = set()
     required = set()
+    postponed_annotations = any(
+        isinstance(node, ast.ImportFrom)
+        and node.module == "__future__"
+        and any(alias.name == "annotations" for alias in node.names)
+        for node in tree.body
+    )
 
     def check(name, node, deferred):
         root = name.split(".", 1)[0]
@@ -271,8 +277,31 @@ def _import_notes(tree, path, allow_dependencies=False, package_root=None):
                 and isinstance(node.args[0].value, str)
             ):
                 check(node.args[0].value, node, deferred)
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            for child in node.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)):
+            # Defaults/decorators run when the definition is reached, not when
+            # its body is called. Keep the surrounding optional/lazy context.
+            for expression in [
+                *getattr(node, "decorator_list", []),
+                *node.args.defaults,
+                *node.args.kw_defaults,
+            ]:
+                if expression is not None:
+                    visit(expression, deferred)
+            arguments = [
+                *node.args.posonlyargs,
+                *node.args.args,
+                *node.args.kwonlyargs,
+                node.args.vararg,
+                node.args.kwarg,
+            ]
+            annotations = [arg.annotation for arg in arguments if arg is not None] + [
+                getattr(node, "returns", None)
+            ]
+            for annotation in annotations:
+                if annotation is not None:
+                    visit(annotation, deferred or postponed_annotations)
+            body = [node.body] if isinstance(node, ast.Lambda) else node.body
+            for child in body:
                 visit(child, True)
             return
         if isinstance(node, ast.If):
