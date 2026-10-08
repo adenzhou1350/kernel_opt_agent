@@ -90,8 +90,11 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
 
     Use only the primary source at the same observed immutable revision. A cache
     miss, unsupported syntax, missing symbols or already shown matches abstain.
-    Python AST name loads and attributes exclude plain strings, comments and
-    definitions; they are syntactic references, not resolved bindings or calls.
+    Python AST loads exclude plain strings, comments and function definitions.
+    Include a uniquely named matching class declaration as a bounded context
+    hint for its bases and members, not a complete class or resolved binding.
+    Duplicate class names do not introduce declaration hints. References remain
+    syntactic, not resolved bindings or calls.
     C-family comments/literals and directive lines are excluded; local
     declarations may still be included. Macros/aliases are not expanded. Pick the
     first and last unseen match windows, not an exhaustive consumer inventory.
@@ -148,6 +151,13 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             and isinstance(node.ctx, ast.Load)
             and (node.id if isinstance(node, ast.Name) else node.attr) in symbols
         }
+        for symbol in symbols:
+            declarations = [
+                node for node in ast.walk(tree)
+                if isinstance(node, ast.ClassDef) and node.name == symbol
+            ]
+            if len(declarations) == 1:
+                occurrences.add(declarations[0].lineno)
     elif path.endswith((".js", ".mjs", ".cjs", ".ts")):
         masked = _javascript_code(raw)
         if masked is None:
