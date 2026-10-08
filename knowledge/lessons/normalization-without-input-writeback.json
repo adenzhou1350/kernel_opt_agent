@@ -1,0 +1,22 @@
+{
+  "id": "normalization-without-input-writeback",
+  "title": "Normalize caller-owned options without writing results back into them",
+  "applies_when": "A public connection or table-creation API normalizes caller-owned options, storage maps or typed overrides, including frozen inputs and options reused across calls.",
+  "lesson": "A functional normalization helper does not make its caller non-mutating: assigning its returned map to an aliased options object still changes caller state. Trace both the outer object and nested map. Build a local normalized options object, and merge overrides into a local map when that merge would mutate the input. Test frozen outer options with and without a nested map, frozen nested maps, and repeated real API calls that preserve input contents and identity. Retain an already-copying overload as a passing control so the regression isolates the ownership violation. Exercise the native operation after normalization rather than testing a copied expression alone.",
+  "avoid_when": "An explicitly documented in-place builder may own and modify its input. A shallow object spread does not isolate later writes to nested objects; copy the specific nested map where needed, not every object or opaque handle. Preserving caller input does not prove option precedence, native lifetime, concurrency, all overloads or performance. Released native libraries do not establish current-head native-build compatibility, and an open PR is not a merged fix.",
+  "evidence": [
+    {
+      "url": "https://github.com/adenzhou1350/lancedb/blob/3146b605fb8e07dab26a3cc48d1963b9d63f5115/nodejs/lancedb/index.ts",
+      "note": "Exact proposed connection fix copies the outer options before assigning the normalized storage map; URI and namespace entry points previously aliased caller options, while the object overload already copied them."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/lancedb/blob/3146b605fb8e07dab26a3cc48d1963b9d63f5115/nodejs/__test__/connection.test.ts",
+      "note": "Public native-database regressions cover frozen and reused inputs. Contributor reproduction reports six affected entry-point failures and three unchanged overload controls before the entry fix, then 52 passing tests afterward."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/pull/4480",
+      "note": "Open correctness PR also keeps table-creation storage merges local and preserves typed option precedence. Validation uses current TypeScript with a released native library plus strict matching-release checks; no current-head Rust/native rebuild, GPU or performance claim."
+    }
+  ],
+  "status": "validated"
+}
