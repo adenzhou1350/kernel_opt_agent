@@ -120,7 +120,12 @@ def source_paths(sources, repo):
 
 
 def owner_publication_rows(root, repo):
-    """Read source-only owner PR links without manufacturing delivery records."""
+    """Read <=24 recent distinct links per repo from a <=64 KiB note file.
+
+    Larger histories do not erase every hint. Valid paths of one PR are merged
+    under its newest summary. Invalid/duplicate/other-repo entries consume no
+    returned slots; no history or delivery state is changed.
+    """
     path = Path(root).resolve() / "owner-publication-notes.json"
     try:
         if path.is_symlink() or not path.is_file():
@@ -130,11 +135,11 @@ def owner_publication_rows(root, repo):
         if len(raw) > OWNER_NOTE_LIMIT_BYTES:
             return []
         notes = json.loads(raw)
-        if not isinstance(notes, list) or len(notes) > 24:
+        if not isinstance(notes, list):
             return []
     except (OSError, ValueError, RecursionError):
         return []
-    rows = []
+    groups = {}
     required = {"repo", "prior_hypothesis", "source_url", "pr_url"}
     for note in reversed(notes):
         if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
@@ -152,14 +157,24 @@ def owner_publication_rows(root, repo):
             or not source_paths([source], repo)
         ):
             continue
-        rows.append(
-            (
-                title,
-                json.dumps({"pr": {"url": url}}),
-                json.dumps({"packet": {"sources": [source]}}),
-            )
+        key = url.casefold()
+        if key not in groups:
+            if len(groups) == 24:
+                continue
+            groups[key] = {"title": title, "url": url, "sources": [], "paths": set()}
+        group = groups[key]
+        paths = source_paths([source], repo)
+        if not paths <= group["paths"]:
+            group["sources"].append(source)
+            group["paths"].update(paths)
+    return [
+        (
+            group["title"],
+            json.dumps({"pr": {"url": group["url"]}}),
+            json.dumps({"packet": {"sources": group["sources"]}}),
         )
-    return rows
+        for group in groups.values()
+    ]
 
 
 def publication_context(root, repo, sources):
@@ -182,7 +197,7 @@ def publication_context(root, repo, sources):
                 )
     except (OSError, sqlite3.Error):
         pass  # Independent owner links survive a missing/locked/corrupt DB.
-    matches, seen = [], set()
+    matches, indexes, path_sets = [], {}, {}
     for title, result, payload in rows:
         if not isinstance(title, str) or not all(
             isinstance(x, str) and len(x) <= 131072 for x in (result, payload)
@@ -196,13 +211,18 @@ def publication_context(root, repo, sources):
             paths = source_paths(packet.get("packet", {}).get("sources", []), repo)
         except (ValueError, AttributeError, TypeError):
             continue
-        if (
-            not match
-            or match[1].casefold() != repo.casefold()
-            or url.casefold() in seen
-        ):
+        if not match or match[1].casefold() != repo.casefold():
             continue
-        seen.add(url.casefold())
+        key = url.casefold()
+        if key in indexes:
+            index = indexes[key]
+            matched, item = matches[index]
+            path_sets[key].update(paths)
+            item["source_paths"] = sorted(path_sets[key])[:2]
+            matches[index] = (matched or bool(paths & wanted), item)
+            continue
+        indexes[key] = len(matches)
+        path_sets[key] = set(paths)
         matches.append(
             (
                 bool(paths & wanted),

@@ -531,12 +531,14 @@ class SourceOnlyPublicationTests(unittest.TestCase):
                 self.write([{**self.note, **change}])
                 self.assertIsNone(self.read())
 
-    def test_malformed_oversized_and_too_many_notes_are_optional(self):
+    def test_malformed_and_oversized_notes_are_optional(self):
         for value in ("null", "{}", "invalid", "[" * 2000, " " * 65537):
             self.path.write_text(value, encoding="utf-8")
             self.assertIsNone(self.read())
+
+    def test_duplicate_history_does_not_erase_the_publication_hint(self):
         self.write([self.note] * 25)
-        self.assertIsNone(self.read())
+        self.assertEqual(len(self.read()["items"]), 1)
 
     def test_note_and_queue_duplicates_do_not_consume_extra_hint_slots(self):
         self.write([self.note, self.note])
