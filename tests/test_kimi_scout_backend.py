@@ -344,6 +344,41 @@ class BackendTests(unittest.TestCase):
         result, _, _ = self.fake_completion([chunk(usage=False)])
         self.assertIsNone(result["usage"])
 
+    def test_missing_cache_usage_is_unknown_not_zero(self):
+        for details in (None, SimpleNamespace(cached_tokens=None)):
+            with self.subTest(details=details):
+                response = chunk()
+                response.usage.prompt_tokens_details = details
+                result, _, _ = self.fake_completion([response])
+                self.assertTrue(result["ok"])
+                self.assertIsNone(result["usage"]["cached_input_tokens"])
+                self.assertIsNone(result["usage"]["cache_creation_input_tokens"])
+                self.assertEqual(result["usage"]["total_tokens"], 110)
+                self.assertIsNone(
+                    json.loads(json.dumps(result))["usage"]["cached_input_tokens"]
+                )
+
+    def test_explicit_zero_cache_usage_is_preserved(self):
+        for top_level in (False, True):
+            with self.subTest(top_level=top_level):
+                response = chunk()
+                if top_level:
+                    # A reported top-level zero takes precedence over details.
+                    response.usage.cached_tokens = 0
+                else:
+                    response.usage.prompt_tokens_details.cached_tokens = 0
+                result, _, _ = self.fake_completion([response])
+                self.assertEqual(result["usage"]["cached_input_tokens"], 0)
+                self.assertEqual(result["usage"]["total_tokens"], 110)
+
+    def test_reported_cache_does_not_imply_zero_cache_creation(self):
+        response = chunk()
+        response.usage.cached_tokens = 40
+        result, _, _ = self.fake_completion([response])
+        self.assertEqual(result["usage"]["cached_input_tokens"], 40)
+        self.assertIsNone(result["usage"]["cache_creation_input_tokens"])
+        self.assertEqual(result["usage"]["total_tokens"], 110)
+
     def test_truncated_filtered_missing_finish_and_empty_answers_fail(self):
         for finish in ("length", "content_filter", None, "tool_calls"):
             with self.subTest(finish=finish):
