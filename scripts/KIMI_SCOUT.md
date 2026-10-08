@@ -669,16 +669,22 @@ print mode auto-approves tools, which is inappropriate for an unattended scout.
 ### Explicit cached reference context
 
 For missing C-family/Python/JavaScript/TypeScript symbol uses, a `next_check` can ask
-`references(exact_identifier)` (at most two identifiers). The controller uses
+`references(exact_identifier)` (at most two names). A qualified name such as
+`self.method` is a terminal-identifier hint, not a resolved receiver. The controller uses
 only an existing bounded source cache at the same immutable commit and
 an observed tree path. It replaces the ordinary follow-up reads with at most
 two 80-line windows around the first and last unseen code matches. No extra
 model call, cache-fill step, source execution or source-read budget is added.
+Python scans can reuse up to the existing 1,000,000-byte source budget rather
+than silently discarding cached files above 128 KiB; lexical scans retain their
+131,072-byte limit. Larger Python scans cost local parsing, not prompt expansion.
 Explicit line continuations and Python kernel-definition requests keep priority.
 
 The primary source is the default. An explicitly named already supplied file
 may select a secondary source; ambiguous basenames abstain. Python AST loads and
 attributes exclude definitions and literal/comment text, without executing code.
+Literal second arguments to syntactic `getattr`/`hasattr` calls also supply
+hints; these function names may be shadowed. Computed keys are not inferred.
 JS/TS lexical masking omits comments, strings and simple template interpolations.
 Unsupported slash/template syntax stops the scan: only earlier complete lines
 can supply references, with windows clamped to the scanned prefix. Returned
