@@ -5,6 +5,14 @@ source is available. A baseline may reveal a known upstream failure; retain it
 and compare the same affected tests before/after a candidate. Do not suppress
 warnings or weaken assertions to manufacture a green environment.
 
+Python source admission distinguishes a function's definition from its body.
+Literal imports in defaults and decorators are required when the definition is
+reached; nested definitions inherit the surrounding lazy/optional context.
+Function annotation imports are deferred with `from __future__ import annotations`
+under the Python 3.10 source model. Lambda bodies remain lazy, unlike their
+defaults. This static check does not resolve aliases, execute source or prove a
+test environment supports the affected caller; native import checks still matter.
+
 ## Windows-native TypeScript checks without bypassing runtime requirements
 
 Read the reviewed checkout's `package.json` engines and test wrappers before
