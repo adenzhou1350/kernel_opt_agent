@@ -162,6 +162,40 @@ class ResearchTests(unittest.TestCase):
         again = research.ResearchProducer(self.root, self.config, context=self.context)
         self.assertFalse(again.source_audit(self.spec, again.state["repos"]["a/b"]))
 
+    def test_source_audit_uses_component_test_instead_of_same_basename(self):
+        source = "src/cron/store/read-only.ts"
+        related = "src/cron/store/read-only.test.ts"
+        unrelated = "src/channels/plugins/read-only.test.ts"
+        files = [unrelated, source, related]
+        snapshot = {
+            "commit": self.context.revision,
+            "files": files,
+            "blobs": {path: self.context.blob for path in files},
+        }
+        # Freeze the reviewed implementation, not its lexically earlier test.
+        self.spec["source_prefixes"] = [source]
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        self.assertEqual([call[2] for call in self.context.calls], [source, related])
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(len(packet["sources"]), 2)
+        self.assertTrue(packet["sources"][1]["url"].endswith(related))
+
+    def test_source_audit_omits_sibling_component_when_no_local_test_exists(self):
+        source = "src/cron/store/read-only.ts"
+        unrelated = "src/channels/plugins/read-only.test.ts"
+        files = [unrelated, source]
+        snapshot = {
+            "commit": self.context.revision,
+            "files": files,
+            "blobs": {path: self.context.blob for path in files},
+        }
+        self.spec["source_prefixes"] = [source]
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        self.assertEqual([call[2] for call in self.context.calls], [source])
+        self.assertEqual(len(json.loads(self.jobs()[0]["packet"])["sources"]), 1)
+
     def test_source_admission_records_shadow_action_before_model_result(self):
         self.assertTrue(self.producer.source_audit(self.spec, {}))
         with scout.connect(self.root) as db:
