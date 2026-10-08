@@ -1,0 +1,26 @@
+{
+  "id": "training-and-grad-mode-dispatch",
+  "title": "Separate module mode, gradient mode and first-use policy caching",
+  "applies_when": "A PyTorch layer selects a training or inference path from grad mode, module training state or input shape, or initializes a persistent policy during its first forward.",
+  "lesson": "Module train/eval state and autograd recording are independent. Read the real caller and the implementation's supported modes before selecting an inference fast path. Check every dispatch, including optional branches, with supported train/eval and grad/no-grad controls. Also test transitions: no-grad or inference-mode warmup followed by grad-enabled training. A temporary no-grad policy must not silently become the permanent training policy; preserve explicit policies and verify normal policy reuse. Native outputs and gradients establish the scoped behavior, not only a mocked selected-mode assertion.",
+  "avoid_when": "Do not impose a universal chunk-mode requirement: another recurrent implementation may support training, and a caller may legitimately restrict mode combinations. Do not unconditionally clear an explicit or already-valid cached policy. Small layer and checkpoint tests do not qualify full-model training, compiler capture, other dtypes or accelerators, measured memory-budget satisfaction or performance. Matching gradients within existing numerical checks is not necessarily bitwise identity.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.11/notes/autograd.html#evaluation-mode-nn-module-eval",
+      "note": "PyTorch documents eval/train as independent of no-grad and inference modes. This explains the distinction, not a verdict about a particular dispatch."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/b8ff848705a8f7685770273452f2c8d8dcf40621/fla/layers/mom.py#L693-L701",
+      "note": "This baseline's shared branch selects fused_recurrent for short no-grad inputs before asserting training requires chunk; its top-level dispatch already checks not self.training."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/pull/1333",
+      "note": "Merged correction. Six real RTX5090/float32 layer cases produced two short shared-memory training failures before and six passes after; dependent tests had 238 passes and eight existing skips. Twelve ordinary training/eval comparisons matched outputs and gradients within the existing numerical check. This does not qualify skipped full-model tests."
+    },
+    {
+      "url": "https://github.com/facebookresearch/xformers/pull/1414",
+      "note": "Open, unmerged correction for the deprecated public selective checkpoint wrapper. Current-main no-grad/inference-mode warmup caches [] and bypasses later budget optimization. The committed fix passes five CPU lifecycle/explicit-policy controls plus three real CUDA/SciPy solver cases at budgets 0, 0.5 and 1, comparing outputs and input/parameter gradients on Torch 2.11/RTX5090. CPU lifecycle tests mock only the optimizer. No measured memory or speedup claim."
+    }
+  ],
+  "status": "validated"
+}

@@ -11,6 +11,17 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions  # noqa: E40
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_mode_advice_preserves_the_warmup_transition_and_limits(self):
+        result = lesson_suggestions(
+            "training no-grad inference-mode warmup checkpoint policy memory budget"
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "training-and-grad-mode-dispatch")
+        self.assertIn("grad-enabled training", card["lesson"])
+        self.assertIn("explicit", card["lesson"])
+        self.assertIn("measured memory-budget", card["avoid_when"])
+        self.assertNotIn("qualified", result)
+
     def test_default_cards_fit_the_existing_advisory_budget(self):
         for path in knowledge_notes.DEFAULT_DIRECTORY.glob("*.json"):
             with self.subTest(card=path.name):
