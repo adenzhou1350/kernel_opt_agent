@@ -666,15 +666,25 @@ Implementation references: [Kimi CLI](https://github.com/MoonshotAI/kimi-cli),
 The version-pinned backend is intentionally separate from the ordinary CLI:
 print mode auto-approves tools, which is inappropriate for an unattended scout.
 
-### Explicit C-family reference context
+### Explicit cached reference context
 
-For missing C/C++/CUDA symbol uses, a `next_check` can ask
+For missing C-family/Python/JavaScript/TypeScript symbol uses, a `next_check` can ask
 `references(exact_identifier)` (at most two identifiers). The controller uses
-only an existing bounded primary-source cache at the same immutable commit and
+only an existing bounded source cache at the same immutable commit and
 an observed tree path. It replaces the ordinary follow-up reads with at most
 two 80-line windows around the first and last unseen code matches. No extra
 model call, cache-fill step, source execution or source-read budget is added.
 Explicit line continuations and Python kernel-definition requests keep priority.
+
+The primary source is the default. An explicitly named already supplied file
+may select a secondary source; ambiguous basenames abstain. Python AST loads and
+attributes exclude definitions and literal/comment text, without executing code.
+JS/TS lexical masking omits comments, strings and simple template interpolations.
+Unsupported slash/template syntax stops the scan: only earlier complete lines
+can supply references, with windows clamped to the scanned prefix. Returned
+`reference_scan` metadata marks this evidence incomplete and records its last
+scanned line. Matches on the unsupported line or later are not admitted. A
+complete scan keeps the existing request shape; neither case resolves bindings.
 
 This is lexical context, not a parser, exhaustive use list or reachability proof.
 Ordinary comments, strings and preprocessor directives are excluded; local

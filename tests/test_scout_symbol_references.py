@@ -1,4 +1,4 @@
-"""Offline cached C-family reference hints and actual follow-up packet tests."""
+"""Offline cached C-family/Python references and follow-up packet tests."""
 
 import json
 from pathlib import Path
@@ -95,7 +95,7 @@ class ReferenceTests(unittest.TestCase):
             URL.replace(COMMIT, "b" * 40),
             URL + "?x=1",
             URL.replace("src/kernel.cu", "src/../kernel.cu"),
-            URL.replace("src/kernel.cu", "src/kernel.py"),
+            URL.replace("src/kernel.cu", "src/kernel.ts"),
             URL.replace("raw.githubusercontent.com", "evil.example"),
         ):
             self.packet["sources"][0]["url"] = url
@@ -103,12 +103,142 @@ class ReferenceTests(unittest.TestCase):
             self.assertEqual(self.requests(), [])
             self.cache.assert_not_called()
 
+    def python_source(self, raw):
+        self.path = "src/kernel.py"
+        self.packet["sources"][0]["url"] = URL.replace(PATH, self.path)
+        self.snapshot["files"] = [self.path]
+        self.raw = raw
+
+    def javascript_source(self, raw, extension="ts"):
+        self.path = "src/kernel." + extension
+        self.packet["sources"][0]["url"] = URL.replace(PATH, self.path)
+        self.snapshot["files"] = [self.path]
+        self.raw = raw
+
+    def test_javascript_reference_hints_mask_trivia_and_preserve_line_numbers(self):
+        self.javascript_source(
+            'throw new Error("must never execute cached source");\n'
+            '// target\n/* target */\nconst message = "target";\n'
+            "const template = `target ${owner.target}`;\n"
+            + "\n" * 200
+            + "function producer() { return target(); }\n"
+            + "\n" * 200
+            + "function consumer() { return other.target(); }\n"
+        )
+        self.assertEqual([r["start"] for r in self.requests()], [198, 399])
+        self.cache.assert_called_once_with(REPO, COMMIT, self.path)
+
+    def test_javascript_unsupported_syntax_and_identifier_suffixes_abstain(self):
+        for raw in (
+            "const regex = /target/; target();",
+            "const ratio = value / count; target();",
+            "const message = `x ${other.call()}`; target();",
+            "const message = `x ${`target`}`; target();",
+            'const message = "unterminated; target();',
+            "/* unterminated target",
+            "const value = target$other; const $target = 1;",
+        ):
+            self.javascript_source(raw)
+            self.assertEqual(self.requests(), [])
+        # References in an admitted simple template are still intentionally opaque.
+        self.javascript_source("const template = `${target}`;")
+        self.assertEqual(self.requests(), [])
+
+    def test_javascript_emitted_followup_supplies_hidden_producer_contract(self):
+        self.javascript_source(
+            "type target = { statusCode?: number };\n"
+            + "\n" * 120
+            + "async function producer(): Promise<target> {\n"
+            + "  try { return await transport(); }\n"
+            + "  catch (error) { return { statusCode: error.statusCode }; }\n}\n"
+            + "\n" * 200
+            + "async function consumer(): Promise<target[]> {\n"
+            + "  return Promise.allSettled([producer()]);\n}\n"
+        )
+        self.check_emitted_followup(
+            self.path, ("statusCode: error.statusCode", "Promise.allSettled")
+        )
+
+    def test_typescript_type_declaration_does_not_displace_unseen_producer(self):
+        self.javascript_source(
+            "export type target = { statusCode?: number };\n"
+            + "\n" * 170
+            + "async function producer(): Promise<target> {\n"
+            + "  try { return await transport(); }\n"
+            + "  catch (error) { return { statusCode: error.statusCode }; }\n}\n"
+            + "\n" * 35
+            + "async function consumer(): Promise<target[]> {\n"
+            + "  return Promise.allSettled([producer()]);\n}\n"
+        )
+        self.packet["sources"][0].update(start_line=215, end_line=300)
+        result = self.requests()
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["start"], 164)
+        selected = self.raw.splitlines()[
+            result[0]["start"] - 1 : result[0]["start"] + 79
+        ]
+        self.assertIn(
+            "  catch (error) { return { statusCode: error.statusCode }; }", selected
+        )
+
+    def test_python_refs_ignore_docs_definitions_imports_and_stores_without_execution(
+        self,
+    ):
+        self.python_source(
+            'raise RuntimeError("must never execute cached source")\n'
+            '# target\n"""target()"""\nfrom external import target\n'
+            'target = None\ndef target():\n    """target"""\n    pass\n'
+            + "\n" * 200
+            + "def producer():\n    return target()\n"
+            + "\n" * 200
+            + "def consumer():\n    return other.target()\n"
+        )
+        result = self.requests()
+        self.assertEqual([r["start"] for r in result], [202, 404])
+        self.cache.assert_called_once_with(REPO, COMMIT, self.path)
+        self.packet["sources"][0].update(end_line=1000)
+        self.assertEqual(self.requests(), [])
+
+    def test_python_invalid_missing_dynamic_and_unsupported_syntax_abstain(self):
+        for raw in (
+            "def broken(:",
+            'getattr(obj, "target")()\n',
+            'text = f"target()"\n',
+            "target = 1\n",
+            None,
+        ):
+            self.python_source(raw)
+            self.assertEqual(self.requests(), [])
+
+    def test_python_shadowed_and_conditional_refs_are_not_reachability_proof(self):
+        self.python_source(
+            "def f(target):\n    if False:\n        return target()\n"
+            + "\n" * 200
+            + 'def g():\n    return f"{other.target()}"\n'
+        )
+        self.packet["sources"][0].update(start_line=1, end_line=1)
+        self.assertEqual(len(self.requests()), 2)
+
+    def test_python_emitted_followup_supplies_consumer_not_repeat_definition(self):
+        self.python_source(
+            "def target(value):\n    return value\n"
+            + "\n" * 200
+            + "def producer():\n    return target(value)\n"
+            + "\n" * 200
+            + "def consumer():\n    return other.target(value)\n"
+        )
+        self.check_emitted_followup(self.path, ("target(value)", "other.target(value)"))
+
     def test_emitted_followup_replaces_reads_and_keeps_exact_pin_and_bounds(self):
+        self.check_emitted_followup(PATH, ("write(target)", "read(target)"))
+
+    def check_emitted_followup(self, path, expected):
         raw = self.raw
+        url = self.packet["sources"][0]["url"]
 
         class Reader(context.PublicContext):
             def snapshot(self, repo, ref="main"):
-                return {"commit": COMMIT, "files": [PATH], "blobs": {PATH: "b" * 40}}
+                return {"commit": COMMIT, "files": [path], "blobs": {path: "b" * 40}}
 
             def cached_source_text(self, repo, commit, path):
                 return raw
@@ -175,9 +305,9 @@ class ReferenceTests(unittest.TestCase):
                     ]
                 emitted = next(row for row in rows if "untrusted_prior_analysis" in row)
                 evidence = emitted["sources"]
-                self.assertTrue(any("write(target)" in s["text"] for s in evidence))
-                self.assertTrue(any("read(target)" in s["text"] for s in evidence))
-                self.assertTrue(all(s["url"] == URL for s in evidence))
+                self.assertTrue(any(expected[0] in s["text"] for s in evidence))
+                self.assertTrue(any(expected[1] in s["text"] for s in evidence))
+                self.assertTrue(all(s["url"] == url for s in evidence))
                 self.assertTrue(
                     all(len(s["text"].splitlines()) <= 80 for s in evidence[1:])
                 )
