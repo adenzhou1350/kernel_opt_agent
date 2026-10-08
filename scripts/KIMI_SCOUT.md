@@ -503,8 +503,10 @@ Existing packets are unchanged. This reduces repeated context acquisition in
 principle; the implementation tests do not establish improved yield or recall.
 
 An owner can also record a source-only contribution that never entered delivery
-in `<root>/owner-publication-notes.json`. This optional list accepts at most 24
-objects with exactly `repo`, `prior_hypothesis` (<=200 characters), `source_url`
+in `<root>/owner-publication-notes.json`. This optional list is bounded to 64 KiB;
+the reader keeps the most recent 24 distinct valid PRs per repository. Each
+entry is an object with exactly
+`repo`, `prior_hypothesis` (<=200 characters), `source_url`
 (same repository, raw.githubusercontent.com with a full commit SHA), and `pr_url`
 (canonical same-repository GitHub PR URL). These links join the same three-item
 advisory hint budget and are deduplicated with delivery links. They do not create
@@ -512,6 +514,15 @@ delivery rows, change old verdicts, imply successful tests or CI, or increase th
 delivery conversion count. Keep local artifact paths and extra status fields out
 of notes. Missing/corrupt notes are ignored; a corrupt delivery DB does not erase
 independent valid owner links. No network or model call is made to read them.
+
+Keep notes oldest first. Multiple notes or delivery records for one PR merge
+their pinned source paths under the newest owner-note summary. Matching uses all
+retained paths before the two-path display cap, so a PR covering several files
+does not lose its same-file priority when its URL is deduplicated. Older notes
+may add paths to one of the retained 24 PRs; they cannot bring older distinct PRs
+back into that window. The three-link prompt cap and advisory-only semantics
+remain unchanged. This fixes omitted context, not a measured improvement in
+PR yield, cost or recall, and does not restart or replay historical jobs.
 
 New packets can also carry at most two `owner_deferrals` for the same source
 file, read from the latest 24 owner-parked records per repository. Each includes
