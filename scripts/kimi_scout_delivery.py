@@ -356,6 +356,7 @@ def park_owner_candidate(root, job_id, reason, evidence_url, reopen_when):
             "REPRODUCED",
             "GPU_REVIEW_REQUIRED",
             "ENVIRONMENT_BLOCKED",
+            "INCONCLUSIVE",
         ):
             raise ValueError("only owner-review candidates can be parked")
         decision.update(
