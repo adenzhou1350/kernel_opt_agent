@@ -1316,12 +1316,15 @@ class ResearchProducer:
             for request in lexical_requests:
                 if self.stopped():
                     return False
+                read_request = {
+                    key: value for key, value in request.items() if key != "reference_scan"
+                }
                 try:
                     sources.append(
                         self.context.source(
                             spec["repo"],
                             snapshot["commit"],
-                            **request,
+                            **read_request,
                             hints=hints,
                             request_hints=analysis_value.get("next_check", "")[:2000],
                         )
@@ -1330,6 +1333,8 @@ class ResearchProducer:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
                 else:
+                    if request in references and "reference_scan" in request:
+                        sources[-1]["reference_scan"] = dict(request["reference_scan"])
                     if request in code_requests:
                         if request["exact_hint"] not in sources[-1]["text"]:
                             sources.pop()  # Search-index drift, not a new source claim.
