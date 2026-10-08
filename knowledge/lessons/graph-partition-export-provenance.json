@@ -1,0 +1,18 @@
+{
+  "id": "graph-partition-export-provenance",
+  "title": "Verify export provenance before graph partition regression",
+  "applies_when": "Testing FX/PT2E source partitions or fusion matching where the consumer uses export provenance to distinguish a module class from a functional call. Especially useful when a generated test fails on missing metadata in both baseline and candidate.",
+  "lesson": "First inspect the actual partition consumer in the selected Torch version and establish a positive control with its supported export path. A valid aten graph alone does not prove that module/function provenance matches the requested source keys. The inspected get_source_partitions uses source_fn_stack objects or a separate torch_fn string fallback; the two representations are not interchangeable. Follow an existing repository export convention and check actual match counts before diagnosing the candidate. Exercise exact module, exact function, equivalence-enabled, equivalence-disabled and mixed-sequence cells with the same real exported graphs. Preserve a failed harness attempt as inconclusive; do not synthesize provenance to manufacture an end-to-end reproduction.",
+  "avoid_when": "Do not require Dynamo for every export task: torch.export and other paths may be correct for a consumer's supported metadata/key representation. Synthetic FX graphs are legitimate for narrowly scoped metadata-consumer unit tests, but do not establish that a real exporter produces that metadata. This lesson does not imply full quantization, accelerator or performance qualification, nor that repairing a harness improves autonomous PR yield.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/70d99e998b4955e0049d13a98d77ae1b14db1f45/torch/fx/passes/utils/source_matcher_utils.py",
+      "note": "Inspected implementation from the measured Torch 2.11 runtime distinguishes source_fn_stack object keys from torch_fn string-name fallback. Supports the provenance mechanism, not a claim that all export paths fail."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/ao/blob/c354328365f69692a1fecefb73e5a01d05e6ba9c/test/quantization/pt2e/test_graph_utils.py",
+      "note": "Real Dynamo-exported module/function/mixed-sequence regression controls. The affected native CPU file ran 6 tests: baseline source had two assertion failures and one error, candidate passed. Scope is this test file on Torch 2.11, not complete CI or a prospective agent comparison."
+    }
+  ],
+  "status": "validated"
+}
