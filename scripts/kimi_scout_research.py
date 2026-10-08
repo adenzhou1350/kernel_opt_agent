@@ -101,6 +101,25 @@ def companion_source_paths(path, files):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
 
+    def sibling_source_component(candidate):
+        # A matching basename is not a component link. Compare only paths in
+        # the same src root; separate test trees keep the existing fallback.
+        source_dirs = path.split("/")[:-1]
+        candidate_dirs = candidate.split("/")[:-1]
+        if "src" not in source_dirs or "src" not in candidate_dirs:
+            return False
+        source_root = source_dirs.index("src")
+        candidate_root = candidate_dirs.index("src")
+        if source_dirs[:source_root] != candidate_dirs[:candidate_root]:
+            return False
+        source_component = source_dirs[source_root + 1 : source_root + 2]
+        candidate_component = candidate_dirs[candidate_root + 1 : candidate_root + 2]
+        return bool(
+            source_component
+            and candidate_component
+            and source_component != candidate_component
+        )
+
     def locality(candidate):
         name = candidate.rsplit("/", 1)[-1].rsplit(".", 1)[0]
         exact = name in {
@@ -136,7 +155,11 @@ def companion_source_paths(path, files):
         (
             p
             for p in files
-            if p != path and "test" in p and stem in p and p.endswith(SOURCE_SUFFIXES)
+            if p != path
+            and "test" in p
+            and stem in p
+            and p.endswith(SOURCE_SUFFIXES)
+            and not sibling_source_component(p)
         ),
         key=locality,
     )
