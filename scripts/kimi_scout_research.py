@@ -19,6 +19,7 @@ from pathlib import Path
 import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
+from scout_duplicate_query import source_duplicate_title
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
@@ -1421,7 +1422,9 @@ class ResearchProducer:
                 if number
                 else json.loads(row["result"])["analysis"]["title"]
             )
-            sources.extend(self.context.duplicate_sources(spec["repo"], title))
+            sources.extend(self.context.duplicate_sources(
+                spec["repo"], source_duplicate_title(spec["repo"], title, sources)
+            ))
             if spec.get("followup_discussion_context", False):
                 sources.extend(discussion_sources(self.context, spec["repo"], title))
             sources = distinct_sources(sources)

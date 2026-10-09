@@ -635,6 +635,14 @@ class ContextTests(unittest.TestCase):
         self.assertLessEqual(len(sources), 5)
         return sources, [q["q"][0] for q in queries]
 
+    def test_qualified_method_hint_keeps_owner_in_both_bounded_queries(self):
+        sources, queries = self.duplicate_search("OneToOne.update", [[], []])
+        self.assertEqual(sources, [])
+        self.assertEqual(queries, [
+            f'repo:{REPO} in:title,body "OneToOne" "update"',
+            f'repo:{REPO} in:title,body "OneToOne"',
+        ])
+
     def test_duplicate_fallback_preserves_title_modes(self):
         cases = (
             ("多物品分类打分(MIS融合)路径忽略temperature", '"MIS" "temperature"'),
