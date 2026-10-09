@@ -1,0 +1,18 @@
+{
+  "id": "persistent-functional-patch-lifetime",
+  "title": "Check the intended lifetime before restoring a global functional patch",
+  "applies_when": "A context manager, initialization helper or temporary shutdown path removes construction hooks but leaves a global functional override installed, suggesting a patch/unpatch symmetry bug.",
+  "lesson": "Separate construction-time interception from training-time functional behavior. Read the installation contract and the shutdown caller before asserting that every replaced symbol must be restored on context exit. DeepSpeed explicitly keeps its memory-efficient F.linear override until manually reset; shutdown_init_context temporarily removes construction wrappers so the engine can initialize. An identity-only test demanding automatic restoration would encode the wrong expectation. If the remaining override is suspected to be harmful, reproduce a supported downstream numerical, lifetime or compatibility failure and reconcile it with the stated persistence contract first.",
+  "avoid_when": "This source-bound counterexample does not prove all persistent patches are correct, every quantized wrapper is idempotent, or ambient state cannot leak. Comments can be stale and do not overrule an independently demonstrated supported failure. A separate quantized-wrapper or nested-context claim needs its own behavioral evidence. Do not automatically reject a candidate from a keyword or this card; no native training, performance or Scout conversion improvement is established here.",
+  "evidence": [
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/7b911151ed62b1c2ddfeb887d576c189dfe17679/deepspeed/runtime/zero/partition_parameters.py#L412-L419",
+      "note": "Installation explicitly states that the memory-efficient linear override persists unless manually reset and keeps the original function in linear_bk. This contradicts an unconditional restoration expectation, not every possible functional defect."
+    },
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/7b911151ed62b1c2ddfeb887d576c189dfe17679/deepspeed/runtime/zero/partition_parameters.py#L686-L700",
+      "note": "shutdown_init_context and restore_init_context temporarily remove and reinstall construction wrappers around engine initialization while retaining the context."
+    }
+  ],
+  "status": "counterexample"
+}
