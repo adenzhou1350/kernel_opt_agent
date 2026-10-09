@@ -11,6 +11,18 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions  # noqa: E40
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_cutlass_array_advice_uses_receiver_contract_not_python_list_semantics(self):
+        result = lesson_suggestions("CUTLASS Array slice vector start count")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "native-binding-semantics-before-field-inference")
+        self.assertIn("arr[start:count]", card["lesson"])
+        self.assertIn("nonzero offset", card["lesson"])
+        self.assertIn("receiver's construction", card["lesson"])
+        self.assertTrue(any("not an installed dependency or GPU-kernel test" in item["note"]
+                            for item in card["evidence"]))
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_backend_state_advice_keeps_reference_and_native_scopes_distinct(self):
         result = lesson_suggestions(
             "backend conv_state cache update missing tuple return assignment mutation"
