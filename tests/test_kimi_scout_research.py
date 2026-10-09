@@ -332,10 +332,48 @@ class ResearchTests(unittest.TestCase):
         progress = {}
         self.assertTrue(self.producer.source_audit(self.spec, progress))
         self.assertFalse(self.producer.source_audit(self.spec, progress))
-        progress["sources_after"] = 0
+        self.assertGreater(progress["sources_after"], time.time())
         self.spec["source_prefixes"] = ["tests/"]
         self.assertTrue(self.producer.source_audit(self.spec, progress))
         self.assertEqual(self.context.calls[-1][2], "tests/test_kernel.py")
+
+    def test_prefix_expansion_wakes_after_restart_without_repeating_seen_sources(self):
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.producer.save()
+        self.value["repos"][0]["source_prefixes"].append("tests/")
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        resumed = research.ResearchProducer(self.root, self.config, context=self.context)
+        self.assertTrue(resumed.source_audit(
+            resumed.config["repos"][0], resumed.state["repos"]["a/b"]
+        ))
+        self.assertEqual(len(self.jobs()), 2)
+        packet = json.loads(self.jobs()[-1]["packet"])
+        self.assertTrue(packet["sources"][0]["url"].endswith("/tests/test_kernel.py"))
+
+    def test_equivalent_prefix_order_keeps_completed_sweep_cooldown(self):
+        self.spec["source_prefixes"] = ["src/", "absent/"]
+        progress = {}
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        cooldown = progress["sources_after"]
+        self.spec["source_prefixes"] = ["absent/", "src/", "src/"]
+        with patch.object(self.context, "snapshot", side_effect=AssertionError("refetch")):
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(progress["sources_after"], cooldown)
+        self.assertEqual(len(self.jobs()), 1)
+
+    def test_legacy_prefix_state_is_checked_once_without_resetting_seen_evidence(self):
+        progress = {}
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        progress.pop("source_prefixes", None)
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(progress["source_prefixes"], ["src/"])
+        with patch.object(self.context, "snapshot", side_effect=AssertionError("refetch")):
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(len(self.jobs()), 1)
 
     def test_only_changed_blob_creates_fresh_source_work(self):
         self.assertTrue(self.producer.source_audit(self.spec, {}))
