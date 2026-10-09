@@ -22,6 +22,8 @@ CAUTION = (
     "contribution scope. This is bounded discovery, not permission to publish or "
     "proof that all policies were found. No AI-ban, disclosure, human-review or "
     "CLA requirement is classified automatically. Recheck live rules before publishing."
+    " Document discovery does not check current interaction limits, contributor"
+    " eligibility or permission to open a PR; passing native tests cannot establish them."
 )
 
 
