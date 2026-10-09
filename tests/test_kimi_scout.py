@@ -12,7 +12,7 @@ import threading
 import time
 from types import SimpleNamespace
 import unittest
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "kimi_scout.py"
@@ -500,6 +500,84 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(current["runtime"]["state"], "STOPPED")
         self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 3)
+
+    def test_recovery_admits_one_probe_then_restores_configured_capacity(self):
+        for i in range(8):
+            self.add(str(i))
+        clock = [1000.0]
+        barrier = threading.Barrier(4)
+        probe_started = threading.Event()
+        release_probe = threading.Event()
+        restored = threading.Barrier(3)
+        calls, errors = [], []
+        lock = threading.Lock()
+        real_wait = scout.wait
+        first_wait = [True]
+
+        def batch_wait(futures, **options):
+            if first_wait[0]:
+                first_wait[0] = False
+                return real_wait(futures, timeout=5, return_when=ALL_COMPLETED)
+            return real_wait(futures, **options)
+
+        def execute(root, job, *unused):
+            with lock:
+                calls.append(job["id"])
+                number = len(calls)
+            if number <= 4:
+                barrier.wait(timeout=5)
+                state = "FAILED"
+            else:
+                if number == 5:
+                    probe_started.set()
+                    if not release_probe.wait(timeout=5):
+                        raise AssertionError("probe was not released")
+                else:
+                    restored.wait(timeout=5)
+                    if number == 8:
+                        (root / "STOP").touch()
+                state = "NO_LEAD"
+            with scout.connect(root) as db:
+                db.execute("UPDATE jobs SET state=?,finished=? WHERE id=?",
+                           (state, clock[0], job["id"]))
+            return {"state": state, "finished": clock[0]}
+
+        def advance(_):
+            clock[0] += 1
+
+        def run():
+            try:
+                scout.run(self.run_args(once=False))
+            except BaseException as error:
+                errors.append(error)
+
+        with (patch.object(scout, "execute", side_effect=execute),
+              patch.object(scout, "wait", side_effect=batch_wait),
+              patch.object(scout.time, "time", side_effect=lambda: clock[0]),
+              patch.object(scout.time, "sleep", side_effect=advance)):
+            runner = threading.Thread(target=run)
+            runner.start()
+            try:
+                self.assertTrue(probe_started.wait(timeout=5))
+                self.assertEqual(len(calls), 5)
+                with scout.connect(self.root) as db:
+                    self.assertEqual(db.execute(
+                        "SELECT COUNT(*) FROM jobs WHERE state='RUNNING'"
+                    ).fetchone()[0], 1)
+            finally:
+                release_probe.set()
+                runner.join(timeout=8)
+                if runner.is_alive():
+                    (self.root / "STOP").touch()
+                    runner.join(timeout=5)
+            self.assertFalse(runner.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(calls), 8)
+        self.assertEqual(len(set(calls)), 8)
+        runtime = json.loads((self.root / "runtime.json").read_text())
+        self.assertEqual(runtime["concurrency"], 4)
+        self.assertEqual(runtime["admission_limit"], 4)
+        self.assertFalse(runtime["recovery_probe"])
 
     def test_persistent_bad_answers_have_separate_circuit_breaker(self):
         for i in range(10):

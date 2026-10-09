@@ -821,7 +821,9 @@ def update_error_cooldown(failures, answer_failures, cycles, until, now, base_se
     """Drain in-flight failures without repeatedly extending an open circuit."""
     if now < until:
         return 0, 0, cycles, until
-    if failures >= 2 or answer_failures >= 8:
+    # After an outage, admit one probe, not another full batch. Any failed
+    # probe reopens the circuit; only a valid completion restores capacity.
+    if failures >= (1 if cycles else 2) or answer_failures >= (1 if cycles else 8):
         cycles += 1
         until = now + min(base_seconds * 2 ** min(cycles - 1, 4), 3600)
         return 0, 0, cycles, until
@@ -862,6 +864,8 @@ def run(args):
             "state": "RUNNING",
             "deadline": deadline if args.hours else None,
             "concurrency": args.concurrency,
+            "admission_limit": args.concurrency,
+            "recovery_probe": False,
             "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),
             "min_free_disk_mb": getattr(args, "min_free_disk_mb", 0),
             "daily_max_calls": args.max_jobs or None,
@@ -955,7 +959,7 @@ def run(args):
                     disk_reserve = getattr(args, "min_free_disk_mb", 0)
                     disk_free_mb = available_disk_mb(root) if disk_reserve else None
                     while (
-                        len(running) < args.concurrency
+                        len(running) < (1 if error_cycles else args.concurrency)
                         and failures < 2
                         and time.time() >= cooldown_until
                         and time.time() < deadline
@@ -1007,6 +1011,8 @@ def run(args):
                         )
                     publish(
                         active=len(running),
+                        admission_limit=1 if error_cycles else args.concurrency,
+                        recovery_probe=bool(error_cycles and not cooldown_until),
                         memory_paused=bool(
                             reserve
                             and (free_mb is None or free_mb < reserve)
