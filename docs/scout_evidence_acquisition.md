@@ -58,6 +58,23 @@ No target or case is substituted. A successful window is `ACQUIRED`, not a claim
 that the reviewer used it. Programming/budget errors still raise. The adapter does
 not invoke a model, change live routing, or establish budget-matched utility.
 
+For new trials, `first_clipped_or_continuation` is a separate zero-model baseline:
+restore the first eligible clipped file from its original `start_line` (or 1 when
+absent); if none is clipped, retain first-file continuation. Catalog-only clipped
+entries qualify, and duplicate URLs retain their first metadata entry. The same
+one-GET/window cap applies; restoration may still miss omitted text beyond that
+cap. Original `end_line` describes the pre-clipping snippet, not the last line the
+reviewer actually saw, so continuing after it can skip the missing implementation
+or hit EOF. An offline synthetic test composes the real view, rule and reader to
+check this distinction; it is not a useful-bug or model-quality result.
+
+This policy was motivated by an exposed two-case development pilot. Do not change
+the old continuation rule or rescore those cases as prospective wins. A future
+selector comparison should declare the stronger cheap comparator before seeing
+new cases, retain unavailable/failed observations, and measure total selection,
+review and native-verification costs. A selected implementation window and one
+subsequent useful PR do not establish a general routing advantage.
+
 One task-local pilot asserted that every admitted case contained pinned code,
 but its first future admission had only issue/PR URLs. It terminated before model
 or GET calls. That pilot stays invalid and its exposed inputs are not rescored.

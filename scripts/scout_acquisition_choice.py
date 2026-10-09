@@ -47,6 +47,39 @@ def first_catalog_continuation(view):
     return {"status": "SELECTED", **catalog[0]}
 
 
+def first_clipped_or_continuation(view):
+    """Restore the first clipped catalog file, otherwise continue the first file.
+
+    Original snippet end_line is not the last line delivered after view clipping.
+    Read from its original start (or 1 when absent), using the caller's unchanged
+    one-window budget. Catalog-only clipped entries qualify; duplicate URLs use
+    their first entry, just like acquisition_catalog. This does not infer where
+    relevant evidence lies or promise to recover the whole omitted snippet.
+    A separate policy for fresh trials, not a repair/rescore of old answers.
+    """
+    catalog = acquisition_catalog(view)
+    eligible = {target["url"] for target in catalog}
+    seen = set()
+    for source in view["sources"]:
+        url = source.get("url")
+        if not isinstance(url, str) or url not in eligible or url in seen:
+            continue
+        seen.add(url)
+        clipped = source.get("clipped", False)
+        if type(clipped) is not bool:
+            raise ValueError("invalid source clipping flag")
+        if not clipped:
+            continue
+        start = source.get("start_line")
+        if start is not None and (type(start) is not int or start < 1):
+            raise ValueError("invalid source start line")
+        end = source.get("end_line")
+        if start is not None and end is not None and start > end:
+            raise ValueError("invalid source line range")
+        return {"status": "SELECTED", "url": url, "start_line": start or 1}
+    return first_catalog_continuation(view)
+
+
 def validate_selection(view, selection):
     """Validate the existing acquisition-only JSON interface without repairing it."""
     catalog = acquisition_catalog(view)
