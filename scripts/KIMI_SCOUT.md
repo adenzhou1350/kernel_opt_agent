@@ -81,6 +81,22 @@ prospective comparison.
 
 ## Run
 
+Before adding a new contribution repository, read its contribution policy and
+check whether the intended contributor and AI-assisted workflow are eligible.
+An optional read-only intake helper captures the public contribution guide and
+PR template reported by GitHub, including an owner's inherited `.github` file:
+
+```sh
+python scripts/scout_contribution_policy.py --repo owner/repository --github-auth \
+  --output runs/contribution-policy.json
+```
+
+The output pins and verifies complete documents up to 32 KiB each. It does not
+classify permissions, execute source, spend model calls or schedule work. Missing
+documents or failed reads are not approval; also read linked rules, `AGENTS.md`
+and maintainer instructions. Recheck the live policy before publication. Keep the
+snapshot local; do not turn it into a new mandatory phase or per-request check.
+
 Only the backend needs the existing Kimi environment. Find its interpreter using
 `uv tool dir` if Kimi was installed by uv; normally it is
 `<uv-tool-dir>/kimi-cli/Scripts/python.exe` on Windows or

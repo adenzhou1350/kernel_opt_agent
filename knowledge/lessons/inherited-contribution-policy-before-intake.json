@@ -1,0 +1,18 @@
+{
+  "id": "inherited-contribution-policy-before-intake",
+  "title": "Check inherited contribution policy before research intake",
+  "applies_when": "Adding a public repository to an automated contribution scout, especially when a clone contains no CONTRIBUTING file or publication needs AI disclosure, human review or prior discussion.",
+  "lesson": "Check contributor eligibility before spending on hypotheses and environment setup, then recheck before publication. GitHub can inherit contribution rules from the owner's public .github repository; those files are absent from the target clone. The community profile can identify the effective document, but its contents URL can still name the target repository: use the actual public html_url repository, pin the revision and read the document. A blanket AI prohibition is not cured by tests or human editing. Preserve already acquired evidence without publishing or bypassing the rule. Distinguish prohibited submissions from disclosure/review/discussion requirements that can legitimately be satisfied.",
+  "avoid_when": "An absent profile/file or failed read is not permission, and a community profile does not enumerate every rule. Read linked guidelines, AGENTS.md and maintainer instructions too. Do not infer an AI ban from keywords or one older policy revision, or transfer one organization's policy to another. This documents a discovery mechanism and an observed policy, not measured PR yield or token savings.",
+  "evidence": [
+    {
+      "url": "https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file",
+      "note": "GitHub documents default community files in the owner's .github repository, their location precedence and why inherited files are not present in individual clones."
+    },
+    {
+      "url": "https://github.com/pallets/.github/blob/main/CONTRIBUTING.md",
+      "note": "Pallets' current contribution policy prohibits AI-generated issues and pull requests. This live policy example must be rechecked, not treated as an immutable or universal prohibition."
+    }
+  ],
+  "status": "validated"
+}
