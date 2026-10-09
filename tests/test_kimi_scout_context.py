@@ -586,5 +586,77 @@ class ContextTests(unittest.TestCase):
         self.assertLess(len(query["q"][0]), 500)
 
 
+    def duplicate_search(self, title, responses):
+        queries = []
+        original = self.fake_fetch
+
+        def search_fetch(url, limit=1_000_000, github_auth=False):
+            if url.startswith("https://api.github.com/search/issues?"):
+                query = parse_qs(urlsplit(url).query)
+                queries.append(query)
+                return json.dumps({"items": responses[len(queries) - 1]})
+            return original(url, limit, github_auth)
+
+        with patch.object(context.scout, "fetch", side_effect=search_fetch):
+            sources = self.context.duplicate_sources(REPO, title)
+        self.assertTrue(all(q["per_page"] == ["5"] for q in queries))
+        self.assertLessEqual(len(queries), 2)
+        self.assertLessEqual(len(sources), 5)
+        return sources, [q["q"][0] for q in queries]
+
+    def test_duplicate_fallback_preserves_title_modes(self):
+        cases = (
+            ("多物品分类打分(MIS融合)路径忽略temperature", '"MIS" "temperature"'),
+            ("fix a score temperature bug", '"fix" "a"'),
+            ("修复 温度 评分 路径", '"修复" "温度"'),
+            ("修复 MIS 中 _multi_position_score_rows 温度", '"_multi_position_score_rows"'),
+        )
+        for title, fallback in cases:
+            with self.subTest(title=title):
+                sources, queries = self.duplicate_search(title, [[], []])
+                self.assertEqual(sources, [])
+                self.assertEqual(len(queries), 2)
+                self.assertEqual(queries[-1], f"repo:{REPO} in:title,body {fallback}")
+
+    def test_mixed_title_can_retrieve_differently_worded_fix(self):
+        title = "JIT object 命名仅用源文件 basename，同名源文件产物互相覆盖"
+        pr = {"number": 3, "title": "fix(jit): unify object naming", "pull_request": {}}
+        sources, queries = self.duplicate_search(title, [[], [pr]])
+        self.assertEqual(queries[-1], f'repo:{REPO} in:title,body "JIT" "object"')
+        self.assertEqual(sources[0]["url"], f"https://github.com/{REPO}/pull/3")
+        self.assertEqual(sources[0]["search_query"], queries[-1])
+        self.assertFalse(sources[0]["search_exhaustive"])
+
+    def test_duplicate_issue_only_sample_retains_report_and_searches_prs(self):
+        issue = {"number": 1, "title": "flag_name report"}
+        pr = {"number": 2, "title": "existing fix", "pull_request": {}}
+        sources, queries = self.duplicate_search(issue["title"], [[issue], [pr]])
+        self.assertEqual(queries[-1], f'repo:{REPO} is:pr in:title,body "flag_name"')
+        self.assertEqual([s["is_pr"] for s in sources], [True, False])
+        self.assertEqual(sources[1]["search_query"], queries[0])
+
+    def test_duplicate_pr_hit_stops_and_identical_empty_query_is_not_repeated(self):
+        pr = {"number": 2, "title": "existing fix", "pull_request": {}}
+        sources, queries = self.duplicate_search("flag_name report", [[pr]])
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(len(sources), 1)
+        sources, queries = self.duplicate_search("flag_name", [[]])
+        self.assertEqual(sources, [])
+        self.assertEqual(len(queries), 1)
+
+    def test_duplicate_pr_fallback_filters_foreign_issue_and_repeated_hits(self):
+        issue = {"number": 1, "title": "report"}
+        pr = {"number": 2, "title": "existing fix", "pull_request": {}}
+        foreign = dict(pr, repository_url="https://api.github.com/repos/other/repo")
+        sources, queries = self.duplicate_search(
+            "flag_name report", [[issue], [foreign, issue, pr, pr]]
+        )
+        self.assertEqual(len(queries), 2)
+        self.assertEqual([s["url"].rsplit("/", 1)[-1] for s in sources], ["2", "1"])
+        sources, queries = self.duplicate_search("flag_name report", [[foreign], []])
+        self.assertEqual(sources, [])
+        self.assertEqual(len(queries), 2)
+
+
 if __name__ == "__main__":
     unittest.main()

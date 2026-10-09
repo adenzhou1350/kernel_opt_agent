@@ -590,33 +590,61 @@ class PublicContext:
         self._public(repo)
         # Quoted words cannot inject GitHub search operators or change scope.
         terms = " ".join('"' + word[:32] + '"' for word in words)
-        query = urllib.parse.urlencode(
-            {
-                "q": f"repo:{repo} in:title,body {terms}",
-                "sort": "updated",
-                "per_page": 5,
-            }
+        # Incidental prose is conjunctive. An empty/issue-only sample can hide
+        # an existing fix with a different title. Spend at most one fallback.
+        identifiers = re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,}", title[:1000])
+        anchor = next((word for word in identifiers if
+                       "_" in word.strip("_") or
+                       re.search(r"[a-z][A-Z]|[A-Z]{2}[a-z]|[A-Za-z][0-9]", word)), None)
+        fallback_words = words[:2]
+        if identifiers and any(not word.isascii() for word in words):
+            fallback_words = list(dict.fromkeys(identifiers))[:2]
+        fallback = '"' + anchor[:32] + '"' if anchor else " ".join(
+            '"' + word[:32] + '"' for word in fallback_words
         )
-        found = self._json(f"https://api.github.com/search/issues?{query}")
-        if not isinstance(found, dict) or not isinstance(found.get("items"), list):
-            raise ValueError("invalid public duplicate search")
+        query_text = f"repo:{repo} in:title,body {terms}"
         result = []
         repository_url = f"https://api.github.com/repos/{repo}"
-        for item in found["items"][:5]:
-            if (
-                not isinstance(item, dict)
-                or _text(item.get("repository_url", repository_url)).lower()
-                != repository_url.lower()
-            ):
-                continue
-            number = _number(item.get("number"))
-            is_pr = "pull_request" in item
-            kind = "pull" if is_pr else "issues"
-            evidence = scout.evidence(
-                f"https://github.com/{repo}/{kind}/{number}",
-                _text(item.get("title")) + "\n" + _text(item.get("body")),
-                1800,
+        for attempt in range(2):
+            query = urllib.parse.urlencode(
+                {"q": query_text, "sort": "updated", "per_page": 5}
             )
-            evidence.update(is_pr=is_pr, search_exhaustive=False)
-            result.append(evidence)
-        return result
+            found = self._json(f"https://api.github.com/search/issues?{query}")
+            if not isinstance(found, dict) or not isinstance(found.get("items"), list):
+                raise ValueError("invalid public duplicate search")
+            hits = []
+            for item in found["items"][:5]:
+                if (
+                    not isinstance(item, dict)
+                    or _text(item.get("repository_url", repository_url)).lower()
+                    != repository_url.lower()
+                ):
+                    continue
+                number = _number(item.get("number"))
+                is_pr = isinstance(item.get("pull_request"), dict)
+                if " is:pr " in query_text and not is_pr:
+                    continue
+                kind = "pull" if is_pr else "issues"
+                evidence = scout.evidence(
+                    f"https://github.com/{repo}/{kind}/{number}",
+                    _text(item.get("title")) + "\n" + _text(item.get("body")),
+                    1800,
+                )
+                evidence.update(is_pr=is_pr, search_exhaustive=False,
+                                search_query=query_text)
+                hits.append(evidence)
+            known = {source["url"] for source in result}
+            for source in hits:
+                if source["url"] not in known:
+                    result.append(source)
+                    known.add(source["url"])
+            if attempt or any(source["is_pr"] for source in hits):
+                break
+            # Preserve the report; look for a differently titled PR rather than
+            # merely returning the same issue again. Empty samples stay broader.
+            scope = " is:pr" if hits else ""
+            next_query = f"repo:{repo}{scope} in:title,body {fallback}"
+            if next_query == query_text:
+                break
+            query_text = next_query
+        return sorted(result, key=lambda source: not source["is_pr"])[:5]

@@ -27,6 +27,16 @@ change alone does not establish higher finding accuracy or PR conversion.
   redirects. With `--github-auth`, the existing Git credential helper is used only
   for controller-side API GET requests. Repositories must be public; credentials
   are never included in evidence. No interactive login is started.
+- Related-work title lookup uses at most two queries and returns at most five
+  excerpts. An empty strict query falls back to one structural identifier or two
+  words; mixed-language titles prefer embedded ASCII terms over translated prose.
+  An issue-only sample retains the report and uses the fallback to look for PRs.
+  Each excerpt records its query and remains non-exhaustive, untrusted context:
+  neither a hit nor an empty search automatically rejects or qualifies a lead.
+  An exposed FlashInfer replay retrieved existing PR #6038 from `JIT object`
+  after the full mixed-language title missed it. This is a development control,
+  not prospective recall, PR conversion or cost-saving evidence. Lookup failures
+  remain failures, not evidence that no related work exists.
 - Default trial: **24 hours, concurrency 2, 12 attempted requests per rolling
   24 hours, 200,000 tokens/reserved-token units, 4,096 output tokens/request**.
   This cap includes any hidden thinking the configured endpoint elects to use;
