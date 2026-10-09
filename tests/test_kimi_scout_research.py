@@ -1613,6 +1613,98 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(value["phase"], "READY")
         self.assertEqual(value["goals"][0]["repo"], "a/b")
 
+    def test_completion_requires_persisted_eligible_result(self):
+        self.producer.issue(self.spec, {})
+        row = self.jobs()[0]
+        receipt = dict(job_id=row["id"], state="REVIEW")
+        self.assertFalse(self.producer.notify_completion(receipt))
+        self.finish(row)
+        self.assertTrue(self.producer.notify_completion(receipt))
+        self.assertTrue(self.producer.notify_completion(receipt))
+        self.assertEqual(self.producer.completed_repos, {"a/b"})
+        self.assertTrue(self.producer.refill_wake.is_set())
+        self.assertFalse(self.producer.notify_completion(dict(receipt, state="FAILED")))
+        self.assertFalse(self.producer.notify_completion(dict(receipt, job_id="absent")))
+
+    def test_completion_does_not_reopen_other_repo_or_exhausted_chain(self):
+        self.producer.issue(self.spec, {})
+        row = self.jobs()[0]
+        self.finish(row)
+        packet = json.loads(row["packet"])
+        for update in ({"repo": "other/repo"}, {"research": {"depth": 2}}):
+            with scout.connect(self.root) as db:
+                db.execute("UPDATE jobs SET packet=? WHERE id=?", (json.dumps(dict(packet, **update)), row["id"]))
+            self.assertFalse(self.producer.notify_completion(dict(job_id=row["id"], state="REVIEW")))
+        self.assertEqual(self.producer.completed_repos, set())
+
+    def test_completion_clears_only_empty_backoff_and_survives_active_refill(self):
+        producer = self.producer
+        ready = {"a/b": time.monotonic() + 120, "c/d": time.monotonic() + 120}
+        empty = {"a/b": 6, "c/d": 6}
+        producer.completed_repos.add("a/b")
+        producer.wake_completed_refills(ready, empty, {"a/b"}, set())
+        self.assertIn("a/b", producer.completed_repos)
+        producer.wake_completed_refills(ready, empty, set(), set())
+        self.assertEqual(set(ready), {"c/d"})
+        self.assertEqual(empty, {"c/d": 6})
+        self.assertEqual(producer.completed_repos, set())
+
+    def test_completion_preserves_transport_backoff(self):
+        ready = {"a/b": time.monotonic() + 60}
+        empty = {"a/b": 6}
+        self.producer.completed_repos.add("a/b")
+        self.producer.wake_completed_refills(ready, empty, set(), {"a/b"})
+        self.assertIn("a/b", ready)
+        self.assertIn("a/b", self.producer.completed_repos)
+        ready["a/b"] = time.monotonic() - 1
+        self.producer.wake_completed_refills(ready, empty, set(), {"a/b"})
+        self.assertEqual(ready, {})
+        self.assertEqual(self.producer.completed_repos, set())
+
+    def test_parallel_completion_wakes_a_sleeping_empty_frontier(self):
+        self.producer.issue(self.spec, {})
+        row = self.jobs()[0]
+        self.value["context_workers"] = 2
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        waiting = threading.Event()
+        emitted = threading.Event()
+        can_follow_up = threading.Event()
+        original_publish, original_emit = producer.publish, producer.emit
+
+        def refill(spec, progress, first, batch_size=1):
+            if can_follow_up.is_set():
+                return producer.followup(spec, progress)
+            return False
+
+        def publish(phase, **kwargs):
+            original_publish(phase, **kwargs)
+            if phase == "WAITING_FOR_NEW_EVIDENCE":
+                waiting.set()
+
+        def emit(*args, **kwargs):
+            made = original_emit(*args, **kwargs)
+            if made:
+                emitted.set()
+            return made
+
+        with (
+            patch.object(producer, "refill", side_effect=refill),
+            patch.object(producer, "publish", side_effect=publish),
+            patch.object(producer, "emit", side_effect=emit),
+            patch.object(research, "refill_retry_delay", return_value=120),
+        ):
+            producer.start()
+            try:
+                self.assertTrue(waiting.wait(2))
+                self.finish(row)
+                can_follow_up.set()
+                self.assertTrue(producer.notify_completion(dict(job_id=row["id"], state="REVIEW")))
+                self.assertTrue(emitted.wait(2), "Completion must not wait for the 120s empty backoff")
+            finally:
+                producer.stop()
+        self.assertEqual(len(self.jobs()), 2)
+
     def test_transient_dashboard_permission_does_not_stop_research(self):
         with patch.object(
             self.producer, "_publish", side_effect=PermissionError("reader open")
