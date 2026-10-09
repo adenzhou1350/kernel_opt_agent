@@ -544,6 +544,34 @@ class ContextTests(unittest.TestCase):
         self.assertTrue(sources[0]["comments_truncated"])
         self.assertEqual(sources[0]["comments_page"], 1)
 
+    def test_duplicate_search_uses_relevance_not_recent_activity(self):
+        queries = []
+        original = self.fake_fetch
+
+        def search_fetch(url, limit=1_000_000, github_auth=False):
+            if not url.startswith("https://api.github.com/search/issues?"):
+                return original(url, limit, github_auth)
+            query = parse_qs(urlsplit(url).query)
+            queries.append(query)
+            # A busy PR can be recent without covering this failure mechanism.
+            unrelated = [{"number": n, "title": "Recent unrelated parser update",
+                          "body": "CI activity", "pull_request": {}} for n in range(1, 6)]
+            duplicate = {"number": 99, "title": "Respect quoted brackets in streaming",
+                         "body": "The quoted closing bracket truncates the tool call.",
+                         "pull_request": {}}
+            return json.dumps({"items": unrelated if query.get("sort") == ["updated"]
+                               else [duplicate, *unrelated[:4]]})
+
+        with patch.object(context.scout, "fetch", side_effect=search_fetch):
+            sources = self.context.duplicate_sources(REPO, "pythonic")
+        self.assertEqual(len(queries), 1)
+        self.assertNotIn("sort", queries[0])
+        self.assertEqual(queries[0]["per_page"], ["5"])
+        self.assertEqual(len(sources), 5)
+        self.assertTrue(sources[0]["url"].endswith("/pull/99"))
+        self.assertIn("quoted closing bracket", sources[0]["text"])
+        self.assertFalse(sources[0]["search_exhaustive"])
+
     def test_duplicate_query_cannot_escape_repo_or_claim_exhaustive_search(self):
         title = 'fix repo:secret/data OR https://evil.example "' + "x" * 1000
         self.routes = {}

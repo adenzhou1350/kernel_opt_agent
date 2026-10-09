@@ -606,8 +606,12 @@ class PublicContext:
         result = []
         repository_url = f"https://api.github.com/repos/{repo}"
         for attempt in range(2):
+            # This is a relevance lookup, not an activity feed. Recent comments
+            # or CI updates on loosely related PRs must not determine which five
+            # candidates are shown. Omit sort to use GitHub's best-match order;
+            # source comparison and a fresh owner review are still required.
             query = urllib.parse.urlencode(
-                {"q": query_text, "sort": "updated", "per_page": 5}
+                {"q": query_text, "per_page": 5}
             )
             found = self._json(f"https://api.github.com/search/issues?{query}")
             if not isinstance(found, dict) or not isinstance(found.get("items"), list):
