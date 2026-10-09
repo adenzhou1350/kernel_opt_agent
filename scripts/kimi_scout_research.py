@@ -19,6 +19,7 @@ from pathlib import Path
 import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
+from scout_audit_context import contextual_audit_header
 from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
@@ -1046,6 +1047,9 @@ class ResearchProducer:
                 self.remember(key)
                 progress["source_cursor"] = (cursor // windows + 1) * windows
                 continue
+            source = contextual_audit_header(
+                self.context, spec["repo"], snapshot["commit"], path, source
+            )
             sources = [source]
             if self.stopped():
                 return False
@@ -1102,7 +1106,8 @@ class ResearchProducer:
             )
             progress["source_cursor"] = (
                 (cursor // windows + 1) * windows
-                if start + 120 > source.get("total_lines", 0)
+                if (start + 120 > source.get("total_lines", 0)
+                    or source.get("end_line") == source.get("total_lines"))
                 else cursor + 1
             )
             progress["scanned_sources"] = progress.get("scanned_sources", 0) + int(
