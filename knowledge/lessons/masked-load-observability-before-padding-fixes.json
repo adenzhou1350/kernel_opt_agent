@@ -1,0 +1,26 @@
+{
+  "id": "masked-load-observability-before-padding-fixes",
+  "title": "Trace masked padding through the reduction before proposing a fill-value fix",
+  "applies_when": "A Triton candidate alleges corruption solely because a masked load omits other, especially when its values feed equality, argmax or a later masked prefix sum.",
+  "lesson": "An unspecified masked value is a reason to investigate, not proof of observable corruption. Follow it through every consumer and establish the valid-input invariant and reduction tie rule. In TransformerEngine's chunk-sort map, sorted_indices is a chunk permutation: the queried valid chunk has a matching lane before all padding. With argmax's default leftmost tie rule, even adversarial padding matches cannot replace that lane. The subsequent output prefix ends before padding as well. This refutes that specific wrong-index hypothesis under those premises; it does not justify a universal missing-other checklist or qualify the kernel. Try to falsify the premises before paying for a GPU environment.",
+  "avoid_when": "The argument does not transfer to missing valid matches, non-permutation inputs, rightmost or unspecified tie behavior, sums/maxima that consume padding, or pointers whose load predicate is itself unsafe. A compiler/runtime counterexample on supported inputs warrants reopening. Source reasoning and host models are not native execution, general undefined-value safety, performance evidence or measured Scout cost savings.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/969320524aa14c06477d16bf90a8872066811d70/transformer_engine/common/triton/permutation.py#L542-L577",
+      "note": "Exact kernel: masked sorted-index load, equality argmax, output-prefix selection, and the separate phantom-token override. These establish the dataflow, not GPU or compiler qualification."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/969320524aa14c06477d16bf90a8872066811d70/transformer_engine/jax/permutation.py#L621-L645",
+      "note": "The public sort API documents sorted_indices as permutation indices. This is the supported-input premise, not proof that all external callers obey it."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/969320524aa14c06477d16bf90a8872066811d70/transformer_engine/pytorch/triton/permutation.py#L361-L389",
+      "note": "The real wrapper chooses next_power_of_2(num_splits), placing valid lanes before padding."
+    },
+    {
+      "url": "https://triton-lang.org/main/python-api/generated/triton.language.argmax.html",
+      "note": "Official API documents tie_break_left=True by default. Apply the argument only when the actual compiler version provides this behavior."
+    }
+  ],
+  "status": "counterexample"
+}
