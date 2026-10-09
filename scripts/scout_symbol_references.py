@@ -116,6 +116,9 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     receiver. Python AST loads and literal getattr/hasattr calls exclude other
     strings, comments and definitions; built-in names may themselves be shadowed.
     These are syntactic references, not resolved bindings or runtime calls.
+    When no unseen Python uses remain, an unqualified name may expose its
+    unique top-level import statement instead. This does not resolve the
+    imported value, follow a dependency, or rule out rebinding/shadowing.
     C-family comments/literals and directive lines are excluded; local
     declarations may still be included. Macros/aliases are not expanded. Pick the
     first and last unseen match windows, not an exhaustive consumer inventory.
@@ -258,18 +261,20 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             for number, line in enumerate(lines, 1)
             if re.search(rf"\b{re.escape(symbol)}\b", line)
         }
-    hits = [
-        number
-        for number in occurrences
-        if not any(
+
+    def supplied(number):
+        return any(
             source.get("url") == selected_url
             and type(source.get("start_line")) is int
             and type(source.get("end_line")) is int
             and source["start_line"] <= number <= source["end_line"]
             for source in sources
         )
-    ]
+
+    hits = [number for number in occurrences if not supplied(number)]
     if not hits:
+        if path.endswith(".py"):
+            return _python_import_windows(tree, names, path, supplied, limit)
         return []
     requests = []
     for number in dict.fromkeys((min(hits), max(hits))):
@@ -283,6 +288,41 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             )
             selected_request["reference_scan"] = dict(reference_scan)
         requests.append(selected_request)
+        if len(requests) == limit:
+            break
+    return requests
+
+
+def _python_import_windows(tree, names, path, supplied, limit):
+    """Expose syntax only: unique module-level imports, never resolve bindings."""
+    requests = []
+    for name in names:
+        if "." in name:
+            continue  # A receiver's attribute need not be this module's import.
+        matches = []
+        for node in tree.body:
+            if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                continue
+            for alias in node.names:
+                local = alias.asname or (
+                    alias.name.split(".")[0]
+                    if isinstance(node, ast.Import)
+                    else alias.name
+                )
+                if local == name:
+                    matches.append(node)
+        if len(matches) != 1:
+            continue
+        node = matches[0]
+        first, last = node.lineno, node.end_lineno
+        if last - first >= 80 or all(supplied(n) for n in range(first, last + 1)):
+            continue
+        if any(r["start"] <= first and last < r["start"] + 80 for r in requests):
+            continue
+        # Keep the entire import statement within the existing window budget.
+        requests.append(
+            {"path": path, "start": max(1, first - 8, last - 79), "max_lines": 80}
+        )
         if len(requests) == limit:
             break
     return requests
