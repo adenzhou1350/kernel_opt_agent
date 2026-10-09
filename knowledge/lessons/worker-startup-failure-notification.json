@@ -1,0 +1,18 @@
+{
+  "id": "worker-startup-failure-notification",
+  "title": "Worker startup needs failure notification as well as readiness",
+  "applies_when": "A controller waits for threaded worker startup using success-only readiness events, especially when it waits in rank order or launcher threads own child-process lifetimes.",
+  "lesson": "Trace the actual launcher and waiting caller, then inject a startup exception before readiness. A dead launcher thread does not automatically notify Event.wait in another thread. Report success and failure through a completion queue or equivalent error-aware primitive; consume completions without rank-order head-of-line blocking and preserve the original exception and worker identity. Test a later rank failing while an earlier rank is still loading, plus the all-success control. Preserve successful launchers if their lifetime is required by child-process parent-death handling; returning every thread after notification is not an equivalent repair.",
+  "avoid_when": "A queue alone does not detect a worker that never returns, propagate every BaseException, or implement timeout/cancellation/child cleanup. Inspect existing owner-level error handling instead of inventing a second shutdown authority. Fault-injected CPU tests establish this launcher contract, not real scheduler crashes, end-to-end serving, official CI, GPU correctness or performance. Keep extracted-method probes separate from native source-package tests.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/59eb71a831f6b87babc2400737c7faabed5ee01c/python/sglang/srt/managers/data_parallel_controller.py",
+      "note": "The baseline waits on per-rank readiness events, sets readiness only after launch_tensor_parallel_group returns, and deliberately keeps successful launcher threads alive for scheduler parent-death semantics. This is a source mechanism, not a measurement of real server failures."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/43378",
+      "note": "At head a4edc0c5fdcef2c493661a941c194f842153fa74, native source-package CPU tests reproduce two baseline failures with one success control; the repair passes all 25 tests in the registered module. Python 3.12/Torch 2.11 is not the official dependency-complete environment (main pins Torch 2.14.1). No GPU/server execution, upstream CI, review, merge or speedup is implied."
+    }
+  ],
+  "status": "validated"
+}
