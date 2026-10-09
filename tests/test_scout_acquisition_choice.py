@@ -9,10 +9,12 @@ from unittest.mock import Mock
 from scripts.scout_acquisition_choice import (
     acquisition_catalog,
     first_catalog_continuation,
+    first_clipped_or_continuation,
     observe_choice,
     validate_selection,
 )
 from scripts.scout_evidence_acquisition import AcquisitionSession
+from scripts.scout_pending_cohort import compact_acquisition_view
 
 URL = "https://raw.githubusercontent.com/example/project/" + "a" * 40 + "/main.py"
 
@@ -33,6 +35,78 @@ class Response(io.BytesIO):
 
 
 class AcquisitionChoiceTests(unittest.TestCase):
+    def test_restore_clipped_view_reaches_omitted_source_before_original_end(self):
+        body = "\n".join(["# preamble " + "x" * 60] * 30 + ["implementation()"])
+        data = compact_acquisition_view({
+            "repo": "example/project",
+            "sources": [{"url": URL, "text": body, "start_line": 1, "end_line": 31}],
+        })
+        before = copy.deepcopy(data)
+        self.assertTrue(data["sources"][0]["clipped"])
+        self.assertNotIn("implementation()", data["sources"][0]["text"])
+        opener = Mock()
+        opener.open.return_value = Response(body.encode())
+        session = AcquisitionSession(opener=opener)
+        old = observe_choice(data, first_catalog_continuation(data), session)
+        self.assertEqual(old["window"]["error_kind"], "WINDOW_BEYOND_SOURCE")
+        result = observe_choice(data, first_clipped_or_continuation(data), session)
+        self.assertEqual(result["status"], "ACQUIRED")
+        self.assertIn("implementation()", result["window"]["text"])
+        self.assertEqual(session.costs()["logical_gets"], 2)
+        self.assertEqual(session.costs()["actual_gets"], 1)
+        self.assertEqual(data, before)
+
+    def test_restore_first_clipped_file_including_catalog_only_entries(self):
+        other = URL.replace("main.py", "other.ts")
+        data = view({"url": URL, "end_line": 4, "clipped": False},
+                    {"url": other, "start_line": 42, "end_line": 121,
+                     "clipped": True, "text": ""})
+        self.assertEqual(first_clipped_or_continuation(data),
+                         {"status": "SELECTED", "url": other, "start_line": 42})
+        data["sources"][1]["start_line"] = None
+        self.assertEqual(first_clipped_or_continuation(data)["start_line"], 1)
+
+    def test_restore_preserves_first_duplicate_entry_and_complete_continuation(self):
+        for clipped in (False, True):
+            data = view({"url": URL, "start_line": 5, "end_line": 10,
+                         "clipped": clipped},
+                        {"url": URL, "start_line": 100, "end_line": 200,
+                         "clipped": True})
+            choice = first_clipped_or_continuation(data)
+            self.assertEqual(choice["start_line"], 5 if clipped else 11)
+            self.assertEqual(first_catalog_continuation(data)["start_line"], 11)
+
+    def test_restore_does_not_select_unsafe_foreign_or_unpinned_clipped_files(self):
+        for url in (None, [], URL.replace("a" * 40, "main"), URL + "?hidden=yes",
+                    URL.replace("example/project", "other/project"),
+                    "https://github.com/example/project/issues/1"):
+            data = view({"url": url, "clipped": True}, {"url": URL, "end_line": 2})
+            self.assertEqual(first_clipped_or_continuation(data),
+                             first_catalog_continuation(data))
+        for data in (view(), view({"url": "https://github.com/example/project/issues/1"})):
+            self.assertEqual(first_clipped_or_continuation(data)["status"], "UNAVAILABLE")
+
+    def test_restore_rejects_malformed_clipping_and_original_ranges(self):
+        for metadata in ({"clipped": "true"}, {"clipped": 1},
+                         {"clipped": True, "start_line": True},
+                         {"clipped": True, "start_line": 0},
+                         {"clipped": True, "start_line": 1.5},
+                         {"clipped": True, "start_line": 10, "end_line": 9}):
+            with self.subTest(metadata=metadata), self.assertRaises(ValueError):
+                first_clipped_or_continuation(view({"url": URL, **metadata}))
+
+    def test_restore_does_not_expand_window_budget_to_reach_omitted_text(self):
+        body = ("line\n" * 100 + "implementation()\n").encode()
+        opener = Mock()
+        opener.open.return_value = Response(body)
+        session = AcquisitionSession(opener=opener)
+        data = view({"url": URL, "start_line": 1, "end_line": 101, "clipped": True})
+        result = observe_choice(data, first_clipped_or_continuation(data), session)
+        self.assertEqual(result["status"], "ACQUIRED")
+        self.assertEqual(result["window"]["end_line"], 80)
+        self.assertNotIn("implementation()", result["window"]["text"])
+        self.assertEqual(session.costs()["logical_gets"], 1)
+
     def test_empty_and_issue_only_catalogs_do_not_assert_or_fetch(self):
         for data in (view(), view({"url": "https://github.com/example/project/issues/1"})):
             session = Mock()
