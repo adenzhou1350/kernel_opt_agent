@@ -706,6 +706,14 @@ may select a secondary source; ambiguous basenames abstain. Python AST loads and
 attributes exclude definitions and literal/comment text, without executing code.
 Literal second arguments to syntactic `getattr`/`hasattr` calls also supply
 hints; these function names may be shadowed. Computed keys are not inferred.
+If no unseen Python uses remain, an unqualified name can instead select its
+unique top-level import statement from that same cached file. Aliases use their
+local name; qualified receivers, wildcard imports, competing imports,
+conditional/nested imports and statements longer than 80 lines are not followed.
+Already supplied statements are not repeated. The entire import fits one of
+the same two 80-line windows: no dependency fetch, import execution, model call
+or extra acquisition tier is added. This exposes where the name came from,
+not its imported value or its effective binding after rebinding/shadowing.
 JS/TS lexical masking omits comments, strings and simple template interpolations.
 Unsupported slash/template syntax stops the scan: only earlier complete lines
 can supply references, with windows clamped to the scanned prefix. Returned
@@ -723,6 +731,7 @@ actual variable when the supplied source exposes it. Do not infer unused/safe
 code from abstention, nor a race from equal offsets alone.
 
 Offline regression: `python -B -m unittest tests.test_scout_symbol_references`.
+Import fallback: `python -B -m unittest discover -s tests -p test_scout_import_reference_fallback.py`.
 The development CUDA example motivates the helper; it does not measure PR yield,
 false-positive rate, generalization or paid-token savings.
 
