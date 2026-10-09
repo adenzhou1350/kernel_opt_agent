@@ -14,6 +14,15 @@ does not prove relevance. Optional advice is omitted before source windows are
 trimmed when the prompt is full. Historical packets are not rewritten, and this
 change alone does not establish higher finding accuracy or PR conversion.
 
+Python discovery windows also carry up to four lexical function names/ranges
+from the same pinned source cache, when its AST and excerpt identity agree.
+This adds no network read or function bodies, and keeps the original window
+range explicit if packet fitting later trims it. Names describe lexical
+ownership, not runtime dispatch, complete evidence, or a bug verdict. Unsupported
+syntax, clipped lines and missing/mismatched cache entries retain ordinary
+discovery. No accuracy or PR-conversion improvement is claimed without a
+prospective comparison.
+
 ## Safety and cost boundary
 
 - Reuses the existing Kimi Code **1.30.0** default model and API-key configuration.

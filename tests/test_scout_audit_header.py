@@ -141,6 +141,10 @@ class AuditHeaderTests(unittest.TestCase):
                     self.assertEqual(row["state"], "PENDING")
                     self.assertIsNone(row["result"])
                     self.assertEqual(packet["sources"][0]["end_line"], min(160, total))
+                    owners = packet["sources"][0]["python_definition_context"]
+                    self.assertEqual(owners["definitions"], [
+                        {"qualified_name": "f", "start_line": 121, "end_line": 122}
+                    ])
                     self.assertTrue(producer.seen(f"source:{REPO}:{PATH}:{'b' * 40}:1"))
                     # Complete file has no missing next-window evidence. A long
                     # file still gets its ordinary next window, not suppressed.
