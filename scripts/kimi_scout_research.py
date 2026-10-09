@@ -283,6 +283,11 @@ def configuration(path):
             raise ValueError("research needs safe explicit source prefixes")
         if not isinstance(spec.get("question"), str):
             raise ValueError("research repository needs a question")
+        if "source_windows" in spec and (
+            type(spec["source_windows"]) is not int
+            or not 1 <= spec["source_windows"] <= 32
+        ):
+            raise ValueError("repository source_windows must be 1..32")
         if type(spec.get("followup_import_context", False)) is not bool:
             raise ValueError("followup_import_context must be a boolean")
         if type(spec.get("followup_code_search", False)) is not bool:
@@ -644,6 +649,7 @@ class ResearchProducer:
         goals = [
             {
                 "repo": spec["repo"],
+                "source_windows": spec.get("source_windows", self.config["source_windows"]),
                 **{
                     k: self.state["repos"].get(spec["repo"], {}).get(k, 0)
                     for k in ("scanned_sources", "available_sources", "issue_page")
@@ -913,7 +919,7 @@ class ResearchProducer:
             # duplicate model work when the effective paths have not changed.
             progress["source_prefixes"] = prefixes
             progress.pop("sources_after", None)
-        windows = self.config["source_windows"]
+        windows = spec.get("source_windows", self.config["source_windows"])
         previous_windows = progress.get("source_windows", 3)
         if previous_windows != windows:
             cursor = progress.get("source_cursor", 0)

@@ -923,6 +923,73 @@ class ResearchTests(unittest.TestCase):
         self.config.write_text(json.dumps(self.value))
         self.assertEqual(research.configuration(self.config)["source_windows"], 8)
 
+    def test_repository_source_window_override_bounds(self):
+        for value in (0, 33, True, 1.5, "32", None):
+            with self.subTest(value=value):
+                self.value["repos"][0]["source_windows"] = value
+                self.config.write_text(json.dumps(self.value))
+                with self.assertRaisesRegex(ValueError, "repository source_windows"):
+                    research.configuration(self.config)
+        self.value["repos"][0]["source_windows"] = 32
+        self.config.write_text(json.dumps(self.value))
+        configured = research.configuration(self.config)
+        self.assertEqual(configured["repos"][0]["source_windows"], 32)
+        self.assertEqual(configured["source_windows"], 3)
+
+    def test_repository_expansion_reopens_tail_without_repeating_seen_windows(self):
+        self.value["source_windows"] = 12
+        self.value["queue_target"] = 64
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        spec = producer.config["repos"][0]
+        progress = producer.state["repos"].setdefault("a/b", {})
+
+        def source(repo, commit, path, hints="", start=None, max_lines=120):
+            start = start or 1
+            return {
+                "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                "text": f"{start}: boundary",
+                "total_lines": 3266,
+            }
+
+        with patch.object(self.context, "source", side_effect=source):
+            for _ in range(12):
+                self.assertTrue(producer.source_audit(spec, progress))
+            self.assertFalse(producer.source_audit(spec, progress))
+            producer.save()
+            self.value["repos"][0]["source_windows"] = 32
+            self.config.write_text(json.dumps(self.value))
+            resumed = research.ResearchProducer(self.root, self.config, context=self.context)
+            resumed_spec = resumed.config["repos"][0]
+            resumed_progress = resumed.state["repos"]["a/b"]
+            self.assertTrue(resumed.source_audit(resumed_spec, resumed_progress))
+            self.assertEqual(resumed_progress["source_windows"], 32)
+            self.assertEqual(resumed_progress["source_cursor"], 13)
+            self.assertEqual(len(self.jobs()), 13)
+            self.assertEqual(
+                json.loads(self.jobs()[-1]["packet"])["sources"][0]["text"],
+                "1441: boundary",
+            )
+            resumed.save()
+            restarted = research.ResearchProducer(self.root, self.config, context=self.context)
+            self.assertTrue(restarted.source_audit(
+                restarted.config["repos"][0], restarted.state["repos"]["a/b"]
+            ))
+            self.assertEqual(len(self.jobs()), 14)
+            self.assertEqual(
+                json.loads(self.jobs()[-1]["packet"])["sources"][0]["text"],
+                "1561: boundary",
+            )
+        other_spec = dict(self.spec, repo="other/repo")
+        other_spec.pop("source_windows", None)
+        other_progress = {}
+        self.assertTrue(restarted.source_audit(other_spec, other_progress))
+        self.assertEqual(other_progress["source_windows"], 12)
+        restarted._publish("IDLE", None, None)
+        published = json.loads((self.root / "research.json").read_text())
+        self.assertEqual(published["source_windows"], 12)
+        self.assertEqual(published["goals"][0]["source_windows"], 32)
+
     def test_refill_batch_default_and_bounds(self):
         self.assertEqual(research.configuration(self.config)["refill_batch"], 4)
         for value in (0, 17, True, 1.5, "8"):
