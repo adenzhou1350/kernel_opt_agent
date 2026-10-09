@@ -31,11 +31,16 @@ cross-wiring, broken/oversized replies, blocked stdin, hard deadlines, no replay
 server frame checks, no conversation history and real controller persistence.
 
 ```powershell
-$env:PYTHONPATH = (Resolve-Path scripts).Path
 python -B -m unittest discover -s tests -p test_kimi_scout_resident.py
 python -B -m unittest discover -s tests -p test_kimi_scout_backend.py
 python -B -m unittest discover -s tests -p test_kimi_scout.py
+python -B -m unittest discover -s tests -p test_kimi_scout_cooldown.py
 ```
+
+These test entry points resolve this checkout's scripts themselves; no external
+workspace or `PYTHONPATH` is needed. The controller CLI also resolves its sibling
+modules when run normally (`python scripts/kimi_scout.py --help`). Python's `-I`
+flag is for the self-contained backend, not the controller script's CLI.
 
 Use an already configured Kimi installation for a separately budgeted live trial.
 Offline fake-provider tests are not API throughput, long-run memory or scientific

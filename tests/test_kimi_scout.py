@@ -16,6 +16,7 @@ from concurrent.futures import ALL_COMPLETED, ThreadPoolExecutor
 from unittest.mock import patch
 
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "kimi_scout.py"
+sys.path.insert(0, str(SCRIPT.parent))
 SPEC = importlib.util.spec_from_file_location("kimi_scout", SCRIPT)
 scout = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(scout)
@@ -61,6 +62,16 @@ class ScoutTests(unittest.TestCase):
 
     def add(self, name="one"):
         return scout.enqueue(self.root, packet(name))
+
+    def test_cli_help_without_workspace_pythonpath(self):
+        env = dict(os.environ)
+        env.pop("PYTHONPATH", None)
+        completed = subprocess.run(
+            [sys.executable, "-B", str(SCRIPT), "--help"],
+            cwd=self.root, env=env, capture_output=True, text=True, timeout=10,
+        )
+        self.assertEqual(completed.returncode, 0, completed.stderr)
+        self.assertIn("--root", completed.stdout)
 
     def test_runtime_storage_is_scoped_to_run_root(self):
         source = {
