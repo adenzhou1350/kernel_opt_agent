@@ -1,0 +1,18 @@
+{
+  "id": "timed-out-receivers-retain-fd-ownership",
+  "title": "A timed-out receiver can still acquire a file descriptor after cleanup",
+  "applies_when": "A caller joins a background fd receiver with a timeout, then raises or cleans a shared descriptor collection while the receiver can still return from recvmsg. Also inspect sender exceptions and partial receive failures before ownership is returned to the caller.",
+  "lesson": "A join timeout is not worker cancellation. Trace the ownership handoff, including resources received after the failed call returns. In SGLang exchange_posix_fds, serialize descriptor insertion and failure cleanup with the same lock; record failed ownership before closing accumulated descriptors, and close a late incoming descriptor instead of publishing it. Transfer ownership only on success. Test with real UNIX sockets and SCM_RIGHTS: pause the second receive, let the caller time out, then release the peer and receiver. Assert both accumulated and late descriptors are invalid, outgoing caller-owned descriptors remain valid, and success still returns live descriptors. A fake completed thread or a snapshot-only fd count cannot establish that late arrivals are cleaned.",
+  "avoid_when": "Do not close caller-owned successful results or resources whose ownership was never transferred. This does not prove that a daemon receiver has stopped, interrupt accept/recvmsg, repair malformed ancillary-message parsing, or qualify CUDA mappings, multi-process collectives, model correctness or inference speed. Different socket backends and worker lifetime policies need their own tests. The linked PR is contributor-tested, not evidence of maintainer acceptance or improved Scout discovery accuracy.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/d6c3a6e08b7004812a44e36ec5445258cfe8aedf/python/sglang/srt/utils/cuda_vmm_utils.py",
+      "note": "Pinned repair serializes late fd insertion with unsuccessful-exit cleanup and preserves successful caller ownership. This changes descriptor lifetime, not the existing socket timeout or daemon-thread policy."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/d6c3a6e08b7004812a44e36ec5445258cfe8aedf/test/registered/unit/utils/test_cuda_vmm_fd_exchange.py",
+      "note": "Six contributor-run Linux CPU cases use real SCM_RIGHTS and fstat with injected rendezvous/failure/late-receive barriers: four unchanged-main regression cases fail, six patched cases pass. A separate 20-repeat late-receive stress preserves process fd count. No GPU, multi-process Gloo or full official dependency qualification is claimed."
+    }
+  ],
+  "status": "validated"
+}
