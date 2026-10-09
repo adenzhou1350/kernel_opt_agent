@@ -153,7 +153,12 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   configured workers independently consume them. It rotates repositories,
   issue triage, source windows and follow-ups. State survives daemon restarts.
 - Discovery includes up to ten pages of open issues per sweep and up to three
-  120-line windows per eligible file in configured source prefixes, with related
+  120-line windows per eligible file by default (global `source_windows`: 1..12).
+  An explicit repository `source_windows` override (1..32) can cover longer
+  files in a qualified scope without widening every repository. Increasing it
+  wakes completed sweeps and retains blob/line deduplication across restarts;
+  per-repository telemetry reports the effective count. This is a bounded
+  selection budget, not a guarantee that every line was read. Windows include related
   tests where identifiable. **This is partial sampling, not complete code review.**
   Repository snapshots, exact source blobs and public evidence are cached locally.
   On a new repository revision, changed Git blobs are sampled first; unchanged
