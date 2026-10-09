@@ -11,6 +11,19 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions  # noqa: E40
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_backend_state_advice_keeps_reference_and_native_scopes_distinct(self):
+        result = lesson_suggestions(
+            "backend conv_state cache update missing tuple return assignment mutation"
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "backend-state-mutation-contract")
+        self.assertIn("dependency version", card["lesson"])
+        self.assertIn("state alias", card["lesson"])
+        self.assertIn("do not prove native CUDA", card["avoid_when"])
+        self.assertIn("Reopen", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_mode_advice_preserves_the_warmup_transition_and_limits(self):
         result = lesson_suggestions(
             "training no-grad inference-mode warmup checkpoint policy memory budget"

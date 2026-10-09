@@ -1,0 +1,22 @@
+{
+  "id": "backend-state-mutation-contract",
+  "title": "Check backend state mutation before adding a missing return assignment",
+  "applies_when": "A recurrent or decoding cache update returns output only on one backend but output and state on another, suggesting a stale conv_state or a missing tuple assignment.",
+  "lesson": "Resolve the actual imported backend and dependency version, then inspect its mutation contract and the caller's state alias. An output-only helper can update caller-owned state in place; a tuple-returning alternative need not have the same interface. Check wrapper and native mutation declarations, not just variable names. Use state values and storage identity before and after successive updates, with an independent output/state oracle, to distinguish a real lost update from an interface difference. Inspect intervening clone, cast or contiguous operations that could replace storage before copying this conclusion to another caller.",
+  "avoid_when": "A functional backend may deliberately return new state, and an in-place contract can still be broken by a particular kernel, version, layout or cache mode. A CPU reference's copy_ or scatter_ and a custom_op mutation annotation do not prove native CUDA execution or full-model cache correctness. The cited sources do not validate every supported dependency version, circular-buffer mode or accelerator. Reopen with a concrete supported mutation failure or numerical cache discrepancy, rather than treating this lesson as a blanket no-bug verdict.",
+  "evidence": [
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/1b79e8382965f71a6660c48d2f4d28a2e1a5cee4/fla/layers/log_linear_mamba2.py#L502-L519",
+      "note": "The Triton update assigns output and conv_state, while the CUDA update assigns output only and passes conv_state as an argument. This caller difference motivates checking the helpers; it does not alone establish a lost update."
+    },
+    {
+      "url": "https://github.com/Dao-AILab/causal-conv1d/blob/f8c246707eff3431b5cf2ce6defa4b7f309ea9fb/causal_conv1d/causal_conv1d_interface.py#L175-L239",
+      "note": "At v1.4.0, causal_conv1d_update returns output only. Its CPU reference updates the supplied conv_state with copy_ or scatter_ before returning output. This is a version-bound interface/reference contract, not an executed CUDA result."
+    },
+    {
+      "url": "https://github.com/Dao-AILab/causal-conv1d/blob/cd81f0413cad2fc1e6f17e785ac39f59aae690cd/causal_conv1d/cpp_functions.py#L71-L90",
+      "note": "This later native wrapper explicitly declares conv_state in custom_op mutates_args and passes that tensor to the native update. The declaration supports the intended alias contract but cannot establish that every runtime obeys it."
+    }
+  ],
+  "status": "validated"
+}
