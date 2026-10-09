@@ -34,7 +34,10 @@ class ContextTests(unittest.TestCase):
             "truncated": False,
         }
         self.raw = "\n".join(f"value_{i} = {i}" for i in range(1, 301))
-        self.routes = {}
+        self.routes = {
+            API + f"/issues/{number}/timeline?per_page=50&page=1": []
+            for number in (12, 13)
+        }
         self.fetch = patch.object(context.scout, "fetch", side_effect=self.fake_fetch)
         self.fetch.start()
         self.addCleanup(self.fetch.stop)
