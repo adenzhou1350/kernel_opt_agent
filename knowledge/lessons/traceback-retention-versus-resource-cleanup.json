@@ -1,0 +1,22 @@
+{
+  "id": "traceback-retention-versus-resource-cleanup",
+  "title": "Exception tracebacks can retain failed-initialization sockets until collection",
+  "applies_when": "A Python resource constructor creates a real descriptor, then setup or connection fails before ownership transfers to a stream or pool; a leak hypothesis relies only on a missing close or a fake object's close counter.",
+  "lesson": "Exercise the real native resource and public caller. Separate discarded errors, retained exception tracebacks, explicit GC and releasing those exceptions. Tracebacks keep frame locals alive: a socket retained there can remain open even after its surrounding pool exits, yet become collectable later. This supports prompt-failure-cleanup, not an uncollectable-leak claim. Pair failure-path explicit close plus unchanged exception mapping with successful ownership transfer. Inspect actual fileno or process FD counts, including a healthy control, and test the same regression against unchanged source and the proposed repair. Do not close a resource after it has been transferred to its successful caller.",
+  "avoid_when": "Do not generalize CPython/Linux descriptor timing to every interpreter, platform or transport. A deliberate retained-error stress case is not evidence of typical production retention, descriptor exhaustion, throughput or permanent leakage. Runtime generation claims also need evidence: HTTPcore's _backends/sync.py is hand-maintained; unasync's _async to _sync target does not include it. Native validation and a published Discussion do not establish maintainer acceptance or complete CI.",
+  "evidence": [
+    {
+      "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/httpcore/_backends/sync.py#L187-L245",
+      "note": "Pinned backend creates a socket before option/connect steps and transfers it to SyncStream only on success; post-creation failure lacks explicit close. Source mechanism, not a measured production frequency."
+    },
+    {
+      "url": "https://github.com/encode/httpcore/discussions/1125",
+      "note": "Public Linux/Python3.12 reproduction retains 32 descriptors with 32 public-pool errors, then returns to baseline after errors are released and collected. Local native repair comparison reports four failures/two successes versus six successes, with real Unix/TCP success controls. Discussion is a proposal, not an accepted patch."
+    },
+    {
+      "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/scripts/unasync.py",
+      "note": "The generator's actual source/target directories distinguish generated _sync modules from the independent _backends/sync.py file."
+    }
+  ],
+  "status": "validated"
+}
