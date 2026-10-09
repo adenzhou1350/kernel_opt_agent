@@ -925,6 +925,8 @@ def run(args):
                             key=lambda r: r["finished"],
                         )
                         for receipt in receipts:
+                            if producer:
+                                producer.notify_completion(receipt)
                             if (
                                 receipt["state"] == "FAILED"
                                 and receipt.get("failure_scope") != "answer"

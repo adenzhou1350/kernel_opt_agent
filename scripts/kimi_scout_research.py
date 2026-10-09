@@ -574,6 +574,7 @@ class ResearchProducer:
         self.thread = None
         self.lock = threading.RLock()
         self.inflight_repos = set()
+        self.completed_repos = set()
         with scout.connect(root) as db:
             shadow.initialize(db)
             db.execute(
@@ -1531,8 +1532,43 @@ class ResearchProducer:
                 self.inflight_repos.discard(repo)
                 self.save()
 
+    def notify_completion(self, receipt):
+        """Wake eligible followups from a persisted result, not model suggestions."""
+        if receipt.get("state") not in {"REVIEW", "NEEDS_CONTEXT"}:
+            return False
+        with scout.connect(self.root) as db:
+            row = db.execute(
+                "SELECT state,packet FROM jobs WHERE id=?", (receipt["job_id"],)
+            ).fetchone()
+        if row is None or row["state"] != receipt["state"]:
+            return False
+        packet = json.loads(row["packet"])
+        repo = packet.get("repo")
+        depth = packet.get("research", {}).get("depth", 0)
+        if repo not in {s["repo"] for s in self.config["repos"]} or not (
+            type(depth) is int and 0 <= depth < 2
+        ):
+            return False
+        with self.lock:
+            self.completed_repos.add(repo)
+            self.refill_wake.set()
+        return True
+
+    def wake_completed_refills(self, ready_at, empty_refills, active, failed):
+        """Coordinator-only: clear empty backoff, never a live request/error backoff."""
+        with self.lock:
+            for repo in list(self.completed_repos):
+                if repo in active or (
+                    repo in failed and ready_at.get(repo, 0) > time.monotonic()
+                ):
+                    continue
+                ready_at.pop(repo, None)
+                empty_refills.pop(repo, None)
+                self.completed_repos.remove(repo)
+
     def parallel_loop(self):
         active, ready_at, empty_refills = {}, {}, {}
+        failed = set()
         pool = ThreadPoolExecutor(
             max_workers=self.config["context_workers"],
             thread_name_prefix="public-research-context",
@@ -1546,6 +1582,10 @@ class ResearchProducer:
                         continue
                     made, failure = self.finish_refill(repo, future, progress)
                     del active[repo]
+                    if failure:
+                        failed.add(repo)
+                    else:
+                        failed.discard(repo)
                     cursor_advanced = progress.get("source_cursor", 0) != initial_cursor
                     if made:
                         empty_refills.pop(repo, None)
@@ -1560,6 +1600,7 @@ class ResearchProducer:
                         cursor_advanced=cursor_advanced,
                     )
                     error = f"{repo}:{failure}" if failure else error
+                self.wake_completed_refills(ready_at, empty_refills, active, failed)
                 while (
                     not self.stopped()
                     and not self.disk_paused()

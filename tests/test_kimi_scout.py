@@ -320,6 +320,19 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(current["runtime"]["cooldown_until"])
         self.assertTrue(all(job["state"] == "NO_LEAD" for job in current["jobs"]))
 
+    def test_run_notifies_research_after_persisted_worker_completion(self):
+        self.add()
+        with (
+            patch.object(scout, "execute", side_effect=self.fake_execute),
+            patch("kimi_scout_research.ResearchProducer") as producer_class,
+        ):
+            scout.run(self.run_args(research="unused-test-config"))
+        producer_class.return_value.notify_completion.assert_called_once()
+        receipt = producer_class.return_value.notify_completion.call_args.args[0]
+        self.assertEqual(receipt["state"], "NO_LEAD")
+        with scout.connect(self.root) as db:
+            self.assertEqual(db.execute("SELECT state FROM jobs").fetchone()[0], "NO_LEAD")
+
     def test_eight_and_sixteen_workers_can_really_run_simultaneously(self):
         for count in (8, 16):
             with self.subTest(concurrency=count):
