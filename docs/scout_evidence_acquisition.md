@@ -27,6 +27,21 @@ the original latency is not a measured counterfactual uncached latency.
 `costs()` includes failed/invalid targets and explicitly leaves model/owner
 cost, pricing, wire bytes, and counterfactual latency unmeasured.
 
+`AcquisitionSession.acquire_window(url, start_line=...)` composes that reader
+with the existing bounded line selector. Its result separates `acquisition`
+metadata (`FETCHED` on transport success) from `window` (`ACQUIRED` only when
+the selected text is available). The full fetched body is not returned to the
+consumer. Invalid selectors fail before a GET; HTTP failures and beyond-EOF
+windows remain distinct, with original physical/cache costs preserved.
+
+A task-local trial adapter confused those two success labels and consequently
+gave reviewers no added text despite a successful GET. That comparison is an
+implementation failure, not evidence against source selection or a model.
+The composed-interface tests check that fetched text actually reaches the
+window consumer; they do not establish that a model uses it correctly or that
+PR yield improves. Keep affected trial answers immutable and use fresh inputs
+for a new quality experiment, not repaired answers as prospective results.
+
 Use this in a newly declared protocol. Historical pilot records remain immutable:
 re-fetching their missing target does not recover the historical failure cost or
 turn development examples into a prospective cohort. Source acquisition alone
