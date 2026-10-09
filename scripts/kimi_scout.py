@@ -618,7 +618,7 @@ def validate_result(result, packet):
     return result
 
 
-def execute(root, job, python, timeout, output_tokens):
+def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     # Backend cwd is the individual work directory, not the controller cwd.
     root = Path(root).resolve()
     request = {
@@ -637,7 +637,7 @@ def execute(root, job, python, timeout, output_tokens):
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
-        proc = subprocess.run(
+        proc = backend_pool.run(request, live_path, timeout) if backend_pool else subprocess.run(
             [
                 str(python),
                 "-I",
@@ -836,6 +836,7 @@ def run(args):
         runtime_path = root / "runtime.json"
         research_path = getattr(args, "research", None)
         producer = None
+        backend_pool = None
         if research_path:
             from kimi_scout_research import ResearchProducer
 
@@ -857,6 +858,7 @@ def run(args):
             "cooldown_until": None,
             "next_feed_at": time.time() if args.feeds else None,
             "research_mode": bool(research_path),
+            "backend_mode": "resident" if getattr(args, "resident_backend", False) else "per_request",
             "queue_policy": "review_weighted"
             if getattr(args, "review_priority", False)
             else "fifo",
@@ -869,6 +871,8 @@ def run(args):
                 runtime.update(
                     heartbeat_at=time.time(), attempted_this_run=attempts, **updates
                 )
+                if backend_pool:
+                    runtime["backend_process_starts"] = backend_pool.process_starts
                 write_json(runtime_path, runtime)
 
         def heartbeat():
@@ -885,6 +889,12 @@ def run(args):
         heartbeat_thread.start()
         reason = "stop, deadline, or --once queue drained"
         try:
+            if getattr(args, "resident_backend", False):
+                from kimi_scout_resident import BackendPool
+
+                backend_pool = BackendPool(
+                    args.kimi_python, root, runtime_storage_env(root), args.concurrency
+                )
             if producer:
                 producer.start()
             with ThreadPoolExecutor(max_workers=args.concurrency) as pool:
@@ -975,6 +985,7 @@ def run(args):
                                 args.kimi_python,
                                 min(args.timeout, remaining),
                                 args.output_tokens,
+                                *([backend_pool] if backend_pool else []),
                             )
                         )
                         attempts += 1
@@ -1006,6 +1017,8 @@ def run(args):
             reason = "infrastructure failure; inspect local error log"
             raise
         finally:
+            if backend_pool:
+                backend_pool.close()
             if producer:
                 producer.stop()
             heartbeat_stop.set()
@@ -1016,6 +1029,8 @@ def run(args):
                 cooldown_until=None,
                 next_feed_at=None,
                 reason=reason,
+                backend_mode="resident" if backend_pool else "per_request",
+                backend_process_starts=backend_pool.process_starts if backend_pool else None,
             )
     # Continuous daemons should not scan and print the entire historical inbox
     # on shutdown; that can delay a supervised restart by minutes.
@@ -1067,6 +1082,10 @@ def main(argv=None):
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
     )
     worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
+    worker.add_argument(
+        "--resident-backend", action="store_true",
+        help="reuse bounded tool-free backend processes (32 requests each); no automatic request replay",
+    )
     worker.add_argument(
         "--min-free-memory-mb",
         type=int,
