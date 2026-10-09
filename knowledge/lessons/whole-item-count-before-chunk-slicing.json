@@ -1,0 +1,22 @@
+{
+  "id": "whole-item-count-before-chunk-slicing",
+  "title": "Preserve full item token counts before embedding cache and chunk slicing",
+  "applies_when": "A multimodal scheduler's overlap helper returns a token count larger than the requested chunk, especially for one item with multiple disjoint runs, and a candidate proposes replacing it with the intersection length.",
+  "lesson": "First identify what the count sizes. An overlap helper may select items while returning each selected item's full encoded length. SGLang _item_overlap uses this contract for both single-run and multi-run items: full counts split concatenated whole-item encoder output and validate full cache entries; _slice_item_chunk clips only after that. A partial chunk of a five-token item still needs a split size of five, not one. Trace encoder output, split sizes, cache identity and the final slice together before changing a suspicious sum. Preserve the original full-item extent across repeated chunks unless the actual encoder is incremental.",
+  "avoid_when": "A true chunk-local encoder or a cache storing only partial embeddings needs a different count. Full counts do not establish that offsets, embedding order, collision handling or every encoder are correct. The cited source refutes the intersection-count premise; it does not qualify package imports, audio/image encoders, server execution, GPU numerics or performance. Reopen for a supported producer/consumer mismatch with actual output rather than fabricate an expected intersection split.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/87845cda2bc1d8c1d4b10c608813e26f421d1bde/python/sglang/srt/managers/mm_schedule.py#L266-L285",
+      "note": "_item_overlap returns the complete selected item's count; the separate _slice_item_chunk performs chunk clipping. This is a pinned source contract, not a full native integration result."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/87845cda2bc1d8c1d4b10c608813e26f421d1bde/python/sglang/srt/managers/mm_schedule.py#L369-L457",
+      "note": "The batching consumer uses full counts for cache validation and splitting whole encoder output, including the concatenated tensor path."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/87845cda2bc1d8c1d4b10c608813e26f421d1bde/python/sglang/srt/managers/mm_schedule.py#L460-L538",
+      "note": "The per-item consumer caches complete embeddings and slices the requested chunk afterward. No end-to-end correctness or speed claim follows from this source observation."
+    }
+  ],
+  "status": "counterexample"
+}
