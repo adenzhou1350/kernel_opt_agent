@@ -188,6 +188,14 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
 - Source-window content and issue evidence are deduplicated. Timestamp-only issue
   updates and unchanged snippets under a new commit do not buy a repeated call.
   No-lead, failed and interrupted calls are not automatically retried.
+- Follow-up related-work lookup prefers a single title-mentioned Python
+  declaration visible in same-repository, commit-pinned numbered source. Missing
+  or ambiguous evidence retains the original query. Qualified title spellings
+  such as `OneToOne.update` keep their owner rather than searching only `update`.
+  The qualifier is a relevance hint, not source-verified class ownership or a
+  duplication verdict. This replaces the query without adding requests; matching
+  issues/PRs still need source comparison. Prospective recall and PR conversion
+  gains are not established by these regression tests.
 - After a sweep, the producer waits for new public evidence rather than
   manufacturing more prompts. API failures back off separately; provider and
   bad-answer circuit breakers and account limits still apply. Four concurrent

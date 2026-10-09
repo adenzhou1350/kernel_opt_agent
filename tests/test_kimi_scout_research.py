@@ -154,6 +154,31 @@ class ResearchTests(unittest.TestCase):
                 ),
             )
 
+    def assert_followup_query(self, name, title, expected):
+        source = {
+            "url": f"https://raw.githubusercontent.com/a/b/{'a' * 40}/src/kernel.py",
+            "text": f"10: def {name}(\n11:     x,\n12: ):\n13:     return x",
+            "requested_definition": {"name": name, "start_line": 10},
+        }
+        self.producer.emit("definition-anchor", self.spec, [source], "source_audit")
+        root = self.jobs()[0]
+        self.finish(root)
+        with scout.connect(self.root) as db:
+            result = json.loads(db.execute("SELECT result FROM jobs WHERE id=?", (root["id"],)).fetchone()[0])
+            result["analysis"]["title"] = title
+            db.execute("UPDATE jobs SET result=? WHERE id=?", (json.dumps(result), root["id"]))
+        with patch.object(self.context, "source", return_value=source), patch.object(
+            self.context, "duplicate_sources", wraps=self.context.duplicate_sources
+        ) as lookup:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        lookup.assert_called_once_with("a/b", expected)
+
+    def test_followup_related_work_uses_visible_title_mentioned_definition(self):
+        self.assert_followup_query("unpermute", "MoE unpermute 确定性分配", "unpermute")
+
+    def test_followup_related_work_keeps_qualified_method_hint(self):
+        self.assert_followup_query("update", "OneToOne.update 一次性输入", "OneToOne.update")
+
     def test_short_file_skips_past_eof_and_dedups_restart(self):
         progress = self.producer.state["repos"].setdefault("a/b", {})
         self.assertTrue(self.producer.source_audit(self.spec, progress))
