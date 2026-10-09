@@ -1,6 +1,65 @@
 """Bounded source-discovery context additions, never an omission or verdict."""
 
 import ast
+import urllib.parse
+
+
+def contextual_audit_owners(context, repo, commit, path, source):
+    """Label Python window ownership from pinned cached bytes, without fetching.
+
+    A window can begin inside one function and end inside another. Names and
+    full-file AST ranges help distinguish them without copying their bodies or
+    claiming that a lexical definition proves runtime dispatch or reachability.
+    The range is explicitly the original window if packet fitting trims later.
+    """
+    start, end, total = (source.get(key) for key in
+                         ("start_line", "end_line", "total_lines"))
+    if not (path.endswith(".py")
+            and all(type(value) is int for value in (start, end, total))
+            and 1 <= start <= end <= total):
+        return source
+    url = (f"https://raw.githubusercontent.com/{repo}/{commit}/"
+           + urllib.parse.quote(path, safe="/"))
+    key, load = getattr(context, "_cache_path", None), getattr(context, "_load", None)
+    if source.get("url") != url or not callable(key) or not callable(load):
+        return source
+    cached = load(key("raw", [repo, commit, path]))
+    raw = cached.get("text") if isinstance(cached, dict) and cached.get("url") == url else None
+    if not isinstance(raw, str) or len(raw.encode("utf-8")) > 1_000_000:
+        return source
+    lines = raw.splitlines()
+    if len(lines) != total or source.get("text") != "\n".join(
+        f"{i + 1}: {lines[i]}" for i in range(start - 1, end)
+    ):
+        return source
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError, RecursionError):
+        return source
+    definitions, omitted = [], False
+    stack = [(tree, "")]
+    while stack:
+        node, prefix = stack.pop()
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            name = prefix + node.name
+            first, last = node.lineno, node.end_lineno
+            if last < start or first > end:
+                continue
+            if not isinstance(node, ast.ClassDef):
+                if len(definitions) < 4 and len(name.encode("utf-8")) <= 128:
+                    definitions.append({"qualified_name": name,
+                                        "start_line": first, "end_line": last})
+                else:
+                    omitted = True
+            prefix = name + "."
+        stack.extend((child, prefix) for child in reversed(list(ast.iter_child_nodes(node))))
+    if not definitions:
+        return source
+    return {**source, "python_definition_context": {
+        "window_start_line": start, "window_end_line": end,
+        "definitions": definitions, "omitted": omitted,
+        "scope": "Lexical ownership of the original window, not runtime dispatch or complete bodies.",
+    }}
 
 
 def contextual_audit_header(context, repo, commit, path, source):

@@ -19,7 +19,7 @@ from pathlib import Path
 import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
-from scout_audit_context import contextual_audit_header
+from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
@@ -1048,6 +1048,9 @@ class ResearchProducer:
                 progress["source_cursor"] = (cursor // windows + 1) * windows
                 continue
             source = contextual_audit_header(
+                self.context, spec["repo"], snapshot["commit"], path, source
+            )
+            source = contextual_audit_owners(
                 self.context, spec["repo"], snapshot["commit"], path, source
             )
             sources = [source]
