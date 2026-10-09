@@ -48,6 +48,10 @@ class CooldownTests(unittest.TestCase):
     def test_subthreshold_failures_are_retained_only_outside_cooldown(self):
         self.assertEqual(update_error_cooldown(1, 7, 0, 0, 100, 900), (1, 7, 0, 0))
 
+    def test_failed_recovery_probe_reopens_circuit_immediately(self):
+        self.assertEqual(update_error_cooldown(1, 0, 1, 0, 100, 60), (0, 0, 2, 220))
+        self.assertEqual(update_error_cooldown(0, 1, 2, 0, 300, 60), (0, 0, 3, 540))
+
 
 if __name__ == "__main__":
     unittest.main()
