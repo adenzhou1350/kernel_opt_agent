@@ -817,6 +817,17 @@ def single_runner(root):
                 fcntl.flock(stream, fcntl.LOCK_UN)
 
 
+def update_error_cooldown(failures, answer_failures, cycles, until, now, base_seconds):
+    """Drain in-flight failures without repeatedly extending an open circuit."""
+    if now < until:
+        return 0, 0, cycles, until
+    if failures >= 2 or answer_failures >= 8:
+        cycles += 1
+        until = now + min(base_seconds * 2 ** min(cycles - 1, 4), 3600)
+        return 0, 0, cycles, until
+    return failures, answer_failures, cycles, 0.0
+
+
 def run(args):
     root = Path(args.root).resolve()
     with single_runner(root):
@@ -920,15 +931,16 @@ def run(args):
                                 answer_failures += 1
                             else:
                                 failures, answer_failures, error_cycles = 0, 0, 0
-                    if failures >= 2 or answer_failures >= 8:
-                        error_cycles += 1
-                        cooldown_until = time.time() + min(
-                            args.error_cooldown_seconds * 2 ** min(error_cycles - 1, 4),
-                            3600,
+                    failures, answer_failures, error_cycles, cooldown_until = (
+                        update_error_cooldown(
+                            failures,
+                            answer_failures,
+                            error_cycles,
+                            cooldown_until,
+                            time.time(),
+                            args.error_cooldown_seconds,
                         )
-                        failures, answer_failures = 0, 0
-                    if time.time() >= cooldown_until:
-                        cooldown_until = 0.0
+                    )
                     state = "COOLDOWN" if cooldown_until else "RUNNING"
                     if state != runtime["state"] or runtime["cooldown_until"] != (
                         cooldown_until or None
