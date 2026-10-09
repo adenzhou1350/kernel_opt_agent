@@ -263,7 +263,7 @@ class BackendTests(unittest.TestCase):
             path = Path(directory) / "visible.live.json"
             progress = backend.ProgressFile(path)
             with patch.object(
-                backend.time, "monotonic", side_effect=[0, 0.1, 0.26, 0.27]
+                backend.time, "monotonic", side_effect=[0, 0.1, 2.0, 2.01]
             ):
                 progress("first", "streaming")
                 progress("second", "streaming")
@@ -310,6 +310,22 @@ class BackendTests(unittest.TestCase):
             self.assertEqual(snapshot["text"], "")
             self.assertNotIn("SECRET_KEY", path.read_text() + output.getvalue())
             self.assertEqual(json.loads(output.getvalue())["error"], "backend_failure")
+
+    def test_stream_progress_limits_atomic_file_churn_without_losing_terminal_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "visible.live.json"
+            progress = backend.ProgressFile(path)
+            with (
+                patch.object(backend.time, "monotonic", side_effect=[i / 10 for i in range(101)]),
+                patch.object(backend.os, "replace", wraps=backend.os.replace) as replace,
+            ):
+                for i in range(100):
+                    progress(str(i), "streaming")
+                self.assertEqual(replace.call_count, 5)
+                progress("all final output", "completed")
+                self.assertEqual(replace.call_count, 6)
+            self.assertEqual(json.loads(path.read_text())["text"], "all final output")
+            self.assertEqual(list(Path(directory).iterdir()), [path])
 
     def test_relative_progress_path_cannot_follow_backend_working_directory(self):
         output = io.StringIO()
