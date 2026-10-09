@@ -48,6 +48,28 @@ turn development examples into a prospective cohort. Source acquisition alone
 does not establish native correctness, independent adjudication, PR conversion,
 miss rate, dollar savings, or superiority to a strong-model/rules comparator.
 
+`scout_acquisition_choice` is a small optional trial adapter. It restricts choices
+to safe immutable URLs in the case's repository, preserves original catalog order
+and implements the first-file continuation baseline. An issue-only/empty catalog
+is `UNAVAILABLE`, an explicit null/null selector answer is `ABSTAIN`, and a malformed
+answer is `INVALID_SELECTION`; none spends a GET. A selected EOF or HTTP failure is
+`FAILED`, with the session's original transport/window verdicts and costs retained.
+No target or case is substituted. A successful window is `ACQUIRED`, not a claim
+that the reviewer used it. Programming/budget errors still raise. The adapter does
+not invoke a model, change live routing, or establish budget-matched utility.
+
+One task-local pilot asserted that every admitted case contained pinned code,
+but its first future admission had only issue/PR URLs. It terminated before model
+or GET calls. That pilot stays invalid and its exposed inputs are not rescored.
+Declare action availability and abstention handling before enrolling new cases;
+retain unavailable cases in the denominator and report them separately from
+actionable-policy outcomes. Offline adapter checks include real composed
+reader/window success, HTTP failure and EOF, not only mocked success labels:
+
+```text
+python -B -m unittest tests.test_scout_acquisition_choice
+```
+
 Offline transport/accounting checks:
 
 For a future utility study, include a no-additional-acquisition arm as well as
