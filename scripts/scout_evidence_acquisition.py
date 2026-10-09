@@ -15,6 +15,11 @@ import urllib.error
 import urllib.request
 from urllib.parse import urlsplit
 
+try:
+    from .scout_source_window import source_window
+except ImportError:
+    from scout_source_window import source_window
+
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -170,6 +175,31 @@ class AcquisitionSession:
         )
         self.requests.append({k: v for k, v in result.items() if k != "text"})
         return result
+
+    def acquire_window(self, url, *, start_line, max_lines=80, max_chars=4500):
+        """Compose the actual reader and window selector, keeping both verdicts.
+
+        FETCHED is transport success; ACQUIRED is window success. Neither means
+        the downstream model consumed the evidence or that a bug was proved.
+        Return only the selected text, not the full fetched body, to consumers.
+        """
+        # Validate the selector before spending a GET. An empty source may
+        # legitimately report beyond-EOF, but all other errors are input errors.
+        probe = source_window("", start_line=start_line,
+                              max_lines=max_lines, max_chars=max_chars)
+        if probe["error_kind"] != "WINDOW_BEYOND_SOURCE":
+            raise ValueError("invalid source-window selector")
+        acquisition = self.acquire(url)
+        window = (
+            source_window(acquisition["text"], start_line=start_line,
+                          max_lines=max_lines, max_chars=max_chars)
+            if acquisition["status"] == "FETCHED"
+            else {"status": "FAILED", "error_kind": "SOURCE_ACQUISITION_FAILED"}
+        )
+        return {
+            "acquisition": {k: v for k, v in acquisition.items() if k != "text"},
+            "window": window,
+        }
 
     def costs(self):
         return {

@@ -205,6 +205,51 @@ class AcquisitionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "budget exhausted"):
             session.acquire(URL)
 
+    def test_fetched_body_reaches_window_consumer_and_shared_cache(self):
+        body = b"header\nstop_wakes_worker()\ntail\n"
+        opener = Mock()
+        opener.open.return_value = Response(body)
+        session = AcquisitionSession(opener=opener)
+        result = session.acquire_window(URL, start_line=2, max_lines=1)
+        self.assertEqual(result["acquisition"]["status"], "FETCHED")
+        self.assertNotIn("text", result["acquisition"])
+        self.assertEqual(result["window"]["status"], "ACQUIRED")
+        self.assertEqual(result["window"]["text"], "stop_wakes_worker()")
+        self.assertEqual(result["window"]["start_line"], 2)
+        self.assertEqual(result["window"]["end_line"], 2)
+        self.assertEqual(result["window"]["source_sha256"], hashlib.sha256(body).hexdigest())
+        second = session.acquire_window(URL, start_line=3, max_lines=1)
+        self.assertEqual(second["window"]["text"], "tail")
+        self.assertTrue(second["acquisition"]["cache_hit"])
+        self.assertEqual(session.costs()["actual_gets"], 1)
+        opener.open.assert_called_once()
+
+    def test_transport_and_window_failures_are_separate(self):
+        for body, status in ((b"failure", 404), (b"only one line", 200)):
+            with self.subTest(status=status):
+                opener = Mock()
+                if status == 404:
+                    opener.open.side_effect = urllib.error.HTTPError(
+                        URL, status, "failure", {}, io.BytesIO(body))
+                else:
+                    opener.open.return_value = Response(body)
+                result = AcquisitionSession(opener=opener).acquire_window(URL, start_line=2)
+                self.assertEqual(result["window"]["status"], "FAILED")
+                self.assertNotIn("text", result["window"])
+                self.assertEqual(result["acquisition"]["status"], "FAILED" if status == 404 else "FETCHED")
+                self.assertEqual(result["window"]["error_kind"],
+                                 "SOURCE_ACQUISITION_FAILED" if status == 404 else "WINDOW_BEYOND_SOURCE")
+
+    def test_bad_window_selector_does_not_spend_get(self):
+        opener = Mock()
+        session = AcquisitionSession(opener=opener)
+        for kwargs in (dict(start_line=0), dict(start_line=True),
+                       dict(start_line=1,max_lines=81), dict(start_line=1,max_chars=0)):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                session.acquire_window(URL, **kwargs)
+        opener.open.assert_not_called()
+        self.assertEqual(session.costs()["actual_gets"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
