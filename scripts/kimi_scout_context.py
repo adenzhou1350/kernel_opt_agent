@@ -12,6 +12,7 @@ from pathlib import Path
 import kimi_scout as scout
 from scout_symbol_references import reference_cache_limit
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
+from scout_issue_timeline import linked_pr_context
 from scout_requested_definition import requested_function_window
 
 SNAPSHOT_TTL = 900
@@ -501,6 +502,10 @@ class PublicContext:
             or page > 1
             or len(comments) > 3
         )
+        if kind == "issues":
+            linked = linked_pr_context(self, repo, number)
+            result[0]["linked_pr_lookup"] = {k: v for k, v in linked.items() if k != "sources"}
+            result.extend(linked["sources"])
         return result
 
     def code_search_paths(self, repo, snapshot, symbol):

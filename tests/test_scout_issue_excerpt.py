@@ -64,6 +64,8 @@ class IssueExcerptTests(unittest.TestCase):
                 return json.dumps([item])
             if url == API + "/issues/1":
                 return json.dumps(item)
+            if url == API + "/issues/1/timeline?per_page=50&page=1":
+                return "[]"
             raise AssertionError(url)
         ctx = context.PublicContext(self.root / "context")
         with patch.object(context.scout, "fetch", side_effect=fetch):
@@ -73,7 +75,8 @@ class IssueExcerptTests(unittest.TestCase):
         self.assertTrue(page[0]["truncated"])
         self.assertTrue(source["text"].endswith(OWNER_TEXT))
         self.assertTrue(source["truncated"])
-        self.assertEqual(len(calls), 3)  # One visibility check, one page, one issue.
+        self.assertEqual(len(calls), 4)  # Visibility, page, issue and bounded linked-work lookup.
+        self.assertEqual(sum("/timeline?" in url for url in calls), 1)
 
     def test_initial_issue_packet_preserves_page_truncation_and_tail(self):
         ctx = Context()
