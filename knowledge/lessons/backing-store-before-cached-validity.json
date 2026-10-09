@@ -1,0 +1,18 @@
+{
+  "id": "backing-store-before-cached-validity",
+  "title": "Invalidate cached block metadata when the backing file is recreated",
+  "applies_when": "A file-backed or mmap cache restores cached-block metadata after restart, unpickling or reopening, and its named backing file may have been deleted. The block set may be shared with caller bookkeeping.",
+  "lesson": "A saved path and cached-block set do not prove that the corresponding bytes still exist. When creating a new backing file, invalidate the old block metadata before treating any block as a hit; otherwise a new zero-filled mapping can return plausible but wrong bytes without calling the fetcher. Preserve caller aliases by clearing a shared mutable set in place rather than replacing it. Compare a deleted-backing-file case against an existing-file reuse control, and assert both returned bytes and fetcher calls. Test the actual public reopening path as well as serialization, because a synthetic cache constructor alone can miss producer/consumer bookkeeping.",
+  "avoid_when": "Do not invalidate an existing valid file on every open or discard unrelated cached data. Cross-process writers, persisted metadata merges, content changes under an unchanged path and generation/version protocols need separate contracts. The fsspec evidence below establishes missing-file cache validity and alias preservation only; it does not fix serialization of an HTTP-bound asynchronous fetcher, prove all CachingFileSystem recovery paths, or establish performance or maintainer acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2257",
+      "note": "Proposed, unmerged missing named mmap backing-file fix. Four native regressions/controls fail 3 and pass 1 on the unchanged source, then all pass; the public HTTP reader reopening case reaches the same bug. Separate native Windows mmap/pickle controls confirm the file-backed mechanism. This is scoped correctness evidence, not full CI or maintainer acceptance."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/filesystem_spec/blob/afc9fc1b54a6f7d8cfc705fd4e49a23d9bcc1f69/fsspec/tests/test_caches.py",
+      "note": "Exact proposed tests preserve the existing-file no-refetch control, verify clearing the caller-shared set without changing its identity, and reopen a real loopback HTTP reader after removing the backing file."
+    }
+  ],
+  "status": "validated"
+}
