@@ -920,7 +920,20 @@ class ResearchProducer:
             progress.pop("priority_reference_commit", None)
         progress["source_windows"] = windows
         if time.time() < progress.get("sources_after", 0):
-            return False
+            if time.time() < progress.get("revision_check_after", 0):
+                return False
+            latest = self.current_snapshot(spec)
+            progress["revision_check_after"] = time.time() + 900
+            previous = progress.get("commit") or progress.get("last_sweep_commit")
+            if not previous or latest["commit"] == previous:
+                return False
+            # A completed sweep sleeps for 30 minutes; the existing 15-minute
+            # revision check must still admit changed source during that sleep.
+            progress["priority_reference_commit"] = previous
+            progress["commit"] = latest["commit"]
+            progress["source_cursor"] = 0
+            progress.pop("source_priority", None)
+            progress.pop("sources_after", None)
         snapshot = self.snapshot(spec, progress)
         if time.time() >= progress.get("revision_check_after", 0):
             latest = self.current_snapshot(spec)
