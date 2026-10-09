@@ -176,6 +176,13 @@ class PolicyTests(unittest.TestCase):
             policy.collect("../project", fetch=self.fetch)
         self.assertEqual(self.calls, [])
 
+    def test_empty_profile_keeps_publication_eligibility_unknown(self):
+        result = self.collect()
+        self.assertEqual(result["status"], "NO_DOCUMENTS_IN_PROFILE")
+        self.assertIn("does not check current interaction limits", result["caution"])
+        self.assertIn("permission to open a PR", result["caution"])
+        self.assertNotIn("authorized", result)
+
     def test_policy_lesson_is_retrievable_as_one_complete_advisory_card(self):
         result = scout_lesson_context.lesson_suggestions(
             "inherited contribution policy AI eligibility",

@@ -1,17 +1,21 @@
 {
   "id": "inherited-contribution-policy-before-intake",
   "title": "Check inherited contribution policy before research intake",
-  "applies_when": "Adding a public repository to an automated contribution scout, especially when a clone contains no CONTRIBUTING file or publication needs AI disclosure, human review or prior discussion.",
-  "lesson": "Check contributor eligibility before spending on hypotheses and environment setup, then recheck before publication. GitHub can inherit contribution rules from the owner's public .github repository; those files are absent from the target clone. The community profile can identify the effective document, but its contents URL can still name the target repository: use the actual public html_url repository, pin the revision and read the document. A blanket AI prohibition is not cured by tests or human editing. Preserve already acquired evidence without publishing or bypassing the rule. Distinguish prohibited submissions from disclosure/review/discussion requirements that can legitimately be satisfied.",
-  "avoid_when": "An absent profile/file or failed read is not permission, and a community profile does not enumerate every rule. Read linked guidelines, AGENTS.md and maintainer instructions too. Do not infer an AI ban from keywords or one older policy revision, or transfer one organization's policy to another. This documents a discovery mechanism and an observed policy, not measured PR yield or token savings.",
+  "applies_when": "Adding a public repository to an automated contribution scout, especially when a clone contains no CONTRIBUTING file, AI/human-review rules depend on contributor status, or a technically valid fix may not be publishable.",
+  "lesson": "Check contributor eligibility before expensive discovery, then recheck before publication. GitHub can inherit rules from the owner's public .github repository, absent from the target clone. Resolve the effective document using its actual public html_url repository, pin and read it; follow linked policies too. Keep technical correctness, contributor-policy eligibility and current interaction permissions separate. Pallets' linked AI policy specifically excludes AI use by new contributors; established contributors still need genuine personal understanding and authorship, not an agent-issued trust certificate. Tests or a review checkbox do not override such a restriction. GitHub interaction limits can separately prevent PR creation despite permissive written guidelines. Preserve useful private evidence, respect existing authors' patches, and redirect contribution effort instead of bypassing a restriction.",
+  "avoid_when": "An absent profile/file or failed read is not permission; the profile collector does not establish live publication access. A prior contributor's reported denial is a reason to investigate, not proof that every user remains restricted. Limits can expire and policies can change. Do not transfer an organization's policy elsewhere, infer eligibility from keywords, or treat disclosure/review requirements as blanket bans. Internal reference testing does not authorize externally submitting its AI-generated output. No PR-yield or cost benefit is established by this lesson.",
   "evidence": [
     {
       "url": "https://docs.github.com/en/communities/setting-up-your-project-for-healthy-contributions/creating-a-default-community-health-file",
       "note": "GitHub documents default community files in the owner's .github repository, their location precedence and why inherited files are not present in individual clones."
     },
     {
-      "url": "https://github.com/pallets/.github/blob/main/CONTRIBUTING.md",
-      "note": "Pallets' current contribution policy prohibits AI-generated issues and pull requests. This live policy example must be rechecked, not treated as an immutable or universal prohibition."
+      "url": "https://palletsprojects.com/contributing/llm-ai",
+      "note": "The linked policy covers all community interactions, distinguishes new from established trusted contributors, and requires genuine personal understanding and creation. Recheck this live policy before deciding eligibility; do not simplify it to a universal rule for every project or contributor."
+    },
+    {
+      "url": "https://docs.github.com/en/communities/moderating-comments-and-conversations/limiting-interactions-in-your-repository",
+      "note": "GitHub documents temporary interaction restrictions, including collaborator-only participation that can prevent creating PRs independently of a project's written contribution guide."
     }
   ],
   "status": "validated"
