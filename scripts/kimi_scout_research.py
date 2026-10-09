@@ -905,6 +905,14 @@ class ResearchProducer:
         return False
 
     def source_audit(self, spec, progress):
+        prefixes = sorted(set(spec["source_prefixes"]))
+        if progress.get("source_prefixes") != prefixes:
+            # A completed sweep's cooldown belongs to its selected paths, not
+            # the repository alone. Recheck a changed (or legacy unrecorded)
+            # selection now; the scope and seen keys below still prevent
+            # duplicate model work when the effective paths have not changed.
+            progress["source_prefixes"] = prefixes
+            progress.pop("sources_after", None)
         windows = self.config["source_windows"]
         previous_windows = progress.get("source_windows", 3)
         if previous_windows != windows:
