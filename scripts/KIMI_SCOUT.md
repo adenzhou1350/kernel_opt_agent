@@ -342,6 +342,22 @@ is collapsed separately. An offline or stale-heartbeat process cannot appear as
 confirmed live occupancy. Updating this viewer does not require restarting scout
 workers or replaying analysis.
 
+For a large inbox, optionally build the scalar history index once during a quiet
+maintenance window (it holds the SQLite writer lock and reads the full inbox):
+
+```sh
+python scripts/kimi_scout_history_index.py --root runs/kimi-scout --timeout-seconds 60
+```
+
+The viewer automatically uses this index for full-history totals, without
+reparsing historical evidence/answer JSON. SQLite updates the index with normal
+job transactions; no duplicate summary cache or truncated lifetime totals are
+introduced. Legacy databases remain readable without migration. The viewer and
+worker startup never build this index automatically. An interrupted build rolls
+back; a busy writer causes the maintenance command to fail instead of waiting
+indefinitely. This accelerates the history projection, not model inference or all
+dashboard work (the newest 500 packets and saved artifacts are still read).
+
 New requests save their exact public input to `results/<id>.request.json` and
 throttled visible-output snapshots to `results/<id>.live.json`. Hidden reasoning,
 provider config and credentials are never copied to the viewer. Live snapshots
@@ -355,6 +371,7 @@ Offline viewer tests (temporary local HTTP server only):
 ```sh
 python -B tests/test_kimi_scout_dashboard.py
 python -B tests/test_kimi_scout_dashboard_briefing.py
+python -B tests/test_kimi_scout_history_index.py
 ```
 
 ## Evaluate before expanding
