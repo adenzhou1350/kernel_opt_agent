@@ -166,7 +166,9 @@ class BackendPool:
         self.command = command or [str(python), "-I", "-B", "-X", "utf8",
                                    str(SCRIPT), "--serve"]
         self.cwd, self.env = root, env
-        self.idle = queue.Queue(maxsize=capacity)
+        # Reuse a warm returned slot before untouched empty capacity. FIFO
+        # cold-starts every slot even when only one request is active at a time.
+        self.idle = queue.LifoQueue(maxsize=capacity)
         for _ in range(capacity):
             self.idle.put(None)
         self.closed = False
