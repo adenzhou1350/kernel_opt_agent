@@ -221,9 +221,29 @@ def publication_context(root, repo, sources):
     return {"caution": CAUTION, "items": [item for _, item in matches[:3]]}
 
 
-def owner_deferral_context(root, repo, sources):
+def prior_identifier_hints(analysis):
+    """Untrusted title identifiers rank advice, never decide source coverage."""
+    if not isinstance(analysis, str) or len(analysis) > 2500:
+        return set()
+    try:
+        value = json.loads(analysis)
+    except (ValueError, RecursionError):
+        return set()
+    title = value.get("title") if isinstance(value, dict) else None
+    if not isinstance(title, str) or not 0 < len(title) <= 200:
+        return set()
+    return {
+        word.casefold()
+        for word in re.findall(r"(?<!\w)[A-Za-z_][A-Za-z0-9_]{2,63}(?!\w)", title)
+        if "_" in word.strip("_") or re.search(r"[a-z][A-Z]|[A-Z]{2}[a-z]", word)
+    }
+
+
+def owner_deferral_context(root, repo, sources, *, prior_analysis=None):
     """Read <=24 parked rows and <=24 owner notes; expose <=2 same-file notes.
 
+    Followups prefer exact title-identifier overlap within the same bounded scan;
+    recency breaks ties. This is relevance only, not a defect/duplicate verdict.
     No network/model calls; included notes consume ordinary prompt tokens.
     Missing/locked/corrupt history is optional.
     Do not copy private run paths or untrusted reproduction logs into prompts.
@@ -252,6 +272,7 @@ def owner_deferral_context(root, repo, sources):
                 )
     except (OSError, sqlite3.Error):
         pass  # A missing/locked delivery DB does not invalidate independent notes.
+    hints = prior_identifier_hints(prior_analysis)
     items, seen = [], set()
     for title, decision, payload in rows:
         if not isinstance(title, str) or not all(
@@ -294,9 +315,22 @@ def owner_deferral_context(root, repo, sources):
                 ),
             }
         )
-        if len(items) == 2:
-            break
-    return {"caution": DEFERRAL_CAUTION, "items": items} if items else None
+    if hints:
+        items.sort(
+            key=lambda item: (
+                -len(
+                    hints
+                    & {
+                        word.casefold()
+                        for word in re.findall(
+                            r"(?<!\w)[A-Za-z_][A-Za-z0-9_]{2,63}(?!\w)",
+                            item["prior_hypothesis"],
+                        )
+                    }
+                )
+            )
+        )
+    return {"caution": DEFERRAL_CAUTION, "items": items[:2]} if items else None
 
 
 def fit_publication_context(packet, limit, prefix=""):

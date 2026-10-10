@@ -776,7 +776,12 @@ class ResearchProducer:
         publications = publication_context(self.root, spec["repo"], sources)
         if publications:
             packet["owner_publications"] = publications
-        deferrals = owner_deferral_context(self.root, spec["repo"], sources)
+        deferrals = owner_deferral_context(
+            self.root,
+            spec["repo"],
+            sources,
+            prior_analysis=parent["analysis"] if parent else None,
+        )
         if deferrals:
             packet["owner_deferrals"] = deferrals
         fit_publication_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
