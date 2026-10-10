@@ -358,3 +358,27 @@ def fit_publication_context(packet, limit, prefix=""):
             > limit
         ):
             packet.pop(field, None)
+
+
+def restore_publication_context(packet, contexts, limit, prefix=""):
+    """Use leftover bytes for already-read advice; never clip primary evidence."""
+    for field in ("owner_deferrals", "owner_publications"):
+        context = contexts.get(field)
+        if field in packet or not isinstance(context, dict):
+            continue
+        items = context.get("items")
+        if not isinstance(items, list):
+            continue
+        for count in range(len(items), 0, -1):
+            candidate = {**context, "items": items[:count]}
+            size = len(
+                (
+                    prefix
+                    + json.dumps(
+                        {**packet, field: candidate}, ensure_ascii=False, sort_keys=True
+                    )
+                ).encode("utf-8")
+            )
+            if size <= limit:
+                packet[field] = candidate
+                break
