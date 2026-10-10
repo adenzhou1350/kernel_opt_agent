@@ -80,6 +80,39 @@ def first_clipped_or_continuation(view):
     return first_catalog_continuation(view)
 
 
+def first_visible_frontier_or_continuation(view):
+    """A separate cheap baseline for fresh trials, not a live routing default.
+
+    For the first eligible clipped file, continue its displayed numbered prefix.
+    Retain the last row when clipping may have cut it mid-line; otherwise advance
+    one row. Infer positions only from contiguous original line labels starting
+    at start_line and bounded by end_line. Empty, unnumbered, ambiguous or missing
+    ranges retain the original restore-from-start choice. These labels locate
+    text, not relevant evidence or a verified contract. No fetch or budget change.
+    """
+    choice = first_clipped_or_continuation(view)
+    if choice["status"] != "SELECTED":
+        return choice
+    source = next(s for s in view["sources"] if s.get("url") == choice["url"])
+    if not source.get("clipped"):
+        return choice
+    text = source.get("text", "")
+    if not isinstance(text, str):
+        raise ValueError("invalid source text")
+    start, end = source.get("start_line"), source.get("end_line")
+    if not text or start is None or end is None:
+        return choice
+    last = None
+    for expected, line in enumerate(text.splitlines(), start):
+        match = re.match(r"([1-9][0-9]{0,9}):(?: |$)", line)
+        if match is None or int(match[1]) != expected or expected > end:
+            return choice
+        last = expected
+    if last is None:
+        return choice
+    return {**choice, "start_line": last + int(text.endswith(("\n", "\r")))}
+
+
 def validate_selection(view, selection):
     """Validate the existing acquisition-only JSON interface without repairing it."""
     catalog = acquisition_catalog(view)

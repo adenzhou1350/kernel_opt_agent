@@ -278,3 +278,24 @@ not establish citation-accuracy improvement, acquisition superiority or PR yield
 Explicit labels alone did not eliminate invalid ranges. Owner review is not an
 independent human judgment; vendor-document browsing is separate from model GET
 cost. Raw private experiment records remain local.
+
+## Visible-frontier rule for fresh comparisons
+
+`first_visible_frontier_or_continuation` is an optional zero-model baseline.
+For a clipped, numbered source prefix, it continues at the last displayed row
+(or the next row when the last row ends with a newline). It requires contiguous
+original line labels within the declared snippet range; ambiguous, unnumbered
+or catalog-only text falls back to the existing restore-from-start rule.
+Original policy functions, eligible URLs and caller window budgets are unchanged.
+This is not enabled in live routing and must not rescore a frozen trial.
+
+A development counterexample showed that restoring lines 11–90 can miss a guard
+at line 121, while continuing from displayed line 50 reaches it with the same
+80-line cap. The synthetic regression verifies that mechanism, not held-out
+decision accuracy, source relevance, native bug discovery or PR yield. The rule
+cannot recover a missing implementation file from a closed catalog; expanding
+the catalog is a different action with its own costs and evaluation.
+
+```text
+python -B -m unittest tests.test_scout_visible_frontier tests.test_scout_acquisition_choice
+```
