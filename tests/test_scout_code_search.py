@@ -69,6 +69,38 @@ class CodeSearchTests(unittest.TestCase):
         result, _ = self.search({"items": [item("tests/lower.test.cc"), item(PATH)]})
         self.assertEqual(result, [PATH, "tests/lower.test.cc"])
 
+    def test_unseen_implementation_precedes_observed_definition_without_extra_query(
+        self,
+    ):
+        caller, definition, test = (
+            "backend/service/git.go",
+            "util/git/git.go",
+            "util/git/git_test.go",
+        )
+        self.snapshot["files"] = [definition, PATH, caller, test]
+        response = {"items": [item(definition), item(PATH), item(test), item(caller)]}
+        with patch.object(self.reader, "_json", return_value=response) as api:
+            result = self.reader.code_search_paths(
+                REPO, self.snapshot, SYMBOL, deprioritize=[definition, PATH]
+            )
+        self.assertEqual(result, [caller, definition])
+        self.assertEqual(api.call_count, 1)
+        with patch.object(self.reader, "_json") as api:
+            result = self.reader.code_search_paths(
+                REPO, self.snapshot, SYMBOL, deprioritize=[caller, definition]
+            )
+        self.assertEqual(result, [PATH, definition])
+        api.assert_not_called()
+
+    def test_observed_sources_are_deprioritized_not_removed(self):
+        with patch.object(self.reader, "_json", return_value={"items": [item(PATH)]}):
+            self.assertEqual(
+                self.reader.code_search_paths(
+                    REPO, self.snapshot, SYMBOL, deprioritize=[PATH]
+                ),
+                [PATH],
+            )
+
     def test_cache_reuses_query_but_still_intersects_exact_tree(self):
         _, api = self.search({"items": [item(PATH)]})
         self.assertEqual(api.call_count, 1)
@@ -116,7 +148,9 @@ class CodeSearchTests(unittest.TestCase):
 
 
 class FollowupCodeSearchTests(unittest.TestCase):
-    def run_followup(self, enabled=True, drift=False, search_error=False):
+    def run_followup(
+        self, enabled=True, drift=False, search_error=False, observed_source=False
+    ):
         raw = "// filler\n" * 120 + f"void {SYMBOL}() {{}}\n"
         raw += "// filler\n" * 100 + "void LowerToLDGPredicated() {}\n"
         if drift:
@@ -131,13 +165,27 @@ class FollowupCodeSearchTests(unittest.TestCase):
                 return repo
 
             def snapshot(self, repo, ref="main"):
-                return {"commit": COMMIT, "files": [PATH], "blobs": {PATH: "b" * 40}}
+                paths = (
+                    [PATH, "backend/caller.go", "src/second_definition.go"]
+                    if observed_source
+                    else [PATH]
+                )
+                return {
+                    "commit": COMMIT,
+                    "files": paths,
+                    "blobs": {p: "b" * 40 for p in paths},
+                }
 
             def _json(self, url, **kwargs):
                 self.searches.append(url)
                 if search_error:
                     raise OSError("offline")
-                return {"items": [item(PATH)]}
+                paths = (
+                    [PATH, "backend/caller.go", "src/second_definition.go"]
+                    if observed_source
+                    else [PATH]
+                )
+                return {"items": [item(p) for p in paths]}
 
             def _read(self, url, *args, **kwargs):
                 self.reads.append(url)
@@ -188,6 +236,17 @@ class FollowupCodeSearchTests(unittest.TestCase):
                         "text": "Existing report",
                     }
                 ]
+                if observed_source:
+                    original = [
+                        {
+                            "url": f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{PATH}",
+                            "text": f"definition {SYMBOL}",
+                            "start_line": 1,
+                            "end_line": 1,
+                            "total_lines": 250,
+                            "truncated": True,
+                        }
+                    ]
                 producer.emit("old", spec, original, "issue_triage")
                 with scout.connect(root) as db:
                     db.execute(
@@ -240,6 +299,21 @@ class FollowupCodeSearchTests(unittest.TestCase):
         self.assertEqual(searches, [])
         self.assertEqual(reads, [])
         self.assertEqual(packets, [])
+
+    def test_source_followup_acquires_unseen_paths_instead_of_repeating_definition(
+        self,
+    ):
+        searches, reads, packets, progress = self.run_followup(observed_source=True)
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(progress["code_search_requests"], 1)
+        self.assertEqual(len(reads), 2)
+        self.assertEqual(len(packets), 1)
+        evidence = [s for s in packets[0]["sources"] if "code_search_hint" in s]
+        self.assertEqual(
+            [s["url"].rsplit(f"/{COMMIT}/", 1)[-1] for s in evidence],
+            ["backend/caller.go", "src/second_definition.go"],
+        )
+        self.assertTrue(all(s["end_line"] - s["start_line"] < 80 for s in evidence))
 
     def test_index_revision_drift_is_not_added_as_claimed_context(self):
         searches, reads, packets, _ = self.run_followup(drift=True)

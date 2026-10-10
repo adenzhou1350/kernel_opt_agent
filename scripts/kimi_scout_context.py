@@ -508,12 +508,14 @@ class PublicContext:
             result.extend(linked["sources"])
         return result
 
-    def code_search_paths(self, repo, snapshot, symbol):
+    def code_search_paths(self, repo, snapshot, symbol, *, deprioritize=()):
         """Current-index path hints intersected with a pinned tree, not evidence.
 
         At most one API query returning five hints. Search is not commit-pinned
         or exhaustive. source() must read the selected immutable revision and
         the caller must confirm the requested literal in the returned window.
+        Prefer unseen implementation files within the same five cached hints;
+        retain already supplied files as fallback, without another query.
         """
         repo = _repo(repo)
         if not isinstance(snapshot, dict):
@@ -583,7 +585,7 @@ class PublicContext:
                 is not None
             )
 
-        return sorted(paths, key=is_test)[:2]
+        return sorted(paths, key=lambda path: (is_test(path), path in deprioritize))[:2]
 
     def duplicate_sources(self, repo, title):
         repo = _repo(repo)
