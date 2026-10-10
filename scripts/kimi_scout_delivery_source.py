@@ -94,21 +94,30 @@ def _raw_sources(packet, repo):
 
 
 def select_leads(
-    root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None
+    root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None,
+    source_ids=None,
 ):
     """Return Python-verifiable REVIEW leads fairly; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
     Other-language leads remain in the research DB for a matching verifier.
+    source_ids optionally restricts selection to known job IDs before decoding
+    packets or applying LIMIT. It does not bypass any admission/exclusion rule.
     """
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
+    if source_ids is not None:
+        if not isinstance(source_ids, (tuple, list, set, frozenset)) or len(source_ids) > 100:
+            raise ValueError("source_ids must be a collection of at most 100 job IDs")
+        if any(not isinstance(value, str) or not value or len(value) > 128 for value in source_ids):
+            raise ValueError("source_ids must contain nonempty job IDs of at most 128 characters")
+        source_ids = tuple(sorted(set(source_ids)))
     if scan_limit is not None and (
         type(scan_limit) is not int or not 1 <= scan_limit <= 10_000
     ):
         raise ValueError("scan_limit must be an integer between 1 and 10000")
-    if not limit:
+    if not limit or source_ids == ():
         return []
     db_path = (Path(root) / "scout.sqlite").resolve()
     connection = sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True, timeout=15)
@@ -132,8 +141,12 @@ def select_leads(
             unstaged = ""
         # NOT IN materializes the parent set once, avoiding a correlated scan
         # over the entire job history for every REVIEW row.
+        source_filter = (
+            "id IN (" + ",".join("?" for _ in source_ids) + ") AND "
+            if source_ids is not None else ""
+        )
         query = f"""SELECT id,packet,result FROM jobs
-            WHERE state='REVIEW' AND id NOT IN (
+            WHERE {source_filter}state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
@@ -148,7 +161,8 @@ def select_leads(
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
         if scan_limit is not None:
             query += " LIMIT ?"
-        rows = connection.execute(query, (scan_limit,) if scan_limit else ())
+        params = (*(source_ids or ()), *((scan_limit,) if scan_limit else ()))
+        rows = connection.execute(query, params)
         for row in rows:
             if row["id"] in excluded_ids:
                 continue
