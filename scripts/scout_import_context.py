@@ -1,4 +1,4 @@
-"""Bounded hints for missing relative-import definitions, never a resolver proof.
+"""Bounded hints for missing import definitions, never a resolver proof.
 
 Use only cached, pinned primary source and members of the same observed tree.
 No source execution, cache fill, model-created fetch target, or quality verdict.
@@ -79,13 +79,11 @@ def _bindings(path, raw):
                     nodes.append(node)
                     pending.extend(ast.iter_child_nodes(node))
         for node in nodes:
-            if (
-                not isinstance(node, ast.ImportFrom)
-                or not node.level
-                or not node.module
-            ):
+            if not isinstance(node, ast.ImportFrom) or not node.module:
                 continue
-            module = "../" * (node.level - 1) + "./" + node.module.replace(".", "/")
+            module = node.module.replace(".", "/")
+            if node.level:
+                module = "../" * (node.level - 1) + "./" + module
             for name in node.names:
                 if name.name != "*":
                     yield name.asname or name.name, name.name, module
@@ -95,7 +93,11 @@ def _bindings(path, raw):
 
 def _resolve(path, module, files):
     if not module.startswith(("./", "../")):
-        return None
+        return (
+            _absolute_python_target(path, module, files)
+            if path.endswith(".py")
+            else None
+        )
     parts = path.split("/")[:-1]
     for part in module.split("/"):
         if part in ("", "."):
@@ -128,6 +130,36 @@ def _resolve(path, module, files):
             ]
     observed = [p for p in choices if p in files and p != path]
     return observed[0] if len(observed) == 1 else None
+
+
+def _absolute_python_target(path, module, files):
+    """Same-package tree hints only; not installed/sys.path import resolution.
+
+    Observe the regular package anchor containing the primary source. This
+    admits root/src/python layouts without guessing a repository-wide search
+    path. Namespace packages, cross-package imports and competing roots or
+    module/package targets abstain. Never import or fetch candidate modules.
+    """
+    parts = module.split("/")
+    if not all(re.fullmatch(r"[A-Za-z_]\w*", part) for part in parts):
+        return None
+    anchor = parts[0] + "/__init__.py"
+    roots = []
+    for observed in files:
+        if observed != anchor and not observed.endswith("/" + anchor):
+            continue
+        prefix = observed[: -len(anchor)]
+        if path.startswith(prefix + parts[0] + "/"):
+            roots.append(prefix)
+    if len(roots) != 1:
+        return None
+    base = roots[0] + module
+    targets = [
+        target
+        for target in (base + ".py", base + "/__init__.py")
+        if target in files and target != path
+    ]
+    return targets[0] if len(targets) == 1 else None
 
 
 def _lazy_export_target(path, raw, symbol, files):
@@ -229,8 +261,9 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
 
     Same-file free functions, named aliases and .js -> .ts are hints only.
     Local JS function declarations are lexical, not a complete language parser.
-    Python free-function relative imports supply module hints, not proof of
-    local-name resolution. A complete module already supplied is not requested
+    Python named relative and observed same-package absolute imports supply
+    module hints, not proof of local-name or installed-package resolution.
+    A complete module already supplied is not requested
     again; a simple cached package lazy export may point one step further.
     Ambiguous declarations/tree members,
     absent cache, revision drift, bare package imports and wildcard imports abstain.
