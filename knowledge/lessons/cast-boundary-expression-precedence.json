@@ -1,0 +1,22 @@
+{
+  "id": "cast-boundary-expression-precedence",
+  "title": "Preserve operand grouping when rendering or omitting a cast",
+  "applies_when": "TileLang host wrappers render a TVM PrimExpr containing a compound cast operand, especially when the Python launcher omits casts and the result is nested in another binary expression.",
+  "lesson": "Inspect the emitted expression, not only the printed IR. A retained C-style cast must cover the whole operand: Cast(int32, a + b) is (int32_t)(a + b), not (int32_t)a + b. If a renderer intentionally omits a cast, propagate the child's precedence instead of the removed node's high precedence; otherwise Cast(int64, a + b) * c becomes a + b * c. Use real native IR with different source/target dtypes so a same-dtype cast cannot disappear during construction. Check a matched baseline and repair, plus a generated-wrapper value or compiled expression, before treating this as a cosmetic formatting issue.",
+  "avoid_when": "This fixes grouping under an existing renderer contract; it does not authorize dropping a numerically meaningful narrowing or overflow-sensitive conversion. Different printers may use functional casts or already-parenthesized children. Revalidate their syntax and metadata rather than copying this implementation. Native CPU expression checks do not establish GPU-launch correctness, whole-model performance, cross-framework generality or maintainer acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/da9471ac9809230079c4b480cac6551ff8343325/tilelang/jit/adapter/utils.py",
+      "note": "Pinned baseline gives Cast high precedence, discards the child's precedence when ignoring it, and prefixes retained casts without grouping compound operands. CUDA and NVRTC wrappers use this utility for launch expressions."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/pull/3477",
+      "note": "Open Ready repair reports matched native TVM/CPU host-codegen validation: baseline 13 failures/2 passes versus repaired 15 passes. A generated NVRTC grid evaluates to 14 instead of 20 before repair; a compiled C++ float-sum cast evaluates to 3.75 instead of 4. No GPU or performance result is claimed."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/f03125393b09d25e98af31f476cd714ec3b4e3e1/testing/python/jit/test_tilelang_jit_pythonic_expr.py",
+      "note": "Commit-pinned regressions cover retained compound operands, ignored casts on both sides of multiplication, nested non-associative operands, atomic casts, dtype mapping and identity-based variable naming."
+    }
+  ],
+  "status": "validated"
+}
