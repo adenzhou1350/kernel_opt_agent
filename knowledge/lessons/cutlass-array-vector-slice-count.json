@@ -1,0 +1,18 @@
+{
+  "id": "cutlass-array-vector-slice-count",
+  "title": "CUTLASS Array vector slices use a start and count, not a Python stop index",
+  "applies_when": "A CuTeDSL cutlass.Array explicit vector slice looks empty or too short at a nonzero offset, or a proposed FlashInfer accumulator repair substitutes Python list slicing semantics.",
+  "lesson": "Trace the receiver's construction and pinned __getitem__/__setitem__ contract first. This CUTLASS Array implements arr[start:count] for explicit vector loads and stores: acc[offset:4] transfers four elements at a nonzero offset. Changing it to acc[offset:offset+4] changes the count rather than repairing a Python stop index. FlashInfer's cited acc_list contains these Array objects; a Python-list surrogate cannot test their semantics. Inspect the real operation and caller before proposing a slice rewrite.",
+  "avoid_when": "Only the cited explicit start/count vector form and revisions are established here. Open-ended or multidimensional slices, other receiver classes and dependency versions require separate inspection. Syntax alone does not prove bounds, alignment, synchronization, generated-kernel correctness or performance. A genuine native failure can still justify a repair; this counterexample rejects only the built-in-list premise.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/cutlass/blob/0b55a2f691d69981583568fd9eb69687b1f0de8a/python/CuTeDSL/cutlass/base_dsl/array.py#L2507-L2527",
+      "note": "The vector-load branch uses the slice's second value as an element count and its first as the pointer offset; the Vector-store branch at L2664-L2685 follows the same convention. This is a pinned vendor source contract, not an installed dependency or GPU-kernel test."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/50829ac2644704439260ac646067c0fc8c9bd0f5/flashinfer/fused_moe/backends/cudnn_frost/artifacts/bf16/sources/sm120_cudnn_frost_grouped_gemm1_silu_bf16_normal_stg.py#L786",
+      "note": "acc_list constructs cutlass.Array objects; _acc_g[_o:4] is written at L932 and read at L970. This connects the receiver to the vendor contract, not whole-kernel correctness or performance."
+    }
+  ],
+  "status": "counterexample"
+}

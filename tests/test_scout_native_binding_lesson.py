@@ -10,6 +10,62 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions  # noqa: E40
 
 
 class NativeBindingLessonTests(unittest.TestCase):
+    def test_cutlass_slice_contract_is_retrieved_without_changing_the_budget(self):
+        for query in (
+            "CUTLASS Array slice vector start count",
+            "cutlass.Array acc offset __getitem__ __setitem__",
+            "FlashInfer CuTeDSL accumulator Python list slice repair",
+        ):
+            with self.subTest(query=query):
+                result = lesson_suggestions(query)
+                card = result["matches"][0]
+                self.assertEqual(card["id"], "cutlass-array-vector-slice-count")
+                self.assertEqual(card["status"], "counterexample")
+                self.assertIn("arr[start:count]", card["lesson"])
+                self.assertIn("receiver's construction", card["lesson"])
+                self.assertIn("nonzero offset", card["lesson"])
+                self.assertIn("other receiver classes", card["avoid_when"])
+                self.assertLess(len(json.dumps(card).encode()), 3000)
+                self.assertEqual(result["oversized_matches_omitted"], 0)
+                self.assertNotIn("qualified", result)
+
+    def test_cutlass_split_preserves_evidence_without_duplicating_it(self):
+        root = Path(__file__).resolve().parents[1] / "knowledge" / "lessons"
+        native = json.loads(
+            (root / "native-binding-semantics-before-field-inference.json").read_text()
+        )
+        cutlass = json.loads(
+            (root / "cutlass-array-vector-slice-count.json").read_text()
+        )
+        self.assertEqual(len(cutlass["evidence"]), 2)
+        self.assertTrue(
+            any("/cutlass/base_dsl/array.py" in e["url"] for e in cutlass["evidence"])
+        )
+        self.assertTrue(
+            any("/sources/sm120_cudnn_frost" in e["url"] for e in cutlass["evidence"])
+        )
+        self.assertTrue(
+            any(
+                "not an installed dependency or GPU-kernel test" in e["note"]
+                for e in cutlass["evidence"]
+            )
+        )
+        self.assertFalse(
+            any(
+                "/cutlass/base_dsl/array.py" in e["url"]
+                or "/sources/sm120_cudnn_frost" in e["url"]
+                for e in native["evidence"]
+            )
+        )
+
+    def test_multimodal_chunk_query_keeps_its_distinct_count_contract(self):
+        result = lesson_suggestions(
+            "multimodal _item_overlap embedding cache chunk slicing full token count"
+        )
+        self.assertEqual(
+            result["matches"][0]["id"], "whole-item-count-before-chunk-slicing"
+        )
+
     def test_existing_configuration_counterexample_is_retrievable_again(self):
         result = lesson_suggestions("configuration CLI parser plugin consumer backend")
         self.assertEqual(result["status"], "ADVISORY_MATCH")
@@ -43,9 +99,7 @@ class NativeBindingLessonTests(unittest.TestCase):
         )
         self.assertEqual(result["status"], "ADVISORY_MATCH")
         card = result["matches"][0]
-        self.assertEqual(
-            card["id"], "native-binding-semantics-before-field-inference"
-        )
+        self.assertEqual(card["id"], "native-binding-semantics-before-field-inference")
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertLessEqual(
             len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES
