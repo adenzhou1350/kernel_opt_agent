@@ -24,6 +24,33 @@ from urllib.parse import urlsplit
 PAGE = Path(__file__).with_suffix(".html")
 JOB_ID = re.compile(r"[0-9a-f]{24}")
 MAX_FILE_BYTES = 2_000_000
+ACTIVITY_INDEX = "scout_jobs_activity_v1"
+ACTIVITY_FIELDS = (
+    tuple(
+        (key, key)
+        for key in ("id", "state", "created", "started", "finished", "charge")
+    )
+    + (
+        ("repo", "json_extract(packet,'$.repo')"),
+        ("stage", "json_extract(packet,'$.research.stage')"),
+        ("parent_job_id", "json_extract(packet,'$.research.parent_job_id')"),
+        ("root_job_id", "json_extract(packet,'$.research.root_job_id')"),
+    )
+    + tuple(
+        (key, f"json_extract(result,'$.usage.{key}')")
+        for key in (
+            "input_tokens",
+            "output_tokens",
+            "total_tokens",
+            "cached_input_tokens",
+        )
+    )
+)
+ACTIVITY_QUERY = (
+    "SELECT "
+    + ",".join(f"{expression} AS {key}" for key, expression in ACTIVITY_FIELDS)
+    + " FROM jobs"
+)
 
 
 def json_object(value):
@@ -278,26 +305,20 @@ class Inbox:
             db.close()
 
     def activity_rows(self):
-        """Read only dashboard fields, never the large public evidence packets."""
+        """Use the optional scalar index; legacy inboxes still work read-only."""
         db = sqlite3.connect(self.database.as_uri() + "?mode=ro", uri=True, timeout=2)
         db.row_factory = sqlite3.Row
         try:
             db.execute("PRAGMA query_only=ON")
-            return [
-                dict(row)
-                for row in db.execute(
-                    """SELECT id,state,created,started,finished,charge,
-                    json_extract(packet,'$.repo') AS repo,
-                    json_extract(packet,'$.research.stage') AS stage,
-                    json_extract(packet,'$.research.parent_job_id') AS parent_job_id,
-                    json_extract(packet,'$.research.root_job_id') AS root_job_id,
-                    json_extract(result,'$.usage.input_tokens') AS input_tokens,
-                    json_extract(result,'$.usage.output_tokens') AS output_tokens,
-                    json_extract(result,'$.usage.total_tokens') AS total_tokens,
-                    json_extract(result,'$.usage.cached_input_tokens') AS cached_input_tokens
-                    FROM jobs"""
-                )
-            ]
+            query = ACTIVITY_QUERY
+            if db.execute(
+                "SELECT 1 FROM sqlite_master WHERE type='index' AND tbl_name='jobs' AND name=?",
+                (ACTIVITY_INDEX,),
+            ).fetchone():
+                # Force the covering expression index: otherwise SQLite may
+                # scan/parse every large packet even though none is returned.
+                query += f" INDEXED BY {ACTIVITY_INDEX}"
+            return [dict(row) for row in db.execute(query)]
         finally:
             db.close()
 
