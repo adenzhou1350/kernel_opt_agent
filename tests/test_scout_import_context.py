@@ -12,6 +12,153 @@ COMMIT = "a" * 40
 
 
 class ImportContextTests(unittest.TestCase):
+    def test_absolute_python_named_alias_uses_same_observed_package(self):
+        result, cache, _, _ = self.requests(
+            "from tilelang.jit.libgen import Generator as Schema\n",
+            "Inspect Schema",
+            path="tilelang/jit/adapter.py",
+            files=[
+                "tilelang/__init__.py",
+                "tilelang/jit/adapter.py",
+                "tilelang/jit/libgen.py",
+            ],
+        )
+        self.assertEqual(
+            result,
+            [{"path": "tilelang/jit/libgen.py", "hints": "Generator", "max_lines": 80}],
+        )
+        cache.assert_called_once_with("o/r", COMMIT, "tilelang/jit/adapter.py")
+
+    def test_absolute_python_src_and_python_layouts(self):
+        for prefix in ("src/", "python/", "python/src/"):
+            with self.subTest(prefix=prefix):
+                result, _, _, _ = self.requests(
+                    "from pkg.contracts import Schema\n",
+                    "Schema",
+                    path=prefix + "pkg/read.py",
+                    files=[
+                        prefix + "pkg/__init__.py",
+                        prefix + "pkg/read.py",
+                        prefix + "pkg/contracts.py",
+                    ],
+                )
+                self.assertEqual(
+                    result,
+                    [
+                        {
+                            "path": prefix + "pkg/contracts.py",
+                            "hints": "Schema",
+                            "max_lines": 80,
+                        }
+                    ],
+                )
+
+    def test_deferred_absolute_python_import_is_an_acquisition_hint(self):
+        result, _, _, _ = self.requests(
+            "def run():\n    from pkg.contracts import Schema\n    return Schema()\n",
+            "Schema",
+            path="pkg/read.py",
+            files=["pkg/__init__.py", "pkg/read.py", "pkg/contracts.py"],
+        )
+        self.assertEqual(
+            result, [{"path": "pkg/contracts.py", "hints": "Schema", "max_lines": 80}]
+        )
+
+    def test_absolute_python_package_reexport_is_not_a_definition_claim(self):
+        result, _, _, _ = self.requests(
+            "from pkg.contracts import Schema\n",
+            "Schema",
+            path="pkg/read.py",
+            files=["pkg/__init__.py", "pkg/read.py", "pkg/contracts/__init__.py"],
+        )
+        self.assertEqual(
+            result,
+            [{"path": "pkg/contracts/__init__.py", "hints": "Schema", "max_lines": 80}],
+        )
+
+    def test_absolute_relative_duplicate_binding_consumes_one_slot(self):
+        result, _, _, _ = self.requests(
+            "from pkg.contracts import Schema\nfrom .contracts import Schema\n",
+            "Schema",
+            path="pkg/read.py",
+            files=["pkg/__init__.py", "pkg/read.py", "pkg/contracts.py"],
+        )
+        self.assertEqual(
+            result, [{"path": "pkg/contracts.py", "hints": "Schema", "max_lines": 80}]
+        )
+
+    def test_absolute_python_external_namespace_and_ambiguous_roots_abstain(self):
+        cases = [
+            (
+                "from external import Schema\n",
+                "pkg/read.py",
+                ["pkg/__init__.py", "pkg/read.py", "external.py"],
+            ),
+            (
+                "from pkg.contracts import Schema\n",
+                "pkg/read.py",
+                ["pkg/read.py", "pkg/contracts.py"],
+            ),
+            (
+                "from pkg.contracts import Schema\n",
+                "pkg/read.py",
+                [
+                    "pkg/__init__.py",
+                    "pkg/read.py",
+                    "pkg/contracts.py",
+                    "pkg/contracts/__init__.py",
+                ],
+            ),
+            (
+                "from pkg.contracts import Schema\n",
+                "pkg/vendor/pkg/read.py",
+                [
+                    "pkg/__init__.py",
+                    "pkg/contracts.py",
+                    "pkg/vendor/pkg/__init__.py",
+                    "pkg/vendor/pkg/read.py",
+                    "pkg/vendor/pkg/contracts.py",
+                ],
+            ),
+            (
+                "import pkg.contracts as Schema\n",
+                "pkg/read.py",
+                ["pkg/__init__.py", "pkg/read.py", "pkg/contracts.py"],
+            ),
+            (
+                "from pkg.contracts import Schema\n",
+                "pkg/vendor/pkg/read.py",
+                [
+                    "pkg/__init__.py",
+                    "pkg/contracts.py",
+                    "pkg/vendor/pkg/__init__.py",
+                    "pkg/vendor/pkg/read.py",
+                ],
+            ),
+            (
+                "from pkg.contracts import *\n",
+                "pkg/read.py",
+                ["pkg/__init__.py", "pkg/read.py", "pkg/contracts.py"],
+            ),
+        ]
+        for raw, path, files in cases:
+            with self.subTest(raw=raw, path=path, files=files):
+                self.assertEqual(
+                    self.requests(raw, "Schema", path=path, files=files)[0], []
+                )
+
+    def test_absolute_python_conflicting_bindings_still_abstain(self):
+        raw = "from pkg.a import Schema\nfrom pkg.b import Schema\n"
+        self.assertEqual(
+            self.requests(
+                raw,
+                "Schema",
+                path="pkg/read.py",
+                files=["pkg/__init__.py", "pkg/read.py", "pkg/a.py", "pkg/b.py"],
+            )[0],
+            [],
+        )
+
     def test_requested_same_file_identity_helper_precedes_an_import(self):
         raw = (
             'import {Schema} from "./contracts.js";\n'
