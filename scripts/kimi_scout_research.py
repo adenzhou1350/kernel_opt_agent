@@ -35,6 +35,7 @@ from scout_publication_context import (
 
 SOURCE_SUFFIXES = (
     ".py",
+    ".go",
     ".cu",
     ".cuh",
     ".cpp",
@@ -1320,7 +1321,17 @@ class ResearchProducer:
                     progress.get("code_search_requests", 0) + 1
                 )
                 try:
-                    found = code_lookup(spec["repo"], snapshot, symbols[0])
+                    prefix = f"https://raw.githubusercontent.com/{spec['repo']}/{snapshot['commit']}/"
+                    supplied_paths = []
+                    for source in packet.get("sources", [])[:8]:
+                        url = source.get("url", "")
+                        if isinstance(url, str) and url.startswith(prefix):
+                            path = urllib.parse.unquote(url[len(prefix) :])
+                            if path in snapshot["files"]:
+                                supplied_paths.append(path)
+                    found = code_lookup(
+                        spec["repo"], snapshot, symbols[0], deprioritize=supplied_paths
+                    )
                 except (ValueError, OSError) as exc:
                     progress["code_search_error"] = type(exc).__name__
                 else:
