@@ -663,6 +663,25 @@ are accident-limiting controls, **not network/filesystem isolation**; code revie
 is still required. CLI success means a comparison completed, not that a bug or PR
 has been qualified. Keep the raw result and inspect both arms' tests and cleanup.
 
+For an existing-work patch check, a repository spec may opt into
+`"followup_pr_revision_context": true` (default false). When `next_check`
+explicitly names a PR already displayed in that chain, the controller reads the
+first requested PR's current base/head identities and an immutable comparison.
+This replaces another title search; it adds no model tier or executable tool.
+At most three changed-file excerpts (1,800 characters each) are delivered,
+preferring primary-source paths. PR metadata and comparison reads are capped at
+300 KB each, with separate public-repository checks. There is no persistent
+patch cache, no mutable `/pulls/N/files` read and no model-provided URL fetch.
+
+The result describes the observed SHAs, not a permanently current PR head.
+GitHub caps comparison files at 300 and may omit/truncate patches, including
+binary changes. Missing files/hunks are not proof of absence or coverage. A
+patch excerpt is neither a tested fix nor permission to publish or park a lead.
+Failures retain ordinary related-work retrieval and record only the error class.
+Use this as an acquisition option, not a demonstrated PR-yield improvement;
+fresh budget-matched evaluation is still needed. Offline regression tests:
+`python -B -m unittest tests.test_scout_pr_revision`.
+
 For bounded context-acquisition trials, a repository spec may set
 `"followup_import_context": true` (default false). A follow-up's `next_check`
 can then select named relative imports from the already cached, pinned primary

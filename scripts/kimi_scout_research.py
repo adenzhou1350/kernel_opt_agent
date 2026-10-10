@@ -26,6 +26,7 @@ from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_symbol_references import reference_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
+from scout_pr_revision import pr_revision_sources, requested_pr_number
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_publication_context import (
     fit_publication_context,
@@ -315,6 +316,8 @@ def configuration(path):
             raise ValueError("repository source_windows must be 1..32")
         if type(spec.get("followup_import_context", False)) is not bool:
             raise ValueError("followup_import_context must be a boolean")
+        if type(spec.get("followup_pr_revision_context", False)) is not bool:
+            raise ValueError("followup_pr_revision_context must be a boolean")
         if type(spec.get("followup_code_search", False)) is not bool:
             raise ValueError("followup_code_search must be a boolean")
         if type(spec.get("followup_discussion_context", False)) is not bool:
@@ -1481,9 +1484,32 @@ class ResearchProducer:
                 if number
                 else json.loads(row["result"])["analysis"]["title"]
             )
-            sources.extend(self.context.duplicate_sources(
-                spec["repo"], source_duplicate_title(spec["repo"], title, sources)
-            ))
+            revisions = []
+            requested_pr = (
+                requested_pr_number(spec["repo"], packet["sources"], analysis_value)
+                if spec.get("followup_pr_revision_context", False)
+                else None
+            )
+            if requested_pr is not None:
+                try:
+                    revisions = pr_revision_sources(
+                        self.context, spec["repo"], requested_pr, packet["sources"]
+                    )
+                except (ValueError, OSError) as exc:
+                    # No successful-empty claim and no untrusted transport text.
+                    progress["pr_revision_context_error"] = type(exc).__name__
+                else:
+                    progress.pop("pr_revision_context_error", None)
+            # Replace repeated title search, not another model tier or an
+            # unbounded crawl. Existing primary-code reads and chain limits stay.
+            if revisions:
+                sources.extend(revisions)
+            else:
+                sources.extend(
+                    self.context.duplicate_sources(
+                        spec["repo"], source_duplicate_title(spec["repo"], title, sources)
+                    )
+                )
             if spec.get("followup_discussion_context", False):
                 sources.extend(discussion_sources(self.context, spec["repo"], title))
             sources = distinct_sources(sources)
