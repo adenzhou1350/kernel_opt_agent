@@ -1,0 +1,34 @@
+{
+  "id": "cleanup-after-ownership-loss",
+  "title": "Check resource identity before closing a reused fd or recursively deleting a replaced root",
+  "applies_when": "A leak hypothesis proposes unconditional cleanup after a filesystem root is rebound or a fork callback may replace a file descriptor. Inspect the complete ownership and identity checks, not just the skipped close or rollback branch.",
+  "lesson": "A pathname or fd number can designate a different resource by cleanup time. OpenClaw deliberately skips ordinary rollback and stage deletion after INSTALL_BASE_CHANGED; inspect the retained root identity and test an outside sentinel after a real root rebind. Filelock's complete before-fork callback first retries unverified descriptor identities; child cleanup closes only a matching device/inode. Persistent identity failure is a different case: an earlier child callback can reuse the fd for an unrelated file, so unconditional close can damage that replacement. Pair normal owned cleanup and recovered-identity closure with a real same-number fd replacement or root rebind. Seven selected upstream Linux fork cases passed, including registration/rollback failure and replacement-fd preservation. This refutes the truncated-callback explanation, not every possible leak.",
+  "avoid_when": "Retained resources can still have operational costs, and identity checks alone do not eliminate races. Do not use this counterexample to waive prompt cleanup of known-owned failed acquisitions, late worker arrivals or successful ownership handoffs. Filelock evidence is seven selected Linux CPython fork cases with task-only generated version metadata, not full backend/platform or packaging qualification. OpenClaw evidence is source/test inspection only, not executed installation tests. Safe identity-bound cleanup may be possible; demonstrate its ownership contract rather than inferring authority from the old name or number.",
+  "evidence": [
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.ts#L141-L159",
+      "note": "The stable-root check compares real paths; the ordinary temp cleanup recursively removes a pathname. Its existence does not authorize removal after replacement. Source inspection."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.ts#L308-L350",
+      "note": "Ordinary mutation/removal is bound to the retained owner and root/directory identities. Source inspection."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.ts#L416-L431",
+      "note": "The changed-root failure warns and skips the ordinary rollback/stage-deletion branch. Source inspection, not a generic missing-finally defect."
+    },
+    {
+      "url": "https://github.com/openclaw/openclaw/blob/8d756e9c009b2f89baa3ec1dcccf6cc8f4a140b3/src/infra/install-package-dir.test.ts#L637-L656",
+      "note": "The rebound-root fixture requires an untouched outside target and a warning, unlike ordinary cleanup controls. These TypeScript tests were inspected, not run."
+    },
+    {
+      "url": "https://github.com/tox-dev/filelock/blob/4c6f32f2797b2883bbcb0cca1ee81211d3e09c12/src/filelock/_api.py#L1904-L2041",
+      "note": "The before-fork callback invokes _verify_unverified_descriptors; child detachment skips unknown or nonmatching identities instead of closing by fd number alone."
+    },
+    {
+      "url": "https://github.com/tox-dev/filelock/blob/4c6f32f2797b2883bbcb0cca1ee81211d3e09c12/tests/test_fork_backends.py#L171-L276",
+      "note": "Native Linux selected upstream tests passed: recovering fstat after registration/rollback failure permits child closure, while persistent identity failure plus an earlier child callback preserves a different file reusing the same fd. Failure injection covers these cases, not all lock behavior."
+    }
+  ],
+  "status": "counterexample"
+}
