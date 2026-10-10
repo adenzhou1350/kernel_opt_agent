@@ -450,7 +450,7 @@ def continuation_request(packet, snapshot, analysis):
     return matches[0] if len(matches) == 1 else None
 
 
-def relevant_paths(snapshot, hints, exclude=()):
+def relevant_paths(snapshot, hints, exclude=(), priority_hints=""):
     """Rank *observed tree members*; never interpret hints as a fetch target."""
     hints = hints[:16000]
     # A report often names FlashInferMLASparseMetadataBuilder, not its
@@ -466,6 +466,7 @@ def relevant_paths(snapshot, hints, exclude=()):
             if end == len(symbol) or symbol[end].isupper()
         )
     hints = hints.lower()
+    priority_hints = priority_hints[:2000].lower()
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
     ranked = []
     for path in snapshot["files"]:
@@ -486,8 +487,16 @@ def relevant_paths(snapshot, hints, exclude=()):
         if "_" in stem and len(compact) >= 10 and compact in class_prefixes:
             score += 20 + min(len(compact), 20)
         if score:
-            ranked.append((-score, path))
-    return [path for _, path in sorted(ranked)]
+            # Explicit next-evidence filenames precede incidental report/log
+            # mentions. Prose and partial/foreign paths keep the old ranking.
+            requested = bool(
+                priority_hints and re.search(
+                    rf"(?<![a-z0-9_./-])(?:{re.escape(path.lower())}|{re.escape(name)})"
+                    r"(?![a-z0-9_./-])", priority_hints,
+                )
+            )
+            ranked.append((not requested, -score, path))
+    return [path for _, _, path in sorted(ranked)]
 
 
 def same_file_kernel_definition(packet, snapshot):
@@ -1267,7 +1276,9 @@ class ResearchProducer:
                         definition_source["text"],
                     ):
                         sources.append(definition_source)
-            paths = relevant_paths(snapshot, hints)
+            paths = relevant_paths(
+                snapshot, hints, priority_hints=analysis_value.get("next_check", "")
+            )
             continuation = continuation_request(packet, snapshot, analysis_value)
             if continuation:
                 paths = [continuation["path"]] + [
