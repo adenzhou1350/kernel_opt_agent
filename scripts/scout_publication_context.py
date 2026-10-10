@@ -16,6 +16,9 @@ CAUTION = (
 PR_URL = re.compile(
     r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/[1-9][0-9]*"
 )
+ISSUE_URL = re.compile(
+    r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/[1-9][0-9]*"
+)
 SOURCE_URL = re.compile(
     r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/"
     r"(?:blob/[0-9a-f]{40}/[^?#\s]+(?:#L[1-9][0-9]*(?:-L[1-9][0-9]*)?)?"
@@ -23,6 +26,7 @@ SOURCE_URL = re.compile(
 )
 DEFERRAL_CAUTION = (
     "Same-file owner deferrals only, not a no-bug verdict or an exhaustive history. "
+    "Public links are ownership/coverage hints, not current issue, CI or review state. "
     "Inspect the old hypothesis, evidence and reopening condition against the new "
     "source. New callers, contracts or distinct defects can invalidate a deferral. "
     "Never reject a lead from this memory alone; do not repeat an unsupported "
@@ -30,6 +34,15 @@ DEFERRAL_CAUTION = (
 )
 
 OWNER_NOTE_LIMIT_BYTES = 65536
+
+
+def advisory_evidence_match(url):
+    """Public discussion links are advice, not publication or parking authority."""
+    if not isinstance(url, str):
+        return None
+    return (
+        SOURCE_URL.fullmatch(url) or PR_URL.fullmatch(url) or ISSUE_URL.fullmatch(url)
+    )
 
 
 def owner_note_rows(root, repo):
@@ -295,7 +308,7 @@ def owner_deferral_context(root, repo, sources, *, prior_analysis=None):
             continue
         if any(contains_local_artifact_path(x) for x in (title, reason, reopen)):
             continue
-        match = SOURCE_URL.fullmatch(url) if isinstance(url, str) else None
+        match = advisory_evidence_match(url)
         if not match or match[1].casefold() != repo.casefold():
             continue
         key = (url, reason, reopen)
