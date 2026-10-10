@@ -237,6 +237,14 @@ ceiling, but the discovery API request is an additional cost. Query results are
 cached for the existing 15-minute snapshot TTL, keyed by repository, target
 commit and literal, with tree membership rechecked on reuse.
 
+For an explicit `references(identifier)` in a C-family source, the window prefers
+the first invocation-shaped occurrence (`identifier` followed by `(`) over an
+earlier `using` import. It reuses the already-read body, masks ordinary comments,
+quoted strings and continued preprocessor directives, and retains literal
+fallback for unsupported raw strings or no match. Declarations and inactive
+branches can still match: this is a lexical window hint, not call resolution.
+Ordinary literal requests and non-native source windows are unchanged.
+
 C-family `.cc`, `.c` and `.cxx` files are included in observed-path selection;
 a tree member with one of these extensions must not be silently excluded.
 
@@ -244,6 +252,7 @@ Offline checks:
 
 ```text
 python -B -m unittest tests.test_scout_code_search
+python -B -m unittest tests.test_scout_native_reference_anchor
 ```
 
 Development evidence motivating the opt-in: an unexecuted report
