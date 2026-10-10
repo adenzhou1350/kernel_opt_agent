@@ -1458,9 +1458,18 @@ class ResearchProducer:
             ):
                 if self.stopped():
                     return False
+                read_request = dict(request)
+                if request in imports and re.search(
+                    r"(?<!\w)definition[ \t]*\(", request_text[:2000]
+                ):
+                    # Keep an explicit method target across the import hop;
+                    # the source reader still rejects ambiguous/missing bodies.
+                    read_request["request_hints"] = request_text[:2000]
                 try:
                     sources.append(
-                        self.context.source(spec["repo"], snapshot["commit"], **request)
+                        self.context.source(
+                            spec["repo"], snapshot["commit"], **read_request
+                        )
                     )
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
