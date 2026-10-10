@@ -128,6 +128,97 @@ class SourceTrialTests(unittest.TestCase):
         self.assertEqual(result["session_costs"]["actual_gets"], 1)
         self.opener.open.assert_called_once()
 
+    def test_opt_in_preflight_retains_unavailable_case_without_paid_callbacks(self):
+        self.opener.open.side_effect = urllib.error.HTTPError(
+            URL, 404, "missing", {}, io.BytesIO(b"not source")
+        )
+        result = self.run_case(preflight_sources=True, arm_order=list(reversed(ARMS)))
+        self.assertEqual(result["status"], "UNAVAILABLE_SOURCE_ACQUISITION")
+        self.assertEqual([r["arm"] for r in result["arms"]], list(reversed(ARMS)))
+        self.assertTrue(all(r["status"] == "UNAVAILABLE_SOURCE_ACQUISITION"
+                            for r in result["arms"]))
+        self.assertEqual(result["source_preflight"][0]["http_status"], 404)
+        self.assertEqual(result["session_costs"]["actual_body_bytes_observed"], 10)
+        self.assertNotIn("text", result["source_preflight"][0])
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+        self.opener.open.assert_called_once()
+
+    def test_opt_in_preflight_success_reuses_cache_and_keeps_catalog(self):
+        original = view()
+        saved = copy.deepcopy(original)
+        result = self.run_case(original, preflight_sources=True)
+        self.assertEqual(result["status"], "AVAILABLE_ACTION_SPACE")
+        self.assertEqual(result["session_costs"]["actual_gets"], 1)
+        self.assertEqual(result["session_costs"]["logical_gets"], 3)
+        self.assertEqual(result["source_preflight"][0]["status"], "FETCHED")
+        self.assertNotIn("text", result["source_preflight"][0])
+        self.selector.assert_called_once()
+        self.assertEqual(self.reviewer.call_count, 3)
+        self.assertEqual(original, saved)
+        self.opener.open.assert_called_once()
+
+    def test_preflight_partial_availability_does_not_hide_or_replace_failed_choice(self):
+        other = URL.replace("/src/main.py", "/src/other.py")
+        original = view()
+        original["sources"].append({**original["sources"][0], "url": other})
+        missing = urllib.error.HTTPError(URL, 404, "missing", {}, io.BytesIO(b"missing"))
+        self.opener.open.side_effect = [missing, Response(b"available source\n")]
+        self.selector.return_value["url"] = URL
+        result = self.run_case(original, preflight_sources=True)
+        self.assertEqual(result["status"], "AVAILABLE_ACTION_SPACE")
+        self.assertEqual([r["status"] for r in result["source_preflight"]], ["FAILED", "FETCHED"])
+        self.assertEqual(result["arms"][2]["choice"]["url"], URL)
+        self.assertEqual(result["arms"][2]["acquisition"]["window"]["status"], "FAILED")
+        self.assertEqual(self.reviews[0][0], original)
+        self.assertEqual(result["session_costs"]["actual_gets"], 2)
+        self.assertEqual(self.opener.open.call_count, 2)
+
+    def test_preflight_deduplicates_urls_and_never_retries_cached_failure(self):
+        original = view()
+        original["sources"].append(dict(original["sources"][0]))
+        self.opener.open.side_effect = urllib.error.URLError("private diagnostic")
+        first = self.run_case(original, preflight_sources=True)
+        second = self.run_case(original, preflight_sources=True)
+        self.assertEqual(len(first["source_preflight"]), 1)
+        self.assertTrue(second["source_preflight"][0]["cache_hit"])
+        self.assertEqual(second["session_costs"]["actual_gets"], 1)
+        self.assertNotIn("private diagnostic", str(first))
+        self.opener.open.assert_called_once()
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+
+    def test_preflight_session_exception_is_not_echoed_or_costed_as_free(self):
+        session = Mock()
+        session.acquire.side_effect = RuntimeError("private session diagnostic")
+        session.costs.return_value = {"unmeasured": ["failed session attempts"]}
+        result = run_case(view(), selector=self.selector, reviewer=self.reviewer,
+                          session=session, preflight_sources=True)
+        self.assertEqual(result["status"], "UNAVAILABLE_SOURCE_ACQUISITION")
+        self.assertEqual(result["source_preflight"][0]["cost_scope"],
+                         "SESSION_FAILURE_COST_MAY_BE_INCOMPLETE")
+        self.assertNotIn("private session diagnostic", str(result))
+        session.acquire.assert_called_once()
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+
+    def test_preflight_does_not_swallow_interrupt_or_accept_truthy_flag(self):
+        self.session.acquire = Mock(side_effect=KeyboardInterrupt())
+        with self.assertRaises(KeyboardInterrupt):
+            self.run_case(preflight_sources=True)
+        with self.assertRaises(ValueError):
+            self.run_case(preflight_sources=1)
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+
+    def test_issue_only_preflight_still_performs_no_get(self):
+        result = self.run_case(view("https://github.com/example/project/issues/1"),
+                               preflight_sources=True)
+        self.assertEqual(result["status"], "UNAVAILABLE_ACTION_SPACE")
+        self.opener.open.assert_not_called()
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+
     def test_callback_failures_are_not_retried_or_echoed(self):
         self.selector.side_effect = RuntimeError("credential-like private detail")
         self.reviewer.side_effect = TimeoutError("private provider diagnostic")

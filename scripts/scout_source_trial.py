@@ -73,7 +73,8 @@ def _invoke(callback, *args):
         return {"status": "CALL_FAILED", "error_kind": type(error).__name__}
 
 
-def run_case(view, *, selector, reviewer, session, arm_order=ARMS):
+def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
+             preflight_sources=False):
     """One selection, up to one window/arm, one review/arm; no hidden repair.
 
     Selector returns the existing {url, start_line, reason} object (both selectors
@@ -81,11 +82,17 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS):
     not the arm name or selector rationale. Its opaque return record must include
     observed costs in a real experiment. Window failures stay failures, not text.
     Session costs are explicitly cumulative if a cache is reused across cases.
+    New protocols may opt into preflight_sources: acquire each distinct pinned
+    catalog URL once before paid callbacks. If none is FETCHED, retain the case
+    and all arms as UNAVAILABLE_SOURCE_ACQUISITION, without model calls. Do not
+    apply this different admission policy retrospectively to historical trials.
     """
     if not isinstance(arm_order, (list, tuple)) or (
         len(arm_order) != len(ARMS) or set(arm_order) != set(ARMS)
     ):
         raise ValueError("each declared arm must appear exactly once")
+    if type(preflight_sources) is not bool:
+        raise ValueError("preflight_sources must be a boolean")
     original = _copy_view(view)
     pinned = [s for s in original["sources"] if pinned_raw_url(s.get("url"))]
     if not pinned:
@@ -96,6 +103,26 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS):
                      for arm in arm_order],
             "session_costs": session.costs(),
         }
+    preflight = []
+    if preflight_sources:
+        for url in dict.fromkeys(s["url"] for s in pinned):
+            try:
+                acquired = session.acquire(url)
+                preflight.append({k: v for k, v in acquired.items() if k != "text"})
+            except Exception as error:
+                # An uncertain acquisition is not retried or costed as free.
+                preflight.append({"url": url, "status": "FAILED",
+                                  "error_kind": type(error).__name__,
+                                  "cost_scope": "SESSION_FAILURE_COST_MAY_BE_INCOMPLETE"})
+        if not any(record.get("status") == "FETCHED" for record in preflight):
+            return {
+                "status": "UNAVAILABLE_SOURCE_ACQUISITION",
+                "selection": {"status": "NOT_CALLED"},
+                "arms": [{"arm": arm, "status": "UNAVAILABLE_SOURCE_ACQUISITION"}
+                         for arm in arm_order],
+                "source_preflight": preflight,
+                "session_costs": session.costs(),
+            }
     selection = _invoke(selector, original)
     pick = selection.get("record")
     choice, selection_status = None, "INVALID_SELECTION"
@@ -142,6 +169,9 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS):
         review = _invoke(reviewer, original, evidence)
         records.append({"arm": arm, "choice": target, "acquisition": acquired,
                         "review": review})
-    return {"status": "AVAILABLE_ACTION_SPACE", "selection": selection,
-            "selection_status": selection_status, "arms": records,
-            "session_costs": session.costs()}
+    result = {"status": "AVAILABLE_ACTION_SPACE", "selection": selection,
+              "selection_status": selection_status, "arms": records,
+              "session_costs": session.costs()}
+    if preflight_sources:
+        result["source_preflight"] = preflight
+    return result
