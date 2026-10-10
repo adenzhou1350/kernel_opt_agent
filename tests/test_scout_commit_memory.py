@@ -61,6 +61,13 @@ class CommitMemoryTests(unittest.TestCase):
         self.assertFalse(memory.commit_admits_call(500, 0))
         self.assertTrue(memory.commit_admits_call(1000, 0))
 
+    def test_ssh_local_charge_preserves_emergency_margin(self):
+        self.assertFalse(memory.commit_admits_call(575, 0, 64, startup_mb=64))
+        self.assertTrue(memory.commit_admits_call(576, 0, 64, startup_mb=64))
+        self.assertFalse(memory.commit_admits_call(1535, 15, 64, startup_mb=64))
+        self.assertTrue(memory.commit_admits_call(1536, 15, 64, startup_mb=64))
+        self.assertFalse(memory.commit_admits_call(-1, 0, 64, startup_mb=64))
+
 
 if __name__ == "__main__":
     unittest.main()

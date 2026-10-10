@@ -57,14 +57,16 @@ def available_commit_headroom_mb():
         return -1
 
 
-def commit_admits_call(headroom_mb, inflight, worker_mb=0):
+def commit_admits_call(headroom_mb, inflight, worker_mb=0, *, startup_mb=256):
     """Keep 512 MiB before the emergency ceiling plus pending startup charges.
 
-    A 256 MiB per-call floor covers cold backend startup more conservatively
+    The default 256 MiB per-call floor covers cold backend startup more conservatively
     than its settled private memory. Already committed allocations may be
     charged twice; this is a safety budget, not a precise prediction. External
-    workloads can still change pressure after admission.
+    workloads can still change pressure after admission. A separately verified
+    SSH-only backend can specify a smaller local startup charge; the fixed
+    512 MiB margin and system commit ceiling are unchanged.
     """
     return headroom_mb is None or headroom_mb >= 512 + (inflight + 1) * max(
-        256, worker_mb
+        startup_mb, worker_mb
     )

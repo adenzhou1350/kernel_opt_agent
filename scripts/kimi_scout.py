@@ -874,7 +874,7 @@ def run(args):
             "cooldown_until": None,
             "next_feed_at": time.time() if args.feeds else None,
             "research_mode": bool(research_path),
-            "backend_mode": "resident" if getattr(args, "resident_backend", False) else "per_request",
+            "backend_mode": "remote_ssh" if getattr(args, "remote_backend", None) else ("resident" if getattr(args, "resident_backend", False) else "per_request"),
             "queue_policy": "review_weighted"
             if getattr(args, "review_priority", False)
             else "fifo",
@@ -905,7 +905,13 @@ def run(args):
         heartbeat_thread.start()
         reason = "stop, deadline, or --once queue drained"
         try:
-            if getattr(args, "resident_backend", False):
+            if getattr(args, "remote_backend", None):
+                from kimi_scout_remote import RemotePool
+
+                backend_pool = RemotePool(
+                    args.remote_backend, root, runtime_storage_env(root), args.concurrency
+                )
+            elif getattr(args, "resident_backend", False):
                 from kimi_scout_resident import BackendPool
 
                 backend_pool = BackendPool(
@@ -972,7 +978,8 @@ def run(args):
                         if reserve and (free_mb is None or free_mb < reserve):
                             break
                         if not commit_admits_call(
-                            commit_mb, len(running), getattr(args, "worker_memory_mb", 0)
+                            commit_mb, len(running), getattr(args, "worker_memory_mb", 0),
+                            startup_mb=64 if getattr(args, "remote_backend", None) else 256,
                         ):
                             break
                         if disk_reserve and (
@@ -1029,7 +1036,8 @@ def run(args):
                         available_memory_mb=free_mb,
                         available_commit_headroom_mb=commit_mb,
                         commit_paused=not commit_admits_call(
-                            commit_mb, len(running), getattr(args, "worker_memory_mb", 0)
+                            commit_mb, len(running), getattr(args, "worker_memory_mb", 0),
+                            startup_mb=64 if getattr(args, "remote_backend", None) else 256,
                         ),
                         disk_paused=bool(
                             disk_reserve
@@ -1060,7 +1068,7 @@ def run(args):
                 cooldown_until=None,
                 next_feed_at=None,
                 reason=reason,
-                backend_mode="resident" if backend_pool else "per_request",
+                backend_mode="remote_ssh" if getattr(args, "remote_backend", None) else ("resident" if backend_pool else "per_request"),
                 backend_process_starts=backend_pool.process_starts if backend_pool else None,
             )
     # Continuous daemons should not scan and print the entire historical inbox
@@ -1113,9 +1121,14 @@ def main(argv=None):
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
     )
     worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
-    worker.add_argument(
+    backend = worker.add_mutually_exclusive_group()
+    backend.add_argument(
         "--resident-backend", action="store_true",
         help="reuse bounded tool-free backend processes (32 requests each); no automatic request replay",
+    )
+    backend.add_argument(
+        "--remote-backend", type=Path,
+        help="opt-in SSH transport JSON (host/port/private root/pinned known_hosts); SDK/config provisioned separately",
     )
     worker.add_argument(
         "--min-free-memory-mb",
