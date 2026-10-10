@@ -423,6 +423,56 @@ class BackendTests(unittest.TestCase):
             backend.safe_error(backend.BackendError("invalid_input"))["retryable"]
         )
 
+    def test_stream_failure_retains_observed_usage_not_a_final_total(self):
+        for failure in (RuntimeError("SECRET_HEADERS"), TimeoutError("SECRET_BODY")):
+            with self.subTest(kind=type(failure).__name__):
+                with self.assertRaises(type(failure)) as caught:
+                    self.fake_completion([chunk(finish=None), failure])
+                payload = backend.safe_error(caught.exception)
+                self.assertEqual(payload["observed_usage"]["total_tokens"], 110)
+                self.assertEqual(payload["observed_usage"]["cached_input_tokens"], 30)
+                self.assertNotIn("usage", payload)
+                self.assertNotIn("SECRET", json.dumps(payload))
+                self.assertEqual(payload["retryable"], isinstance(failure, TimeoutError))
+
+    def test_stream_failure_without_usage_does_not_invent_zero(self):
+        with self.assertRaises(RuntimeError) as caught:
+            self.fake_completion([chunk(usage=False), RuntimeError("private")])
+        payload = backend.safe_error(caught.exception)
+        self.assertNotIn("usage", payload)
+        self.assertNotIn("observed_usage", payload)
+
+    def test_later_malformed_usage_does_not_erase_failure_observation(self):
+        malformed = chunk(finish=None)
+        malformed.usage.prompt_tokens = "PRIVATE_DIAGNOSTIC"
+        with self.assertRaises(RuntimeError) as caught:
+            self.fake_completion([chunk(finish=None), malformed, RuntimeError("private")])
+        payload = backend.safe_error(caught.exception)
+        self.assertEqual(payload["observed_usage"]["total_tokens"], 110)
+        self.assertNotIn("PRIVATE", json.dumps(payload))
+
+    def test_terminal_cli_error_keeps_only_numeric_observation(self):
+        async def fail(request, provider, progress, observe_usage):
+            observe_usage(chunk().usage)
+            raise TimeoutError("SECRET_HEADERS")
+
+        output = io.StringIO()
+        with (
+            patch.object(backend.sys, "flags", SimpleNamespace(
+                isolated=True, dev_mode=False, ignore_environment=True)),
+            patch.object(backend.sys, "stdin", SimpleNamespace(
+                buffer=io.BytesIO(b'{"prompt":"public"}'))),
+            patch.object(backend, "load_provider", return_value={"model_alias": "test"}),
+            patch.object(backend, "_complete", fail),
+            contextlib.redirect_stdout(output),
+        ):
+            self.assertEqual(backend.main([]), 75)
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["error"], "request_timeout")
+        self.assertEqual(payload["observed_usage"]["total_tokens"], 110)
+        self.assertNotIn("usage", payload)
+        self.assertNotIn("SECRET", output.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

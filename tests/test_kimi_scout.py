@@ -789,6 +789,44 @@ class ScoutTests(unittest.TestCase):
         self.assertTrue(raw["untrusted"])
         self.assertEqual(raw["text"], "{}")
 
+    def test_failed_call_preserves_usage_observation_separately_from_reservation(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        response = {
+            "ok": False, "error": "backend_failure", "error_type": "RuntimeError",
+            "observed_usage": {"total_tokens": 110, "input_tokens": 100,
+                               "output_tokens": 10, "headers": "PRIVATE"},
+        }
+        with patch.object(
+            scout.subprocess, "run",
+            return_value=subprocess.CompletedProcess([], 1, json.dumps(response), ""),
+        ):
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        self.assertEqual(receipt["state"], "FAILED")
+        self.assertEqual(receipt["charge_basis"], "reservation")
+        self.assertEqual(receipt["charged_tokens_or_reservation"], job["charge"])
+        self.assertIsNone(receipt["token_accounting"]["reported_usage"])
+        observed = receipt["token_accounting"]["interrupted_usage_observation"]
+        self.assertEqual(observed["total_tokens"], 110)
+        self.assertNotIn("PRIVATE", json.dumps(receipt))
+        saved = json.loads((self.root / "results" / f"{job['id']}.json").read_text())
+        self.assertEqual(saved["token_accounting"], receipt["token_accounting"])
+
+    def test_failed_answer_with_reported_zero_is_not_a_token_reservation(self):
+        self.add()
+        job = scout.claim(self.root, 12, 200000, 2048)
+        response = {"ok": False, "error": "incomplete_response",
+                    "usage": {"total_tokens": 0}}
+        with patch.object(
+            scout.subprocess, "run",
+            return_value=subprocess.CompletedProcess([], 1, json.dumps(response), ""),
+        ):
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        self.assertEqual(receipt["charged_tokens_or_reservation"], 0)
+        self.assertEqual(receipt["charge_basis"], "provider_report")
+        self.assertEqual(receipt["token_accounting"]["reported_usage"]["total_tokens"], 0)
+        self.assertIsNone(receipt["token_accounting"]["interrupted_usage_observation"])
+
     def test_success_is_only_review_and_records_usage(self):
         self.add()
         job = scout.claim(self.root, 12, 200000, 2048)

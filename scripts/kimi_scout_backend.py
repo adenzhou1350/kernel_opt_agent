@@ -194,6 +194,13 @@ async def complete(
     progress: Callable[[str, str], None] | None = None,
 ) -> dict:
     visible_text = ""
+    observed_usage = None
+
+    def observe_usage(raw_usage) -> None:
+        nonlocal observed_usage
+        reported = usage_payload(raw_usage)
+        if reported is not None:
+            observed_usage = reported
 
     def update(text: str, phase: str) -> None:
         nonlocal visible_text
@@ -202,15 +209,41 @@ async def complete(
 
     update("", "requesting")
     try:
-        payload = await _complete(request, provider_config, update)
-    except BaseException:
+        payload = await _complete(request, provider_config, update, observe_usage)
+    except BaseException as error:
+        if isinstance(error, Exception) and observed_usage is not None:
+            # Preserve the original failure/retry classification. An interrupted
+            # stream's last counters are observations, not a final usage total.
+            error._scout_observed_usage = observed_usage
         update(visible_text, "failed")
         raise
     update(payload["text"], "completed" if payload["ok"] else "failed")
     return payload
 
 
-async def _complete(request: dict, provider_config: dict, progress) -> dict:
+def usage_payload(raw_usage) -> dict | None:
+    if raw_usage is None:
+        return None
+    input_tokens = getattr(raw_usage, "prompt_tokens", None)
+    output_tokens = getattr(raw_usage, "completion_tokens", None)
+    if any(type(value) is not int or value < 0 for value in (input_tokens, output_tokens)):
+        return None
+    details = getattr(raw_usage, "prompt_tokens_details", None)
+    cached = getattr(raw_usage, "cached_tokens", None)
+    if cached is None:
+        cached = getattr(details, "cached_tokens", None)
+    if type(cached) is not int or cached < 0:
+        cached = None
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "cached_input_tokens": cached,
+        "cache_creation_input_tokens": None,
+        "total_tokens": input_tokens + output_tokens,
+    }
+
+
+async def _complete(request: dict, provider_config: dict, progress, observe_usage) -> dict:
     import httpx
     from kosong.chat_provider.kimi import Kimi, extract_usage_from_chunk
     from loguru import logger
@@ -266,6 +299,7 @@ async def _complete(request: dict, provider_config: dict, progress) -> dict:
                     chunk_usage = extract_usage_from_chunk(chunk)
                     if chunk_usage is not None:
                         raw_usage = chunk_usage
+                        observe_usage(raw_usage)
                     if not chunk.choices:
                         continue
                     if len(chunk.choices) != 1:
@@ -290,21 +324,7 @@ async def _complete(request: dict, provider_config: dict, progress) -> dict:
             finally:
                 await stream.close()
             answer = "".join(text_parts)
-            usage = None
-            if raw_usage is not None:
-                details = raw_usage.prompt_tokens_details
-                cached = getattr(raw_usage, "cached_tokens", None)
-                if cached is None:
-                    cached = details.cached_tokens if details is not None else None
-                usage = {
-                    "input_tokens": raw_usage.prompt_tokens,
-                    "output_tokens": raw_usage.completion_tokens,
-                    "cached_input_tokens": cached,
-                    # This provider usage interface reports no creation counter.
-                    "cache_creation_input_tokens": None,
-                    "total_tokens": raw_usage.prompt_tokens
-                    + raw_usage.completion_tokens,
-                }
+            usage = usage_payload(raw_usage)
             payload = {
                 "ok": finish_reason == "stop" and bool(answer.strip()),
                 "text": answer,
@@ -330,6 +350,25 @@ async def _complete(request: dict, provider_config: dict, progress) -> dict:
 
 def safe_error(error: Exception) -> dict:
     """Do not echo exception messages: provider errors may contain request data."""
+    payload = _safe_error(error)
+    observed = getattr(error, "_scout_observed_usage", None)
+    if isinstance(observed, dict):
+        # Only numeric counters may cross the error boundary, never arbitrary
+        # exception attributes, text, headers or provider diagnostics.
+        counters = {
+            key: value if type(value) is int and value >= 0 else None
+            for key in (
+                "input_tokens", "output_tokens", "cached_input_tokens",
+                "cache_creation_input_tokens", "total_tokens",
+            )
+            for value in (observed.get(key),)
+        }
+        if counters["total_tokens"] is not None:
+            payload["observed_usage"] = counters
+    return payload
+
+
+def _safe_error(error: Exception) -> dict:
     if isinstance(error, BackendError):
         return {"ok": False, "error": str(error), "retryable": False}
     status = getattr(error, "status_code", None)
