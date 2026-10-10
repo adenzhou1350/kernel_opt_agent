@@ -60,6 +60,47 @@ class RequestedDefinitionTests(unittest.TestCase):
         result = self.evidence(request_hints="Inspect absent_method")
         self.assertNotIn("requested_definition", result)
 
+    def test_explicit_definition_overrides_other_function_mentions(self):
+        request = "definition(_check_gate); compare Executor._sync and _check_gate"
+        result = self.evidence(request_hints=request)
+        self.assertEqual(result["requested_definition"]["name"], "_check_gate")
+        self.assertTrue(result["requested_definition_complete"])
+        self.assertIn("return self.fill", result["text"])
+        self.assertNotIn("def _sync", result["text"])
+
+    def test_explicit_qualified_definition_disambiguates_duplicate_methods(self):
+        raw = "class A:\n    def same(self): pass\nclass B:\n    def same(self): pass"
+        result = requested_function_window(raw.splitlines(),
+                                           "definition(B.same); compare A.same")
+        self.assertEqual(result["start_line"], 4)
+
+    def test_invalid_or_multiple_explicit_targets_do_not_fall_back_to_prose(self):
+        for request in (
+            "definition(missing); inspect _check_gate",
+            "definition(_sync) definition(_check_gate)",
+            "definition(_sync, _check_gate)",
+            "definition(_sync; repo:other/private) inspect _check_gate",
+            "definition(\n_sync) inspect _check_gate",
+            "definition(_sync inspect _check_gate",
+        ):
+            with self.subTest(request=request):
+                self.assertIsNone(requested_function_window(self.raw.splitlines(), request))
+        result = requested_function_window(self.raw.splitlines(),
+                                           "definition(_sync) definition(_sync)")
+        self.assertEqual(result["name"], "_sync")
+
+    def test_explicit_target_keeps_line_precedence(self):
+        result = self.evidence(request_hints="definition(_check_gate)", start=1,
+                               max_lines=3)
+        self.assertNotIn("requested_definition", result)
+        self.assertIn("def _sync", result["text"])
+
+    def test_explicit_target_keeps_completeness_caps(self):
+        self.raw = "def target():\n" + "    # " + "x" * 10000 + "\n    return False\n"
+        result = self.evidence(request_hints="definition(target)")
+        self.assertFalse(result["requested_definition_complete"])
+        self.assertLessEqual(len(result["text"]), 9000)
+
     def test_explicit_line_or_literal_remains_authoritative(self):
         for kwargs in ({"start": 1, "max_lines": 3}, {"exact_hint": "def _sync"}):
             result = self.evidence(request_hints="Inspect _check_gate", **kwargs)

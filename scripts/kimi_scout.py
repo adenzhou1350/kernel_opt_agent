@@ -110,6 +110,10 @@ packet, validate speedups, or contact anyone. Find at most ONE actionable lead;
 no_lead is a valuable result. Prefer an existing production path and a fair
 baseline. Check the supplied related work; an incomplete list is not proof of
 novelty. Separate correctness bugs, API usability, and performance hypotheses.
+For a missing Python function body, next_check may request definition(NAME) or
+definition(Class.method) in a supplied file. One explicit target overrides other
+function mentions; source/packet limits still apply. Check completeness before
+inferring a missing guard, fallback or return value from an excerpt.
 For missing C-family/Python/JS/TS symbol uses, next_check may request
 references(NAME) for up to two exact identifiers in an already supplied cached
 file. A partial reference_scan ends before unsupported syntax; these excerpts
