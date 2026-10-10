@@ -105,6 +105,63 @@ def _javascript_code(raw, *, prefix_on_unsupported=False):
     return "".join(output)
 
 
+def _python_literal_assignments(tree, names):
+    """Locate unambiguous module-level literal assignments, without evaluation.
+
+    Only an unqualified uppercase request admits this extra syntax hint. Any
+    other syntactic binding of the name (even in another scope) abstains.
+    The value is not a resolved runtime constant or a reachability assertion.
+    """
+    lines = set()
+    nodes = list(ast.walk(tree))
+    if any(isinstance(node, ast.alias) and node.name == "*" for node in nodes):
+        return lines
+    for name in names:
+        if not re.fullmatch(r"[A-Z][A-Z0-9_]{1,127}", name):
+            continue
+        candidates = []
+        for node in tree.body:
+            if isinstance(node, ast.Assign) and len(node.targets) == 1:
+                target = node.targets[0]
+            elif isinstance(node, ast.AnnAssign):
+                target = node.target
+            else:
+                continue
+            if (
+                isinstance(target, ast.Name)
+                and target.id == name
+                and isinstance(node.value, ast.Constant)
+            ):
+                candidates.append(node)
+        if len(candidates) != 1:
+            continue
+        bindings = sum(
+            (
+                isinstance(node, ast.Name)
+                and node.id == name
+                and isinstance(node.ctx, (ast.Store, ast.Del))
+            )
+            or (isinstance(node, ast.arg) and node.arg == name)
+            or (
+                isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))
+                and node.name == name
+            )
+            or (
+                isinstance(node, ast.alias)
+                and (node.asname or node.name.split(".")[0]) == name
+            )
+            or (
+                isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar))
+                and node.name == name
+            )
+            or (isinstance(node, ast.MatchMapping) and node.rest == name)
+            for node in nodes
+        )
+        if bindings == 1:
+            lines.add(candidates[0].lineno)
+    return lines
+
+
 def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Honor explicit references(NAME), with <=2 existing-tree source windows.
 
@@ -115,6 +172,8 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     Qualified requests use their terminal identifier as a hint, not a resolved
     receiver. Python AST loads and literal getattr/hasattr calls exclude other
     strings, comments and definitions; built-in names may themselves be shadowed.
+    An unqualified uppercase request also admits one unambiguous module-level
+    literal assignment as a syntax hint, not a resolved constant.
     These are syntactic references, not resolved bindings or runtime calls.
     When no unseen Python uses remain, an unqualified name may expose its
     unique top-level import statement instead. This does not resolve the
@@ -207,6 +266,7 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             and isinstance(node.ctx, ast.Load)
             and (node.id if isinstance(node, ast.Name) else node.attr) in symbols
         }
+        occurrences.update(_python_literal_assignments(tree, names))
         occurrences.update(
             node.lineno
             for node in ast.walk(tree)

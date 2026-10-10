@@ -189,6 +189,34 @@ model accuracy, prospective cost savings or PR conversion. The limited cached
 lazy-export hint now covers this source pattern; it is still not evaluation of
 the export hook or proof of the installed package's binding.
 
+## Cached Python literal-assignment hints
+
+An explicit unqualified `references(UPPERCASE_NAME)` can now include an unseen
+module-level assignment of a literal, using the already cached, pinned Python
+source. Both simple and annotated assignments are supported. Repeated or other
+syntactic bindings, wildcard imports, local/class-only assignments, computed
+values and qualified receiver requests do not introduce this assignment hint.
+Ordinary use-site and import-statement hints remain available under their
+existing rules. Source is parsed, never executed or evaluated. A literal in the
+returned text does not prove its runtime value, binding or reachability.
+
+This uses the existing maximum of two 80-line source windows; it does not add a
+model call, network acquisition or follow-up depth. Already supplied lines are
+not requested again.
+
+Development counterexample: h2 `bc239af1` has
+[`CONTINUATION_BACKLOG = 64` at line28](https://github.com/python-hyper/h2/blob/bc239af1d1b85bc70482804f30a0e0e587d90a08/src/h2/frame_buffer.py#L28).
+A supplied guard window covered its use but not this assignment. The previous
+use-only lookup returned no unseen match, so a follow-up read another method
+instead of the explicitly requested bound. The offline regression now supplies
+the assignment in one window and retains ambiguity, receiver and budget checks.
+This is a development-case repair, not a held-out accuracy, cost-saving or PR
+conversion result.
+
+```text
+python -B -m unittest tests.test_scout_symbol_references
+```
+
 ## Optional missing-implementation discovery
 
 A repository may opt into `followup_code_search=true`. When a needs-context

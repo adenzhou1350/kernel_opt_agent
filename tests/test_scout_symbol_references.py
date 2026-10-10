@@ -1,18 +1,19 @@
 """Offline cached C-family/Python references and follow-up packet tests."""
 
+import ast
 import json
-from pathlib import Path
 import sys
 import tempfile
 import time
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
 import kimi_scout_context as context
 import kimi_scout_research as research
-from scout_symbol_references import reference_requests
+from scout_symbol_references import _python_literal_assignments, reference_requests
 
 REPO, COMMIT, PATH = "a/b", "a" * 40, "src/kernel.cu"
 URL = f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{PATH}"
@@ -229,10 +230,88 @@ class ReferenceTests(unittest.TestCase):
         )
         self.check_emitted_followup(self.path, ("target(value)", "other.target(value)"))
 
+    def test_python_constant_request_reaches_hidden_literal_assignment(self):
+        self.python_source(
+            'raise RuntimeError("must never execute cached source")\n'
+            + "\n" * 26
+            + "CONTINUATION_BACKLOG = 64\n"
+            + "\n" * 67
+            + "def check(items):\n"
+            + "    return len(items) > CONTINUATION_BACKLOG\n"
+        )
+        self.packet["sources"][0].update(
+            start_line=74,
+            end_line=175,
+            text="97:     return len(items) > CONTINUATION_BACKLOG",
+        )
+        result = self.requests("references(CONTINUATION_BACKLOG)")
+        self.assertEqual(result, [{"path": self.path, "start": 20, "max_lines": 80}])
+        self.check_emitted_followup(
+            self.path,
+            ("CONTINUATION_BACKLOG = 64", "return len(items)"),
+            request="references(CONTINUATION_BACKLOG)",
+            expected_reads=1,
+        )
+
+    def test_python_annotated_literal_and_existing_read_budget(self):
+        self.python_source(
+            "FIRST_LIMIT: int = 64\n" + "\n" * 200 + "LAST_LIMIT = 128\n"
+        )
+        self.packet["sources"][0].update(start_line=100, end_line=150)
+        self.assertEqual(
+            len(self.requests("references(FIRST_LIMIT) references(LAST_LIMIT)")), 2
+        )
+        self.assertEqual(
+            len(
+                self.requests("references(FIRST_LIMIT) references(LAST_LIMIT)", limit=1)
+            ),
+            1,
+        )
+        self.packet["sources"][0].update(start_line=1, end_line=1000)
+        self.assertEqual(self.requests("references(FIRST_LIMIT)"), [])
+
+    def test_python_constant_hints_abstain_on_ambiguous_or_nonliteral_bindings(self):
+        for raw in (
+            "LIMIT = 1\nLIMIT = 2\n",
+            "LIMIT = 1\nif flag:\n    LIMIT = 2\n",
+            "LIMIT = 1\ndef f(LIMIT):\n    pass\n",
+            "LIMIT = 1\nfrom other import LIMIT\n",
+            "LIMIT = 1\nimport other as LIMIT\n",
+            "LIMIT = 1\ndef LIMIT():\n    pass\n",
+            "LIMIT = 1\nclass LIMIT:\n    pass\n",
+            "LIMIT = 1\nfrom other import *\n",
+            "LIMIT = 1\ntry:\n    pass\nexcept Exception as LIMIT:\n    pass\n",
+            "LIMIT = 1\nmatch value:\n    case LIMIT:\n        pass\n",
+            "LIMIT = 1\ndel LIMIT\n",
+            "LIMIT = get_value()\n",
+            "def f():\n    LIMIT = 64\n",
+            "class Config:\n    LIMIT = 64\n",
+            "LIMIT = OTHER = 64\n",
+            "LIMIT: int\n",
+        ):
+            with self.subTest(raw=raw):
+                self.python_source(raw)
+                self.packet["sources"][0].update(start_line=100, end_line=150)
+                self.assertEqual(
+                    _python_literal_assignments(ast.parse(raw), ["LIMIT"]), set()
+                )
+                if "import" not in raw and "class LIMIT" not in raw:
+                    self.assertEqual(self.requests("references(LIMIT)"), [])
+                # Existing import/class-declaration fallbacks remain hints;
+                # it must not make the ambiguous assignment a constant match.
+
+    def test_python_assignment_hint_does_not_resolve_receiver_or_lowercase_name(self):
+        self.python_source("LIMIT = 64\nlowercase = 64\n")
+        self.packet["sources"][0].update(start_line=100, end_line=150)
+        self.assertEqual(self.requests("references(config.LIMIT)"), [])
+        self.assertEqual(self.requests("references(lowercase)"), [])
+
     def test_emitted_followup_replaces_reads_and_keeps_exact_pin_and_bounds(self):
         self.check_emitted_followup(PATH, ("write(target)", "read(target)"))
 
-    def check_emitted_followup(self, path, expected):
+    def check_emitted_followup(
+        self, path, expected, *, request="Inspect references(target)", expected_reads=2
+    ):
         raw = self.raw
         url = self.packet["sources"][0]["url"]
 
@@ -288,7 +367,7 @@ class ReferenceTests(unittest.TestCase):
                                         "title": "kernel.cu consumer",
                                         "hypothesis": "Unverified alias",
                                         "decision": "needs_context",
-                                        "next_check": "Inspect references(target)",
+                                        "next_check": request,
                                         "evidence": [],
                                     }
                                 }
@@ -297,7 +376,7 @@ class ReferenceTests(unittest.TestCase):
                     )
                 with patch.object(reader, "source", wraps=reader.source) as reads:
                     self.assertTrue(producer.followup(spec, {}))
-                self.assertEqual(reads.call_count, 2)
+                self.assertEqual(reads.call_count, expected_reads)
                 with scout.connect(root) as db:
                     rows = [
                         json.loads(row[0])
