@@ -152,7 +152,30 @@ def companion_source_paths(path, files):
             if left != right:
                 break
             mirrored += 1
-        return not exact, -common, -mirrored, candidate
+        # Python src layouts often omit the import package in the test tree:
+        # src/package/generation/utils.py -> tests/generation/test_utils.py.
+        # Strip that one package only at a matching workspace test root, not
+        # arbitrary shared path segments. This is a hint, not coverage proof.
+        python_mirrored = 0
+        source_dirs = path.split("/")[:-1]
+        candidate_dirs = candidate.split("/")[:-1]
+        if path.endswith(".py") and candidate.endswith(".py") and "src" in source_dirs:
+            root = source_dirs.index("src")
+            if (
+                len(source_dirs) > root + 2
+                and len(candidate_dirs) > root
+                and candidate_dirs[:root] == source_dirs[:root]
+                and candidate_dirs[root] in {"test", "tests"}
+            ):
+                package = source_dirs[root + 1]
+                test_components = candidate_dirs[root + 1 :]
+                if test_components[:1] == [package]:
+                    test_components = test_components[1:]
+                for left, right in zip(source_dirs[root + 2 :], test_components):
+                    if left != right:
+                        break
+                    python_mirrored += 1
+        return not exact, -common, -python_mirrored, -mirrored, candidate
 
     tests = sorted(
         (

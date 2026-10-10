@@ -1266,6 +1266,68 @@ class ResearchTests(unittest.TestCase):
                         ([expected], None),
                     )
 
+    def test_companion_python_src_package_matches_unprefixed_test_component(self):
+        source = "src/transformers/generation/utils.py"
+        related = "tests/generation/test_utils.py"
+        unrelated = "tests/exporters/test_utils.py"
+        for files in ([unrelated, related], [related, unrelated]):
+            with self.subTest(files=files):
+                self.assertEqual(
+                    research.companion_source_paths(source, files), ([related], None)
+                )
+
+    def test_companion_python_package_qualified_tests_keep_component_ranking(self):
+        source = "src/package/generation/utils.py"
+        related = "tests/generation/test_utils.py"
+        qualified = "tests/package/generation/test_utils.py"
+        unrelated = "tests/package/exporters/test_utils.py"
+        for expected in (related, qualified):
+            for files in ([unrelated, expected], [expected, unrelated]):
+                with self.subTest(files=files):
+                    self.assertEqual(
+                        research.companion_source_paths(source, files),
+                        ([expected], None),
+                    )
+
+    def test_companion_python_package_match_stays_in_its_workspace(self):
+        source = "apps/worker/src/package/generation/utils.py"
+        related = "apps/worker/tests/generation/test_utils.py"
+        foreign = "apps/another/tests/generation/test_utils.py"
+        unrelated = "apps/worker/tests/exporters/test_utils.py"
+        for files in (
+            [foreign, unrelated, related],
+            [related, unrelated, foreign],
+        ):
+            with self.subTest(files=files):
+                self.assertEqual(
+                    research.companion_source_paths(source, files), ([related], None)
+                )
+        # A path hint is not proof of applicability: keep an observed fallback
+        # when no same-component candidate exists, and never invent a path.
+        self.assertEqual(
+            research.companion_source_paths(source, [unrelated]), ([unrelated], None)
+        )
+        self.assertEqual(research.companion_source_paths(source, [source]), ([], None))
+
+    def test_source_audit_reads_only_one_observed_python_component_test(self):
+        source = "src/transformers/generation/utils.py"
+        related = "tests/generation/test_utils.py"
+        unrelated = "tests/exporters/test_utils.py"
+        snapshot = {
+            "commit": self.context.revision,
+            "files": [source, unrelated, related],
+            "blobs": {source: self.context.blob},
+        }
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(
+            [item["url"].rsplit(self.context.revision + "/", 1)[-1]
+             for item in packet["sources"]],
+            [source, related],
+        )
+        self.assertEqual([call[2] for call in self.context.calls], [source, related])
+
     def test_companion_test_prefers_its_component_not_alphabetical_monorepo_match(self):
         path = "transfer-engine/src/config.cpp"
         files = [
