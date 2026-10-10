@@ -1,0 +1,30 @@
+{
+  "id": "tool-call-streaming-chunk-invariance",
+  "title": "Test tool-call arguments under both split and coalesced streaming delivery",
+  "applies_when": "A streaming tool-call parser maintains name/argument/call-index state across increments, especially when a regex searches a buffer that can contain multiple calls.",
+  "lesson": "Use the same valid generation with separate headers/arguments, whole-call delivery, several calls in one increment, and a complete first call plus partial next arguments. Compare reconstructed names, call indices and JSON values, including repeated function names and empty arguments. A greedy name match can span the next separator; returning after one state transition can lose arguments or attribute a later call to the wrong tool. Bound each call, process already-buffered arguments in the name-emitting increment, drain completed calls, and retain state until its explicit end marker. Exercise the real consumer's final flush: stored empty arguments can turn data loss into a plausible-looking empty object.",
+  "avoid_when": "Respect the model's delimiter/token and caller contract: arbitrary character splitting of a single vocabulary marker is not automatically a production path. Do not demand byte-identical JSON if the API promises only equivalent JSON values. Component imports or unchanged extracted caller methods do not establish full installed-package/server/model correctness, unknown-tool behavior, arbitrary malformed-input recovery, performance, or upstream approval. A closed prior fix still deserves attribution; check active PR scope before opening another.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/42328#issuecomment-6101689484",
+      "note": "Independent Linux CPU comparison of complete DeepSeek V3 detector modules: main 234ccba and author heads 4581069/72cbf05 all lose the first of two coalesced calls. Both proposed fixes pass single-call and separately drained two-call controls but duplicate the last call under diagnostic empty increments; inherited finish() emits nothing. The known issue was already reported in #31915. Reproduction contributed to the original author, not a competing PR, new discovery or server/official-CI claim. Package initializers alone were bypassed; real Tool/base/JSON helpers were used."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/42246",
+      "note": "Other-author Harmony repair at bb00fda98c3de8878ab80eed9198a361827fc64e: independent full stdlib parser audit preserved tool content/raw text for 341 split/coalesced delivery plans across both recipient header positions; main 35f3c96 failed 177 plans. Ordinary reasoning remains incremental. Component-only evidence, not our PR, official CI or a server/model qualification; character splits are defensive rather than a proven serving path. Live issue timeline revealed this PR when cached search did not."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/18236",
+      "note": "Closed, unmerged prior report identifies first-increment argument loss in DeepSeek V3.1. It is prior work, not proof that current main contains the proposed repair."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/42262",
+      "note": "Submitted CPU component reproduction and nine registered regressions cover coalesced DeepSeek V3.1 calls, partial arguments, repeated names, and final-flush behavior. Local component validation passes; full installed-package/server CI and maintainer approval are explicitly not claimed."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/35625",
+      "note": "A separate open change tests split/coalesced parity for other detectors and distinguishes realistic token-boundary failures from character-level defensive hardening. This is supporting test design/prior work, not validation of the DeepSeek V3.1 repair."
+    }
+  ],
+  "status": "validated"
+}
