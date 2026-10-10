@@ -1,4 +1,4 @@
-"""Select one observed Python function from an explicit next-evidence request.
+"""Select an observed Python function, or an explicitly requested class.
 
 Syntax-only, never imported/executed code or production-reachability proof.
 Ambiguous/missing/non-Python declarations fall back to existing context selection.
@@ -49,7 +49,11 @@ def requested_function_window(lines, request):
         matches = [node for node in classes[0].body if isinstance(node, functions) and node.name == name]
     else:
         names = explicit or set(re.findall(r"[A-Za-z_]\w{2,}", request))
-        matches = [node for node in ast.walk(tree) if isinstance(node, functions) and node.name in names]
+        # Classes can contain the requested lifecycle evidence. Admit them only
+        # for definition(Name), not incidental class names in free-form prose.
+        # A same-name function/class remains ambiguous rather than guessing.
+        declarations = functions + (ast.ClassDef,) if explicit else functions
+        matches = [node for node in ast.walk(tree) if isinstance(node, declarations) and node.name in names]
     if len(matches) != 1:
         return None
     node = matches[0]
