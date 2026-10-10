@@ -1,0 +1,26 @@
+{
+  "id": "file-like-negative-read-contract",
+  "title": "fsspec read_block: BytesIO can hide negative lengths rejected by buffered files",
+  "applies_when": "A byte-range or EOF repair is tested using only BytesIO, a memory filesystem or a mocked read method instead of the supported local-file backend.",
+  "lesson": "Check the receiver's read contract and pair the actual backend with the in-memory control. In CPython 3.12.13, buffered read rejects sizes below -1, whereas BytesIO treats negative sizes as reading the remaining bytes. A derived size-offset of -1 therefore hides an error that -2 exposes. Test interior, EOF, one-byte-past and farther-past offsets, finite/zero/None lengths and delimiter paths. In fsspec's public read_block, a three-byte local file read at offset five raised ValueError while the memory backend returned empty bytes. Clamp the derived remaining length, not the caller's unrelated inputs; run identical cases before and after the repair. The separately documented utils.read_block None contract also needs direct utility tests because the filesystem wrapper converts None before calling it.",
+  "avoid_when": "This is a scoped CPython buffered-file versus BytesIO distinction, not a claim that every negative size is invalid or every file-like object must match either implementation. Third-party readers and runtime versions need their own contract. The fsspec PRs are submitted native correctness evidence, not maintainer acceptance, downstream reachability, cloud-service qualification or measured Scout conversion improvement.",
+  "evidence": [
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.13/Modules/_io/bufferedio.c",
+      "note": "_io__Buffered_read_impl rejects n < -1; n == -1 uses the read-all path. This pinned implementation explains the native receiver contract."
+    },
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.13/Modules/_io/bytesio.c",
+      "note": "_io_BytesIO_read_impl clamps negative size to the remaining extent, then to zero beyond EOF, unlike buffered read."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2261",
+      "note": "Public local/memory filesystem regression: unchanged Windows and Linux Python3.12 each fail four of 32 cells; the nonnegative derived-length clamp fixes them. Linux related modules: 781 passed, 28 skipped, one existing xfail and fork warning."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2262",
+      "note": "Distinct documented utility None branch: real-file/BytesIO regressions fail eight of 24 controls before repair. The wrapper's None-to-integer conversion would not expose this assertion."
+    }
+  ],
+  "status": "validated"
+}
