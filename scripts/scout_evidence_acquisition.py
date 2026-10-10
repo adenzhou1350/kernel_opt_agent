@@ -10,6 +10,8 @@ import hashlib
 import http.client
 import math
 import re
+import socket
+import ssl
 import time
 import urllib.error
 import urllib.request
@@ -24,6 +26,33 @@ except ImportError:
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
+
+
+def _transport_details(error):
+    """Fixed categories and numeric codes only, never exception/proxy text."""
+    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+    category = "UNCLASSIFIED"
+    for kind, label in (
+        (ssl.SSLCertVerificationError, "TLS_CERTIFICATE_VERIFY"),
+        (ssl.SSLError, "TLS"),
+        (TimeoutError, "TIMEOUT"),
+        (socket.gaierror, "DNS"),
+        (PermissionError, "PERMISSION_DENIED"),
+        (ConnectionResetError, "CONNECTION_RESET"),
+        (ConnectionRefusedError, "CONNECTION_REFUSED"),
+        (OSError, "OS_ERROR"),
+    ):
+        if isinstance(reason, kind):
+            category = label
+            break
+    details = {"error_category": category}
+    for field, attr in (("error_errno", "errno"), ("error_winerror", "winerror")):
+        value = getattr(reason, attr, None)
+        details[field] = value if type(value) is int and -(2**31) <= value < 2**31 else None
+    value = (getattr(reason, "verify_code", None)
+             if isinstance(reason, ssl.SSLCertVerificationError) else None)
+    details["tls_verify_code"] = value if type(value) is int and 0 <= value < 65536 else None
+    return details
 
 
 def pinned_raw_url(url):
@@ -78,6 +107,10 @@ def fetch_source(url, *, max_bytes=1_000_000, socket_timeout=20, opener=None):
         "elapsed_seconds": 0.0,
         "status": "FAILED",
         "error_kind": None,
+        "error_category": None,
+        "error_errno": None,
+        "error_winerror": None,
+        "tls_verify_code": None,
     }
     if not pinned_raw_url(url):
         record["error_kind"] = "INVALID_PINNED_URL"
@@ -130,6 +163,7 @@ def fetch_source(url, *, max_bytes=1_000_000, socket_timeout=20, opener=None):
     except (OSError, urllib.error.URLError) as error:
         # Do not copy potentially credential-bearing exception messages.
         record["error_kind"] = type(error).__name__
+        record.update(_transport_details(error))
     finally:
         if response is not None:
             response.close()
