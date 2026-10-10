@@ -28,6 +28,11 @@ class IRParameterNameLessonTests(unittest.TestCase):
         self.assertIn("each lowered host call site", card["lesson"])
         self.assertIn("not TMA GPU launch", card["avoid_when"])
         self.assertTrue(any("/pull/3414" in e["url"] for e in card["evidence"]))
+        self.assertIn("NVRTC retains one call per kernel name", card["avoid_when"])
+        self.assertIn("historical", card["avoid_when"])
+        review = next(e for e in card["evidence"] if "5477573199" in e["url"])
+        self.assertIn("not measured", review["note"])
+        self.assertIn("separate", review["note"])
         self.assertNotIn("qualified", result)
 
 
