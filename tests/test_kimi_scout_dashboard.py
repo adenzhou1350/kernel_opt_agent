@@ -61,7 +61,9 @@ class DashboardTests(unittest.TestCase):
         with patch.object(self.inbox, "state", wraps=self.inbox.state) as state:
             first = self.inbox.cached_state()
             second = self.inbox.cached_state()
-        self.assertIs(first, second)
+        self.assertEqual(first, second)
+        self.assertIsNot(first, self.inbox._snapshot)
+        self.assertEqual(first["jobs"], self.inbox._snapshot["jobs"])
         self.assertEqual(state.call_count, 1)
 
     def test_expired_snapshot_serves_stale_while_one_refresh_runs(self):
@@ -78,28 +80,29 @@ class DashboardTests(unittest.TestCase):
         with patch.object(self.inbox, "state", side_effect=slow_state) as state:
             try:
                 before = time.monotonic()
-                self.assertIs(self.inbox.cached_state(), first)
+                self.assertEqual(self.inbox.cached_state(), first)
                 self.assertLess(time.monotonic() - before, 0.5)
                 self.assertTrue(started.wait(1))
-                self.assertIs(self.inbox.cached_state(), first)
+                self.assertEqual(self.inbox.cached_state(), first)
                 self.assertEqual(state.call_count, 1)
             finally:
                 release.set()
             deadline = time.monotonic() + 2
             while self.inbox._snapshot_refreshing and time.monotonic() < deadline:
                 time.sleep(0.01)
-        self.assertEqual(self.inbox.cached_state(), {"generation": 2})
+        self.assertEqual(self.inbox.cached_state(), {
+            "generation": 2, "stop_control": {"present": False, "reason": None}})
 
     def test_failed_refresh_keeps_last_good_snapshot(self):
         first = self.inbox.cached_state()
         self.inbox._snapshot_at = time.monotonic() - 31
         with patch.object(self.inbox, "state", side_effect=OSError):
-            self.assertIs(self.inbox.cached_state(), first)
+            self.assertEqual(self.inbox.cached_state(), first)
             deadline = time.monotonic() + 2
             while self.inbox._snapshot_refreshing and time.monotonic() < deadline:
                 time.sleep(0.01)
             self.assertFalse(self.inbox._snapshot_refreshing)
-            self.assertIs(self.inbox.cached_state(), first)
+            self.assertEqual(self.inbox.cached_state(), first)
 
     @unittest.skipUnless(
         shutil.which("node"), "Node is needed for the offline DOM test"

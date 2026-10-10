@@ -331,6 +331,10 @@
     else if (runtime.state !== "RUNNING") flow = "进程状态：" + (labels[runtime.state] || runtime.state || "未知");
     else if (!counts.PENDING && research.phase === "REFILLING") flow = "正在补充源码材料 · 暂无排队任务，空槽不代表模型限流";
     else if (!occupied && !counts.PENDING) flow = "等待新材料 · 进程仍在线";
+    if (state.stop_control?.present === true) {
+      flow += runtime.alive ? " · 已请求停止，等待在途调用结束" : " · STOP 阻止重新启动；检查原因后再手动恢复";
+      if (typeof state.stop_control.reason === "string") flow += "：" + state.stop_control.reason;
+    }
     text("flowStatus", flow);
     text("lastCompletion", "最近完成 " + time(activity.last_completion, true));
     const repos = Array.isArray(activity.repos) ? activity.repos : [];
