@@ -45,6 +45,32 @@ def read_artifact(root, relative):
         return {}
 
 
+def stop_control(root):
+    """Read the current startup/drain signal, not a past exit or live resource use."""
+    result = {"present": False, "reason": None}
+    try:
+        path = root / "STOP"
+        if not path.exists():
+            return result
+        result["present"] = True
+        path = path.resolve(strict=True)
+        if not path.is_relative_to(root.resolve()):
+            result["unavailable"] = "outside inbox"
+            return result
+        if not path.is_file():
+            result["unavailable"] = "not a regular file"
+            return result
+        with path.open("rb") as stream:
+            result["reason"] = (
+                stream.read(1024).decode("utf-8", "replace").strip()[:256] or None
+            )
+    except (OSError, ValueError, RuntimeError):
+        if not result["present"]:
+            result["present"] = None
+        result["unavailable"] = "unreadable"
+    return result
+
+
 def process_alive(pid):
     if type(pid) is not int or pid <= 0:
         return False
@@ -221,7 +247,10 @@ class Inbox:
                     name="scout-dashboard-snapshot",
                     daemon=True,
                 ).start()
-            return self._snapshot
+            snapshot = self._snapshot
+        # Read STOP without waiting for a historical SQLite refresh, and without
+        # mutating a snapshot held by another viewer.
+        return dict(snapshot, stop_control=stop_control(self.root))
 
     def rows(self, job_id=None, limit=None):
         # Do not call scout.connect(): its WAL setup/transactions are for writers.
@@ -381,6 +410,7 @@ class Inbox:
         return {
             "now": now,
             "runtime": runtime,
+            "stop_control": stop_control(self.root),
             "research": research,
             "delivery": delivery,
             "delivery_gpu": delivery_gpu,
