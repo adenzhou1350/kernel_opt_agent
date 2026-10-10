@@ -1,13 +1,17 @@
 {
   "id": "production-path-and-impact",
-  "title": "Trace the production path before crediting a local speedup",
-  "applies_when": "A helper or kernel microbenchmark improves, but backend dispatch, fallback behavior or its share of the target workload is uncertain.",
-  "lesson": "Trace representative requests to the implementation that actually runs. Estimate how much elapsed time that component can remove before expanding optimization work. An Amdahl estimate needs a measured non-overlapping time share and unchanged residual work; inclusive profiler totals are not automatically that share. Confirm the eventual result in the target workload.",
-  "avoid_when": "Do not treat a configuration flag as execution evidence, invent a missing time share, or apply a universal minimum gain. Amdahl's simple serial model needs adjustment when overlap, concurrency or bottlenecks change.",
+  "title": "Trace the production path before crediting a local fix or speedup",
+  "applies_when": "A helper, intermediate CSV or kernel microbenchmark changes, but the observable consumer result, backend dispatch or share of the target workload is uncertain.",
+  "lesson": "Trace representative requests to the implementation and consumer that actually run. A baseline-failing helper test need not demonstrate a user-visible failure: downstream normalization can already restore the required result. For config deduplication, compare selected configs and errors after the real loader, not only intermediate CSV row counts. Estimate how much elapsed time a component can remove before expanding optimization work. An Amdahl estimate needs a measured non-overlapping time share and unchanged residual work; inclusive profiler totals are not automatically that share. Confirm the eventual result in the target workload.",
+  "avoid_when": "An intermediate artifact or public helper can have its own documented contract; cleanup can be valuable when honestly scoped or backed by measured file/parse cost. One unaffected loader does not prove all consumers safe. Do not treat a configuration flag as execution evidence, invent a missing time share, or apply a universal minimum gain. Amdahl's simple serial model needs adjustment when overlap, concurrency or bottlenecks change.",
   "evidence": [
     {
       "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/#application-profiling",
       "note": "Official guidance supports realistic workload profiling and scope-limited speedup bounds. It does not establish reachability or a measured gain for any particular candidate."
+    },
+    {
+      "url": "https://github.com/ROCm/aiter/pull/6303",
+      "note": "Closed after maintainer feedback: the missing-untuned branch's exact-row deduplication changes temporary CSV row counts, but the cited MXFP8 route already deduplicates in get_CKGEMM_config. Four host-only production-method comparisons preserve selected configs/errors. AST extraction isolates the lock and hardware queries; this is not full AITER/ROCm qualification or an all-consumer safety claim."
     }
   ],
   "status": "validated"
