@@ -1,0 +1,14 @@
+{
+  "id": "composite-object-slice-copy-contract",
+  "title": "Inspect composite slice/copy_ receivers before claiming a missing field",
+  "applies_when": "A caller copies a metadata object and a candidate infers that a companion tensor was omitted, especially SGLang DSAFlashMLAMetadata and num_splits.",
+  "lesson": "A composite object's slice/copy_ can act on more than one tensor. Inspect the real class and destination views before replacing it with a tensor-only mock or adding a second copy. In the cited DSAFlashMLAMetadata, slice retains flashmla_metadata and views num_splits; copy_ copies both fields. A caller invoking this composite copy does not omit num_splits merely because it lacks a separate field-level copy statement. Trace actual receiver types and aliases; a same-named tensor operation has a different contract.",
+  "avoid_when": "This source counterexample is specific to the cited class and revision. Other composite objects, caller branches, aliasing or shape failures need their own evidence. It does not qualify FlashMLA device execution, CUDA graph replay, numerical correctness, synchronization or performance. Reopen with a supported failing caller and the real object, not a mock that drops a field.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/3030e31ff8f23939577353be31e72c8013c549e5/python/sglang/srt/layers/attention/dsa_backend.py#L218-L232",
+      "note": "DSAFlashMLAMetadata.slice retains the metadata tensor and views num_splits; copy_ copies both. Exact source refutation, not FlashMLA device or graph-replay qualification."
+    }
+  ],
+  "status": "counterexample"
+}
