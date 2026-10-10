@@ -26,6 +26,7 @@ from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from pathlib import Path
 
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
+from scout_commit_memory import available_commit_headroom_mb, commit_admits_call
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -958,6 +959,7 @@ def run(args):
                         publish(next_feed_at=next_feed)
                     reserve = getattr(args, "min_free_memory_mb", 0)
                     free_mb = available_memory_mb() if reserve else None
+                    commit_mb = available_commit_headroom_mb() if reserve else None
                     disk_reserve = getattr(args, "min_free_disk_mb", 0)
                     disk_free_mb = available_disk_mb(root) if disk_reserve else None
                     while (
@@ -968,6 +970,10 @@ def run(args):
                         and not (root / "STOP").exists()
                     ):
                         if reserve and (free_mb is None or free_mb < reserve):
+                            break
+                        if not commit_admits_call(
+                            commit_mb, len(running), getattr(args, "worker_memory_mb", 0)
+                        ):
                             break
                         if disk_reserve and (
                             disk_free_mb is None or disk_free_mb < disk_reserve
@@ -1008,6 +1014,7 @@ def run(args):
                         )
                         attempts += 1
                         free_mb = available_memory_mb() if reserve else None
+                        commit_mb = available_commit_headroom_mb() if reserve else None
                         disk_free_mb = (
                             available_disk_mb(root) if disk_reserve else None
                         )
@@ -1020,6 +1027,10 @@ def run(args):
                             and (free_mb is None or free_mb < reserve)
                         ),
                         available_memory_mb=free_mb,
+                        available_commit_headroom_mb=commit_mb,
+                        commit_paused=not commit_admits_call(
+                            commit_mb, len(running), getattr(args, "worker_memory_mb", 0)
+                        ),
                         disk_paused=bool(
                             disk_reserve
                             and (
