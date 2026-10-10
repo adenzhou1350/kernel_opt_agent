@@ -383,3 +383,27 @@ control flow only, not provider quality, incremental discovery or PR conversion.
 ```text
 python -B -m unittest tests.test_scout_source_trial tests.test_scout_evidence_acquisition
 ```
+
+### Optional source-availability preflight for new protocols
+
+A later owner-known Go before/after calibration completed its ten model calls,
+but neither immutable raw-source GET succeeded on the remote worker. All eight
+reviews abstained; this is an unavailable-evidence result, not a comparison of
+selector quality. Retain those answers and paid calls. Do not rewrite that
+experiment using a subsequently repaired network or a different source cache.
+
+New protocols may declare `run_case(..., preflight_sources=True)` to acquire each
+distinct pinned catalog URL before paid callbacks. If every acquisition fails,
+the case and all three arms remain `UNAVAILABLE_SOURCE_ACQUISITION`; no selector
+or reviewer is invoked. Admission and cost denominators must retain the case.
+The preflight has the same session's source/body/time limits and charges its
+actual GETs, observed bytes and uncertain exceptions. Predeclare its additional
+logical requests and the catalog-size acquisition budget (at most 24 URLs).
+
+If any source is fetched, the original catalog remains unchanged. A selector
+may still choose a failed entry, abstain or request a window beyond EOF; there
+is no substitution or retry. `FETCHED` does not prove a particular window is
+usable, a hypothesis is true, or the initial snippet is insufficient. Existing
+protocols default to the previous callback behavior. This opt-in gate is for
+comparisons that require available additional source, not a blanket policy to
+discard evidence-poor production leads or suppress useful baseline-only work.
