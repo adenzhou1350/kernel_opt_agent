@@ -84,7 +84,7 @@ class ReferenceTests(unittest.TestCase):
         for raw in (
             'R"(target)"; target();',
             "/* target",
-            "x" * 131073,
+            "x" * 1_000_001,
             None,
             "target\x00",
         ):

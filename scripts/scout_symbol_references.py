@@ -8,7 +8,7 @@ import ast
 import re
 from urllib.parse import unquote, urlsplit
 
-SUFFIXES = (
+NATIVE_SUFFIXES = (
     ".c",
     ".cc",
     ".cpp",
@@ -19,6 +19,8 @@ SUFFIXES = (
     ".hxx",
     ".cu",
     ".cuh",
+)
+SUFFIXES = NATIVE_SUFFIXES + (
     ".py",
     ".js",
     ".mjs",
@@ -34,8 +36,12 @@ LEXICAL_CACHE_LIMIT = 131072
 
 
 def reference_cache_limit(path):
-    """Reuse the existing Python source-read budget; keep lexical scans small."""
-    return PYTHON_CACHE_LIMIT if path.endswith(".py") else LEXICAL_CACHE_LIMIT
+    """Reuse the source-read budget for native/Python; keep JS scans smaller."""
+    return (
+        PYTHON_CACHE_LIMIT
+        if path.endswith(NATIVE_SUFFIXES + (".py",))
+        else LEXICAL_CACHE_LIMIT
+    )
 
 
 LITERALS = re.compile(
