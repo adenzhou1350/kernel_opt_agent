@@ -336,3 +336,50 @@ the catalog is a different action with its own costs and evaluation.
 ```text
 python -B -m unittest tests.test_scout_visible_frontier tests.test_scout_acquisition_choice
 ```
+
+## Compose a fresh case before spending model calls
+
+`scout_source_trial.run_case` composes the existing acquisition session with
+selector/reviewer callbacks for **newly declared** shadow protocols. It does not
+replace the live Scout runner or repair a frozen historical trial. A prior
+chronological pilot stopped before any model call because its first admission
+contained only issue/PR text and the runner asserted a pinned source existed.
+Keep that pilot invalid; do not substitute a more convenient case.
+
+The driver accepts a bounded compact acquisition view, not a raw queue row:
+
+- No pinned file in the displayed catalog produces three
+  `UNAVAILABLE_ACTION_SPACE` records, with no callbacks or GETs. Retain these
+  admissions in the population denominator, separately from comparisons with
+  available actions. This is not evidence that no useful file exists elsewhere.
+- Available cases make one selector call, then one reviewer call per declared
+  arm: no additional source, first pinned catalog entry at `end_line + 1` (or
+  line 1 without a range), and the selected catalog window. Each acquisition is
+  at most 80 lines/4,500 characters. Callers may predeclare a rotated arm order.
+- Abstention, invalid selection, callback exceptions, EOF, transport failure and
+  session exceptions remain distinct records, without replacement or retry.
+  A session exception flags potentially incomplete cost accounting; it is not a
+  free acquisition. KeyboardInterrupt/SystemExit are not swallowed.
+- Reviewer callbacks receive separate copies of the original view and the
+  additional window/failure, without the arm name or selector rationale. This
+  avoids explicit arm labels, not inference from differing evidence. Original
+  text is untrusted; field allowlisting is not an injection or leakage defense.
+
+Callbacks must enforce their predeclared provider/prompt/output/time budgets,
+use isolated model conversations, and persist call identities, raw answers,
+reported usage and uncertain/failed attempts. The opaque `RETURNED` record says
+only that a callback returned: it is not a parsed verdict or native bug label.
+Selector overhead belongs to the selected arm. Equal ceilings do not imply
+equal observed spend. Session costs are cumulative; shared-cache actual GETs
+must not be charged twice or treated as measured uncached arm latencies. Record
+root discovery, setup, independent native adjudication and owner costs separately.
+
+Before new admissions, freeze this implementation, callback adapters, eligibility,
+unavailable-action policy, metrics and budgets. After predictions are sealed,
+independently adjudicate falsifiable claims against the pinned source/native
+environment; leave unresolved cases unresolved. The composed tests below cover
+control flow only, not provider quality, incremental discovery or PR conversion.
+
+```text
+python -B -m unittest tests.test_scout_source_trial tests.test_scout_evidence_acquisition
+```
