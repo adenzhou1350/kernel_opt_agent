@@ -1,0 +1,22 @@
+{
+  "id": "go-native-platform-witness",
+  "title": "Run the Go platform witness, not just its cross-compiler",
+  "applies_when": "A pure-Go package has OS-dependent path or filesystem behavior, the target Windows machine lacks Go, and an authorized Linux build host is available. Source and test dependencies must be independently inspected and runnable in task-private directories.",
+  "lesson": "Use a pinned Go toolchain to cross-build the real package test executable with CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go test -c -o fs.test.exe ./package. Bind the source revision plus test bytes, verify the transferred executable hash, then actually run it on native Windows with task-private TEMP/TMP. Compare unchanged baseline and repair using the identical regression, and retain a Linux control. Cross-compilation alone cannot expose runtime separators. For ZIPs, assert archive entry names from a nested directory source; archiving one file may retain only its basename and miss the recursive join. Keep archive-internal path.Join separate from filesystem filepath.Join. A focused pass does not erase an unchanged broader-suite failure: record its baseline/candidate result and test inventory separately.",
+  "avoid_when": "Do not disable cgo to pretend that a cgo-dependent production path was tested; cross-builds can exclude files and require a C cross-compiler or target libraries. Match target architecture and OS capabilities, check source and test safety before execution, and do not start local WSL or install global tools merely to reproduce this workflow. The evidence below is one Go1.27.2 package witness, not full application/CI or universal Windows support. No claim of measured cost savings, PR acceptance, recall or throughput follows from the method.",
+  "evidence": [
+    {
+      "url": "https://go.dev/wiki/WindowsCrossCompiling",
+      "note": "Official Go guidance distinguishes cross-building pure-Go Windows executables from running them on Windows, describes initial standard-library build/cache cost, and warns that cgo inputs can be excluded. Mechanism documentation, not a measured result."
+    },
+    {
+      "url": "https://pkg.go.dev/archive/zip#FileHeader",
+      "note": "FileHeader.Name requires relative forward-slash paths. This archive format contract differs from native filesystem path separators."
+    },
+    {
+      "url": "https://github.com/8treenet/goraven/pull/41",
+      "note": "Submitted source-bound Root.Zip regression: nested archive names fail on native Windows before the path.Join repair and pass after; Linux core/fs tests pass on both. The test binary was built on Linux with Go1.27.2 and executed on Windows. An existing leading-slash return-path assertion fails unchanged in the broader Windows package run and is explicitly disclosed. Publication is not maintainer acceptance or full application qualification."
+    }
+  ],
+  "status": "validated"
+}
