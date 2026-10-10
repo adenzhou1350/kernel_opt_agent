@@ -407,6 +407,22 @@
       top.append(node("span", "job-repo", job.repo || "未标记仓库"), node("span", "badge" + tone, (deliveryLabels[job.state] || plain(job.state) || "未知状态") + " · " + plain(job.state)));
       row.append(top, node("div", "job-name", job.title || job.id || "未命名任务"), node("div", "tiny muted", "更新 " + time(job.updated_at, true) + " · 测试数 " + number(job.tests_run) + " · 退出码 " + number(job.baseline_exit) + " → " + number(job.candidate_exit)));
       row.append(node("p", "tiny delivery-reason", job.reason || (job.state === "NO_BUG" ? "未提供原因；仅有模型判断，尚无无缺陷证明。" : "未提供原因 / 测试说明。")));
+      const native = job.owner_native_summary;
+      if (native && typeof native === "object" && !Array.isArray(native)) {
+        const lines = [];
+        for (const [key, label] of [["status", "记录结论"], ["discrimination", "对照结果"], ["claim_scope", "适用范围"], ["next_action", "下一步"]]) {
+          if (typeof native[key] !== "string" || !native[key].trim()) continue;
+          const value = native[key].trim(), suffix = " [truncated]";
+          lines.push(label + "：" + (value.length <= 512 ? value : value.slice(0, 512 - suffix.length) + suffix));
+        }
+        if (lines.length) {
+          const evidence = node("section", "tiny delivery-reason");
+          evidence.append(node("div", "muted", "Owner 原生验证摘要 · 历史记录，非 CI 或自动发布资格"));
+          if (typeof native.candidate_commit === "string" && /^[a-f0-9]{40}$/.test(native.candidate_commit)) lines.push("候选提交：" + native.candidate_commit);
+          evidence.append(node("div", "", lines.join("\n")));
+          row.append(evidence);
+        }
+      }
       if (/^[a-f0-9]{24}$/.test(job.source_job_id || "")) {
         const link = node("button", "button delivery-link", "查看搜索来源任务"); link.type = "button";
         link.addEventListener("click", () => selectJob(job.source_job_id)); row.append(link);

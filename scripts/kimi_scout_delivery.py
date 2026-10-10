@@ -28,6 +28,29 @@ import scout_httpx_cpu as httpx_cpu
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 
 
+def owner_native_summary(result):
+    """Project bounded owner-authored prose, without revalidating or reading artifacts."""
+    evidence = result.get("owner_native_evidence") if isinstance(result, dict) else None
+    if not isinstance(evidence, dict):
+        return None
+    summary = {}
+    for key in ("status", "discrimination", "claim_scope", "next_action"):
+        value = evidence.get(key)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        value = value.strip()
+        suffix = " [truncated]"
+        summary[key] = (
+            value if len(value) <= 512 else value[: 512 - len(suffix)] + suffix
+        )
+    if not summary:
+        return None
+    commit = evidence.get("candidate_commit")
+    if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit):
+        summary["candidate_commit"] = commit
+    return summary
+
+
 def publication_summary(rows):
     """Count recorded PR identities, not candidate rows or live GitHub states."""
     identities = set()
@@ -1238,6 +1261,9 @@ class Delivery:
                     baseline_exit=result.get("before", {}).get("exit_code"),
                     candidate_exit=result.get("fixed", {}).get("exit_code"),
                 )
+                native_summary = owner_native_summary(result)
+                if native_summary:
+                    item["owner_native_summary"] = native_summary
                 jobs.append(item)
             reviewed_audits = {}
             for candidate_id, audit in merged_owner_audits(self.root).items():
@@ -1290,6 +1316,9 @@ class Delivery:
                         "legacy": row["state"] == "REPRODUCED",
                         "exact_patch_duplicates": [],
                     }
+                    native_summary = owner_native_summary(result)
+                    if native_summary:
+                        item["owner_native_summary"] = native_summary
                     owner_queue.append(item)
                     if patch_key is not None:
                         exact_patches[patch_key] = item

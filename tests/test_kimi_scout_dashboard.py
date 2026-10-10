@@ -660,8 +660,14 @@ function collect(el) {
       jobs: [
         {title: "<script>alert(1)</script>", repo: "<img src=x>",
          state: "REPRODUCED", reason: "<b>old fails/new passes</b>",
+         owner_native_summary: {status: "<b>native pair</b>",
+           discrimination: "baseline 6 failures; candidate 8 passes",
+           claim_scope: "selected native modules, not serving",
+           next_action: "human line review", candidate_commit: "b".repeat(40),
+           artifacts: [{path: "PRIVATE-ARTIFACT-NOT-FOR-UI"}]},
          source_job_id: "a".repeat(24), tests_run: 2, baseline_exit: 1, candidate_exit: 0},
-        {title: "judgment only", state: "NO_BUG", source_job_id: "javascript:alert(1)"},
+        {title: "judgment only", state: "NO_BUG", source_job_id: "javascript:alert(1)",
+         owner_native_summary: {status: [], claim_scope: {bad: true}}},
         ...Array.from({length: 21}, (_, i) => ({id: "job-" + i, state: "PENDING"})),
       ],
     },
@@ -690,6 +696,16 @@ function collect(el) {
   values.staleCapacity = elements.get("deliveryCapacity").textContent;
   values.staleNote = elements.get("deliveryActivity").textContent;
   values.staleState = elements.get("deliveryState").textContent;
+  values.nativeMalformed = [];
+  for (const invalid of [null, [], "bad", {}, {status: []}]) {
+    state.delivery.jobs[0].owner_native_summary = invalid;
+    renderDelivery();
+    values.nativeMalformed.push(collect(elements.get("deliveryJobs").children[0]));
+  }
+  state.delivery.jobs[0].owner_native_summary = {claim_scope: "x".repeat(10000),
+    candidate_commit: "javascript:alert(1)"};
+  renderDelivery();
+  values.clippedNative = collect(elements.get("deliveryJobs").children[0]);
   state.delivery = null;
   renderDelivery();
   values.absentHidden = elements.get("deliveryPanel").hidden;
@@ -725,6 +741,19 @@ function collect(el) {
         ):
             self.assertIn(literal, values["first"])
         self.assertIn("仅有模型判断，尚无无缺陷证明", values["second"])
+        for literal in (
+            "Owner 原生验证摘要 · 历史记录，非 CI 或自动发布资格",
+            "<b>native pair</b>", "baseline 6 failures; candidate 8 passes",
+            "selected native modules, not serving", "human line review", "b" * 40,
+        ):
+            self.assertIn(literal, values["first"])
+        self.assertNotIn("PRIVATE-ARTIFACT-NOT-FOR-UI", values["first"])
+        self.assertNotIn("Owner 原生验证摘要", values["second"])
+        for text in values["nativeMalformed"]:
+            self.assertNotIn("Owner 原生验证摘要", text)
+        self.assertIn(" [truncated]", values["clippedNative"])
+        self.assertNotIn("x" * 513, values["clippedNative"])
+        self.assertNotIn("javascript:alert(1)", values["clippedNative"])
         self.assertFalse(values["secondHasButton"])
         self.assertEqual(values["selected"], "a" * 24)
         self.assertEqual(values["reproduced"], "1")

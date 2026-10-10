@@ -498,7 +498,80 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(queue["count"], 1)
         self.assertEqual(queue["items"][0]["id"], row["id"])
         self.assertFalse(queue["items"][0]["legacy"])
+        self.assertNotIn("owner_native_summary", queue["items"][0])
         self.assertIn("owner review", queue["claim_boundary"])
+
+    def test_publish_projects_native_summary_without_promoting_or_touching_evidence(self):
+        _, row, _, _ = self.run_job([result()], [proposal()])
+        saved = json.loads(row["result"])
+        evidence = {
+            "status": "SELECTED_MODULE_PAIR_PASS",
+            "discrimination": "baseline: 6 failures; candidate: 8 passes",
+            "claim_scope": "real native rotary; not full serving or CI",
+            "next_action": "human line review pending",
+            "candidate_commit": "a" * 40,
+            "artifacts": [{"path": "private/native.log", "sha256": "b" * 64}],
+            "raw_log": "do not project",
+            "qualified": True,
+        }
+        saved["owner_native_evidence"] = evidence
+        serialized = json.dumps(saved)
+        with delivery.database(self.worker.root) as db:
+            db.execute(
+                "UPDATE delivery SET result=? WHERE id=?", (serialized, row["id"])
+            )
+        previous = {
+            "state": "STOPPED",
+            "pid": 123,
+            "heartbeat_at": 100,
+            "min_free_memory_mb": 4096,
+            "memory_paused": True,
+        }
+        delivery.scout.write_json(self.worker.root / "runtime.json", previous)
+        self.worker.publish(None, refresh_only=True)
+        runtime = json.loads((self.worker.root / "runtime.json").read_text())
+        queue = json.loads((self.worker.root / "owner-queue.json").read_text())
+        expected = {
+            key: evidence[key]
+            for key in (
+                "status", "discrimination", "claim_scope", "next_action",
+                "candidate_commit",
+            )
+        }
+        self.assertEqual(runtime["jobs"][0]["owner_native_summary"], expected)
+        self.assertEqual(queue["items"][0]["owner_native_summary"], expected)
+        for key, value in previous.items():
+            self.assertEqual(runtime[key], value)
+        self.assertEqual(queue["items"][0]["state"], delivery.OWNER_STATE)
+        self.assertFalse(saved["qualified"])
+        with delivery.database(self.worker.root) as db:
+            actual = db.execute(
+                "SELECT state,result FROM delivery WHERE id=?", (row["id"],)
+            ).fetchone()
+        self.assertEqual(actual["state"], delivery.OWNER_STATE)
+        self.assertEqual(actual["result"], serialized)
+
+    def test_native_summary_is_bounded_allowlisted_and_tolerates_old_records(self):
+        for value in (
+            None, [], "bad", 1, {}, {"status": []}, {"candidate_commit": "a" * 40}
+        ):
+            with self.subTest(value=value):
+                self.assertIsNone(
+                    delivery.owner_native_summary({"owner_native_evidence": value})
+                )
+        self.assertIsNone(delivery.owner_native_summary({}))
+        self.assertIsNone(delivery.owner_native_summary([]))
+        summary = delivery.owner_native_summary({
+            "owner_native_evidence": {
+                "status": "  OBSERVED  ", "discrimination": {"raw": "not prose"},
+                "claim_scope": "x" * 10000, "next_action": "  ",
+                "candidate_commit": "javascript:alert(1)", "private_path": "secret",
+            }
+        })
+        self.assertEqual(set(summary), {"status", "claim_scope"})
+        self.assertEqual(summary["status"], "OBSERVED")
+        self.assertEqual(len(summary["claim_scope"]), 512)
+        self.assertTrue(summary["claim_scope"].endswith(" [truncated]"))
 
     def test_owner_queue_groups_exact_patches_without_dropping_jobs(self):
         self.args.owner_queue_limit = 2
