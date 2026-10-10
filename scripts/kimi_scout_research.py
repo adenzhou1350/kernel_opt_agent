@@ -32,6 +32,7 @@ from scout_publication_context import (
     fit_publication_context,
     owner_deferral_context,
     publication_context,
+    restore_publication_context,
 )
 
 SOURCE_SUFFIXES = (
@@ -833,6 +834,12 @@ class ResearchProducer:
                 )
             if "exact_hint" in longest:
                 longest["exact_hint_matched"] = longest["exact_hint"] in longest["text"]
+        restore_publication_context(
+            packet,
+            {"owner_deferrals": deferrals, "owner_publications": publications},
+            scout.MAX_INPUT_BYTES,
+            scout.SYSTEM,
+        )
         if not packet["sources"] or self.stopped():
             return False
         # Queue admission, job insertion and both dedup keys commit together.

@@ -834,3 +834,13 @@ Do not infer that no owner or fix exists from a missing comment; confirm public
 state before implementing or publishing. Offline boundary coverage is in
 `tests/test_kimi_scout_context.py`; development observations are not evidence of
 a measured false-positive reduction or PR-conversion improvement.
+
+### Advice after source fitting
+
+Optional owner advice is dropped before primary-source fitting, so it cannot
+force extra clipping. After fitting, the producer can restore already-read
+advice using only leftover UTF-8 input bytes, retaining complete items and their
+caution. Existing source, prior analysis and advice are unchanged; there is no
+extra retrieval, model call or automatic candidate rejection. This fixes context
+availability, not demonstrated PR conversion or token savings. Regression:
+`python -B -m unittest discover -s tests -p test_scout_advice_budget.py`.
