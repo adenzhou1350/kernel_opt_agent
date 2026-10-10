@@ -168,6 +168,46 @@ def _python_literal_assignments(tree, names):
     return lines
 
 
+def _native_code_lines(raw):
+    """Reuse the limited native trivia masking; no macro/binding resolution."""
+    if re.search(r'\b(?:u8|u|U|L)?R"', raw):
+        return None
+    if any(
+        m[0].startswith("/*") and not m[0].endswith("*/")
+        for m in LITERALS.finditer(raw)
+    ):
+        return None
+    masked = LITERALS.sub(lambda m: re.sub(r"[^\n]", " ", m[0]), raw)
+    lines = masked.splitlines()
+    directive = False
+    for index, line in enumerate(lines):
+        if directive or line.lstrip().startswith("#"):
+            directive = line.rstrip().endswith("\\")
+            lines[index] = ""
+    return lines
+
+
+def native_invocation_hint_line(raw, symbol):
+    """Prefer an invocation-shaped occurrence over imports in already-read bytes.
+
+    Return a zero-based line hint, not a resolved call. Declarations and inactive
+    branches can match. Unsupported syntax or no match keeps literal fallback.
+    """
+    if (
+        not isinstance(raw, str)
+        or len(raw.encode("utf-8")) > PYTHON_CACHE_LIMIT
+        or not isinstance(symbol, str)
+        or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", symbol)
+    ):
+        return None
+    lines = _native_code_lines(raw)
+    if lines is None:
+        return None
+    masked = "\n".join(lines)
+    match = re.search(rf"\b{re.escape(symbol)}\s*\(", masked)
+    return masked.count("\n", 0, match.start()) if match else None
+
+
 def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Honor explicit references(NAME), with <=2 existing-tree source windows.
 
@@ -305,22 +345,9 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             )
         }
     else:
-        # Do not pretend ordinary quote masking understands C++ raw strings.
-        if re.search(r'\b(?:u8|u|U|L)?R"', raw):
+        lines = _native_code_lines(raw)
+        if lines is None:
             return []
-        if any(
-            m[0].startswith("/*") and not m[0].endswith("*/")
-            for m in LITERALS.finditer(raw)
-        ):
-            return []
-        masked = LITERALS.sub(lambda m: re.sub(r"[^\n]", " ", m[0]), raw)
-        lines = masked.splitlines()
-        # Ignore complete continued preprocessor directives, not just the prefix.
-        directive = False
-        for index, line in enumerate(lines):
-            if directive or line.lstrip().startswith("#"):
-                directive = line.rstrip().endswith("\\")
-                lines[index] = ""
         occurrences = {
             number
             for symbol in symbols

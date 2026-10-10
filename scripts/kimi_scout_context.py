@@ -10,7 +10,12 @@ import urllib.parse
 from pathlib import Path
 
 import kimi_scout as scout
-from scout_symbol_references import reference_cache_limit
+from scout_symbol_references import (
+    NATIVE_SUFFIXES,
+    REQUEST as REFERENCE_REQUEST,
+    native_invocation_hint_line,
+    reference_cache_limit,
+)
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_issue_timeline import linked_pr_context
 from scout_requested_definition import requested_function_window
@@ -342,6 +347,12 @@ class PublicContext:
             ),
             None,
         )
+        if path.endswith(NATIVE_SUFFIXES) and exact_hint in REFERENCE_REQUEST.findall(
+            request_hints
+        ):
+            invocation = native_invocation_hint_line(raw, exact_hint)
+            if invocation is not None:
+                exact_line = invocation
         if exact_line is not None:
             offset = max(0, exact_line - min(30, max_lines // 4))
             start = min(offset, max(0, len(lines) - max_lines)) + 1
