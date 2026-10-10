@@ -215,6 +215,23 @@ class KnowledgeNotesTests(unittest.TestCase):
             )
         )
 
+    def test_consumer_impact_advice_is_retrievable_with_its_limits(self):
+        result = notes.search("intermediate CSV consumer normalization config", limit=3)
+        advice = next(
+            match["card"]
+            for match in result["matches"]
+            if match["card"]["id"] == "production-path-and-impact"
+        )
+        self.assertIn("selected configs and errors", advice["lesson"])
+        self.assertIn("own documented contract", advice["avoid_when"])
+        self.assertIn("does not prove all consumers safe", advice["avoid_when"])
+        self.assertTrue(
+            any(
+                item["url"] == "https://github.com/ROCm/aiter/pull/6303"
+                for item in advice["evidence"]
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
