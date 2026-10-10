@@ -1,0 +1,22 @@
+{
+  "id": "async-acquisition-cancellation-gap",
+  "title": "Test cancellation between resource creation and async context entry",
+  "applies_when": "A Python async context manager creates a real resource in a cancellation-shielded worker, then awaits another operation before __aenter__ returns. Especially relevant when cleanup is only in __aexit__.",
+  "lesson": "A shielded __aexit__ does not cover cancellation raised inside __aenter__. Trace ownership at every await after successful creation. Reproduce with the real constructor and cleanup, synchronizing cancellation at the creation-return boundary; retain the manager so GC cannot hide delayed cleanup. Pair normal exit, cancellation, explicit cleanup and finalization controls. In AnyIO TemporaryDirectory, the second worker only called the stdlib __enter__, which returns name without I/O; returning name directly removes that gap and lets pending cancellation reach a body checkpoint followed by shielded exit. A matched regression failed on four backend variants on each native Windows/Linux CPython3.12.13 baseline and passed after the change; the tempfile module passed 84 tests per platform. Keep failed setup costs separate from test runtime.",
+  "avoid_when": "Do not delete arbitrary entry awaits or bypass an __enter__ with side effects, validation or a different return value. A necessary await after acquisition needs explicit failure cleanup or a justified shielding strategy. Retained resource lifetime is not permanent leakage if explicit cleanup/finalization still works. Respect intentional non-deletion modes. These scoped tests omit optional Blockbuster instrumentation and full cross-version CI. The linked PR is proposed, not merged, and does not establish a general Scout utility or performance gain.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3.12/reference/compound_stmts.html#the-async-with-statement",
+      "note": "Language-level expansion awaits __aenter__ before entering the try/finally that invokes __aexit__; entry failure is a separate ownership boundary."
+    },
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.13/Lib/tempfile.py#L878-L886",
+      "note": "Pinned stdlib TemporaryDirectory.__enter__ returns name; __exit__, cleanup and finalization have distinct deletion behavior. Do not generalize this shortcut to other managers."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/pull/1403",
+      "note": "Public minimal acquisition regression and direct-name fix, with independently reported Windows/Linux baseline failures and candidate tests. Explicit cleanup cancellation is separate work in PR1316."
+    }
+  ],
+  "status": "validated"
+}
