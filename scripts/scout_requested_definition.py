@@ -12,12 +12,32 @@ import tokenize
 def requested_function_window(lines, request):
     if not request:
         return None
+    request = request[:2000]
+    # Explicit syntax chooses the evidence target, not other API names in the
+    # explanation. Reject malformed/multiple targets rather than silently
+    # selecting a different function mentioned in prose.
+    markers = list(re.finditer(r"(?<!\w)definition[ \t]*\(", request))
+    explicit = set()
+    for marker in markers:
+        match = re.match(
+            r"[ \t]*([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)?)[ \t]*\)",
+            request[marker.end():],
+        )
+        if match is None:
+            return None
+        explicit.add(match[1])
+    if markers and len(explicit) != 1:
+        return None
+    if explicit:
+        request = next(iter(explicit))
     text = "\n".join(lines)
     try:
         tree = ast.parse(text)
     except (SyntaxError, ValueError, RecursionError):
         return None
-    qualified = set(re.findall(r"\b([A-Z][A-Za-z0-9_]*)\.([A-Za-z_]\w*)\b", request[:2000]))
+    qualified = set(re.findall(r"\b([A-Z][A-Za-z0-9_]*)\.([A-Za-z_]\w*)\b", request))
+    if explicit and "." in request:
+        qualified = {tuple(request.split("."))}
     functions = (ast.FunctionDef, ast.AsyncFunctionDef)
     if qualified:
         if len(qualified) != 1:
@@ -28,7 +48,7 @@ def requested_function_window(lines, request):
             return None
         matches = [node for node in classes[0].body if isinstance(node, functions) and node.name == name]
     else:
-        names = set(re.findall(r"[A-Za-z_]\w{2,}", request[:2000]))
+        names = explicit or set(re.findall(r"[A-Za-z_]\w{2,}", request))
         matches = [node for node in ast.walk(tree) if isinstance(node, functions) and node.name in names]
     if len(matches) != 1:
         return None
