@@ -623,6 +623,21 @@ def validate_result(result, packet):
     return result
 
 
+def usage_counters(value):
+    """Retain only numeric backend counters, not arbitrary error metadata."""
+    if not isinstance(value, dict):
+        return None
+    counters = {
+        key: count if type(count) is int and count >= 0 else None
+        for key in (
+            "input_tokens", "output_tokens", "cached_input_tokens",
+            "cache_creation_input_tokens", "total_tokens",
+        )
+        for count in (value.get(key),)
+    }
+    return counters if any(value is not None for value in counters.values()) else None
+
+
 def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     # Backend cwd is the individual work directory, not the controller cwd.
     root = Path(root).resolve()
@@ -638,6 +653,8 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     live_path = root / "results" / f"{job['id']}.live.json"
     started = time.monotonic()
     charge, result, error, state = job["charge"], None, None, "FAILED"
+    charge_basis = "reservation"
+    token_accounting = {"reported_usage": None, "interrupted_usage_observation": None}
     backend_completed = False
     try:
         work.mkdir(exist_ok=False)
@@ -663,10 +680,15 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
             check=False,
         )
         response = json.loads(proc.stdout)
+        token_accounting = {
+            "reported_usage": usage_counters(response.get("usage")),
+            "interrupted_usage_observation": usage_counters(response.get("observed_usage")),
+        }
         usage = response.get("usage") or {}
         actual = usage.get("total_tokens")
-        if type(actual) is int and actual > 0:
+        if type(actual) is int and actual >= 0:
             charge = actual
+            charge_basis = "provider_report"
         if isinstance(response.get("text"), str):
             # Preserve generated output even on parser failure, not stderr or
             # provider errors. This is untrusted model data, not an instruction.
@@ -753,6 +775,8 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
         if state == "FAILED"
         else None,
         "charged_tokens_or_reservation": charge,
+        "charge_basis": charge_basis,
+        "token_accounting": token_accounting,
         "wall_seconds": round(time.monotonic() - started, 3),
         "finished": time.time(),
     }

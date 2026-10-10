@@ -8,6 +8,17 @@ lead per request. Unchanged evidence and incidental PR-title-list churn cost no
 new model call. No ordinary kernel
 work needs this service, and it does not resurrect the historical GPU broker.
 
+Execution receipts distinguish `charge_basis=provider_report` from a pre-call
+`reservation`. `token_accounting.reported_usage` preserves numeric counters even
+when an answer is rejected. Streaming/cleanup errors retain the last valid
+`interrupted_usage_observation` separately: it is not final usage, does not
+replace the reservation, and must not be treated as complete measured cost in
+matched-budget studies. Missing usage is unknown, not zero; an explicit reported
+zero remains zero. Error diagnostics, headers and reasoning are not retained.
+This does not reconstruct historical costs, authenticate provider counters or
+change retry policy. Delivery `reported_tokens` is not a complete study inventory.
+Offline regression: `python -B -m unittest tests.test_kimi_scout_backend tests.test_kimi_scout`.
+
 Knowledge uses the existing lexical search, not a fixed GPU advice bundle.
 Matches retain applicability, exceptions, evidence and status; a lexical match
 does not prove relevance. Optional advice is omitted before source windows are
