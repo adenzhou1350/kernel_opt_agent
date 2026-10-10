@@ -407,3 +407,19 @@ usable, a hypothesis is true, or the initial snippet is insufficient. Existing
 protocols default to the previous callback behavior. This opt-in gate is for
 comparisons that require available additional source, not a blanket policy to
 discard evidence-poor production leads or suppress useful baseline-only work.
+
+### Diagnose transport failure without retaining exception text
+
+New acquisition records keep the original `error_kind` and additionally report
+`error_category`, `error_errno`, `error_winerror` and `tls_verify_code`. Categories
+are fixed labels for DNS, timeout, TLS/certificate, permission, reset/refused and
+other OS errors; numeric codes are bounded integers. No exception messages,
+certificate messages, filenames, proxy values or headers are copied. These four
+fields stay null on success, HTTP-status errors and non-transport failures.
+
+An unclassified reason is still a failed acquisition, not permission to retry,
+switch transport, add credentials or disable TLS verification. Codes describe
+the observed attempt only: a current connection reset does not establish why a
+historical request failed or who reset the connection. Shared-cache requests
+retain the original diagnosis and have no additional physical GET cost. This
+diagnostic addition does not repair, relabel or rerun frozen experiments.

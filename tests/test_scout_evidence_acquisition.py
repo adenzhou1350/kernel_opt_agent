@@ -3,6 +3,8 @@
 import hashlib
 import http.client
 import io
+import socket
+import ssl
 import unittest
 import urllib.error
 from unittest.mock import Mock
@@ -81,6 +83,7 @@ class AcquisitionTests(unittest.TestCase):
         opener.open.return_value = response
         result = fetch_source(URL, opener=opener)
         self.assertEqual(result["error_kind"], "TimeoutError")
+        self.assertEqual(result["error_category"], "TIMEOUT")
         self.assertEqual(result["body_bytes_observed"], 6)
         self.assertEqual(result["body_sha256"], hashlib.sha256(b"prefix").hexdigest())
         self.assertFalse(result["body_complete"])
@@ -110,7 +113,78 @@ class AcquisitionTests(unittest.TestCase):
         self.assertIsNone(result["http_status"])
         self.assertIsNone(result["body_sha256"])
         self.assertNotIn("secret message", str(result))
+        self.assertEqual(result["error_category"], "UNCLASSIFIED")
         opener.open.assert_called_once()
+
+    def test_transport_categories_keep_codes_not_exception_text(self):
+        secret = "https://user:password@proxy.invalid/private/path token=secret"
+        certificate = ssl.SSLCertVerificationError(1, secret)
+        certificate.verify_code = 20
+        certificate.verify_message = secret
+        permission = PermissionError(13, secret, secret)
+        permission.winerror = 10013
+        cases = (
+            (certificate, "TLS_CERTIFICATE_VERIFY", 1, None, 20),
+            (ssl.SSLError(1, secret), "TLS", 1, None, None),
+            (TimeoutError(secret), "TIMEOUT", None, None, None),
+            (socket.gaierror(-2, secret), "DNS", -2, None, None),
+            (permission, "PERMISSION_DENIED", 13, 10013, None),
+            (ConnectionResetError(104, secret), "CONNECTION_RESET", 104, None, None),
+            (ConnectionRefusedError(111, secret), "CONNECTION_REFUSED", 111, None, None),
+            (OSError(101, secret), "OS_ERROR", 101, None, None),
+        )
+        for reason, category, errno, winerror, verify_code in cases:
+            for wrapped in (False, True):
+                with self.subTest(category=category, wrapped=wrapped):
+                    opener = Mock()
+                    opener.open.side_effect = urllib.error.URLError(reason) if wrapped else reason
+                    result = fetch_source(URL, opener=opener)
+                    self.assertEqual(result["status"], "FAILED")
+                    self.assertEqual(result["error_category"], category)
+                    self.assertEqual(result["error_errno"], errno)
+                    self.assertEqual(result["error_winerror"], winerror)
+                    self.assertEqual(result["tls_verify_code"], verify_code)
+                    self.assertNotIn(secret, str(result))
+                    self.assertNotIn("text", result)
+                    self.assertEqual(result["body_bytes_observed"], 0)
+                    opener.open.assert_called_once()
+
+    def test_non_numeric_or_unbounded_codes_are_not_copied(self):
+        for value in (True, "private code", 2**100, -(2**100)):
+            with self.subTest(value=value):
+                reason = ssl.SSLCertVerificationError(1, "private message")
+                reason.errno = reason.winerror = reason.verify_code = value
+                opener = Mock()
+                opener.open.side_effect = urllib.error.URLError(reason)
+                result = fetch_source(URL, opener=opener)
+                for field in ("error_errno", "error_winerror", "tls_verify_code"):
+                    self.assertIsNone(result[field])
+                self.assertNotIn("private", str(result))
+
+    def test_failure_diagnostics_survive_cached_requests_without_aliasing(self):
+        opener = Mock()
+        opener.open.side_effect = urllib.error.URLError(ConnectionResetError(104, "private"))
+        session = AcquisitionSession(opener=opener)
+        first = session.acquire(URL)
+        first["error_category"] = "MUTATED"
+        second = session.acquire(URL)
+        self.assertEqual(second["error_category"], "CONNECTION_RESET")
+        self.assertEqual(second["error_errno"], 104)
+        self.assertTrue(second["cache_hit"])
+        self.assertEqual(second["additional_get_seconds"], 0)
+        self.assertEqual(session.costs()["actual_gets"], 1)
+
+    def test_success_and_http_failure_have_no_transport_diagnosis(self):
+        for fail in (False, True):
+            with self.subTest(fail=fail):
+                opener = Mock()
+                if fail:
+                    opener.open.side_effect = urllib.error.HTTPError(URL, 404, "private", {}, io.BytesIO(b"missing"))
+                else:
+                    opener.open.return_value = Response(b"source")
+                result = fetch_source(URL, opener=opener)
+                for field in ("error_category", "error_errno", "error_winerror", "tls_verify_code"):
+                    self.assertIsNone(result[field])
 
     def test_short_eof_against_content_length_does_not_qualify_prefix_as_source(self):
         response = Response(b"prefix")
