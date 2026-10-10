@@ -391,10 +391,43 @@ class ScoutTests(unittest.TestCase):
             self.assertIsInstance(available, int)
             self.assertGreaterEqual(available, 0)
 
+    def test_commit_pressure_preserves_pending_job_and_physical_reading(self):
+        self.add("commit-guard")
+        with (
+            patch.object(scout, "available_memory_mb", return_value=8192),
+            patch.object(scout, "available_commit_headroom_mb", return_value=0),
+            patch.object(scout, "execute") as execute,
+        ):
+            current = scout.run(self.run_args(min_free_memory_mb=4096))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 0)
+        self.assertTrue(current["runtime"]["commit_paused"])
+        self.assertFalse(current["runtime"]["memory_paused"])
+        self.assertEqual(current["runtime"]["available_memory_mb"], 8192)
+        self.assertEqual(current["jobs"][0]["state"], "PENDING")
+        execute.assert_not_called()
+
+    def test_commit_probe_is_rechecked_between_claims(self):
+        self.add("commit-first")
+        self.add("commit-second")
+        values = iter((1024, 512))
+        with (
+            patch.object(scout, "available_memory_mb", return_value=8192),
+            patch.object(
+                scout, "available_commit_headroom_mb",
+                side_effect=lambda: next(values, 512),
+            ),
+            patch.object(scout, "execute", side_effect=self.fake_execute),
+        ):
+            current = scout.run(self.run_args(min_free_memory_mb=4096, concurrency=16))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 1)
+        self.assertTrue(current["runtime"]["commit_paused"])
+        self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 1)
+
     def test_memory_reserve_admits_when_available(self):
         self.add("memory-available")
         with (
             patch.object(scout, "available_memory_mb", return_value=2048),
+            patch.object(scout, "available_commit_headroom_mb", return_value=None),
             patch.object(scout, "execute", side_effect=self.fake_execute),
         ):
             current = scout.run(self.run_args(min_free_memory_mb=1024))

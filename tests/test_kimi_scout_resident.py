@@ -61,6 +61,14 @@ class ResidentTests(unittest.TestCase):
         self.assertLessEqual(pool.process_starts, 5)
         self.assertEqual(pool.idle.qsize(), 4)
 
+    def test_partial_occupancy_reuses_warm_worker_before_empty_slots(self):
+        pool = self.pool(capacity=16)
+        for i in range(16):
+            result = self.call(pool, str(i))
+            self.assertEqual(json.loads(result.stdout)["text"], str(i))
+        self.assertEqual(pool.process_starts, 1)
+        self.assertEqual(pool.idle.qsize(), 16)
+
     def test_malformed_wrong_id_and_oversized_frames_fail_without_replay(self):
         for code in (
             "import sys;sys.stdin.readline();print('not-json',flush=True)",
