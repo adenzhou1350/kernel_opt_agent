@@ -183,6 +183,11 @@ class BackendPool:
         except queue.Empty:
             raise subprocess.TimeoutExpired("resident_pool", timeout) from None
         try:
+            if worker is not None and worker.process.poll() is not None:
+                # A remotely idle worker may have retired. No frame for this
+                # call has been sent yet, so replacing it is not a replay.
+                worker.close()
+                worker = None
             if worker is None:
                 worker = Worker(self.command, self.cwd, self.env)
                 self.process_starts += 1
