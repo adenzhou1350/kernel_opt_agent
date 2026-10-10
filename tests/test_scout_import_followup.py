@@ -277,6 +277,60 @@ class ImportFollowupTests(unittest.TestCase):
             )
             self.assertIsNone(context.cached_source_text("o/r", COMMIT, "src/read.ts"))
 
+    def test_explicit_imported_method_reaches_real_source_window(self):
+        self.spec["followup_import_context"] = True
+        primary, target = "src/pkg/read.py", "src/pkg/fileio.py"
+        files = ["src/pkg/__init__.py", primary, target]
+        self.context.snapshot.return_value = {"commit": COMMIT, "files": files}
+        context = PublicContext(self.root / "definition-context")
+        context.snapshot = Mock(return_value={"commit": COMMIT, "files": files})
+        raw_sources = {
+            primary: "from .fileio import AsyncFile\ndef open_file():\n    return AsyncFile()\n",
+            target: "class AsyncFile:\n"
+            + "\n" * 160
+            + "    async def aclose(self):\n        return self.wrapped.close()\n",
+        }
+        for path, text in raw_sources.items():
+            scout.write_json(
+                context._cache_path("raw", ["o/r", COMMIT, path]),
+                {
+                    "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/{path}",
+                    "text": text,
+                },
+            )
+        self.context.cached_source_text.side_effect = context.cached_source_text
+        self.context.source.side_effect = context.source
+        with scout.connect(self.root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+            packet["sources"] = [
+                {
+                    "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/{primary}",
+                    "text": "1: from .fileio import AsyncFile",
+                }
+            ]
+            db.execute("UPDATE jobs SET packet=?", (scout.dumps(packet),))
+        self.finish("needs_context")
+        with scout.connect(self.root) as db:
+            result = json.loads(db.execute("SELECT result FROM jobs").fetchone()[0])
+            result["analysis"]["next_check"] = (
+                "Inspect definition(AsyncFile.aclose) before proposing cleanup"
+            )
+            db.execute("UPDATE jobs SET result=?", (scout.dumps(result),))
+        with patch.object(scout, "fetch", side_effect=AssertionError("network")):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertLessEqual(len(self.paths()), 2)
+        self.assertIn(target, self.paths())
+        with scout.connect(self.root) as db:
+            emitted = json.loads(
+                db.execute("SELECT packet FROM jobs WHERE state='PENDING'").fetchone()[
+                    0
+                ]
+            )
+        source = next(s for s in emitted["sources"] if s["url"].endswith("/" + target))
+        self.assertIn("async def aclose(self)", source["text"])
+        self.assertTrue(source["requested_definition_complete"])
+        self.assertEqual(source["requested_definition"]["name"], "aclose")
+
 
 if __name__ == "__main__":
     unittest.main()
