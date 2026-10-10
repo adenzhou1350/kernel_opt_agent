@@ -179,6 +179,75 @@ class ResearchTests(unittest.TestCase):
     def test_followup_related_work_keeps_qualified_method_hint(self):
         self.assert_followup_query("update", "OneToOne.update 一次性输入", "OneToOne.update")
 
+    def assert_requested_source_priority(self, request, expected, observed=False):
+        report = {
+            "url": "https://github.com/a/b/issues/42",
+            "text": "Log: cmd/format.go:100 and cmd/format_test.go; also pkg/meta/sql.go",
+        }
+        sources = [report]
+        if observed:
+            sources.append({
+                "url": f"https://raw.githubusercontent.com/a/b/{self.context.revision}/cmd/format.go",
+                "text": "Previously supplied format implementation",
+            })
+        self.producer.emit("source-priority", self.spec, sources, "issue_triage")
+        root = self.jobs()[0]
+        self.finish(root)
+        with scout.connect(self.root) as db:
+            result = {"analysis": {
+                "title": "Directory metadata report",
+                "hypothesis": "Unverified directory lifetime",
+                "decision": "needs_context",
+                "next_check": request,
+            }}
+            db.execute("UPDATE jobs SET result=? WHERE id=?",
+                       (json.dumps(result), root["id"]))
+        files = ["cmd/format.go", "cmd/format_test.go", "pkg/meta/sql.go"]
+        with (
+            patch.object(self.context, "snapshot", return_value={
+                "commit": self.context.revision, "files": files,
+            }),
+            patch.object(self.context, "issue_sources", return_value=[report]),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertEqual([call[2] for call in self.context.calls], expected)
+        packet = json.loads(self.jobs()[-1]["packet"])
+        raw_sources = [s for s in packet["sources"]
+                       if "raw.githubusercontent.com" in s["url"]]
+        self.assertEqual(len(raw_sources), 2)
+        self.assertTrue(all(f"/{self.context.revision}/" in s["url"]
+                            for s in raw_sources))
+
+    def test_explicit_requested_path_precedes_incidental_report_log(self):
+        self.assert_requested_source_priority(
+            "Inspect SetAttr in `pkg/meta/sql.go` before another reproduction plan",
+            ["pkg/meta/sql.go", "cmd/format.go"],
+        )
+
+    def test_explicit_requested_filename_precedes_incidental_report_log(self):
+        self.assert_requested_source_priority(
+            "Inspect sql.go for the missing inode contract",
+            ["pkg/meta/sql.go", "cmd/format.go"],
+        )
+
+    def test_requested_implementation_keeps_existing_companion_test_read(self):
+        self.assert_requested_source_priority(
+            "Inspect SetAttr in pkg/meta/sql.go",
+            ["pkg/meta/sql.go", "cmd/format_test.go"], observed=True,
+        )
+
+    def test_generic_request_does_not_override_existing_path_ranking(self):
+        self.assert_requested_source_priority(
+            "Inspect sql handling and directory lifetime",
+            ["cmd/format.go", "cmd/format_test.go"],
+        )
+
+    def test_unobserved_request_does_not_create_a_fetch_target(self):
+        self.assert_requested_source_priority(
+            "Inspect missing/private.go or other/pkg/meta/sql.go.bak",
+            ["cmd/format.go", "cmd/format_test.go"],
+        )
+
     def test_short_file_skips_past_eof_and_dedups_restart(self):
         progress = self.producer.state["repos"].setdefault("a/b", {})
         self.assertTrue(self.producer.source_audit(self.spec, progress))
