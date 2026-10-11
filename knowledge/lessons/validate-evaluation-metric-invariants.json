@@ -3,7 +3,7 @@
   "title": "Validate evaluation metrics before using them to select agent behavior",
   "applies_when": "Adopting a third-party deterministic score as a judge, reward, routing signal or research outcome, especially unordered tool-call matching and rank correlation with tied or constant inputs.",
   "lesson": "Validate the score against its mathematical contract, not merely that it executes and stays in [0,1]. For an explicitly order-insensitive matcher, permute the same calls and use a small exhaustive assignment oracle to check exact versus partial credits. Future AGI's pinned tool_call_accuracy YAML greedily consumes an expected slot: [search(wrong), search(right)] against [search(right)] scores 0.25, while reversing the same actual multiset scores 0.5. For Spearman, compare tied ranks against an independent implementation; the no-ties squared-rank-distance shortcut does not apply to midranks. Test constant inputs separately and preserve undefinedness rather than interpreting an apparent perfect score as evidence. Test the exact deployed representation: Python, YAML templates and persisted database copies may differ.",
-  "avoid_when": "Order invariance is inappropriate for a metric whose contract intentionally grades action sequence. Maximum-credit assignment is a small-domain diagnostic, not automatically the intended metric or a scalable implementation. A product may define an explicit fallback for undefined correlation; do not invent that policy. Executing complete YAML bodies validates only that boundary, not sandbox dispatch, seeding, API behavior or the full platform. These known public defects are development controls, not fresh discoveries or proof that a particular agent-selection policy improves PR yield, recall or cost. Check existing issue/PR ownership before proposing a repair.",
+  "avoid_when": "Order invariance is inappropriate for a metric whose contract intentionally grades action sequence. Maximum-credit assignment is a small-domain diagnostic, not automatically the intended metric or a scalable implementation. A product may define an explicit fallback for undefined correlation; do not invent that policy. Executing complete YAML bodies validates only that boundary, not sandbox dispatch, seeding, API behavior or the full platform. These known public defects are development controls, not fresh discoveries or proof that a particular agent-selection policy improves PR yield, recall or cost. Check existing issue/PR ownership before proposing a repair. A matching metric name in related work does not establish repair coverage: inspect the changed functions and representation. A Spearman fix may mention Pearson as its calculation primitive, while an MCC fix may describe the old formula as Cohen's kappa; neither establishes a repair of the separately named evaluator. Conversely, a Python-core fix need not update the same evaluator's YAML template or persisted copies. More related links alone do not establish better duplicate recall or lower review cost.",
   "evidence": [
     {
       "url": "https://github.com/future-agi/future-agi/blob/ea12cc3f4456fc568d9694a215c661b15be1cea2/futureagi/model_hub/system_evals/function/tool_call_accuracy.yaml",
@@ -20,6 +20,18 @@
     {
       "url": "https://github.com/future-agi/future-agi/issues/1610",
       "note": "Existing public report includes the greedy tool-matching and Spearman defects. This establishes prior reporting; do not treat reproduction as a novel competing PR."
+    },
+    {
+      "url": "https://github.com/future-agi/future-agi/pull/2629",
+      "note": "Spearman repair uses Pearson over midranks and changes the Spearman YAML. The description's Pearson references do not prove coverage of the separate Pearson evaluator; PR state and head are mutable."
+    },
+    {
+      "url": "https://github.com/future-agi/future-agi/pull/2672",
+      "note": "Multiclass MatthewsCorrelation repair calls the previous formula effectively Cohen's kappa. That is a comparison, not evidence of changing the Cohen evaluator."
+    },
+    {
+      "url": "https://github.com/future-agi/future-agi/pull/1719",
+      "note": "Jaro transposition repair targets the Python core function and its tests. Related method ownership alone does not establish that the YAML representation is fixed or that either path is qualified in a new environment."
     }
   ],
   "status": "validated"
