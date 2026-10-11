@@ -700,6 +700,14 @@ Use this as an acquisition option, not a demonstrated PR-yield improvement;
 fresh budget-matched evaluation is still needed. Offline regression tests:
 `python -B -m unittest tests.test_scout_pr_revision`.
 
+Ordinary related-work lookup keeps its two-query/five-excerpt budget. Its
+fallback can search an uppercase CamelCase owner both literally and as a spaced
+phrase in one grouped alternative. For example, `UNIXSocketListener` alone
+missed [AnyIO #1398](https://github.com/agronholm/anyio/pull/1398), whose prose
+uses "UNIX socket listener". This is a known-case retrieval repair, not a
+prospective PR-yield result. Best-match rankings can change; neither a hit nor
+an empty sample proves duplication or its absence. Review the actual patch.
+
 For bounded context-acquisition trials, a repository spec may set
 `"followup_import_context": true` (default false). A follow-up's `next_check`
 can then select named relative imports from the already cached, pinned primary

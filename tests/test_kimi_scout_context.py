@@ -640,7 +640,7 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(sources, [])
         self.assertEqual(queries, [
             f'repo:{REPO} in:title,body "OneToOne" "update"',
-            f'repo:{REPO} in:title,body "OneToOne"',
+            f'repo:{REPO} in:title,body ("OneToOne" OR "One To One")',
         ])
 
     def test_duplicate_fallback_preserves_title_modes(self):

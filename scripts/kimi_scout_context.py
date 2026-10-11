@@ -620,6 +620,15 @@ class PublicContext:
         fallback = '"' + anchor[:32] + '"' if anchor else " ".join(
             '"' + word[:32] + '"' for word in fallback_words
         )
+        # A PR may spell a class as prose ("UNIX socket listener") rather
+        # than its identifier. Keep the exact spelling in the same fallback;
+        # the grouped alternative adds no request or duplicate verdict.
+        if anchor and re.fullmatch(r"[A-Z][A-Za-z]{2,31}", anchor):
+            spaced = re.sub(r"([A-Z]+)([A-Z][a-z])", r"\1 \2", anchor)
+            spaced = re.sub(r"([a-z])([A-Z])", r"\1 \2", spaced)
+            parts = spaced.split()
+            if 2 <= len(parts) <= 6 and all(len(part) >= 2 for part in parts):
+                fallback = f'("{anchor}" OR "{spaced}")'
         query_text = f"repo:{repo} in:title,body {terms}"
         result = []
         repository_url = f"https://api.github.com/repos/{repo}"
