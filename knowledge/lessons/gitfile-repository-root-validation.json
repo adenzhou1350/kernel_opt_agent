@@ -1,0 +1,22 @@
+{
+  "id": "gitfile-repository-root-validation",
+  "title": "Validate Git gitfiles before adopting a linked worktree repository root",
+  "applies_when": "A Git integration detects a working-tree root from its .git entry before initialization or adoption, including linked worktrees and submodules where .git is a regular gitfile rather than a directory.",
+  "lesson": "Requiring a .git directory rejects legitimate linked worktrees. Merely accepting any regular .git file reverses that error but accepts malformed text and missing gitdir targets. Let Git resolve and validate the gitfile, for example by running git rev-parse --resolve-git-dir .git in the proposed root with a bounded process and controlled environment. Test ordinary roots, linked worktrees, relative gitdir paths, malformed/missing targets and non-root children separately. Also verify the adoption postcondition: HEAD and existing user files remain unchanged, with no unsolicited initialization commit or generated gitignore. Passing only a legitimate worktree case can hide an incomplete repair; run the same positive and negative controls against the original implementation and repair.",
+  "avoid_when": "These are working-tree-root detection contracts, not a general repository discovery or bare-repository API. A command that searches parent directories can accept a child that the caller must reject. The cited implementation retains an existing directory fast path and does not prove arbitrary .git directories valid. Gitfile parsing is not a security boundary for untrusted filesystem races or symlink policies. Native Linux Go/Git controls do not establish Windows behavior, whole-application correctness, selector utility, recall or PR conversion.",
+  "evidence": [
+    {
+      "url": "https://git-scm.com/docs/git-rev-parse#Documentation/git-rev-parse.txt---resolve-git-dirltpathgt",
+      "note": "Git documents resolving a valid gitfile to its target and rejecting invalid paths; this is the mechanism, not an application qualification."
+    },
+    {
+      "url": "https://github.com/8treenet/goraven/blob/236a64ab4ce1b6470ce59690d8370bbfcfef4d40/util/git/gitfile_test.go",
+      "note": "Exact public regression constructs real linked worktrees and separate metadata directories with Git, rejects malformed/missing gitfile targets and child directories, and checks that adoption does not create a commit or default gitignore. These source bytes define the controls; they are not a prospective experiment."
+    },
+    {
+      "url": "https://github.com/8treenet/goraven/blob/236a64ab4ce1b6470ce59690d8370bbfcfef4d40/util/git/git.go",
+      "note": "Exact proposed implementation preserves the directory fast path and delegates regular gitfile validation to Git under a timeout. PR #44 is an existing contribution, not a new discovery from this lesson."
+    }
+  ],
+  "status": "validated"
+}
