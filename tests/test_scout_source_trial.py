@@ -60,6 +60,29 @@ class SourceTrialTests(unittest.TestCase):
         self.opener.open.assert_not_called()
         self.assertEqual(self.session.costs()["actual_gets"], 0)
 
+    def test_foreign_repository_only_keeps_unavailable_denominator(self):
+        foreign = URL.replace("/example/project/", "/other/project/")
+        result = self.run_case(view(foreign), preflight_sources=True)
+        self.assertEqual(result["status"], "UNAVAILABLE_ACTION_SPACE")
+        self.assertEqual(len(result["arms"]), len(ARMS))
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+        self.opener.open.assert_not_called()
+
+    def test_foreign_catalog_entry_is_not_preflighted_selected_or_rule_target(self):
+        original = view()
+        foreign = URL.replace("/example/project/", "/other/project/")
+        original["sources"].insert(0, {**original["sources"][0], "url": foreign})
+        self.selector.return_value["url"] = foreign
+        result = self.run_case(original, preflight_sources=True)
+        self.assertEqual(result["selection_status"], "INVALID_SELECTION")
+        self.assertEqual(result["arms"][1]["choice"], {"url": URL, "start_line": 81})
+        self.assertIsNone(result["arms"][2]["acquisition"])
+        self.assertEqual([r["url"] for r in result["source_preflight"]], [URL])
+        self.assertEqual([r["url"] for r in self.session.requests], [URL, URL])
+        self.assertEqual(self.reviews[0][0], original)
+        self.opener.open.assert_called_once()
+
     def test_composed_success_keeps_blind_reviews_and_shared_cache_costs(self):
         original = view()
         saved = copy.deepcopy(original)

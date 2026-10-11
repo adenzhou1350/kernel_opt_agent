@@ -348,6 +348,13 @@ Keep that pilot invalid; do not substitute a more convenient case.
 
 The driver accepts a bounded compact acquisition view, not a raw queue row:
 
+Eligibility uses the same `acquisition_catalog` and `validate_selection` as the
+standalone choice helper: only immutable files in the view's declared repository
+qualify. Foreign repository entries remain quoted original context, but cannot
+be preflighted, selected, or used as the continuation rule's target. An entirely
+foreign catalog stays unavailable without paid callbacks or GETs. This is a
+repository boundary, not a guarantee that the remaining evidence is relevant.
+
 - No pinned file in the displayed catalog produces three
   `UNAVAILABLE_ACTION_SPACE` records, with no callbacks or GETs. Retain these
   admissions in the population denominator, separately from comparisons with

@@ -16,9 +16,9 @@ action universe. No repository source is executed or PR state changed here.
 import json
 
 try:
-    from .scout_evidence_acquisition import pinned_raw_url
+    from .scout_acquisition_choice import acquisition_catalog, validate_selection
 except ImportError:
-    from scout_evidence_acquisition import pinned_raw_url
+    from scout_acquisition_choice import acquisition_catalog, validate_selection
 
 
 ARMS = ("no_additional_source", "rules_first_catalog_continuation", "selected_source")
@@ -94,8 +94,8 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
     if type(preflight_sources) is not bool:
         raise ValueError("preflight_sources must be a boolean")
     original = _copy_view(view)
-    pinned = [s for s in original["sources"] if pinned_raw_url(s.get("url"))]
-    if not pinned:
+    catalog = acquisition_catalog(original)
+    if not catalog:
         return {
             "status": "UNAVAILABLE_ACTION_SPACE",
             "selection": {"status": "NOT_CALLED"},
@@ -105,7 +105,7 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
         }
     preflight = []
     if preflight_sources:
-        for url in dict.fromkeys(s["url"] for s in pinned):
+        for url in (target["url"] for target in catalog):
             try:
                 acquired = session.acquire(url)
                 preflight.append({k: v for k, v in acquired.items() if k != "text"})
@@ -124,30 +124,18 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
                 "session_costs": session.costs(),
             }
     selection = _invoke(selector, original)
-    pick = selection.get("record")
+    checked = validate_selection(original, selection.get("record"))
     choice, selection_status = None, "INVALID_SELECTION"
     if selection["status"] == "CALL_FAILED":
         selection_status = "CALL_FAILED"
-    elif (
-        isinstance(pick, dict) and set(pick) == {"url", "start_line", "reason"}
-        and isinstance(pick["reason"], str) and len(pick["reason"]) <= 600
-    ):
-        if pick["url"] is None and pick["start_line"] is None:
-            selection_status = "ABSTAINED"
-        elif (
-            isinstance(pick["url"], str)
-            and pick["url"] in {s["url"] for s in pinned}
-            and type(pick["start_line"]) is int and pick["start_line"] > 0
-        ):
-            choice = {"url": pick["url"], "start_line": pick["start_line"]}
-            selection_status = "SELECTED"
-    end = pinned[0].get("end_line")
+    elif checked["status"] == "ABSTAIN":
+        selection_status = "ABSTAINED"
+    elif checked["status"] == "SELECTED":
+        choice = {"url": checked["url"], "start_line": checked["start_line"]}
+        selection_status = "SELECTED"
     choices = {
         "no_additional_source": None,
-        "rules_first_catalog_continuation": {
-            "url": pinned[0]["url"],
-            "start_line": end + 1 if type(end) is int and end > 0 else 1,
-        },
+        "rules_first_catalog_continuation": dict(catalog[0]),
         "selected_source": choice,
     }
     records = []
