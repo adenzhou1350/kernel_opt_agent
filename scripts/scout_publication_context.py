@@ -45,27 +45,48 @@ def advisory_evidence_match(url):
     )
 
 
-def owner_note_rows(root, repo):
-    """Optional reviewed notes for source leads that never entered delivery.
+def owner_source_note_path(root, repo):
+    """One literal filename per repository; no index or directory scan."""
+    if (
+        not isinstance(repo, str)
+        or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo)
+        or any(part in {".", ".."} for part in repo.split("/"))
+    ):
+        return None
+    name = repo.casefold().replace("/", "%2F") + ".json"
+    return Path(root).resolve() / "owner-source-notes" / name
 
-    Read one bounded local JSON file; never create history or change job state.
-    Only the same small public fields accepted from parked delivery rows are
-    exposed. Notes remain untrusted advisory data, not suppression rules.
-    """
-    path = Path(root).resolve() / "owner-source-notes.json"
+
+def read_owner_notes(path):
+    """Optional <=64 KiB list; one bad file must not erase another's advice."""
     try:
-        if path.is_symlink() or not path.is_file():
+        if path.parent.is_symlink() or path.is_symlink() or not path.is_file():
             return []
         with path.open("rb") as stream:
             raw = stream.read(OWNER_NOTE_LIMIT_BYTES + 1)
         if len(raw) > OWNER_NOTE_LIMIT_BYTES:
             return []
         notes = json.loads(raw)
-        if not isinstance(notes, list) or len(notes) > 24:
+        if not isinstance(notes, list):
             return []
     except (OSError, ValueError, RecursionError):
         return []
-    rows = []
+    return notes
+
+
+def owner_note_rows(root, repo):
+    """Read <=24 recent distinct valid notes from two <=64 KiB files.
+
+    The requested repository file takes precedence over the optional legacy
+    list. No directory scan, history rewrite, network, model call or job mutation.
+    Notes remain advisory data, not suppression rules or current PR-state proof.
+    """
+    path = owner_source_note_path(root, repo)
+    if path is None:
+        return []
+    notes = read_owner_notes(Path(root).resolve() / "owner-source-notes.json")
+    notes += read_owner_notes(path)
+    rows, seen = [], set()
     required = {
         "repo",
         "prior_hypothesis",
@@ -78,8 +99,29 @@ def owner_note_rows(root, repo):
         if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
             continue
         title = note["prior_hypothesis"]
-        if not isinstance(title, str) or not 0 < len(title.strip()) <= 200:
+        reason, reopen, url = (
+            note[key] for key in ("reason", "reopen_when", "evidence_url")
+        )
+        match = advisory_evidence_match(url)
+        if (
+            not isinstance(title, str)
+            or not 0 < len(title.strip()) <= 200
+            or not all(
+                isinstance(text, str) and 0 < len(text.strip()) <= 1000
+                for text in (reason, reopen)
+            )
+            or any(
+                contains_local_artifact_path(text) for text in (title, reason, reopen)
+            )
+            or not match
+            or match[1].casefold() != repo.casefold()
+            or not source_paths([{"url": note["source_url"]}], repo)
+        ):
             continue
+        key = (note["source_url"], reason, reopen, url)
+        if key in seen:
+            continue
+        seen.add(key)
         rows.append(
             (
                 title,
@@ -92,6 +134,8 @@ def owner_note_rows(root, repo):
                 json.dumps({"packet": {"sources": [{"url": note["source_url"]}]}}),
             )
         )
+        if len(rows) == 24:
+            break
     return rows
 
 

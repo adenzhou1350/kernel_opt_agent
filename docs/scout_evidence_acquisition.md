@@ -472,3 +472,28 @@ the observed attempt only: a current connection reset does not establish why a
 historical request failed or who reset the connection. Shared-cache requests
 retain the original diagnosis and have no additional physical GET cost. This
 diagnostic addition does not repair, relabel or rerun frozen experiments.
+
+### Bounded owner feedback for growing repositories
+
+Source feedback is optional advisory context, not a rejection rule. Put reviewed
+notes in `owner-source-notes/<owner>%2F<repo>.json` under the local Scout run;
+the literal filename is case-normalized. The reader opens only that repository's
+file and the optional legacy `owner-source-notes.json`, each capped at 64 KiB.
+An oversized or malformed legacy file must not hide valid repository feedback.
+It keeps the latest 24 distinct valid notes, with repository copies preferred;
+the existing same-file context still exposes at most two. It does not scan all
+repository files, rewrite history, query GitHub, launch models or mutate jobs.
+
+Each list entry keeps the existing six fields: `repo`, `prior_hypothesis`,
+`source_url`, `reason`, `reopen_when`, `evidence_url`. Bind source URLs to an exact
+raw Git commit and use same-repository public evidence. Do not include private
+artifact paths or logs. State which old head failed and which new head was
+rechecked, and what remains untested. A PR link does not prove live merge/CI
+state. Notes do not replace inspecting current source and cannot suppress a
+distinct defect. Updating feedback alone creates no new paid task; changed
+primary evidence can still enter the queue normally.
+
+This closes a published-reader integration gap found when the legacy file grew
+past its byte cap. It does not measure saved calls, recall or PR conversion, and
+is not a prospective selector experiment. Tests cover the actual producer's
+changed-source/no-replay behavior as well as bounded read-only note loading.

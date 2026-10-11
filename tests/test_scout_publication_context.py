@@ -7,6 +7,7 @@ import tempfile
 import unittest
 from contextlib import closing
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
@@ -101,6 +102,113 @@ class PublicationContextTests(unittest.TestCase):
         path.write_text(json.dumps(notes), encoding="utf-8")
         return path
 
+    def write_repository_notes(self, notes):
+        path = self.root / "owner-source-notes" / "public%2Fproject.json"
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(json.dumps(notes), encoding="utf-8")
+        return path
+
+    def test_repository_notes_survive_oversized_legacy_without_mutation(self):
+        path = self.write_repository_notes([self.note()])
+        legacy = self.write_notes([])
+        legacy.write_bytes(b" " * (memory.OWNER_NOTE_LIMIT_BYTES + 1))
+        before = {p: p.read_bytes() for p in (path, legacy)}
+        result = self.deferrals()
+        self.assertIsNotNone(result)
+        self.assertEqual(result["items"][0]["reason"], self.note()["reason"])
+        self.assertIn("Never reject", result["caution"])
+        self.assertFalse(self.path.parent.exists())
+        self.assertEqual({p: p.read_bytes() for p in before}, before)
+
+    def test_source_memory_keeps_latest_24_distinct_valid_notes(self):
+        notes = [self.note(reason=f"Public audit {i}") for i in range(40)]
+        self.write_notes(notes)
+        self.write_repository_notes(
+            [
+                notes[-1],
+                notes[-1],
+                None,
+                self.note(repo="other/project"),
+                self.note(reason="Read D:/private/run.json"),
+                self.note(source_url=self.source["url"].replace("a" * 40, "main")),
+                self.note(evidence_url="https://github.com/other/project/pull/1"),
+            ]
+        )
+        rows = memory.owner_note_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 24)
+        self.assertEqual(
+            [json.loads(row[1])["reason"] for row in rows],
+            [f"Public audit {i}" for i in range(39, 15, -1)],
+        )
+
+    def test_source_repository_copy_takes_precedence_over_legacy(self):
+        self.write_notes([self.note()])
+        self.write_repository_notes(
+            [self.note(prior_hypothesis="Reviewed updated hypothesis")]
+        )
+        rows = memory.owner_note_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0][0], "Reviewed updated hypothesis")
+
+    def test_bad_repository_file_does_not_erase_legacy_advice(self):
+        self.write_notes([self.note()])
+        path = self.write_repository_notes([])
+        for value in (
+            "invalid",
+            "null",
+            "[" * 2000,
+            " " * (memory.OWNER_NOTE_LIMIT_BYTES + 1),
+            json.dumps([self.note(private_log="not public")]),
+        ):
+            with self.subTest(value=value[:30]):
+                path.write_text(value, encoding="utf-8")
+                self.assertEqual(len(memory.owner_note_rows(self.root, self.repo)), 1)
+                self.assertEqual(
+                    self.deferrals()["items"][0]["reason"], self.note()["reason"]
+                )
+
+    def test_source_repository_filename_is_literal_and_case_normalized(self):
+        path = memory.owner_source_note_path(self.root, "Public/Project")
+        self.assertEqual(path.name, "public%2Fproject.json")
+        self.assertEqual(path.parent, self.root / "owner-source-notes")
+        for repo in (
+            None,
+            "../escape",
+            "public/..",
+            "./project",
+            "a/b/c",
+            "a%2Fb/c",
+            "a\\b/c",
+        ):
+            with self.subTest(repo=repo):
+                self.assertIsNone(memory.owner_source_note_path(self.root, repo))
+                self.assertEqual(memory.owner_note_rows(self.root, repo), [])
+
+    def test_source_memory_reads_no_other_repository_files(self):
+        self.write_repository_notes([self.note()])
+        unrelated = self.root / "owner-source-notes" / "unrelated%2Frepo.json"
+        unrelated.write_text("not json", encoding="utf-8")
+        with (
+            mock.patch.object(
+                Path, "glob", side_effect=AssertionError("No directory scan")
+            ),
+            mock.patch.object(
+                Path, "iterdir", side_effect=AssertionError("No directory scan")
+            ),
+        ):
+            self.assertEqual(len(memory.owner_note_rows(self.root, self.repo)), 1)
+        self.assertEqual(unrelated.read_text(encoding="utf-8"), "not json")
+
+    def test_linked_source_memory_is_optional_and_never_opened(self):
+        path = self.write_repository_notes([self.note()])
+        with (
+            mock.patch.object(Path, "is_symlink", return_value=True),
+            mock.patch.object(
+                Path, "open", side_effect=AssertionError("Do not follow links")
+            ),
+        ):
+            self.assertEqual(memory.read_owner_notes(path), [])
+
     def test_source_notes_work_without_creating_a_delivery_record(self):
         path = self.write_notes([self.note()])
         before = path.read_bytes()
@@ -117,7 +225,6 @@ class PublicationContextTests(unittest.TestCase):
             "[]",
             "[" * 2000,
             json.dumps({"not": "a list"}),
-            json.dumps([self.note()] * 25),
             " " * (memory.OWNER_NOTE_LIMIT_BYTES + 1),
             json.dumps([self.note(private_log="do not export")]),
         ):
@@ -177,7 +284,7 @@ class PublicationContextTests(unittest.TestCase):
         producer = research.ResearchProducer(self.root, config_path, context=object())
         spec = producer.config["repos"][0]
         self.assertTrue(producer.emit("before", spec, [self.source], "source_audit"))
-        self.write_notes([self.note()])
+        self.write_repository_notes([self.note()])
         self.assertFalse(producer.emit("same", spec, [self.source], "source_audit"))
         newer = {**self.source, "text": "1: new supported caller"}
         self.assertTrue(producer.emit("new", spec, [newer], "source_audit"))
