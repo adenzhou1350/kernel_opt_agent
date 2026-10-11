@@ -20,6 +20,10 @@
     {
       "url": "https://github.com/agronholm/anyio/pull/1012",
       "note": "Earlier merged fix addresses cancellation callback registration, not result/exception completion. Similar cancellation wording does not establish identical ownership or mechanism."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/blob/48547204e8680c296e2ae6b813964c85414085bb/tests/test_from_thread.py#L557-L638",
+      "note": "Known-case Windows CPython3.12 native completeness calibration: the unchanged baseline fails all 16 sync/async/backend completion regressions; an authored result-only partial repair passes 8 but still fails all 8 exception cases; the full fix passes 16. The partial is a deliberate mutation, not an upstream revision. A success-only test would accept this incomplete fix. No model/selector utility or general mutation-detection rate is established."
     }
   ],
   "status": "validated"

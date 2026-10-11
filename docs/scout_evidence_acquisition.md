@@ -39,6 +39,29 @@ Keep known controls separate from fresh evaluation cases, and keep a repository'
 related revisions together when splitting data. Retain unavailable environments
 and unresolved judgments in the denominator, not as correct abstentions.
 
+One exposed development control now uses the real AnyIO portal regression in
+[PR #1410](https://github.com/agronholm/anyio/pull/1410), not a copied implementation.
+The AI-assisted tests were already exposed through that PR, not independently
+blinded labels. With the same committed `test_cancel_during_completion`
+tests from `48547204e8680c296e2ae6b813964c85414085bb`, Windows CPython 3.12 runs
+sync/async callables on asyncio, winloop, eager asyncio and Trio:
+
+| Source state | Pass | Fail |
+| --- | ---: | ---: |
+| Baseline `c326ee1f601f8c142db984299ce00efce36e0ce9` | 0 | 16 |
+| Authored partial: fix result completion only, retain the exception race | 8 | 8 |
+| Full repair `48547204e8680c296e2ae6b813964c85414085bb` | 16 | 0 |
+
+The partial state is a deliberate development mutation, not a historical upstream
+revision. Its eight remaining failures are exactly the exception cases; a
+success-only oracle would falsely accept it. The real package, with only the
+declared completion edits and shared committed tests, runs in separate processes;
+no new model calls or new PR result
+are implied. This calibrates test discrimination only. Keep these exposed related
+states out of a fresh evaluation split and require independently verified native
+contracts for new cases; neither this control nor green callback plumbing proves
+that selecting evidence improves decisions, recall or cost.
+
 Compare no additional evidence, a strong zero-model acquisition rule, a cheap
 model, a strong model and an applicable existing agent method. Charge selector,
 failed acquisition, downstream review, native setup/execution and owner effort;

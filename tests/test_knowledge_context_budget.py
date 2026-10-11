@@ -22,6 +22,12 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("asyncio.Future", card["avoid_when"])
         self.assertIn("full pre-commit", card["avoid_when"])
         self.assertIn("Retrospective", card["evidence"][2]["note"])
+        self.assertTrue(any(
+            "result-only partial repair" in item["note"]
+            and "deliberate mutation" in item["note"]
+            and "No model/selector utility" in item["note"]
+            for item in card["evidence"]
+        ))
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
