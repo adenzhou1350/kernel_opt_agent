@@ -1,0 +1,18 @@
+{
+  "id": "request-options-through-retry-adapters",
+  "title": "Trace request options through wrappers and retries, not just their merged dictionary",
+  "applies_when": "An HTTP listing or similar adapter merges defaults with per-call kwargs, wraps an async operation in a synchronous API, or retries with a modified URL.",
+  "lesson": "Trace which layer owns each option before asserting it must reach the transport. fsspec's public async-backed ls consumes timeout as the synchronous wrapper's wait deadline; it is not the aiohttp request timeout. Conversely, _ls_real constructed merged options but sent only defaults, and its trailing-slash fallback discarded overrides. Exercise public calls with a real loopback server, observe received headers and independently record transport options, then call again without overrides to check defaults were not mutated. Include both direct and retry paths and an initial-request-only repair: a direct-only test would miss the remaining fallback bug. Check sibling implementations, but extend an existing coherent PR instead of counting another duplicate delivery.",
+  "avoid_when": "A **kwargs signature does not promise every keyword is forwarded unchanged. Preserve documented wrapper-owned options and distinguish caller overrides from constructor defaults. These Linux aiohttp/Requests tests establish the listed paths, not Pyodide/XHR, cache-key separation, external services, maintainer acceptance, performance or prospective evidence-selector utility.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/94afb3f6e99d1b74dffb58811f8a06fb7c27ed27/fsspec/asyn.py",
+      "note": "sync(loop, func, *args, timeout=None, **kwargs) owns timeout and forwards only the remaining kwargs to the coroutine. This contradicts the initial test's assumption that public ls timeout overrides the aiohttp request timeout."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2258",
+      "note": "Exact head 2094e3976dc8d5f0a3123840a0a629433fc6673c: unchanged production source plus four new real-loopback regressions gives 4 failed/179 passed/6 skipped; repaired source gives 183 passed/6 skipped. Async initial-request-only repair still fails the retry case. The same pre-existing deprecation warning remains. Submitted contributor evidence, not merged or full CI qualification."
+    }
+  ],
+  "status": "validated"
+}

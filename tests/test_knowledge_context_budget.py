@@ -109,6 +109,20 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertTrue(any("43712" in entry["url"] for entry in card["evidence"]))
         self.assertNotIn("qualified", result)
 
+    def test_http_options_advice_distinguishes_wrapper_deadline_and_retry(self):
+        result = lesson_suggestions(
+            "HTTP listing per-call request options trailing-slash retry"
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "request-options-through-retry-adapters")
+        self.assertIn("wrapper's wait deadline", card["lesson"])
+        self.assertIn("initial-request-only repair", card["lesson"])
+        self.assertIn("defaults were not mutated", card["lesson"])
+        self.assertIn("Pyodide/XHR", card["avoid_when"])
+        self.assertIn("prospective evidence-selector utility", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_default_cards_fit_the_existing_advisory_budget(self):
         for path in knowledge_notes.DEFAULT_DIRECTORY.glob("*.json"):
             with self.subTest(card=path.name):
