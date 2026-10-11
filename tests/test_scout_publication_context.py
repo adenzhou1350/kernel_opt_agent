@@ -531,12 +531,70 @@ class SourceOnlyPublicationTests(unittest.TestCase):
                 self.write([{**self.note, **change}])
                 self.assertIsNone(self.read())
 
-    def test_malformed_oversized_and_too_many_notes_are_optional(self):
+    def test_malformed_and_oversized_notes_are_optional(self):
         for value in ("null", "{}", "invalid", "[" * 2000, " " * 65537):
             self.path.write_text(value, encoding="utf-8")
             self.assertIsNone(self.read())
-        self.write([self.note] * 25)
-        self.assertIsNone(self.read())
+
+    def test_large_mixed_repository_list_keeps_valid_requested_repository(self):
+        foreign = {**self.note, "repo": "other/project"}
+        self.write([self.note, *([foreign] * 41)])
+        before = self.path.read_bytes()
+        self.assertEqual(self.read()["items"][0]["url"], self.note["pr_url"])
+        self.assertEqual(self.path.read_bytes(), before)
+
+    def test_valid_distinct_row_cap_not_duplicate_or_invalid_row_count(self):
+        notes = [
+            {**self.note, "pr_url": f"https://github.com/{self.repo}/pull/{i}"}
+            for i in range(1, 27)
+        ]
+        self.write([*notes, *([notes[-1]] * 25), *([None] * 25)])
+        rows = memory.owner_publication_rows(self.root, self.repo)
+        self.assertEqual(len(rows), 24)
+        urls = [json.loads(row[1])["pr"]["url"] for row in rows]
+        self.assertEqual(urls[0], notes[-1]["pr_url"])
+        self.assertEqual(urls[-1], notes[2]["pr_url"])
+
+    def test_repository_file_survives_oversized_legacy_and_takes_precedence(self):
+        path = memory.owner_publication_note_path(self.root, self.repo)
+        self.assertEqual(path.name, "public%2Fproject.json")
+        self.assertIsNone(memory.owner_publication_note_path(self.root, "../escape"))
+        path.parent.mkdir()
+        newest = {**self.note, "prior_hypothesis": "Newer reviewed coverage"}
+        path.write_text(json.dumps([newest]), encoding="utf-8")
+        self.path.write_text(" " * 65537, encoding="utf-8")
+        self.assertEqual(
+            self.read()["items"][0]["prior_hypothesis"], newest["prior_hypothesis"]
+        )
+        self.write([self.note])
+        self.assertEqual(len(self.read()["items"]), 1)
+        self.assertEqual(
+            self.read()["items"][0]["prior_hypothesis"], newest["prior_hypothesis"]
+        )
+        path.write_text("invalid", encoding="utf-8")
+        self.assertEqual(
+            self.read()["items"][0]["prior_hypothesis"], self.note["prior_hypothesis"]
+        )
+
+    def test_repository_file_keeps_validation_and_independent_byte_bound(self):
+        path = memory.owner_publication_note_path(self.root, self.repo)
+        path.parent.mkdir()
+        self.write([self.note])
+        for value in (
+            " " * (memory.OWNER_NOTE_LIMIT_BYTES + 1),
+            json.dumps([{**self.note, "correctness": "PASS"}]),
+            json.dumps([{**self.note, "prior_hypothesis": "D:/private/run"}]),
+            json.dumps(
+                [{**self.note, "pr_url": "https://github.com/other/project/pull/1"}]
+            ),
+        ):
+            with self.subTest(value=value[:60]):
+                path.write_text(value, encoding="utf-8")
+                self.assertEqual(
+                    len(memory.owner_publication_rows(self.root, self.repo)), 1
+                )
+                self.assertEqual(self.read()["items"][0]["url"], self.note["pr_url"])
+                self.assertEqual(path.read_text(encoding="utf-8"), value)
 
     def test_note_and_queue_duplicates_do_not_consume_extra_hint_slots(self):
         self.write([self.note, self.note])
