@@ -1,0 +1,18 @@
+{
+  "id": "decoder-no-output-is-not-empty-input",
+  "title": "Distinguish absent input, absent decoded output and stream completion",
+  "applies_when": "A streaming decoder or parser uses a first-success or emitted-output flag to decide whether an incomplete stream should fail at EOF. Header-only input can be nonempty without producing any output.",
+  "lesson": "Trace what each state flag actually records. In urllib3's deflate decoder, _first_try remains true until decompression produces output; it is not a record of whether compressed bytes arrived. A proposed EOF guard conditional on not _first_try rejects truncated trailers but still accepts 1-, 2- and 3-byte zlib prefixes as empty data. Test truncation before the first output as well as after output, using preload, read and incremental read paths. Keep genuinely empty HTTP bodies, complete compressed empty streams, wrapped/raw valid streams and other supported encodings as separate controls. Input observation, format probing, decoded output and codec EOF are distinct state dimensions; changing one flag blindly can break fallback or empty-body compatibility.",
+  "avoid_when": "This is a scoped counterexample to an incomplete-stream check, not a verified repair or a universal parser requirement. The HTTP API's existing empty-body compatibility is not proof that a nonempty incomplete compressed stream is valid. Evidence replays complete unchanged response-module blobs against the exact baseline package on Linux/Python 3.12; it does not establish a full installed-PR pytest run, network/server behavior, arbitrary chunk partitions, security impact, performance, upstream acceptance or a prospective Scout cost advantage.",
+  "evidence": [
+    {
+      "url": "https://github.com/urllib3/urllib3/blob/d7d6b5f676b16a62c40b56045c99061ca1255b8f/src/urllib3/response.py",
+      "note": "Pinned proposed implementation: _first_try clears on produced output or format fallback; flush tests not _first_try together with codec EOF. These are different observations."
+    },
+    {
+      "url": "https://github.com/urllib3/urllib3/pull/5306#issuecomment-6106161198",
+      "note": "Independent full-module native comparison of base 5ebe9bf9 and head d7d6b5f6: 11 inputs x 3 read modes x 2 arms. All nine header-prefix candidate cells still return empty data; missing-trailer cells now raise DecodeError and valid/empty controls retain their behavior. Contributed to the existing author rather than opening a competing PR. No repair was implemented here."
+    }
+  ],
+  "status": "counterexample"
+}
