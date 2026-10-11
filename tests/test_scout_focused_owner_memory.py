@@ -179,8 +179,13 @@ class FocusedOwnerMemoryTests(unittest.TestCase):
             "id": "prior",
             "root": "prior",
             "depth": 0,
-            "analysis": json.dumps({"title": "NamedTemporaryFile may leak"}),
+            "title": "NamedTemporaryFile may leak",
+            "analysis": json.dumps({
+                "title": "NamedTemporaryFile may leak",
+                "hypothesis": "unrelated explanation " * 200,
+            }),
         }
+        self.assertGreater(len(parent["analysis"]), 2500)
         self.assertTrue(
             producer.emit(
                 "first", spec, [self.source], "source_followup", parent=parent

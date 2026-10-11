@@ -578,6 +578,14 @@ class ResearchTests(unittest.TestCase):
         self.assertFalse(self.producer.followup(self.spec, {}))
         self.assertEqual(len(self.jobs()), 2)
 
+    def test_followup_carries_parsed_title_separately_from_full_analysis(self):
+        self.assertTrue(self.producer.issue(self.spec, {}))
+        self.finish(self.jobs()[0])
+        with patch.object(self.producer, "emit", return_value=True) as emit:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        parent = emit.call_args.kwargs["parent"]
+        self.assertEqual(parent["title"], json.loads(parent["analysis"])["title"])
+
     def test_depth_two_is_handoff_even_with_new_evidence(self):
         self.producer.issue(self.spec, {})
         root = self.jobs()[0]

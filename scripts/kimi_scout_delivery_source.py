@@ -230,7 +230,7 @@ def select_leads(
         for lead in selected:
             context = owner_deferral_context(
                 root, lead["repo"], lead["packet"].get("sources", []),
-                prior_analysis=scout.dumps(lead["analysis"]),
+                prior_analysis=scout.dumps({"title": lead["analysis"].get("title")}),
             )
             if context:
                 lead["owner_deferrals"] = context

@@ -795,7 +795,13 @@ class ResearchProducer:
             self.root,
             spec["repo"],
             sources,
-            prior_analysis=parent["analysis"] if parent else None,
+            # Project the already-parsed title: long explanations must not
+            # disable the bounded reader or influence identifier relevance.
+            prior_analysis=(
+                scout.dumps({"title": parent["title"]})
+                if parent and "title" in parent
+                else parent["analysis"] if parent else None
+            ),
         )
         if deferrals:
             packet["owner_deferrals"] = deferrals
@@ -1570,6 +1576,7 @@ class ResearchProducer:
                     "root": root,
                     "depth": depth,
                     "analysis": analysis,
+                    "title": analysis_value.get("title"),
                 },
                 question=(
                     (

@@ -580,3 +580,12 @@ This closes a published-reader integration gap found when the legacy file grew
 past its byte cap. It does not measure saved calls, recall or PR conversion, and
 is not a prospective selector experiment. Tests cover the actual producer's
 changed-source/no-replay behavior as well as bounded read-only note loading.
+
+Followup production and owner intake project only the already-parsed hypothesis
+title into the memory reader. Passing a complete analysis longer than its
+2,500-character input cap used to silently disable identifier ranking, letting
+unrelated newer notes displace relevant advice. Full source analysis is retained
+unchanged; explanation text cannot select advice. The title, scan and two-note
+bounds remain unchanged, as do admission and no-replay behavior. Offline
+regressions cover both callers, not just the memory helper; this repair is not
+a measured PR-conversion or token-saving result.

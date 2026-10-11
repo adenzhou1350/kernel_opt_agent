@@ -257,12 +257,47 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in rows], ["lead2"])
         read.assert_called_once_with(
             self.root, REPO, rows[0]["packet"]["sources"],
-            prior_analysis=delivery.scout.dumps(rows[0]["analysis"]),
+            prior_analysis=delivery.scout.dumps({"title": rows[0]["analysis"]["title"]}),
         )
         self.assertNotIn("owner_deferrals", rows[0])
         with patch.object(delivery, "owner_deferral_context") as read:
             delivery.select_leads(self.root, limit=1)
         read.assert_not_called()
+
+    def test_long_analysis_still_focuses_owner_advice_by_title_only(self):
+        from scout_publication_context import owner_source_note_path
+
+        self.add("fresh", hypothesis="OtherClass " * 400)
+        result = {
+            "analysis": {
+                "title": "restore_state failure",
+                "hypothesis": "OtherClass " * 400,
+            }
+        }
+        self.db.execute("UPDATE jobs SET result=?", (json.dumps(result),))
+        self.db.commit()
+        path = owner_source_note_path(self.root, REPO)
+        path.parent.mkdir()
+        notes = [
+            {
+                "repo": REPO,
+                "prior_hypothesis": title,
+                "source_url": RAW,
+                "reason": "Prior native control for " + title,
+                "reopen_when": "A distinct supported failure",
+                "evidence_url": f"https://github.com/{REPO}/blob/{COMMIT}/{PATH}",
+            }
+            for title in ("restore_state refuted", "OtherClass newer", "ThirdClass latest")
+        ]
+        path.write_text(json.dumps(notes), encoding="utf-8")
+        before = (self.root / "scout.sqlite").read_bytes()
+        owner, = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual(
+            owner["owner_deferrals"]["items"][0]["prior_hypothesis"],
+            "restore_state refuted",
+        )
+        self.assertEqual(owner["analysis"], result["analysis"])
+        self.assertEqual((self.root / "scout.sqlite").read_bytes(), before)
 
     def test_corrupt_owner_advice_does_not_hide_a_candidate(self):
         from scout_publication_context import owner_source_note_path
