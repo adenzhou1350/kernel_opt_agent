@@ -131,6 +131,21 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
                     len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES
                 )
 
+    def test_scheduler_advice_keeps_transient_and_rounded_ceilings_distinct(self):
+        result = lesson_suggestions(
+            "scheduler remaining_budget max_num_tokens max_context_length livelock"
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "scheduler-budget-feasibility-before-deferral")
+        self.assertIn("same argument", card["lesson"])
+        self.assertIn("alignment-rounded", card["lesson"])
+        self.assertIn("would progress next iteration", card["lesson"])
+        self.assertIn("External mutation", card["avoid_when"])
+        self.assertIn("not installed-package execution", card["avoid_when"])
+        self.assertIn("prospective selector utility", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_configuration_advice_retains_its_contract_and_scope(self):
         result = lesson_suggestions("configuration CLI parser plugin consumer backend")
         card = result["matches"][0]

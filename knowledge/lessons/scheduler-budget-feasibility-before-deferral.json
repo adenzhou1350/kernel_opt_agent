@@ -1,0 +1,22 @@
+{
+  "id": "scheduler-budget-feasibility-before-deferral",
+  "title": "Distinguish transient scheduler budget exhaustion from permanently infeasible aligned chunks",
+  "applies_when": "A scheduler returns zero to defer a request, and a livelock hypothesis compares remaining_budget, max_num_tokens, max_context_length or an indivisible multimodal block.",
+  "lesson": "Retrieve the constructor and the next-iteration budget producer before inventing independent limits. TensorRT-LLM KVCacheV2Scheduler initializes max_context_length and max_num_tokens from the same argument; a test assigning different fixed values does not model that configuration. Test an oversized block, a temporary shortage followed by a fresh budget, and the actual alignment-rounded snap-up separately. A block can fit the raw ceiling while its required aligned endpoint does not. Only the permanent impossibility warrants rejection; treating every remaining-budget shortage as an error rejects requests that would progress next iteration. Check existing upstream work before implementing the surviving case: PR #18032 already contains a left-edge snap-up ceiling check.",
+  "avoid_when": "External mutation or another scheduler may permit independent limits. This source-bound constructor observation does not prove fairness or absence of every livelock. Exact extracted-helper controls with scalar cumsum stand-ins establish the listed branch behavior, not installed-package execution, native scheduler state, model attention correctness, GPU performance or prospective selector utility. Do not infer production frequency from a constructed mask, or treat an existing Draft as permission to publish a competing fix.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/TensorRT-LLM/blob/01a3a967a95044e577bbd4a3f3722718f50bd75b/tensorrt_llm/_torch/pyexecutor/scheduler/scheduler_v2.py#L173-L216",
+      "note": "Both fixed limits originate from max_num_tokens in the cited constructor. This refutes the independent-limit configuration premise, not all scheduler failures."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TensorRT-LLM/blob/01a3a967a95044e577bbd4a3f3722718f50bd75b/tensorrt_llm/_torch/pyexecutor/scheduler/scheduler_v2.py#L1196-L1254",
+      "note": "The raw block-size rejection precedes unit-size rounding; snap-up checks remaining budget and fixed ceiling, whereas zero-size snap-down defers. Exact helper controls reject a 64-token block with a 32-token ceiling and progress from a 32-token temporary budget to a fresh 128-token budget. Alignment can create a distinct infeasible extension. No native integration claim."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TensorRT-LLM/blob/3c7305ebb968f79b1e41d28b1e4dc30645687326/tensorrt_llm/_torch/pyexecutor/scheduler/scheduler_v2.py#L857-L882",
+      "note": "Existing PR #18032 adds a permanent snap-up ceiling check at the zero-size snap-down branch. The matched extracted-helper rounded-end control raises here instead of returning zero repeatedly; review, integration and GPU correctness remain separate."
+    }
+  ],
+  "status": "counterexample"
+}
