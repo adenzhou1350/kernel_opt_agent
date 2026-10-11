@@ -330,6 +330,18 @@ class KnowledgeNotesTests(unittest.TestCase):
         self.assertIn("not the Redis/MySQL/TiKV CI matrix", advice["avoid_when"])
         self.assertTrue(any(item["url"].endswith("issues/7657") for item in advice["evidence"]))
 
+    def test_kernel_geometry_units_are_retrievable_without_a_cuda_claim(self):
+        result = notes.search("swizzle int4 shared memory allocation", limit=3)
+        advice = next(
+            match["card"]
+            for match in result["matches"]
+            if match["card"]["id"] == "consumer-contract-before-regression"
+        )
+        self.assertIn("instantiate actual template constants", advice["lesson"])
+        evidence = [item for item in advice["evidence"] if "TransformerEngine" in item["url"]]
+        self.assertEqual(len(evidence), 2)
+        self.assertTrue(any("not CUDA execution" in item["note"] for item in evidence))
+
     def test_inherited_test_fixture_counterexample_is_retrievable(self):
         result = notes.search("unittest inherited fixture exclusive file", limit=3)
         advice = next(match["card"] for match in result["matches"]
