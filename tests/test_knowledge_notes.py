@@ -15,6 +15,19 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_cold_thenable_advice_reaches_scout_without_native_promise_overclaim(self):
+        from scout_lesson_context import lesson_suggestions
+
+        advice = lesson_suggestions("cold thenable async iterator subscription getter")
+        self.assertEqual(advice["status"], "ADVISORY_MATCH")
+        card = advice["matches"][0]
+        self.assertEqual(card["id"], "normalize-cold-thenables-once")
+        self.assertIn("consumption happens inside then", card["lesson"])
+        self.assertIn("synchronous iterator fast path", card["lesson"])
+        self.assertIn("not itself double execution", card["avoid_when"])
+        self.assertIn("not an upstream PR or merge", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
     def test_vector_layout_advice_reaches_scout_without_forward_only_claim(self):
         from scout_lesson_context import lesson_suggestions
 

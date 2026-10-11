@@ -1,0 +1,22 @@
+{
+  "id": "normalize-cold-thenables-once",
+  "title": "Normalize a cold thenable once before observing and awaiting it",
+  "applies_when": "An async iterator or callback returns a custom PromiseLike, and a wrapper both calls then to observe completion and passes the original object to await or another promise consumer. Subscription can start work or consume a queue item; reading a then getter can also have effects.",
+  "lesson": "Do not assume a custom thenable is a memoized native promise. Normalize the result once with Promise.resolve, then share that promise between completion observers and the caller. Avoid checking result.then before normalization if a getter must be read once. Test a cold thenable whose consumption happens inside then, not only a fixed result captured before then is called. In the cited p-map main, a three-item async source yields [2] instead of [1, 2, 3] because the observer and await consume separately; native for-await is a useful matched control. Cover the plain method and getter through pMap, pMapSettled and both iterable ordering modes. Preserve the synchronous iterator fast path instead of adding unnecessary settlement observers to every array element, and retain end-of-source, rejection, early-close and scheduling controls.",
+  "avoid_when": "Attaching multiple handlers to an ordinary memoized native promise is not itself double execution; the defect requires the actual returned object's semantics. Normalize per operation, not by globally caching an iterator or reusable thenable. Do not infer identical microtask timing for arbitrary promise subclasses or cross-realm objects, or convert a correctness repair into a performance claim. The proposed two-file patch passes 418 runtime tests plus lint and types on native Windows/Linux Node24, not the full cross-version CI matrix. It is a fork patch with an issue, not an upstream PR or merge. This was owner-led discovery, not evidence of Scout conversion or a prospective selector advantage.",
+  "evidence": [
+    {
+      "url": "https://github.com/sindresorhus/p-map/blob/683a68e0c90fef038621c95191bb54e3dba9229c/index.js#L627-L660",
+      "note": "The original puller reads then and subscribes to the custom object, then returns that object for a second await assimilation. Existing fixed-result thenable coverage does not exercise subscription-time consumption."
+    },
+    {
+      "url": "https://github.com/sindresorhus/p-map/issues/95",
+      "note": "Public current-main reproduction, native for-await expectation and independently executed platform comparisons. Eight new regressions fail against unchanged source; patched complete runtime suites pass on both platforms. PR creation is collaborators-only."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/p-map/commit/223b46dd6151c554c08167ef4e125a4c946476c1",
+      "note": "Proposed normalization plus explicit async/sync iterator selection and eight public-API regressions. The synchronous path still returns the immediate result without an observer; no acceptance or general throughput benefit is implied."
+    }
+  ],
+  "status": "validated"
+}
