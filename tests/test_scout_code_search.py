@@ -149,7 +149,12 @@ class CodeSearchTests(unittest.TestCase):
 
 class FollowupCodeSearchTests(unittest.TestCase):
     def run_followup(
-        self, enabled=True, drift=False, search_error=False, observed_source=False
+        self,
+        enabled=True,
+        drift=False,
+        search_error=False,
+        observed_source=False,
+        request_text=None,
     ):
         raw = "// filler\n" * 120 + f"void {SYMBOL}() {{}}\n"
         raw += "// filler\n" * 100 + "void LowerToLDGPredicated() {}\n"
@@ -259,7 +264,8 @@ class FollowupCodeSearchTests(unittest.TestCase):
                                         "title": "Missing predicate implementation",
                                         "hypothesis": "Unverified predicate contract",
                                         "decision": "needs_context",
-                                        "next_check": f"Inspect references({SYMBOL}) and references(LowerToLDGPredicated)",
+                                        "next_check": request_text
+                                        or f"Inspect references({SYMBOL}) and references(LowerToLDGPredicated)",
                                         "evidence": [],
                                     }
                                 }
@@ -292,6 +298,44 @@ class FollowupCodeSearchTests(unittest.TestCase):
         self.assertLessEqual(
             len((scout.SYSTEM + scout.dumps(packets[0])).encode()),
             scout.MAX_INPUT_BYTES,
+        )
+
+    def test_missing_definition_uses_same_pinned_search_and_read_budget(self):
+        searches, reads, packets, progress = self.run_followup(
+            request_text=f"Inspect definition({SYMBOL})"
+        )
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(len(reads), 1)
+        self.assertEqual(progress["code_search_requests"], 1)
+        evidence = [s for s in packets[0]["sources"] if "code_search_hint" in s]
+        self.assertEqual(len(evidence), 1)
+        self.assertIn(f"/{COMMIT}/{PATH}", evidence[0]["url"])
+        self.assertIn(SYMBOL, evidence[0]["text"])
+        self.assertLessEqual(
+            evidence[0]["end_line"] - evidence[0]["start_line"] + 1, 80
+        )
+
+    def test_definition_cannot_supply_a_url_or_an_arbitrary_search_query(self):
+        for request in (
+            "definition(https://other.invalid/evil.py)",
+            "definition(Foo.method)",
+            "definition(symbol repo:other/repo)",
+        ):
+            with self.subTest(request=request):
+                searches, _, _, _ = self.run_followup(request_text=request)
+                self.assertEqual(searches, [])
+
+    def test_definition_retains_opt_in_and_pinned_literal_drift_rejection(self):
+        request = f"definition({SYMBOL})"
+        searches, reads, _, _ = self.run_followup(enabled=False, request_text=request)
+        self.assertEqual(searches, [])
+        self.assertEqual(reads, [])
+        searches, _, packets, _ = self.run_followup(drift=True, request_text=request)
+        self.assertEqual(len(searches), 1)
+        self.assertFalse(
+            any(
+                "code_search_hint" in s for packet in packets for s in packet["sources"]
+            )
         )
 
     def test_option_off_keeps_no_search_default(self):

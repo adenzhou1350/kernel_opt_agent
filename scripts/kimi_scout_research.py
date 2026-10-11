@@ -1378,7 +1378,7 @@ class ResearchProducer:
             symbols = list(
                 dict.fromkeys(
                     re.findall(
-                        r"\breferences\(([A-Za-z_][A-Za-z0-9_-]{3,127})\)",
+                        r"\b(?:references|definition)\(([A-Za-z_][A-Za-z0-9_-]{3,127})\)",
                         request_text[:2000] if isinstance(request_text, str) else "",
                     )
                 )
@@ -1394,7 +1394,9 @@ class ResearchProducer:
                 and not continuation
                 and definition_request is None
             ):
-                # One current-index discovery query, never a model-provided URL.
+                # Missing unqualified definitions can be in another module even
+                # without a direct import. This remains a lexical path hint, not
+                # a resolved receiver or call graph. Keep the same one-query cap.
                 # Replace ordinary reads; pinned source must contain the literal.
                 progress["code_search_requests"] = (
                     progress.get("code_search_requests", 0) + 1

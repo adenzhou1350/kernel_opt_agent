@@ -262,8 +262,9 @@ python -B -m unittest tests.test_scout_symbol_references
 ## Optional missing-implementation discovery
 
 A repository may opt into `followup_code_search=true`. When a needs-context
-follow-up explicitly asks for `references(identifier)` (one or two bounded ASCII
-identifiers or hyphenated reason codes), and no cached reference, import,
+follow-up explicitly asks for `references(identifier)` or an unqualified
+`definition(identifier)` (one or two bounded ASCII identifiers or hyphenated
+reason codes), and no cached reference, import,
 registration, continuation or kernel-definition read already supplies the next
 step, the controller makes at most one GitHub code-search query. Five current
 default-branch index hits are only path hints: intersect them with the already
@@ -278,6 +279,12 @@ execution or novelty is inferred. This does not increase the two-source-read
 ceiling, but the discovery API request is an additional cost. Query results are
 cached for the existing 15-minute snapshot TTL, keyed by repository, target
 commit and literal, with tree membership rechecked on reuse.
+
+The definition fallback covers a missing callee reached through an object rather
+than a direct named import. Qualified receiver expressions, URLs and search-query
+syntax are not accepted as literals; discovering a matching method does not
+resolve that receiver's runtime type. This is a source-acquisition capability,
+not evidence of improved selector quality or PR conversion.
 
 For an explicit `references(identifier)` in a C-family source, the window prefers
 the first invocation-shaped occurrence (`identifier` followed by `(`) over an
