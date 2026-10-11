@@ -34,6 +34,15 @@ class CoroutineCallbackLessonTests(unittest.TestCase):
         self.assertIn("not a prospective", card["avoid_when"])
         self.assertTrue(any(e["url"].endswith("/pull/1159") for e in card["evidence"]))
 
+    def test_once_result_consumption_is_not_function_classification(self):
+        card = lesson_suggestions("callback awaiting result once synchronous thread")[
+            "matches"
+        ][0]
+        self.assertEqual(card["id"], "coroutine-callback-thread-hints")
+        self.assertIn("iscoroutinefunction alone", card["lesson"])
+        self.assertIn("distinct placement and result-consumption", card["lesson"])
+        self.assertTrue(any(e["url"].endswith("/pull/217") for e in card["evidence"]))
+
 
 if __name__ == "__main__":
     unittest.main()

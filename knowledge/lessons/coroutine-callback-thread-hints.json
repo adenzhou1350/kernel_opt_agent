@@ -1,9 +1,9 @@
 {
   "id": "coroutine-callback-thread-hints",
-  "title": "Check coroutine callback dispatch before applying synchronous thread hints",
-  "applies_when": "A callback API accepts synchronous and coroutine functions, with a thread-selection flag documented to affect only synchronous callbacks. Trace subscription and delivery together rather than inferring behavior from the flag name.",
-  "lesson": "Exercise a real callback through public registration with both thread flags, plain and partial-wrapped coroutine functions, and synchronous thread-identity controls. In APScheduler, is_async=False offloaded a coroutine function to a synchronous worker: asyncio left its result unawaited, while Trio rejected it; the event was lost in both cases. Classify coroutine functions before offloading and await them on the event-loop path, preserving synchronous callback placement. Run the same regression against unchanged production source and the repair: four failing cells on both native Windows and Linux became passing, with normal dispatch controls retained.",
-  "avoid_when": "The API's documented execution contract decides whether overriding a thread hint is correct. This evidence covers coroutine functions and functools.partial wrappers, not every async callable object, custom awaitable or future-returning synchronous function. Do not infer complete external-broker, SQLite, supported-Python or thread-safety qualification from local broker tests. The submitted PR is not maintainer acceptance, a performance gain or measured Scout conversion; this was owner-led source investigation, not a prospective budget-matched trial.",
+  "title": "Separate callback execution placement from awaiting results and thread hints",
+  "applies_when": "A callback dispatcher accepts synchronous and asynchronous handlers, thread-selection flags or once wrappers. Trace registration, wrapping and delivery together; a synchronous wrapper can return either a coroutine or a normal no-op result.",
+  "lesson": "Test public registration with both thread flags, plain and partial-wrapped coroutine functions, synchronous thread-identity controls and duplicate pending once deliveries. APScheduler offloaded coroutine callbacks under is_async=False, contrary to its contract: asyncio left the result unawaited and Trio rejected the call. Classify coroutine functions before offloading there. Separately, pyee's Trio runner unconditionally awaited results: successful synchronous handlers and skipped once wrappers returned None and produced spurious errors. Check the awaitable result after calling there; iscoroutinefunction alone would miss the synchronous once wrapper. These are distinct placement and result-consumption decisions. Compare unchanged production source with the repair and retain genuine handler-error controls.",
+  "avoid_when": "Follow the API's documented execution contract rather than universally overriding thread hints or awaiting arbitrary results. APScheduler evidence covers coroutine functions and functools.partial wrappers, not every async callable object, custom awaitable or future-returning synchronous function. The pyee probe covers synchronous returns and coroutine/once paths, not all awaitable implementations. Do not infer complete external-broker, SQLite, supported-Python or thread-safety qualification. Submitted PRs are not maintainer acceptance, a performance gain or measured Scout conversion; these owner-led investigations were not a prospective budget-matched trial.",
   "evidence": [
     {
       "url": "https://github.com/agronholm/apscheduler/blob/a660860d841c5426ec3b7ed2d4ada8fe168710f1/src/apscheduler/abc.py#L145-L147",
@@ -12,6 +12,10 @@
     {
       "url": "https://github.com/agronholm/apscheduler/pull/1159",
       "note": "Two-line dispatch repair and public asyncio/Trio regression tests. Windows: 280 related tests pass, 2 optional skips; Linux: 19 local broker tests pass, 2 optional skips. Full service/Python matrix and initially missing SQLite dependencies remain explicit limits."
+    },
+    {
+      "url": "https://github.com/jfhbrook/pyee/pull/217",
+      "note": "Conditional result-awaiting repair. Four new Windows Trio regressions fail on unchanged source; complete patched Windows suite passes 48 tests. Linux standalone probe changes from 3/5 failures to 5/5 passes, not a full Linux pytest run. Includes sync error-handler and duplicate pending once controls."
     }
   ],
   "status": "validated"
