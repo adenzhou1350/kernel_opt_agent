@@ -778,6 +778,12 @@ class ResearchProducer:
         }
         if focus_issue:
             packet["focus_issue"] = focus_issue
+        # Reuse the visibility metadata already read for source/report context.
+        # Older injected contexts need not implement this optional observation.
+        observe_settings = getattr(self.context, "observed_repository_settings", None)
+        settings = observe_settings(spec["repo"]) if observe_settings else None
+        if settings is not None:
+            packet["repository_settings"] = settings
         if frontier is not None:
             packet["research"]["frontier"] = frontier
         if parent:

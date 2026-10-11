@@ -138,6 +138,25 @@ class ResearchTests(unittest.TestCase):
         with scout.connect(self.root) as db:
             return list(db.execute("SELECT * FROM jobs ORDER BY created"))
 
+    def test_channel_restriction_reaches_paid_packet_without_blocking_research(self):
+        settings = {
+            "pull_request_creation_policy": "collaborators_only",
+            "viewer_can_push": False, "observed_at": "first",
+        }
+        with patch.object(
+            self.context, "observed_repository_settings", return_value=settings, create=True,
+        ) as observed:
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        observed.assert_called_once_with("a/b")
+        self.assertEqual(json.loads(self.jobs()[0]["packet"])["repository_settings"], settings)
+        # A changed channel observation alone must not buy another research call.
+        settings["observed_at"] = "later"
+        with patch.object(
+            self.context, "observed_repository_settings", return_value=settings, create=True,
+        ):
+            self.assertFalse(self.producer.issue(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 1)
+
     def finish(self, row, decision="lead"):
         with scout.connect(self.root) as db:
             db.execute(

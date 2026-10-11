@@ -10,15 +10,18 @@ import urllib.parse
 from pathlib import Path
 
 import kimi_scout as scout
-from scout_symbol_references import (
-    NATIVE_SUFFIXES,
-    REQUEST as REFERENCE_REQUEST,
-    native_invocation_hint_line,
-    reference_cache_limit,
-)
+from scout_contribution_policy import repository_settings
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_issue_timeline import linked_pr_context
 from scout_requested_definition import requested_function_window
+from scout_symbol_references import (
+    NATIVE_SUFFIXES,
+    native_invocation_hint_line,
+    reference_cache_limit,
+)
+from scout_symbol_references import (
+    REQUEST as REFERENCE_REQUEST,
+)
 
 SNAPSHOT_TTL = 900
 # Reuse verified visibility with the snapshot; a fresh controller rechecks it.
@@ -125,6 +128,7 @@ class PublicContext:
         self.cache.mkdir(parents=True, exist_ok=True)
         self.github_auth = bool(github_auth)
         self._public_until = {}
+        self._repository_settings = {}
         self.tree_roots = tree_roots or {}
         for repo, roots in self.tree_roots.items():
             _repo(repo)
@@ -163,7 +167,16 @@ class PublicContext:
         ):
             raise ValueError("scout refuses non-public repositories")
         self._public_until[repo] = now + PUBLIC_TTL
+        self._repository_settings[repo] = repository_settings(repo, metadata)
         return repo
+
+    def observed_repository_settings(self, repo):
+        """Return a recent observation without adding an API request for a packet."""
+        repo = _repo(repo)
+        if time.time() >= self._public_until.get(repo, 0):
+            return None
+        settings = self._repository_settings.get(repo)
+        return dict(settings) if settings is not None else None
 
     def _cache_path(self, kind, identity):
         key = hashlib.sha256(scout.dumps(identity).encode("utf-8")).hexdigest()

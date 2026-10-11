@@ -302,6 +302,9 @@ def collect_source(spec, github_auth=False):
     )
     if metadata.get("private") is not False:
         raise ValueError("scout refuses private repositories")
+    # Local import avoids the intake helper's dependency on this module at startup.
+    from scout_contribution_policy import repository_settings
+
     ref = spec.get("ref", "main")
     if not isinstance(ref, str) or not re.fullmatch(r"[A-Za-z0-9_./-]+", ref):
         raise ValueError("invalid ref")
@@ -376,6 +379,7 @@ def collect_source(spec, github_auth=False):
         "sources": sources,
         "related_open_items_sample": related,
         "duplicate_search_complete": False,
+        "repository_settings": repository_settings(repo, metadata),
         "reviewed_lessons": reviewed_lessons(),
         "lesson_suggestions": lesson_suggestions(
             spec["question"] + " " + " ".join(
@@ -432,6 +436,8 @@ def enqueue(root, packet, *, db=None):
     identity.pop("owner_deferrals", None)
     # Knowledge-only changes are not new source evidence or a paid task.
     identity.pop("lesson_suggestions", None)
+    # Channel observations (including their timestamps) are not fresh source.
+    identity.pop("repository_settings", None)
     identity["sources"] = [
         dict(source, url=re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]))
         for source in packet["sources"]

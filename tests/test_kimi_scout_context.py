@@ -77,6 +77,33 @@ class ContextTests(unittest.TestCase):
         self.assertTrue(all(url == API and auth is True for url, _, auth in self.calls))
         self.assertFalse(list((self.root / "public-cache").iterdir()))
 
+    def test_observed_channel_settings_reuse_public_metadata_without_fetch(self):
+        self.metadata.update(
+            has_pull_requests=True, pull_request_creation_policy="collaborators_only",
+            permissions={"push": False},
+        )
+        self.context.snapshot(REPO)
+        calls = list(self.calls)
+        settings = self.context.observed_repository_settings(REPO)
+        self.assertEqual(settings["pull_request_creation_policy"], "collaborators_only")
+        self.assertTrue(settings["has_pull_requests"])
+        self.assertFalse(settings["viewer_can_push"])
+        settings["has_pull_requests"] = False
+        self.assertTrue(self.context.observed_repository_settings(REPO)["has_pull_requests"])
+        self.assertEqual(self.calls, calls)
+
+    def test_unobserved_expired_or_private_settings_are_not_permissions(self):
+        self.assertIsNone(self.context.observed_repository_settings(REPO))
+        self.assertEqual(self.calls, [])
+        with patch.object(context.time, "time", return_value=1000):
+            self.context.snapshot(REPO)
+        with patch.object(context.time, "time", return_value=1000 + context.PUBLIC_TTL):
+            self.assertIsNone(self.context.observed_repository_settings(REPO))
+            self.metadata["private"] = True
+            with self.assertRaisesRegex(ValueError, "non-public"):
+                self.context.snapshot(REPO)
+            self.assertIsNone(self.context.observed_repository_settings(REPO))
+
     def test_visibility_must_be_explicitly_public_before_authenticated_context(self):
         for metadata in (
             {"private": False},

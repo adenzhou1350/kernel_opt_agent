@@ -38,6 +38,30 @@ def repository(value):
     return value
 
 
+def repository_settings(repo, info):
+    """Channel observations from already verified public metadata, not permission."""
+    permissions = info.get("permissions")
+    can_push = permissions.get("push") if isinstance(permissions, dict) else None
+    creation_policy = info.get("pull_request_creation_policy")
+    return {
+        "url": API + repo,
+        "observed_at": datetime.now(timezone.utc).isoformat(),
+        **{
+            key: info.get(key) if type(info.get(key)) is bool else None
+            for key in ("archived", "disabled", "has_issues", "has_pull_requests")
+        },
+        "pull_request_creation_policy": (
+            creation_policy if creation_policy in ("all", "collaborators_only") else None
+        ),
+        "viewer_can_push": can_push if type(can_push) is bool else None,
+        "scope": (
+            "Channel facts only, not eligibility or publication authority. Choose an "
+            "appropriate contribution channel; do not discard bugs or bypass restrictions. "
+            "Read contribution rules and recheck live settings before publishing."
+        ),
+    }
+
+
 def collect(repo, *, github_auth=False, fetch=None):
     repo = repository(repo)
     read = fetch or scout.fetch
@@ -136,25 +160,9 @@ def collect(repo, *, github_auth=False, fetch=None):
     }
     try:
         info = public(repo)
-        permissions = info.get("permissions")
-        can_push = permissions.get("push") if isinstance(permissions, dict) else None
-        creation_policy = info.get("pull_request_creation_policy")
         # Reuse the metadata GET already needed to verify public provenance.
         # Keep channel settings separate from written rules and user eligibility.
-        result["repository_settings"] = {
-            "url": API + repo,
-            "observed_at": datetime.now(timezone.utc).isoformat(),
-            **{
-                key: info.get(key) if type(info.get(key)) is bool else None
-                for key in ("archived", "disabled", "has_issues", "has_pull_requests")
-            },
-            "pull_request_creation_policy": (
-                creation_policy
-                if creation_policy in ("all", "collaborators_only")
-                else None
-            ),
-            "viewer_can_push": can_push if type(can_push) is bool else None,
-        }
+        result["repository_settings"] = repository_settings(repo, info)
         profile = get(repo + "/community/profile")
         files = profile.get("files") if isinstance(profile, dict) else None
         if not isinstance(files, dict):

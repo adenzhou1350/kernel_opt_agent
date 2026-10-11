@@ -118,6 +118,14 @@ early observation to choose an appropriate contribution channel, not to discard
 the bug or bypass restrictions; recheck before publishing. See [GitHub's PR
 access settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/disabling-pull-requests).
 
+Feed and research packets also carry these channel facts from the public metadata
+GET already needed for their source reads. Research uses only the current in-memory
+visibility observation; it adds no API request or mandatory intake gate. Expired or
+unobserved settings are omitted, not interpreted as unrestricted. Channel changes
+alone do not create another paid task. The model can flag an unsuitable publication
+route early, but this does not classify written AI policies, reject research,
+establish the viewer's eligibility, or replace owner review before publication.
+
 Only the backend needs the existing Kimi environment. Find its interpreter using
 `uv tool dir` if Kimi was installed by uv; normally it is
 `<uv-tool-dir>/kimi-cli/Scripts/python.exe` on Windows or

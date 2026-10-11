@@ -117,6 +117,16 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(a, b)
         self.assertEqual(len(scout.status(self.root)["jobs"]), 1)
 
+    def test_channel_observation_is_not_new_source_evidence(self):
+        original = packet()
+        observed = dict(original, repository_settings={
+            "pull_request_creation_policy": "collaborators_only", "observed_at": "later",
+        })
+        self.assertEqual(
+            scout.enqueue(self.root, original), scout.enqueue(self.root, observed)
+        )
+        self.assertEqual(len(scout.status(self.root)["jobs"]), 1)
+
     def test_status_is_bounded_but_reports_total_jobs(self):
         with scout.connect(self.root) as db:
             db.executemany(
@@ -679,7 +689,10 @@ class ScoutTests(unittest.TestCase):
                 return json.dumps({"sha": "a" * 40})
             if "/issues?" in url:
                 return "[]"
-            return '{"private": false}'
+            return json.dumps({
+                "private": False, "has_pull_requests": True,
+                "pull_request_creation_policy": "collaborators_only",
+            })
 
         with (
             patch.object(scout, "fetch", side_effect=response),
@@ -697,6 +710,10 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(len(packets), 2)
         self.assertNotEqual(packets[0]["name"], packets[1]["name"])
         self.assertTrue(all(len(p["sources"]) == 1 for p in packets))
+        self.assertTrue(all(
+            p["repository_settings"]["pull_request_creation_policy"] == "collaborators_only"
+            for p in packets
+        ))
 
     def test_private_or_oversized_packet_rejected(self):
         for url in (
