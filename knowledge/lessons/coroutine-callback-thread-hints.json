@@ -1,0 +1,18 @@
+{
+  "id": "coroutine-callback-thread-hints",
+  "title": "Check coroutine callback dispatch before applying synchronous thread hints",
+  "applies_when": "A callback API accepts synchronous and coroutine functions, with a thread-selection flag documented to affect only synchronous callbacks. Trace subscription and delivery together rather than inferring behavior from the flag name.",
+  "lesson": "Exercise a real callback through public registration with both thread flags, plain and partial-wrapped coroutine functions, and synchronous thread-identity controls. In APScheduler, is_async=False offloaded a coroutine function to a synchronous worker: asyncio left its result unawaited, while Trio rejected it; the event was lost in both cases. Classify coroutine functions before offloading and await them on the event-loop path, preserving synchronous callback placement. Run the same regression against unchanged production source and the repair: four failing cells on both native Windows and Linux became passing, with normal dispatch controls retained.",
+  "avoid_when": "The API's documented execution contract decides whether overriding a thread hint is correct. This evidence covers coroutine functions and functools.partial wrappers, not every async callable object, custom awaitable or future-returning synchronous function. Do not infer complete external-broker, SQLite, supported-Python or thread-safety qualification from local broker tests. The submitted PR is not maintainer acceptance, a performance gain or measured Scout conversion; this was owner-led source investigation, not a prospective budget-matched trial.",
+  "evidence": [
+    {
+      "url": "https://github.com/agronholm/apscheduler/blob/a660860d841c5426ec3b7ed2d4ada8fe168710f1/src/apscheduler/abc.py#L145-L147",
+      "note": "The pinned EventBroker interface explicitly says the thread-selection flag is ignored for coroutine functions. This contract, not a generic preference for event-loop execution, motivates the repair."
+    },
+    {
+      "url": "https://github.com/agronholm/apscheduler/pull/1159",
+      "note": "Two-line dispatch repair and public asyncio/Trio regression tests. Windows: 280 related tests pass, 2 optional skips; Linux: 19 local broker tests pass, 2 optional skips. Full service/Python matrix and initially missing SQLite dependencies remain explicit limits."
+    }
+  ],
+  "status": "validated"
+}
