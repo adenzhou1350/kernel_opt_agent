@@ -46,6 +46,25 @@ class CleanupIdentityLessonTests(unittest.TestCase):
             result["matches"][0]["id"], "timed-out-receivers-retain-fd-ownership"
         )
 
+    def test_async_cache_replacement_reuses_identity_advice_not_duplicate_credit(self):
+        result = lesson_suggestions(
+            "async cache callback old task same key replacement invalidation TTL"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "cleanup-after-ownership-loss")
+        self.assertIn("not a new contribution", card["avoid_when"])
+        self.assertIn("cross-thread or distributed", card["avoid_when"])
+        evidence = [item for item in card["evidence"] if "async-lru" in item["url"]]
+        self.assertEqual(len(evidence), 2)
+        self.assertTrue(any("prematurely start" in item["note"] for item in evidence))
+        self.assertTrue(any("No competing PR" in item["note"] for item in evidence))
+        self.assertLessEqual(
+            len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        self.assertNotIn("qualified", result)
+
 
 if __name__ == "__main__":
     unittest.main()
