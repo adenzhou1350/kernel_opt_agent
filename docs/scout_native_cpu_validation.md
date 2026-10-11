@@ -58,16 +58,25 @@ Existing `git archive` recipes below remain usable when their intended exported
 members have been checked against Git; disabling autocrlf alone is not that check.
 
 Build now reads one blob at a time and stages an uncompressed tar on the archive's
-output volume before streamed gzip compression. Leave space for both tar and
-archive. Python memory still scales with the largest blob and entry metadata;
-this is not a constant-memory verifier: verification/decompression retains the
-archive and tar in memory. Windows extraction of symlinks needs host permission;
-do not silently replace links or start local WSL to bypass it.
+output volume before streamed gzip compression. The verification CLI snapshots
+compressed input and decompresses it into temporary files on that same volume;
+file hashes and extraction use bounded reads from the verified snapshot. Leave
+space for the original archive, compressed snapshot, uncompressed tar and (when
+requested) extracted files. This trades extra disk I/O/space for lower payload
+memory and requires a writable archive directory; it does not silently fall back
+to the system temporary drive. It is not a constant-memory claim. Build memory
+still scales with the largest blob; verification retains manifest/member
+metadata. The compatibility
+`verify_bundle` helper still returns an in-memory tar; use the CLI or the
+`verified_bundle` context manager for streamed verification. Windows extraction
+of symlinks needs host permission; do not silently replace links or start local
+WSL to bypass it.
 
 Regression tests cover LF Git text with CRLF/dirty checkout bytes, in-memory
-versus streamed tar/gzip identity, large/PAX entries, archive verification, path
-rejection and early child cleanup. These are transport checks, not project tests
-or evidence of a higher PR conversion rate.
+versus streamed tar/gzip identity, large/PAX entries, bounded verification reads,
+snapshot replacement, gzip corruption, unsafe members and temporary-file/child
+cleanup. These are transport checks, not project tests or evidence of a higher
+PR conversion rate.
 
 ## Windows-native TypeScript checks without bypassing runtime requirements
 

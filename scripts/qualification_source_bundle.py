@@ -18,6 +18,7 @@ import sys
 import tarfile
 import tempfile
 from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
@@ -278,10 +279,17 @@ def safe_symlink_target(member_path: PurePosixPath, target: str, prefix: str) ->
 
 
 def entries_from_tar(tar_bytes: bytes, prefix: str) -> list[dict]:
+    """Compatibility helper for callers that already hold a tar in memory."""
+    return entries_from_tar_stream(io.BytesIO(tar_bytes), prefix)
+
+
+def entries_from_tar_stream(stream: BinaryIO, prefix: str) -> list[dict]:
+    """Inspect a seekable tar, hashing file contents in bounded chunks."""
+    stream.seek(0)
     entries: list[dict] = []
     seen: set[str] = set()
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as archive:
-        for member in archive.getmembers():
+    with tarfile.open(fileobj=stream, mode="r:") as archive:
+        for member in archive:
             path = safe_member_path(member.name, prefix)
             normalized = path.as_posix()
             if normalized in seen:
@@ -294,13 +302,18 @@ def entries_from_tar(tar_bytes: bytes, prefix: str) -> list[dict]:
                 handle = archive.extractfile(member)
                 if handle is None:
                     raise ValueError(f"cannot read archive member: {normalized}")
-                data = handle.read()
+                digest = hashlib.sha256()
+                size = 0
+                with handle:
+                    for block in iter(lambda: handle.read(1024 * 1024), b""):
+                        digest.update(block)
+                        size += len(block)
                 entries.append(
                     {
                         **base,
                         "type": "file",
-                        "size": len(data),
-                        "sha256": sha256_bytes(data),
+                        "size": size,
+                        "sha256": digest.hexdigest(),
                     }
                 )
             elif member.issym():
@@ -388,7 +401,17 @@ def read_manifest(path: Path) -> dict:
     return value
 
 
-def verify_bundle(archive_path: Path, manifest_path: Path) -> tuple[dict, bytes]:
+@contextmanager
+def verified_bundle(
+    archive_path: Path, manifest_path: Path
+) -> Iterator[tuple[dict, BinaryIO]]:
+    """Yield a verified tar snapshot, spooled on the archive's volume.
+
+    Snapshot compressed input before decompression so hashing and extraction
+    cannot observe different bytes after the source pathname is replaced.
+    Temporary files are closed on verification, extraction or caller failure.
+    Memory still includes manifest and tar-entry metadata, not entire payloads.
+    """
     manifest = read_manifest(manifest_path)
     archive_record = manifest.get("archive")
     source = manifest.get("source")
@@ -419,34 +442,62 @@ def verify_bundle(archive_path: Path, manifest_path: Path) -> tuple[dict, bytes]
         or not source["repository"].strip()
     ):
         raise ValueError("source.repository must be a non-empty logical identity")
-    archive_bytes = archive_path.read_bytes()
-    if archive_record.get("bytes") != len(archive_bytes):
-        raise ValueError("archive byte count does not match manifest")
-    if archive_record.get("sha256") != sha256_bytes(archive_bytes):
-        raise ValueError("archive SHA-256 does not match manifest")
-    if len(archive_bytes) < 10 or archive_bytes[:3] != b"\x1f\x8b\x08":
-        raise ValueError("archive is not a gzip stream")
-    if archive_bytes[4:8] != b"\x00\x00\x00\x00":
-        raise ValueError("gzip header mtime must be zero")
     prefix = validate_prefix(str(archive_record.get("prefix", "")))
-    try:
-        tar_bytes = gzip.decompress(archive_bytes)
-    except (EOFError, OSError) as error:
-        raise ValueError(f"invalid gzip archive: {error}") from error
-    observed = entries_from_tar(tar_bytes, prefix)
-    if observed != entries:
-        raise ValueError("archive entries do not exactly match the manifest")
-    return manifest, tar_bytes
+    with (
+        tempfile.TemporaryFile(dir=archive_path.parent) as compressed,
+        tempfile.TemporaryFile(dir=archive_path.parent) as tar_stream,
+    ):
+        digest = hashlib.sha256()
+        size = 0
+        with archive_path.open("rb") as original:
+            for block in iter(lambda: original.read(1024 * 1024), b""):
+                compressed.write(block)
+                digest.update(block)
+                size += len(block)
+        if archive_record.get("bytes") != size:
+            raise ValueError("archive byte count does not match manifest")
+        if archive_record.get("sha256") != digest.hexdigest():
+            raise ValueError("archive SHA-256 does not match manifest")
+        compressed.seek(0)
+        header = compressed.read(10)
+        if len(header) < 10 or header[:3] != b"\x1f\x8b\x08":
+            raise ValueError("archive is not a gzip stream")
+        if header[4:8] != b"\x00\x00\x00\x00":
+            raise ValueError("gzip header mtime must be zero")
+        compressed.seek(0)
+        try:
+            with gzip.GzipFile(fileobj=compressed, mode="rb") as handle:
+                shutil.copyfileobj(handle, tar_stream, length=1024 * 1024)
+        except (EOFError, OSError) as error:
+            raise ValueError(f"invalid gzip archive: {error}") from error
+        observed = entries_from_tar_stream(tar_stream, prefix)
+        if observed != entries:
+            raise ValueError("archive entries do not exactly match the manifest")
+        tar_stream.seek(0)
+        yield manifest, tar_stream
+
+
+def verify_bundle(archive_path: Path, manifest_path: Path) -> tuple[dict, bytes]:
+    """Compatibility helper returning a complete in-memory tar payload."""
+    with verified_bundle(archive_path, manifest_path) as (manifest, stream):
+        return manifest, stream.read()
 
 
 def extract_bundle(tar_bytes: bytes, manifest: dict, target: Path) -> None:
+    """Compatibility helper for a previously verified in-memory tar."""
+    extract_bundle_stream(io.BytesIO(tar_bytes), manifest, target)
+
+
+def extract_bundle_stream(stream: BinaryIO, manifest: dict, target: Path) -> None:
+    """Extract a previously verified seekable tar into a fresh atomic target."""
+    stream.seek(0)
     target = target.resolve()
     if target.exists():
         raise ValueError(f"extract target must not already exist: {target}")
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
     try:
-        with tarfile.open(fileobj=io.BytesIO(tar_bytes), mode="r:") as archive:
+        with tarfile.open(fileobj=stream, mode="r:") as archive:
             members = {
                 member.name.rstrip("/"): member for member in archive.getmembers()
             }
@@ -543,16 +594,16 @@ def main() -> int:
                 raise ValueError(
                     "--repo, --commit, and --repository-url are valid only with --build"
                 )
-            manifest, tar_bytes = verify_bundle(args.archive, args.manifest)
-            if args.extract_root is not None:
-                extract_bundle(tar_bytes, manifest, args.extract_root)
+            with verified_bundle(args.archive, args.manifest) as (manifest, stream):
+                if args.extract_root is not None:
+                    extract_bundle_stream(stream, manifest, args.extract_root)
             receipt = {
                 "schema_version": "qualification-source-bundle-verification-result-v1",
                 "status": "PASS",
                 "archive": {
                     "path": str(args.archive.resolve()),
-                    "sha256": sha256_file(args.archive),
-                    "bytes": args.archive.stat().st_size,
+                    "sha256": manifest["archive"]["sha256"],
+                    "bytes": manifest["archive"]["bytes"],
                 },
                 "manifest": {
                     "path": str(args.manifest.resolve()),

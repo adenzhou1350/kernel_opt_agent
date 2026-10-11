@@ -25,12 +25,15 @@ from qualification_source_bundle import (  # noqa: E402
     canonical_json,
     deterministic_tar,
     entries_from_tar,
+    entries_from_tar_stream,
     extract_bundle,
+    extract_bundle_stream,
     git_tree_blobs,
     iter_git_tree_blobs,
     main,
     safe_symlink_target,
     verify_bundle,
+    verified_bundle,
 )
 
 
@@ -155,6 +158,181 @@ def test_streamed_build_matches_in_memory_tar_and_gzip(tmp_path: Path) -> None:
     assert archive.read_bytes() == compressed.getvalue()
     assert value["entries"] == entries
     assert verify_bundle(archive, manifest)[1] == tar_bytes
+
+
+def test_tar_member_hashing_uses_bounded_reads() -> None:
+    payload = b"binary\x00\xff" * 400_000
+    tar_bytes, expected = deterministic_tar([("big.bin", 0o100644, payload)], "source")
+
+    class BoundedReader(io.BytesIO):
+        def read(self, size=-1):
+            assert 0 <= size <= 1024 * 1024, "unbounded tar payload read"
+            return super().read(size)
+
+    assert entries_from_tar_stream(BoundedReader(tar_bytes), "source") == expected
+
+
+def test_verified_stream_is_a_snapshot_and_closes_on_caller_failure(
+    tmp_path: Path,
+) -> None:
+    repo, commit, payload = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    expected = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    with pytest.raises(RuntimeError, match="caller failure"):
+        with verified_bundle(archive, manifest) as (value, stream):
+            assert value == expected
+            # The pathname no longer contains the verified bytes. Extraction
+            # must still use the checked private snapshot, never reopen it.
+            archive.write_bytes(b"replaced after verification")
+            target = tmp_path / "snapshot-extracted"
+            extract_bundle_stream(stream, value, target)
+            assert (target / "source/nested/payload.bin").read_bytes() == payload
+            raise RuntimeError("caller failure")
+    assert stream.closed
+    assert not list(tmp_path.glob("tmp*"))
+
+
+@pytest.mark.parametrize("corruption", ["truncate", "crc", "mtime"])
+def test_streamed_verify_rejects_rebound_gzip_corruption(
+    tmp_path: Path, corruption: str
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    value = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    compressed = bytearray(archive.read_bytes())
+    if corruption == "truncate":
+        del compressed[-5:]
+    elif corruption == "crc":
+        compressed[-8] ^= 1
+    else:
+        compressed[4] = 1
+    archive.write_bytes(compressed)
+    from qualification_source_bundle import sha256_file
+
+    value["archive"].update(bytes=len(compressed), sha256=sha256_file(archive))
+    manifest.write_bytes(canonical_json(value))
+    message = "mtime" if corruption == "mtime" else "invalid gzip"
+    with pytest.raises(ValueError, match=message):
+        with verified_bundle(archive, manifest):
+            pytest.fail("corrupt gzip must not yield a verified stream")
+
+
+@pytest.mark.parametrize(
+    "kind, message",
+    [
+        ("traversal", "unsafe archive member"),
+        ("duplicate", "duplicate archive member"),
+        ("symlink", "symlink target escapes"),
+        ("hardlink", "unsupported archive member type"),
+        ("fifo", "unsupported archive member type"),
+    ],
+)
+def test_streamed_verify_preserves_tar_rejections(
+    tmp_path: Path, kind: str, message: str
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    value = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    tar_output = io.BytesIO()
+    with tarfile.open(fileobj=tar_output, mode="w:") as tar:
+        root = tarfile.TarInfo("source/")
+        root.type = tarfile.DIRTYPE
+        tar.addfile(root)
+        member = tarfile.TarInfo("source/entry")
+        if kind == "traversal":
+            member.name = "source/../escape"
+        elif kind == "duplicate":
+            member.name = "source"
+            member.type = tarfile.DIRTYPE
+        elif kind == "symlink":
+            member.type = tarfile.SYMTYPE
+            member.linkname = "../../escape"
+        elif kind == "hardlink":
+            member.type = tarfile.LNKTYPE
+            member.linkname = "source/other"
+        else:
+            member.type = tarfile.FIFOTYPE
+        tar.addfile(member)
+    archive.write_bytes(gzip.compress(tar_output.getvalue(), mtime=0))
+    from qualification_source_bundle import sha256_file
+
+    value["archive"].update(
+        bytes=archive.stat().st_size, sha256=sha256_file(archive)
+    )
+    manifest.write_bytes(canonical_json(value))
+    with pytest.raises(ValueError, match=message):
+        with verified_bundle(archive, manifest):
+            pytest.fail("unsafe tar must not yield a verified stream")
+
+
+def test_streamed_cli_does_not_use_in_memory_helpers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, commit, payload = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    target = tmp_path / "streamed-cli"
+    original_read_bytes = Path.read_bytes
+
+    def read_bytes(path):
+        assert path != archive, "whole compressed archive read"
+        return original_read_bytes(path)
+
+    def unbounded(*args, **kwargs):
+        pytest.fail("CLI must not call a whole-payload helper")
+
+    monkeypatch.setattr(Path, "read_bytes", read_bytes)
+    monkeypatch.setattr(gzip, "decompress", unbounded)
+    monkeypatch.setattr("qualification_source_bundle.verify_bundle", unbounded)
+    monkeypatch.setattr("qualification_source_bundle.extract_bundle", unbounded)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "qualification_source_bundle.py",
+            "--verify",
+            "--archive",
+            str(archive),
+            "--manifest",
+            str(manifest),
+            "--extract-root",
+            str(target),
+        ],
+    )
+    assert main() == 0
+    assert json.loads(capsys.readouterr().out)["status"] == "PASS"
+    assert (target / "source/nested/payload.bin").read_bytes() == payload
+
+
+def test_failed_streamed_cli_does_not_publish_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    value = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    file_entry = next(entry for entry in value["entries"] if entry["type"] == "file")
+    file_entry["sha256"] = "0" * 64
+    manifest.write_bytes(canonical_json(value))
+    target = tmp_path / "must-not-exist"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "qualification_source_bundle.py",
+            "--verify",
+            "--archive",
+            str(archive),
+            "--manifest",
+            str(manifest),
+            "--extract-root",
+            str(target),
+        ],
+    )
+    before = sorted(path.name for path in tmp_path.iterdir())
+    assert main() == 2
+    assert "entries do not exactly match" in capsys.readouterr().err
+    assert not target.exists()
+    assert sorted(path.name for path in tmp_path.iterdir()) == before
 
 
 @pytest.mark.parametrize(
