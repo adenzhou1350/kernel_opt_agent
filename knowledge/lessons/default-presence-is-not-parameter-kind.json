@@ -1,0 +1,22 @@
+{
+  "id": "default-presence-is-not-parameter-kind",
+  "title": "A default value does not make a parameter keyword-compatible",
+  "applies_when": "A Python hook dispatcher, constructor adapter or cached call plan divides parameters into positional and keyword groups based only on whether they have defaults.",
+  "lesson": "Keep default presence separate from positional-only versus positional-or-keyword calling kind. Pluggy's new explicit-value forwarding classified defaulted positional-only hook parameters as kwargs and raised TypeError through the public PluginManager API. Test required and defaulted positional-only controls, supplying only a later optional value, mixed keyword-compatible parameters, falsy values and wrapper/call_extra paths. Fill earlier default gaps only when needed to reach a supplied positional argument; leave trailing omitted defaults implicit so decorators still observe omission. Cache metadata outside a hot loop when appropriate, but inspect the same unwrapped callable and avoid evaluating annotations just to obtain argument kinds.",
+  "avoid_when": "Do not infer a bug from a helper field name: a downstream binder may already normalize arguments. Confirm that the signature is supported and trace the actual call. Keyword-only support/rejection is a separate API decision. This case validates one Pluggy source revision and proposed repair, not every adapter, runtime mutation of function defaults, performance benefit or maintainer acceptance. Native package/source identity and existing-suite baselines remain necessary.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytest-dev/pluggy/pull/738",
+      "note": "Introduces explicit hook call value > hookspec default > hookimpl default precedence, establishing the intended default-forwarding behavior rather than assuming it from Python alone."
+    },
+    {
+      "url": "https://github.com/pytest-dev/pluggy/issues/774",
+      "note": "Public-API reproduction on pinned main: defaulted positional-only hook parameters raise TypeError; required parameters work. Independently reproduced on Windows/Linux."
+    },
+    {
+      "url": "https://github.com/pytest-dev/pluggy/blob/b40da5452f3bbf702ebde2489af1e8db90f5edb7/testing/test_posonly_defaults.py",
+      "note": "Submitted regression matrix: 13 failures/9 controls on unmodified main; proposed fix passes the full241-test suite on Windows3.12/3.14 and Linux3.12. Includes omission-sensitive decorated calls. Submitted evidence, not merged/CI acceptance or a performance comparison."
+    }
+  ],
+  "status": "validated"
+}
