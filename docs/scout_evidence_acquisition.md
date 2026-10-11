@@ -402,9 +402,9 @@ repository boundary, not a guarantee that the remaining evidence is relevant.
   admissions in the population denominator, separately from comparisons with
   available actions. This is not evidence that no useful file exists elsewhere.
 - Available cases make one selector call, then one reviewer call per declared
-  arm: no additional source, first pinned catalog entry at `end_line + 1` (or
-  line 1 without a range), and the selected catalog window. Each acquisition is
-  at most 80 lines/4,500 characters. Callers may predeclare a rotated arm order.
+  arm: no additional source, the declared zero-model rule window, and the selected
+  catalog window. Each acquisition is at most 80 lines/4,500 characters. Callers
+  may predeclare a rotated arm order.
 - Abstention, invalid selection, callback exceptions, EOF, transport failure and
   session exceptions remain distinct records, without replacement or retry.
   A session exception flags potentially incomplete cost accounting; it is not a
@@ -413,6 +413,25 @@ repository boundary, not a guarantee that the remaining evidence is relevant.
   additional window/failure, without the arm name or selector rationale. This
   avoids explicit arm labels, not inference from differing evidence. Original
   text is untrusted; field allowlisting is not an injection or leakage defense.
+
+New protocols can set `rule_policy` to one of the existing deterministic rules:
+
+- `first_catalog_continuation` (unchanged default): continue the first eligible
+  catalog file at `end_line + 1`, or line 1 without a range.
+- `first_clipped_or_continuation`: restore the first eligible clipped file from
+  its original start, otherwise use the continuation rule.
+- `first_visible_frontier_or_continuation`: continue a clipped contiguous
+  numbered prefix, with the restore rule's conservative fallback described above.
+
+The result records `rule_policy` and labels its rule arm `rules_<rule_policy>`.
+An explicit `arm_order` must use that exact label; unknown policies and mismatched
+labels fail before any acquisition or callback. For example, declare
+`run_case(..., rule_policy="first_visible_frontier_or_continuation")` before
+enrollment rather than choosing the best rule after seeing a case. No extra GET,
+fallback read or larger window is granted to the rule. These alternatives make
+stronger cheap comparators available, not a claim that one dominates or that the
+model improves on them. Keep original defaults, frozen protocols and historical
+answers unchanged. These rules still cannot select an absent catalog file.
 
 Callbacks must enforce their predeclared provider/prompt/output/time budgets,
 use isolated model conversations, and persist call identities, raw answers,

@@ -17,12 +17,29 @@ import json
 from time import monotonic
 
 try:
-    from .scout_acquisition_choice import acquisition_catalog, validate_selection
+    from .scout_acquisition_choice import (
+        acquisition_catalog,
+        first_catalog_continuation,
+        first_clipped_or_continuation,
+        first_visible_frontier_or_continuation,
+        validate_selection,
+    )
 except ImportError:
-    from scout_acquisition_choice import acquisition_catalog, validate_selection
+    from scout_acquisition_choice import (
+        acquisition_catalog,
+        first_catalog_continuation,
+        first_clipped_or_continuation,
+        first_visible_frontier_or_continuation,
+        validate_selection,
+    )
 
 
 ARMS = ("no_additional_source", "rules_first_catalog_continuation", "selected_source")
+RULE_POLICIES = {
+    "first_catalog_continuation": first_catalog_continuation,
+    "first_clipped_or_continuation": first_clipped_or_continuation,
+    "first_visible_frontier_or_continuation": first_visible_frontier_or_continuation,
+}
 
 
 def _copy_view(view):
@@ -77,8 +94,8 @@ def _invoke(callback, *args):
     return result
 
 
-def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
-             preflight_sources=False):
+def run_case(view, *, selector, reviewer, session, arm_order=None,
+             preflight_sources=False, rule_policy="first_catalog_continuation"):
     """One selection, up to one window/arm, one review/arm; no hidden repair.
 
     Selector returns the existing {url, start_line, reason} object (both selectors
@@ -90,10 +107,19 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
     catalog URL once before paid callbacks. If none is FETCHED, retain the case
     and all arms as UNAVAILABLE_SOURCE_ACQUISITION, without model calls. Do not
     apply this different admission policy retrospectively to historical trials.
+    A fresh protocol may declare one of the existing zero-model rule policies.
+    Its arm label and result retain that exact policy; the default stays the
+    original continuation rule. Never use this to rescore exposed cases.
     """
     started = monotonic()
+    if not isinstance(rule_policy, str) or rule_policy not in RULE_POLICIES:
+        raise ValueError("unknown acquisition rule policy")
+    rule_arm = "rules_" + rule_policy
+    arms = (ARMS[0], rule_arm, ARMS[2])
+    if arm_order is None:
+        arm_order = arms
     if not isinstance(arm_order, (list, tuple)) or (
-        len(arm_order) != len(ARMS) or set(arm_order) != set(ARMS)
+        len(arm_order) != len(arms) or set(arm_order) != set(arms)
     ):
         raise ValueError("each declared arm must appear exactly once")
     if type(preflight_sources) is not bool:
@@ -103,12 +129,15 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
     if not catalog:
         return {
             "status": "UNAVAILABLE_ACTION_SPACE",
+            "rule_policy": rule_policy,
             "selection": {"status": "NOT_CALLED"},
             "arms": [{"arm": arm, "status": "UNAVAILABLE_ACTION_SPACE"}
                      for arm in arm_order],
             "session_costs": session.costs(),
             "client_wall_seconds": monotonic() - started,
         }
+    rule = RULE_POLICIES[rule_policy](original)
+    rule_target = {"url": rule["url"], "start_line": rule["start_line"]}
     preflight = []
     if preflight_sources:
         for url in (target["url"] for target in catalog):
@@ -123,6 +152,7 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
         if not any(record.get("status") == "FETCHED" for record in preflight):
             return {
                 "status": "UNAVAILABLE_SOURCE_ACQUISITION",
+                "rule_policy": rule_policy,
                 "selection": {"status": "NOT_CALLED"},
                 "arms": [{"arm": arm, "status": "UNAVAILABLE_SOURCE_ACQUISITION"}
                          for arm in arm_order],
@@ -142,7 +172,7 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
         selection_status = "SELECTED"
     choices = {
         "no_additional_source": None,
-        "rules_first_catalog_continuation": dict(catalog[0]),
+        rule_arm: rule_target,
         "selected_source": choice,
     }
     records = []
@@ -164,7 +194,8 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
         review = _invoke(reviewer, original, evidence)
         records.append({"arm": arm, "choice": target, "acquisition": acquired,
                         "review": review})
-    result = {"status": "AVAILABLE_ACTION_SPACE", "selection": selection,
+    result = {"status": "AVAILABLE_ACTION_SPACE", "rule_policy": rule_policy,
+              "selection": selection,
               "selection_status": selection_status, "arms": records,
               "session_costs": session.costs()}
     if preflight_sources:

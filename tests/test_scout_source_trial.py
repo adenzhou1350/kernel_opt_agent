@@ -105,6 +105,93 @@ class SourceTrialTests(unittest.TestCase):
         self.selector.assert_called_once()
         self.assertEqual(self.reviewer.call_count, 3)
 
+    def test_declared_rule_policies_reach_the_real_window_consumer(self):
+        original = view(end=300)
+        original["sources"][0].update(
+            start_line=1, clipped=True, original_chars=9000,
+            text="".join(f"{i}: visible\n" for i in range(1, 51)),
+        )
+        policies = {
+            "first_catalog_continuation": (301, "FAILED"),
+            "first_clipped_or_continuation": (1, "ACQUIRED"),
+            "first_visible_frontier_or_continuation": (51, "ACQUIRED"),
+        }
+        for policy, (start, status) in policies.items():
+            with self.subTest(policy=policy):
+                self.session = AcquisitionSession(opener=self.opener)
+                self.reviews.clear()
+                result = self.run_case(original, rule_policy=policy)
+                self.assertEqual(result["rule_policy"], policy)
+                record = result["arms"][1]
+                self.assertEqual(record["arm"], "rules_" + policy)
+                self.assertEqual(record["choice"], {"url": URL, "start_line": start})
+                self.assertEqual(record["acquisition"]["window"]["status"], status)
+                evidence = self.reviews[1][1]
+                self.assertEqual(evidence["status"], status)
+                if status == "ACQUIRED":
+                    self.assertEqual(evidence["text"].splitlines()[0], f"line {start}")
+                    self.assertLessEqual(len(evidence["text"].splitlines()), 80)
+                    self.assertLessEqual(len(evidence["text"]), 4500)
+                self.assertNotIn("rules_", str(self.reviews))
+                self.assertEqual(result["session_costs"]["actual_gets"], 1)
+                self.assertEqual(result["session_costs"]["logical_gets"], 2)
+                self.assertEqual(self.reviews[0][0], original)
+
+    def test_nondefault_rule_uses_first_eligible_clipped_file_not_first_url(self):
+        original = view()
+        other = URL.replace("/src/main.py", "/src/other.py")
+        clipped = {**original["sources"][0], "url": other,
+                   "start_line": 11, "end_line": 120, "clipped": True,
+                   "text": "11: prefix\n12: prefix\n"}
+        foreign = {**clipped, "url": other.replace("/example/", "/foreign/")}
+        original["sources"] = [foreign, original["sources"][0], clipped]
+        result = self.run_case(original, rule_policy="first_visible_frontier_or_continuation")
+        self.assertEqual(result["arms"][1]["choice"], {"url": other, "start_line": 13})
+        self.assertEqual(self.reviews[1][1]["text"].splitlines()[0], "line 13")
+        self.assertEqual([r["url"] for r in self.session.requests], [other, URL])
+        self.assertEqual(result["session_costs"]["actual_gets"], 2)
+
+    def test_nondefault_preflight_failure_keeps_policy_without_callbacks(self):
+        policy = "first_clipped_or_continuation"
+        self.opener.open.side_effect = urllib.error.URLError("private diagnostic")
+        result = self.run_case(rule_policy=policy, preflight_sources=True)
+        self.assertEqual(result["rule_policy"], policy)
+        self.assertEqual(result["status"], "UNAVAILABLE_SOURCE_ACQUISITION")
+        self.assertEqual([r["arm"] for r in result["arms"]],
+                         ["no_additional_source", "rules_" + policy, "selected_source"])
+        self.assertEqual(result["session_costs"]["actual_gets"], 1)
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+        self.opener.open.assert_called_once()
+
+    def test_nondefault_rule_keeps_rotated_order_and_unavailable_denominator(self):
+        policy = "first_visible_frontier_or_continuation"
+        order = ("selected_source", "rules_" + policy, "no_additional_source")
+        result = self.run_case(rule_policy=policy, arm_order=order)
+        self.assertEqual([r["arm"] for r in result["arms"]], list(order))
+        self.assertEqual(result["arms"][1]["choice"]["start_line"], 81)
+        self.selector.reset_mock()
+        self.reviewer.reset_mock()
+        self.opener.open.reset_mock()
+        original = view("https://github.com/example/project/issues/1")
+        unavailable = self.run_case(original, rule_policy=policy, arm_order=order)
+        self.assertEqual(unavailable["status"], "UNAVAILABLE_ACTION_SPACE")
+        self.assertEqual(unavailable["rule_policy"], policy)
+        self.assertEqual([r["arm"] for r in unavailable["arms"]], list(order))
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+        self.opener.open.assert_not_called()
+
+    def test_invalid_rule_or_mislabeled_order_fails_before_any_work(self):
+        for policy in ("invented", None, True, [], {}):
+            with self.subTest(policy=policy), self.assertRaises(ValueError):
+                self.run_case(rule_policy=policy, preflight_sources=True)
+        with self.assertRaises(ValueError):
+            self.run_case(rule_policy="first_visible_frontier_or_continuation", arm_order=ARMS)
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+        self.opener.open.assert_not_called()
+
     def test_client_timings_include_each_callback_without_claiming_total_cost(self):
         # Case encloses the callback intervals; these are not additive costs.
         with patch('scripts.scout_source_trial.monotonic',
