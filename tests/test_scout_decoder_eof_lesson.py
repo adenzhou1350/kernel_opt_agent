@@ -1,4 +1,4 @@
-"""Native decoder counterexample remains retrievable without a repair claim."""
+"""Retain the decoder counterexample and scoped later repair recheck."""
 
 import json
 import sys
@@ -36,11 +36,17 @@ class DecoderEofLessonTests(unittest.TestCase):
             for m in result["matches"]
             if m["id"] == "decoder-no-output-is-not-empty-input"
         )
-        self.assertIn("not a verified repair", card["avoid_when"])
+        self.assertIn("counterexample and repair recheck", card["avoid_when"])
+        self.assertIn("Do not keep treating a repaired head", card["avoid_when"])
         self.assertIn("not establish a full installed-PR", card["avoid_when"])
         self.assertIn("prospective Scout cost advantage", card["avoid_when"])
         self.assertTrue(
             any("#issuecomment-6106161198" in e["url"] for e in card["evidence"])
+        )
+        self.assertTrue(
+            any("#issuecomment-6108105583" in e["url"]
+                and "same 66 observations" in e["note"]
+                for e in card["evidence"])
         )
 
 

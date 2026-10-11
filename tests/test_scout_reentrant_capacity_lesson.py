@@ -32,9 +32,15 @@ class ReentrantCapacityLessonTests(unittest.TestCase):
         self.assertEqual(card["id"], "reserve-capacity-before-reentrant-events")
         self.assertIn("not arbitrary multi-thread safety", card["avoid_when"])
         self.assertIn("not the full Linux", card["avoid_when"])
-        self.assertIn("not an accepted PR", card["avoid_when"])
+        self.assertIn("issue contribution, not an upstream PR", card["avoid_when"])
+        self.assertIn("different fork patch as merged", card["avoid_when"])
         self.assertTrue(
             any(entry["url"].endswith("/issues/255") for entry in card["evidence"])
+        )
+        self.assertTrue(
+            any(entry["url"].endswith("/commit/22edad49b42214b9b5add8312391401c063d8b27")
+                and "Maintainer's own fix" in entry["note"]
+                for entry in card["evidence"])
         )
 
 

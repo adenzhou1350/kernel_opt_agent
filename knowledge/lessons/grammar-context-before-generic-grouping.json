@@ -1,0 +1,22 @@
+{
+  "id": "grammar-context-before-generic-grouping",
+  "title": "Establish grammar context before broadening a generic token grouping rule",
+  "applies_when": "A parser's comma-list or expression grouping omits a token class that has multiple grammar roles, especially parenthesized expressions versus VALUES row tuples.",
+  "lesson": "Parsing without an exception is not enough: inspect the public token tree and a real consumer such as formatting. Test the missing item at the beginning, middle and end of a list, nested forms, and the other roles of the same token class. In sqlparse issue343, accepting Parenthesis in identifier lists repairs SELECT expression grouping but, alone, collapses separate VALUES tuples and breaks existing INSERT formatting. Establish the Values container before generic list grouping and exclude only its direct row parentheses; keep list grouping inside each row and scalar subquery. Assert item enumeration, row boundaries, parent links, exact SQL preservation and formatting, then run the existing suite. Use the pipeline's structural context instead of rescanning text or suppressing the failing old tests.",
+  "avoid_when": "Do not transplant sqlparse's pass ordering to a different grammar or rewrite a token tree solely to make one formatter output match. A token may intentionally have several consumers with different contracts. The cited repair is a proposed PR, not upstream acceptance. Native Windows Python tests and a wide-list scaling check do not establish every dialect, platform, a speedup, reduced Scout cost or a prospective evidence-selection advantage.",
+  "evidence": [
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/issues/343",
+      "note": "Existing report contrasts a-b versus (a-b) in SELECT lists. It establishes the reported API inconsistency, not its cause or a performance claim."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/blob/60cdc649726bf1bc4f1b336050560b336da715ec/sqlparse/engine/grouping.py",
+      "note": "Pinned baseline excludes Parenthesis from identifier-list items and runs group_values afterward. Its Values grouping depends on rows still being separate Parenthesis tokens."
+    },
+    {
+      "url": "https://github.com/andialbrecht/sqlparse/pull/932",
+      "note": "Proposed context-aware repair with 12 new cases: baseline 11 failed/1 passed; repaired full suite 518 passed, 2 expected failures and 1 existing unexpected pass on native Windows Python 3.12/3.14. Includes VALUES controls; Linux/macOS CI and upstream review remain separate."
+    }
+  ],
+  "status": "validated"
+}
