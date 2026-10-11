@@ -14,6 +14,7 @@ action universe. No repository source is executed or PR state changed here.
 """
 
 import json
+from time import monotonic
 
 try:
     from .scout_acquisition_choice import acquisition_catalog, validate_selection
@@ -65,12 +66,15 @@ def _copy_view(view):
 def _invoke(callback, *args):
     # Separate finite-JSON copies prevent one callback mutating later arm input.
     copies = json.loads(json.dumps(args, ensure_ascii=False, allow_nan=False))
+    started = monotonic()
     try:
-        return {"status": "RETURNED", "record": callback(*copies)}
+        result = {"status": "RETURNED", "record": callback(*copies)}
     except Exception as error:
         # Backend wrappers must retain uncertain/orphan attempts and costs.
         # Exception text may contain credentials; do not echo it or retry.
-        return {"status": "CALL_FAILED", "error_kind": type(error).__name__}
+        result = {"status": "CALL_FAILED", "error_kind": type(error).__name__}
+    result["client_elapsed_seconds"] = monotonic() - started
+    return result
 
 
 def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
@@ -87,6 +91,7 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
     and all arms as UNAVAILABLE_SOURCE_ACQUISITION, without model calls. Do not
     apply this different admission policy retrospectively to historical trials.
     """
+    started = monotonic()
     if not isinstance(arm_order, (list, tuple)) or (
         len(arm_order) != len(ARMS) or set(arm_order) != set(ARMS)
     ):
@@ -102,6 +107,7 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
             "arms": [{"arm": arm, "status": "UNAVAILABLE_ACTION_SPACE"}
                      for arm in arm_order],
             "session_costs": session.costs(),
+            "client_wall_seconds": monotonic() - started,
         }
     preflight = []
     if preflight_sources:
@@ -122,6 +128,7 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
                          for arm in arm_order],
                 "source_preflight": preflight,
                 "session_costs": session.costs(),
+                "client_wall_seconds": monotonic() - started,
             }
     selection = _invoke(selector, original)
     checked = validate_selection(original, selection.get("record"))
@@ -162,4 +169,5 @@ def run_case(view, *, selector, reviewer, session, arm_order=ARMS,
               "session_costs": session.costs()}
     if preflight_sources:
         result["source_preflight"] = preflight
+    result["client_wall_seconds"] = monotonic() - started
     return result

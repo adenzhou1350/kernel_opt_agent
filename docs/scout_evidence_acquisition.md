@@ -423,6 +423,20 @@ equal observed spend. Session costs are cumulative; shared-cache actual GETs
 must not be charged twice or treated as measured uncached arm latencies. Record
 root discovery, setup, independent native adjudication and owner costs separately.
 
+New runs also record monotonic `client_elapsed_seconds` for each completed or
+failed callback and `client_wall_seconds` around the complete `run_case` call,
+including input validation, acquisition, preflight and callback failures. A
+not-called selector has no callback interval, not a fabricated measured call.
+The enclosing case interval already contains callbacks and observed GET time:
+**do not add these nested intervals together**. A sequential multi-arm shadow
+case is not deployment latency for an individual policy. These are client wall
+observations, not provider compute, dollars, active GPU time or total research
+cost. They do not cover preparation outside this call, a caller interrupt/crash
+or escaping input/programming error, or prove that a callback respected its budget.
+Preserve those unknown costs and
+the wrapper's durable attempt/usage records; do not re-run frozen cohorts to
+fill missing historical timings or infer a quality/cost improvement.
+
 Before new admissions, freeze this implementation, callback adapters, eligibility,
 unavailable-action policy, metrics and budgets. After predictions are sealed,
 independently adjudicate falsifiable claims against the pinned source/native

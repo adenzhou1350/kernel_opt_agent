@@ -4,7 +4,7 @@ import copy
 import io
 import unittest
 import urllib.error
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from scripts.scout_evidence_acquisition import AcquisitionSession
 from scripts.scout_pending_cohort import compact_acquisition_view
@@ -104,6 +104,49 @@ class SourceTrialTests(unittest.TestCase):
         self.opener.open.assert_called_once()
         self.selector.assert_called_once()
         self.assertEqual(self.reviewer.call_count, 3)
+
+    def test_client_timings_include_each_callback_without_claiming_total_cost(self):
+        # Case encloses the callback intervals; these are not additive costs.
+        with patch('scripts.scout_source_trial.monotonic',
+                   side_effect=[0, 1, 3, 4, 7, 8, 13, 14, 21, 30], create=True):
+            result = self.run_case()
+        self.assertEqual(result['client_wall_seconds'], 30)
+        self.assertEqual(result['selection']['client_elapsed_seconds'], 2)
+        self.assertEqual([r['review']['client_elapsed_seconds'] for r in result['arms']],
+                         [3, 5, 7])
+        self.assertEqual(result['session_costs']['actual_gets'], 1)
+        self.assertIn('model/owner cost', result['session_costs']['unmeasured'])
+        self.assertNotIn('total_cost', result)
+
+    def test_failed_callbacks_keep_elapsed_time_without_retry_or_error_text(self):
+        self.selector.side_effect = RuntimeError('private selector failure')
+        self.reviewer.side_effect = TimeoutError('private reviewer failure')
+        with patch('scripts.scout_source_trial.monotonic',
+                   side_effect=[0, 1, 3, 4, 7, 8, 13, 14, 21, 30], create=True):
+            result = self.run_case()
+        self.assertEqual(result['client_wall_seconds'], 30)
+        self.assertEqual(result['selection']['status'], 'CALL_FAILED')
+        self.assertEqual(result['selection']['client_elapsed_seconds'], 2)
+        self.assertEqual([r['review']['client_elapsed_seconds'] for r in result['arms']],
+                         [3, 5, 7])
+        self.assertTrue(all(r['review']['status'] == 'CALL_FAILED' for r in result['arms']))
+        self.assertNotIn('private', str(result))
+        self.selector.assert_called_once()
+        self.assertEqual(self.reviewer.call_count, 3)
+
+    def test_unavailable_cases_time_preflight_or_admission_without_fake_calls(self):
+        with patch('scripts.scout_source_trial.monotonic', side_effect=[10, 25], create=True):
+            result = self.run_case(view('https://github.com/example/project/issues/1'))
+        self.assertEqual(result['client_wall_seconds'], 15)
+        self.assertNotIn('client_elapsed_seconds', result['selection'])
+        self.opener.open.side_effect = urllib.error.URLError('private network detail')
+        with patch('scripts.scout_source_trial.monotonic', side_effect=[30, 37], create=True):
+            blocked = self.run_case(preflight_sources=True)
+        self.assertEqual(blocked['client_wall_seconds'], 7)
+        self.assertEqual(blocked['status'], 'UNAVAILABLE_SOURCE_ACQUISITION')
+        self.selector.assert_not_called()
+        self.reviewer.assert_not_called()
+        self.opener.open.assert_called_once()
 
     def test_reused_session_reports_cumulative_not_per_case_cost(self):
         first = self.run_case()
