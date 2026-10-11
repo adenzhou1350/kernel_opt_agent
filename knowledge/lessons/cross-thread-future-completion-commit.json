@@ -1,0 +1,26 @@
+{
+  "id": "cross-thread-future-completion-commit",
+  "title": "Commit concurrent Future completion atomically against cancellation",
+  "applies_when": "A cross-thread adapter returns a concurrent.futures.Future that remains cancellable while a synchronous or asynchronous callable executes, then checks cancelled() before writing its result or exception.",
+  "lesson": "A cancelled() observation is not a reservation: another thread can cancel between that check and set_result/set_exception. Inspect both completion paths and their enclosing task group; an InvalidStateError can cancel unrelated portal work. The stdlib executor primitive set_running_or_notify_cancel() provides an atomic transition, normally before work starts. The AnyIO repair instead uses it only when the adapter's callable has finished, not when it starts, to retain the portal's existing running-task cancellation contract. This adapter-specific lifecycle choice still needs maintainer review; it is not a general executor recipe. Test a real Future and second thread at the commit boundary, delegating to the original state-changing methods rather than returning fabricated cancellation states. Both a completed value and an accepted cancellation may be legitimate winners; neither should break the portal. Retain pre-completion cancellation and original exception delivery controls.",
+  "avoid_when": "Do not apply this exact primitive to asyncio.Future, Promise, arbitrary awaitables or a caller-owned Future without checking their protocols. Moving the RUNNING transition to task start would disable the portal's supported running-task cancellation. Rechecking cancelled() alone leaves another race; tests that replace the state machine with a mock can hide it. Matched local evidence covers Windows/Linux CPython 3.12, asyncio variants and Trio: 16 deterministic regressions fail before the repair, and each repaired thread module has 230 passes, 4 skips and 1 existing xfail. The start_blocking_portal context manager does not expose every background main-task exception; use the public async BlockingPortal when asserting task-group survival. Local optional Blockbuster and full pre-commit were not run. Public CI separately passed its configured Python/platform matrix at the linked head; this does not establish every optional dependency combination. PR publication is not maintainer acceptance or proof that next-evidence selection improves cost, recall or conversion.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3/library/concurrent.futures.html#concurrent.futures.Future.set_running_or_notify_cancel",
+      "note": "Documents an executor/test-only transition normally called before executing work. The post-callable use in this particular cancellable adapter is an explicit lifecycle adaptation, not an instruction from the docs or a portable default."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/blob/c326ee1f601f8c142db984299ce00efce36e0ce9/src/anyio/from_thread.py#L269-L280",
+      "note": "Pinned baseline has check-then-write on both exception and normal completion. Its cancellation handler already uses the stdlib executor primitive, but these other paths do not."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/pull/1410",
+      "note": "AI-assisted, independently executed regression and two-condition repair at head 48547204e8680c296e2ae6b813964c85414085bb; native matched Windows/Linux results and 18 successful public CI checks. Retrospective Scout lead plus owner verification, not a preregistered selector comparison or merged result."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/pull/1012",
+      "note": "Earlier merged fix addresses cancellation callback registration, not result/exception completion. Similar cancellation wording does not establish identical ownership or mechanism."
+    }
+  ],
+  "status": "validated"
+}

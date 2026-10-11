@@ -11,6 +11,20 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_future_completion_advice_keeps_atomicity_and_cancellation_contract(self):
+        result = lesson_suggestions("concurrent Future cross-thread completion cancellation commit")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "cross-thread-future-completion-commit")
+        self.assertIn("only when", card["lesson"])
+        self.assertIn("not when it starts", card["lesson"])
+        self.assertIn("normally before work starts", card["lesson"])
+        self.assertIn("needs maintainer review", card["lesson"])
+        self.assertIn("asyncio.Future", card["avoid_when"])
+        self.assertIn("full pre-commit", card["avoid_when"])
+        self.assertIn("Retrospective", card["evidence"][2]["note"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_tma_advice_keeps_descriptor_and_dummy_consumer_semantics(self):
         result = lesson_suggestions(
             "TMA descriptor signed coordinates dummy rows OOB fill"
