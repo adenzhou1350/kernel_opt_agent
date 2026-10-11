@@ -22,6 +22,12 @@ class SerializationRoundtripLessonTests(unittest.TestCase):
         )
         self.assertIn("exact decoded content", card["lesson"])
         self.assertIn("not a prospective selector comparison", card["avoid_when"])
+        self.assertIn("old wheel", card["avoid_when"])
+        self.assertTrue(
+            any("Source-only comparison" in entry["note"]
+                and "backslashes with slashes" in entry["note"]
+                for entry in card["evidence"])
+        )
         self.assertTrue(
             any(
                 "no AMD capture/performance/merge claim" in e["note"]
