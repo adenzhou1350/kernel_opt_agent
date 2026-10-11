@@ -36,6 +36,20 @@ class AcquisitionCancellationLessonTests(unittest.TestCase):
         self.assertIn("not merged", card["avoid_when"])
         self.assertIn("Blockbuster", card["avoid_when"])
 
+    def test_partial_stream_initialization_is_advice_not_leak_qualification(self):
+        card = lesson_suggestions(
+            "async acquisition cancellation gap stream_id semaphore permit lock"
+        )["matches"][0]
+        self.assertEqual(card["id"], "async-acquisition-cancellation-gap")
+        self.assertIn("acquired semaphore permit", card["lesson"])
+        self.assertIn("prove the suspension point", card["lesson"])
+        self.assertIn("not exhausted semaphore capacity", card["avoid_when"])
+        self.assertIn("Trio", card["avoid_when"])
+        self.assertTrue(any(
+            entry["url"].endswith("/1118#issuecomment-6105581578")
+            for entry in card["evidence"]
+        ))
+
 
 if __name__ == "__main__":
     unittest.main()
