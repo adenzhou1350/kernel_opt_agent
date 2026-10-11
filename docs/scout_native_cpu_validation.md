@@ -30,6 +30,41 @@ building. Keep an unsupported environment or source-refuted premise distinct fro
 native test failure. Use existing owner disposition/publication records after the
 actual outcome; do not rewrite the original Scout answer into a verified result.
 
+## Check the deployed native runner, not another checkout
+
+Before planning a native run, inspect `python scripts/scout_native_run.py --help`
+in the **actual execution checkout** and record the tool files used. A supported
+format in a committed development worktree does not mean the live Scout directory
+has that implementation. Compare overlapping local changes before applying an
+update; do not replace a dirty working tree wholesale or restart model workers
+just to deploy a result reader.
+
+The owner capture runner accepts `node-tap` for Node's built-in test reporter:
+
+```text
+python scripts/scout_native_run.py --cwd PRIVATE_REVIEWED_CHECKOUT --output FRESH_OUTPUT --format node-tap --expect-test "suite::regression" --expect-test "suite::control" --source contract.mjs=REVIEWED_SHA256 -- /absolute/reviewed/node --test --test-reporter=tap contract.mjs
+```
+
+Run that capture command only on an authorized POSIX worker, after reviewing the
+command/source and setting up its private dependencies. The capture runner still
+refuses local Windows execution; Windows can independently run a reviewed native
+Node test and use `scout_native_results.py --format node-tap` on its saved report.
+Neither route starts WSL. Arbitrary generated JavaScript remains untrusted.
+
+Use emitted, TAP-escaped test names, joined with `::` for nested cases. Suites
+are containers, not extra passing tests. Missing targets, TODO/skipped cases,
+truncated reports, cancellation, timeouts and hook/runner failures do not prove
+an assertion regression. `compare_regression` checks the declared matched
+red/green cases and passing controls; it does not decide their relevance.
+This reader covers the observed Node 24 built-in TAP format, not arbitrary TAP,
+Vitest/Jest output, TypeScript compilation or an entire repository's CI.
+
+For a no-install deployment check, set `SCOUT_TEST_NODE` to an already reviewed
+compatible executable and run `test_scout_native_node` together with the existing
+result/capture tests. Check the actual test names and platform skips: a Windows
+pass cannot establish POSIX process-group cleanup. These are tool integration
+controls, not newly discovered community bugs or PR-conversion measurements.
+
 Python source admission distinguishes a function's definition from its body.
 Literal imports in defaults and decorators are required when the definition is
 reached; nested definitions inherit the surrounding lazy/optional context.
