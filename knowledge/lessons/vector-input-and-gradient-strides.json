@@ -1,0 +1,18 @@
+{
+  "id": "vector-input-and-gradient-strides",
+  "title": "Check vector input and upstream-gradient strides independently",
+  "applies_when": "A PyTorch custom-autograd wrapper passes rank-one views to an elementwise kernel that uses unit column offsets, especially when its layout helper accepts every tensor with ndim < 2.",
+  "lesson": "A rank-one tensor can still have a non-unit stride: basic slicing such as x[::3] returns a view. Inspect actual kernel addressing and normalize unsupported layouts or pass their strides explicitly. Apply that contract independently to each forward input and the incoming backward gradient. A compact regression matrix crosses contiguous/strided inputs with contiguous/strided upstream gradients, comparing outputs and every supported input gradient to the existing differentiable reference. Include a normal contiguous control. Copying only forward inputs can make all forward checks pass while backward still reads the wrong elements; forward-only validation cannot establish a training fix.",
+  "avoid_when": "An existing guard may already normalize the relevant tensors or the kernel may explicitly support their strides; do not add redundant copies universally. Singleton/empty layout semantics need their own applicability check, and accepting a scalar in a layout helper does not prove scalar support in its caller. This lesson does not establish arbitrary multidimensional layout support, another backend's behavior, performance neutrality, model accuracy or prospective evidence-selection utility.",
+  "evidence": [
+    {
+      "url": "https://docs.pytorch.org/docs/2.11/tensor_view.html",
+      "note": "PyTorch documents basic slicing as a view operation and explains that views may be non-contiguous and contiguous() copies only when necessary. This establishes the layout mechanism, not a particular kernel result."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/f3bec720f7847d4f176872b34f002cc580e2cc6e/fla/modules/activations/ops.py",
+      "note": "Pinned FLA source accepts ndim < 2 unconditionally in _is_inner_contiguous while its activation kernels use unit column offsets. Forward and backward wrappers separately call _ensure_inner_contiguous, including on dy/g. This is a source-level contract example, not a public qualification of a proposed repair or a measured performance claim."
+    }
+  ],
+  "status": "validated"
+}
