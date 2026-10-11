@@ -15,6 +15,21 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_resource_recovery_advice_reaches_scout_with_cache_caveat(self):
+        from scout_lesson_context import lesson_suggestions
+
+        advice = lesson_suggestions("ZeRO-3 nonpersistent recovery release")
+        self.assertEqual(advice["status"], "ADVISORY_MATCH")
+        card = advice["matches"][0]
+        self.assertEqual(card["id"], "regression-discrimination-by-contract-cell")
+        self.assertIn("finite loss", card["lesson"])
+        self.assertIn("before backward/step", card["lesson"])
+        self.assertIn("legitimately retains", card["avoid_when"])
+        self.assertIn("not an accepted upstream PR", card["avoid_when"])
+        self.assertTrue(any("12fbd66fc83042121ecba0c8b66810d3656b8e71" in e["url"]
+                            for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
     def test_dma_teardown_advice_retains_dependency_and_evidence_limits(self):
         result = notes.search("RDMA DMA teardown deregistration failure buffers")
         card = result["matches"][0]["card"]
