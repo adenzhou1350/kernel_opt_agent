@@ -5,6 +5,48 @@ for fresh shadow experiments. It does not replace the live Scout fetcher, decide
 candidate quality, launch code, or write files. A caller supplies already
 sanitized public targets and enforces its cohort repository/revision constraints.
 
+## Research boundary (2026-10-11)
+
+Evidence selection is a hypothesis, not established novelty. Primary work
+already covers several broader claims:
+
+- [FixedBench](https://arxiv.org/html/2605.07769v1), sections 2–3, tests
+  resolved, partially fixed and novel issues. Explicit abstention instructions
+  can suppress unnecessary edits but increase missed repairs on partial fixes.
+- [Active-SWE](https://arxiv.org/html/2608.04682v2), sections 3–4, evaluates
+  proactive discovery without issue reports, across languages, using recorded
+  repairs and test-supported potential discoveries.
+- [Abstain and Validate](https://arxiv.org/html/2510.03217v2), sections 3–4,
+  already combines bug selection, executable checks and model patch validation.
+  Its appendix C.4 also discusses repair/review cost and unrepaired-bug value.
+- [Performance-PR validation study](https://arxiv.org/html/2610.03969v1),
+  sections 3 and 6, examines reported optimization evidence and trade-offs;
+  [Merged, Not Measured](https://arxiv.org/html/2609.37985v1), sections 3 and 7,
+  independently re-executes performance claims. Merges and benchmark mentions
+  are not sufficient performance outcomes.
+
+Consequently, a model hierarchy, proactive PR search, abstention, or collecting
+failed optimizations is not by itself our contribution. A remaining **unproven**
+question is whether choosing an executable next observation improves verified
+decisions at the same total cost without increasing missed real defects. This
+is a research question, not a claim that the literature leaves it unanswered.
+
+Before another utility trial, use runnable contracts rather than arbitrary
+file prefixes. Development controls should include a real unresolved defect,
+an already-correct case, and an incomplete fix that still needs work. Verify
+each expected behavior independently; a green generated test is not its oracle.
+Keep known controls separate from fresh evaluation cases, and keep a repository's
+related revisions together when splitting data. Retain unavailable environments
+and unresolved judgments in the denominator, not as correct abstentions.
+
+Compare no additional evidence, a strong zero-model acquisition rule, a cheap
+model, a strong model and an applicable existing agent method. Charge selector,
+failed acquisition, downstream review, native setup/execution and owner effort;
+unknown prices stay unknown. Report confirmed defects retained/missed alongside
+false changes and cost, not only precision among the survivors. Zero discovered
+defects cannot establish recall. Stop or simplify the selector if extra spending
+does not improve verified decisions; ordinary PR work need not wait for a paper.
+
 `fetch_source(url)` accepts only HTTPS `raw.githubusercontent.com` URLs with an
 exact 40-character commit and a safe path. Percent-encoded targets are excluded
 in this initial interface. It makes one GET, without authentication, redirect,
