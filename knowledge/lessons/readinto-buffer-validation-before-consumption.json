@@ -19,7 +19,7 @@
     },
     {
       "url": "https://github.com/juicedata/juicefs/pull/7656",
-      "note": "Two-file repair with native before/after FileTests, 330 raw/buffered FileIO differential cases and 64 existing stream regressions. Source/test bytes were rechecked from the committed Git blobs. Submitted Ready, not an accepted merge or service-backend matrix result."
+      "note": "Two-file repair with native before/after buffer checks, 330 raw/buffered FileIO differential cases and 64 existing stream regressions. First CI exposed inherited test-fixture collisions missed by the isolated base-class run; dedicated ReadintoTests plus 46 selected native SDK cases verify the test-placement correction. Source/test bytes match committed Git blobs. Submitted Ready, not an accepted merge or full service-backend matrix result."
     }
   ],
   "status": "validated"

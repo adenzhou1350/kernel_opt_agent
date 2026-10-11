@@ -1,0 +1,22 @@
+{
+  "id": "unittest-inherited-fixture-coverage",
+  "title": "Check inherited unittest fixtures before adding tests to a shared base class",
+  "applies_when": "A Python unittest.TestCase containing test methods is also inherited by other test classes, especially subclasses whose setUp prepopulates files or changes the resource contract.",
+  "lesson": "A new method on a shared concrete TestCase becomes a test of every subclass, not just the class edited. Inspect the discovered inheriting classes and their setUp methods before inserting a regression. A fixture helper that creates a file with exclusive mode can pass on the base class and fail on a subclass that already creates the same file. Place behavior-specific cases in a dedicated sibling subclass when that matches their fixture needs, and rerun the affected inheriting classes as well as the new tests. JuiceFS readinto initially passed an isolated native base-class run but failed CI in SummaryTests with errno 17 File exists; moving the unchanged assertions into ReadintoTests reproduced then eliminated those fixture collisions without altering the SDK fix.",
+  "avoid_when": "Do not move deliberately shared contract tests out of a base class merely to hide a failure: first determine which subclasses are supposed to satisfy the contract. Pure mixins without discovered test methods, pytest fixture composition and other languages need separate analysis. The JuiceFS correction passed 46 selected native SQLite/file-storage SDK cases, excluding benchmark/global-cache/client-configuration cases; that is not the full Redis/MySQL/TiKV CI matrix, model discovery accuracy or measured PR conversion.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/1bf4bcd08d69bed0d3655925b211c05db3aa55ce/.github/scripts/pysdk/pysdk_test.py",
+      "note": "The prior FileTests base holds both new readinto methods. SummaryTests inherits them and precreates TESTFILE in setUp, conflicting with the exclusive-create helper."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/actions/runs/38139006807/job/114468818804",
+      "note": "Redis SDK CI ran 84 tests and failed exactly the two inherited readinto methods in SummaryTests with errno 17 File exists. A local native before/after run reproduced both fixture errors."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/commit/70e513d6cd13324d5a685a1f08b10adb9c22aabe",
+      "note": "Two-line test-placement correction introducing ReadintoTests; SDK code and test assertions unchanged. 46 selected native SDK cases pass with private base setup. New-head upstream CI is a separate, initially pending result."
+    }
+  ],
+  "status": "validated"
+}

@@ -321,6 +321,15 @@ class KnowledgeNotesTests(unittest.TestCase):
             )
         )
 
+    def test_inherited_test_fixture_counterexample_is_retrievable(self):
+        result = notes.search("unittest inherited fixture exclusive file", limit=3)
+        advice = next(match["card"] for match in result["matches"]
+                      if match["card"]["id"] == "unittest-inherited-fixture-coverage")
+        self.assertIn("SummaryTests", advice["lesson"])
+        self.assertIn("deliberately shared contract tests", advice["avoid_when"])
+        self.assertIn("not the full Redis/MySQL/TiKV CI matrix", advice["avoid_when"])
+        self.assertTrue(any("70e513d6" in item["url"] for item in advice["evidence"]))
+
 
 if __name__ == "__main__":
     unittest.main()
