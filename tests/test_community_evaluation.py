@@ -758,10 +758,8 @@ def main() -> None:
             cwd=source_repository,
             check=True,
         )
-        (source_repository / "operator.py").write_text(
-            "def project(hidden, weight):\n    return hidden @ weight.T\n",
-            encoding="utf-8",
-        )
+        raw_operator = b"def project(hidden, weight):\n    return hidden @ weight.T\n"
+        (source_repository / "operator.py").write_bytes(raw_operator)
         subprocess.run(
             ["git", "add", "operator.py"], cwd=source_repository, check=True
         )
@@ -778,6 +776,11 @@ def main() -> None:
             encoding="utf-8",
             stdout=subprocess.PIPE,
         ).stdout.strip()
+        subprocess.run(
+            ["git", "config", "core.autocrlf", "true"],
+            cwd=source_repository,
+            check=True,
+        )
 
         captured_at = datetime.fromisoformat(
             json.loads(Path(captured["manifest"]).read_text(encoding="utf-8"))["captured_at"]
@@ -1068,7 +1071,10 @@ def main() -> None:
         try:
             validate_suite(suite_path, corpus, ROOT)
         except ValueError as error:
-            assert "materialized oracle source patch hash mismatch" in str(error)
+            assert (
+                "materialized oracle source patch heldout.logits hash changed"
+                in str(error)
+            )
         else:
             raise AssertionError("tampered materialized oracle patch was accepted")
         materialized_patch_path.write_text("held-out patch bytes\n", encoding="utf-8")
@@ -1242,6 +1248,7 @@ def main() -> None:
         assert source_receipt["status"] == "PASS"
         assert source_receipt["revision"] == base_revision
         assert source_receipt["file_count"] == 1
+        assert (control_dir / "source" / "operator.py").read_bytes() == raw_operator
         assert validate_source_receipt(control_dir, ROOT) == source_receipt
         (control_dir / "source" / "operator.py").write_text(
             "tampered\n", encoding="utf-8"

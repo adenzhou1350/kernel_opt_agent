@@ -96,6 +96,14 @@ snapshot replacement, gzip corruption, unsafe members and temporary-file/child
 cleanup. These are transport checks, not project tests or evidence of a higher
 PR conversion rate.
 
+Historical community trials also reuse the raw-blob reader for their ZIP source
+materialization, so checkout newlines and export attributes cannot silently alter
+the bound revision. Their existing `BLOB_TEXT_NO_LIVE_LINKS` policy is unchanged:
+symlink target blobs become regular text files, and executable modes are not
+restored by that trial extractor. Submodule gitlinks are refused, not omitted.
+This fixes newly materialized trials; it does not retroactively establish that
+old source receipts contain commit-exact bytes, or qualify a project's runtime.
+
 ## Windows-native TypeScript checks without bypassing runtime requirements
 
 Read the reviewed checkout's `package.json` engines and test wrappers before

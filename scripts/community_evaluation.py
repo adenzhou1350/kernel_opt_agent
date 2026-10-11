@@ -12,6 +12,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from contextlib import closing
 from datetime import datetime
 from pathlib import Path, PurePosixPath
 from statistics import median
@@ -24,6 +25,7 @@ from community_knowledge import (
     validate_corpus,
     validate_graph,
 )
+from qualification_source_bundle import git_tree_entries, iter_git_tree_blobs
 from schema_utils import validate_instance, validate_json_file
 
 
@@ -1673,6 +1675,24 @@ def run_git(repository: Path, *arguments: str) -> str:
     return completed.stdout.strip()
 
 
+def write_git_source_zip(repository: Path, revision: str, archive_path: Path) -> None:
+    """Export raw commit blobs, not checkout or Git export-attribute bytes.
+
+    Keep the trial's BLOB_TEXT_NO_LIVE_LINKS policy: a symlink is transported
+    as its target text, then extracted as a regular file by safe_extract_zip.
+    Unsupported gitlinks are rejected before the archive is created.
+    """
+    entries = git_tree_entries(repository, revision)
+    with closing(iter_git_tree_blobs(repository, entries)) as blobs:
+        with zipfile.ZipFile(archive_path, "x") as archive:
+            for path, mode, data in blobs:
+                info = zipfile.ZipInfo(path)
+                info.create_system = 3
+                info.external_attr = mode << 16
+                info.compress_type = zipfile.ZIP_DEFLATED
+                archive.writestr(info, data)
+
+
 def prepare_trial_source(
     trial_dir: Path, repository: Path, root: Path | None = None
 ) -> dict:
@@ -1700,18 +1720,7 @@ def prepare_trial_source(
     with tempfile.TemporaryDirectory(prefix="source-materialization-", dir=trial_dir) as temporary:
         temporary_path = Path(temporary)
         archive_path = temporary_path / "source.zip"
-        archive_result = subprocess.run(
-            ["git", "archive", "--format=zip", "--output", str(archive_path), revision],
-            cwd=repository,
-            text=True,
-            encoding="utf-8",
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-        )
-        if archive_result.returncode:
-            detail = archive_result.stderr.strip() or archive_result.stdout.strip()
-            raise ValueError(f"git archive failed: {detail}")
+        write_git_source_zip(repository, revision, archive_path)
         archive_sha256 = sha256_file(archive_path)
         extracted = temporary_path / "extracted"
         safe_extract_zip(archive_path, extracted)
