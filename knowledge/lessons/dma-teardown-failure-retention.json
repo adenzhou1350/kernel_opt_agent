@@ -1,21 +1,29 @@
 {
   "id": "dma-teardown-failure-retention",
   "title": "Failed RDMA teardown does not authorize freeing DMA buffers",
-  "applies_when": "A native-resource leak hypothesis proposes continuing cleanup after QP destruction or memory-region deregistration fails. Trace the owning destructor, retirement/retry path and buffer dependencies, not only the early return.",
-  "lesson": "A failed release may leave a device reference alive. Before freeing its backing memory, establish successful deregistration or another documented quiescence guarantee. At the cited Mooncake revision, closeNotification preserves failed QP/MR handles and returns before buffer reset; the owning destructor explicitly retains the DMA buffers on teardown failure. finishDestroy retries deconstructLocked, and its outstanding-work gate preserves retired endpoints. Destroying independent ordinary QPs in a loop does not justify freeing their dependent state or notification buffers after failure. Compare a successful release, a failed dependency release and a later successful retry when designing a native reproduction.",
-  "avoid_when": "This is source evidence of intentional retention, not proof that all Mooncake teardown is correct or leak-free, a native RDMA failure-injection result, or a universal recommendation to leak on error. Reclaiming an independent resource may be safe after proving its exact lifetime; the send-MR failure alone does not prove that recv-MR deregistration must be skipped. Reopen with an actual supported path, resource dependency and safe reclaim guarantee. A mock observing another cleanup call does not establish hardware quiescence.",
+  "applies_when": "A native-resource leak hypothesis relies on a partial-construction early return or proposes continuing cleanup after QP destruction or memory-region deregistration fails. Trace the owning factory, destructor, retirement/retry path and buffer dependencies.",
+  "lesson": "Distinguish acquisition failure from release failure. Mooncake's FIFO/SIEVE factories hold the new endpoint in a local shared_ptr and return nullptr on construct failure before publishing it; the destructor visits partially created non-null QPs and deletes work-depth state after successful teardown. An early return inside construct alone therefore does not establish a factory-path leak. A failed release is different: a device reference may remain alive. Before freeing backing memory, establish successful deregistration or documented quiescence. closeNotification preserves failed QP/MR handles and returns before buffer reset; the destructor explicitly retains DMA buffers on teardown failure. finishDestroy waits for outstanding work and bounds teardown retries. Destroying independent ordinary QPs does not justify freeing their dependent state or notification buffers after failure. Inspect the owner before proposing rollback; test successful release, failed dependency release and a later successful retry separately.",
+  "avoid_when": "This is source evidence only: no native RDMA failure-injection result, hardware quiescence or general leak-free claim. A caller retaining or directly retrying a partially constructed object requires separate analysis; the factory result does not cover it. finishDestroy can give up after bounded retries and log a possible leak. Reclaiming an independent resource may be safe after proving its lifetime; send-MR failure alone does not prove recv-MR deregistration must be skipped. Reopen with a supported path, resource dependency and safe reclaim guarantee. A mock observing another cleanup call does not establish hardware quiescence.",
   "evidence": [
     {
-      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L101-L118",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L110-L126",
       "note": "The destructor deliberately releases owning smart pointers without deleting the DMA buffers after deconstructLocked fails; it documents the safety boundary. Source inspection only."
     },
     {
-      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L287-L351",
-      "note": "Retirement waits for outstanding work and retries failed teardown. This contradicts the truncated-source claim that no owner retry exists, without proving every provider failure is recoverable."
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L309-L376",
+      "note": "Outstanding-work checks precede teardown; failures retry up to a bound, then log a possible resource leak and retire. Not every provider failure is recoverable."
     },
     {
-      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L592-L613",
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L621-L641",
       "note": "Notification teardown clears successful handles but returns on failed QP destruction or MR deregistration before resetting backing buffers."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/endpoint_store.cpp#L62-L75",
+      "note": "FIFO local shared_ptr owns the endpoint during construct and unwinds on failure before map insertion. SIEVE has the same sequence at lines 240-253. Source ownership, not a verbs resource-count experiment."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L219-L268",
+      "note": "Partial qp_list entries are null-skipped; successful destroys clear handles. Work-depth state is deleted only after all QP destroys succeed. Construction failure and destruction failure are distinct."
     }
   ],
   "status": "counterexample"

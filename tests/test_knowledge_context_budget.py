@@ -1,16 +1,41 @@
 """Small default lessons must remain available within Scout's existing budget."""
 
 import json
-from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-import knowledge_notes  # noqa: E402
-from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions  # noqa: E402
+import knowledge_notes
+from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_native_partial_construction_advice_checks_the_factory_owner(self):
+        result = lesson_suggestions(
+            "RDMA QP partial construction factory shared_ptr destructor"
+        )
+        card = next(
+            match
+            for match in result["matches"]
+            if match["id"] == "dma-teardown-failure-retention"
+        )
+        self.assertIn("local shared_ptr", card["lesson"])
+        self.assertIn("before publishing", card["lesson"])
+        self.assertIn("directly retrying", card["avoid_when"])
+        self.assertIn("bounded retries", card["avoid_when"])
+        self.assertIn("no native RDMA failure-injection result", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        urls = [evidence["url"] for evidence in card["evidence"]]
+        for suffix in (
+            "endpoint_store.cpp#L62-L75",
+            "rdma_endpoint.cpp#L110-L126",
+            "rdma_endpoint.cpp#L309-L376",
+            "rdma_endpoint.cpp#L621-L641",
+            "rdma_endpoint.cpp#L219-L268",
+        ):
+            self.assertTrue(any(url.endswith(suffix) for url in urls))
+
     def test_cutlass_array_advice_uses_receiver_contract_not_python_list_semantics(
         self,
     ):
