@@ -1,0 +1,18 @@
+{
+  "id": "native-archive-path-semantics",
+  "title": "Archive identity and POSIX path checks do not establish native extraction safety",
+  "applies_when": "Commit-exact source archives move between Windows and POSIX test environments, especially when filenames contain platform-specific syntax or tracked relative symlinks.",
+  "lesson": "Keep byte identity separate from host interpretation. Preserve raw filenames in transport; at extraction, reject names the host cannot faithfully represent instead of silently renaming them. Windows backslashes, drive/stream colons, device names and trailing dots/spaces require native checks. Use a fresh private staging tree, check resolved destinations before writes, reject members below symlink parents, and recheck all links before publishing. Lexical normalization alone is insufficient: d/step/../../outside appears internal until d/step resolves to ..; a later link can also change an earlier target. Use native before/after controls and task-owned sentinels, not only a string-path model.",
+  "avoid_when": "These controls do not make generated code safe to execute, prove trusted upstream identity from a self-consistent manifest, or defend a staging tree against an independent actor racing the same OS account. Native filesystem semantics and link permissions vary. POSIX-valid names may need a matching POSIX extraction host; transport verification need not reject them universally. Link loops that cannot be resolved are refused by the cited extractor. A platform-policy skip is not a passing native link test, and source-transport tests do not qualify the target project's runtime, CI or PR readiness.",
+  "evidence": [
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/bf4f32796aa057310c2415597a3de774746ae387/tests/test_qualification_source_bundle.py",
+      "note": "Public regressions preserve POSIX tar identities while rejecting Windows reinterpretation before write/link calls. Separate POSIX cases exercise real symlink chains created before and after the dependent link and assert staging rollback plus an unchanged outside sentinel. Windows and POSIX cases are explicitly platform-scoped. No performance or target-project correctness claim."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/bf4f32796aa057310c2415597a3de774746ae387/scripts/qualification_source_bundle.py",
+      "note": "Exact extractor applies Windows-specific representability checks only at native extraction, checks resolved destinations against a private staging root, forbids symlink-parent members and validates completed link resolution before atomic publication. Verification remains a separate source byte/metadata operation."
+    }
+  ],
+  "status": "validated"
+}
