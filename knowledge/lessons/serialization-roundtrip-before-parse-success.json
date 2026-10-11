@@ -1,0 +1,22 @@
+{
+  "id": "serialization-roundtrip-before-parse-success",
+  "title": "JSON parse success is not lossless trace text serialization",
+  "applies_when": "A trace or protocol exporter interpolates names, descriptions or dynamic object keys into JSON strings, or deletes quotes/control characters to make output parseable.",
+  "lesson": "Validate both syntax and exact decoded content. A backslash sequence such as a literal Windows path can form valid JSON but decode into tabs/newlines; deleting quotes can silently rename markers. Use the format's encoder on each textual value/key and remove the surrounding hand-written quotes, rather than sanitizing or double-encoding. Exercise the actual database/file exporter and decompress/parse its output. Include ordinary and Unicode controls plus quotes, backslashes and control characters; assert names/descriptions are identical to the input, not merely that json.load succeeds. Check numeric fields and event envelopes separately so a text repair does not change their types. Follow producer types: a graph kernel count is numeric, not evidence that arbitrary text reaches that field. Search the original upstream implementation when working with a vendored converter before inventing a separate escaping routine.",
+  "avoid_when": "Do not impose lossless text where the protocol explicitly requires normalization/redaction. A SQLite fixture proves conversion of supported rows, not live device capture, current producer-schema compatibility or end-to-end performance. Direct component loading can isolate a stdlib exporter from an unavailable server package, but must be reported separately from installed-package/registered CI execution. This case is retrospective independent validation of a Scout lead, not a prospective selector comparison or a paper result.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/46a97e55400d871ba05537f21ed603321801da2d/python/sglang/srt/utils/rpd_utils.py",
+      "note": "Pinned SGLang converter interpolates operation text directly and removes quotes from API/marker/frame text. Counter and graph fields have different producer types; not every formatting placeholder establishes a user-controlled text defect."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/43700",
+      "note": "Independent real-SQLite to gzip/JSON comparison: baseline has 8 JSON decoding errors, 2 silent corruption failures and 4 passing controls; repaired component passes all 14 subcases in 3 test methods on native Windows CPython 3.12/3.14. Registered package execution is blocked by resource import on Windows; no AMD capture/performance/merge claim."
+    },
+    {
+      "url": "https://github.com/ROCm/rocmProfileData/blob/4df79268ea602f707c8b2a6a1b8e7bf3f9c71636/rocpd_python/rocpd/tracing.py",
+      "note": "The converter's original upstream already uses json.dumps for marker/API/operation text, supporting reuse of a standard encoder rather than a novel escaping algorithm or a whole upstream sync."
+    }
+  ],
+  "status": "validated"
+}
