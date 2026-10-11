@@ -1,0 +1,26 @@
+{
+  "id": "prefetch-handoff-before-leak-claims",
+  "title": "Trace both sides of ordered prefetch handoffs before declaring a leak",
+  "applies_when": "A recursive or pipelined listing returns at a range boundary while background workers wait for result consumption, and a leak hypothesis is based on the consumer's early return alone.",
+  "lesson": "Read worker admission, input ordering and acknowledgement together. A producer may independently reject every key at or above the same end boundary; with sorted entries, preceding admitted results can already be acknowledged before the consumer reaches that boundary. The return alone does not establish an abandoned ready result. Reproduce through a real ordered backend, delaying valid child listings and testing ends before the first directory, between sibling directories and inside a nested subtree, plus a no-end control. Drain output, check exact keys, then inspect the relevant worker stacks rather than total goroutine count. Separately run the race detector: a shared traversal error read under different per-worker mutexes is not synchronized. An atomic stop flag can repair that race while preserving local error reporting; it does not itself join in-flight backend calls.",
+  "avoid_when": "Do not assume ordering for a backend that does not guarantee it, or infer complete cancellation/error-path safety from successful bounded-range cases. A worker-stack observation covers only the exercised paths and observation interval; retained work, permanent leakage and an unjoined in-flight call are different claims. Sleeping is not a substitute for a deterministic positive control when diagnosing a specific blocked handoff. A race-free result is not a liveness proof. Existing PR ownership must be checked before proposing another repair; an open PR is not merged coverage.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/c127deb933615ff4e659e7fa7b42d52ecd60ac71/pkg/object/object_storage.go#L243-L337",
+      "note": "Pinned implementation checks the end boundary in both workers and consumer, acknowledges a consumed result before recursion, and reads the enclosing traversal error from worker goroutines. These are source mechanisms, not proof that every backend or failure path terminates."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/c127deb933615ff4e659e7fa7b42d52ecd60ac71/pkg/object/mem.go#L135-L192",
+      "note": "This backend sorts its delimiter-list result before returning. Inspect each target backend's contract rather than transferring this ordering assumption automatically."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7621",
+      "note": "Existing proposed atomic-stop repair and public before/after race validation distinguish the shared-error race from a general worker-join guarantee. Do not open a competing PR or treat this as an accepted universal cancellation fix."
+    },
+    {
+      "url": "https://go.dev/ref/mem",
+      "note": "Go's memory model requires synchronization for concurrent shared accesses; unrelated mutexes and goroutine exit do not establish the needed happens-before relation."
+    }
+  ],
+  "status": "validated"
+}
