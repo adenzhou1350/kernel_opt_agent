@@ -862,3 +862,21 @@ caution. Existing source, prior analysis and advice are unchanged; there is no
 extra retrieval, model call or automatic candidate rejection. This fixes context
 availability, not demonstrated PR conversion or token savings. Regression:
 `python -B -m unittest discover -s tests -p test_scout_advice_budget.py`.
+
+### Multiword filename hints
+
+Source selection can match a contiguous two-to-four-word report phrase such as
+`session title` to an observed `sessionTitleService.ts` filename. CamelCase,
+snake_case and kebab-case components and simple plurals are supported; generic
+role suffixes alone, single keywords, reordered prose and implicit test/vendor/
+generated files do not gain this score. A phrase in the issue subject takes
+precedence over incidental reproduction prose. Explicit filename/path requests retain
+precedence. This is a naming hint, not a definition, caller or defect verdict.
+For `needs_context` follow-ups, already supplied paths at the same exact revision
+are fallback hints behind other matches; an explicit next-check filename/path
+still wins, and continuation requests retain their existing override. Paths are
+not removed and changed-revision source is not treated as already supplied.
+Tree membership, supported source suffixes, exact revision and existing source
+read limits remain unchanged; no indexed query or model call is added.
+Offline regression: `python -B -m unittest discover -s tests -p test_scout_compound_paths.py`.
+The development report motivates acquisition coverage, not measured PR yield.
