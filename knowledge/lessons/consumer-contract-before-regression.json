@@ -1,85 +1,89 @@
 {
   "id": "consumer-contract-before-regression",
   "title": "Establish the consumer contract before writing a failing regression",
-  "applies_when": "A candidate alleges a formatting, validation, shape, resource-budget or backend-support mismatch from a helper name, comment or partial source window, and proposes expected behavior without tracing the producer and consumer.",
-  "lesson": "Trace the producer, allocation, transformations and consumer before inventing expected behavior. Later assignments may overwrite suspicious registry values. Distinguish instance labels from hostnames, captured token capacity from request count, and registered kernel geometry from excluded examples. Normalize byte/int32/int4 units and instantiate actual template constants before comparing swizzle indices with shared-memory allocation. Inconsistent fabricated metadata is not a reachable defect; shape/dtype acceptance alone does not admit empty or sentinel-only input. Inspect downstream edge counts and work geometry. Missing validation does not prove an invariant, and changing a device assertion does not establish backend support. Intersect a fallback trigger with native launch constraints before allocating a huge reproduction. Require a supported caller and observable native failure before environment repair or publication; the cited counterexamples retain their specific contracts and limits.",
-  "avoid_when": "Reachable malformed inputs, escaping/length violations or supported shape mutations can be real defects. An empty shape denotes a rank-zero scalar, not zero storage: its one element still contributes dtype bits and vector lanes to view-size checks. Partial initialization may satisfy fragment-only consumers but fail a later full-tensor overflow check: inspect every reader and cross-step buffer reuse, not only the norm or optimizer copy. Establish temporal corruption through a genuine prior operation and a finite public training step; arbitrary scratch poisoning is not reachability proof. Error wording may have its own documented API contract. Callback stand-ins must preserve backend transformations: RoPE+SDPA may return BHSD from BSHD even when plain SDPA preserves shape. Baseline-fail/patch-pass against an invented callback is insufficient. Static review falsifies a specific claim; it does not prove native or general correctness. External or dynamic callers may remain unobserved.",
+  "applies_when": "A formatting, validation, shape, resource-budget, backend-support or uninitialized-local allegation relies on partial source rather than the actual producer and consumer.",
+  "lesson": "Trace allocation, transformations, enclosing guards and every consumer before inventing a regression. Later assignments can overwrite registry values. Check Python walrus assignments: a clipped branch cannot establish absence of a prior binding. Distinguish hostnames from instance labels and request count from captured token capacity. Normalize byte/int32/int4 units and instantiate actual template constants before comparing swizzle indices with shared-memory allocation. Intersect fallback triggers with native launch constraints before allocating huge reproductions. Fabricated metadata and shape/dtype acceptance do not prove a reachable empty/sentinel-only path. Missing validation or changing an assertion does not establish backend support. Require a supported caller and observable native failure before environment repair or publication.",
+  "avoid_when": "Reachable malformed inputs can be defects. A rank-zero scalar has one element, not zero storage. Fragment-only readers may be valid while a later full-tensor overflow check sees stale scratch; trace reuse and reproduce corruption through a real prior operation and finite training step, not arbitrary poisoning. Callback stand-ins must preserve transformations: RoPE+SDPA can return BHSD from BSHD unlike plain SDPA. Error wording may have a documented contract. Static source or extracted-function checks refute only the specific claim, not native/GPU/general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
+      "url": "https://github.com/sgl-project/sglang/blob/11bfd868ac36c0d5c7089c3f1a65ed575feb5540/python/sglang/srt/layers/attention/attention_registry.py#L388-L567",
+      "note": "The enclosing if cfg := mambaish_config(...) binds cfg before direct hybrid branches read it; registry fallback rebinds it. Frozen e1f43c9 and current 11bfd86 blobs match. Extracted-function/backend-stub checks are not GPU execution or supported-model integration."
+    },
+    {
       "url": "https://github.com/deepspeedai/DeepSpeed/pull/8728",
-      "note": "Submitted correction with a public DP2 Engine regression: real NaN step then finite steps, all parameters active, BF16/FP16 master variants and FP32 controls. The PR reports old-version finite-update failures and four patched passes on B300. Review/CI acceptance, convergence and performance are not established; the wider no-offload comparison was environment-blocked."
+      "note": "Public DP2 regression: real NaN then finite steps, BF16/FP16 masters and FP32 controls. Reports old finite-update failures and four patched B300 passes; review/CI, convergence and performance unproven."
     },
     {
       "url": "https://github.com/deepspeedai/DeepSpeed/blob/c687df79653459d08c0c6fada6d124971d966662/deepspeed/runtime/zero/stage_1_and_2.py#L1081-L1106",
-      "note": "Low-precision offload restoration copies only the owned fragment into reused scratch and clones a full parameter-sized view. Fragment-only readers alone do not prove a defect; the separate full-gradient overflow reader and reset lifetime make the submitted temporal regression meaningful."
+      "note": "Restoration writes only the owned fragment into reused scratch then clones a full view. The full-gradient overflow reader and reset lifetime, not fragment readers alone, motivate the regression."
     },
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/src/megatron_fsdp/utils.py#L655-L662",
-      "note": "Expert registration overwrites dense entries for matching mesh dimensions. Missing dimensions can retain a dense entry but do not prove a supported training failure."
+      "note": "Expert registration overwrites matching dense mesh entries; unmatched dimensions alone do not prove a supported failure."
     },
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/mcore_fsdp_adapter.py#L470-L497",
-      "note": "The HSDP adapter constructs matching dense/expert dimension names. A mismatched-mesh regression needs a separate supported caller, not this producer."
+      "note": "The adapter constructs matching dense/expert dimension names; a mismatched-mesh regression needs another caller."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/240de7a90bd43d663e3eb93429bf47559b50fd5b/flashinfer/msa_ops/_blackwell_sm100_reverse_plan.py#L253",
-      "note": "All-invalid q2k can divide by zero; shipped builders require full edges and fixed geometry. A zero guard is not empty-route support; the standalone diagnostic contract remains open."
+      "note": "All-invalid q2k can divide by zero, but shipped builders require full edges/fixed geometry. Assertion changes are not empty-route support."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/flashinfer/comm/trtllm_ar.py#L879",
-      "note": "The small-token guard precedes a fallback requiring >2046 MiB. Ordering alone is not a supported-input failure; combine it with native launch constraints rather than lowering MAX_COMM_SIZE artificially."
+      "note": "Small-token guard precedes a >2046 MiB fallback; ordering alone is not a supported-input failure."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/36ad74addfa1260f8f368d650ade47c856fa90e1/include/flashinfer/comm/trtllm_allreduce_fusion.cuh#L1685",
-      "note": "16-byte accesses, <=8-block clusters and <=1024 threads limit supported ranks 2/4/8/16 with token_num<=world_size to <=32 MiB, below the fallback threshold. This refutes the hang hypothesis, not collective correctness or malformed-input diagnostics."
+      "note": "16-byte accesses, <=8-block clusters and <=1024 threads constrain ranks 2/4/8/16 with token_num<=world_size to <=32 MiB. Refutes the fallback-hang premise, not collective correctness."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/arg_groups/fields/exec_.py#L428",
-      "note": "CLI choices reach argparse; choices.py exposes plugin registration. Enum CUSTOM fallback alone does not prove typo acceptance. Programmatic consumers need separate evidence; not a server or GPU qualification."
+      "note": "CLI choices reach argparse; choices.py permits plugins. Enum CUSTOM fallback alone does not prove typo acceptance; programmatic callers remain separate."
     },
     {
       "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
-      "note": "DNS-SD instance labels permit non-control punctuation and are limited to 63 octets; this is a protocol requirement, not a measured application result."
+      "note": "DNS-SD instance labels permit non-control punctuation and at most 63 octets; protocol fact, not an application measurement."
     },
     {
       "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.3",
-      "note": "The standard explicitly distinguishes service instance names from hostnames and their naming restrictions."
+      "note": "The standard distinguishes service instance labels from hostnames and their restrictions."
     },
     {
       "url": "https://github.com/openclaw/openclaw/blob/8c9040c624d932f665e33f506781c5badee18afa/src/infra/widearea-dns.ts",
-      "note": "One normalizer feeds host labels and service instances. A trailing hyphen in the latter alone does not prove an invalid zone; overrides and resolver behavior need separate evidence."
+      "note": "One normalizer serves host labels and instances; an instance trailing hyphen alone does not prove an invalid zone. Overrides/resolvers remain separate."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/53225fadf40428149315d43f53b6df80d12957e0/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py#L884",
-      "note": "Capture sets metadata_rows=num_tokens; replay derives num_rows from captured sequence_lengths.numel(). This refutes the request-count claim for initialized capture, not GPU correctness."
+      "note": "Capture sets metadata_rows=num_tokens; replay uses captured sequence_lengths.numel(). Refutes request-count sizing for initialized capture, not GPU correctness."
     },
     {
       "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_common.py#L843",
-      "note": "The comment excludes B_K=128 variants; registry ids 1400-1404 and 6400-6404 use B_K=64. Asserting their removal does not demonstrate a comment contradiction."
+      "note": "Comment excludes B_K=128; registered ids 1400-1404/6400-6404 use B_K=64. Their removal is not justified by that comment."
     },
     {
       "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_pipeline_a16w16_mono_tile_gfx950.cuh",
-      "note": "Padded A/B formulas give 66-148.5 KiB for registered B_K=64 (<160 KiB); excluded B_K=128 gives 165/231 KiB. Source arithmetic, not compiled HIP or GPU correctness."
+      "note": "Padded A/B sizes: registered B_K=64 needs 66-148.5 KiB (<160); excluded B_K=128 needs 165/231. Source arithmetic, not HIP/GPU execution."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
-      "note": "Raw-verify leaves extend_seq_lens=None. Its consumer uses full_like, then torch.minimum creates a new tensor before clamp_min_. Fabricated non-None fields do not prove corruption here; other setters remain unverified and Tensor.to alone need not copy."
+      "note": "Raw-verify leaves extend_seq_lens=None; consumer creates a new tensor via minimum before clamp_min_. Fabricated non-None metadata does not prove corruption; other setters unverified."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
-      "note": "The constructor assigns lower_bound; later getattr/direct reads do not prove it missing here. Fabricated objects are not supported-path evidence. Source falsification, not GPU/all-model correctness."
+      "note": "Constructor assigns lower_bound. Later getattr/direct reads do not prove it missing; fabricated objects are not supported-path evidence."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/d26b6a5a9c4752e2ad0309df66eaca2f33816d68/python/sglang/srt/mem_cache/prefill_budget.py#L343-L375",
-      "note": "The claimed prepare_load_back budget debit does not occur: base implementation returns True; shared-SWA override computes local demand and reclaims capacity without changing offsets. reserve performs the debit after scheduler admission commits. This module is byte-identical at the Scout lead's frozen 9336681 and current d26b6a5. A first-symbol window exposed only the base default; inspect same-name overrides before inferring the consumer's effective contract. Refutes this offset-leak hypothesis by complete source inspection only; allocator reclaim/eviction effects and GPU correctness are separate questions."
+      "note": "prepare_load_back base returns True; shared-SWA override computes/reclaims without offset debit; reserve debits after admission. Frozen 9336681/current d26b6a5 match. Inspect overrides, not only first-symbol windows. Reclaim/eviction and GPU correctness remain separate."
     },
     {
       "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L398-L465",
-      "note": "Narrow-K uses 128x4 tiles and 32x32 threads: each M-tile needs (K/4)*32 int4 slots =128*K bytes, not a larger byte footprint. This source arithmetic can refute a unit-mismatch underallocation claim. Host indexing/permutation checks are not CUDA execution, race/performance proof or admission of every tested layout on a GPU."
+      "note": "128x4 tiles: each M-tile uses (K/4)*32 int4=128*K bytes. Index/permutation checks are not CUDA execution, race/performance proof or GPU admission of every layout."
     },
     {
       "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L1423-L1444",
-      "note": "Caller allocates 32*(K/4)*128*4=32*128*K bytes, exactly the full block's requirement, and gates it by the device shared-memory limit. The multi-tensor path at 1573-1591 uses the maximum per-tensor K, not a sum; shared storage is reused per block. This refutes the alleged per-tile shared-memory underallocation at this source pin."
+      "note": "Caller allocates 32*(K/4)*128*4=32*128*K bytes and checks the device limit. Multi-tensor storage uses maximum K and is reused per block. Refutes this underallocation claim."
     }
   ],
   "status": "counterexample"

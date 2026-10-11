@@ -104,6 +104,23 @@ class KnowledgeNotesTests(unittest.TestCase):
         self.assertIn("not official registered-test", card["avoid_when"])
         self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
 
+    def test_uninitialized_local_advice_retains_enclosing_assignment_and_scope(self):
+        result = notes.search("uninitialized Python local walrus enclosing guards")
+        cards = {entry["card"]["id"]: entry["card"] for entry in result["matches"]}
+        self.assertIn("consumer-contract-before-regression", cards)
+        card = cards["consumer-contract-before-regression"]
+        self.assertIn("clipped branch cannot establish absence", card["lesson"])
+        evidence = [e for e in card["evidence"] if "attention_registry.py" in e["url"]]
+        self.assertEqual(len(evidence), 1)
+        self.assertIn("cfg := mambaish_config", evidence[0]["note"])
+        self.assertIn("not GPU execution", evidence[0]["note"])
+        from scout_lesson_context import lesson_suggestions
+
+        actual = lesson_suggestions("consumer contract uninitialized Python local cfg walrus")
+        self.assertEqual(actual["matches"][0]["id"], card["id"])
+        self.assertEqual(actual["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(actual["matches"][0]).encode()), 8192)
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
