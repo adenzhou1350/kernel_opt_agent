@@ -3,7 +3,7 @@
   "title": "Reserve queue capacity before synchronous reentrant active listeners",
   "applies_when": "A scheduler emits a synchronous event or calls user code between checking its concurrency limit and recording the pending task. A listener can enqueue more work on the same queue without any await or another thread.",
   "lesson": "Trace the full dequeue-to-run sequence across callbacks, not only async suspension points. In p-queue 9.3.3, active fires before pending increments; an active listener that adds a task reenters scheduling and starts two blocked task bodies with concurrency=1. Use the real public queue, a shared release gate and a once listener to measure simultaneous bodies without timing sleeps. Pair ordinary queued work with listener-visible pending and throwing-listener controls. Reserve pending capacity and task ownership before emitting, inside cleanup protection so a listener exception cannot strand capacity. Verify the released package as well as source, and preserve event ordering deliberately.",
-  "avoid_when": "This demonstrates synchronous reentrancy, not arbitrary multi-thread safety or async listener completion. Do not move a counter without proving exception cleanup, or remove supported events to avoid reentry. Reserving capacity earlier can change listener-visible state; inspect that API contract and neighboring cancellation/interval behavior. The proposed p-queue fix passes 209 Windows runtime tests plus tsc/tsd; Linux evidence is a compiled-JS public-API probe, not the full Linux test/lint matrix. The upstream currently permits only collaborators to create PRs: the fix is on a fork and reported as an issue, not an accepted PR or measured Scout conversion.",
+  "avoid_when": "This demonstrates synchronous reentrancy, not arbitrary multi-thread safety or async listener completion. Do not move a counter without proving exception cleanup, or remove supported events to avoid reentry. Reserving capacity earlier can change listener-visible state; inspect that API contract and neighboring cancellation/interval behavior. The historical proposed fix passes 209 Windows runtime tests plus tsc/tsd; its Linux evidence is a compiled-JS public-API probe, not the full Linux test/lint matrix. Upstream later resolves issue255 with its own job-before-active change in 9.3.4. Do not treat the repaired release as the old counterexample or describe the different fork patch as merged. Collaborators-only PR creation led to an issue contribution, not an upstream PR or measured Scout conversion.",
   "evidence": [
     {
       "url": "https://github.com/sindresorhus/p-queue/issues/255",
@@ -12,6 +12,10 @@
     {
       "url": "https://github.com/adenzhou1350/p-queue/commit/0a2f4c30ab78a2e110bedb93c6e914acc2d1f7d5",
       "note": "Proposed two-file fix emits active after pending/task registration inside the existing try/finally. Three regression tests cover reentrant enqueue, observable reservation and listener-error cleanup. Fork commit only; no upstream PR or acceptance is implied."
+    },
+    {
+      "url": "https://github.com/sindresorhus/p-queue/commit/22edad49b42214b9b5add8312391401c063d8b27",
+      "note": "Maintainer's own fix starts the job before emitting active, adds a reentrant concurrency regression and closes issue255; released in9.3.4. It is not byte-identical to the proposed fork patch. A later independent Windows run of the full9.3.4 runtime suite, with a separate cancellation repair, passes all208 tests including this upstream active-listener regression; this is not a full cross-version qualification."
     }
   ],
   "status": "validated"

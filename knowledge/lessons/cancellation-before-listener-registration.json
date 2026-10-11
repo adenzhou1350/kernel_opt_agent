@@ -1,0 +1,22 @@
+{
+  "id": "cancellation-before-listener-registration",
+  "title": "Recheck cancellation after installing a listener across user callbacks",
+  "applies_when": "An API checks an AbortSignal, calls a user callback or converts a thenable, and only afterward installs the listener that rejects its pending wait. Cancellation can occur synchronously without any await or another thread.",
+  "lesson": "Separate observing current cancellation state from subscribing to future events. AbortSignal does not replay an earlier abort to a newly added listener. In p-queue 9.3.4, a callback can abort before returning a pending operation; the add promise then stays pending, retains its concurrency slot and blocks the next task. Register the running listener and check signal.aborted so a past event follows the same rejection path. Keep cleanup and promise-race handling intact rather than throwing early and abandoning a returned rejected promise. Use a controlled operation gate: inspect settlement and follower progress before release, then always release it for cleanup. Test async-function synchronous prefixes and thenable conversion as well as plain callbacks; retain normal completion, pre-abort, microtask-abort and task-error precedence controls.",
+  "avoid_when": "Follow the actual cancellation contract: rejecting a queue wait does not stop the underlying operation, and the caller still owns its cleanup. This single-event-loop pattern is not an atomic cross-thread subscription protocol. Already returned values can still win the existing Promise.race; the proposed repair deliberately preserves that behavior and original callback-error precedence. Evidence is 208 Windows runtime tests plus tsc/tsd and eight public-API cases per arm on Windows and Linux, not full Linux/Node20 CI. Lint has nine project-service errors on both unchanged and patched source. The patch is published on a fork with an issue because upstream PR creation is collaborators-only; no acceptance, measured Scout conversion or prospective selector advantage is claimed.",
+  "evidence": [
+    {
+      "url": "https://github.com/sindresorhus/p-queue/blob/de565c42a271bd3c2f8c69d3b6bce33f49f9d344/source/index.ts",
+      "note": "The task callback runs before the running abort listener is installed. Promise conversion for task timeouts can also invoke a then getter in this interval. This source identifies the handoff; the public-package probe establishes its behavior."
+    },
+    {
+      "url": "https://github.com/sindresorhus/p-queue/issues/256",
+      "note": "Standalone npm9.3.4 reproduction and bounded native result: three affected callback/conversion cases retain pending=1 before the operation gate is released; the repair rejects with the abort reason, releases capacity and starts the follower. Five controls and cleanup remain unchanged on both native platforms. Owner-led manual discovery, not a prospective experiment or paid Scout result."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/p-queue/commit/c9f9c7d6e671b7c6481acabd2c11d7b06ce01b1a",
+      "note": "Four-line production addition and a real-queue regression test. The regression fails on unchanged source and passes after the state recheck; the existing finally block removes the listener. Fork commit only, not an upstream PR or merge."
+    }
+  ],
+  "status": "validated"
+}
