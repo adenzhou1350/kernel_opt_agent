@@ -65,6 +65,13 @@ class TimelineTests(unittest.TestCase):
         self.assertFalse(sources[0]["comments_truncated"])
         self.assertEqual([url for url, _ in self.calls], [API, f"{API}/issues/42", TIMELINE])
 
+    def test_initial_lookup_and_followup_share_one_bounded_timeline_get(self):
+        initial = self.context.issue_linked_pr_context(REPO, 42)
+        sources = self.context.issue_sources(REPO, 42)
+        self.assertEqual(initial["sources"], sources[1:])
+        self.assertEqual(sum(url == TIMELINE for url, _ in self.calls), 1)
+        self.assertEqual(sum(url == f"{API}/issues/42" for url, _ in self.calls), 1)
+
     def test_deduplicated_first_three_prs_and_bounded_text(self):
         self.events = [event(), event(), event(8), event(9), event(10)]
         self.events[0]["source"]["issue"]["body"] = "x" * 10000

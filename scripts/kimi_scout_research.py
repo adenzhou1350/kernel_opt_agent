@@ -947,6 +947,14 @@ class ResearchProducer:
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
+            # Show linked work before the first paid triage, not only after a
+            # model proposes the same fix. Reuse the existing one-page cache;
+            # no report/comment re-fetch or automatic duplicate rejection.
+            linked = self.context.issue_linked_pr_context(spec["repo"], item["number"])
+            sources[0]["linked_pr_lookup"] = {
+                key: value for key, value in linked.items() if key != "sources"
+            }
+            sources.extend(linked["sources"])
             created = self.emit(
                 key,
                 spec,
@@ -958,7 +966,10 @@ class ResearchProducer:
                     "stale/resolved/user-configuration reports. Name exact missing source "
                     "symbols if needed. If the reporter already supplied a tested patch "
                     "and offered to submit it, preserve the finding as author-owned work; "
-                    "suggest independent validation rather than a competing PR."
+                    "suggest independent validation rather than a competing PR. "
+                    "Timeline cross-references are related-work hints, not proof of a fix "
+                    "or duplication; compare the actual source before deciding. An empty "
+                    "or unavailable partial lookup does not establish novelty."
                 ),
             )
             items.pop(0)

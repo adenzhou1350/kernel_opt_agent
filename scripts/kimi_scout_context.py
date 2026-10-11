@@ -461,6 +461,10 @@ class PublicContext:
             )
         return result
 
+    def issue_linked_pr_context(self, repo, number):
+        """Reuse the bounded timeline lookup without re-fetching the report/comments."""
+        return linked_pr_context(self, repo, number)
+
     def issue_sources(self, repo, number):
         repo, number = _repo(repo), _number(number)
         self._public(repo)
@@ -514,7 +518,7 @@ class PublicContext:
             or len(comments) > 3
         )
         if kind == "issues":
-            linked = linked_pr_context(self, repo, number)
+            linked = self.issue_linked_pr_context(repo, number)
             result[0]["linked_pr_lookup"] = {k: v for k, v in linked.items() if k != "sources"}
             result.extend(linked["sources"])
         return result

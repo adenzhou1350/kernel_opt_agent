@@ -66,6 +66,9 @@ class Context:
             },
         ]
 
+    def issue_linked_pr_context(self, repo, number):
+        return {"sources": [], "status": "PARTIAL_TIMELINE", "search_exhaustive": False}
+
     def duplicate_sources(self, repo, title):
         return [
             {
@@ -970,6 +973,44 @@ class ResearchTests(unittest.TestCase):
         # Content dedup in enqueue still prevents paying for identical evidence.
         self.assertFalse(self.producer.issue(self.spec, {}))
         self.assertEqual(len(self.jobs()), 1)
+
+    def test_initial_issue_includes_linked_work_before_model_triage(self):
+        linked = {
+            "sources": [{
+                "url": "https://github.com/a/b/pull/3",
+                "text": "Different title\nExisting author's implementation",
+                "is_pr": True,
+                "relationship": "issue_timeline_cross_reference",
+                "search_exhaustive": False,
+            }],
+            "status": "PARTIAL_TIMELINE",
+            "search_exhaustive": False,
+            "events_observed": 4,
+        }
+        with patch.object(self.context, "issue_linked_pr_context", return_value=linked) as lookup:
+            self.assertTrue(self.producer.issue(self.spec, {}))
+            self.assertFalse(self.producer.issue(self.spec, {}))
+        lookup.assert_called_once_with("a/b", 42)
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["research"]["stage"], "issue_triage")
+        self.assertEqual(packet["research"]["depth"], 0)
+        self.assertIn("https://github.com/a/b/pull/3", [s["url"] for s in packet["sources"]])
+        self.assertEqual(packet["sources"][0]["linked_pr_lookup"], {
+            key: value for key, value in linked.items() if key != "sources"
+        })
+        self.assertIn("not proof", packet["question"])
+        self.assertTrue(any(s["url"].startswith("https://raw.githubusercontent.com/")
+                            for s in packet["sources"]))
+
+    def test_initial_issue_retains_unavailable_lookup_without_absence_claim(self):
+        linked = {"sources": [], "status": "TIMELINE_UNAVAILABLE", "search_exhaustive": False,
+                  "error": "OSError"}
+        with patch.object(self.context, "issue_linked_pr_context", return_value=linked):
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["sources"][0]["linked_pr_lookup"]["status"], "TIMELINE_UNAVAILABLE")
+        self.assertFalse(packet["sources"][0]["linked_pr_lookup"]["search_exhaustive"])
+        self.assertEqual(len(packet["sources"]), 2)
 
     def test_issue_keeps_public_report_when_optional_source_exceeds_budget(self):
         with patch.object(
