@@ -20,6 +20,153 @@ RUST_SUMMARY = re.compile(
 )
 
 
+def _node_tap(text, exit_code, expected_results, issue):
+    """Node's built-in TAP reporter, not arbitrary TAP or YAML.
+
+    Node 24 emits a typed diagnostic for every point. Suites are containers;
+    ordinary parent tests count as tests as well as their children. Identities
+    use emitted (TAP-escaped) names joined with ::, never lossy name decoding.
+    """
+    counts = {"passed": 0, "failed": 0, "skipped": 0, "todo": 0,
+              "cancelled": 0, "suites": 0}
+    seen, identities = set(), set()
+    lines = [line for line in text.splitlines() if line.strip()]
+    position = 0
+
+    def fail(message):
+        raise ValueError(message)
+
+    def peek():
+        return lines[position] if position < len(lines) else ""
+
+    def block(depth, path):
+        nonlocal position
+        if depth > 32:
+            fail("Node TAP nesting exceeds 32 levels")
+        prefix, points, any_failed = " " * (depth * 4), 0, False
+        while True:
+            line = peek()
+            plan = re.fullmatch(re.escape(prefix) + r"1\.\.([0-9]{1,8})", line)
+            if plan:
+                position += 1
+                if int(plan[1]) != points:
+                    fail("Node TAP plan/point cardinality mismatch")
+                return any_failed
+            declaration = prefix + "# Subtest: "
+            if not line.startswith(declaration):
+                # Reporter diagnostics are comments, not case outcomes. Reserved
+                # terminal fields cannot occur before the root plan.
+                if line.startswith(prefix + "# ") and not re.match(
+                    re.escape(prefix) + r"# (?:Subtest:|tests\b|suites\b|pass\b|fail\b|"
+                    r"cancelled\b|skipped\b|todo\b|duration_ms\b)", line
+                ):
+                    position += 1
+                    continue
+                fail("missing or unsupported Node TAP declaration/plan")
+            name = line[len(declaration):]
+            if not name or "::" in name:
+                fail("ambiguous Node TAP case identity")
+            qualified = "::".join((*path, name))
+            if len(qualified) > 512 or qualified in identities:
+                fail("overlong or duplicate Node TAP case identity")
+            identities.add(qualified)
+            position += 1
+            child_prefix = prefix + "    "
+            children = peek().startswith((child_prefix + "# Subtest: ", child_prefix + "1.."))
+            child_failed = block(depth + 1, (*path, name)) if children else False
+            point = re.fullmatch(re.escape(prefix) + r"(ok|not ok) ([0-9]{1,8}) - (.*)", peek())
+            if not point or int(point[2]) != points + 1:
+                fail("missing or nonconsecutive Node TAP point")
+            if not point[3].startswith(name):
+                fail("Node TAP declaration/point name mismatch")
+            suffix = point[3][len(name):]
+            directive = re.fullmatch(r" # (SKIP|TODO)(?: .*)?", suffix) if suffix else None
+            if suffix and not directive:
+                fail("unsupported Node TAP name/directive")
+            position += 1
+            diagnostic_prefix = prefix + "  "
+            if peek() != diagnostic_prefix + "---":
+                fail("missing Node TAP typed diagnostic")
+            position += 1
+            fields = {}
+            while peek() != diagnostic_prefix + "...":
+                line = peek()
+                if not line or not line.startswith(diagnostic_prefix):
+                    fail("truncated Node TAP diagnostic")
+                for field in ("type", "failureType"):
+                    if line.startswith(diagnostic_prefix + field + ":"):
+                        match = re.fullmatch(
+                            re.escape(diagnostic_prefix + field) + r": (?:'([A-Za-z]+)'|([A-Za-z]+))", line)
+                        if not match or field in fields:
+                            fail("unsupported or duplicate Node TAP diagnostic field")
+                        fields[field] = match[1] or match[2]
+                position += 1
+            position += 1
+            kind, failure = fields.get("type"), fields.get("failureType")
+            if kind not in {"test", "suite"}:
+                fail("unsupported or missing Node TAP point type")
+            failed = point[1] == "not ok"
+            if failed != bool(failure):
+                fail("Node TAP point/failure diagnostic mismatch")
+            if child_failed and not failed:
+                fail("Node TAP parent passed despite a failed child")
+            if failure == "subtestsFailed" and not child_failed:
+                fail("Node TAP subtestsFailed without an observed failing child")
+            cancelled = failure in {"cancelledByParent", "testTimeoutFailure"}
+            if cancelled or (failure and failure not in {"testCodeFailure", "subtestsFailed"}):
+                issue("Node cancellation/setup/runner failures are not assertion-failure reproductions")
+            if kind == "suite":
+                counts["suites"] += 1
+                if failed and failure != "subtestsFailed":
+                    issue("Node suite failed outside its reported tests")
+            else:
+                if directive:
+                    outcome = "skipped"
+                    counts["todo"] += directive[1] == "TODO"
+                elif cancelled:
+                    outcome = None
+                    counts["cancelled"] += 1
+                else:
+                    outcome = "failed" if failed else "passed"
+                if outcome:
+                    counts[outcome] += 1
+                    if qualified in expected_results:
+                        expected_results[qualified][outcome] += 1
+                    if outcome != "skipped":
+                        seen.add(qualified)
+            points += 1
+            any_failed |= failed and not directive
+
+    terminal, batches = None, 0
+    try:
+        if peek() != "TAP version 13":
+            fail("missing Node TAP version header")
+        position += 1
+        failed = block(0, ())
+        summary = {}
+        for field in ("tests", "suites", "pass", "fail", "cancelled", "skipped", "todo", "duration_ms"):
+            pattern = r"[0-9]+(?:\.[0-9]+)?" if field == "duration_ms" else r"[0-9]{1,8}"
+            match = re.fullmatch(r"# " + field + " (" + pattern + r")", peek())
+            if not match:
+                fail("missing, reordered or invalid Node TAP terminal summary")
+            summary[field] = float(match[1]) if field == "duration_ms" else int(match[1])
+            position += 1
+        if position != len(lines):
+            fail("unexpected output after Node TAP terminal summary")
+        expected = {"tests": counts["passed"] + counts["failed"] + counts["skipped"] + counts["cancelled"],
+                    "suites": counts["suites"], "pass": counts["passed"], "fail": counts["failed"],
+                    "cancelled": counts["cancelled"], "skipped": counts["skipped"] - counts["todo"],
+                    "todo": counts["todo"]}
+        if any(summary[key] != value for key, value in expected.items()):
+            fail("Node TAP case/summary cardinality mismatch")
+        terminal, batches = ("fail" if failed else "pass"), 1
+    except ValueError as error:
+        issue(str(error))
+    if exit_code not in {0, 1}:
+        issue("Node did not exit normally with pass or test-failure status")
+    return counts, seen, batches, terminal
+
+
 def _junit(text, exit_code, expected_results, issue):
     """Conservative flat pytest JUnit accounting, with qualified case names."""
     counts = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0}
@@ -91,7 +238,7 @@ def _junit(text, exit_code, expected_results, issue):
 
 
 def summarize(text, *, format, exit_code, expected_tests, package=None):
-    """Count Go events, Rust verbose batches or saved flat pytest JUnit reports.
+    """Count Go events, Rust batches, pytest JUnit or Node built-in TAP reports.
 
     Go counts include parent tests/subtests and repeats, not assertion counts.
     Rust compact/JSON/bench/custom harness formats are deliberately unsupported.
@@ -100,7 +247,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     test failure. Preserve observed assertions but classify the run inconclusive.
     Shell-normalized positive codes do not reliably identify a signal.
     """
-    if format not in {"go-json", "rust-libtest", "pytest-junit"}:
+    if format not in {"go-json", "rust-libtest", "pytest-junit", "node-tap"}:
         raise ValueError("unsupported native test format")
     if type(exit_code) is not int:
         raise ValueError("exit code must be an observed integer")
@@ -132,8 +279,10 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
 
     if format == "pytest-junit":
         counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue)
+    elif format == "node-tap":
+        counts, seen, batches, terminal = _node_tap(text, exit_code, expected_results, issue)
 
-    for line in text.splitlines() if format != "pytest-junit" else ():
+    for line in text.splitlines() if format in {"go-json", "rust-libtest"} else ():
         if format == "go-json":
             if not line.lstrip().startswith("{"):
                 continue  # compiler/SSH diagnostics are not test events
@@ -294,7 +443,7 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)
-    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit"), required=True)
+    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit", "node-tap"), required=True)
     parser.add_argument("--exit-code", type=int, required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)

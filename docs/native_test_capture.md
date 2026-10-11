@@ -6,12 +6,22 @@ schedule workers, call models, or decide PR readiness. Keep automated unreviewed
 Scout execution disabled unless a separately reviewed isolation backend exists.
 
 `scripts/scout_native_results.py` checks saved Go `go test -json` events, Rust
-verbose libtest output, or flat pytest JUnit XML. Supply exact expected case names;
+verbose libtest output, flat pytest JUnit XML, or Node's built-in TAP reporter.
+Supply exact expected case names;
 for Go also supply the exact package. Missing targets, skipped expected cases,
 incomplete terminals, abnormal pytest exits, cached Go results, contradictory
 counts, and signal termination remain inconclusive. A printed “passed” string or
 exit zero alone is insufficient. JUnit setup/teardown errors are not assertion
 failure reproductions. Rust compact/custom/bench output is unsupported.
+
+Use `node --test --test-reporter=tap` for Node 24. Nested identities join the
+reporter's emitted, TAP-escaped names with `::`; names containing that separator
+and duplicate full identities are inconclusive. Suites are not executed tests;
+ordinary parent tests count alongside their children, matching Node's summary.
+TODO is counted as skipped, not passed. Cancellations, timeouts, hook/runner
+failures, missing typed diagnostics/plans/summaries and unexpected trailing
+output cannot establish a regression or PASS. This is not a general TAP/YAML
+parser; older/unrecognized reporter formats remain inconclusive, not guessed.
 
 `scripts/scout_native_run.py` captures one bounded command on an authorized POSIX
 worker. It checks reviewed source hashes before/after, records executable and log
@@ -58,5 +68,7 @@ python -B -m unittest discover -s tests -p 'test_scout_native*.py'
 Windows skips POSIX process controls. Run them on an authorized Linux worker before
 shipping changes to process handling. The controls synthesize output to test the
 capture protocol; separately replay a real repository's native baseline/candidate.
+The optional native Node tests use an already installed Node 24 (PATH or
+`SCOUT_TEST_NODE`); they never install a runtime or start WSL.
 Neither test counts nor a published fix establish an evidence-selector benefit,
 recall, conversion-rate improvement, or a paper result.

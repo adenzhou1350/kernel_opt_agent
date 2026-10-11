@@ -1,4 +1,4 @@
-"""Capture one reviewed Go/Rust/pytest CPU command on an authorized POSIX worker.
+"""Capture one reviewed Go/Rust/pytest/Node CPU command on a POSIX worker.
 
 No downloads, environment provisioning, SSH, model calls or queue mutations.
 This is execution/log accounting, not a sandbox or a PR qualification oracle.
@@ -219,7 +219,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cwd", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit"), required=True)
+    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit", "node-tap"), required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)
     parser.add_argument("--source", action="append", required=True)
