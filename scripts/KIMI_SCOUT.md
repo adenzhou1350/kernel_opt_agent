@@ -834,6 +834,12 @@ may select a secondary source; ambiguous basenames abstain. Python AST loads and
 attributes exclude definitions and literal/comment text, without executing code.
 Literal second arguments to syntactic `getattr`/`hasattr` calls also supply
 hints; these function names may be shadowed. Computed keys are not inferred.
+An unqualified uppercase name also admits a unique module-level literal
+initializer, including nested dictionaries, lists, tuples and sets with literal
+or unqualified uppercase-name entries. Symbolic entries are shown, not resolved.
+Calls, comprehensions, unpacking and competing bindings abstain. The excerpt shows
+initialization syntax, not an immutable runtime value or a class attribute;
+later mutation and dynamic subclasses still need separate evidence.
 If no unseen Python uses remain, an unqualified name can instead select its
 unique top-level import statement from that same cached file. Aliases use their
 local name; qualified receivers, wildcard imports, competing imports,

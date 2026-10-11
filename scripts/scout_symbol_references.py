@@ -111,12 +111,33 @@ def _javascript_code(raw, *, prefix_on_unsupported=False):
     return "".join(output)
 
 
+def _literal_initializer(node):
+    """Recognize literal/uppercase-name container syntax, without evaluation."""
+    if node is None:
+        return False
+    container = isinstance(node, (ast.Tuple, ast.List, ast.Set, ast.Dict))
+    for child in ast.walk(node):
+        if (
+            container and isinstance(child, ast.Name)
+            and isinstance(child.ctx, ast.Load)
+            and re.fullmatch(r"[A-Z][A-Z0-9_]{1,127}", child.id)
+        ):
+            continue  # An observed symbolic entry, not its resolved value.
+        if not isinstance(child, (ast.Constant, ast.Tuple, ast.List, ast.Set, ast.Dict, ast.Load)):
+            return False
+        if isinstance(child, ast.Dict) and any(key is None for key in child.keys):
+            return False  # Even literal-looking **unpacking is outside this hint.
+    return True
+
+
 def _python_literal_assignments(tree, names):
     """Locate unambiguous module-level literal assignments, without evaluation.
 
     Only an unqualified uppercase request admits this extra syntax hint. Any
     other syntactic binding of the name (even in another scope) abstains.
-    The value is not a resolved runtime constant or a reachability assertion.
+    Scalar and container initializers (including symbolic uppercase entries)
+    are source hints, not resolved runtime constants, immutable values, class
+    attributes or reachability assertions.
     """
     lines = set()
     nodes = list(ast.walk(tree))
@@ -136,7 +157,7 @@ def _python_literal_assignments(tree, names):
             if (
                 isinstance(target, ast.Name)
                 and target.id == name
-                and isinstance(node.value, ast.Constant)
+                and _literal_initializer(node.value)
             ):
                 candidates.append(node)
         if len(candidates) != 1:
