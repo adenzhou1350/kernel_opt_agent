@@ -247,8 +247,9 @@ def run_case(
     summaries = re.findall(r"(?m)^" + SUMMARY_MARKER + r"([^\r\n]*)\r?$", output)
     count = summary = None
     try:
-        if len(counts) == len(summaries) == 1:
+        if len(counts) == 1:
             count = int(counts[0])
+        if len(summaries) == 1:
             summary = json.loads(summaries[0])
     except (ValueError, RecursionError):
         pass

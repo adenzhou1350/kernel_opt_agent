@@ -304,6 +304,8 @@ class VerifyTests(unittest.TestCase):
                 result = verify.run_case("/baseline.py", "/test.py", 1)
             self.assertTrue(result["inconclusive"])
             self.assertLessEqual(len(result["output"]), verify.MAX_OUTPUT_BYTES)
+            if output == b"KIMI_VERIFY_TEST_COUNT=0\n":
+                self.assertEqual(result["reported_tests_run"], 0)
 
     def test_reject_directory_oversize_and_symlink_without_docker(self):
         with tempfile.TemporaryDirectory() as directory:
