@@ -15,6 +15,16 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_dma_teardown_advice_retains_dependency_and_evidence_limits(self):
+        result = notes.search("RDMA DMA teardown deregistration failure buffers")
+        card = result["matches"][0]["card"]
+        self.assertEqual(card["id"], "dma-teardown-failure-retention")
+        self.assertEqual(card["status"], "counterexample")
+        self.assertIn("independent resource may be safe", card["avoid_when"])
+        self.assertIn("source evidence", card["avoid_when"])
+        self.assertIn("native RDMA failure-injection", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
     def test_packed_prefill_advice_keeps_version_and_execution_scope(self):
         result = notes.search("KDA packed token sequence count FlashInfer ordinary prefill")
         card = result["matches"][0]["card"]

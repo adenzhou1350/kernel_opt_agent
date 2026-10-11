@@ -1,0 +1,22 @@
+{
+  "id": "dma-teardown-failure-retention",
+  "title": "Failed RDMA teardown does not authorize freeing DMA buffers",
+  "applies_when": "A native-resource leak hypothesis proposes continuing cleanup after QP destruction or memory-region deregistration fails. Trace the owning destructor, retirement/retry path and buffer dependencies, not only the early return.",
+  "lesson": "A failed release may leave a device reference alive. Before freeing its backing memory, establish successful deregistration or another documented quiescence guarantee. At the cited Mooncake revision, closeNotification preserves failed QP/MR handles and returns before buffer reset; the owning destructor explicitly retains the DMA buffers on teardown failure. finishDestroy retries deconstructLocked, and its outstanding-work gate preserves retired endpoints. Destroying independent ordinary QPs in a loop does not justify freeing their dependent state or notification buffers after failure. Compare a successful release, a failed dependency release and a later successful retry when designing a native reproduction.",
+  "avoid_when": "This is source evidence of intentional retention, not proof that all Mooncake teardown is correct or leak-free, a native RDMA failure-injection result, or a universal recommendation to leak on error. Reclaiming an independent resource may be safe after proving its exact lifetime; the send-MR failure alone does not prove that recv-MR deregistration must be skipped. Reopen with an actual supported path, resource dependency and safe reclaim guarantee. A mock observing another cleanup call does not establish hardware quiescence.",
+  "evidence": [
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L101-L118",
+      "note": "The destructor deliberately releases owning smart pointers without deleting the DMA buffers after deconstructLocked fails; it documents the safety boundary. Source inspection only."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L287-L351",
+      "note": "Retirement waits for outstanding work and retries failed teardown. This contradicts the truncated-source claim that no owner retry exists, without proving every provider failure is recoverable."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/559f83cb73eb870d208a8d4f333b1a24ee992f26/mooncake-transfer-engine/src/transport/rdma_transport/rdma_endpoint.cpp#L592-L613",
+      "note": "Notification teardown clears successful handles but returns on failed QP destruction or MR deregistration before resetting backing buffers."
+    }
+  ],
+  "status": "counterexample"
+}
