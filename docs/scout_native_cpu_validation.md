@@ -447,6 +447,31 @@ complete current issue/comments before publication. Already clipped historical
 packets cannot recover missing text without fresh evidence. A replay on a case
 used to develop this change is an exposed canary, not a holdout benefit estimate.
 
+## Audit service-free test entrypoints before preparing dependencies
+
+A runner's `--no-services` flag may only skip starting its sidecars. It does
+not prove that application initialization, pytest hooks or autouse fixtures avoid
+connecting to services. Inspect those paths before an expensive dependency setup,
+including for a targeted test that only exercises a pure helper.
+
+For example, at FutureAGI commit `ea12cc3f4456fc568d9694a215c661b15be1cea2`,
+[`futureagi/bin/test`](https://github.com/future-agi/future-agi/blob/ea12cc3f4456fc568d9694a215c661b15be1cea2/futureagi/bin/test)
+skips Compose and migrations with `--no-services`, but
+[`futureagi/conftest.py`](https://github.com/future-agi/future-agi/blob/ea12cc3f4456fc568d9694a215c661b15be1cea2/futureagi/conftest.py)
+still contains a ClickHouse schema-apply hook and session fixtures that attempt
+DDL. Its explicit schema-apply skip does not disable those other fixtures.
+Do not point that run at a shared service, invent import stubs or silently omit
+the conftest to claim backend qualification. An owner-reviewed targeted run in a
+working isolated network namespace is a distinct possible component-test route;
+it is neither proof of a filesystem sandbox for generated code nor a replacement
+for the project's required full-stack checks.
+
+Record failures at the stage actually reached: a locked dependency download
+timeout before application import means `environment blocked / tests not run`,
+not a failed candidate or a passing backend. Retain the exact source and useful
+cache; retry only when transport/cache/environment evidence changes. This also
+keeps a new Scout pass from repeatedly rediscovering the same body-only result.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the
