@@ -335,6 +335,110 @@ def test_failed_streamed_cli_does_not_publish_target(
     assert sorted(path.name for path in tmp_path.iterdir()) == before
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Native Windows path interpretation")
+@pytest.mark.parametrize(
+    "name",
+    [
+        "..\\..\\outside.txt",
+        "C:/outside.txt",
+        "payload:stream",
+        "NUL.txt",
+        "COM¹.log",
+        "trailing.",
+        "trailing ",
+        "a?b",
+    ],
+)
+def test_windows_member_rejected_before_native_write(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str
+) -> None:
+    tar_bytes, entries = deterministic_tar([(name, 0o100644, b"payload")], "source")
+    assert entries_from_tar(tar_bytes, "source") == entries
+    original_mkdir = Path.mkdir
+
+    def mkdir(path, *args, **kwargs):
+        assert path.resolve().is_relative_to(tmp_path.resolve()), "unsafe mkdir reached"
+        return original_mkdir(path, *args, **kwargs)
+
+    def open_file(*args, **kwargs):
+        pytest.fail("native file write reached before path rejection")
+
+    monkeypatch.setattr(Path, "mkdir", mkdir)
+    monkeypatch.setattr(Path, "open", open_file)
+    with pytest.raises(ValueError, match="unsafe Windows extraction path"):
+        extract_bundle(tar_bytes, {"entries": entries}, tmp_path / "target")
+    assert not (tmp_path / "target").exists()
+    assert not list(tmp_path.glob(".target.*"))
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Native Windows symlink interpretation")
+@pytest.mark.parametrize(
+    "link_target", ["C:outside", "..\\..\\outside", "NUL", "payload:stream"]
+)
+def test_windows_link_target_rejected_before_link_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, link_target: str
+) -> None:
+    tar_bytes, entries = deterministic_tar(
+        [("nested/link", 0o120000, link_target.encode())], "source"
+    )
+    assert entries_from_tar(tar_bytes, "source") == entries
+
+    def symlink(*args, **kwargs):
+        pytest.fail("native link creation reached before path rejection")
+
+    monkeypatch.setattr(os, "symlink", symlink)
+    with pytest.raises(ValueError, match="unsafe Windows extraction path"):
+        extract_bundle(tar_bytes, {"entries": entries}, tmp_path / "target")
+    assert not (tmp_path / "target").exists()
+    assert not list(tmp_path.glob(".target.*"))
+
+
+def test_member_under_symlink_is_rejected_before_creation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    output = io.BytesIO()
+    with tarfile.open(fileobj=output, mode="w:") as archive:
+        link = tarfile.TarInfo("source/link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "."
+        archive.addfile(link)
+        archive.addfile(tarfile.TarInfo("source/link/child"), io.BytesIO(b""))
+    tar_bytes = output.getvalue()
+    entries = entries_from_tar(tar_bytes, "source")
+
+    def symlink(*args, **kwargs):
+        pytest.fail("symlink parent must be rejected before creation")
+
+    monkeypatch.setattr(os, "symlink", symlink)
+    with pytest.raises(ValueError, match="uses symlink parent"):
+        extract_bundle(tar_bytes, {"entries": entries}, tmp_path / "target")
+    assert not (tmp_path / "target").exists()
+    assert not list(tmp_path.glob(".target.*"))
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Windows symlinks require host policy")
+@pytest.mark.parametrize("link_name", ["alink", "zlink"])
+def test_native_symlink_chain_cannot_escape_staging(
+    tmp_path: Path, link_name: str
+) -> None:
+    # Both targets are lexically inside source/. Resolving d/step -> ..
+    # consumes less depth than lexical normalization, making the other link
+    # escape. alink is created before step; zlink is created after it.
+    tar_bytes, entries = deterministic_tar(
+        [("d/step", 0o120000, b".."),
+         (link_name, 0o120000, b"d/step/../../outside.txt")],
+        "source",
+    )
+    assert entries_from_tar(tar_bytes, "source") == entries
+    outside = tmp_path / "outside.txt"
+    outside.write_bytes(b"untouched sentinel")
+    with pytest.raises(ValueError, match="escapes extraction staging"):
+        extract_bundle(tar_bytes, {"entries": entries}, tmp_path / "target")
+    assert outside.read_bytes() == b"untouched sentinel"
+    assert not (tmp_path / "target").exists()
+    assert not list(tmp_path.glob(".target.*"))
+
+
 @pytest.mark.parametrize(
     "blobs, message",
     [

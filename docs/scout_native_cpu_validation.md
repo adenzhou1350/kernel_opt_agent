@@ -72,6 +72,16 @@ metadata. The compatibility
 of symlinks needs host permission; do not silently replace links or start local
 WSL to bypass it.
 
+Transport preserves POSIX filenames, but Windows extraction rejects names that
+would be reinterpreted (backslashes, drive/stream colons, device names, invalid
+characters or trailing dots/spaces); it does not rename them. On every platform,
+extraction checks native destinations against its private staging directory,
+rejects archive members beneath a symlink, and rechecks link resolution before
+publishing the completed tree. A lexically internal link can still escape after
+following another link, so POSIX string normalization alone is insufficient.
+Unresolvable link loops are refused at extraction; archive verification remains
+a separate byte/metadata check, not a sandbox or execution authorization.
+
 Regression tests cover LF Git text with CRLF/dirty checkout bytes, in-memory
 versus streamed tar/gzip identity, large/PAX entries, bounded verification reads,
 snapshot replacement, gzip corruption, unsafe members and temporary-file/child

@@ -488,12 +488,54 @@ def extract_bundle(tar_bytes: bytes, manifest: dict, target: Path) -> None:
     extract_bundle_stream(io.BytesIO(tar_bytes), manifest, target)
 
 
+def safe_windows_extraction_path(value: str) -> None:
+    """Reject POSIX names that Windows would reinterpret or cannot preserve."""
+    for part in PurePosixPath(value).parts:
+        if part in {".", ".."}:
+            # Relative symlink parents are checked against the bundle prefix
+            # during verification and the native staging root during extraction.
+            continue
+        if (
+            any(character in '<>:"\\|?*' or ord(character) < 32 for character in part)
+            or part.endswith((".", " "))
+            or re.match(
+                r"^(?:CON|PRN|AUX|NUL|CONIN\$|CONOUT\$|COM[1-9¹²³]|LPT[1-9¹²³])(?:\.|$)",
+                part,
+                re.IGNORECASE,
+            )
+        ):
+            raise ValueError(f"unsafe Windows extraction path: {value!r}")
+
+
+def contained_extraction_path(root: Path, destination: Path) -> None:
+    """Check native resolution, including links created earlier in this stage."""
+    try:
+        resolved = destination.resolve()
+    except RuntimeError as error:
+        raise ValueError(f"unresolvable extraction path: {destination}") from error
+    if not resolved.is_relative_to(root):
+        raise ValueError(f"archive destination escapes extraction staging: {destination}")
+
+
 def extract_bundle_stream(stream: BinaryIO, manifest: dict, target: Path) -> None:
     """Extract a previously verified seekable tar into a fresh atomic target."""
     stream.seek(0)
     target = target.resolve()
     if target.exists():
         raise ValueError(f"extract target must not already exist: {target}")
+    links = {
+        PurePosixPath(entry["path"])
+        for entry in manifest["entries"]
+        if entry["type"] == "symlink"
+    }
+    for entry in manifest["entries"]:
+        if any(parent in links for parent in PurePosixPath(entry["path"]).parents):
+            raise ValueError(f"archive member uses symlink parent: {entry['path']}")
+    if os.name == "nt":
+        for entry in manifest["entries"]:
+            safe_windows_extraction_path(entry["path"])
+            if entry["type"] == "symlink":
+                safe_windows_extraction_path(entry["target"])
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix=f".{target.name}.", dir=target.parent))
     try:
@@ -504,6 +546,7 @@ def extract_bundle_stream(stream: BinaryIO, manifest: dict, target: Path) -> Non
             for entry in manifest["entries"]:
                 relative = PurePosixPath(entry["path"])
                 destination = temporary.joinpath(*relative.parts)
+                contained_extraction_path(temporary, destination)
                 if entry["type"] == "directory":
                     destination.mkdir(parents=True, exist_ok=True)
                     os.chmod(destination, entry["mode"])
@@ -517,11 +560,21 @@ def extract_bundle_stream(stream: BinaryIO, manifest: dict, target: Path) -> Non
                     os.chmod(destination, entry["mode"])
                 elif entry["type"] == "symlink":
                     destination.parent.mkdir(parents=True, exist_ok=True)
+                    contained_extraction_path(
+                        temporary, destination.parent / entry["target"]
+                    )
                     os.symlink(entry["target"], destination)
                 else:
                     raise ValueError(
                         f"unsupported manifest entry type: {entry['type']}"
                     )
+        # A later symlink can change how an earlier target resolves. Recheck
+        # the completed tree before publication, not only creation-time paths.
+        for entry in manifest["entries"]:
+            if entry["type"] == "symlink":
+                contained_extraction_path(
+                    temporary, temporary.joinpath(*PurePosixPath(entry["path"]).parts)
+                )
         os.replace(temporary, target)
     except Exception:
         shutil.rmtree(temporary, ignore_errors=True)
