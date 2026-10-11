@@ -1,6 +1,8 @@
 import unittest
 
-from scripts.scout_github_checks import observe_check_runs, observe_pull_request
+from scripts.scout_github_checks import (
+    observe_check_runs, observe_failed_job_steps, observe_pull_request,
+)
 
 
 SHA = "a" * 40
@@ -117,6 +119,116 @@ class CheckObservationTests(unittest.TestCase):
         for repo in ("../repo", "owner/..", None):
             with self.subTest(repo=repo), self.assertRaises(ValueError):
                 observe_pull_request(forbidden, repo, 1)
+
+
+class JobStepObservationTests(unittest.TestCase):
+    def setUp(self):
+        self.check = check(10, conclusion="failure", details_url=
+                           "https://github.com/owner/repo/actions/runs/20/job/30")
+        self.job = dict(id=30, run_id=20, head_sha=SHA,
+                        url="https://api.github.com/repos/owner/repo/actions/jobs/30",
+                        run_url="https://api.github.com/repos/owner/repo/actions/runs/20",
+                        check_run_url="https://api.github.com/repos/owner/repo/check-runs/10",
+                        status="completed", conclusion="failure", steps=[
+                            dict(number=1, name="Test with pytest", status="completed",
+                                 conclusion="success"),
+                            dict(number=2, name="Upload Coverage", status="completed",
+                                 conclusion="failure"),
+                        ])
+        self.calls = []
+
+    def fetch(self, path):
+        self.calls.append(path)
+        return self.job
+
+    def observe(self, check_value=None):
+        return observe_failed_job_steps(self.fetch, "owner/repo", SHA,
+                                        self.check if check_value is None else check_value)
+
+    def test_failed_upload_does_not_relabel_the_job_or_check_as_passing(self):
+        result = self.observe()
+        self.assertEqual(self.calls, ["repos/owner/repo/actions/jobs/30"])
+        self.assertEqual(result["state"], "OBSERVED_JOB_STEPS")
+        self.assertEqual(result["job_conclusion"], "failure")
+        self.assertEqual([step["conclusion"] for step in result["steps"]],
+                         ["success", "failure"])
+        self.assertEqual(self.check["conclusion"], "failure")
+        # Names alone must not become a test-quality or infrastructure classifier.
+        self.assertNotIn("tests_passed", result)
+        self.assertNotIn("recommended_action", result)
+
+    def test_only_an_exact_local_failed_actions_handle_makes_a_request(self):
+        for updates in (
+            dict(status="in_progress", conclusion=None), dict(conclusion="success"),
+            dict(details_url=None), dict(details_url="https://other.invalid/job/30"),
+            dict(details_url=self.check["details_url"].replace("owner/repo", "other/repo")),
+            dict(details_url=self.check["details_url"] + "?x=1"),
+            dict(details_url=self.check["details_url"].replace("/30", "/030")),
+        ):
+            with self.subTest(updates=updates):
+                result = self.observe({**self.check, **updates})
+                self.assertEqual(result["state"], "UNAVAILABLE")
+        self.assertEqual(self.calls, [])
+
+    def test_job_run_repository_check_and_source_identity_are_all_bound(self):
+        for key, value in (
+            ("id", True), ("id", 31), ("run_id", True), ("run_id", 21),
+            ("head_sha", "b" * 40), ("url", "https://other.invalid/30"),
+            ("run_url", "https://api.github.com/repos/other/repo/actions/runs/20"),
+            ("check_run_url", "https://api.github.com/repos/owner/repo/check-runs/11"),
+        ):
+            saved = self.job[key]
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.job[key] = value
+                self.observe()
+            self.job[key] = saved
+
+    def test_missing_oversized_duplicate_and_malformed_steps_fail(self):
+        row = self.job["steps"][0]
+        for steps in (None, [row] * 201, [row, row], [None],
+                      [{**row, "number": True}], [{**row, "name": "x" * 2001}],
+                      [{**row, "status": None}], [{**row, "conclusion": 1}]):
+            with self.subTest(steps_type=type(steps).__name__), self.assertRaises(ValueError):
+                self.job["steps"] = steps
+                self.observe()
+
+    def test_job_outcomes_are_typed_but_not_inferred_from_previous_check_state(self):
+        for key, value in (("status", []), ("conclusion", {})):
+            saved = self.job[key]
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                self.job[key] = value
+                self.observe()
+            self.job[key] = saved
+        self.job["status"], self.job["conclusion"] = "in_progress", None
+        result = self.observe()
+        self.assertEqual(result["job_status"], "in_progress")
+        self.assertIsNone(result["job_conclusion"])
+        self.assertEqual(self.check["conclusion"], "failure")
+
+    def test_unknown_or_empty_steps_are_observations_not_a_pass(self):
+        for steps in ([], [dict(number=1, name="untrusted label", status="new-status",
+                               conclusion="new-conclusion")]):
+            self.job["steps"] = steps
+            result = self.observe()
+            self.assertEqual(result["state"], "OBSERVED_JOB_STEPS")
+            self.assertEqual(result["steps"], steps)
+            self.assertEqual(result["job_conclusion"], "failure")
+
+    def test_invalid_inputs_and_transport_errors_are_not_empty_successes(self):
+        for repo, sha, row in (("../repo", SHA, self.check), ("owner/repo", "main", self.check),
+                              ("owner/repo", SHA, {}), ("owner/repo", SHA, dict(id=True))):
+            with self.subTest(repo=repo), self.assertRaises(ValueError):
+                observe_failed_job_steps(self.fetch, repo, sha, row)
+        self.assertEqual(self.calls, [])
+        def broken(path):
+            raise TimeoutError("not free or successful evidence")
+        with self.assertRaises(TimeoutError):
+            observe_failed_job_steps(broken, "owner/repo", SHA, self.check)
+
+    def test_check_observation_preserves_the_details_handle(self):
+        result = observe_check_runs(
+            lambda path: dict(total_count=1, check_runs=[self.check]), "owner/repo", SHA)
+        self.assertEqual(result["failed"][0]["details_url"], self.check["details_url"])
 
 
 if __name__ == "__main__":

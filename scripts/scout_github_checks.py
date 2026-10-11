@@ -51,7 +51,7 @@ def observe_check_runs(fetch, repository, sha, *, per_page=100, max_pages=10):
                 break
             seen.add(check["id"])
             checks.append({key: check.get(key) for key in
-                           ("id", "name", "status", "conclusion", "html_url")})
+                           ("id", "name", "status", "conclusion", "html_url", "details_url")})
         else:
             if len(checks) == total:
                 reason = None
@@ -117,3 +117,62 @@ def observe_pull_request(fetch, repository, number, **limits):
         result.update(state="INCOMPLETE", complete=False,
                       incomplete_reason="pull_request_head_changed")
     return result
+
+
+def observe_failed_job_steps(fetch, repository, sha, check):
+    """One optional metadata GET for a failed Actions check, never a diagnosis.
+
+    Job/step names are untrusted labels, not proof of what commands executed.
+    Bind repository, run, job, check and commit before reporting step outcomes.
+    No log download, retry, workflow mutation or automatic pass/reclassification.
+    Non-Actions handles remain unavailable without a speculative API lookup.
+    """
+    _validate_repository(repository)
+    if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-f]{40}", sha):
+        raise ValueError("sha must be an exact lowercase commit SHA")
+    if (not isinstance(check, dict) or type(check.get("id")) is not int
+            or check["id"] < 1):
+        raise ValueError("check must have a positive integer id")
+    if check.get("status") != "completed" or check.get("conclusion") != "failure":
+        return {"state": "UNAVAILABLE", "reason": "not_a_completed_failed_check"}
+    details = check.get("details_url")
+    match = re.fullmatch(
+        r"https://github\.com/" + re.escape(repository)
+        + r"/actions/runs/([1-9][0-9]{0,18})/job/([1-9][0-9]{0,18})",
+        details,
+    ) if isinstance(details, str) else None
+    if match is None:
+        return {"state": "UNAVAILABLE", "reason": "no_exact_actions_job_handle"}
+    run_id, job_id = map(int, match.groups())
+    prefix = f"https://api.github.com/repos/{repository}"
+    job = fetch(f"repos/{repository}/actions/jobs/{job_id}")
+    if (not isinstance(job, dict) or type(job.get("id")) is not int
+            or job["id"] != job_id or type(job.get("run_id")) is not int
+            or job["run_id"] != run_id or job.get("head_sha") != sha
+            or job.get("url") != f"{prefix}/actions/jobs/{job_id}"
+            or job.get("run_url") != f"{prefix}/actions/runs/{run_id}"
+            or job.get("check_run_url") != f"{prefix}/check-runs/{check['id']}"):
+        raise ValueError("job identity does not match the observed failed check")
+    if (not isinstance(job.get("status"), str)
+            or (job.get("conclusion") is not None
+                and not isinstance(job["conclusion"], str))):
+        raise ValueError("malformed job outcome")
+    steps = job.get("steps")
+    if not isinstance(steps, list) or len(steps) > 200:
+        raise ValueError("expected at most 200 job steps")
+    observed, numbers = [], set()
+    for step in steps:
+        if (not isinstance(step, dict) or type(step.get("number")) is not int
+                or step["number"] < 1 or step["number"] in numbers
+                or not isinstance(step.get("name"), str) or len(step["name"]) > 2000
+                or not isinstance(step.get("status"), str)
+                or (step.get("conclusion") is not None
+                    and not isinstance(step["conclusion"], str))):
+            raise ValueError("malformed or duplicate job step")
+        numbers.add(step["number"])
+        observed.append({key: step.get(key) for key in
+                         ("number", "name", "status", "conclusion")})
+    return {"state": "OBSERVED_JOB_STEPS", "repository": repository, "sha": sha,
+            "check_id": check["id"], "run_id": run_id, "job_id": job_id,
+            "details_url": details, "job_status": job.get("status"),
+            "job_conclusion": job.get("conclusion"), "steps": observed}

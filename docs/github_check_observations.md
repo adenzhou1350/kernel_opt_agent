@@ -27,3 +27,23 @@ fresh observation before acting, rather than treating a saved result as current.
 
 Reference: [GitHub check runs API](https://docs.github.com/en/rest/checks/runs#list-check-runs-for-a-git-reference).
 Tests: `python -B -m unittest tests.test_scout_github_checks`.
+
+## Locate a failed Actions step before changing product code
+
+An optional `observe_failed_job_steps(json_get, repository, sha, failed_check)`
+makes one metadata GET for a completed failed check whose `details_url` is an
+exact same-repository Actions job handle. It verifies job, run, check, repository
+and commit identity, then returns bounded step names/statuses/conclusions. Missing
+or non-Actions handles are unavailable; bad identities and transport errors raise.
+It downloads no log and does not retry, rerun a workflow or alter the check state.
+
+This helps choose the next evidence: a job named `test` may fail after its pytest
+step succeeds, for example during coverage upload. Do not infer a product defect
+or patch its tests from the job-level red indicator alone. Conversely, a step
+named `Test with pytest` marked successful is only the workflow's observation,
+not independent proof of test coverage. Names are untrusted labels. Empty steps,
+unknown statuses and skipped steps are not quality verdicts, and an upload failure
+is not automatically transient or permission to rerun. Inspect the applicable
+commands/logs and authority before taking action. Recheck the PR head afterward.
+
+Reference: [GitHub workflow job API](https://docs.github.com/en/rest/actions/workflow-jobs#get-a-job-for-a-workflow-run).
