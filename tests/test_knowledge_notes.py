@@ -15,6 +15,20 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_native_registration_advice_keeps_cleanup_and_protocol_limits(self):
+        from scout_lesson_context import lesson_suggestions
+
+        advice = lesson_suggestions("newListener listener registration cancellation")
+        self.assertEqual(advice["status"], "ADVISORY_MATCH")
+        card = advice["matches"][0]
+        self.assertEqual(card["id"], "cancellation-before-listener-registration")
+        self.assertIn("before inserting the listener", card["lesson"])
+        self.assertIn("after addListener returns", card["lesson"])
+        self.assertIn("caller-owned listeners", card["lesson"])
+        self.assertIn("correctly rejected promise alone", card["avoid_when"])
+        self.assertIn("not the Node22/26 CI matrix", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
     def test_cold_thenable_advice_reaches_scout_without_native_promise_overclaim(self):
         from scout_lesson_context import lesson_suggestions
 
