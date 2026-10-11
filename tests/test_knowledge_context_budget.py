@@ -94,6 +94,21 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("measured memory-budget", card["avoid_when"])
         self.assertNotIn("qualified", result)
 
+    def test_failed_warmup_advice_keeps_mode_and_readiness_separate(self):
+        result = lesson_suggestions("DeepGEMM warmup compile mode initialization retry")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "training-and-grad-mode-dispatch")
+        self.assertIn("restoring one does not repair the other", card["lesson"])
+        self.assertIn("clear only the failed group's marker", card["lesson"])
+        self.assertIn("same-key retry", card["lesson"])
+        self.assertIn("reentrancy", card["lesson"])
+        self.assertIn("mocked GPU/executor", card["avoid_when"])
+        self.assertIn("corrupted CUDA context", card["avoid_when"])
+        self.assertIn("prospective evidence-selector utility", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertTrue(any("43712" in entry["url"] for entry in card["evidence"]))
+        self.assertNotIn("qualified", result)
+
     def test_default_cards_fit_the_existing_advisory_budget(self):
         for path in knowledge_notes.DEFAULT_DIRECTORY.glob("*.json"):
             with self.subTest(card=path.name):
