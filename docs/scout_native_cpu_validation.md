@@ -5,6 +5,23 @@ source is available. A baseline may reveal a known upstream failure; retain it
 and compare the same affected tests before/after a candidate. Do not suppress
 warnings or weaken assertions to manufacture a green environment.
 
+## Owner-only intake across languages
+
+For an existing Scout inbox, `kimi_scout_delivery_source.select_leads(root,
+source_ids=[known_job_id], scan_limit=16, owner_review=True)` also returns
+non-Python immutable source leads. The ordinary Python-only selector is unchanged.
+Every opt-in result carries `verification_route=OWNER_REVIEW_ONLY` and must be
+admitted with `kimi_scout_delivery.stage(root / "delivery", leads,
+owner_review=True)`. Automatic admission rejects that route; an owner row cannot
+be claimed by model/test workers. Selection and admission perform no source
+execution, model call or environment setup.
+
+This is a read/review handoff, not a newly supported language verifier. Inspect
+current contribution rules, caller reachability and existing PR ownership before
+building. Keep an unsupported environment or source-refuted premise distinct from
+native test failure. Use existing owner disposition/publication records after the
+actual outcome; do not rewrite the original Scout answer into a verified result.
+
 Python source admission distinguishes a function's definition from its body.
 Literal imports in defaults and decorators are required when the definition is
 reached; nested definitions inherit the surrounding lazy/optional context.

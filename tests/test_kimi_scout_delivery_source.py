@@ -7,6 +7,7 @@ import stat
 import sys
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -139,6 +140,87 @@ class SelectionTests(unittest.TestCase):
         selected = delivery.select_leads(self.root, 1, scan_limit=1)
         self.assertEqual([row["id"] for row in selected], ["python"])
         self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
+    def test_owner_review_selects_native_sources_without_changing_default(self):
+        for index, extension in enumerate(("go", "rs", "cpp", "ts")):
+            self.add(
+                extension,
+                packet(sources=[{
+                    "url": RAW.replace("check.py", "check." + extension),
+                    "text": "untrusted source, never executed",
+                }]),
+                finished=10 + index,
+            )
+        self.add("python", finished=1)
+        before = (self.root / "scout.sqlite").read_bytes()
+        self.assertEqual(
+            [row["id"] for row in delivery.select_leads(self.root)], ["python"]
+        )
+        rows = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual({row["id"] for row in rows}, {"go", "rs", "cpp", "ts", "python"})
+        self.assertTrue(all(row["commit"] == COMMIT for row in rows))
+        self.assertTrue(all(row["verification_route"] == "OWNER_REVIEW_ONLY" for row in rows))
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
+    def test_owner_review_keeps_immutable_source_and_parent_admission(self):
+        self.add("mutable", packet(sources=[{
+            "url": RAW.replace(COMMIT, "main").replace(".py", ".go"),
+        }]), finished=30)
+        self.add("other-repo", packet(sources=[{
+            "url": RAW.replace(REPO, "other/project").replace(".py", ".rs"),
+        }]), finished=20)
+        self.add("parent", packet(sources=[{"url": RAW.replace(".py", ".cpp")}]))
+        self.add("child", packet(parent="parent"), state="NEEDS_CONTEXT")
+        self.add("valid", packet(sources=[{"url": RAW.replace(".py", ".ts")}]))
+        rows = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual([row["id"] for row in rows], ["valid"])
+
+    def test_owner_review_commit_belongs_to_primary_non_python_source(self):
+        self.add("mixed", packet(sources=[
+            {"url": RAW.replace(".py", ".rs")},
+            {"url": RAW.replace(COMMIT, "b" * 40)},
+        ]))
+        owner = delivery.select_leads(self.root, owner_review=True)[0]
+        automatic = delivery.select_leads(self.root)[0]
+        self.assertEqual(owner["commit"], COMMIT)
+        self.assertEqual(automatic["commit"], "b" * 40)
+        self.assertEqual(owner["canonical_key"], automatic["canonical_key"])
+
+    def test_owner_review_exact_ids_do_not_bypass_existing_delivery(self):
+        self.add("staged", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
+        self.add("fresh", packet(sources=[{"url": RAW.replace(".py", ".rs")}]))
+        folder = self.root / "delivery"
+        folder.mkdir()
+        with closing(sqlite3.connect(folder / "delivery.sqlite")) as db, db:
+            db.execute("CREATE TABLE delivery (source_job_id TEXT UNIQUE)")
+            db.execute("INSERT INTO delivery VALUES ('staged')")
+        rows = delivery.select_leads(
+            self.root, owner_review=True, source_ids=["staged", "fresh"], scan_limit=2
+        )
+        self.assertEqual([row["id"] for row in rows], ["fresh"])
+        self.assertEqual(
+            delivery.select_leads(self.root, owner_review=True, source_ids=["staged"]), []
+        )
+
+    def test_owner_review_selection_cannot_schedule_native_work(self):
+        import kimi_scout_delivery as intake
+
+        self.add("go", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
+        leads = delivery.select_leads(self.root, owner_review=True)
+        folder = self.root / "delivery"
+        intake.initialize(folder)
+        with self.assertRaisesRegex(ValueError, "owner_review=True"):
+            intake.stage(folder, leads)
+        with intake.database(folder) as db:
+            self.assertEqual(db.execute("SELECT count(*) FROM delivery").fetchone()[0], 0)
+        self.assertEqual(intake.stage(folder, leads, owner_review=True), 1)
+        self.assertIsNone(intake.claim(folder))
+        self.assertEqual(list((folder / "jobs").iterdir()), [])
+
+    def test_owner_review_requires_explicit_boolean(self):
+        for value in (1, "false", None):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "boolean"):
+                delivery.select_leads(self.root, owner_review=value)
 
     def test_exact_normalized_dedup_is_revision_stable_not_semantic(self):
         self.add("old", hypothesis="  Same  HYPOTHESIS ", finished=1)

@@ -167,6 +167,16 @@ class DirectOwnerIntakeTests(unittest.TestCase):
         )
         self.assertIsNone(delivery.claim(self.root))
 
+    def test_general_owner_route_cannot_enter_automatic_queue(self):
+        value = lead(2)
+        value["verification_route"] = "OWNER_REVIEW_ONLY"
+        with self.assertRaisesRegex(ValueError, "owner_review=True"):
+            delivery.stage(self.root, [lead(), value])
+        self.assertEqual(self.rows(), [])
+        self.assertEqual(delivery.stage(self.root, [value], owner_review=True), 1)
+        self.assertIsNone(delivery.claim(self.root))
+        self.assertEqual(self.rows()[0]["state"], delivery.OWNER_STATE)
+
     def test_boolean_mode_and_bounded_admission(self):
         for mode in (1, "false", None):
             with self.subTest(mode=mode), self.assertRaisesRegex(ValueError, "boolean"):

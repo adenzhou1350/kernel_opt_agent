@@ -201,10 +201,12 @@ def stage(root, leads, limit=32, *, owner_review=False):
             if made >= limit:
                 break
             if (
-                lead.get("verification_route") == "OWNER_NATIVE_CPU_REVIEW_ONLY"
+                lead.get("verification_route") in {
+                    "OWNER_NATIVE_CPU_REVIEW_ONLY", "OWNER_REVIEW_ONLY",
+                }
                 and not owner_review
             ):
-                raise ValueError("native owner-review leads require owner_review=True")
+                raise ValueError("owner-only leads require owner_review=True")
             key = lead["canonical_key"]
             job_id = hashlib.sha256(key.encode()).hexdigest()[:24]
             cursor = db.execute(

@@ -95,16 +95,21 @@ def _raw_sources(packet, repo):
 
 def select_leads(
     root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None,
-    source_ids=None,
+    source_ids=None, owner_review=False,
 ):
-    """Return Python-verifiable REVIEW leads fairly; no DB/cache writes.
+    """Return source-pinned REVIEW leads fairly; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
-    Other-language leads remain in the research DB for a matching verifier.
+    By default, other-language leads remain for a matching verifier. Explicit
+    owner_review also admits them, marking ALL selected leads owner-only so
+    stage() cannot accidentally schedule them in the automatic model queue.
+    This broadens source inspection, not execution or qualification support.
     source_ids optionally restricts selection to known job IDs before decoding
     packets or applying LIMIT. It does not bypass any admission/exclusion rule.
     """
+    if type(owner_review) is not bool:
+        raise ValueError("owner_review must be a boolean")
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
     if source_ids is not None:
@@ -145,6 +150,10 @@ def select_leads(
             "id IN (" + ",".join("?" for _ in source_ids) + ") AND "
             if source_ids is not None else ""
         )
+        source_pattern = (
+            "https://raw.githubusercontent.com/*"
+            if owner_review else "https://raw.githubusercontent.com/*.py"
+        )
         query = f"""SELECT id,packet,result FROM jobs
             WHERE {source_filter}state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
@@ -154,14 +163,14 @@ def select_leads(
               SELECT 1 FROM json_each(jobs.packet,'$.sources') AS source
               WHERE CASE WHEN json_valid(source.value)
                 THEN json_extract(source.value,'$.url') END
-                GLOB 'https://raw.githubusercontent.com/*.py'
+                GLOB ?
             )
             {unstaged}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
         if scan_limit is not None:
             query += " LIMIT ?"
-        params = (*(source_ids or ()), *((scan_limit,) if scan_limit else ()))
+        params = (*(source_ids or ()), source_pattern, *((scan_limit,) if scan_limit else ()))
         rows = connection.execute(query, params)
         for row in rows:
             if row["id"] in excluded_ids:
@@ -175,7 +184,7 @@ def select_leads(
                 sources = list(_raw_sources(packet, repo))
                 primary = sources[0] if sources else None
                 python = next((s for s in sources if s["path"].endswith(".py")), None)
-                if python is None:
+                if primary is None or (python is None and not owner_review):
                     continue
                 text = analysis.get("hypothesis") or analysis.get("title") or row["id"]
                 if not isinstance(text, str):
@@ -198,10 +207,11 @@ def select_leads(
                 {
                     "id": row["id"],
                     "repo": repo,
-                    "commit": (python or primary or {}).get("commit"),
+                    "commit": (primary if owner_review else python)["commit"],
                     "packet": packet,
                     "analysis": analysis,
                     "canonical_key": key,
+                    **({"verification_route": "OWNER_REVIEW_ONLY"} if owner_review else {}),
                 }
             )
     finally:
