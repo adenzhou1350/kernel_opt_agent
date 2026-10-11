@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import gzip
 import io
 import json
 import os
@@ -22,7 +23,11 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from qualification_source_bundle import (  # noqa: E402
     build_bundle,
     canonical_json,
+    deterministic_tar,
+    entries_from_tar,
     extract_bundle,
+    git_tree_blobs,
+    iter_git_tree_blobs,
     main,
     safe_symlink_target,
     verify_bundle,
@@ -109,6 +114,120 @@ def test_manifest_validates_against_public_schema(tmp_path: Path) -> None:
     )
 
     jsonschema.Draft202012Validator(schema).validate(value)
+
+
+def test_autocrlf_checkout_cannot_change_bundle_text(tmp_path: Path) -> None:
+    repo, _, _ = source_repo(tmp_path)
+    run(repo, "config", "core.autocrlf", "true")
+    raw = "# Unicode text: 参数\nvalue = 'a}b'\n".encode("utf-8")
+    (repo / "text.py").write_bytes(raw)
+    run(repo, "add", "text.py")
+    run(repo, "commit", "-m", "add normalized text")
+    commit = run(repo, "rev-parse", "HEAD")
+    checkout = tmp_path / "crlf-checkout"
+    run(repo, "checkout-index", "--all", f"--prefix={checkout.as_posix()}/")
+    assert (checkout / "text.py").read_bytes() == raw.replace(b"\n", b"\r\n")
+    # Even a mixed/newline dirty copy must not replace committed LF bytes.
+    (repo / "text.py").write_bytes(raw.replace(b"\n", b"\r\n") + b"# dirty\n")
+    archive, manifest = bundle_paths(tmp_path)
+    build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    verified, tar_bytes = verify_bundle(archive, manifest)
+    target = tmp_path / "raw-blob-extracted"
+    extract_bundle(tar_bytes, verified, target)
+    assert (target / "source" / "text.py").read_bytes() == raw
+
+
+def test_streamed_build_matches_in_memory_tar_and_gzip(tmp_path: Path) -> None:
+    repo, _, _ = source_repo(tmp_path)
+    # More than a compression copy block, plus names requiring PAX headers.
+    name = "参数-" + "long-" * 22 + ".txt"
+    (repo / name).write_bytes(b"raw\x00bytes\xff\n" * 120_000)
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "add larger blob")
+    commit = run(repo, "rev-parse", "HEAD")
+    tar_bytes, entries = deterministic_tar(git_tree_blobs(repo, commit), "source")
+    assert entries == entries_from_tar(tar_bytes, "source")
+    compressed = io.BytesIO()
+    with gzip.GzipFile(filename="", mode="wb", fileobj=compressed, mtime=0) as handle:
+        handle.write(tar_bytes)
+    archive, manifest = bundle_paths(tmp_path)
+    value = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    assert archive.read_bytes() == compressed.getvalue()
+    assert value["entries"] == entries
+    assert verify_bundle(archive, manifest)[1] == tar_bytes
+
+
+@pytest.mark.parametrize(
+    "blobs, message",
+    [
+        ([("../escape", 0o100644, b"data")], "unsafe archive member"),
+        ([("same", 0o100644, b"one"), ("same", 0o100644, b"two")], "duplicate"),
+    ],
+)
+def test_streamed_tar_preserves_path_rejections(blobs, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        deterministic_tar(blobs, "source")
+
+
+def test_missing_blob_does_not_publish_outputs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    monkeypatch.setattr(
+        "qualification_source_bundle.git_tree_entries",
+        lambda *_: [("missing", "100644", "0" * 40)],
+    )
+    archive, manifest = bundle_paths(tmp_path / "failed-build")
+    with pytest.raises(ValueError, match="unexpected git cat-file header"):
+        build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    assert not archive.exists()
+    assert not manifest.exists()
+
+
+def test_submodule_is_not_silently_omitted(tmp_path: Path) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    run(repo, "update-index", "--add", "--cacheinfo", f"160000,{commit},vendor")
+    run(repo, "commit", "-m", "add gitlink")
+    archive, manifest = bundle_paths(tmp_path / "gitlink-build")
+    with pytest.raises(ValueError, match="unsupported Git tree entry 160000 commit"):
+        build_bundle(repo, "HEAD", REPOSITORY, "source", archive, manifest)
+    assert not archive.exists()
+    assert not manifest.exists()
+
+
+def test_early_blob_iterator_close_reaps_child(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    object_id = "a" * 40
+
+    class Child:
+        stdout = io.BytesIO(f"{object_id} blob 1\nx\n".encode())
+        returncode = None
+        killed = False
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        def wait(self):
+            return self.returncode
+
+    child = Child()
+
+    def popen(*args, **kwargs):
+        assert kwargs["stdin"].read() == f"{object_id}\n".encode()
+        assert hasattr(kwargs["stderr"], "write")
+        return child
+
+    monkeypatch.setattr(subprocess, "Popen", popen)
+    blobs = iter_git_tree_blobs(tmp_path, [("file", "100644", object_id)])
+    assert next(blobs) == ("file", 0o100644, b"x")
+    blobs.close()
+    assert child.killed
+    assert child.stdout.closed
 
 
 def test_archive_or_manifest_tamper_fails_closed(tmp_path: Path) -> None:

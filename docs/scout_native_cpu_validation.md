@@ -30,6 +30,45 @@ under the Python 3.10 source model. Lambda bodies remain lazy, unlike their
 defaults. This static check does not resolve aliases, execute source or prove a
 test environment supports the affected caller; native import checks still matter.
 
+## Commit-exact source before native validation
+
+When testing a committed change, reuse the existing source bundle tool instead
+of copying a Windows working tree into the test environment:
+
+```text
+python scripts/qualification_source_bundle.py --build --repo REVIEWED_REPO --commit FULL_COMMIT --repository-url PUBLIC_REPO_URL --archive task/candidate.tar.gz --manifest task/candidate.manifest.json
+python scripts/qualification_source_bundle.py --verify --archive task/candidate.tar.gz --manifest task/candidate.manifest.json --extract-root task/candidate-export
+```
+
+Use fresh output paths for each arm. On an authorized Linux test host, transfer
+the archive, manifest and reviewed verifier, then run the second command there;
+the package root is `task/candidate-export/source`. Review the source before
+execution, select that root before importing the project, and check the actual
+import path. The manifest binds the commit/tree and every archived entry, not
+the Python environment, runtime reachability or test result. A trusted expected
+manifest/hash is still required; a self-consistent replacement is not proof of
+upstream identity. No model-generated code is automatically executed by this recipe.
+
+The builder reads raw Git blobs. `core.autocrlf`, dirty copies, ignored files and
+output filenames cannot change committed contents. Unlike `git archive`, it
+does not apply `export-ignore` or `export-subst`. It rejects submodule gitlinks
+rather than pretending to include their source; Git LFS blobs remain pointers,
+not downloaded assets. The current format accepts SHA-1 Git identities only.
+Existing `git archive` recipes below remain usable when their intended exported
+members have been checked against Git; disabling autocrlf alone is not that check.
+
+Build now reads one blob at a time and stages an uncompressed tar on the archive's
+output volume before streamed gzip compression. Leave space for both tar and
+archive. Python memory still scales with the largest blob and entry metadata;
+this is not a constant-memory verifier: verification/decompression retains the
+archive and tar in memory. Windows extraction of symlinks needs host permission;
+do not silently replace links or start local WSL to bypass it.
+
+Regression tests cover LF Git text with CRLF/dirty checkout bytes, in-memory
+versus streamed tar/gzip identity, large/PAX entries, archive verification, path
+rejection and early child cleanup. These are transport checks, not project tests
+or evidence of a higher PR conversion rate.
+
 ## Windows-native TypeScript checks without bypassing runtime requirements
 
 Read the reviewed checkout's `package.json` engines and test wrappers before

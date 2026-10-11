@@ -100,7 +100,8 @@ source/issue triage to an existing Kimi Code account. It has no model tools or
 publication rights, deduplicates inputs, and caps concurrency and daily usage.
 Its output is an unverified hypothesis inbox, not a replacement for validation.
 
-Useful specialist tools include paired sample analysis, source bundle transport,
+Useful specialist tools include paired sample analysis, [commit-exact source bundle
+transport](docs/scout_native_cpu_validation.md#commit-exact-source-before-native-validation),
 runtime import checks, hardware queries and profiler analysis. Use whichever is
 available in your checkout and relevant to the experiment. They are not a required
 sequence. For an explicit lower-bound or performance-limit claim, use

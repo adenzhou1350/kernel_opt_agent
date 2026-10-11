@@ -17,6 +17,7 @@ import subprocess
 import sys
 import tarfile
 import tempfile
+from collections.abc import Iterable, Iterator
 from pathlib import Path, PurePosixPath
 from typing import BinaryIO
 
@@ -69,9 +70,8 @@ def read_exact(handle: BinaryIO, size: int) -> bytes:
     return data
 
 
-def git_tree_blobs(repo: Path, commit: str) -> list[tuple[str, int, bytes]]:
-    """Return tracked paths, modes, and exact blob bytes without a checkout."""
-
+def git_tree_entries(repo: Path, commit: str) -> list[tuple[str, str, str]]:
+    """List tracked blob identities without reading their contents."""
     records = git(repo, "ls-tree", "-rz", "--full-tree", "-r", commit).split(b"\0")
     identities: list[tuple[str, str, str]] = []
     for record in records:
@@ -95,53 +95,99 @@ def git_tree_blobs(repo: Path, commit: str) -> list[tuple[str, int, bytes]]:
         identities.append((path, mode, object_id))
     if not identities:
         raise ValueError("source bundle must contain at least one Git blob")
+    return sorted(identities)
 
-    process = subprocess.Popen(
-        ["git", "-C", str(repo), "cat-file", "--batch"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    )
-    request = b"".join(
-        object_id.encode("ascii") + b"\n" for _, _, object_id in identities
-    )
-    stdout, stderr = process.communicate(request)
-    if process.returncode != 0:
-        detail = stderr.decode("utf-8", errors="replace").strip()
-        raise ValueError(f"git cat-file --batch failed: {detail}")
 
-    stream = io.BytesIO(stdout)
-    result: list[tuple[str, int, bytes]] = []
-    for path, mode_text, object_id in identities:
-        header = stream.readline().rstrip(b"\n").decode("ascii", errors="replace")
-        parts = header.split(" ")
-        if len(parts) != 3 or parts[0] != object_id or parts[1] != "blob":
-            raise ValueError(f"unexpected git cat-file header for {path!r}: {header!r}")
+def iter_git_tree_blobs(
+    repo: Path, identities: list[tuple[str, str, str]]
+) -> Iterator[tuple[str, int, bytes]]:
+    """Read one raw blob at a time, without buffering all cat-file output.
+
+    File-backed stdin avoids a write/read pipe deadlock for a large tree. File-
+    backed stderr cannot fill a pipe while stdout is being consumed. Reap the
+    child even when a caller stops iteration or rejects a blob.
+    """
+
+    with tempfile.TemporaryFile() as request, tempfile.TemporaryFile() as errors:
+        for _, _, object_id in identities:
+            request.write(object_id.encode("ascii") + b"\n")
+        request.seek(0)
+        process = subprocess.Popen(
+            ["git", "-C", str(repo), "cat-file", "--batch"],
+            stdin=request,
+            stdout=subprocess.PIPE,
+            stderr=errors,
+        )
+        assert process.stdout is not None
         try:
-            size = int(parts[2])
-        except ValueError as error:
-            raise ValueError(f"invalid Git blob size for {path!r}") from error
-        data = read_exact(stream, size)
-        if stream.read(1) != b"\n":
-            raise ValueError(f"invalid Git blob delimiter for {path!r}")
-        result.append((path, int(mode_text, 8), data))
-    if stream.read(1):
-        raise ValueError("git cat-file returned trailing data")
-    return result
+            for path, mode_text, object_id in identities:
+                header = process.stdout.readline().rstrip(b"\n").decode(
+                    "ascii", errors="replace"
+                )
+                parts = header.split(" ")
+                if len(parts) != 3 or parts[0] != object_id or parts[1] != "blob":
+                    raise ValueError(
+                        f"unexpected git cat-file header for {path!r}: {header!r}"
+                    )
+                try:
+                    size = int(parts[2])
+                    if size < 0:
+                        raise ValueError("negative blob size")
+                except ValueError as error:
+                    raise ValueError(f"invalid Git blob size for {path!r}") from error
+                data = read_exact(process.stdout, size)
+                if process.stdout.read(1) != b"\n":
+                    raise ValueError(f"invalid Git blob delimiter for {path!r}")
+                yield path, int(mode_text, 8), data
+            if process.stdout.read(1):
+                raise ValueError("git cat-file returned trailing data")
+            if process.wait() != 0:
+                errors.seek(0)
+                detail = errors.read().decode("utf-8", errors="replace").strip()
+                raise ValueError(f"git cat-file --batch failed: {detail}")
+        finally:
+            if process.poll() is None:
+                process.kill()
+                process.wait()
+            process.stdout.close()
+
+
+def git_tree_blobs(repo: Path, commit: str) -> list[tuple[str, int, bytes]]:
+    """Compatibility helper for callers that need all exact blob bytes."""
+
+    return list(iter_git_tree_blobs(repo, git_tree_entries(repo, commit)))
 
 
 def deterministic_tar(
     blobs: list[tuple[str, int, bytes]], prefix: str
 ) -> tuple[bytes, list[dict]]:
+    output = io.BytesIO()
+    entries = write_deterministic_tar(
+        sorted(blobs), (path for path, _, _ in blobs), prefix, output
+    )
+    return output.getvalue(), entries
+
+
+def write_deterministic_tar(
+    blobs: Iterable[tuple[str, int, bytes]],
+    paths: Iterable[str],
+    prefix: str,
+    output: BinaryIO,
+) -> list[dict]:
+    """Write path-sorted blobs to a seekable stream; retain only entry metadata."""
+
     directories = {prefix}
-    for path, _, _ in blobs:
+    for path in paths:
         parts = PurePosixPath(path).parts
         for index in range(1, len(parts)):
             directories.add(PurePosixPath(prefix, *parts[:index]).as_posix())
 
-    output = io.BytesIO()
+    entries: list[dict] = []
+    seen: set[str] = set()
     with tarfile.open(fileobj=output, mode="w:", format=tarfile.PAX_FORMAT) as archive:
         for path in sorted(directories):
+            safe_member_path(path, prefix)
+            seen.add(path)
             info = tarfile.TarInfo(path + "/")
             info.type = tarfile.DIRTYPE
             info.mode = 0o755
@@ -149,8 +195,13 @@ def deterministic_tar(
             info.uid = info.gid = 0
             info.uname = info.gname = ""
             archive.addfile(info)
-        for path, git_mode, data in sorted(blobs):
+            entries.append({"mode": 0o755, "path": path, "type": "directory"})
+        for path, git_mode, data in blobs:
             archive_path = PurePosixPath(prefix, path).as_posix()
+            safe_member_path(archive_path, prefix)
+            if archive_path in seen:
+                raise ValueError(f"duplicate archive member: {archive_path}")
+            seen.add(archive_path)
             info = tarfile.TarInfo(archive_path)
             info.mtime = 0
             info.uid = info.gid = 0
@@ -167,13 +218,29 @@ def deterministic_tar(
                 info.mode = 0o777
                 info.linkname = target
                 archive.addfile(info)
+                entries.append(
+                    {
+                        "mode": info.mode,
+                        "path": archive_path,
+                        "type": "symlink",
+                        "target": target,
+                    }
+                )
             else:
                 info.type = tarfile.REGTYPE
                 info.mode = 0o755 if git_mode == 0o100755 else 0o644
                 info.size = len(data)
                 archive.addfile(info, io.BytesIO(data))
-    tar_bytes = output.getvalue()
-    return tar_bytes, entries_from_tar(tar_bytes, prefix)
+                entries.append(
+                    {
+                        "mode": info.mode,
+                        "path": archive_path,
+                        "type": "file",
+                        "size": len(data),
+                        "sha256": sha256_bytes(data),
+                    }
+                )
+    return entries
 
 
 def validate_prefix(prefix: str) -> str:
@@ -274,14 +341,24 @@ def build_bundle(
     )
     if not full_sha1(resolved_commit) or not full_sha1(tree):
         raise ValueError("Git commit and tree must use full SHA-1 identities")
-    tar_bytes, entries = deterministic_tar(
-        git_tree_blobs(repo, resolved_commit), prefix
-    )
-
-    compressed = io.BytesIO()
-    with gzip.GzipFile(filename="", mode="wb", fileobj=compressed, mtime=0) as handle:
-        handle.write(tar_bytes)
-    archive_bytes = compressed.getvalue()
+    identities = git_tree_entries(repo, resolved_commit)
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    # Keep the uncompressed tar on the output volume, not in RAM or system TEMP.
+    with tempfile.TemporaryFile(dir=archive_path.parent) as tar_output:
+        blobs = iter_git_tree_blobs(repo, identities)
+        try:
+            entries = write_deterministic_tar(
+                blobs, (path for path, _, _ in identities), prefix, tar_output
+            )
+        finally:
+            blobs.close()
+        tar_output.seek(0)
+        with archive_path.open("xb") as compressed:
+            with gzip.GzipFile(
+                filename="", mode="wb", fileobj=compressed, mtime=0
+            ) as handle:
+                shutil.copyfileobj(tar_output, handle, length=1024 * 1024)
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "source": {
@@ -290,17 +367,15 @@ def build_bundle(
             "repository": repository_url.strip(),
         },
         "archive": {
-            "bytes": len(archive_bytes),
+            "bytes": archive_path.stat().st_size,
             "construction": "raw Git blobs -> deterministic POSIX tar -> gzip(mtime=0)",
             "prefix": prefix,
-            "sha256": sha256_bytes(archive_bytes),
+            "sha256": sha256_file(archive_path),
         },
         "entries": entries,
     }
-    archive_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    archive_path.write_bytes(archive_bytes)
-    manifest_path.write_bytes(canonical_json(manifest))
+    with manifest_path.open("xb") as handle:
+        handle.write(canonical_json(manifest))
     return manifest
 
 
