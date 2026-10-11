@@ -15,6 +15,21 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_readinto_advice_keeps_byte_and_native_scope_boundaries(self):
+        from scout_lesson_context import lesson_suggestions
+
+        advice = lesson_suggestions("readinto typed memoryview buffer bytes position")
+        self.assertEqual(advice["status"], "ADVISORY_MATCH")
+        card = advice["matches"][0]
+        self.assertEqual(card["id"], "readinto-buffer-validation-before-consumption")
+        self.assertIn("before consuming input", card["lesson"])
+        self.assertIn("not byte capacity", card["lesson"])
+        self.assertIn("failure leaves the position", card["lesson"])
+        self.assertIn("nbytes alone does not establish contiguity", card["avoid_when"])
+        self.assertIn("not zero-copy I/O", card["avoid_when"])
+        self.assertIn("prospective evidence-selection utility", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
     def test_native_registration_advice_keeps_cleanup_and_protocol_limits(self):
         from scout_lesson_context import lesson_suggestions
 
