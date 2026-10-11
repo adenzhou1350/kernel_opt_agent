@@ -11,6 +11,22 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_tma_advice_keeps_descriptor_and_dummy_consumer_semantics(self):
+        result = lesson_suggestions(
+            "TMA descriptor signed coordinates dummy rows OOB fill"
+        )
+        card = next(
+            match
+            for match in result["matches"]
+            if match["id"] == "native-binding-semantics-before-field-inference"
+        )
+        self.assertIn("coordinates are signed", card["lesson"])
+        self.assertIn("segment boundaries", card["lesson"])
+        self.assertIn("producer/barrier step", card["lesson"])
+        self.assertIn("Descriptor acceptance does not prove", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertTrue(any("#L1477-L1479" in item["url"] for item in card["evidence"]))
+
     def test_native_partial_construction_advice_checks_the_factory_owner(self):
         result = lesson_suggestions(
             "RDMA QP partial construction factory shared_ptr destructor"

@@ -2,12 +2,28 @@
   "id": "native-binding-semantics-before-field-inference",
   "title": "Check the exact native binding and constructor before inferring API semantics from fields",
   "applies_when": "A cross-language constructor, wrapper, indexing operation, TMA descriptor or callback appears wrong from stored field names, a partial source excerpt, or another API with a similar signature.",
-  "lesson": "Inspect the exact version's constructor implementation and binding before inventing expected behavior. TVM C++ Range(begin, end) computes extent=end-begin; FromMinExtent is separate. T.Pipelined(start, stop) therefore does not become a min/extent API because its For consumer reads those fields. Check actual frontend IR with nonzero, equal and one-bound controls. Apply the same API-specific discipline to PyTorch advanced indexing versus index_copy_, signature binding/defaults, view bit counts and backend layout transformations. For CUDA cuTensorMapEncodeTiled, boxDim versus globalDim alone is not evidence of invalid encoding: consult rank, dtype, strides, interleave, swizzle and OOB rules, then use a native descriptor-only call with matching parameters and invalid controls before inventing a minimum-shape guard. Prefer real native operations and matching registered tests over stand-ins that silently change the contract.",
+  "lesson": "Inspect the exact version's constructor implementation and binding before inventing expected behavior. TVM C++ Range(begin, end) computes extent=end-begin; FromMinExtent is separate. T.Pipelined(start, stop) therefore does not become a min/extent API because its For consumer reads those fields. Check actual frontend IR with nonzero, equal and one-bound controls. Apply the same API-specific discipline to PyTorch advanced indexing versus index_copy_, signature binding/defaults, view bit counts and backend layout transformations. For CUDA cuTensorMapEncodeTiled, boxDim versus globalDim alone is not evidence of invalid encoding: consult rank, dtype, strides, interleave, swizzle and OOB rules, then use a native descriptor-only call with matching parameters and invalid controls before inventing a minimum-shape guard. TMA tile coordinates are signed, not ordinary raw-pointer offsets; inspect descriptor OOB fill and dummy-row consumers. The cited DSA variant masks invalid paired rows before emission and final stores. Tensor-allocation boundaries differ from segment boundaries; an earlier segment may be in bounds but its dummy rows must still be excluded. Do not skip a producer/barrier step merely to remove a negative coordinate. Prefer real native operations and matching registered tests over stand-ins that silently change the contract.",
   "avoid_when": "Constructor correctness does not prove later pipeline lowering or GPU execution. Descriptor acceptance does not prove a TMA load/store, OOB masking, synchronization or kernel numerics; one parameter set or GPU does not qualify other generated variants or target architectures. Python and C++ bindings, dependency revisions and neighboring operations may differ. A documented device guard does not qualify an alternative accelerator. A rank-zero shape still has one element times dtype bits and lanes, not zero storage. RoPE+SDPA may return BHSD from BSHD while plain SDPA preserves shape; a shape-preserving callback is not the same backend. Reopen with a supported caller and native failure at the actual failing stage; do not dismiss all constructor, indexing or layout bugs.",
   "evidence": [
     {
       "url": "https://docs.nvidia.com/cuda/archive/13.0.1/cuda-driver-api/group__CUDA__TENSOR__MEMORY.html",
       "note": "cuTensorMapEncodeTiled documents boxDim nonzero and <=256, innermost alignment, stride and swizzle restrictions, and OOB fill. It does not list a general boxDim[i]<=globalDim[i] requirement. This motivates a parameter-matched native API test; absence of that requirement alone is not measured encoding or kernel correctness."
+    },
+    {
+      "url": "https://docs.nvidia.com/cuda/archive/13.0.0/parallel-thread-execution/index.html#data-movement-and-conversion-instructions-cp-async-bulk-tensor",
+      "note": "PTX 9.0 specifies .s32 coordinates and load OOB fill. Do not transfer load rules to shared-to-global stores; a negative coordinate alone does not qualify a kernel."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/c94c1a9e4bf151e56080168ac880ebf0651af317/flashinfer/experimental/cake_dsa_indexer/csrc/cake_dsa_indexer_topk/cake_dsa_indexer_topk_6ff54f38a7d43aed441b_binding.cu#L81-L88",
+      "note": "Q (BF16) and W (FP32) use CU_TENSOR_MAP_FLOAT_OOB_FILL_NONE: zero fill, not absent boundary handling. Source evidence only."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/c94c1a9e4bf151e56080168ac880ebf0651af317/flashinfer/experimental/cake_dsa_indexer/csrc/cake_dsa_indexer_topk/cake_dsa_indexer_topk_6ff54f38a7d43aed441b_kernel.cu#L561-L645",
+      "note": "Odd block pairing can produce blk=-1. The consumer sets dummy and clears both row-valid flags; later emission is gated by these flags. This contradicts a missing-dummy-mask premise, not native numerical or synchronization safety."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/c94c1a9e4bf151e56080168ac880ebf0651af317/flashinfer/experimental/cake_dsa_indexer/csrc/cake_dsa_indexer_topk/cake_dsa_indexer_topk_6ff54f38a7d43aed441b_kernel.cu#L1477-L1479",
+      "note": "The final output path also requires valid_pair, derived from row_valid; merely observing a negative producer coordinate omits this consumer condition. No GPU launch or sanitizer result is claimed."
     },
     {
       "url": "https://github.com/TileLang/tvm/blob/4211874e9e4b8770fd20ad0d98ab80afd1df5028/src/ir/expr.cc#L194-L195",
