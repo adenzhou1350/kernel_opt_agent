@@ -321,6 +321,15 @@ class KnowledgeNotesTests(unittest.TestCase):
             )
         )
 
+    def test_native_offset_state_validation_is_retrievable(self):
+        result = notes.search("ctypes seek native offset buffered position", limit=3)
+        advice = next(match["card"] for match in result["matches"]
+                      if match["card"]["id"] == "native-offset-validation-before-state-mutation")
+        self.assertIn("seek(2**64)", advice["lesson"])
+        self.assertIn("then commit the state", advice["lesson"])
+        self.assertIn("not the Redis/MySQL/TiKV CI matrix", advice["avoid_when"])
+        self.assertTrue(any(item["url"].endswith("issues/7657") for item in advice["evidence"]))
+
     def test_inherited_test_fixture_counterexample_is_retrievable(self):
         result = notes.search("unittest inherited fixture exclusive file", limit=3)
         advice = next(match["card"] for match in result["matches"]

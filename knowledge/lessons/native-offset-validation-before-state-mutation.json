@@ -1,0 +1,26 @@
+{
+  "id": "native-offset-validation-before-state-mutation",
+  "title": "Validate file offsets before ctypes narrowing and stream-state mutation",
+  "applies_when": "A Python file-like wrapper stores arbitrary-precision offsets and later passes them through ctypes to signed native pread/pwrite, especially under BufferedRandom.",
+  "lesson": "A correct ABI width is not an overflow check: ctypes integer construction can wrap an out-of-range Python integer into a valid but different native offset. Resolve integer arguments with operator.index, compute the resulting position locally, validate both the input range and resulting position against the actual native ABI, then commit the state. Test negative absolute and relative-underflow seeks, integer-protocol objects, invalid types and values beyond the native range. Assert failed seek preserves tell, subsequent read and subsequent write destination; test both raw and buffered wrappers. In JuiceFS, raw seek(2**64) followed by write overwrote byte zero, while a rejected buffered negative seek left its raw position poisoned. Tiny task-private files and native FileIO controls expose these effects without allocating huge sparse files.",
+  "avoid_when": "Do not impose a signed 64-bit range on an unrelated unsigned, wider or virtual-offset protocol. Some backends intentionally clamp negative relative seeks; inspect their documented contract. Exception classes can differ across raw, buffered and platform implementations. Negative truncate or large valid writes may be destructive: prove the narrowed native argument before executing boundary probes. Evidence here is native Linux Python3.12.13, Go1.25.10 libjfs, SQLite/local objects, not the Redis/MySQL/TiKV CI matrix, maintainer acceptance, cross-framework validity or measured Scout selector utility.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3.12/library/ctypes.html#ctypes.c_longlong",
+      "note": "The signed integer constructor does not perform overflow checking; explicit native integer widths alone do not validate arbitrary Python values."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/operator.html#operator.index",
+      "note": "The integer-index protocol accepts integer-like objects without silently truncating floating-point values."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/issues/7657",
+      "note": "Current-main real-libjfs reproduction of wrap-to-zero writes and poisoned buffered positions. Proposed repair passes 47 selected native SDK tests and 16 FileIO differential cases; baseline differs on nine. Report and tested fork only, pending maintainer contract discussion, not a submitted/merged PR."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/juicefs/commit/2a656a712a25531bff4813824c27f1300e5e62d8",
+      "note": "Minimal implementation and registered raw/buffered regressions. Failed seeks leave the previous state intact; valid relative negative seeks and __index__ arguments remain supported."
+    }
+  ],
+  "status": "validated"
+}
