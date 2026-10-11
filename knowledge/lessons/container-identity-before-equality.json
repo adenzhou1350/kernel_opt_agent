@@ -1,0 +1,22 @@
+{
+  "id": "container-identity-before-equality",
+  "title": "Preserve identity short-circuits when porting container equality",
+  "applies_when": "A Python fallback implements mapping membership, lookup, replacement, deletion or equality corresponding to a native backend using PyObject_RichCompareBool. Especially useful when ordinary integer/string cases pass in both backends.",
+  "lesson": "A literal Python == comparison is not always equivalent to a native container comparison: identical NaN or other nonreflexive objects may fail it. Check the backend's identity semantics before porting the comparison. Exercise the same object as a key through lookup, repeated set/update, deletion and mutation/pop; compare both self and separate Maps sharing one NaN value. Add distinct constant-hash nonreflexive keys to force collision-node paths, with a missing-key control, and verify that persistent originals remain unchanged. Run identical regressions on the unchanged native backend as well as the known-bad fallback before changing either. This can expose semantic divergence that large random integer-only stress tests miss.",
+  "avoid_when": "Do not make NaN numerically equal to itself globally or replace all custom comparisons with identity. Distinct objects must still use the API's actual equality policy; comparison direction, exceptions and independently defined __ne__ require separate investigation. This repair covers the cited immutable mapping fallback, not all container APIs, PyPy execution, concurrency, performance or a proven improvement in Scout conversion. Upstream acceptance is pending.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3.12/reference/expressions.html#value-comparisons",
+      "note": "Documents nonreflexive NaN values and built-in container identity short-circuits; mapping equality preserves reflexivity. A contract reference, not evidence that every user-defined container must adopt the same policy."
+    },
+    {
+      "url": "https://github.com/MagicStack/immutables/blob/1317f9d607b2a540aca37716e902adba56925a99/immutables/_map.c",
+      "note": "Pinned C backend uses PyObject_RichCompareBool for key and value comparisons, unlike the fallback's bare comparison operators."
+    },
+    {
+      "url": "https://github.com/MagicStack/immutables/pull/123",
+      "note": "Proposed two-file correctness repair: three shared regressions fail on unchanged Python source and pass on the actually compiled unchanged C backend. Fixed Windows CPython 3.12 and 3.14 each pass 66 Python Map tests; Linux CPython 3.12 passes 164 runtime tests across both backends. Full pytest/type-checking/platform CI was not run locally because optional mypy dependency acquisition was stopped after a bounded attempt."
+    }
+  ],
+  "status": "validated"
+}
