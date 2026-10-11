@@ -24,11 +24,11 @@ class CompoundPathTests(unittest.TestCase):
 
     def test_camel_snake_and_kebab_names_share_a_bounded_phrase_hint(self):
         for name in ("requestHeaders.ts", "request_headers.py", "request-headers.js",
-                     "request-headers.rs"):
+                     "request-headers.rs", "request-headers.unknown"):
             with self.subTest(name=name):
-                # Rust is not a supported source suffix here; the hint must not
-                # expand the existing source-language admission rules.
-                expected = [] if name.endswith(".rs") else ["src/" + name]
+                # The hint must retain the caller's source-language admission;
+                # local controllers can already support additional suffixes.
+                expected = ["src/" + name] if name.endswith(research.SOURCE_SUFFIXES) else []
                 self.assertEqual(self.select(["src/" + name], "request headers disappear"),
                                  expected)
 
