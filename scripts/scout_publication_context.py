@@ -132,22 +132,47 @@ def source_paths(sources, repo):
     return paths
 
 
-def owner_publication_rows(root, repo):
-    """Read source-only owner PR links without manufacturing delivery records."""
-    path = Path(root).resolve() / "owner-publication-notes.json"
+def owner_publication_note_path(root, repo):
+    """Literal per-repository file; no directory scan or path traversal."""
+    if (
+        not isinstance(repo, str)
+        or not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo)
+        or any(part in {".", ".."} for part in repo.split("/"))
+    ):
+        return None
+    name = repo.casefold().replace("/", "%2F") + ".json"
+    return Path(root).resolve() / "owner-publication-notes" / name
+
+
+def _read_publication_notes(path):
     try:
-        if path.is_symlink() or not path.is_file():
+        if path.parent.is_symlink() or path.is_symlink() or not path.is_file():
             return []
         with path.open("rb") as stream:
             raw = stream.read(OWNER_NOTE_LIMIT_BYTES + 1)
         if len(raw) > OWNER_NOTE_LIMIT_BYTES:
             return []
         notes = json.loads(raw)
-        if not isinstance(notes, list) or len(notes) > 24:
-            return []
+        return notes if isinstance(notes, list) else []
     except (OSError, ValueError, RecursionError):
         return []
-    rows = []
+
+
+def owner_publication_rows(root, repo):
+    """Read <=24 distinct valid owner links from two <=64 KiB files.
+
+    Repository-specific notes take precedence over the optional legacy list.
+    Other repositories, invalid entries and duplicates do not exhaust the row
+    budget or invalidate the entire file. No queue mutation or automatic verdict.
+    """
+    path = owner_publication_note_path(root, repo)
+    if path is None:
+        return []
+    notes = _read_publication_notes(
+        Path(root).resolve() / "owner-publication-notes.json"
+    )
+    notes += _read_publication_notes(path)
+    groups = {}
     required = {"repo", "prior_hypothesis", "source_url", "pr_url"}
     for note in reversed(notes):
         if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
@@ -165,14 +190,24 @@ def owner_publication_rows(root, repo):
             or not source_paths([source], repo)
         ):
             continue
-        rows.append(
-            (
-                title,
-                json.dumps({"pr": {"url": url}}),
-                json.dumps({"packet": {"sources": [source]}}),
-            )
+        key = url.casefold()
+        if key not in groups:
+            if len(groups) == 24:
+                continue
+            groups[key] = {"title": title, "url": url, "sources": [], "paths": set()}
+        group = groups[key]
+        paths = source_paths([source], repo)
+        if not paths <= group["paths"]:
+            group["sources"].append(source)
+            group["paths"].update(paths)
+    return [
+        (
+            group["title"],
+            json.dumps({"pr": {"url": group["url"]}}),
+            json.dumps({"packet": {"sources": group["sources"]}}),
         )
-    return rows
+        for group in groups.values()
+    ]
 
 
 def publication_context(root, repo, sources):
@@ -195,7 +230,7 @@ def publication_context(root, repo, sources):
                 )
     except (OSError, sqlite3.Error):
         pass  # Independent owner links survive a missing/locked/corrupt DB.
-    matches, seen = [], set()
+    matches, indexes, path_sets = [], {}, {}
     for title, result, payload in rows:
         if not isinstance(title, str) or not all(
             isinstance(x, str) and len(x) <= 131072 for x in (result, payload)
@@ -209,13 +244,18 @@ def publication_context(root, repo, sources):
             paths = source_paths(packet.get("packet", {}).get("sources", []), repo)
         except (ValueError, AttributeError, TypeError):
             continue
-        if (
-            not match
-            or match[1].casefold() != repo.casefold()
-            or url.casefold() in seen
-        ):
+        if not match or match[1].casefold() != repo.casefold():
             continue
-        seen.add(url.casefold())
+        key = url.casefold()
+        if key in indexes:
+            index = indexes[key]
+            matched, item = matches[index]
+            path_sets[key].update(paths)
+            item["source_paths"] = sorted(path_sets[key])[:2]
+            matches[index] = (matched or bool(paths & wanted), item)
+            continue
+        indexes[key] = len(matches)
+        path_sets[key] = set(paths)
         matches.append(
             (
                 bool(paths & wanted),

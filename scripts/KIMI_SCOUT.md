@@ -579,8 +579,15 @@ Existing packets are unchanged. This reduces repeated context acquisition in
 principle; the implementation tests do not establish improved yield or recall.
 
 An owner can also record a source-only contribution that never entered delivery
-in `<root>/owner-publication-notes.json`. This optional list accepts at most 24
-objects with exactly `repo`, `prior_hypothesis` (<=200 characters), `source_url`
+in `<root>/owner-publication-notes/<owner>%2F<repo>.json` (lowercase filename).
+The legacy `<root>/owner-publication-notes.json` list is also read. Each file is
+limited to 64 KiB; only the requested repository's latest 24 distinct valid
+links enter the row budget. Foreign, invalid and duplicate rows do not exhaust
+that budget or discard all memory once a mixed list grows past 24 entries.
+Repository-specific notes take precedence over duplicate legacy links; an
+invalid or oversized file does not erase the other file's valid notes. No
+directory scan or automatic migration is performed. Objects have exactly
+`repo`, `prior_hypothesis` (<=200 characters), `source_url`
 (same repository, raw.githubusercontent.com with a full commit SHA), and `pr_url`
 (canonical same-repository GitHub PR URL). These links join the same three-item
 advisory hint budget and are deduplicated with delivery links. They do not create
