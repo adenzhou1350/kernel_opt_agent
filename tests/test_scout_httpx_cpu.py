@@ -197,8 +197,30 @@ class HttpxCpuTests(unittest.TestCase):
             }
             result = {
                 "inconclusive": False,
-                "before": {"exit_code": 1, "reported_tests_run": 2},
-                "fixed": {"exit_code": 0, "reported_tests_run": 2},
+                "before": {
+                    "exit_code": 1,
+                    "reported_tests_run": 2,
+                    "test_summary": {
+                        "tests_run": 2,
+                        "failures": 1,
+                        "errors": 0,
+                        "skipped": 0,
+                        "expected_failures": 0,
+                        "unexpected_successes": 0,
+                    },
+                },
+                "fixed": {
+                    "exit_code": 0,
+                    "reported_tests_run": 2,
+                    "test_summary": {
+                        "tests_run": 2,
+                        "failures": 0,
+                        "errors": 0,
+                        "skipped": 0,
+                        "expected_failures": 0,
+                        "unexpected_successes": 0,
+                    },
+                },
             }
             with (
                 patch.object(delivery, "load_source", return_value=source),

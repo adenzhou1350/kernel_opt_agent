@@ -26,6 +26,7 @@ from pathlib import Path
 import kimi_scout as scout
 import scout_httpx_cpu as httpx_cpu
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
+from kimi_scout_verify import valid_test_summary
 
 
 def owner_native_summary(result):
@@ -660,12 +661,29 @@ def classify(result):
             "real module/test import requires a different CPU environment",
         )
     count = before.get("reported_tests_run", 0)
-    if count < 2 or count != fixed.get("reported_tests_run"):
+    if type(count) is not int or count < 2 or count != fixed.get("reported_tests_run"):
         return (
             "INCONCLUSIVE",
             "before/fixed test cardinality is missing, unequal or too small",
         )
+    for arm in (before, fixed):
+        summary = arm.get("test_summary")
+        if not valid_test_summary(summary, arm.get("reported_tests_run")):
+            return "INCONCLUSIVE", "missing or inconsistent unittest outcome summary"
+        if any(
+            summary[key]
+            for key in ("skipped", "expected_failures", "unexpected_successes")
+        ):
+            return "INCONCLUSIVE", "non-executed/expected outcomes do not prove a fix"
+        expected_exit = 1 if summary["failures"] or summary["errors"] else 0
+        if type(arm.get("exit_code")) is not int or arm["exit_code"] != expected_exit:
+            return "INCONCLUSIVE", "exit code contradicts unittest outcome summary"
     if before.get("exit_code") == 1 and fixed.get("exit_code") == 0:
+        if before["test_summary"]["errors"]:
+            return (
+                "REVIEWING",
+                "baseline test errors, fixed passed; owner must locate traceback in the real subject, not setup",
+            )
         return (
             "REVIEWING",
             "before failed and fixed passed; assertion and reachability review required",
@@ -715,6 +733,10 @@ def owner_handoff(job, lead, source, value, observed, work, version):
         "repair_used": version == 2,
         "changed_lines": changed_lines,
         "tests_run": tests_run,
+        "test_outcomes": {
+            arm: observed.get(arm, {}).get("test_summary")
+            for arm in ("before", "fixed")
+        },
         "evidence": {
             "source_sha256": source["sha256"],
             "patch": {
@@ -738,6 +760,7 @@ def owner_handoff(job, lead, source, value, observed, work, version):
         },
         "owner_checks": [
             "confirm the behavior contract and real caller reachability",
+            "locate baseline failures/errors in the real subject rather than test setup",
             "search current upstream issues and pull requests for duplicates",
             "review the patch rather than trusting the generated explanation",
             "run repository-native tests and follow its contribution policy",

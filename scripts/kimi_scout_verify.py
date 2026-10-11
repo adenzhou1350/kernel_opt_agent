@@ -46,7 +46,16 @@ ENV = {"PATH": "/usr/bin:/bin", "HOME": "/nonexistent"}
 MAX_FILE_BYTES = 262_144
 MAX_OUTPUT_BYTES = 32_768
 MARKER = "KIMI_VERIFY_TEST_COUNT="
-HARNESS = """import sys, unittest
+SUMMARY_MARKER = "KIMI_VERIFY_TEST_SUMMARY="
+SUMMARY_FIELDS = {
+    "tests_run",
+    "failures",
+    "errors",
+    "skipped",
+    "expected_failures",
+    "unexpected_successes",
+}
+HARNESS = """import json, sys, unittest
 sys.path.insert(0, '/input')
 suite = unittest.defaultTestLoader.discover('/input', pattern='test_subject.py')
 count = suite.countTestCases()
@@ -56,9 +65,34 @@ if not count:
 # Keep the runner and count marker on one stream. Docker may interleave
 # separately captured stdout/stderr and hide the marker in a passing run.
 result = unittest.TextTestRunner(verbosity=2, stream=sys.stdout).run(suite)
+print('KIMI_VERIFY_TEST_SUMMARY=' + json.dumps({
+    'tests_run': result.testsRun,
+    'failures': len(result.failures), 'errors': len(result.errors),
+    'skipped': len(result.skipped),
+    'expected_failures': len(result.expectedFailures),
+    'unexpected_successes': len(result.unexpectedSuccesses),
+}, sort_keys=True), flush=True)
 print('KIMI_VERIFY_TEST_COUNT=' + str(result.testsRun), flush=True)
 sys.exit(0 if result.wasSuccessful() else 1)
 """
+
+
+def valid_test_summary(summary, count):
+    """Check shape/consistency, not authenticity of untrusted child output."""
+    return (
+        type(count) is int
+        and count >= 0
+        and isinstance(summary, dict)
+        and set(summary) == SUMMARY_FIELDS
+        and all(type(value) is int and value >= 0 for value in summary.values())
+        and summary["tests_run"] == count
+        and sum(
+            summary[key]
+            for key in ("skipped", "expected_failures", "unexpected_successes")
+        )
+        <= count
+        # Failure/error counts may exceed tests_run for multiple subtests.
+    )
 
 
 def read_input(value):
@@ -209,8 +243,16 @@ def run_case(
             if reader:
                 reader.join(timeout=2)
     output = captured.decode("utf-8", errors="replace")
-    counts = re.findall(r"(?m)^" + MARKER + r"(\d+)$", output)
-    count = int(counts[-1]) if counts else None
+    counts = re.findall(r"(?m)^" + MARKER + r"([0-9]+)\r?$", output)
+    summaries = re.findall(r"(?m)^" + SUMMARY_MARKER + r"([^\r\n]*)\r?$", output)
+    count = summary = None
+    try:
+        if len(counts) == len(summaries) == 1:
+            count = int(counts[0])
+            summary = json.loads(summaries[0])
+    except (ValueError, RecursionError):
+        pass
+    summary_valid = valid_test_summary(summary, count)
     return {
         "profile": profile,
         "claim_scope": httpx_cpu.CLAIM_SCOPE
@@ -222,11 +264,13 @@ def run_case(
         "output_truncated": truncated,
         "cleanup_ok": cleanup_ok,
         "reported_tests_run": count,
+        "test_summary": summary if summary_valid else None,
         "output": output,
         "inconclusive": timed_out
         or truncated
         or not cleanup_ok
         or not count
+        or not summary_valid
         or bool(reader and reader.is_alive()),
     }
 

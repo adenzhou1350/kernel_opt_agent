@@ -157,6 +157,15 @@ duplicates, native tests and contribution policy. Missing images or mismatched
 preimages/imports remain inconclusive, never a pass. Old blocked, reviewed or
 published records are not reset or replayed when enabling the flag.
 
+Generated-test screens record unittest failures, errors, skips, expected failures
+and unexpected successes, not just `testsRun` (which also counts skipped tests).
+Missing, contradictory or duplicate outcome markers and skipped/expected outcomes
+remain inconclusive. Legacy count-only records are preserved, not silently
+upgraded. An assertion-fail/pass pair can reach owner review; a baseline exception
+can also represent a real defect, but its handoff explicitly requires locating the
+traceback in the subject rather than test setup. Child output is still untrusted:
+these counters neither prove relevance nor authenticate model-generated tests.
+
 In an exposed IPv6 development case, the package screen ran three identical
 tests per arm: baseline had two errors plus a passing normal control, candidate
 passed all three; both owned containers were removed. A deliberately wrong

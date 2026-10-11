@@ -1,6 +1,7 @@
 """Offline verifier controls; no Docker daemon, model, or untrusted code runs."""
 
 import io
+import json
 import subprocess
 import sys
 import tempfile
@@ -13,7 +14,22 @@ import kimi_scout_verify as verify
 
 
 class Process:
-    def __init__(self, output=b"KIMI_VERIFY_TEST_COUNT=1\n", *, timeout=False, code=0):
+    def __init__(self, output=None, *, timeout=False, code=0):
+        if output is None:
+            output = (
+                verify.SUMMARY_MARKER
+                + json.dumps(
+                    {
+                        "tests_run": 1,
+                        "failures": 0,
+                        "errors": 0,
+                        "skipped": 0,
+                        "expected_failures": 0,
+                        "unexpected_successes": 0,
+                    }
+                )
+                + "\nKIMI_VERIFY_TEST_COUNT=1\n"
+            ).encode()
         self.stdout = io.BytesIO(output)
         self.timeout = timeout
         self.returncode = None if timeout else code
@@ -33,6 +49,132 @@ class Process:
 
 
 class VerifyTests(unittest.TestCase):
+    def test_only_executed_assertion_discrimination_reaches_review(self):
+        import kimi_scout_delivery as delivery
+
+        for mode, expected in (
+            ("assertion", "REVIEWING"),
+            ("skip", "INCONCLUSIVE"),
+            ("error", "REVIEWING"),
+            ("expected_failure", "INCONCLUSIVE"),
+        ):
+            observed = {"inconclusive": False}
+            for arm in ("before", "fixed"):
+                with tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    (root / "subject.py").write_text(
+                        f"fixed = {arm == 'fixed'}\n", encoding="utf-8"
+                    )
+                    # Identical test bytes in both arms. These are trusted local
+                    # fixtures, not execution of model-generated code.
+                    decorator = (
+                        "    @unittest.expectedFailure\n"
+                        if mode == "expected_failure"
+                        else ""
+                    )
+                    (root / "test_subject.py").write_text(
+                        "import unittest, subject\n"
+                        "class Probe(unittest.TestCase):\n"
+                        + decorator
+                        + "    def test_regression(self):\n"
+                        + (
+                            "        if subject.fixed: self.skipTest('not exercised')\n"
+                            if mode == "skip"
+                            else ""
+                        )
+                        + (
+                            "        if not subject.fixed: raise RuntimeError('setup failed')\n"
+                            if mode == "error"
+                            else ""
+                        )
+                        + (
+                            "        self.fail('known failure')\n"
+                            if mode == "expected_failure"
+                            else "        self.assertTrue(subject.fixed)\n"
+                        )
+                        + "    def test_control(self): self.assertIsInstance(subject.fixed, bool)\n",
+                        encoding="utf-8",
+                    )
+                    completed = subprocess.run(
+                        [
+                            sys.executable,
+                            "-I",
+                            "-B",
+                            "-c",
+                            verify.HARNESS.replace("'/input'", repr(str(root))),
+                        ],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        timeout=10,
+                        check=False,
+                    )
+                with (
+                    patch.object(
+                        verify.subprocess,
+                        "Popen",
+                        return_value=Process(
+                            completed.stdout.replace(b"\r\n", b"\n"),
+                            code=completed.returncode,
+                        ),
+                    ),
+                    patch.object(
+                        verify.subprocess,
+                        "run",
+                        return_value=type("Done", (), {"returncode": 0})(),
+                    ),
+                ):
+                    observed[arm] = verify.run_case("/subject.py", "/test.py", 1)
+            with self.subTest(mode=mode):
+                self.assertEqual(delivery.classify(observed)[0], expected)
+                if mode == "error":
+                    self.assertIn("traceback", delivery.classify(observed)[1])
+
+    def test_missing_duplicate_or_invalid_outcomes_are_inconclusive(self):
+        valid = Process().stdout.getvalue()
+        summary = {
+            "tests_run": 1,
+            "failures": 0,
+            "errors": 0,
+            "skipped": 0,
+            "expected_failures": 0,
+            "unexpected_successes": 0,
+        }
+        invalid = [
+            None,
+            [],
+            {},
+            {**summary, "tests_run": 2},
+            {**summary, "errors": True},
+            {**summary, "skipped": -1},
+            {**summary, "expected_failures": 2},
+        ]
+        outputs = [
+            b"KIMI_VERIFY_TEST_COUNT=1\n",
+            valid + valid,
+            valid + b"KIMI_VERIFY_TEST_SUMMARY=bad json\n",
+        ]
+        outputs.extend(
+            (
+                verify.SUMMARY_MARKER
+                + json.dumps(value)
+                + "\nKIMI_VERIFY_TEST_COUNT=1\n"
+            ).encode()
+            for value in invalid
+        )
+        for output in outputs:
+            with (
+                self.subTest(output=output),
+                patch.object(verify.subprocess, "Popen", return_value=Process(output)),
+                patch.object(
+                    verify.subprocess,
+                    "run",
+                    return_value=type("Done", (), {"returncode": 0})(),
+                ),
+            ):
+                self.assertTrue(
+                    verify.run_case("/subject.py", "/test.py", 1)["inconclusive"]
+                )
+
     def test_harness_writes_result_and_count_to_one_stream(self):
         self.assertIn(
             "unittest.TextTestRunner(verbosity=2, stream=sys.stdout)", verify.HARNESS

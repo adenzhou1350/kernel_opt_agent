@@ -45,17 +45,29 @@ def lead(number=1):
 
 
 def result(before=1, fixed=0, *, count=2, output="", cleanup=True):
+    def summary(exit_code):
+        return {
+            "tests_run": count,
+            "failures": int(exit_code == 1),
+            "errors": 0,
+            "skipped": 0,
+            "expected_failures": 0,
+            "unexpected_successes": 0,
+        }
+
     return {
         "inconclusive": False,
         "before": {
             "exit_code": before,
             "reported_tests_run": count,
+            "test_summary": summary(before),
             "output": output,
             "cleanup_ok": cleanup,
         },
         "fixed": {
             "exit_code": fixed,
             "reported_tests_run": count,
+            "test_summary": summary(fixed),
             "output": "",
             "cleanup_ok": cleanup,
         },
@@ -411,6 +423,48 @@ class DeliveryTests(unittest.TestCase):
         )
         self.assertEqual(delivery.classify({"inconclusive": True})[0], "INCONCLUSIVE")
 
+    def test_outcome_summary_is_required_and_must_agree_with_exit(self):
+        for arm in ("before", "fixed"):
+            for kind in (
+                "missing",
+                "count",
+                "bool",
+                "negative",
+                "exit",
+                "skip",
+                "expected",
+                "unexpected",
+            ):
+                value = result()
+                stats = value[arm]["test_summary"]
+                if kind == "missing":
+                    del value[arm]["test_summary"]
+                elif kind == "count":
+                    stats["tests_run"] += 1
+                elif kind == "bool":
+                    stats["errors"] = True
+                elif kind == "negative":
+                    stats["skipped"] = -1
+                elif kind == "exit":
+                    value[arm]["exit_code"] = 1 - value[arm]["exit_code"]
+                else:
+                    stats[
+                        {
+                            "skip": "skipped",
+                            "expected": "expected_failures",
+                            "unexpected": "unexpected_successes",
+                        }[kind]
+                    ] = 1
+                with self.subTest(arm=arm, kind=kind):
+                    self.assertEqual(delivery.classify(value)[0], "INCONCLUSIVE")
+        value = result()
+        value["before"]["reported_tests_run"] = None
+        self.assertEqual(delivery.classify(value)[0], "INCONCLUSIVE")
+        # Multiple failing subtests do not mean more top-level tests ran.
+        value = result()
+        value["before"]["test_summary"]["failures"] = 3
+        self.assertEqual(delivery.classify(value)[0], "REVIEWING")
+
     def run_job(self, outputs, answers, *, number=1):
         delivery.stage(self.worker.root, [lead(number)])
         job = delivery.claim(self.worker.root)
@@ -449,6 +503,10 @@ class DeliveryTests(unittest.TestCase):
         )
         self.assertTrue(handoff["repair_used"])
         self.assertEqual(handoff["tests_run"], 2)
+        self.assertEqual(
+            handoff["test_outcomes"],
+            {arm: result()[arm]["test_summary"] for arm in ("before", "fixed")},
+        )
         self.assertFalse(handoff["claims"]["pr_ready"])
 
     def test_second_failure_is_terminal_without_third_execution(self):
