@@ -6,6 +6,7 @@ import hashlib
 import json
 import sys
 import unittest
+from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError
 
@@ -107,8 +108,105 @@ class PolicyTests(unittest.TestCase):
 
     def test_private_target_stops_before_profile(self):
         self.responses["example/project"]["private"] = True
-        self.assertEqual(self.collect()["status"], "UNKNOWN")
+        result = self.collect()
+        self.assertEqual(result["status"], "UNKNOWN")
+        self.assertIsNone(result["repository_settings"])
         self.assertEqual(self.calls, ["example/project"])
+
+    def test_enabled_prs_and_collaborator_policy_are_separate_observations(self):
+        self.responses["example/project"].update(
+            {
+                "archived": False,
+                "disabled": False,
+                "has_issues": True,
+                "has_pull_requests": True,
+                "pull_request_creation_policy": "collaborators_only",
+                "permissions": {"push": False},
+            }
+        )
+        result = self.collect()
+        settings = result["repository_settings"]
+        self.assertTrue(settings["has_pull_requests"])
+        self.assertTrue(settings["has_issues"])
+        self.assertEqual(settings["pull_request_creation_policy"], "collaborators_only")
+        self.assertFalse(settings["viewer_can_push"])
+        self.assertEqual(settings["url"], policy.API + "example/project")
+        self.assertIsNotNone(datetime.fromisoformat(settings["observed_at"]).tzinfo)
+        self.assertEqual(result["status"], "NO_DOCUMENTS_IN_PROFILE")
+        self.assertNotIn("authorized", result)
+        self.assertEqual(
+            self.calls, ["example/project", "example/project/community/profile"]
+        )
+
+    def test_no_settings_are_not_unrestricted_defaults(self):
+        settings = self.collect()["repository_settings"]
+        for key in (
+            "archived",
+            "disabled",
+            "has_issues",
+            "has_pull_requests",
+            "pull_request_creation_policy",
+            "viewer_can_push",
+        ):
+            with self.subTest(key=key):
+                self.assertIsNone(settings[key])
+
+    def test_malformed_or_future_values_are_unknown_not_truthy_permissions(self):
+        for value in (1, "true", [], {}, "future_policy", None):
+            with self.subTest(value=value):
+                self.responses["example/project"].update(
+                    {
+                        "has_pull_requests": value,
+                        "has_issues": value,
+                        "pull_request_creation_policy": value,
+                        "permissions": {"push": value},
+                    }
+                )
+                settings = self.collect()["repository_settings"]
+                for key in (
+                    "has_pull_requests",
+                    "has_issues",
+                    "pull_request_creation_policy",
+                    "viewer_can_push",
+                ):
+                    self.assertIsNone(settings[key])
+
+    def test_archived_disabled_and_all_policy_are_not_publication_authority(self):
+        self.responses["example/project"].update(
+            {
+                "archived": True,
+                "disabled": True,
+                "has_issues": False,
+                "has_pull_requests": False,
+                "pull_request_creation_policy": "all",
+                "permissions": {"push": True},
+            }
+        )
+        result = self.collect()
+        settings = result["repository_settings"]
+        self.assertTrue(settings["archived"])
+        self.assertTrue(settings["disabled"])
+        self.assertFalse(settings["has_issues"])
+        self.assertFalse(settings["has_pull_requests"])
+        self.assertEqual(settings["pull_request_creation_policy"], "all")
+        self.assertTrue(settings["viewer_can_push"])
+        self.assertNotIn("allowed", result)
+
+    def test_profile_denial_preserves_observed_settings_not_document_approval(self):
+        self.responses["example/project"]["pull_request_creation_policy"] = (
+            "collaborators_only"
+        )
+        self.responses["example/project/community/profile"] = HTTPError(
+            "https://api.github.com/", 403, "limited", {}, None
+        )
+        result = self.collect()
+        self.assertEqual(result["status"], "UNKNOWN")
+        self.assertEqual(
+            result["repository_settings"]["pull_request_creation_policy"],
+            "collaborators_only",
+        )
+        self.assertEqual(result["documents"], [])
+        self.assertTrue(result["errors"])
 
     def test_foreign_policy_url_is_not_fetched(self):
         self.responses["example/project/community/profile"]["files"]["contributing"] = {

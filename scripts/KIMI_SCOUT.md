@@ -108,6 +108,16 @@ documents or failed reads are not approval; also read linked rules, `AGENTS.md`
 and maintainer instructions. Recheck the live policy before publication. Keep the
 snapshot local; do not turn it into a new mandatory phase or per-request check.
 
+The same metadata GET now supplies timestamped `repository_settings`: archived/
+disabled state, issue/PR feature flags, PR creation policy and the API viewer's
+reported push permission. Missing, malformed or unknown values stay `null`.
+`has_pull_requests=true` does not override `collaborators_only`; `all` does not
+prove eligibility, absence of temporary limits or a remaining per-user PR quota.
+No extra permission/cap endpoints or publication attempts are made. Use this
+early observation to choose an appropriate contribution channel, not to discard
+the bug or bypass restrictions; recheck before publishing. See [GitHub's PR
+access settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/disabling-pull-requests).
+
 Only the backend needs the existing Kimi environment. Find its interpreter using
 `uv tool dir` if Kimi was installed by uv; normally it is
 `<uv-tool-dir>/kimi-cli/Scripts/python.exe` on Windows or
