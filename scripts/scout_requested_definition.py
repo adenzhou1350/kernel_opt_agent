@@ -9,6 +9,63 @@ import re
 import tokenize
 
 
+def requested_definition_inventory(lines, request, symbol):
+    """Expose ambiguous Python declarations without selecting a receiver/body.
+
+    Only an explicit unqualified definition(symbol) activates this advisory
+    inventory. Its source is the already acquired exact file, not another read.
+    """
+    if not isinstance(symbol, str) or not re.fullmatch(
+        r"[A-Za-z_][A-Za-z0-9_]{3,127}", symbol
+    ):
+        return None
+    if not isinstance(request, str) or not re.search(
+        rf"(?<!\w)definition[ \t]*\([ \t]*{re.escape(symbol)}[ \t]*\)",
+        request[:2000],
+    ):
+        return None
+    try:
+        tree = ast.parse("\n".join(lines))
+    except (SyntaxError, ValueError, RecursionError):
+        return None
+    declarations = (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)
+    stack = [(tree, ())]
+    matches = []
+    while stack:
+        node, owners = stack.pop()
+        if isinstance(node, declarations):
+            qualified = owners + (node.name,)
+            if node.name == symbol:
+                name = ".".join(qualified)
+                # Do not admit an unbounded lexical owner into a model packet.
+                if len(name) > 256:
+                    return None
+                matches.append(
+                    {
+                        "qualified_name": name,
+                        "kind": type(node).__name__,
+                        "declaration_line": node.lineno,
+                        "end_line": node.end_lineno,
+                    }
+                )
+            owners = qualified
+        stack.extend((child, owners) for child in ast.iter_child_nodes(node))
+    if len(matches) < 2:
+        return None
+    matches.sort(key=lambda item: item["declaration_line"])
+    return {
+        "symbol": symbol,
+        "total_matches": len(matches),
+        "candidates": matches[:8],
+        "truncated": len(matches) > 8,
+        "scope": (
+            "Syntax-only declarations in this pinned Python file; locations may be "
+            "outside the visible body window. Not receiver resolution, inheritance "
+            "dispatch, callable identity or proof of unread implementation behavior."
+        ),
+    }
+
+
 def requested_function_window(lines, request):
     if not request:
         return None

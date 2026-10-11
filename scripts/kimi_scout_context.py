@@ -13,7 +13,10 @@ import kimi_scout as scout
 from scout_contribution_policy import repository_settings
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_issue_timeline import linked_pr_context
-from scout_requested_definition import requested_function_window
+from scout_requested_definition import (
+    requested_definition_inventory,
+    requested_function_window,
+)
 from scout_symbol_references import (
     NATIVE_SUFFIXES,
     native_invocation_hint_line,
@@ -404,6 +407,12 @@ class PublicContext:
         if exact_hint is not None:
             evidence["exact_hint"] = exact_hint
             evidence["exact_hint_matched"] = exact_hint in evidence["text"]
+            if path.endswith(".py"):
+                inventory = requested_definition_inventory(
+                    lines, request_hints, exact_hint
+                )
+                if inventory is not None:
+                    evidence["definition_inventory"] = inventory
         if requested is not None:
             evidence["requested_definition"] = requested
             evidence["requested_definition_complete"] = (

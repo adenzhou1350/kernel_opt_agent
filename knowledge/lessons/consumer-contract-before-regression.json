@@ -71,7 +71,7 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/d26b6a5a9c4752e2ad0309df66eaca2f33816d68/python/sglang/srt/mem_cache/prefill_budget.py#L343-L375",
-      "note": "The claimed prepare_load_back budget debit does not occur: base implementation returns True; shared-SWA override computes local demand and reclaims capacity without changing offsets. reserve performs the debit after scheduler admission commits. This module is byte-identical at the Scout lead's frozen 9336681 and current d26b6a5. Refutes this offset-leak hypothesis by complete source inspection only; allocator reclaim/eviction effects and GPU correctness are separate questions."
+      "note": "The claimed prepare_load_back budget debit does not occur: base implementation returns True; shared-SWA override computes local demand and reclaims capacity without changing offsets. reserve performs the debit after scheduler admission commits. This module is byte-identical at the Scout lead's frozen 9336681 and current d26b6a5. A first-symbol window exposed only the base default; inspect same-name overrides before inferring the consumer's effective contract. Refutes this offset-leak hypothesis by complete source inspection only; allocator reclaim/eviction effects and GPU correctness are separate questions."
     }
   ],
   "status": "counterexample"

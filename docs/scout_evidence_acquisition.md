@@ -286,6 +286,25 @@ syntax are not accepted as literals; discovering a matching method does not
 resolve that receiver's runtime type. This is a source-acquisition capability,
 not evidence of improved selector quality or PR conversion.
 
+An explicit unqualified `definition(identifier)` in a pinned Python file can
+match both a base default and a subclass override. The literal window still
+obeys the same 80-line cap and is not silently redirected to a guessed owner.
+When the already acquired file contains multiple declarations, the source
+includes a syntax-only `definition_inventory`: lexical qualified names and
+declaration/end lines for at most eight candidates, the total match count and
+an omission flag. It makes no additional source request. A later explicit
+qualified-definition request can use the existing body selector; duplicate
+owners or unsupported syntax remain unresolved. Locations outside the visible
+window are not body evidence, runtime receiver resolution or dispatch proof.
+
+An owner-known SGLang replay exposed this distinction: discovery acquired
+`prefill_budget.py`, but the first window showed only the base default, not the
+shared-SWA override. The inventory exposed both locations; an owner-selected
+qualified follow-up then acquired the override body within the existing chain.
+This is retrospective wiring validation, not a model prediction or a prospective
+quality/cost result. Unread physical reclaim effects remain separate from the
+source-refuted budget-offset-debit claim.
+
 For an explicit `references(identifier)` in a C-family source, the window prefers
 the first invocation-shaped occurrence (`identifier` followed by `(`) over an
 earlier `using` import. It reuses the already-read body, masks ordinary comments,
@@ -301,6 +320,7 @@ Offline checks:
 
 ```text
 python -B -m unittest tests.test_scout_code_search
+python -B -m unittest tests.test_scout_definition_inventory tests.test_scout_requested_definition
 python -B -m unittest tests.test_scout_native_reference_anchor
 ```
 
