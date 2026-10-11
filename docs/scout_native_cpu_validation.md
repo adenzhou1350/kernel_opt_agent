@@ -10,6 +10,14 @@ warnings or weaken assertions to manufacture a green environment.
 For an existing Scout inbox, `kimi_scout_delivery_source.select_leads(root,
 source_ids=[known_job_id], scan_limit=16, owner_review=True)` also returns
 non-Python immutable source leads. The ordinary Python-only selector is unchanged.
+Opt-in results may also carry `owner_deferrals`: at most two same-file historical
+decisions, public evidence links and reopening conditions from the existing
+bounded memory reader. Advice is fetched only for the final selected leads,
+not the scanned history. Read it before repeating source acquisition or tests,
+but check its applicability: a same-file match is not a duplicate verdict.
+Advice does not suppress candidates, rewrite their analysis or alter automatic
+selection. Missing or invalid optional notes do not block independent review.
+
 Every opt-in result carries `verification_route=OWNER_REVIEW_ONLY` and must be
 admitted with `kimi_scout_delivery.stage(root / "delivery", leads,
 owner_review=True)`. Automatic admission rejects that route; an owner row cannot

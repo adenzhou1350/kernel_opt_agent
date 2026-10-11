@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 
 import kimi_scout as scout
+from scout_publication_context import owner_deferral_context
 
 SOURCE_LIMIT = 100_000
 CACHE_LIMIT = 1_000_000
@@ -107,6 +108,8 @@ def select_leads(
     This broadens source inspection, not execution or qualification support.
     source_ids optionally restricts selection to known job IDs before decoding
     packets or applying LIMIT. It does not bypass any admission/exclusion rule.
+    Owner selections carry bounded same-file deferral advice when available;
+    advice never filters candidates or changes their source analysis.
     """
     if type(owner_review) is not bool:
         raise ValueError("owner_review must be a boolean")
@@ -223,6 +226,14 @@ def select_leads(
         selected.append(bucket.popleft())
         if bucket:
             active.append(bucket)
+    if owner_review:
+        for lead in selected:
+            context = owner_deferral_context(
+                root, lead["repo"], lead["packet"].get("sources", []),
+                prior_analysis=scout.dumps(lead["analysis"]),
+            )
+            if context:
+                lead["owner_deferrals"] = context
     return selected
 
 

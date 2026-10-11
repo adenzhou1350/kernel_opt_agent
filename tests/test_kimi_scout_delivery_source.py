@@ -217,6 +217,64 @@ class SelectionTests(unittest.TestCase):
         self.assertIsNone(intake.claim(folder))
         self.assertEqual(list((folder / "jobs").iterdir()), [])
 
+    def test_owner_deferral_advice_preserves_lead_and_original_evidence(self):
+        from scout_publication_context import owner_source_note_path
+
+        self.add("fresh", hypothesis="distinct failure in the same file")
+        path = owner_source_note_path(self.root, REPO)
+        path.parent.mkdir()
+        notes = [{
+            "repo": REPO,
+            "prior_hypothesis": "old hypothesis, not this new failure",
+            "source_url": RAW.replace(COMMIT, "b" * 40),
+            "reason": "An older caller already handled the old case.",
+            "reopen_when": "A distinct supported failure or changed caller.",
+            "evidence_url": f"https://github.com/{REPO}/blob/{'b' * 40}/{PATH}",
+        }]
+        path.write_text(json.dumps(notes), encoding="utf-8")
+        db_before = (self.root / "scout.sqlite").read_bytes()
+        notes_before = path.read_bytes()
+        automatic, = delivery.select_leads(self.root)
+        owner, = delivery.select_leads(self.root, owner_review=True)
+        self.assertNotIn("owner_deferrals", automatic)
+        self.assertEqual(owner["id"], automatic["id"])
+        self.assertEqual(owner["analysis"], automatic["analysis"])
+        self.assertEqual(owner["packet"], automatic["packet"])
+        self.assertEqual(owner["canonical_key"], automatic["canonical_key"])
+        self.assertIn("owner_deferrals", owner)
+        context = owner["owner_deferrals"]
+        self.assertIn("Never reject a lead from this memory alone", context["caution"])
+        self.assertEqual(context["items"][0]["reopen_when"], notes[0]["reopen_when"])
+        self.assertEqual(context["items"][0]["evidence_url"], notes[0]["evidence_url"])
+        self.assertEqual((self.root / "scout.sqlite").read_bytes(), db_before)
+        self.assertEqual(path.read_bytes(), notes_before)
+
+    def test_owner_advice_is_read_only_for_final_selected_leads(self):
+        for i in range(3):
+            self.add(f"lead{i}", finished=i)
+        with patch.object(delivery, "owner_deferral_context", return_value=None) as read:
+            rows = delivery.select_leads(self.root, limit=1, owner_review=True)
+        self.assertEqual([row["id"] for row in rows], ["lead2"])
+        read.assert_called_once_with(
+            self.root, REPO, rows[0]["packet"]["sources"],
+            prior_analysis=delivery.scout.dumps(rows[0]["analysis"]),
+        )
+        self.assertNotIn("owner_deferrals", rows[0])
+        with patch.object(delivery, "owner_deferral_context") as read:
+            delivery.select_leads(self.root, limit=1)
+        read.assert_not_called()
+
+    def test_corrupt_owner_advice_does_not_hide_a_candidate(self):
+        from scout_publication_context import owner_source_note_path
+
+        self.add("fresh")
+        path = owner_source_note_path(self.root, REPO)
+        path.parent.mkdir()
+        path.write_text("not json", encoding="utf-8")
+        rows = delivery.select_leads(self.root, owner_review=True)
+        self.assertEqual([row["id"] for row in rows], ["fresh"])
+        self.assertNotIn("owner_deferrals", rows[0])
+
     def test_owner_review_requires_explicit_boolean(self):
         for value in (1, "false", None):
             with self.subTest(value=value), self.assertRaisesRegex(ValueError, "boolean"):
