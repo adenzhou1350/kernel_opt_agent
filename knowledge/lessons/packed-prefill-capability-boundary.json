@@ -1,0 +1,22 @@
+{
+  "id": "packed-prefill-capability-boundary",
+  "title": "Packed token count is not the prefill backend capability boundary",
+  "applies_when": "A variable-length recurrent-attention wrapper chooses prefill versus recurrence using a packed token count, while the downstream facade also considers sequence count, speculative mode, state dtype or bias layout.",
+  "lesson": "Compare both dispatch predicates before changing arithmetic or state precision. In FlashInfer 0.7.0.post1 KDA, ordinary packed prefill requires total_tokens > num_sequences, not merely total_tokens > 1. Thus [1,1], [1,1,1,1] and padded [2,0] can enter a different implementation than [2] or [1,2]. That implementation can have a narrower FP32 state or 2-D bias contract. Pass host-known sequence metadata to a compatible existing fallback; keep snapshot/checkpoint capability checks aligned with the kernel actually selected. Preserve ordinary FP32 prefill instead of downcasting the state or disabling the whole backend. Test the affected shapes and unchanged multi-token controls in each claimed dtype against an independent output/state reference, including an untouched cache slot.",
+  "avoid_when": "The inequality is specific to the cited FlashInfer version and ordinary non-speculative KDA path; do not apply it as a universal varlen rule or infer every request has one token from totals alone. New versions may support recurrence's wider state/layout domain. The public native experiment used real leaf adapters and kernels but isolated package entrypoints and dispatcher methods, with a different full dependency set from current SGLang main. It is not official registered-test, full backend, CUDA Graph, server, model, performance or cross-hardware qualification. Passing advice retrieval does not establish better Scout PR yield or research cost.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/v0.7.0.post1/flashinfer/kda_prefill.py#L572-L584",
+      "note": "The ordinary-prefill predicate explicitly uses positive sequence count and packed tokens > sequences, and rejects speculative mode. Source-level capability evidence, not a measured speedup."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/issues/43615",
+      "note": "Reporter supplies a public FlashInfer reproducer distinguishing FP32/BF16 state and flat/2-D bias. The original serving source had downstream patches; its batch lengths were not captured. Do not equate the sufficient minimal trigger with the original server's exact shape."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/43629",
+      "note": "Open, unmerged repair of both dispatcher consumers at head ac787b6fdc2d3b530ba1c8a69d0fa74f07f332a3. Ten B300 component comparisons cover five shapes in FP32/BF16; six baseline errors become passes and four ordinary-prefill controls pass both arms. Real native leaves plus isolated host dispatch, not full-package/registered-suite validation."
+    }
+  ],
+  "status": "validated"
+}
