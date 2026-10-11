@@ -22,6 +22,7 @@ from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
+from scout_compound_paths import compound_path_hint
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_symbol_references import reference_requests
@@ -454,7 +455,7 @@ def continuation_request(packet, snapshot, analysis):
     return matches[0] if len(matches) == 1 else None
 
 
-def relevant_paths(snapshot, hints, exclude=(), priority_hints=""):
+def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=(), topic_hints=""):
     """Rank *observed tree members*; never interpret hints as a fetch target."""
     hints = hints[:16000]
     # A report often names FlashInferMLASparseMetadataBuilder, not its
@@ -487,6 +488,10 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints=""):
         score = 100 if exact_path else 50 if name in hints else 0
         if len(stem) >= 5 and stem in words:
             score += 10
+        if compound_path_hint(path, hints):
+            score += 25  # Stronger than a lone prose word, weaker than a filename.
+            if compound_path_hint(path, topic_hints[:500]):
+                score += 10  # Report subject before incidental reproduction prose.
         compact = stem.replace("_", "")
         if "_" in stem and len(compact) >= 10 and compact in class_prefixes:
             score += 20 + min(len(compact), 20)
@@ -499,8 +504,8 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints=""):
                     r"(?![a-z0-9_./-])", priority_hints,
                 )
             )
-            ranked.append((not requested, -score, path))
-    return [path for _, _, path in sorted(ranked)]
+            ranked.append((not requested, path in deprioritize, -score, path))
+    return [path for _, _, _, path in sorted(ranked)]
 
 
 def same_file_kernel_definition(packet, snapshot):
@@ -1291,8 +1296,16 @@ class ResearchProducer:
                         definition_source["text"],
                     ):
                         sources.append(definition_source)
+            supplied_prefix = f"https://raw.githubusercontent.com/{spec['repo']}/{snapshot['commit']}/"
+            supplied_paths = {
+                urllib.parse.unquote(source["url"][len(supplied_prefix):])
+                for source in packet["sources"] if source["url"].startswith(supplied_prefix)
+            }.intersection(snapshot["files"])
             paths = relevant_paths(
-                snapshot, hints, priority_hints=analysis_value.get("next_check", "")
+                snapshot, hints, priority_hints=analysis_value.get("next_check", ""),
+                deprioritize=supplied_paths
+                if analysis_value.get("decision") == "needs_context" else (),
+                topic_hints=sources[0]["text"].split("\n", 1)[0] if number and sources else "",
             )
             continuation = continuation_request(packet, snapshot, analysis_value)
             if continuation:
