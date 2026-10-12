@@ -49,6 +49,11 @@ consumer reachability, numerical assertions and repository contribution policy.
 Export raw Git-blob bytes and use identical test bytes on both implementations.
 Do not compare a source fragment against an unrelated installed package.
 
+For a concrete complete-module/real-native-dependency frontend comparison, see
+[the TileLang reshape example](../examples/scout-native-tilelang/README.md).
+It distinguishes layout assertions from import/setup errors without claiming an
+exact full-package build or treating an existing author's repair as new work.
+
 `compare_regression` in the result module checks a predeclared complete selection:
 named regressions fail only on baseline, controls pass on both, and repeat counts
 match. Extra/unaccounted cases, changed cardinality, missing or skipped controls
