@@ -1,0 +1,22 @@
+{
+  "id": "reduce-capacity-without-blocking-progress",
+  "title": "Test active-response progress when concurrency capacity shrinks",
+  "applies_when": "A protocol reader or scheduler lowers a semaphore-backed concurrency limit while work is active, and permit release depends on events processed under the same lock.",
+  "lesson": "Check the progress dependency, not only the truthiness of a new zero limit. In HTTPcore's pinned HTTP/2 reader, a smaller positive MAX_CONCURRENT_STREAMS can also enter a permit-draining loop while holding the read lock. Two active response bodies may need later DATA/END_STREAM processing before they can release those permits. Pair a real peer's below-active-count reduction with an equal-active-count control; prove the peer sent completion frames and whether the public client consumed them. Test the generated synchronous implementation separately from async behavior. A deferred-reduction debt is a repair hypothesis to validate with queued admission, cancellation, restoration and ownership accounting, not permission to remove synchronization.",
+  "avoid_when": "A lower limit does not authorize opening new streams above that limit, and active streams need not be terminated merely because capacity shrinks. Zero can require a reader-only reservation to observe later restoration. Do not infer a general deadlock from a mocked settings object, a timeout alone, or a single-thread test. The linked real TCP report covers scoped asyncio behavior, not TLS, arbitrary thread safety, Trio, deployed-peer frequency, accepted fixes, performance or prospective Scout utility. The local sync repair experiment is not an upstream PR or a shared default.",
+  "evidence": [
+    {
+      "url": "https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/httpcore/_async/http2.py",
+      "note": "Pinned source processes remote settings under _read_lock and acquires semaphore permits when the positive limit decreases. Read the active-stream cleanup path with this loop; source alone is a mechanism hypothesis, not a runtime measurement."
+    },
+    {
+      "url": "https://github.com/encode/httpcore/discussions/1124",
+      "note": "Owner's public follow-up reports exact unchanged-source loopback TCP comparisons: two active bodies complete at limit2 but remain pending at limit1 on native Linux/Windows. This is a reported counterexample to a zero-only repair, not maintainer acceptance."
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc9113.html#section-5.1.2",
+      "note": "The HTTP/2 concurrency contract allows reducing the limit below existing active streams while permitting those streams to finish. It does not supply an implementation or prove client correctness."
+    }
+  ],
+  "status": "counterexample"
+}
