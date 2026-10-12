@@ -77,3 +77,24 @@ The optional native Node tests use an already installed Node 24 (PATH or
 `SCOUT_TEST_NODE`); they never install a runtime or start WSL.
 Neither test counts nor a published fix establish an evidence-selector benefit,
 recall, conversion-rate improvement, or a paper result.
+
+## When a compatible worker cannot fetch dependencies
+
+First distinguish transport failure from an incompatible dependency or test.
+If another authorized machine can acquire public artifacts, it can deliver an
+offline wheelhouse; it need not share the worker's operating system. Select wheels
+using the **worker's** Python version, platform tags and dependency markers, not
+the downloading machine's. Retain lockfile versions, artifact URLs and hashes.
+Verify transferred bytes again before installation in a fresh private environment.
+
+Use the actual install subcommand's help: flags accepted by `uv sync` need not be
+accepted by `uv pip install`. Admit unavoidable source builds individually;
+do not silently replace pinned packages or enable arbitrary native compilation.
+Check installed dependency consistency, then run the repository's real test entry
+point with normal package imports. A resolved wheelhouse is not a passing test.
+Network isolation can protect shared services, but does not provide filesystem
+isolation or qualify integrations whose service dependencies were absent.
+
+Keep one usable private environment tied to its source/lock/platform identity for
+subsequent matched tests. Preserve setup failures and acquisition/transfer time;
+do not report the final fast verification step as total environment preparation.
