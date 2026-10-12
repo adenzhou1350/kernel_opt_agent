@@ -178,6 +178,11 @@ This deliberately allows continuing paid Kimi usage until stopped. It is a local
 queue producer, not Codex Goal mode and not an unrestricted Kimi agent. No extra
 Codex conversation, recurring wakeup or agent-to-agent messaging is required.
 
+- A research configuration names 1..64 public repositories and explicit source
+  prefixes. Eligible implementation text includes Rust `.rs` files as well as
+  Python, Go, C-family and JavaScript/TypeScript. Reading Rust source or attaching
+  a companion test does not mean Cargo tests, bindings or native builds passed.
+  Repository admission does not increase worker, queue or request budgets.
 - A separate controller thread maintains up to 24 pending packets, while the
   configured workers independently consume them. It rotates repositories,
   issue triage, source windows and follow-ups. State survives daemon restarts.

@@ -77,6 +77,24 @@ class ContextTests(unittest.TestCase):
         self.assertTrue(all(url == API and auth is True for url, _, auth in self.calls))
         self.assertFalse(list((self.root / "public-cache").iterdir()))
 
+    def test_rust_source_is_pinned_numbered_and_cached_without_execution(self):
+        path = "rust/lancedb/src/table.rs"
+        url = f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{path}"
+        self.tree["tree"] = [
+            {"path": path, "type": "blob", "mode": "100644", "sha": BLOB}
+        ]
+        self.routes[url] = "pub async fn count_rows() -> usize {\n    0\n}\n"
+        first = self.context.source(REPO, COMMIT, path, start=1, max_lines=2)
+        self.assertEqual(first["url"], url)
+        self.assertEqual(first["text"], "1: pub async fn count_rows() -> usize {\n2:     0")
+        self.assertEqual(first["total_lines"], 3)
+        self.assertEqual(first["end_line"], 2)
+        calls = list(self.calls)
+        second = self.context.source(REPO, COMMIT, path, start=3, max_lines=1)
+        self.assertEqual(second["text"], "3: }")
+        self.assertEqual(self.calls, calls)
+        self.assertIn((url, context.RAW_LIMIT, False), calls)
+
     def test_observed_channel_settings_reuse_public_metadata_without_fetch(self):
         self.metadata.update(
             has_pull_requests=True, pull_request_creation_policy="collaborators_only",

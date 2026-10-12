@@ -1272,18 +1272,18 @@ class ResearchTests(unittest.TestCase):
         self.assertNotIn("sources_after", progress)
 
     def test_repository_count_bounds(self):
-        for count in (0, 1, 12, 24, 25):
+        for count in (0, 1, 12, 24, 25, 33, 64, 65):
             with self.subTest(count=count):
                 self.value["repos"] = [
                     dict(self.spec, repo=f"owner/repo{i}") for i in range(count)
                 ]
                 self.config.write_text(json.dumps(self.value))
-                if 1 <= count <= 24:
+                if 1 <= count <= 64:
                     self.assertEqual(
                         len(research.configuration(self.config)["repos"]), count
                     )
                 else:
-                    with self.assertRaisesRegex(ValueError, "1..24"):
+                    with self.assertRaisesRegex(ValueError, "1..64"):
                         research.configuration(self.config)
 
     def test_ten_repository_frontier_visits_every_repository(self):
@@ -1303,6 +1303,47 @@ class ResearchTests(unittest.TestCase):
             {spec["repo"] for spec in self.value["repos"]},
         )
         self.assertEqual(producer.config["context_workers"], 3)
+
+    def test_rust_source_selection_and_related_evidence(self):
+        implementation = "src/table.rs"
+        companion = "tests/table_test.rs"
+        paths = [
+            implementation, companion, "src/table.h", "src/table.rst",
+            "src/generated/table.rs", "src/vendor/table.rs", "docs/table.rs",
+        ]
+        snapshot = {"files": paths}
+        self.assertEqual(
+            research.source_paths(snapshot, self.spec),
+            ["src/table.h", implementation],
+        )
+        self.assertEqual(
+            research.relevant_paths(snapshot, implementation, exclude=paths[1:]),
+            [implementation],
+        )
+        self.assertEqual(
+            research.companion_source_paths(implementation, paths),
+            ([companion], None),
+        )
+
+    def test_rust_source_audit_emits_pinned_implementation_and_companion(self):
+        paths = ["src/table.rs", "tests/table_test.rs"]
+        snapshot = {
+            "commit": self.context.revision,
+            "files": paths,
+            "blobs": {path: self.context.blob for path in paths},
+        }
+        progress = {}
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["research"]["stage"], "source_audit")
+        self.assertEqual(
+            [source["url"] for source in packet["sources"]],
+            [f"https://raw.githubusercontent.com/a/b/{self.context.revision}/{path}"
+             for path in paths],
+        )
+        self.assertEqual(len(self.jobs()), 1)
 
     def test_javascript_and_typescript_observed_source_paths(self):
         paths = [
