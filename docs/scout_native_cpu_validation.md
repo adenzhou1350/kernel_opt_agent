@@ -365,6 +365,22 @@ install the declared plugin rather than suppressing the marker check. See the
 [upstream requirements](https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/requirements.txt)
 and [pytest configuration](https://github.com/encode/httpcore/blob/10a658221deb38a4c5b16db55ab554b0bf731707/pyproject.toml).
 
+Resolve runtime, test plugins and optional backend extras **together** in a
+fresh task environment. Independently pinned components can collect and pass
+ordinary tests while violating another component's declared requirements.
+Record the installed dependency metadata and resolved versions; do not treat
+import success or a pytest backend label as a compatibility check. For a
+cancellation-sensitive repair, exercise actual task cancellation and cleanup,
+not only normal response completion. Keep an incompatible test-driver failure
+separate from an assertion against supported production behavior.
+
+If Windows AppControl or another platform policy refuses a native extension,
+retain the refusal and stop that affected route. Do not switch its binary path,
+library implementation or execution host to evade the denial. Unrelated checks
+that do not need the denied component may continue, with the omitted backend
+explicitly unqualified. A later compatible or authorized environment is a new
+scope of evidence, not a reason to rewrite the historical result as passing.
+
 A fresh task-private Linux environment with Python 3.12.13, pytest 8.2.2,
 pytest-trio 0.8.0, Trio 0.31.0, AnyIO 4.15.1, h11 0.16.0 and h2 4.4.1 passed
 54 model/sync-HTTP11/async-HTTP11 tests. A separate invocation passed 30 existing
