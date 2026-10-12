@@ -9,6 +9,34 @@ import re
 import tokenize
 
 
+def absent_requested_identifiers(raw, request):
+    """Disclose missing literal names in already-read source, in any language.
+
+    Do not silently substitute a spelling or infer a missing declaration. Even
+    a comment/string occurrence prevents this conservative absence observation.
+    Qualified requests test only their terminal identifier, not a binding.
+    """
+    if not isinstance(raw, str) or not isinstance(request, str):
+        return []
+    request = request[:2000]
+    markers = list(re.finditer(r"(?<!\w)(?:definition|references)[ \t]*\(", request))
+    names = []
+    for marker in markers:
+        match = re.match(
+            r"[ \t]*([A-Za-z_][A-Za-z0-9_]{0,127}"
+            r"(?:\.[A-Za-z_][A-Za-z0-9_]{0,127}){0,4})[ \t]*\)",
+            request[marker.end():],
+        )
+        if match is None:
+            return []
+        name = match[1].rsplit(".", 1)[-1]
+        if name not in names:
+            names.append(name)
+    if not 1 <= len(names) <= 2:
+        return []
+    return [name for name in names if name not in raw]
+
+
 def requested_definition_inventory(lines, request, symbol):
     """Expose ambiguous Python declarations without selecting a receiver/body.
 

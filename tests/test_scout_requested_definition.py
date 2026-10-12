@@ -29,7 +29,9 @@ class RequestedDefinitionTests(unittest.TestCase):
         optional_advice.start()
         self.addCleanup(optional_advice.stop)
         self.ctx = context.PublicContext(self.root)
-        self.snapshot = patch.object(self.ctx, "snapshot", return_value={"files": [PATH]})
+        self.snapshot = patch.object(self.ctx, "snapshot", return_value={
+            "files": [PATH], "blobs": {PATH: "b" * 40},
+        })
         self.snapshot.start()
         self.addCleanup(self.snapshot.stop)
         self.raw = ("class Executor:\n    def _sync(self):\n        return True\n" +

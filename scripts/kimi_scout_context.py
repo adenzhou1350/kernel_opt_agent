@@ -17,6 +17,7 @@ from scout_contribution_policy import repository_settings
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_issue_timeline import linked_pr_context
 from scout_requested_definition import (
+    absent_requested_identifiers,
     requested_definition_inventory,
     requested_function_window,
 )
@@ -440,6 +441,19 @@ class PublicContext:
             total_lines=len(lines),
             truncated=evidence["truncated"] or start > 1 or end < len(lines),
         )
+        absent = absent_requested_identifiers(raw, request_hints)
+        if absent:
+            evidence["requested_identifier_absence"] = {
+                "identifiers": absent,
+                "source_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+                "scope": (
+                    "These literal terminal names do not occur anywhere in this "
+                    "complete pinned file, including comments/strings, not just "
+                    "the visible window. Recheck historical or misspelled names; "
+                    "do not repeat the same lookup. Not repository-wide absence, "
+                    "missing functionality, declaration or binding resolution."
+                ),
+            }
         if exact_hint is not None:
             evidence["exact_hint"] = exact_hint
             evidence["exact_hint_matched"] = exact_hint in evidence["text"]

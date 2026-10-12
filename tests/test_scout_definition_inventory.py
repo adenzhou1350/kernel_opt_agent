@@ -33,7 +33,9 @@ class DefinitionInventoryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             reader = PublicContext(Path(temp))
             with (
-                patch.object(reader, "snapshot", return_value={"files": [path]}),
+                patch.object(reader, "snapshot", return_value={
+                    "files": [path], "blobs": {path: "b" * 40},
+                }),
                 patch.object(reader, "_read", return_value=self.raw) as read,
             ):
                 source = reader.source(
