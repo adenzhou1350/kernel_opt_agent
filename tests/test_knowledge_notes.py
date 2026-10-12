@@ -15,6 +15,24 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_package_context_advice_preserves_native_and_namespace_boundaries(self):
+        from scout_lesson_context import lesson_suggestions
+
+        advice = lesson_suggestions("relative imports package context optional shim flashinfer_cubin")
+        self.assertEqual(advice["status"], "ADVISORY_MATCH")
+        card = advice["matches"][0]
+        self.assertEqual(card["id"], "check-imported-source")
+        self.assertIn("screen limitation, not NO_BUG", card["avoid_when"])
+        self.assertIn("not NO_BUG or permission to execute a full checkout", card["avoid_when"])
+        self.assertIn("same-commit pure-Python shim", card["avoid_when"])
+        self.assertIn("name.startswith('flashinfer.')", card["avoid_when"])
+        self.assertIn("does not prove their ABI compatibility", card["avoid_when"])
+        evidence = next(e for e in card["evidence"] if e["url"].endswith("/6338"))
+        self.assertIn("not full-suite", evidence["note"])
+        self.assertIn("prospective Scout-improvement", evidence["note"])
+        self.assertEqual(advice["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
     def test_diagnostic_requirement_advice_keeps_source_only_scope(self):
         from scout_lesson_context import lesson_suggestions
 
