@@ -1,0 +1,22 @@
+{
+  "id": "closed-issue-subcase-coverage",
+  "title": "Closed issue status is not subcase coverage or proof of novelty",
+  "applies_when": "A source-audit lead resembles a closed issue, a merged fix to a sibling method, or a multi-case report whose title mentions only one API.",
+  "lesson": "Read the issue body and linked patch before deciding whether a finding is new or fixed. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? AnyIO #1081 names receive(max_bytes) in its title but also reports negative receive_exactly(nbytes) in its body. Merged #1191 adds max_bytes validation to receive implementations; the pinned buffered receive_exactly implementation still takes a negative slice. This supports returning to the existing report and clarifying the remaining contract, not a competing fresh-discovery PR. Record scoped owner advice with a reopening condition rather than suppressing the whole file or changing raw model results.",
+  "avoid_when": "A closed issue can contain unresolved or distinct actionable bugs; neither its status nor a same-file match justifies rejecting a new lead. A current native failure does not prove novelty, intended behavior or maintainer acceptance. Do not copy a sibling API's positive-size constraint: zero-length exact reads can deliberately differ from bounded receive. This is one source/history counterexample, not a measured improvement in Scout conversion or a universal negative-length rule.",
+  "evidence": [
+    {
+      "url": "https://github.com/agronholm/anyio/issues/1081",
+      "note": "The closed report explicitly includes negative and zero receive_exactly cases and reproducer tests, beyond the receive(max_bytes) API named in its title. It establishes prior reporting, not the final contract for every case."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/pull/1191",
+      "note": "The merged follow-on describes validation of max_bytes in ByteReceiveStream.receive implementations. Its closure of #1081 alone does not establish receive_exactly coverage."
+    },
+    {
+      "url": "https://github.com/agronholm/anyio/blob/31c678218e9c2cbabd275f4a3745ae2a0f10f1b7/src/anyio/streams/buffered.py#L94-L113",
+      "note": "Pinned source still uses buffer[:nbytes] when remaining <= 0, with no negative-nbytes guard. This is scoped current-source evidence, not proof that the behavior is supported, novel or accepted for repair."
+    }
+  ],
+  "status": "counterexample"
+}
