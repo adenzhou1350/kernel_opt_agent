@@ -385,6 +385,7 @@ def collect_source(spec, github_auth=False):
             spec["question"] + " " + " ".join(
                 item.get("path", "") for item in spec.get("files", [])
             ),
+            source_urls=(source["url"] for source in sources),
         ),
     }
     if spec.get("split_reports"):

@@ -1,0 +1,140 @@
+"""Source affinity is optional advice, not a current-version correctness verdict."""
+
+import copy
+import json
+import sys
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+import kimi_scout as scout
+import kimi_scout_research as research
+import scout_lesson_context as lessons
+
+REV = "a" * 40
+OLD = "b" * 40
+RAW = f"https://raw.githubusercontent.com/owner/project/{REV}/src/operator.py"
+
+
+def card(name, url, body="Check all guards; this source is not a native test."):
+    return dict(
+        id=name, title=name, applies_when="Read the current implementation.",
+        lesson=body, avoid_when="Other versions may differ; never auto-reject.",
+        status="counterexample", evidence=[dict(url=url, note="Source only.")],
+    )
+
+
+class SourceLessonTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.library = self.root / "lessons"
+        self.library.mkdir()
+        self.generic = card("generic-regression", "https://example.org/context",
+                            "regression correctness production " * 4)
+        self.focused = card("specific-guard", f"https://github.com/owner/project/blob/{OLD}/src/operator.py#L10-L20")
+        self.save(self.generic)
+        self.save(self.focused)
+
+    def save(self, value):
+        (self.library / (value["id"] + ".json")).write_text(
+            json.dumps(value), encoding="utf-8"
+        )
+
+    def lookup(self, urls, **kwargs):
+        return lessons.lesson_suggestions(
+            "production correctness regression", source_urls=urls,
+            directory=self.library, **kwargs
+        )
+
+    def test_same_repo_full_path_cross_revision_beats_generic_prose(self):
+        baseline = lessons.lesson_suggestions(
+            "production correctness regression", directory=self.library
+        )
+        self.assertEqual(baseline["matches"], [self.generic])
+        actual = self.lookup([RAW])
+        self.assertEqual(actual["matches"], [self.focused])
+        self.assertTrue(actual["source_path_match"])
+        self.assertEqual(actual["status"], "ADVISORY_MATCH")
+        self.assertNotIn("qualified", actual)
+        self.assertNotIn(str(self.root), json.dumps(actual))
+
+    def test_exact_revision_ranks_before_other_same_file_cards(self):
+        exact = card("z-exact", RAW, "Exact revision source; still check applicability.")
+        self.save(exact)
+        self.assertEqual(self.lookup([RAW] * 10)["matches"], [exact])
+
+    def test_other_repo_directory_case_and_mutable_refs_are_not_matches(self):
+        for url in (
+            RAW.replace("owner/project", "another/project"),
+            RAW.replace("/src/", "/tests/"),
+            RAW.replace("operator.py", "Operator.py"),
+            RAW.replace(REV, "main"),
+            RAW.replace("https:", "http:"),
+            RAW.replace("raw.githubusercontent.com", "raw.githubusercontent.com.evil.org"),
+            RAW.replace("https://", "https://user:secret@"),
+            RAW.replace("/src/", "/src/../src/"),
+            "https://github.com/owner/project/issues/1",
+        ):
+            with self.subTest(url=url):
+                self.assertEqual(self.lookup([url])["matches"], [self.generic])
+
+    def test_exclusion_size_and_url_budget_preserve_generic_fallback(self):
+        self.assertEqual(self.lookup([RAW], exclude=[self.focused["id"]])["matches"], [self.generic])
+        self.save(dict(self.focused, lesson="x" * (lessons.MAX_CARD_BYTES + 1)))
+        actual = self.lookup([RAW])
+        self.assertEqual(actual["matches"], [self.generic])
+        self.assertGreaterEqual(actual["oversized_matches_omitted"], 1)
+        self.save(self.focused)
+        self.assertEqual(self.lookup(["https://example.org/none"] * 16 + [RAW])["matches"], [self.generic])
+
+    def test_fitting_still_drops_whole_card_not_primary_source(self):
+        packet = dict(sources=[dict(url=RAW, text="primary evidence")],
+                      lesson_suggestions=self.lookup([RAW]))
+        original = copy.deepcopy(packet)
+        lessons.fit_lesson_context(packet, 1)
+        self.assertNotIn("lesson_suggestions", packet)
+        self.assertEqual(packet["sources"], original["sources"])
+
+    def test_partial_gated_deltanet_window_finds_guard_without_imports(self):
+        url = (
+            "https://raw.githubusercontent.com/fla-org/flash-linear-attention/"
+            "78a39922d56562336e22e5a429b039f34ef2bf7f/fla/layers/gated_deltanet.py"
+        )
+        result = lessons.lesson_suggestions(
+            "Find bounded, production-reachable model-layer or wrapper correctness "
+            "gaps with a focused regression. Check existing tests, supported backend "
+            "and exact caller before proposing a kernel change. gated_deltanet.py",
+            source_urls=[url],
+        )
+        self.assertEqual(result["matches"][0]["id"], "training-and-grad-mode-dispatch")
+        self.assertIn("not self.training", result["matches"][0]["lesson"])
+        self.assertNotIn("qualified", result)
+
+    def test_research_emitter_supplies_source_urls_without_extra_source_reads(self):
+        root = self.root / "run"
+        scout.initialize(root)
+        spec = dict(repo="owner/project", question="production correctness regression",
+                    source_prefixes=["src/"])
+        config = self.root / "config.json"
+        config.write_text(json.dumps(dict(objective="test", queue_target=8, repos=[spec])), encoding="utf-8")
+        producer = research.ResearchProducer(root, config, context=object())
+        source = dict(url=RAW, text="121: partial source without imports")
+        real = lessons.lesson_suggestions
+
+        def lookup(*args, **kwargs):
+            return real(*args, **kwargs, directory=self.library)
+
+        with patch.object(research, "lesson_suggestions", side_effect=lookup):
+            self.assertTrue(producer.emit("key", spec, [source], "discovery"))
+        with scout.connect(root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+        self.assertEqual(packet["lesson_suggestions"]["matches"], [self.focused])
+        self.assertEqual(packet["sources"], [source])
+
+
+if __name__ == "__main__":
+    unittest.main()

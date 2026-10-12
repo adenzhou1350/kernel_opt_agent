@@ -51,6 +51,14 @@ applicability. Unmatched queries return no cards. Read the public sources and
 the current code before transferring a lesson; no match authorizes execution,
 publishing, acceptance or a readiness claim.
 
+Scout may prefer a card whose immutable GitHub evidence link names the same
+repository and full source path as a supplied excerpt. Exact revisions rank
+first; a cross-revision path match is only a reason to read the old lesson and
+check today's implementation, not proof that its conclusion still holds. This
+lookup adds no source fetches, supplies at most one complete card within the
+existing budget, and never displaces primary source evidence. A retrieval test
+does not establish better discovery accuracy or PR conversion.
+
 Keep private experiment logs, machine addresses, local run paths, credentials,
 raw timing samples and private discussions out of cards. Contribute the reusable
 finding with public references; if public evidence only explains a possible

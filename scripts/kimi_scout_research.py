@@ -803,6 +803,7 @@ class ResearchProducer:
                 + " "
                 + spec["question"],
                 exclude=(card["id"] for card in self.lessons),
+                source_urls=(source["url"] for source in sources),
             ),
             "research": {
                 "stage": stage,
