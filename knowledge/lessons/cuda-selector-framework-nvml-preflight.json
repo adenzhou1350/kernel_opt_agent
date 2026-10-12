@@ -1,0 +1,22 @@
+{
+  "id": "cuda-selector-framework-nvml-preflight",
+  "title": "CUDA UUID enumeration does not prove framework NVML selector compatibility",
+  "applies_when": "Preparing native multi-GPU framework tests that combine CUDA_VISIBLE_DEVICES with framework-owned NVML or memory queries, particularly historical DeepSpeed revisions.",
+  "lesson": "Preflight the actual framework memory-query path as well as Torch device enumeration before launching the full distributed suite. CUDA accepts UUID selectors, but the pinned DeepSpeed adapter below parses visible selectors as integers when NVML is available. A successful Torch UUID probe therefore does not establish that training initialization will work. Prefer a compatible adapter; if a task requires legacy integer selectors, recheck their live physical UUID mapping and prove the resulting CUDA ordinals in a separate process. Keep a fork-based pytest parent CUDA-cold. Record an environment failure separately from the candidate assertion; do not launch the candidate when baseline controls never reach it.",
+  "avoid_when": "Do not assume current DeepSpeed, other adapters, MIG, or NVML-disabled configurations use this historical implementation. Integer ordinals are not stable resource identities. This advice neither grants GPU access nor proves an allocator lock, full isolation, correctness, or lower end-to-end validation cost.",
+  "evidence": [
+    {
+      "url": "https://raw.githubusercontent.com/deepspeedai/DeepSpeed/a20acd1d79347ffaf6fcd9af759f529a8a72f864/accelerator/cuda_accelerator.py",
+      "note": "The pinned _get_nvml_gpu_id integer-parses CUDA_VISIBLE_DEVICES; available_memory calls it when pynvml is enabled. This establishes the version-specific compatibility mechanism, not a portable failure rate."
+    },
+    {
+      "url": "https://docs.nvidia.com/cuda/cuda-programming-guide/05-appendices/environment-variables.html",
+      "note": "NVIDIA documents UUID selectors, visible-device enumeration order and PCI_BUS_ID ordering; CUDA support alone does not specify a third-party adapter's parsing."
+    },
+    {
+      "url": "https://github.com/deepspeedai/DeepSpeed/blob/a20acd1d79347ffaf6fcd9af759f529a8a72f864/CONTRIBUTING.md",
+      "note": "The distributed CUDA test instructions require pytest-forked and explain why CUDA initialization before fork is unsafe."
+    }
+  ],
+  "status": "hypothesis"
+}
