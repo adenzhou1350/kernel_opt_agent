@@ -86,6 +86,27 @@ def _text(value):
     return value if isinstance(value, str) else ""
 
 
+def _test_suite_anchor(lines, hints):
+    """A literal JS suite subject is a lexical hint, not passing test evidence.
+
+    Skip imports/incidental mentions. Only a unique, single-line literal suite
+    with an exact observed name is eligible; ambiguous/dynamic titles abstain.
+    """
+    names = list(dict.fromkeys(re.findall(r"[A-Za-z_][A-Za-z0-9_]{2,127}", hints[:2000])))[:32]
+    suites = {}
+    pattern = re.compile(
+        r"^\s*describe(?:\.(?:only|skip))?\(\s*(['\"])([A-Za-z_]\w{2,127})\1\s*,"
+    )
+    for index, line in enumerate(lines):
+        match = pattern.match(line)
+        if match and match[2] in names:
+            suites.setdefault(match[2], []).append(index)
+    for name in names:
+        if name in suites:
+            return (name, suites[name][0]) if len(suites[name]) == 1 else None
+    return None
+
+
 def _definition_line(lines, hints):
     """Prefer a requested Python/JS declaration to incidental keyword mentions.
 
@@ -411,6 +432,13 @@ class PublicContext:
             start = min(offset, max(0, len(lines) - max_lines)) + 1
         if start is not None and start > max(1, len(lines)):
             raise ValueError("source start line is beyond end of file")
+        suite = None
+        if start is None and exact_hint is None and path.endswith(
+            (".test.ts", ".test.tsx", ".test.js", ".test.jsx", ".spec.ts", ".spec.tsx", ".spec.js", ".spec.jsx")
+        ):
+            suite = _test_suite_anchor(lines, hints)
+            if suite is not None:
+                start = suite[1] + 1
         if start is None:
             definition = _definition_line(lines, hints)
             if definition is not None:
@@ -441,6 +469,11 @@ class PublicContext:
             total_lines=len(lines),
             truncated=evidence["truncated"] or start > 1 or end < len(lines),
         )
+        if suite is not None:
+            evidence["test_suite_anchor"] = {
+                "subject": suite[0], "line": suite[1] + 1,
+                "scope": "Literal suite-title match only; not execution, complete coverage or a passing verdict.",
+            }
         absent = absent_requested_identifiers(raw, request_hints)
         if absent:
             evidence["requested_identifier_absence"] = {

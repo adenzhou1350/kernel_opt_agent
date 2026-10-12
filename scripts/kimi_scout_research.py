@@ -116,6 +116,29 @@ def refill_retry_delay(made, failure, empty_refills, *, cursor_advanced=False):
     return min(120, 5 * 2 ** max(0, empty_refills - 1))
 
 
+def companion_source_hints(source, stem):
+    """Prioritize declarations visible in this JS/TS window over a filename.
+
+    Bounded lexical hints, not parsing or export/binding/reachability evidence.
+    Keep other languages' existing selection unchanged.
+    """
+    path = source.get("url", "").split("?", 1)[0]
+    if not path.endswith((".ts", ".tsx", ".js", ".jsx")):
+        return stem
+    names = []
+    pattern = re.compile(
+        r"^\s*(?:\d+:\s*)?(?:export\s+)?(?:default\s+)?(?:async\s+)?"
+        r"(?:function|class)\s+([A-Za-z_][A-Za-z0-9_]{2,127})\b"
+    )
+    for line in source.get("text", "")[:9000].splitlines()[:160]:
+        match = pattern.match(line)
+        if match and match[1] not in names:
+            names.append(match[1])
+            if len(names) == 8:
+                break
+    return " ".join([*names, stem])[:2000]
+
+
 def companion_source_paths(path, files):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
@@ -1258,7 +1281,7 @@ class ResearchProducer:
                             spec["repo"],
                             snapshot["commit"],
                             tests[0],
-                            hints=stem,
+                            hints=companion_source_hints(source, stem),
                             max_lines=70,
                         )
                     )

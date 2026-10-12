@@ -1399,6 +1399,29 @@ class ResearchTests(unittest.TestCase):
             ["router.ts", "router.test.ts"],
         )
 
+    def test_typescript_source_audit_passes_only_observed_subject_hints(self):
+        paths = ["src/shared.ts", "tests/shared.test.ts"]
+        snapshot = {
+            "commit": self.context.revision, "files": paths,
+            "blobs": {path: self.context.blob for path in paths},
+        }
+        original = self.context.source
+
+        def source(repo, commit, path, **kwargs):
+            item = original(repo, commit, path, **kwargs)
+            if path == paths[0]:
+                item["text"] = "1: export function allowlistFor() { return undefined; }"
+            return item
+
+        with (
+            patch.object(self.context, "snapshot", return_value=snapshot),
+            patch.object(self.context, "source", side_effect=source) as read,
+        ):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        self.assertEqual(read.call_count, 2)
+        self.assertEqual(read.call_args_list[1].kwargs["hints"], "allowlistFor shared")
+        self.assertEqual(read.call_args_list[1].kwargs["max_lines"], 70)
+
     def test_oversize_optional_test_does_not_stall_source_frontier(self):
         original_source = self.context.source
 
