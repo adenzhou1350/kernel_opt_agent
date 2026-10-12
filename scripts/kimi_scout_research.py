@@ -20,6 +20,7 @@ import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
+from scout_cited_issue import cited_issue_number
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint
@@ -735,6 +736,7 @@ class ResearchProducer:
         *,
         parent=None,
         focus_issue=None,
+        issue_pr_lookup=None,
         question="",
         frontier=None,
     ):
@@ -781,6 +783,8 @@ class ResearchProducer:
         }
         if focus_issue:
             packet["focus_issue"] = focus_issue
+        if issue_pr_lookup is not None:
+            packet["issue_pr_lookup"] = issue_pr_lookup
         # Reuse the visibility metadata already read for source/report context.
         # Older injected contexts need not implement this optional observation.
         observe_settings = getattr(self.context, "observed_repository_settings", None)
@@ -990,6 +994,22 @@ class ResearchProducer:
             items.pop(0)
             return created
         return False
+
+    def issue_pr_context(self, repo, number):
+        lookup = getattr(self.context, "issue_pr_context", None)
+        if not callable(lookup):
+            return {"sources": [], "status": "UNAVAILABLE", "search_exhaustive": False}
+        try:
+            result = lookup(repo, number)
+            if not isinstance(result, dict) or not isinstance(result.get("sources"), list):
+                raise ValueError("invalid issue PR context")
+            return result
+        except (ValueError, OSError) as exc:
+            # Optional search failure must not masquerade as no existing PRs.
+            return {
+                "sources": [], "status": "ERROR", "error": type(exc).__name__,
+                "search_exhaustive": False,
+            }
 
     def source_audit(self, spec, progress):
         prefixes = sorted(set(spec["source_prefixes"]))
@@ -1264,9 +1284,16 @@ class ResearchProducer:
             root = research.get("root_job_id") or row["id"]
             number = packet.get("focus_issue")
             if not number:
+                issue_candidates = packet["sources"]
+                if research:
+                    # Related work must not transfer a source chain's ownership.
+                    issue_candidates = (
+                        issue_candidates[:1]
+                        if research.get("stage") == "issue_triage" else []
+                    )
                 matches = {
                     int(m.group(1))
-                    for s in packet["sources"]
+                    for s in issue_candidates
                     if (
                         m := re.fullmatch(
                             r"https://github\.com/"
@@ -1548,10 +1575,24 @@ class ResearchProducer:
                     progress["pr_revision_context_error"] = type(exc).__name__
                 else:
                     progress.pop("pr_revision_context_error", None)
-            # Replace repeated title search, not another model tier or an
-            # unbounded crawl. Existing primary-code reads and chain limits stay.
+            # An exactly quoted displayed issue supplies a bounded related-work
+            # query, not candidate focus or authority to fetch a model URL.
+            lookup_number = number or cited_issue_number(
+                spec["repo"], packet["sources"], analysis_value
+            )
+            related_prs = (
+                self.issue_pr_context(spec["repo"], lookup_number)
+                if lookup_number and not revisions else None
+            )
+            if related_prs is not None and not number:
+                related_prs = {
+                    **related_prs, "related_issue": lookup_number,
+                    "candidate_focus_adopted": False,
+                }
             if revisions:
                 sources.extend(revisions)
+            elif related_prs and related_prs["sources"]:
+                sources.extend(related_prs["sources"])
             else:
                 sources.extend(
                     self.context.duplicate_sources(
@@ -1581,6 +1622,10 @@ class ResearchProducer:
                     "analysis": analysis,
                     "title": analysis_value.get("title"),
                 },
+                issue_pr_lookup=(
+                    {k: v for k, v in related_prs.items() if k != "sources"}
+                    if related_prs else None
+                ),
                 question=(
                     (
                         "Role: skeptical reviewer, not the original proposer. Check caller preconditions, "

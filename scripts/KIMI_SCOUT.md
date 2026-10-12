@@ -204,6 +204,13 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   members and bounded related-work search. Model hints cannot introduce arbitrary
   fetch URLs or paths. The final output is a falsification/reproduction **plan**;
   actual tests, GPU validation and PR decisions still belong to the owner.
+- Follow-ups may use one cached PR-body query for an exactly quoted displayed
+  issue instead of the title search when it returns related work. A quoted
+  comment additionally requires its canonical parent issue in the same bounded
+  packet. Only verified same-repository PR references enter the context; empty
+  or failed searches retain title fallback and never prove novelty. Source-chain
+  focus and the two-followup limit do not change. This repairs a retrieval gap,
+  not a demonstrated improvement in PR conversion or total cost.
 - An explicit same-file line interval must start at an observed truncated
   window's end or its immediate successor, and end within that pinned file.
   For a long interval, two available ordinary read slots show its head and tail
