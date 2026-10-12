@@ -767,6 +767,48 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(len(packet["sources"]), 4)
         self.assertNotIn("unrelated/kernel.py", scout.dumps(packet))
 
+    def test_called_kernel_definition_requires_same_immutable_file(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        caller = {"url": url, "text": "190: grpo_fwd_kernel[(n,)]()"}
+        definition = "30: def grpo_fwd_kernel():\n31: tl.store(loss_ptr + M, 0.0)"
+        snapshot = self.context.snapshot("a/b")
+        for other_url in (
+            url.replace("/src/kernel.py", "/tests/test_kernel.py"),
+            url.replace("/a/b/", "/other/repo/"),
+            url.replace(self.context.revision, "d" * 40),
+            "https://github.com/a/b/issues/42",
+        ):
+            with self.subTest(other_url=other_url):
+                packet = {"repo": "a/b", "sources": [caller, {"url": other_url, "text": definition}]}
+                self.assertEqual(
+                    research.same_file_kernel_definition(packet, snapshot),
+                    ("src/kernel.py", "grpo_fwd_kernel"),
+                )
+        packet = {"repo": "a/b", "sources": [caller, {"url": url, "text": definition}]}
+        self.assertIsNone(research.same_file_kernel_definition(packet, snapshot))
+
+    def test_followup_does_not_substitute_other_backend_kernel_definition(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        caller = {"url": url, "text": "190: grpo_fwd_kernel[(n,)]()"}
+        other = {"url": url.replace("/src/kernel.py", "/tests/test_kernel.py"),
+                 "text": "30: def grpo_fwd_kernel():\n31: unrelated_backend()"}
+        definition = {"url": url, "text": "30: def grpo_fwd_kernel():\n31: tl.store(loss_ptr + M, 0.0)"}
+        later = {"url": url, "text": "220: wrapper context"}
+        self.producer.emit("backend-kernel-caller", self.spec, [caller, other], "source_audit")
+        self.finish(self.jobs()[0])
+
+        def source(*args, hints="", **kwargs):
+            return definition if hints == "def grpo_fwd_kernel(" else later
+
+        with (
+            patch.object(self.context, "source", side_effect=source) as acquire,
+            patch.object(self.context, "duplicate_sources", return_value=[]),
+        ):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        packet = json.loads(self.jobs()[-1]["packet"])
+        self.assertIn(definition, packet["sources"])
+        self.assertLessEqual(acquire.call_count, 3)
+
     def test_followup_adds_called_kernel_definition_before_review(self):
         url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
         old = {"url": url, "text": "190: grpo_fwd_kernel[(n,)]()"}

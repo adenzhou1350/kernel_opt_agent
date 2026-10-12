@@ -525,7 +525,10 @@ def same_file_kernel_definition(packet, snapshot):
             continue
         for symbol in re.findall(r"\b([A-Za-z_]\w*_kernel)\s*\[", source["text"]):
             definition = re.compile(rf"\bdef\s+{re.escape(symbol)}\s*\(")
-            if not any(definition.search(item["text"]) for item in sources):
+            # Another backend, revision or report can use the same kernel name.
+            # Only a window from this immutable file supplies its definition.
+            if not any(item["url"] == source["url"] and definition.search(item["text"])
+                       for item in sources):
                 return path, symbol
     return None
 
