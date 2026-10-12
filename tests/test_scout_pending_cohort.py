@@ -1,5 +1,6 @@
 import hashlib
 import json
+from contextlib import closing
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -167,9 +168,59 @@ class PendingCohortTests(unittest.TestCase):
             {"created_after": 0, "scan_limit": 3000},
             {"created_after": 0, "decision_point": "unknown"},
             {"created_after": 0, "enrollment": "best_outcomes"},
+            {"created_after": 0, "repos": []},
+            {"created_after": 0, "repos": "owner/repo"},
+            {"created_after": 0, "repos": ["owner/repo", "OWNER/REPO"]},
+            {"created_after": 0, "repos": [None]},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 enroll(Path("missing"), **kwargs)
+
+    def test_repo_filter_precedes_scan_limit_without_reading_outcomes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "scout.sqlite"
+            with closing(sqlite3.connect(path)) as db:
+                db.executescript("""
+                    CREATE TABLE jobs (id TEXT,packet TEXT,created REAL,finished REAL,state TEXT,result TEXT);
+                    CREATE TABLE research_action_shadow (job_id TEXT,policy_version TEXT,
+                        packet_sha256 TEXT,recorded_at REAL,suggested_action TEXT,reason TEXT);
+                """)
+                for index, repo in enumerate(("busy/old", "busy/old", "new/repo")):
+                    packet = dict(repo=repo, research=dict(stage="source_followup", parent_job_id="p"),
+                                  untrusted_prior_analysis="prior", sources=[dict(
+                                      url=f"https://raw.githubusercontent.com/{repo}/{'a' * 40}/{index}.go")])
+                    raw = json.dumps(packet)
+                    db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?)",
+                               (str(index), raw, 20 + index, 40, "REVIEW", "FORBIDDEN"))
+                    db.execute("INSERT INTO research_action_shadow VALUES (?,?,?,?,?,?)",
+                               (str(index), "policy", hashlib.sha256(raw.encode()).hexdigest(),
+                                25, "not a label", "reason"))
+                db.commit()
+            before = path.read_bytes()
+            real_connect = sqlite3.connect
+
+            def deny_outcomes(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connection.set_authorizer(
+                    lambda operation, table, column, *unused: sqlite3.SQLITE_DENY
+                    if operation == sqlite3.SQLITE_READ and table == "jobs"
+                    and column in {"result", "charge", "state", "finished"}
+                    else sqlite3.SQLITE_OK)
+                return connection
+
+            with patch("scripts.scout_pending_cohort.sqlite3.connect", side_effect=deny_outcomes):
+                cases, metadata = enroll(path, created_after=10, limit=1, per_repo_cap=1,
+                                         scan_limit=1, enrollment="admission_recorded", repos=["NEW/REPO"])
+            self.assertEqual(len(cases), 1)
+            self.assertEqual(cases[0]["packet"]["repo"], "new/repo")
+            self.assertEqual(metadata["scanned_rows"], 1)
+            self.assertNotIn("FORBIDDEN", json.dumps(cases))
+            self.assertEqual(before, path.read_bytes())
+            with closing(sqlite3.connect(path)) as db:
+                db.execute("UPDATE jobs SET result='changed',state='FAILED',finished=80")
+                db.commit()
+            self.assertEqual(cases, enroll(path, created_after=10, limit=1, per_repo_cap=1,
+                                           scan_limit=1, enrollment="admission_recorded", repos=["new/repo"])[0])
 
     def test_initial_decisions_are_separate_from_followup_cohorts(self):
         with tempfile.TemporaryDirectory() as folder:

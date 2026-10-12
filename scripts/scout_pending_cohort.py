@@ -118,6 +118,7 @@ def enroll(
     scan_limit=200,
     decision_point="followup",
     enrollment="unfinished",
+    repos=None,
 ):
     if (
         not math.isfinite(created_after)
@@ -128,6 +129,13 @@ def enroll(
         or enrollment not in ("unfinished", "admission_recorded")
     ):
         raise ValueError("invalid cutoff or bounded sample caps")
+    if repos is not None and (
+        not isinstance(repos, (list, tuple))
+        or not 1 <= len(repos) <= 64
+        or any(not isinstance(repo, str) or not repo or len(repo) > 200 for repo in repos)
+        or len({repo.casefold() for repo in repos}) != len(repos)
+    ):
+        raise ValueError("repos must be a nonempty bounded list of unique names")
     db = sqlite3.connect(f"file:{Path(db_path).resolve().as_posix()}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
     try:
@@ -138,14 +146,28 @@ def enroll(
             if enrollment == "unfinished"
             else ""
         )
+        # Filter before LIMIT: post-filtering a global busy queue can silently
+        # starve a newly enrolled repository. This still reads only input-side
+        # fields, including when a fast task has already completed.
+        repo_clause = ""
+        parameters = [created_after]
+        if repos is not None:
+            repo_clause = (
+                "AND lower(json_extract(j.packet,'$.repo')) IN ("
+                + ",".join("?" for _ in repos)
+                + ") "
+            )
+            parameters.extend(repo.lower() for repo in repos)
+        parameters.append(scan_limit)
         rows = db.execute(
             "SELECT j.id,j.packet,j.created,s.policy_version,s.packet_sha256,"
             "s.recorded_at,s.suggested_action,s.reason FROM jobs j "
             "JOIN research_action_shadow s ON s.job_id=j.id "
             "WHERE j.created>=? "
             + unfinished_clause
+            + repo_clause
             + "ORDER BY j.created,j.id LIMIT ?",
-            (created_after, scan_limit),
+            parameters,
         ).fetchall()
         snapshot_at = time.time()
     finally:
@@ -243,6 +265,7 @@ def enroll(
     metadata = {
         "enrollment": enrollment,
         "decision_point": decision_point,
+        "repos": list(repos) if repos is not None else None,
         "created_after": created_after,
         "snapshot_at": snapshot_at,
         "scanned_rows": len(rows),
@@ -276,6 +299,8 @@ def main():
     parser.add_argument("--limit", type=int, default=12)
     parser.add_argument("--per-repo-cap", type=int, default=4)
     parser.add_argument("--scan-limit", type=int, default=200)
+    parser.add_argument("--repo", action="append", dest="repos",
+                        help="optional repository filter applied before the bounded scan")
     parser.add_argument(
         "--decision-point", choices=tuple(DECISION_STAGES), default="followup"
     )
@@ -294,6 +319,7 @@ def main():
         scan_limit=args.scan_limit,
         decision_point=args.decision_point,
         enrollment=args.enrollment,
+        repos=args.repos,
     )
     args.output_dir.mkdir(parents=True, exist_ok=False)
     body = "".join(
