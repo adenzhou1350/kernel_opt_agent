@@ -114,6 +114,25 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("not self.training", result["matches"][0]["lesson"])
         self.assertNotIn("qualified", result)
 
+    def test_helper_contract_card_fits_and_retains_callee_counterexample(self):
+        url = (
+            "https://raw.githubusercontent.com/pelletier/go-toml/"
+            "686c980c47581bf19b6119b60e9a59f2aed04170/decode.go"
+        )
+        result = lessons.lesson_suggestions(
+            "Check asymmetric validation in the caller and callee", source_urls=[url]
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertTrue(result["source_path_match"])
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "helper-contract-and-owner-lifetime")
+        self.assertLessEqual(
+            len(json.dumps(matched, ensure_ascii=False).encode()),
+            lessons.MAX_CARD_BYTES,
+        )
+        self.assertTrue(any("parseLocalDate" in item["note"] for item in matched["evidence"]))
+        self.assertIn("public helper", matched["avoid_when"].casefold())
+
     def test_research_emitter_supplies_source_urls_without_extra_source_reads(self):
         root = self.root / "run"
         scout.initialize(root)
