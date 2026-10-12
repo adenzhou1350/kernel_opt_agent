@@ -1,5 +1,22 @@
 # Observable next-evidence acquisition
 
+## Live controller transport (separate from the trial helper)
+
+`kimi_scout_context.PublicContext` normally reads immutable raw source. On a
+connection reset or timeout only, it makes one GitHub Git-blob API request for
+the blob already bound by the public repository snapshot. It validates bounded
+base64 content, declared size and the Git blob SHA-1 before UTF-8 decoding and
+caching. API authentication stays opt-in and is never sent to the raw host.
+HTTP errors, TLS verification failures, unknown transport failures and oversized
+responses do not trigger this fallback; it does not change certificate checks,
+repository visibility checks, queue decisions or model privileges.
+
+The source cache records `transport=git_blob_api` when used, while evidence keeps
+its original immutable source URL. Count both attempted reads when accounting
+for acquisition costs; a fallback is not free evidence. This operational path
+does not modify the single-GET trial helper described below or establish any
+improvement in candidate quality or PR conversion.
+
 `scripts/scout_evidence_acquisition.py` is an optional standard-library helper
 for fresh shadow experiments. It does not replace the live Scout fetcher, decide
 candidate quality, launch code, or write files. A caller supplies already

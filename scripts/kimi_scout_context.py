@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import re
 import time
+import urllib.error
 import urllib.parse
 from pathlib import Path
 
@@ -152,6 +155,39 @@ class PublicContext:
 
     def _json(self, url, limit=API_LIMIT, authenticated=True):
         return json.loads(self._read(url, limit, authenticated))
+
+    def _source_text(self, repo, blob, url):
+        """One verified Git-blob read when raw transport resets or times out."""
+        try:
+            return self._read(url, RAW_LIMIT, authenticated=False), "raw"
+        except (urllib.error.URLError, ConnectionResetError, TimeoutError) as exc:
+            reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+            if isinstance(exc, urllib.error.HTTPError) or not isinstance(
+                reason, (ConnectionResetError, TimeoutError)
+            ):
+                raise
+        value = self._json(
+            f"https://api.github.com/repos/{repo}/git/blobs/{blob}",
+            RAW_LIMIT * 2 + 4096,
+        )
+        if (
+            not isinstance(value, dict)
+            or value.get("sha") != blob
+            or value.get("encoding") != "base64"
+            or type(value.get("size")) is not int
+            or not 0 <= value["size"] <= RAW_LIMIT
+            or not isinstance(value.get("content"), str)
+            or len(value["content"]) > RAW_LIMIT * 2
+        ):
+            raise ValueError("invalid public source blob")
+        try:
+            data = base64.b64decode("".join(value["content"].splitlines()), validate=True)
+        except (ValueError, binascii.Error) as exc:
+            raise ValueError("invalid public source blob") from exc
+        identity = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+        if len(data) != value["size"] or identity != blob:
+            raise ValueError("public source blob identity mismatch")
+        return data.decode("utf-8"), "git_blob_api"
 
     def _public(self, repo):
         repo = _repo(repo)
@@ -343,8 +379,8 @@ class PublicContext:
         cached = self._load(cache_path)
         raw = cached.get("text") if cached and cached.get("url") == url else None
         if not isinstance(raw, str) or len(raw.encode("utf-8")) > RAW_LIMIT:
-            raw = self._read(url, RAW_LIMIT, authenticated=False)
-            scout.write_json(cache_path, {"url": url, "text": raw})
+            raw, transport = self._source_text(repo, snapshot["blobs"][path], url)
+            scout.write_json(cache_path, {"url": url, "text": raw, "transport": transport})
         if "\x00" in raw:
             raise ValueError("binary source is not supported")
         lines = raw.splitlines()
