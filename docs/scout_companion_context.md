@@ -31,3 +31,34 @@ unmodified baseline fails two of the ten focused checks: false companion
 selection and the resulting extra producer read. These establish selection
 behavior, not PR yield or improved model accuracy. No community-code, GPU, or
 whole-workload performance claim is made.
+
+## Declarative implementations are opt-in evidence text
+
+Some repositories store implementations inside YAML, not Python files. An
+operator may opt in a small directory using a repository's
+`declarative_source_prefixes`, for example:
+
+```json
+{
+  "source_prefixes": ["model/evaluators/"],
+  "declarative_source_prefixes": ["model/evaluators/"]
+}
+```
+
+Only `.yaml` and `.yml` within those explicit directories become source evidence;
+the directories must also lie within the existing source prefixes. Other
+repositories, excluded test/vendor/generated paths, byte/line/read budgets and
+dedup keys retain their existing behavior. The same opt-in applies to issue
+context and bounded adjacent-window follow-ups. A changed selection reopens a
+completed empty sweep without resubmitting seen evidence.
+
+Scout reads the files as inert UTF-8 text. It does not parse YAML tags, compile
+embedded functions, execute examples, or acquire test qualification. A discovered
+lead still needs an independent test through the target project's actual caller.
+The motivating FutureAGI directory contained 88 YAML implementations and zero
+default-eligible source files at `ea12cc3f4456fc568d9694a215c661b15be1cea2`;
+restoring coverage does not establish new defects or improved PR yield.
+
+```text
+python -B -m unittest tests.test_scout_declarative_source
+```

@@ -64,6 +64,17 @@ OPTIONAL_SOURCE_UNAVAILABLE = frozenset(
 )
 
 
+def source_path(path, spec=None):
+    """Opted-in YAML is evidence text, never parsed or executed by Scout."""
+    return path.endswith(SOURCE_SUFFIXES) or (
+        path.endswith((".yaml", ".yml"))
+        and any(
+            path.startswith(prefix)
+            for prefix in (spec or {}).get("declarative_source_prefixes", [])
+        )
+    )
+
+
 class QueueFull(Exception):
     """Defer a fetched packet without advancing its evidence cursor."""
 
@@ -310,6 +321,21 @@ def configuration(path):
             )
         ):
             raise ValueError("research needs safe explicit source prefixes")
+        declarative = spec.get("declarative_source_prefixes", [])
+        if (
+            not isinstance(declarative, list)
+            or len(declarative) > 8
+            or any(
+                not isinstance(p, str)
+                or not p.endswith("/")
+                or any(part in {"", ".", ".."} for part in p[:-1].split("/"))
+                or any(c in p for c in "\\:*?[]")
+                or any(ord(c) < 32 or ord(c) == 127 for c in p)
+                or not any(p.startswith(prefix) for prefix in prefixes)
+                for p in declarative
+            )
+        ):
+            raise ValueError("declarative source directories must lie within source prefixes")
         if not isinstance(spec.get("question"), str):
             raise ValueError("research repository needs a question")
         if "source_windows" in spec and (
@@ -374,7 +400,7 @@ def source_paths(snapshot, spec):
         p
         for p in snapshot["files"]
         if any(p.startswith(prefix) for prefix in spec["source_prefixes"])
-        and p.endswith(SOURCE_SUFFIXES)
+        and source_path(p, spec)
         and not p.endswith("__init__.py")
         and implementation_path(p)
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
@@ -390,7 +416,7 @@ def changed_first_paths(paths, current_blobs, previous_blobs, limit=512):
     return changed + [path for path in paths if path not in changed_set], changed
 
 
-def continuation_request(packet, snapshot, analysis):
+def continuation_request(packet, snapshot, analysis, *, spec=None):
     """Honor an explicit adjacent request against one observed same-pin window.
 
     Model text selects no URL or arbitrary line: its requested boundary must
@@ -455,7 +481,7 @@ def continuation_request(packet, snapshot, analysis):
         )
         if (
             path in snapshot.get("files", [])
-            and path.endswith(SOURCE_SUFFIXES)
+            and source_path(path, spec)
             and source.get("truncated") is True
             and all(type(value) is int for value in (start, end, total))
             and 1 <= start <= end <= total
@@ -488,7 +514,7 @@ def continuation_request(packet, snapshot, analysis):
     return matches[0] if len(matches) == 1 else None
 
 
-def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=(), topic_hints=""):
+def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=(), topic_hints="", *, spec=None):
     """Rank *observed tree members*; never interpret hints as a fetch target."""
     hints = hints[:16000]
     # A report often names FlashInferMLASparseMetadataBuilder, not its
@@ -508,7 +534,7 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
     ranked = []
     for path in snapshot["files"]:
-        if path in exclude or not path.endswith(SOURCE_SUFFIXES):
+        if path in exclude or not source_path(path, spec):
             continue
         name = path.rsplit("/", 1)[-1].lower()
         stem = name.rsplit(".", 1)[0]
@@ -985,7 +1011,7 @@ class ResearchProducer:
             snapshot = self.current_snapshot(spec)
             if self.stopped():
                 return False
-            matches = relevant_paths(snapshot, sources[0]["text"])
+            matches = relevant_paths(snapshot, sources[0]["text"], spec=spec)
             if matches:
                 try:
                     sources.append(
@@ -1046,12 +1072,17 @@ class ResearchProducer:
 
     def source_audit(self, spec, progress):
         prefixes = sorted(set(spec["source_prefixes"]))
-        if progress.get("source_prefixes") != prefixes:
+        declarative = sorted(set(spec.get("declarative_source_prefixes", [])))
+        if (
+            progress.get("source_prefixes") != prefixes
+            or progress.get("declarative_source_prefixes", []) != declarative
+        ):
             # A completed sweep's cooldown belongs to its selected paths, not
             # the repository alone. Recheck a changed (or legacy unrecorded)
             # selection now; the scope and seen keys below still prevent
             # duplicate model work when the effective paths have not changed.
             progress["source_prefixes"] = prefixes
+            progress["declarative_source_prefixes"] = declarative
             progress.pop("sources_after", None)
         windows = spec.get("source_windows", self.config["source_windows"])
         previous_windows = progress.get("source_windows", 3)
@@ -1392,8 +1423,9 @@ class ResearchProducer:
                 deprioritize=supplied_paths
                 if analysis_value.get("decision") == "needs_context" else (),
                 topic_hints=sources[0]["text"].split("\n", 1)[0] if number and sources else "",
+                spec=spec,
             )
-            continuation = continuation_request(packet, snapshot, analysis_value)
+            continuation = continuation_request(packet, snapshot, analysis_value, spec=spec)
             if continuation:
                 paths = [continuation["path"]] + [
                     path for path in paths if path != continuation["path"]
