@@ -644,6 +644,15 @@ Existing same-file, privacy, deduplication and two-note display caps still apply
 Unknown fields, symlinks, oversized/malformed history and unrelated notes are
 ignored. No raw logs, automatic job suppression, retries, or quality promotion.
 Notes are read for newly admitted packets; changing a note alone buys no call.
+The packet reader exposes only the first 350 characters of each `reason` and
+`reopen_when`, even though storage accepts 1000. Put the decisive observation,
+qualification limits and next useful action first; do not bury a native A/B
+result behind setup history. Inspect the actual `owner_deferral_context()`
+projection before considering feedback available to a later model. A valid
+stored note or a successful reader test does not show that a model saw, used or
+benefited from it. Keep detailed commands/logs in the existing private evidence,
+not in a larger prompt. A shortened note neither resumes workers nor changes an
+earlier verdict.
 
 Interrupted attempts are not retried. STOP and uncertain container cleanup block
 new execution stages; repeated failures cool down admissions.
