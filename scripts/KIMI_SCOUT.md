@@ -211,8 +211,13 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   or failed searches retain title fallback and never prove novelty. Source-chain
   focus and the two-followup limit do not change. This repairs a retrieval gap,
   not a demonstrated improvement in PR conversion or total cost.
-- An explicit same-file line interval must start at an observed truncated
-  window's end or its immediate successor, and end within that pinned file.
+- An explicit same-file line interval must either start at an observed truncated
+  window's end or its immediate successor, or end at its start or immediate
+  predecessor. `before line N` and `after line N` must match that observed start
+  or end, respectively. Before requests expose up to 100 preceding lines plus
+  overlap; this can reveal validation omitted by the original excerpt. The path
+  must remain in the same pinned tree. Mixed directions, ambiguous windows,
+  arbitrary boundaries and malformed metadata abstain rather than guess.
   For a long interval, two available ordinary read slots show its head and tail
   rather than another lexical file match. The raw cache is shared; this adds no
   read slot or model call. Both excerpts retain their own visible ranges and

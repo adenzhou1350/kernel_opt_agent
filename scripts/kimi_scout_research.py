@@ -391,10 +391,10 @@ def changed_first_paths(paths, current_blobs, previous_blobs, limit=512):
 
 
 def continuation_request(packet, snapshot, analysis):
-    """Honor an explicit tail request only against an observed same-pin window.
+    """Honor an explicit adjacent request against one observed same-pin window.
 
     Model text selects no URL or arbitrary line: its requested boundary must
-    equal the recorded end of exactly one truncated public source window.
+    match the recorded start or end of exactly one truncated source window.
     """
     next_check = analysis.get("next_check", "")
     if not isinstance(next_check, str):
@@ -408,6 +408,16 @@ def continuation_request(packet, snapshot, analysis):
             int(value)
             for value in re.findall(expression, next_check[:2000], re.IGNORECASE)
         )
+    head_boundaries = set()
+    for expression in (
+        r"\bbefore\s+line\s+(\d{1,7})\b",
+        r"行\s*(\d{1,7})\s*(?:之前|以前|前)",
+        r"(?<!\d)(\d{1,7})\s*行\s*(?:之前|以前|前)",
+    ):
+        head_boundaries.update(
+            int(value)
+            for value in re.findall(expression, next_check[:2000], re.IGNORECASE)
+        )
     ranges = []
     for expression in (
         r"\blines?\s+(\d{1,7})\s*[-–—]\s*(\d{1,7})\b",
@@ -417,12 +427,18 @@ def continuation_request(packet, snapshot, analysis):
             (int(first), int(last))
             for first, last in re.findall(expression, next_check[:2000], re.IGNORECASE)
         )
-    # A requested interval may describe the missing tail, not an arbitrary
-    # remote source. Permit only the observed end or its immediate successor.
-    if any(first < 2 or last < first for first, last in ranges):
+    # An interval must adjoin the observed start or end, not a model-chosen
+    # remote location. Mixed directions and ambiguous boundaries abstain.
+    if any(first < 1 or last < first for first, last in ranges):
         return None
     ranges = set(ranges)
-    if len(boundaries) > 1 or len(ranges) > 1 or not (boundaries or ranges):
+    if (
+        len(boundaries) > 1
+        or len(head_boundaries) > 1
+        or (boundaries and head_boundaries)
+        or len(ranges) > 1
+        or not (boundaries or head_boundaries or ranges)
+    ):
         return None
     repo, commit = packet.get("repo"), snapshot.get("commit")
     if not isinstance(repo, str) or not isinstance(commit, str):
@@ -442,17 +458,33 @@ def continuation_request(packet, snapshot, analysis):
             and path.endswith(SOURCE_SUFFIXES)
             and source.get("truncated") is True
             and all(type(value) is int for value in (start, end, total))
-            and 1 <= start <= end < total
-            and (not boundaries or boundaries == {end})
-            and all(first in (end, end + 1) for first, _ in ranges)
-            and all(last <= total for _, last in ranges)
+            and 1 <= start <= end <= total
         ):
-            request = {"path": path, "start": max(start, end - 19), "max_lines": 120}
-            if ranges:
-                last = next(iter(ranges))[1]
-                if last >= request["start"] + 120:
-                    request["tail_start"] = last - 119
-            matches.append(request)
+            if (
+                start > 1
+                and not boundaries
+                and (not head_boundaries or head_boundaries == {start})
+                and all(first < start and last in (start - 1, start) for first, last in ranges)
+            ):
+                request = {"path": path, "start": max(1, start - 100), "max_lines": 120}
+                if ranges:
+                    first = next(iter(ranges))[0]
+                    if first < request["start"]:
+                        request["head_start"] = first
+                matches.append(request)
+            elif (
+                end < total
+                and not head_boundaries
+                and (not boundaries or boundaries == {end})
+                and all(first in (end, end + 1) for first, _ in ranges)
+                and all(last <= total for _, last in ranges)
+            ):
+                request = {"path": path, "start": max(start, end - 19), "max_lines": 120}
+                if ranges:
+                    last = next(iter(ranges))[1]
+                    if last >= request["start"] + 120:
+                        request["tail_start"] = last - 119
+                matches.append(request)
     return matches[0] if len(matches) == 1 else None
 
 
@@ -1490,14 +1522,15 @@ class ResearchProducer:
                 lexical_requests[0].update(
                     {key: continuation[key] for key in ("start", "max_lines")}
                 )
-                if "tail_start" in continuation and lexical_budget >= 2:
+                second_start = continuation.get("tail_start", continuation.get("head_start"))
+                if second_start is not None and lexical_budget >= 2:
                     # Replace the second lexical read, never add a third one.
                     # Visible ranges remain separate; neither claims completeness.
                     lexical_requests = [
                         lexical_requests[0],
                         {
                             "path": continuation["path"],
-                            "start": continuation["tail_start"],
+                            "start": second_start,
                             "max_lines": 120,
                         },
                     ]

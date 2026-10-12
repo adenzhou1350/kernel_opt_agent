@@ -39,6 +39,37 @@ class ContinuationTests(unittest.TestCase):
                     {"path": "src/worker.ts", "start": 341, "max_lines": 120},
                 )
 
+    def test_explicit_head_replaces_one_window_with_overlap(self):
+        for hint in ("Read before line 241 for validation", "查看241行之前的参数检查", "查看行241之前"):
+            with self.subTest(hint=hint):
+                self.assertEqual(
+                    continuation_request(self.packet, self.snapshot, {"next_check": hint}),
+                    {"path": "src/worker.ts", "start": 141, "max_lines": 120},
+                )
+
+    def test_head_interval_is_anchored_to_visible_start_not_an_arbitrary_range(self):
+        for hint in ("Read lines 100-240", "获取100–241行"):
+            with self.subTest(hint=hint):
+                self.assertEqual(
+                    continuation_request(self.packet, self.snapshot, {"next_check": hint}),
+                    {"path": "src/worker.ts", "start": 141, "max_lines": 120, "head_start": 100},
+                )
+        for hint in ("Read before line 240", "Read lines 100-239", "Read lines 100-242",
+                     "Read before line 241 and after line 360", "Read before line 241 and before line 100",
+                     "Read before line 241 and lines 361-400", "Read lines 0-240"):
+            with self.subTest(hint=hint):
+                self.assertIsNone(continuation_request(self.packet, self.snapshot, {"next_check": hint}))
+
+    def test_head_at_eof_and_near_bof_remains_bounded(self):
+        source = self.packet["sources"][0]
+        self.packet["sources"] = [{**source, "start_line": 25, "end_line": 537}]
+        self.assertEqual(
+            continuation_request(self.packet, self.snapshot, {"next_check": "before line 25"}),
+            {"path": "src/worker.ts", "start": 1, "max_lines": 120},
+        )
+        self.packet["sources"][0]["start_line"] = 1
+        self.assertIsNone(continuation_request(self.packet, self.snapshot, {"next_check": "before line 1"}))
+
     def test_arbitrary_boundary_or_url_cannot_select_source(self):
         for hint in (
             "Read after line 400",
@@ -105,7 +136,28 @@ class ContinuationTests(unittest.TestCase):
             )
         )
 
-    def test_real_followup_replaces_fetch_without_expanding_read_count(self):
+    def test_head_rejects_drift_ambiguity_and_untrusted_metadata(self):
+        source = self.packet["sources"][0]
+        for patch in (
+            {"end_line": 360.0},
+            {"total_lines": 359},
+            {"truncated": False},
+            {"start_line": True},
+            {"start_line": 0},
+            {"url": source["url"].replace(self.sha, "b" * 40)},
+            {"url": source["url"].replace("src/worker.ts", "src/missing.ts")},
+        ):
+            with self.subTest(patch=patch):
+                packet = {**self.packet, "sources": [{**source, **patch}]}
+                self.assertIsNone(
+                    continuation_request(packet, self.snapshot, {"next_check": "before line 241"})
+                )
+        self.packet["sources"].append(dict(source))
+        self.assertIsNone(
+            continuation_request(self.packet, self.snapshot, {"next_check": "before line 241"})
+        )
+
+    def run_followup(self, hint):
         calls = []
         snapshot = {**self.snapshot, "blobs": {"src/worker.ts": "b" * 40}}
 
@@ -153,20 +205,13 @@ class ContinuationTests(unittest.TestCase):
                             {
                                 "analysis": {
                                     "title": "worker lifecycle",
-                                    "next_check": "获取该文件361-537行，检查实际调用入口",
+                                    "next_check": hint,
                                 }
                             }
                         ),
                     ),
                 )
             self.assertTrue(producer.followup(spec, {}))
-            self.assertEqual(len(calls), 2)
-            self.assertEqual(calls[0][0], "src/worker.ts")
-            self.assertEqual(calls[0][1]["start"], 341)
-            self.assertEqual(calls[0][1]["max_lines"], 120)
-            self.assertEqual(calls[1][0], "src/worker.ts")
-            self.assertEqual(calls[1][1]["start"], 418)
-            self.assertEqual(calls[1][1]["max_lines"], 120)
             with scout.connect(root) as db:
                 emitted = json.loads(
                     db.execute(
@@ -176,8 +221,21 @@ class ContinuationTests(unittest.TestCase):
             fragments = [
                 s for s in emitted["sources"] if s["url"].endswith("src/worker.ts")
             ]
-            self.assertTrue(any(s["text"].startswith("341:") for s in fragments))
-            self.assertTrue(any(s["text"].startswith("418:") for s in fragments))
+            return calls, fragments
+
+    def test_real_followup_replaces_fetch_without_expanding_read_count(self):
+        calls, fragments = self.run_followup("获取该文件361-537行，检查实际调用入口")
+        self.assertEqual([(path, kw["start"], kw["max_lines"]) for path, kw in calls],
+                         [("src/worker.ts", 341, 120), ("src/worker.ts", 418, 120)])
+        for start in (341, 418):
+            self.assertTrue(any(s["text"].startswith(f"{start}:") for s in fragments))
+
+    def test_head_followup_uses_same_two_read_budget(self):
+        calls, fragments = self.run_followup("Read lines 100-240 for preceding validation")
+        self.assertEqual([(path, kw["start"], kw["max_lines"]) for path, kw in calls],
+                         [("src/worker.ts", 141, 120), ("src/worker.ts", 100, 120)])
+        for start in (141, 100):
+            self.assertTrue(any(s["text"].startswith(f"{start}:") for s in fragments))
 
     def test_short_range_and_unbounded_after_do_not_add_tail(self):
         self.assertEqual(
@@ -234,6 +292,32 @@ class ContinuationTests(unittest.TestCase):
             )  # Second fragment reuses the full raw cache.
             self.assertTrue(head["truncated"] and tail["truncated"])
             self.assertNotIn("requested_definition_complete", tail)
+
+    def test_preceding_window_exposes_guard_without_an_extra_raw_fetch(self):
+        from kimi_scout_context import PublicContext
+        from unittest.mock import patch
+
+        with tempfile.TemporaryDirectory() as directory:
+            ctx = PublicContext(Path(directory))
+            lines = ["// padding"] * 537
+            lines[134] = "require_integer_cuda_tensor(num_tokens_post_padded);"
+            lines[255] = "check_numel(num_tokens_post_padded);"
+            with (
+                patch.object(ctx, "snapshot", return_value=self.snapshot),
+                patch.object(ctx, "_read", return_value="\n".join(lines)) as read,
+            ):
+                original = ctx.source("a/b", self.sha, "src/worker.ts", start=228, max_lines=120)
+                self.assertNotIn("require_integer_cuda_tensor", original["text"])
+                request = continuation_request(
+                    {"repo": "a/b", "sources": [original]}, self.snapshot,
+                    {"next_check": "Read before line 228 for the earlier validation"},
+                )
+                preceding = ctx.source("a/b", self.sha, **request)
+            self.assertIn("require_integer_cuda_tensor", preceding["text"])
+            self.assertEqual(read.call_count, 1)
+            self.assertEqual((preceding["start_line"], preceding["end_line"]), (128, 247))
+            self.assertTrue(preceding["truncated"])
+            self.assertNotIn("requested_definition_complete", preceding)
 
 
 if __name__ == "__main__":
