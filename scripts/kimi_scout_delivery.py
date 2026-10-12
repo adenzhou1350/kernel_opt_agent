@@ -27,6 +27,7 @@ import kimi_scout as scout
 import scout_httpx_cpu as httpx_cpu
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 from kimi_scout_verify import valid_test_summary
+from scout_publication_context import publication_summary
 
 
 def owner_native_summary(result):
@@ -50,44 +51,6 @@ def owner_native_summary(result):
     if isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit):
         summary["candidate_commit"] = commit
     return summary
-
-
-def publication_summary(rows):
-    """Count recorded PR identities, not candidate rows or live GitHub states."""
-    identities = set()
-    records = 0
-    unverified = 0
-    for row in rows:
-        records += 1
-        try:
-            result = json.loads(row["result"])
-        except (TypeError, ValueError):
-            result = None
-        pr = result.get("pr") if isinstance(result, dict) else None
-        url = pr.get("url") if isinstance(pr, dict) else None
-        match = (
-            re.fullmatch(
-                r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/pull/([1-9][0-9]*)",
-                url,
-            )
-            if isinstance(url, str)
-            else None
-        )
-        repo = row["repo"]
-        if (
-            not match
-            or not isinstance(repo, str)
-            or match[1].casefold() != repo.casefold()
-        ):
-            unverified += 1
-            continue
-        identities.add((match[1].casefold(), int(match[2])))
-    return {
-        "candidate_records": records,
-        "distinct_prs": len(identities),
-        "unverified_links": unverified,
-        "claim_boundary": "Recorded canonical PR links; current open, CI, review and merge states are not inferred.",
-    }
 
 
 ACTIVE = {"PENDING", "GENERATING", "TESTING", "REPAIRING", "REVIEWING"}

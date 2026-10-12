@@ -665,7 +665,11 @@ For an offline read-only cost and outcome snapshot, run
 `python scripts/kimi_scout_funnel.py --root runs/kimi-scout`. It separates
 research jobs, terminal review leaves, reported model tokens, delivery outcomes
 and the most common environment blockers by repository. A review leaf is still
-an unvalidated hypothesis. The report deliberately leaves linked PR count null:
+an unvalidated hypothesis. Delivery token counters and deduplicated recorded PR
+identities are reported separately when the database supports them; legacy
+missing fields stay null. Zero counters do not establish complete usage, and
+recorded publications do not establish current CI/review/merge state or quality.
+The report deliberately leaves audited linked PR count null:
 the inbox does not have an audited lead-to-PR identity, so it cannot claim a PR
 conversion rate. Use this snapshot before widening a frontier or increasing
 model concurrency.

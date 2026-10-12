@@ -81,6 +81,8 @@ class FunnelTest(unittest.TestCase):
             self.assertEqual(report["repositories"][0]["review_leaves"], 1)
             self.assertEqual(report["repositories"][0]["reported_tokens"], 18)
             self.assertIsNone(report["linked_pr_count"])
+            self.assertIsNone(report["delivery"]["reported_tokens"])
+            self.assertIsNone(report["delivery"]["publications"])
             self.assertEqual(
                 before, sorted(p.relative_to(root) for p in root.rglob("*"))
             )
@@ -93,6 +95,51 @@ class FunnelTest(unittest.TestCase):
                     "CREATE TABLE jobs (id TEXT,state TEXT,packet TEXT,result TEXT)"
                 )
             self.assertEqual(inspect(root)["delivery"]["jobs"], 0)
+
+    def test_recorded_publications_and_tokens_do_not_imply_conversion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with closing(sqlite3.connect(root / "scout.sqlite")) as connection:
+                connection.execute(
+                    "CREATE TABLE jobs (id TEXT,state TEXT,packet TEXT,result TEXT)"
+                )
+            (root / "delivery").mkdir()
+            delivery = root / "delivery" / "delivery.sqlite"
+
+            def pr(repo, number):
+                return json.dumps(
+                    {"pr": {"url": f"https://github.com/{repo}/pull/{number}"}}
+                )
+
+            with closing(sqlite3.connect(delivery)) as connection:
+                connection.execute(
+                    "CREATE TABLE delivery (repo TEXT,state TEXT,reason TEXT,"
+                    "result TEXT,reported_tokens)"
+                )
+                connection.executemany(
+                    "INSERT INTO delivery VALUES (?,?,?,?,?)",
+                    [
+                        ("repo/one", "PR_OPEN", "", pr("repo/one", 7), 11),
+                        ("REPO/ONE", "PR_OPEN", "", pr("REPO/ONE", 7), 17),
+                        ("repo/one", "PR_OPEN", "", pr("repo/one", 8), 13),
+                        ("repo/one", "PR_OPEN", "", pr("other/repo", 9), -5),
+                        ("repo/one", "PR_OPEN", "", "invalid JSON", "9"),
+                        ("repo/one", "PENDING", "", "{}", 0),
+                    ],
+                )
+                connection.commit()
+            before = {file: file.read_bytes() for file in root.rglob("*.sqlite")}
+            report = inspect(root)
+            self.assertEqual(report["delivery"]["reported_tokens"], 41)
+            publications = report["delivery"]["publications"]
+            self.assertEqual(publications["candidate_records"], 5)
+            self.assertEqual(publications["distinct_prs"], 2)
+            self.assertEqual(publications["unverified_links"], 2)
+            self.assertIsNone(report["linked_pr_count"])
+            self.assertIn(
+                "zero does not prove zero", report["delivery"]["accounting_boundary"]
+            )
+            self.assertEqual(before, {file: file.read_bytes() for file in before})
 
 
 if __name__ == "__main__":

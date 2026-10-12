@@ -14,6 +14,8 @@ from collections import Counter, defaultdict
 from contextlib import closing
 from pathlib import Path
 
+from scout_publication_context import publication_summary
+
 
 def _readonly(path: Path) -> sqlite3.Connection:
     if not path.is_file():
@@ -67,9 +69,29 @@ def inspect(root: Path) -> dict:
 
     delivery_states: Counter[str] = Counter()
     blockers: Counter[str] = Counter()
+    delivery_tokens = None
+    publications = None
     delivery_path = root / "delivery" / "delivery.sqlite"
     if delivery_path.is_file():
         with closing(_readonly(delivery_path)) as connection:
+            columns = {
+                row[1] for row in connection.execute("PRAGMA table_info(delivery)")
+            }
+            if "reported_tokens" in columns:
+                delivery_tokens = connection.execute(
+                    "SELECT coalesce(sum(CASE WHEN typeof(reported_tokens)='integer' "
+                    "AND reported_tokens>=0 THEN reported_tokens ELSE 0 END),0) "
+                    "FROM delivery"
+                ).fetchone()[0]
+            if "result" in columns:
+                connection.row_factory = sqlite3.Row
+                publications = publication_summary(
+                    connection.execute(
+                        "SELECT repo,json_object('pr',json_extract(CASE WHEN "
+                        "json_valid(result) THEN result ELSE '{}' END,'$.pr')) "
+                        "AS result FROM delivery WHERE state='PR_OPEN'"
+                    )
+                )
             for repo, state, reason in connection.execute(
                 "SELECT repo,state,reason FROM delivery"
             ):
@@ -103,6 +125,13 @@ def inspect(root: Path) -> dict:
             "jobs": sum(delivery_states.values()),
             "states": dict(sorted(delivery_states.items())),
             "environment_blockers": dict(sorted(blockers.items())),
+            "reported_tokens": delivery_tokens,
+            "publications": publications,
+            "accounting_boundary": (
+                "Recorded delivery token counters only; zero does not prove zero "
+                "usage or complete attempts. Missing counters are null. Publication "
+                "records are not audited attribution, quality or conversion."
+            ),
         },
         "repositories": [
             {

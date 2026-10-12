@@ -36,6 +36,37 @@ DEFERRAL_CAUTION = (
 OWNER_NOTE_LIMIT_BYTES = 65536
 
 
+def publication_summary(rows):
+    """Count recorded PR identities, not candidate rows or live GitHub states."""
+    identities = set()
+    records = 0
+    unverified = 0
+    for row in rows:
+        records += 1
+        try:
+            result = json.loads(row["result"])
+        except (TypeError, ValueError):
+            result = None
+        pr = result.get("pr") if isinstance(result, dict) else None
+        url = pr.get("url") if isinstance(pr, dict) else None
+        match = PR_URL.fullmatch(url) if isinstance(url, str) else None
+        repo = row["repo"]
+        if (
+            not match
+            or not isinstance(repo, str)
+            or match[1].casefold() != repo.casefold()
+        ):
+            unverified += 1
+            continue
+        identities.add((match[1].casefold(), int(url.rsplit("/", 1)[1])))
+    return {
+        "candidate_records": records,
+        "distinct_prs": len(identities),
+        "unverified_links": unverified,
+        "claim_boundary": "Recorded canonical PR links; current open, CI, review and merge states are not inferred.",
+    }
+
+
 def advisory_evidence_match(url):
     """Public discussion links are advice, not publication or parking authority."""
     if not isinstance(url, str):
