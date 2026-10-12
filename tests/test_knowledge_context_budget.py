@@ -129,6 +129,20 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertTrue(any("43712" in entry["url"] for entry in card["evidence"]))
         self.assertNotIn("qualified", result)
 
+    def test_training_guard_counterexample_is_visible_without_native_claims(self):
+        result = lesson_suggestions("GatedDeltaNet training no-grad recurrent dispatch chunk")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "training-and-grad-mode-dispatch")
+        self.assertIn("every visible guard", card["lesson"])
+        self.assertIn("not self.training", card["lesson"])
+        self.assertIn("visible exclusion is not missing context", card["lesson"])
+        evidence = next(item for item in card["evidence"] if "gated_deltanet.py" in item["url"])
+        self.assertIn("Source-only counterexample", evidence["note"])
+        self.assertIn("Explicit fused_recurrent", evidence["note"])
+        self.assertIn("does not execute FLA", evidence["note"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_http_options_advice_distinguishes_wrapper_deadline_and_retry(self):
         result = lesson_suggestions(
             "HTTP listing per-call request options trailing-slash retry"
