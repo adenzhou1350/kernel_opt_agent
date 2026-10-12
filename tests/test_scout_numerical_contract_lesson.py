@@ -24,8 +24,9 @@ class NumericalContractLessonTests(unittest.TestCase):
         self.assertEqual(lesson["status"], "hypothesis")
         self.assertIn("multiplier or divisor", lesson["avoid_when"])
         self.assertIn("NaN/Inf", lesson["avoid_when"])
-        self.assertIn("documented zero-input contract", lesson["avoid_when"])
-        self.assertIn("default-only callers do not prove", lesson["avoid_when"])
+        self.assertIn("documented zero-input or wrapper-equivalence contract", lesson["avoid_when"])
+        self.assertIn("default-only callers and passing characterization tests", lesson["avoid_when"])
+        self.assertIn("do not prove all external uses safe", lesson["avoid_when"])
         self.assertTrue(any("/qsa/mqa.py" in e["url"] for e in lesson["evidence"]))
         self.assertTrue(
             any("/qsa/qsa_indexer.py" in e["url"] for e in lesson["evidence"])

@@ -15,6 +15,18 @@ import knowledge_notes as notes  # noqa: E402
 
 
 class KnowledgeNotesTests(unittest.TestCase):
+    def test_diagnostic_requirement_advice_keeps_source_only_scope(self):
+        from scout_lesson_context import lesson_suggestions
+
+        advice = lesson_suggestions("reversed error message diagnostic requirement comparison")
+        card = advice["matches"][0]
+        self.assertEqual(card["id"], "diagnostic-requirement-versus-observation")
+        self.assertIn("count >= N", card["lesson"])
+        self.assertIn("exact boundary equality", card["lesson"])
+        self.assertIn("received too few", card["avoid_when"])
+        self.assertIn("neither runtime reachability", card["avoid_when"])
+        self.assertEqual(advice["oversized_matches_omitted"], 0)
+
     def test_readinto_advice_keeps_byte_and_native_scope_boundaries(self):
         from scout_lesson_context import lesson_suggestions
 

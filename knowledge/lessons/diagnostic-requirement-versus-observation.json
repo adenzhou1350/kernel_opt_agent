@@ -1,0 +1,14 @@
+{
+  "id": "diagnostic-requirement-versus-observation",
+  "title": "Distinguish valid-input requirements from descriptions of rejected values",
+  "applies_when": "A candidate alleges a reversed error message because its comparison word appears opposite to the enclosing rejection guard, especially numeric limit or capacity diagnostics.",
+  "lesson": "Read the complete guard and diagnostic together before preparing a native environment. A requirement describes the accepted set, not the observed rejected value: count >= N is consistent with 'needs fewer than N'. Replacing that requirement with 'needs more than N' would invert it. Check exact boundary equality as well as the direction. Retain a source-grounded stop and its reopening condition instead of manufacturing a regression that asserts the proposed wording.",
+  "avoid_when": "Messages describing actual observations, such as 'received too few', follow different semantics from requirements. A documented exact-message contract or genuinely ambiguous actionable instruction can warrant a fix. This source-only counterexample rejects one diagnostic allegation; it establishes neither runtime reachability nor native/GPU/kernel correctness, performance or measured Scout conversion gains. Do not use it to reject other candidates without inspecting their guards and wording.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/eec6ef14082ca383fd11d108f79ebf2985516bea/flashinfer/experimental/kimi_k3_vision_tower/cake_backend.py#L532-L535",
+      "note": "The complete _attention_unit_costs function rejects seg_clusters >= ATTN_MAX_SEGMENT_CLUSTERS and says a segment needs fewer than that limit. The module defines the limit as 1 << 16. The requirement direction is correct; no native import or GPU test is needed to refute this specific inverted-wording proposal."
+    }
+  ],
+  "status": "counterexample"
+}
