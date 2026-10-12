@@ -1,0 +1,14 @@
+{
+  "id": "singleton-axis-batch-independence",
+  "title": "Check singleton-axis reshaping against per-sample public API results",
+  "applies_when": "A tensor pipeline removes singleton dimensions before broadcast arithmetic, especially batched inference or detection with a one-position sequence or one-channel feature axis.",
+  "lesson": "Derive the shape after each operation, then compare a batch against concatenated independent per-sample calls with identical parameters. Unqualified squeeze can remove semantic batch, sequence or feature axes as well as temporary matrix axes. Subsequent broadcasting can restore the expected output rank while mixing samples, so final shape checks alone are insufficient. Vary batch, sequence and feature singleton axes independently, include non-identical samples and nonzero coupling parameters, and follow the actual public caller. Remove only the temporary axes when that matches the contract. A one-sample case can remain correct because a later parameter broadcast restores its dimensions; it is not by itself a failing reproduction.",
+  "avoid_when": "Batch independence is not the contract for operations intentionally coupling samples, training-time batch statistics or stateful shared calls. Compare with matching model state, dtype and deterministic settings. This shape/mechanism lesson does not establish a portable fix, gradient equivalence, official-suite qualification, contribution eligibility or a performance benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/huggingface/transformers/blob/3b829407e8bd56f7f4c7950f1226579d23b50db7/src/transformers/generation/watermarking.py",
+      "note": "BayesianDetectorWatermarkedLikelihood documents batch/sequence/depth latents but uses an unqualified squeeze after a matrix product, then adds beta shaped [1,1,depth]. SynthIDTextWatermarkDetector computes sequence length as output_len minus ngram_len-1 and forwards the g-values to this likelihood path. This public source supports the shape and caller mechanism; it is not a published regression result or an accepted upstream fix."
+    }
+  ],
+  "status": "validated"
+}
