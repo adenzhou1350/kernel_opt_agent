@@ -1,0 +1,22 @@
+{
+  "id": "cross-built-go-timezone-data",
+  "title": "Carry runtime timezone data when executing cross-built Go tests",
+  "applies_when": "An exact Go test executable is cross-built for Windows or a stripped runtime without a local Go installation or IANA timezone database, and tests fail in time.LoadLocation despite passing on the build host.",
+  "lesson": "A Go executable and its source hashes do not account for all runtime data. Check the LoadLocation lookup order: process ZONEINFO, Unix system database, GOROOT/lib/time/zoneinfo.zip, then an imported time/tzdata package. Preserve the failed run and reuse the identical executable in a fresh process with a task-private, hash-verified zoneinfo.zip from the reviewed Go distribution. In mapstructure at 52aa5c6d, only named-location cases failed in a Windows environment without that data; supplying ZONEINFO resolved them without changing source, tests or the binary. Keep the selected archive/version and child environment in reproduction records. Do not patch a decoder or weaken assertions merely to compensate for missing runtime data.",
+  "avoid_when": "This does not establish that every timezone failure is environmental. A wrong location name, malformed archive, historical offset expectation, embedded tzdata or actual decoder regression requires its own check. UTC and Local succeeding do not prove named-location data exists. Do not alter system timezone settings or another task's environment. A successful Linux build is not Windows execution, and Windows non-race tests are not a race/version-matrix qualification. Reading this advice alone establishes no measured setup savings or Scout-yield improvement.",
+  "evidence": [
+    {
+      "url": "https://pkg.go.dev/time#LoadLocation",
+      "note": "Official documentation specifies the timezone database lookup order and the ZONEINFO directory or uncompressed ZIP option. This supports the runtime-data mechanism, not any unpublished full-suite count."
+    },
+    {
+      "url": "https://github.com/golang/go/blob/go1.25.10/src/time/zoneinfo.go",
+      "note": "The tested Go distribution's implementation loads timezone data at runtime. Recheck the target version rather than assuming an installed build host's data is embedded in every executable."
+    },
+    {
+      "url": "https://github.com/go-viper/mapstructure/blob/52aa5c6dc1d27226460807054ca2107b2d54fb2d/decode_hooks.go",
+      "note": "StringToTimeLocationHookFunc reaches time.LoadLocation. The supported public hook can therefore expose a missing-runtime-data failure without a source defect."
+    }
+  ],
+  "status": "validated"
+}
