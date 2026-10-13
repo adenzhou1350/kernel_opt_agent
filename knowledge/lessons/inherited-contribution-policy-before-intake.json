@@ -24,6 +24,14 @@
     {
       "url": "https://github.com/sindresorhus/p-queue/issues/255",
       "note": "A release-reproduced concurrency bug has a tested public fork but no upstream PR because creation is collaborators-only. It was submitted through the independently permitted issue channel, not counted as a PR conversion."
+    },
+    {
+      "url": "https://github.com/tidwall/sjson/compare/master...AdamMagued:sjson:fix-issue-85?expand=1",
+      "note": "Observed on 2026-10-13: the upstream comparison explicitly says its owner disabled opening pull requests. This is a timestamped contribution constraint, not a code-quality verdict; do not infer policy merely from an absent navigation tab."
+    },
+    {
+      "url": "https://github.com/tidwall/sjson/issues/85",
+      "note": "An existing report links another author's UTF-8/in-place repair in their fork. Independent reproduction or test-fixture feedback can support that work, but cannot be counted as a novel discovery, our PR, or an upstream merge. Check this route before spending on a competing implementation."
     }
   ],
   "status": "validated"

@@ -1,0 +1,16 @@
+{
+  "scope": "Independent native checks for an existing public issue and author patch",
+  "upstream_commit": "3a21ce7b0cab4e0f0d91eb8db4a3d0434622eeb8",
+  "author_commit": "cfb6beb02d7614b2c1fc549cc19e9ea1ef559622",
+  "environment": "Linux amd64, Go 1.25.10, non-root, original go.mod/go.sum, offline tests",
+  "upstream_focused": {"pass": 2, "fail": 17, "skip": 0},
+  "author_focused": {"pass": 19, "fail": 0, "skip": 0},
+  "author_full_with_independent_test": {"pass": 40, "fail": 2, "skip": 0},
+  "author_full_with_fixture_only_correction": {"pass": 42, "fail": 0, "skip": 0},
+  "failure_count_unit": "Go test nodes, including parent tests; two full-suite failures represent one failed subtest and its parent",
+  "production_change_for_fixture_check": false,
+  "new_upstream_pr": false,
+  "prospective_method_result": false,
+  "performance_claim": false,
+  "limits": "No minimum-Go, Windows/macOS, benchmarks, upstream CI/acceptance or broad parser-correctness qualification"
+}
