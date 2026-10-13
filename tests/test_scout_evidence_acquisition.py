@@ -324,6 +324,54 @@ class AcquisitionTests(unittest.TestCase):
         opener.open.assert_not_called()
         self.assertEqual(session.costs()["actual_gets"], 0)
 
+    def test_disjoint_set_is_one_get_and_shares_existing_single_window_cache(self):
+        opener = Mock()
+        body = b"callee\ngap\ncaller\n"
+        opener.open.return_value = Response(body)
+        session = AcquisitionSession(opener=opener)
+        ranges = [{"start_line": 1, "line_count": 1},
+                  {"start_line": 3, "line_count": 1}]
+        result = session.acquire_windows(URL, ranges)
+        self.assertNotIn("text", result["acquisition"])
+        self.assertEqual(result["windows"]["status"], "ACQUIRED")
+        self.assertEqual([w["text"] for w in result["windows"]["windows"]], ["callee", "caller"])
+        self.assertEqual(session.costs()["requested_targets"], 1)
+        self.assertEqual(session.costs()["actual_body_bytes_observed"], len(body))
+        self.assertTrue(session.acquire_window(URL, start_line=3)["acquisition"]["cache_hit"])
+        self.assertTrue(session.acquire_windows(URL, ranges)["acquisition"]["cache_hit"])
+        self.assertEqual(session.costs()["requested_targets"], 3)
+        self.assertEqual(session.costs()["actual_gets"], 1)
+        opener.open.assert_called_once()
+
+    def test_disjoint_set_rejects_bad_requests_before_get(self):
+        opener = Mock()
+        session = AcquisitionSession(opener=opener)
+        for ranges in ([], [{"start_line": 1, "line_count": 81}],
+                       [{"start_line": 1, "line_count": 1},
+                        {"start_line": 1, "line_count": 1}]):
+            with self.assertRaises(ValueError):
+                session.acquire_windows(URL, ranges)
+        self.assertEqual(session.costs()["requested_targets"], 0)
+        opener.open.assert_not_called()
+
+    def test_disjoint_transport_and_eof_failures_retain_cost_not_partial_text(self):
+        ranges = [{"start_line": 1, "line_count": 1},
+                  {"start_line": 4, "line_count": 1}]
+        for fail in (True, False):
+            opener = Mock()
+            if fail:
+                opener.open.side_effect = urllib.error.HTTPError(
+                    URL, 404, "missing", {}, io.BytesIO(b"missing"))
+            else:
+                opener.open.return_value = Response(b"one\ntwo\n")
+            session = AcquisitionSession(opener=opener)
+            result = session.acquire_windows(URL, ranges)
+            self.assertEqual(result["windows"]["status"], "FAILED")
+            self.assertEqual(result["windows"]["error_kind"],
+                             "SOURCE_ACQUISITION_FAILED" if fail else "WINDOW_BEYOND_SOURCE")
+            self.assertNotIn("windows", result["windows"])
+            self.assertEqual(session.costs()["actual_gets"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

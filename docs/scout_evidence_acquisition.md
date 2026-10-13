@@ -212,6 +212,23 @@ or C++. It does not infer unknown anchors, find a call graph or fix guessed
 paths. Declare this selector in a fresh comparison before seeing its cases;
 post-trial repaired windows are development checks, not prospective wins.
 
+For separated caller/callee evidence in one immutable file, the optional
+`AcquisitionSession.acquire_windows(url, ranges)` accepts up to eight disjoint
+`{"start_line": 1, "line_count": 40}` ranges under **one shared** 80-line,
+4,500-character default cap. It performs one logical acquisition, reuses the
+existing source cache, and returns each excerpt with exact bounds and the same
+raw-source digest. Range order is preserved. Overlap and excessive requested
+lines fail before a GET; EOF, character-budget or transport failures expose no
+partial excerpt set. Unlike the single-window API, requested ranges are exact,
+not silently shortened. Character cost includes one newline between excerpts;
+serialized metadata, model prompt bytes and tokens require separate accounting.
+
+This is a reading primitive, not an automatic call-graph selector. Existing live
+routing and historical trials still use their original policies. A future trial
+must declare the range-selection policy, total evidence and actual prompt/model
+costs before enrollment; a synthetic caller/callee test is not evidence of better
+bug discovery or PR conversion.
+
 ```text
 python -B -m unittest tests.test_scout_source_window
 ```

@@ -18,9 +18,9 @@ import urllib.request
 from urllib.parse import urlsplit
 
 try:
-    from .scout_source_window import source_window
+    from .scout_source_window import source_window, source_windows, validate_source_ranges
 except ImportError:
-    from scout_source_window import source_window
+    from scout_source_window import source_window, source_windows, validate_source_ranges
 
 
 class NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -233,6 +233,26 @@ class AcquisitionSession:
         return {
             "acquisition": {k: v for k, v in acquisition.items() if k != "text"},
             "window": window,
+        }
+
+    def acquire_windows(self, url, ranges, *, max_lines=80, max_chars=4500):
+        """One GET for disjoint exact excerpts sharing one line/character cap.
+
+        A set is one logical source request, not one request per excerpt. Source
+        caching and transport failures retain the existing session accounting.
+        Neither a fetched body nor an acquired set establishes a bug verdict.
+        """
+        checked = validate_source_ranges(ranges, max_lines=max_lines, max_chars=max_chars)
+        acquisition = self.acquire(url)
+        windows = (
+            source_windows(acquisition["text"], checked,
+                           max_lines=max_lines, max_chars=max_chars)
+            if acquisition["status"] == "FETCHED"
+            else {"status": "FAILED", "error_kind": "SOURCE_ACQUISITION_FAILED"}
+        )
+        return {
+            "acquisition": {k: v for k, v in acquisition.items() if k != "text"},
+            "windows": windows,
         }
 
     def costs(self):
