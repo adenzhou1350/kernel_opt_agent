@@ -1,0 +1,22 @@
+{
+  "id": "separate-dependency-transport-from-native-tests",
+  "title": "Separate slow dependency transport from native test execution",
+  "applies_when": "An authorized native test worker cannot finish downloading public dependencies, while another authorized machine can retrieve the exact same artifacts. Preserve the failed setup and distinguish it from tests that actually ran.",
+  "lesson": "Keep versions and artifact identity fixed; change delivery, not the test contract. Download target-compatible wheels, verify provenance and hashes, transfer them to a task-private wheelhouse, and install with the target interpreter using --no-index and --find-links. Select the target Python version, ABI, platform and architecture explicitly when the download machine differs. For Go, a file-based module proxy can deliver the same versions while the native go command verifies the existing go.sum values. Recheck imported source and realized dependencies before testing. Account separately for acquisition, transfer, install and tests; a fast cached install is not end-to-end setup cost or a measured method advantage.",
+  "avoid_when": "Do not route around permission, policy or authentication denials. Do not substitute older dependencies, skip integration tests, disable known hash checks or treat an absent wheel as successful qualification. Matching version strings do not prove equal bytes or native ABI compatibility. Missing target wheels or build prerequisites need an explicit different approach. Local-only package resolution is not network/process isolation, and a private venv is not an untrusted-code sandbox. This is documented delivery guidance, not a general speedup, native test result or PR-yield claim.",
+  "evidence": [
+    {
+      "url": "https://pip.pypa.io/en/stable/user_guide/#installing-from-local-packages",
+      "note": "pip documents downloading distributions separately and installing locally using --no-index/--find-links. This supports the delivery mechanism, not any unpublished timing or target-project result."
+    },
+    {
+      "url": "https://pip.pypa.io/en/stable/cli/pip_download/",
+      "note": "The download command supports explicit target platform, Python version, implementation and ABI. A wheel collected on one host is not automatically appropriate for another."
+    },
+    {
+      "url": "https://go.dev/ref/mod#goproxy-protocol",
+      "note": "The module reference documents file-based proxy delivery and native verification against known go.sum hashes. Transport success does not replace module authentication or package tests."
+    }
+  ],
+  "status": "validated"
+}
