@@ -1,0 +1,26 @@
+{
+  "id": "partial-update-sentinel-semantics",
+  "title": "Distinguish update sentinels from stored values",
+  "applies_when": "A caller passes negative, null or omitted fields into a persistence helper, and a lead alleges that existing limits or configuration will be overwritten.",
+  "lesson": "Read every relevant backend setter before treating a request object as the stored result. A sentinel can mean leave the existing field unchanged, even when that same value represents unlimited in a newly created record. At JuiceFS's cited revision, ScanUserGroupUsage passes MaxSpace/MaxInodes=-1, but Redis and KV setters merge nonnegative fields into the existing quota; SQL does the same through updateQuotaFields. This refutes the persistent-limit-overwrite explanation, not all scan defects. Test an existing record with nondefault limits through the real public operation and read it back, with a new-record control when creation semantics matter. Observe process-local caches separately and trace their refresh and actual callers before attributing a durable or user-visible failure.",
+  "avoid_when": "Do not generalize -1 or null semantics to another helper, field, backend or revision. A correct persistent merge does not prove cache freshness, atomicity, concurrency safety, missing-record behavior or error recovery. Source inspection of all setters is not native qualification of all engines. A cache snapshot without a supported caller and observable operation is not an enforcement vulnerability. This lesson does not establish Scout accuracy or PR yield.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/2d2227bbd6c00b66abd320721b5c338f8c781211/pkg/meta/quota.go",
+      "note": "ScanUserGroupUsage constructs usage entries with negative limit fields and rebuilds local maps. Request fields and local cache state must be distinguished from persisted setter results. Source evidence only."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/2d2227bbd6c00b66abd320721b5c338f8c781211/pkg/meta/redis.go",
+      "note": "doSetQuota loads the original quota and replaces each limit only when the incoming value is nonnegative; doDelQuota is a separate operation. Not a live Redis test."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/2d2227bbd6c00b66abd320721b5c338f8c781211/pkg/meta/tkv.go",
+      "note": "doSetQuota merges nonnegative fields into a parsed existing record, initializing missing-record limits separately. Source semantics, not qualification of every KV backend."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/2d2227bbd6c00b66abd320721b5c338f8c781211/pkg/meta/sql.go",
+      "note": "updateQuotaFields preserves an existing negative-sentinel field but handles nonexistent rows separately. Both directory and user/group setters use it. Source evidence, not a SQL-engine test matrix."
+    }
+  ],
+  "status": "validated"
+}
