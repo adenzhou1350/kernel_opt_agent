@@ -7,7 +7,7 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from scripts.scout_pending_cohort import enroll
+from scripts.scout_pending_cohort import enroll, main
 
 
 class PendingCohortTests(unittest.TestCase):
@@ -178,9 +178,86 @@ class PendingCohortTests(unittest.TestCase):
             {"created_after": 0, "prior_decisions": ["lead"], "decision_point": "initial"},
             {"created_after": 0, "prior_decisions": ["review"]},
             {"created_after": 0, "prior_decisions": ["REVIEW"]},
+            {"created_after": 0, "require_claim_fields": 1},
+            {"created_after": 0, "require_claim_fields": True, "decision_point": "initial"},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 enroll(Path("missing"), **kwargs)
+
+    def test_complete_claim_filter_is_input_only_not_a_semantic_bug_label(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "scout.sqlite"
+            complete = dict(decision="lead", hypothesis="unknown", baseline="unknown",
+                            next_check="need more context")
+            priors = ["{broken", dict(complete, decision="needs_context")]
+            for field in ("hypothesis", "baseline", "next_check"):
+                for value in (None, " \n\t", [], 3):
+                    priors.append(dict(complete, **{field: value}))
+                missing = dict(complete)
+                missing.pop(field)
+                priors.append(missing)
+            priors.append(complete)
+            with closing(sqlite3.connect(path)) as db:
+                db.executescript("""
+                    CREATE TABLE jobs (id TEXT,packet TEXT,created REAL,finished REAL,state TEXT,result TEXT);
+                    CREATE TABLE research_action_shadow (job_id TEXT,policy_version TEXT,
+                        packet_sha256 TEXT,recorded_at REAL,suggested_action TEXT,reason TEXT);
+                """)
+                for index, prior in enumerate(priors):
+                    packet = dict(repo="o/r", research=dict(stage="source_followup", parent_job_id="p"),
+                        untrusted_prior_analysis=prior if isinstance(prior, str) else json.dumps(prior),
+                        sources=[dict(url=f"https://raw.githubusercontent.com/o/r/{'a'*40}/same.py")])
+                    raw = json.dumps(packet)
+                    db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?)",
+                               (str(index), raw, 20+index, 100, "FAILED", "FORBIDDEN"))
+                    db.execute("INSERT INTO research_action_shadow VALUES (?,?,?,?,?,?)",
+                               (str(index), "p", hashlib.sha256(raw.encode()).hexdigest(), 25, "x", "y"))
+                db.commit()
+            before = path.read_bytes()
+            real_connect = sqlite3.connect
+
+            def deny_outcomes(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connection.set_authorizer(lambda op, table, column, *unused:
+                    sqlite3.SQLITE_DENY if op == sqlite3.SQLITE_READ and table == "jobs"
+                    and column in {"result", "state", "finished", "charge"} else sqlite3.SQLITE_OK)
+                return connection
+
+            with patch("scripts.scout_pending_cohort.sqlite3.connect", side_effect=deny_outcomes):
+                cases, metadata = enroll(path, created_after=0, limit=1, per_repo_cap=1,
+                    enrollment="admission_recorded", prior_decisions=["lead"], require_claim_fields=True)
+                no_decision_filter, fields_only = enroll(path, created_after=0, limit=1, per_repo_cap=1,
+                    enrollment="admission_recorded", require_claim_fields=True)
+            self.assertEqual(len(cases), 1)
+            self.assertEqual(metadata["selection"][cases[0]["case_id"]]["job_id"], str(len(priors)-1))
+            self.assertEqual(metadata["prior_input_filtered_rows"], 2)
+            self.assertEqual(metadata["incomplete_claim_filtered_rows"], 15)
+            self.assertTrue(metadata["require_claim_fields"])
+            self.assertEqual(fields_only["selection"][no_decision_filter[0]["case_id"]]["job_id"], "1")
+            self.assertEqual(fields_only["incomplete_claim_filtered_rows"], 1)
+            self.assertNotIn("FORBIDDEN", json.dumps(cases))
+            self.assertEqual(path.read_bytes(), before)
+            # Scan caps are not extended to replace incomplete rows.
+            capped, _ = enroll(path, created_after=0, limit=1, per_repo_cap=1, scan_limit=2,
+                enrollment="admission_recorded", prior_decisions=["lead"], require_claim_fields=True)
+            self.assertEqual(capped, [])
+            # Existing default remains unfiltered, even with malformed prior JSON.
+            default, default_meta = enroll(path, created_after=0, limit=1, per_repo_cap=1,
+                                          enrollment="admission_recorded")
+            self.assertEqual(default_meta["selection"][default[0]["case_id"]]["job_id"], "0")
+            self.assertFalse(default_meta["require_claim_fields"])
+
+    def test_cli_passes_predeclared_filters_without_changing_defaults(self):
+        with tempfile.TemporaryDirectory() as folder:
+            output = Path(folder) / "cohort"
+            with patch("sys.argv", ["scout_pending_cohort.py", "--db", "unused.sqlite",
+                "--created-after", "10", "--output-dir", str(output),
+                "--prior-decision", "lead", "--require-claim-fields"]), \
+                    patch("scripts.scout_pending_cohort.enroll", return_value=([], {"repo_counts": {}})) as export:
+                self.assertEqual(main(), 0)
+            self.assertEqual(export.call_args.kwargs["prior_decisions"], ["lead"])
+            self.assertTrue(export.call_args.kwargs["require_claim_fields"])
+            self.assertEqual((output / "blind-inputs.jsonl").read_bytes(), b"")
 
     def test_prior_claim_filter_precedes_url_dedup_and_never_reads_outcomes(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -120,6 +120,7 @@ def enroll(
     enrollment="unfinished",
     repos=None,
     prior_decisions=None,
+    require_claim_fields=False,
 ):
     if (
         not math.isfinite(created_after)
@@ -149,6 +150,10 @@ def enroll(
         or len(set(prior_decisions)) != len(prior_decisions)
     ):
         raise ValueError("prior_decisions must name model decisions (lead/no_lead/needs_context), not queue states")
+    if type(require_claim_fields) is not bool or (
+        require_claim_fields and decision_point != "followup"
+    ):
+        raise ValueError("require_claim_fields is a boolean followup-only input filter")
     db = sqlite3.connect(f"file:{Path(db_path).resolve().as_posix()}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
     try:
@@ -188,6 +193,7 @@ def enroll(
 
     inputs, selection = [], {}
     prior_filtered = 0
+    claim_filtered = 0
     counts, paths, packets = Counter(), set(), set()
     for row in rows:
         try:
@@ -217,14 +223,26 @@ def enroll(
             packet.get("untrusted_prior_analysis"), str
         ):
             continue
-        if prior_decisions is not None:
+        if prior_decisions is not None or require_claim_fields:
             try:
                 prior = json.loads(packet["untrusted_prior_analysis"])
             except (TypeError, ValueError):
                 prior = None
-            if not isinstance(prior, dict) or prior.get("decision") not in prior_decisions:
+            if prior_decisions is not None and (
+                not isinstance(prior, dict) or prior.get("decision") not in prior_decisions
+            ):
                 prior_filtered += 1
                 continue  # Input-side claim filter before URL dedup and case caps.
+            # Structural completeness only: prose can still be vague, false or
+            # untestable. A separately frozen native oracle must judge the claim.
+            if require_claim_fields and (
+                not isinstance(prior, dict) or not all(
+                    isinstance(prior.get(field), str) and prior[field].strip()
+                    for field in ("hypothesis", "baseline", "next_check")
+                )
+            ):
+                claim_filtered += 1
+                continue
         digest = hashlib.sha256(row["packet"].encode("utf-8")).hexdigest()
         if digest != row["packet_sha256"] or digest in packets:
             continue
@@ -290,6 +308,8 @@ def enroll(
         "repos": list(repos) if repos is not None else None,
         "prior_decisions": list(prior_decisions) if prior_decisions is not None else None,
         "prior_input_filtered_rows": prior_filtered,
+        "require_claim_fields": require_claim_fields,
+        "incomplete_claim_filtered_rows": claim_filtered,
         "created_after": created_after,
         "snapshot_at": snapshot_at,
         "scanned_rows": len(rows),
@@ -310,6 +330,7 @@ def enroll(
             "Exact source URL dedup does not make same-revision cases independent.",
             "Enrollment alone is not budget-matched routing execution or accuracy evidence.",
             "A prior-decision filter selects untrusted input claims, not later outcomes; its cohort cannot establish recall outside that input stratum.",
+            "Nonempty hypothesis/baseline/next_check fields establish structural completeness only, not falsifiability, reachability or a supported defect.",
             "Keep outcome-side metadata away from routers and blind adjudicators.",
         ],
     }
@@ -326,6 +347,11 @@ def main():
     parser.add_argument("--scan-limit", type=int, default=200)
     parser.add_argument("--repo", action="append", dest="repos",
                         help="optional repository filter applied before the bounded scan")
+    parser.add_argument("--prior-decision", action="append", dest="prior_decisions",
+                        choices=("lead", "no_lead", "needs_context"),
+                        help="optional predeclared followup input-claim stratum, not later queue state")
+    parser.add_argument("--require-claim-fields", action="store_true",
+                        help="require nonblank hypothesis/baseline/next_check in the prior input; not semantic validation")
     parser.add_argument(
         "--decision-point", choices=tuple(DECISION_STAGES), default="followup"
     )
@@ -345,6 +371,8 @@ def main():
         decision_point=args.decision_point,
         enrollment=args.enrollment,
         repos=args.repos,
+        prior_decisions=args.prior_decisions,
+        require_claim_fields=args.require_claim_fields,
     )
     args.output_dir.mkdir(parents=True, exist_ok=False)
     body = "".join(

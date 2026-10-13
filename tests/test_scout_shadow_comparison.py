@@ -124,6 +124,30 @@ class ShadowTests(unittest.TestCase):
         self.view['packet']['sources'][0].update(start_line=2, end_line=4)
         self.assertEqual(bidirectional_rule_choice(self.view)['status'], 'UNAVAILABLE')
 
+    def test_future_rule_is_explicit_in_runner_and_keeps_two_calls(self):
+        import json
+        self.view['packet']['sources'][0].update(start_line=3, end_line=3, text='3: third')
+        seen = []
+        def invoke(provider, prompt, cap):
+            seen.append(prompt)
+            verdict = dict(verdict='INSUFFICIENT', decisive_evidence=None,
+                           reason='not an oracle', next_native_check=None)
+            return dict(response=dict(ok=True, text=json.dumps(verdict)), normalized_total_tokens=3)
+        result = run_arm(self.view, self.assets, ('new_rule', 'kimi', 'bidirectional_rule', 'kimi'), invoke)
+        self.assertEqual(result['selection']['ranges'], [dict(start_line=1, line_count=2)])
+        self.assertEqual(result['observation']['status'], 'ACQUIRED')
+        self.assertEqual(len(seen), 2)
+        self.assertTrue(result['protocol_valid'])
+        # Legacy arm remains unchanged, including its known EOF failure.
+        legacy = run_arm(self.view, self.assets, ('old_rule', 'kimi', 'rule', 'kimi'), invoke)
+        self.assertEqual(legacy['selection']['error_kind'], 'WINDOW_BEYOND_SOURCE')
+
+    def test_unknown_action_does_not_silently_become_fixed_rule(self):
+        def forbidden(*args):
+            self.fail('invalid protocol must not call provider')
+        with self.assertRaises(ValueError):
+            run_arm(self.view, self.assets, ('typo', 'kimi', 'bidirectional_rul', 'kimi'), forbidden)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -173,6 +173,8 @@ SELECT = (
 def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
             each_prompt_bytes=48000, total_prompt_bytes=96000, numbered_new_evidence=False):
     name, first_provider, action, final_provider = arm
+    if action not in {'select', 'none', 'rule', 'bidirectional_rule'}:
+        raise ValueError('unknown evidence action')
     calls, used = [], 0
 
     def bounded(provider, prompt, cap):
@@ -193,7 +195,12 @@ def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
         first = bounded(first_provider, SELECT+'\nINPUT:\n'+supplied, first_cap)
         selection = choice(parsed(first), view['catalog'])
     else:
-        selection = dict(status='NO_ADDITIONAL_SOURCE') if action == 'none' else rule_choice(view)
+        if action == 'none':
+            selection = dict(status='NO_ADDITIONAL_SOURCE')
+        elif action == 'bidirectional_rule':
+            selection = bidirectional_rule_choice(view)
+        else:
+            selection = rule_choice(view)
         first = None
     observation = observe(selection, assets, numbered=numbered_new_evidence)
     quote_instruction = (

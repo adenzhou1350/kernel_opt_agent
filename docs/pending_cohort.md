@@ -63,7 +63,7 @@ record their times and keep its answers hidden until predictions are frozen.
 The export cannot prove those precautions, make prior exposed tasks a holdout,
 or establish an online intervention, matched total cost or routing benefit.
 
-## Predeclared prior-claim strata (Python API)
+## Predeclared prior-claim strata
 
 For a separately declared follow-up claim stratum, the Python `enroll()` API
 accepts `prior_decisions=["lead"]`. It filters the packet's untrusted prior
@@ -72,10 +72,28 @@ later answers or outcomes. Malformed/nonmatching prior analyses are counted in
 `prior_input_filtered_rows`; the declared filter is recorded in selection
 metadata. This is not a validated quality label, cannot measure recall outside
 that input stratum, and must not be introduced after observing cohort outcomes.
-The CLI default remains unfiltered.
+The CLI equivalent is `--prior-decision lead`; repeat the option to declare
+several input decisions. The default remains unfiltered.
 Use model decisions (`lead`, `no_lead`, `needs_context`), not database states:
 the native `lead` decision becomes queue state `REVIEW`. Unknown decision names
 are rejected before reading the database, rather than silently drawing zero cases.
+
+For a new experiment intended to test concrete bug claims, optionally add
+`--require-claim-fields` (`require_claim_fields=True` in Python). This requires
+nonblank string `hypothesis`, `baseline` and `next_check` fields in the prior
+input. It does not interpret their prose: "unknown" or a vague context request
+can still pass. Do not call this a falsifiability detector or a validated bug
+label. Freeze semantic/oracle criteria separately and retain inconclusive cases;
+never replace an enrolled case because its oracle later proves unavailable.
+
+Both filters apply before source-URL deduplication and case caps, within the
+same bounded chronological scan. Metadata records the options and separately
+counts prior-decision and incomplete-field exclusions (a row rejected by the
+first filter is not counted again). Skipped rows do not extend the scan budget.
+These are opt-in study-population restrictions, not live Scout rejection rules.
+They cannot establish system-wide recall or conversion; report the excluded
+population and audit missed useful claims separately. Do not retrofit them to
+exposed cohorts, rescore old studies or silently change a predeclared protocol.
 
 ## Initial bounded pilot (2026-09-30)
 
