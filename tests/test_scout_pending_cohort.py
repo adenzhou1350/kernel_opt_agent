@@ -172,9 +172,47 @@ class PendingCohortTests(unittest.TestCase):
             {"created_after": 0, "repos": "owner/repo"},
             {"created_after": 0, "repos": ["owner/repo", "OWNER/REPO"]},
             {"created_after": 0, "repos": [None]},
+            {"created_after": 0, "prior_decisions": []},
+            {"created_after": 0, "prior_decisions": "review"},
+            {"created_after": 0, "prior_decisions": ["review", "review"]},
+            {"created_after": 0, "prior_decisions": ["review"], "decision_point": "initial"},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 enroll(Path("missing"), **kwargs)
+
+    def test_prior_claim_filter_precedes_url_dedup_and_never_reads_outcomes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "scout.sqlite"
+            with closing(sqlite3.connect(path)) as db:
+                db.executescript("""
+                    CREATE TABLE jobs (id TEXT,packet TEXT,created REAL,finished REAL,state TEXT,result TEXT);
+                    CREATE TABLE research_action_shadow (job_id TEXT,policy_version TEXT,
+                        packet_sha256 TEXT,recorded_at REAL,suggested_action TEXT,reason TEXT);
+                """)
+                for index, prior in enumerate(("{broken", '{"decision":"needs_context"}', '{"decision":"review"}')):
+                    packet = dict(repo="o/r", research=dict(stage="source_followup", parent_job_id="p"),
+                        untrusted_prior_analysis=prior, sources=[dict(url=f"https://raw.githubusercontent.com/o/r/{'a'*40}/same.py")])
+                    raw = json.dumps(packet)
+                    db.execute("INSERT INTO jobs VALUES (?,?,?,?,?,?)", (str(index), raw, 20+index, 50, "FAILED", "FORBIDDEN"))
+                    db.execute("INSERT INTO research_action_shadow VALUES (?,?,?,?,?,?)", (str(index), "p", hashlib.sha256(raw.encode()).hexdigest(), 25, "x", "y"))
+                db.commit()
+            before = path.read_bytes()
+            real_connect = sqlite3.connect
+            def deny_outcomes(*args, **kwargs):
+                connection = real_connect(*args, **kwargs)
+                connection.set_authorizer(lambda op, table, column, *unused:
+                    sqlite3.SQLITE_DENY if op == sqlite3.SQLITE_READ and table == "jobs"
+                    and column in {"result", "state", "finished", "charge"} else sqlite3.SQLITE_OK)
+                return connection
+            with patch("scripts.scout_pending_cohort.sqlite3.connect", side_effect=deny_outcomes):
+                cases, metadata = enroll(path, created_after=0, limit=1, per_repo_cap=1,
+                    enrollment="admission_recorded", prior_decisions=["review"])
+            self.assertEqual(len(cases), 1)
+            self.assertEqual(metadata["selection"][cases[0]["case_id"]]["job_id"], "2")
+            self.assertEqual(metadata["prior_input_filtered_rows"], 2)
+            self.assertEqual(metadata["prior_decisions"], ["review"])
+            self.assertNotIn("FORBIDDEN", json.dumps(cases))
+            self.assertEqual(path.read_bytes(), before)
 
     def test_repo_filter_precedes_scan_limit_without_reading_outcomes(self):
         with tempfile.TemporaryDirectory() as folder:

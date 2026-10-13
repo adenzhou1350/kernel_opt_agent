@@ -63,6 +63,17 @@ record their times and keep its answers hidden until predictions are frozen.
 The export cannot prove those precautions, make prior exposed tasks a holdout,
 or establish an online intervention, matched total cost or routing benefit.
 
+## Predeclared prior-claim strata (Python API)
+
+For a separately declared follow-up claim stratum, the Python `enroll()` API
+accepts `prior_decisions=["review"]`. It filters the packet's untrusted prior
+JSON decision before source-URL deduplication and case caps, without reading
+later answers or outcomes. Malformed/nonmatching prior analyses are counted in
+`prior_input_filtered_rows`; the declared filter is recorded in selection
+metadata. This is not a validated quality label, cannot measure recall outside
+that input stratum, and must not be introduced after observing cohort outcomes.
+The CLI default remains unfiltered.
+
 ## Initial bounded pilot (2026-09-30)
 
 The first live snapshot enrolled 5 of 12 requested cases: 1 SGLang and 4

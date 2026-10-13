@@ -119,6 +119,7 @@ def enroll(
     decision_point="followup",
     enrollment="unfinished",
     repos=None,
+    prior_decisions=None,
 ):
     if (
         not math.isfinite(created_after)
@@ -136,6 +137,17 @@ def enroll(
         or len({repo.casefold() for repo in repos}) != len(repos)
     ):
         raise ValueError("repos must be a nonempty bounded list of unique names")
+    if prior_decisions is not None and (
+        decision_point != "followup"
+        or not isinstance(prior_decisions, (list, tuple))
+        or not 1 <= len(prior_decisions) <= 5
+        or any(
+            not isinstance(value, str) or not 0 < len(value) <= 32
+            for value in prior_decisions
+        )
+        or len(set(prior_decisions)) != len(prior_decisions)
+    ):
+        raise ValueError("invalid predeclared prior-decision input filter")
     db = sqlite3.connect(f"file:{Path(db_path).resolve().as_posix()}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
     try:
@@ -174,6 +186,7 @@ def enroll(
         db.close()
 
     inputs, selection = [], {}
+    prior_filtered = 0
     counts, paths, packets = Counter(), set(), set()
     for row in rows:
         try:
@@ -203,6 +216,14 @@ def enroll(
             packet.get("untrusted_prior_analysis"), str
         ):
             continue
+        if prior_decisions is not None:
+            try:
+                prior = json.loads(packet["untrusted_prior_analysis"])
+            except (TypeError, ValueError):
+                prior = None
+            if not isinstance(prior, dict) or prior.get("decision") not in prior_decisions:
+                prior_filtered += 1
+                continue  # Input-side claim filter before URL dedup and case caps.
         digest = hashlib.sha256(row["packet"].encode("utf-8")).hexdigest()
         if digest != row["packet_sha256"] or digest in packets:
             continue
@@ -266,6 +287,8 @@ def enroll(
         "enrollment": enrollment,
         "decision_point": decision_point,
         "repos": list(repos) if repos is not None else None,
+        "prior_decisions": list(prior_decisions) if prior_decisions is not None else None,
+        "prior_input_filtered_rows": prior_filtered,
         "created_after": created_after,
         "snapshot_at": snapshot_at,
         "scanned_rows": len(rows),
@@ -285,6 +308,7 @@ def enroll(
             "Recent bounded queue slice, not random population sampling.",
             "Exact source URL dedup does not make same-revision cases independent.",
             "Enrollment alone is not budget-matched routing execution or accuracy evidence.",
+            "A prior-decision filter selects untrusted input claims, not later outcomes; its cohort cannot establish recall outside that input stratum.",
             "Keep outcome-side metadata away from routers and blind adjudicators.",
         ],
     }
