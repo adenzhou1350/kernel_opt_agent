@@ -1,0 +1,22 @@
+{
+  "id": "routed-row-identity-before-block-layout",
+  "title": "Distinguish routed-row identity from block-padded order",
+  "applies_when": "A MoE alignment hypothesis assumes a scatter index must be recomputed whenever the expert GEMM block size or sorted token padding changes.",
+  "lesson": "Read the index producer before equating scatter_idx with a sorted-position map. In the pinned vLLM CUDA alignment path below, scatter_idx is shaped by topk_ids.numel and each original routed row i receives i when valid or -1 otherwise. Both the small-input alignment loop and the count/sort loop implement that masked identity; padding and sorted-token destinations are computed separately. Changing w2 block alignment therefore does not by itself invalidate this identity mapping. Trace the real preprocessing consumer as well before proposing a patch or buying a GPU reproduction. Reject the specific sorted-position premise, not every possible defect in Humming or expert-parallel execution.",
+  "avoid_when": "Do not transfer this conclusion to compacted/permuted scatter maps, changed route validity, another producer, changed topk IDs, or a consumer with a different index contract. The fused-globalization producer and optional external Humming implementation need their own source/identity checks for a full behavioral proof. This is source-level evidence about the regular CUDA producer, not a native kernel test, whole-model qualification, speedup, or measured Scout cost saving. Reopen with a concrete producer/consumer mismatch rather than block-size inequality alone.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/b9b401b2ef1db3148d480a1520d95c95eff9c528/vllm/model_executor/layers/fused_moe/moe_align_block_size.py",
+      "note": "The wrapper documents a masked original-row identity, allocates [topk_ids.numel(), 1] and passes it separately from sorted IDs/padding to the native op."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/b9b401b2ef1db3148d480a1520d95c95eff9c528/csrc/moe/moe_align_sum_kernels.cu",
+      "note": "Both native producer loops store scatter_idx[i] = valid ? i : -1. This supports block-layout independence of that producer, not execution of every dispatch branch."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/b9b401b2ef1db3148d480a1520d95c95eff9c528/vllm/model_executor/layers/fused_moe/experts/fused_humming_moe.py",
+      "note": "The caller may realign w2 sorted IDs for a different block size while retaining scatter_idx for process_input. These two values need not name the same index space."
+    }
+  ],
+  "status": "counterexample"
+}
