@@ -1081,6 +1081,27 @@ class ResearchTests(unittest.TestCase):
         self.assertFalse(packet["sources"][0]["linked_pr_lookup"]["search_exhaustive"])
         self.assertEqual(len(packet["sources"]), 2)
 
+    def test_related_issue_hint_keeps_original_chain_and_does_not_claim_pr(self):
+        related = {
+            "url": "https://github.com/a/b/issues/8",
+            "text": "Related roadmap\nIts comments are not supplied",
+            "is_pr": False,
+            "observed_issue_state": "closed",
+            "search_exhaustive": False,
+        }
+        lookup = {"sources": [related], "status": "PARTIAL_TIMELINE", "search_exhaustive": False}
+        with patch.object(self.context, "issue_linked_pr_context", return_value=lookup):
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet['focus_issue'], 42)
+        self.assertIn(related, packet['sources'])
+        self.assertIn('issue is not a PR or maintainer approval', packet['question'])
+        self.finish(self.jobs()[0])
+        with patch.object(self.context, 'issue_sources', wraps=self.context.issue_sources) as reports:
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        reports.assert_called_once_with('a/b', 42)
+        self.assertEqual(json.loads(self.jobs()[-1]['packet'])['focus_issue'], 42)
+
     def test_issue_keeps_public_report_when_optional_source_exceeds_budget(self):
         with patch.object(
             self.context,

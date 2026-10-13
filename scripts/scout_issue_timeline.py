@@ -1,4 +1,4 @@
-"""Bounded issue-timeline PR hints, never an automatic duplicate verdict."""
+"""Bounded issue-timeline related-work hints, never a duplicate verdict."""
 
 import json
 import time
@@ -11,10 +11,15 @@ LIMIT = 300_000
 EVENTS = 50
 SOURCES = 3
 CACHE_LIMIT = 64_000
+CACHE_VERSION = 2
 
 
 def linked_pr_context(context, repo, number):
-    """One cached page for an observed public issue; no linked URL is fetched."""
+    """Legacy name: prefer PRs, then related issues, within one shared budget.
+
+    Only embedded same-repository cross-references are retained. Report-body
+    links and linked comments/timelines are not fetched or recursively explored.
+    """
     scout.public_repo(repo)
     if type(number) is not int or not 1 <= number <= 1_000_000_000:
         raise ValueError("invalid issue number")
@@ -28,9 +33,11 @@ def linked_pr_context(context, repo, number):
         "search_exhaustive": False,
         "endpoint": endpoint,
         "scope": (
-            "First 50 issue-timeline events, at most three same-repository PR "
-            "cross-references. Not a coverage, fix, merge, CI or absence verdict; "
-            "embedded PR state is only a cached timeline observation."
+            "First 50 issue-timeline events, at most three same-repository "
+            "cross-references total, preferring PRs before related issues. "
+            "Not a coverage, fix, merge, CI or absence verdict; embedded state "
+            "is only a cached timeline observation. Related issues are not PRs "
+            "or maintainer approval. No linked URL or comments are fetched."
         ),
     }
     try:
@@ -44,6 +51,8 @@ def linked_pr_context(context, repo, number):
         fresh = False
         if not (
             isinstance(record, dict)
+            and type(record.get("version")) is int
+            and record.get("version") == CACHE_VERSION
             and type(record.get("at")) in (int, float)
             and 0 <= now - record["at"] < TTL
             and isinstance(record.get("events"), list)
@@ -54,12 +63,12 @@ def linked_pr_context(context, repo, number):
             events = context._json(endpoint, limit=LIMIT)
             if not isinstance(events, list) or len(events) > EVENTS:
                 raise ValueError("invalid issue timeline")
-            record = {"at": now, "events": events, "events_observed": len(events)}
+            record = {"version": CACHE_VERSION, "at": now, "events": events, "events_observed": len(events)}
             fresh = True
     except (OSError, ValueError) as exc:
         return {**base, "status": "TIMELINE_UNAVAILABLE", "error": type(exc).__name__}
 
-    sources, seen, compact = [], set(), []
+    candidates = []
     for event in record["events"]:
         if not isinstance(event, dict) or event.get("event") != "cross-referenced":
             continue
@@ -69,39 +78,53 @@ def linked_pr_context(context, repo, number):
         item = origin.get("issue")
         if not isinstance(item, dict):
             continue
-        pr, link = item.get("number"), item.get("pull_request")
+        related, link = item.get("number"), item.get("pull_request")
+        is_pr = isinstance(link, dict)
+        kind = "pull" if is_pr else "issues"
         if (
-            type(pr) is not int or not 1 <= pr <= 1_000_000_000
-            or pr in seen
-            or not isinstance(link, dict)
-            or item.get("url") != f"{api}/issues/{pr}"
+            type(related) is not int or not 1 <= related <= 1_000_000_000
+            or related == number
+            or ("pull_request" in item and not is_pr)
+            or item.get("url") != f"{api}/issues/{related}"
             or item.get("repository_url") != api
-            or item.get("html_url") != f"https://github.com/{repo}/pull/{pr}"
-            or link.get("url") != f"{api}/pulls/{pr}"
+            or item.get("html_url") != f"https://github.com/{repo}/{kind}/{related}"
+            or (is_pr and link.get("url") != f"{api}/pulls/{related}")
             or item.get("state") not in ("open", "closed")
             or not isinstance(item.get("title"), str)
             or not isinstance(item.get("body"), (str, type(None)))
         ):
+            continue
+        candidates.append((is_pr, item))
+    # An early issue must not evict a later PR from the existing three-source
+    # budget. Retain event order within each kind, then compact only selection.
+    candidates.sort(key=lambda candidate: not candidate[0])
+    sources, seen, compact = [], set(), []
+    for is_pr, item in candidates:
+        related = item["number"]
+        if related in seen:
             continue
         source = issue_evidence(
             item["html_url"], item["title"], item.get("body") or "",
             already_truncated=item.get("_excerpt_truncated") is True, limit=1800
         )
         source.update(
-            is_pr=True, referenced_issue=number,
+            is_pr=is_pr, referenced_issue=number,
             relationship="issue_timeline_cross_reference",
-            observed_pr_state=item["state"], timeline_observed_at=record["at"],
+            timeline_observed_at=record["at"],
             search_exhaustive=False, relationship_scope=base["scope"],
         )
+        source["observed_pr_state" if is_pr else "observed_issue_state"] = item["state"]
         sources.append(source)
         # Cache only selected literal excerpts, not 50 full event/repository/user payloads.
         title, body = source["text"].split("\n", 1)
-        compact.append({"event": "cross-referenced", "source": {"type": "issue", "issue": {
+        compact_item = {
             **{key: item[key] for key in ("number", "state", "url", "repository_url", "html_url")},
-            "pull_request": {"url": link["url"]},
             "title": title, "body": body, "_excerpt_truncated": source["truncated"],
-        }}})
-        seen.add(pr)
+        }
+        if is_pr:
+            compact_item["pull_request"] = {"url": item["pull_request"]["url"]}
+        compact.append({"event": "cross-referenced", "source": {"type": "issue", "issue": compact_item}})
+        seen.add(related)
         if len(sources) == SOURCES:
             break
     if fresh:

@@ -577,7 +577,7 @@ class PublicContext:
         return result
 
     def issue_linked_pr_context(self, repo, number):
-        """Reuse the bounded timeline lookup without re-fetching the report/comments."""
+        """Legacy name: bounded PR/issue hints without fetching linked reports/comments."""
         return linked_pr_context(self, repo, number)
 
     def issue_sources(self, repo, number):

@@ -19,10 +19,29 @@ does not establish novelty, and closed/unmerged work must also be checked.
 
 Initial issue triage now also uses the existing bounded issue-timeline lookup,
 instead of waiting for a model lead and follow-up. It adds at most one cached
-GET (first 50 events, three same-repository PR excerpts, 15-minute TTL) without
+GET (first 50 events, three same-repository excerpts total, 15-minute TTL) without
 re-fetching the report/comments. Follow-ups reuse that cache. The packet keeps
 the lookup scope/status, including unavailable or empty partial observations;
 no issue is automatically rejected because a PR was cross-referenced.
+
+The same already-fetched page now retains related **issues** when there is room
+after PRs. Three PRs still take all three slots; an earlier issue cannot displace
+a later PR. Each excerpt is at most 1,800 characters. `is_pr` and the separate
+observed issue/PR state fields keep report kinds distinct. A related roadmap or
+closed issue is neither a PR nor maintainer approval. Original `focus_issue` and
+candidate-chain ownership do not move to the related report.
+
+The cache format is versioned because older compact caches discarded non-PR
+events. A legacy record is refreshed once through the same bounded endpoint;
+subsequent initial/follow-up reads share the new cache. No linked reports,
+comments, report-body links, other repositories or later pages are followed.
+For example, [JuiceFS #7681](https://github.com/juicedata/juicefs/issues/7681)
+links retry roadmap [#7455](https://github.com/juicedata/juicefs/issues/7455),
+which is related to the earlier [#7453](https://github.com/juicedata/juicefs/issues/7453).
+This change does **not** automatically retrieve that entire chain or its
+maintainer comments. Those remain explicit next-evidence questions before
+proposing an independent design. Offline budget, kind, cache and queue tests
+prove the retrieval mechanics, not improved decision accuracy or discovery yield.
 
 An October 11 live lookup for urllib3 issue
 [#3723](https://github.com/urllib3/urllib3/issues/3723) recovered existing PR

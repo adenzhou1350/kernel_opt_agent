@@ -24,6 +24,15 @@ def event(number=7):
     }}}
 
 
+def issue_event(number=8):
+    value = event(number)
+    item = value["source"]["issue"]
+    item.pop("pull_request")
+    item["html_url"] = f"https://github.com/{REPO}/issues/{number}"
+    item["body"] = "Related roadmap report, not a pull request or approval"
+    return value
+
+
 class TimelineTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -83,6 +92,59 @@ class TimelineTests(unittest.TestCase):
         cache = self.context._cache_path("issue-linked-pr", [REPO, 42])
         self.assertLess(cache.stat().st_size, 12_000)
         self.assertEqual(self.lookup(), result)
+
+    def test_related_issue_preserved_without_becoming_pr_or_extra_fetch(self):
+        self.events = [issue_event(), event()]
+        sources = self.context.issue_sources(REPO, 42)
+        self.assertEqual([s['url'] for s in sources], [
+            f'https://github.com/{REPO}/issues/42',
+            f'https://github.com/{REPO}/pull/7',
+            f'https://github.com/{REPO}/issues/8',
+        ])
+        related = sources[-1]
+        self.assertFalse(related['is_pr'])
+        self.assertEqual(related['observed_issue_state'], 'open')
+        self.assertNotIn('observed_pr_state', related)
+        self.assertIn('Related issues are not PRs', related['relationship_scope'])
+        self.assertEqual([url for url, _ in self.calls], [API, f'{API}/issues/42', TIMELINE])
+        # Warm initial/followup reads preserve both kinds and use the same GET.
+        self.assertEqual(self.lookup()['sources'], sources[1:])
+        self.assertEqual(sum(url == TIMELINE for url, _ in self.calls), 1)
+
+    def test_related_issues_share_cap_and_never_displace_three_prs(self):
+        self.events = [issue_event(n) for n in range(20, 25)] + [event(n) for n in (7, 8, 9)]
+        self.assertEqual([s['url'] for s in self.lookup()['sources']], [
+            f'https://github.com/{REPO}/pull/{n}' for n in (7, 8, 9)
+        ])
+        self.clear_cache()
+        self.events = [issue_event(20), issue_event(20), issue_event(21), event(7)]
+        self.assertEqual([s['url'] for s in self.lookup()['sources']], [
+            f'https://github.com/{REPO}/pull/7',
+            f'https://github.com/{REPO}/issues/20',
+            f'https://github.com/{REPO}/issues/21',
+        ])
+
+    def test_related_issue_identity_rejects_self_foreign_and_forged_links(self):
+        forged = issue_event(9)
+        forged['source']['issue']['repository_url'] = API + '-private'
+        wrong_path = issue_event(10)
+        wrong_path['source']['issue']['html_url'] = f'https://github.com/{REPO}/pull/10'
+        malformed = issue_event(11)
+        malformed['source']['issue']['pull_request'] = None
+        self.events = [issue_event(42), forged, wrong_path, malformed]
+        self.assertEqual(self.lookup()['sources'], [])
+        self.assertTrue(all(url in (API, TIMELINE) for url, _ in self.calls))
+
+    def test_legacy_pr_only_cache_is_refreshed_once_with_explicit_version(self):
+        cache = self.context._cache_path('issue-linked-pr', [REPO, 42])
+        ctx.scout.write_json(cache, {'at': 1000, 'events': [event()], 'events_observed': 1})
+        self.events = [issue_event()]
+        with patch('scout_issue_timeline.time.time', return_value=1001):
+            first = self.lookup()
+            second = self.lookup()
+        self.assertEqual(first, second)
+        self.assertFalse(first['sources'][0]['is_pr'])
+        self.assertEqual(sum(url == TIMELINE for url, _ in self.calls), 1)
 
     def test_bad_source_event_and_foreign_or_forged_links_are_not_followed(self):
         mutations = [
