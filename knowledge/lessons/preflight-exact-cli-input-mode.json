@@ -1,0 +1,18 @@
+{
+  "id": "preflight-exact-cli-input-mode",
+  "title": "Preflight the exact CLI input mode, not only model availability",
+  "applies_when": "A model or native-tool adapter passes a short --message health check but the real workload uses --messages-file -, piped JSON, a different output mode or a different host operating system.",
+  "lesson": "Run a synthetic completion through the actual planned invocation and input/output encoding before admitting real cases. An installed MiniMax CLI could answer --message on Windows yet fail --messages-file - locally because it read the POSIX /dev/stdin pathname. The upstream fix uses file descriptor 0; a task-private JSON file also avoids the old adapter path without changing a shared installation. Check the installed executable as well as current upstream before proposing a fix: an already repaired release/source mismatch is not a new contribution. Verify final-answer completion and numeric usage separately; successful transport or plain text alone does not qualify cost accounting. Preserve failed experiment arms and use unseen cases after changing the adapter, rather than replaying exposed cases to improve a comparison.",
+  "avoid_when": "Do not infer that every CLI failure is this Windows pathname issue, or that a model is weak because its local adapter failed. Check the exact installed version and stderr category without exposing credentials. A file-mode synthetic completion does not qualify stdin, streaming, all models, large prompts, native repository tests or a complete upstream suite. Matching output/call caps is not matching realized tokens or money. This advice has no measured PR-conversion or cost-saving claim.",
+  "evidence": [
+    {
+      "url": "https://github.com/MiniMax-AI/cli/commit/84fc33b0b0daad8ea5653fb7673280b2b80d6935",
+      "note": "Upstream Windows stdin repair replaces the POSIX pathname with a shared file-descriptor-zero reader and includes focused tests. This is existing author-owned work, not a newly discovered unpatched upstream defect."
+    },
+    {
+      "url": "https://nodejs.org/api/fs.html#fsreadfilesyncpath-options",
+      "note": "Node's synchronous reader accepts an integer file descriptor. This explains the portable input mechanism, not a provider/model quality or workflow-effectiveness result."
+    }
+  ],
+  "status": "validated"
+}
