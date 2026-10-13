@@ -63,6 +63,30 @@ class ScoutTests(unittest.TestCase):
     def add(self, name="one"):
         return scout.enqueue(self.root, packet(name))
 
+    def test_context_diagnostics_are_not_quotable_source(self):
+        source = packet()
+        notice = "These literal terminal names do not occur in the pinned file"
+        source["sources"][0]["requested_identifier_absence"] = {
+            "identifiers": ["missing_function"], "scope": notice
+        }
+        for decision in ("lead", "no_lead", "needs_context"):
+            value = result()
+            value["decision"] = decision
+            value["evidence"][0]["quote"] = notice
+            with self.subTest(decision=decision), self.assertRaises(ValueError):
+                scout.validate_result(value, source)
+
+    def test_optional_citations_can_be_omitted_without_repairing_source(self):
+        for decision in ("no_lead", "needs_context"):
+            value = result()
+            value.update(decision=decision, evidence=[])
+            with self.subTest(decision=decision):
+                self.assertEqual(scout.validate_result(value, packet()), value)
+        value = result()
+        value["evidence"] = []
+        with self.assertRaises(ValueError):
+            scout.validate_result(value, packet())
+
     def test_cli_help_without_workspace_pythonpath(self):
         env = dict(os.environ)
         env.pop("PYTHONPATH", None)

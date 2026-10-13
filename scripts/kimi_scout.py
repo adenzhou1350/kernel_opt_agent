@@ -131,8 +131,11 @@ only line-number prefixes and whitespace may be omitted).
 For lead, require at least one evidence excerpt. Never label a lead Ready.
 Prefer ONE short, contiguous copied source line, without its line-number prefix.
 Never stitch nonadjacent lines, replace code with ellipses, paraphrase inside a
-quote, or emit literal backslash-n sequences as source text. For no_lead, an
-empty evidence list is allowed; do not invent quotations to fill it.
+quote, or emit literal backslash-n sequences as source text. Copy PR titles and
+descriptions too; do not rewrite them into a quotation. Acquisition metadata,
+missing-symbol notices and prior analyses are not source quotations: describe
+those observations outside evidence. For no_lead or needs_context, an empty
+evidence list is allowed; do not invent quotations to fill it.
 Answer concisely in Chinese; source quotations stay unchanged.
 Keep the entire answer under 600 Chinese characters excluding evidence URLs.
 """
