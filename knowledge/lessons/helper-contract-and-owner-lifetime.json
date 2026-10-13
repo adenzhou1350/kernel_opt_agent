@@ -100,6 +100,10 @@
     {
       "url": "https://github.com/openclaw/openclaw/blob/8bb7fb2f0fb33fbb74ede9243f4488a9b10a354f/scripts/preinstall-package-manager-warning.mjs#L342",
       "note": "Preinstall removes the guard only after Node validation. A fixture retaining it cannot assume success; trace removal, not waive final inventory errors."
+    },
+    {
+      "url": "https://github.com/spf13/afero/blob/eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/mem/file.go",
+      "note": "SetUID/SetGID and FileInfo.Sys lock the same embedded FileData mutex. Missing outer MemMapFs.Chown locking is not unsynchronized UID/GID access. Separate setter locks do not promise an atomic pair; static evidence, not all-race proof."
     }
   ],
   "status": "validated"

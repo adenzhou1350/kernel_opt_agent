@@ -154,6 +154,27 @@ class SourceLessonTests(unittest.TestCase):
         self.assertEqual(packet["lesson_suggestions"]["matches"], [self.focused])
         self.assertEqual(packet["sources"], [source])
 
+    def test_callee_mutex_advice_retains_pair_atomicity_limit(self):
+        url = (
+            "https://raw.githubusercontent.com/spf13/afero/"
+            "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/mem/file.go"
+        )
+        result = lessons.lesson_suggestions(
+            "Check setter synchronization before claiming a data race",
+            source_urls=[url],
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertTrue(result["source_path_match"])
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "helper-contract-and-owner-lifetime")
+        self.assertLessEqual(
+            len(json.dumps(matched, ensure_ascii=False).encode()),
+            lessons.MAX_CARD_BYTES,
+        )
+        evidence = next(item for item in matched["evidence"] if "/mem/file.go" in item["url"])
+        self.assertIn("atomic pair", evidence["note"])
+        self.assertIn("not all-race proof", evidence["note"])
+
 
 if __name__ == "__main__":
     unittest.main()
