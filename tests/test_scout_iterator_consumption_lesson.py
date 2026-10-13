@@ -30,6 +30,16 @@ class IteratorConsumptionLessonTests(unittest.TestCase):
         self.assertIn("GPU producer/consumer", card["avoid_when"])
         self.assertIn("prospective routing benefit", card["avoid_when"])
 
+    def test_unary_variadic_alias_reuses_the_same_scoped_lesson(self):
+        result = lesson_suggestions("Inspect unary intersection", source_urls=[
+            "https://raw.githubusercontent.com/samber/lo/5c6ddcb7063c9908031340db03f27ba7483d1ece/it/intersect.go"
+        ])
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "one-shot-iterator-consumption")
+        self.assertIn("lists[len(lists)-1]", card["lesson"])
+        self.assertIn("streaming Uniq/UniqBy", card["lesson"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,8 +1,8 @@
 {
   "id": "one-shot-iterator-consumption",
   "title": "Verify input restartability before using a two-pass iterator algorithm",
-  "applies_when": "A helper takes a generic lazy iterator and counts, validates or builds metadata in one pass, then rereads that same input to produce output. Channel, file, cursor and generator adapters may consume an external resource rather than restart it.",
-  "lesson": "Inspect the actual producer, not just the iterator type or tests built from slices. Compose the public helper with an existing one-shot adapter and compare unchanged source against the repair. In lo at 5c6ddcb, FindUniquesBy counts keys then rereads collection, while ChannelToSeq drains a channel; unique values disappear on the second pass. For finite uniqueness filtering, retain first occurrences with a key-to-index map, invalidate repeated keys and emit the remaining values in original order after one traversal. Keep state inside each result invocation so restartable inputs stay restartable. Test single-use and restartable producers, laziness, early break, named iterator types and non-comparable payloads with comparable transformed keys.",
+  "applies_when": "A helper takes a generic lazy iterator and counts, validates or builds metadata in one pass, then rereads that same input to produce output. Also check variadic zero/one-input cases where nominally distinct first/last roles become the same iterator. Channel, file, cursor and generator adapters may consume an external resource rather than restart it.",
+  "lesson": "Inspect the actual producer, not just the iterator type or tests built from slices. Compose the public helper with an existing one-shot adapter and compare unchanged source against the repair. In lo at 5c6ddcb, FindUniquesBy counts keys then rereads collection, while ChannelToSeq drains a channel; unique values disappear on the second pass. For finite uniqueness filtering, retain first occurrences with a key-to-index map, invalidate repeated keys and emit the remaining values in original order after one traversal. A second supported boundary is unary Intersect/IntersectBy: lists[len(lists)-1] and lists[0] are identical when there is one input, so building the last-input set drains the first input. Delegate that case to the existing streaming Uniq/UniqBy instead of adding a value buffer; leave zero/multiple-input paths alone. Keep state inside each result invocation so restartable inputs stay restartable. Test single-use and restartable producers, laziness, early break, named iterator types and non-comparable payloads with comparable transformed keys.",
   "avoid_when": "An explicit API may require restartable input or intentionally re-evaluate it; a repeated call alone is not a bug. GPU producer/consumer scheduler advances can partition work rather than consume the same stream. Buffering values changes memory needs and must be disclosed, especially when keys are much smaller than payloads. A uniqueness-before-yield contract already requires finite input; do not silently materialize arbitrary infinite streams. A local fix and native tests do not establish upstream acceptance, portable performance, improved Scout yield or a prospective routing benefit.",
   "evidence": [
     {
@@ -20,6 +20,14 @@
     {
       "url": "https://github.com/adenzhou1350/lo/commit/1e8aada6eb4646535ed76de426e591289d03b523",
       "note": "Public fork repair and focused regressions retain ordering, single traversal and early break. Independently tested on Linux and real Windows; publication/upstream acceptance and performance are not inferred from this commit."
+    },
+    {
+      "url": "https://github.com/samber/lo/blob/5c6ddcb7063c9908031340db03f27ba7483d1ece/it/intersect.go",
+      "note": "The first/last iterator roles alias for one argument in both Intersect variants. This is the producer-consumption mechanism, not a requirement that every multiple-input alias be cloned or an upstream-acceptance claim."
+    },
+    {
+      "url": "https://github.com/samber/lo/blob/5c6ddcb7063c9908031340db03f27ba7483d1ece/it/intersect_test.go",
+      "note": "Existing tests explicitly support a single input and duplicate removal, but construct restartable slice-backed iterators. Their presence does not cover a single-use producer."
     }
   ],
   "status": "validated"
