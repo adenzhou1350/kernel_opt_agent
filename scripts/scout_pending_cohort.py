@@ -142,12 +142,13 @@ def enroll(
         or not isinstance(prior_decisions, (list, tuple))
         or not 1 <= len(prior_decisions) <= 5
         or any(
-            not isinstance(value, str) or not 0 < len(value) <= 32
+            not isinstance(value, str)
+            or value not in {"lead", "no_lead", "needs_context"}
             for value in prior_decisions
         )
         or len(set(prior_decisions)) != len(prior_decisions)
     ):
-        raise ValueError("invalid predeclared prior-decision input filter")
+        raise ValueError("prior_decisions must name model decisions (lead/no_lead/needs_context), not queue states")
     db = sqlite3.connect(f"file:{Path(db_path).resolve().as_posix()}?mode=ro", uri=True)
     db.row_factory = sqlite3.Row
     try:

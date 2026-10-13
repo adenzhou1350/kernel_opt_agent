@@ -174,8 +174,10 @@ class PendingCohortTests(unittest.TestCase):
             {"created_after": 0, "repos": [None]},
             {"created_after": 0, "prior_decisions": []},
             {"created_after": 0, "prior_decisions": "review"},
-            {"created_after": 0, "prior_decisions": ["review", "review"]},
-            {"created_after": 0, "prior_decisions": ["review"], "decision_point": "initial"},
+            {"created_after": 0, "prior_decisions": ["lead", "lead"]},
+            {"created_after": 0, "prior_decisions": ["lead"], "decision_point": "initial"},
+            {"created_after": 0, "prior_decisions": ["review"]},
+            {"created_after": 0, "prior_decisions": ["REVIEW"]},
         ):
             with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
                 enroll(Path("missing"), **kwargs)
@@ -189,7 +191,7 @@ class PendingCohortTests(unittest.TestCase):
                     CREATE TABLE research_action_shadow (job_id TEXT,policy_version TEXT,
                         packet_sha256 TEXT,recorded_at REAL,suggested_action TEXT,reason TEXT);
                 """)
-                for index, prior in enumerate(("{broken", '{"decision":"needs_context"}', '{"decision":"review"}')):
+                for index, prior in enumerate(("{broken", '{"decision":"needs_context"}', '{"decision":"lead"}')):
                     packet = dict(repo="o/r", research=dict(stage="source_followup", parent_job_id="p"),
                         untrusted_prior_analysis=prior, sources=[dict(url=f"https://raw.githubusercontent.com/o/r/{'a'*40}/same.py")])
                     raw = json.dumps(packet)
@@ -206,11 +208,11 @@ class PendingCohortTests(unittest.TestCase):
                 return connection
             with patch("scripts.scout_pending_cohort.sqlite3.connect", side_effect=deny_outcomes):
                 cases, metadata = enroll(path, created_after=0, limit=1, per_repo_cap=1,
-                    enrollment="admission_recorded", prior_decisions=["review"])
+                    enrollment="admission_recorded", prior_decisions=["lead"])
             self.assertEqual(len(cases), 1)
             self.assertEqual(metadata["selection"][cases[0]["case_id"]]["job_id"], "2")
             self.assertEqual(metadata["prior_input_filtered_rows"], 2)
-            self.assertEqual(metadata["prior_decisions"], ["review"])
+            self.assertEqual(metadata["prior_decisions"], ["lead"])
             self.assertNotIn("FORBIDDEN", json.dumps(cases))
             self.assertEqual(path.read_bytes(), before)
 

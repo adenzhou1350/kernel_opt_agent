@@ -66,13 +66,16 @@ or establish an online intervention, matched total cost or routing benefit.
 ## Predeclared prior-claim strata (Python API)
 
 For a separately declared follow-up claim stratum, the Python `enroll()` API
-accepts `prior_decisions=["review"]`. It filters the packet's untrusted prior
+accepts `prior_decisions=["lead"]`. It filters the packet's untrusted prior
 JSON decision before source-URL deduplication and case caps, without reading
 later answers or outcomes. Malformed/nonmatching prior analyses are counted in
 `prior_input_filtered_rows`; the declared filter is recorded in selection
 metadata. This is not a validated quality label, cannot measure recall outside
 that input stratum, and must not be introduced after observing cohort outcomes.
 The CLI default remains unfiltered.
+Use model decisions (`lead`, `no_lead`, `needs_context`), not database states:
+the native `lead` decision becomes queue state `REVIEW`. Unknown decision names
+are rejected before reading the database, rather than silently drawing zero cases.
 
 ## Initial bounded pilot (2026-09-30)
 
