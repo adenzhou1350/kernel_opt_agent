@@ -11,6 +11,16 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_dependency_probe_advice_does_not_replace_upstream_qualification(self):
+        result = lesson_suggestions("dependency transport stdlib-only public-caller test package")
+        card = next(c for c in result["matches"] if c["id"] == "separate-dependency-transport-from-native-tests")
+        self.assertIn("complete original source and module files", card["lesson"])
+        self.assertIn("do not rename it an upstream baseline", card["lesson"])
+        self.assertIn("not accepted semantics, novelty or PR readiness", card["avoid_when"])
+        self.assertIn("Do not remove production files", card["avoid_when"])
+        self.assertTrue(any(e["url"].endswith("/cast/pull/359") for e in card["evidence"]))
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
     def test_future_completion_advice_keeps_atomicity_and_cancellation_contract(self):
         result = lesson_suggestions("concurrent Future cross-thread completion cancellation commit")
         card = result["matches"][0]

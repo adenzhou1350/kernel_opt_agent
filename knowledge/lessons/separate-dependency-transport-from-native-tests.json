@@ -1,9 +1,9 @@
 {
   "id": "separate-dependency-transport-from-native-tests",
   "title": "Separate slow dependency transport from native test execution",
-  "applies_when": "An authorized native test worker cannot finish downloading public dependencies, while another authorized machine can retrieve the exact same artifacts. Preserve the failed setup and distinguish it from tests that actually ran.",
-  "lesson": "Keep versions and artifact identity fixed; change delivery, not the test contract. Download target-compatible wheels, verify provenance and hashes, transfer them to a task-private wheelhouse, and install with the target interpreter using --no-index and --find-links. Select the target Python version, ABI, platform and architecture explicitly when the download machine differs. For Go, a file-based module proxy can deliver the same versions while the native go command verifies the existing go.sum values. Recheck imported source and realized dependencies before testing. Account separately for acquisition, transfer, install and tests; a fast cached install is not end-to-end setup cost or a measured method advantage.",
-  "avoid_when": "Do not route around permission, policy or authentication denials. Do not substitute older dependencies, skip integration tests, disable known hash checks or treat an absent wheel as successful qualification. Matching version strings do not prove equal bytes or native ABI compatibility. Missing target wheels or build prerequisites need an explicit different approach. Local-only package resolution is not network/process isolation, and a private venv is not an untrusted-code sandbox. This is documented delivery guidance, not a general speedup, native test result or PR-yield claim.",
+  "applies_when": "An authorized native test worker cannot finish downloading public dependencies. Another authorized machine may retrieve the exact artifacts, or a concrete hypothesis may be testable without the missing test-only dependencies. Preserve failed setup separately from tests that actually ran.",
+  "lesson": "Keep versions and artifact identity fixed; change delivery, not the test contract. Download target-compatible wheels, verify provenance and hashes, transfer them to a task-private wheelhouse, and install with the target interpreter using --no-index and --find-links. Select the target Python version, ABI, platform and architecture explicitly when the download machine differs. For Go, a file-based module proxy can deliver the same versions while the native go command verifies the existing go.sum values. If only upstream test dependencies are blocked and the production package itself builds offline, a separate stdlib-only public-caller test package can answer a specific hypothesis against the complete original source and module files. Label this supplementary probe separately; do not rename it an upstream baseline. Recheck imported source and realized dependencies before testing. Account separately for acquisition, transfer, install and tests; a fast cached install is not end-to-end setup cost or a measured method advantage.",
+  "avoid_when": "Do not route around permission, policy or authentication denials. Do not substitute older dependencies, replace required integration tests with a small probe, disable known hash checks or treat an absent wheel as successful qualification. A public-caller reproduction establishes observed behavior, not accepted semantics, novelty or PR readiness; check existing author work before implementing a competing fix. Do not remove production files or mock missing runtime dependencies to make the probe build. Matching version strings do not prove equal bytes or native ABI compatibility. Missing target wheels or build prerequisites need an explicit different approach. Local-only package resolution is not network/process isolation, and a private venv is not an untrusted-code sandbox. This is documented delivery guidance, not a general speedup, native test result or PR-yield claim.",
   "evidence": [
     {
       "url": "https://pip.pypa.io/en/stable/user_guide/#installing-from-local-packages",
@@ -16,6 +16,14 @@
     {
       "url": "https://go.dev/ref/mod#goproxy-protocol",
       "note": "The module reference documents file-based proxy delivery and native verification against known go.sum hashes. Transport success does not replace module authentication or package tests."
+    },
+    {
+      "url": "https://pkg.go.dev/cmd/go#hdr-Test_packages",
+      "note": "Package-list mode tests the explicitly selected packages; imported production packages are built without automatically running their own tests. A separate public-caller package can therefore answer a focused question without establishing full upstream-suite qualification."
+    },
+    {
+      "url": "https://github.com/spf13/cast/pull/359",
+      "note": "An existing author already fixes the non-string-key panic in the ToStringMapInt/Int64 reflection path. A reproduced behavior is not necessarily an unclaimed contribution. The author's reported full-suite result is not independent qualification by this knowledge card."
     }
   ],
   "status": "validated"
