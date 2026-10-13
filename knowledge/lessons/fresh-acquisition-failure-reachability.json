@@ -1,0 +1,22 @@
+{
+  "id": "fresh-acquisition-failure-reachability",
+  "title": "Prove fresh-acquisition failure is reachable before proposing cleanup",
+  "applies_when": "A leak hypothesis points to a failure return between insertion of a newly constructed stateful object and registration of rollback, especially when a guard can reject an older terminal object.",
+  "lesson": "Separate newly inserted and previously existing objects. Read the constructor, guard predicate, state-transition writers and publication lock before injecting failure. Mooncake ReMountSegment inserts ClientLivenessRecord under the client-map exclusive lock and immediately acquires its retaining guard. A fresh record starts ACTIVE; the guard rejects only OFFLINE, and the monitor needs the map's shared lock to discover the new record. The cited new-record guard-failure leak is therefore unreachable under this publication path. Rejection of a previously existing OFFLINE record does not create the new-record metric or authorize deleting that old record. A small native compile of the unmodified production header confirms ACTIVE and SUSPECTED retain while OFFLINE rejects; the map-lock argument is separate source evidence, not an executed full RPC/concurrency test.",
+  "avoid_when": "Reopen if a new object can start terminal, escape through another reference before acquisition, transition outside the publication lock, or the guard can independently fail on allocation or a nonblocking lock. A failure hook that forces an impossible fresh state does not establish this production leak. Conversely, a reachable failed acquisition still requires ownership-safe cleanup; this counterexample does not waive other failure branches, establish all metrics correct, or prove general absence of leaks. No discovery-cost or PR-conversion benefit has been measured.",
+  "evidence": [
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/342c8aeece6b4eefb76c6b8b31ccfac8dde07aa3/mooncake-store/include/client_liveness.h",
+      "note": "Exact production constructor/state member initializes ACTIVE; TryAcquireRetainingGuard rejects only OFFLINE. Independent Linux GCC11.4 C++17 native header probe passed the fresh ACTIVE, SUSPECTED and OFFLINE controls. Component scope only."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/342c8aeece6b4eefb76c6b8b31ccfac8dde07aa3/mooncake-store/src/master_service.cpp#L815-L841",
+      "note": "ReMountSegment holds client_mutex_ exclusively from insertion through guard acquisition. The metric increment is conditional on record_inserted, unlike the existing-record failure path. Source inspection, not native MasterService qualification."
+    },
+    {
+      "url": "https://github.com/kvcache-ai/Mooncake/blob/342c8aeece6b4eefb76c6b8b31ccfac8dde07aa3/mooncake-store/src/master_service.cpp#L12610-L12628",
+      "note": "The monitor discovers shared record references under the same map mutex before evaluating transitions, supporting the fresh-record publication argument. Do not infer this locking contract in another implementation."
+    }
+  ],
+  "status": "counterexample"
+}
