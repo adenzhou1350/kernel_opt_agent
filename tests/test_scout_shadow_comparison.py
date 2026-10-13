@@ -59,6 +59,20 @@ class ShadowTests(unittest.TestCase):
         self.assertIsNone(parsed(dict(response=dict(ok=False, text='{}'))))
         self.assertIsNone(parsed(dict(response=dict(ok=True, text='```json\n{}\n```'))))
 
+    def test_malformed_verdict_is_invalid_not_a_crash(self):
+        verdict = dict(verdict=[], decisive_evidence='first', reason='x', next_native_check=None)
+        self.assertFalse(validate_verdict(verdict, self.view, dict(status='NO_ADDITIONAL_SOURCE')))
+
+    def test_numbered_delivery_keeps_exact_quote_contract(self):
+        selected = dict(status='SELECTED', path='a.go', ranges=[dict(start_line=2, line_count=2)])
+        observation = observe(selected, self.assets, numbered=True)
+        self.assertEqual(observation['excerpts']['windows'][0]['text'], '2: second\n3: third')
+        self.assertEqual(observation['excerpts']['selected_chars'], len('second\nthird'))
+        verdict = dict(verdict='REFUTED_PREMISE', decisive_evidence='2: second\n3: third', reason='x', next_native_check=None)
+        self.assertTrue(validate_verdict(verdict, self.view, observation))
+        verdict['decisive_evidence'] = 'second\nthird'
+        self.assertFalse(validate_verdict(verdict, self.view, observation))
+
     def test_equal_calls_reflection_and_selection(self):
         verdict = dict(verdict='INSUFFICIENT', decisive_evidence=None,
                        reason='x', next_native_check='test')

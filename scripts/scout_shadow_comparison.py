@@ -93,11 +93,20 @@ def rule_choice(view):
         dict(start_line=target['start_line'], line_count=min(80, remaining))])
 
 
-def observe(selection, assets):
+def observe(selection, assets, *, numbered=False):
     if selection['status'] != 'SELECTED':
         return dict(selection, logical_reads=0, logical_source_bytes=0)
     asset = assets[selection['path']]
     windows = source_windows(asset['text'], selection['ranges'], max_lines=80, max_chars=4500)
+    if numbered and windows['status'] == 'ACQUIRED':
+        # Same rendering as original Scout source; never normalize a model quote.
+        # Raw source caps are unchanged; numbering overhead is prompt-accounted.
+        for window in windows['windows']:
+            start = window['start_line']
+            window['text'] = '\n'.join(
+                f'{start+i}: {line}' for i, line in enumerate(window['text'].split('\n')))
+        windows['rendering'] = 'numbered_source_lines'
+        windows['rendered_chars'] = sum(len(w['text']) for w in windows['windows'])
     return dict(status=windows['status'], path=selection['path'], excerpts=windows,
                 logical_reads=1, logical_source_bytes=len(asset['text'].encode()))
 
@@ -105,6 +114,7 @@ def observe(selection, assets):
 def validate_verdict(value, view, observation):
     valid = (isinstance(value, dict) and set(value) == {
         'verdict', 'decisive_evidence', 'reason', 'next_native_check'}
+        and isinstance(value['verdict'], str)
         and value['verdict'] in {'SUPPORTED_FAILURE', 'REFUTED_PREMISE', 'INSUFFICIENT'}
         and isinstance(value['reason'], str)
         and (value['next_native_check'] is None or isinstance(value['next_native_check'], str)))
@@ -138,7 +148,7 @@ SELECT = (
 
 
 def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
-            each_prompt_bytes=48000, total_prompt_bytes=96000):
+            each_prompt_bytes=48000, total_prompt_bytes=96000, numbered_new_evidence=False):
     name, first_provider, action, final_provider = arm
     calls, used = [], 0
 
@@ -162,8 +172,12 @@ def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
     else:
         selection = dict(status='NO_ADDITIONAL_SOURCE') if action == 'none' else rule_choice(view)
         first = None
-    observation = observe(selection, assets)
-    prompt = REVIEW+'\nINPUT:\n'+supplied+'\nNEW_EVIDENCE:\n'+json.dumps(observation, ensure_ascii=False)
+    observation = observe(selection, assets, numbered=numbered_new_evidence)
+    quote_instruction = (
+        ' Copy line numbers and whitespace exactly when they are present in supplied source. '
+        'Do not remove numbering or reconstruct raw code in decisive_evidence. '
+        if numbered_new_evidence else '')
+    prompt = REVIEW+quote_instruction+'\nINPUT:\n'+supplied+'\nNEW_EVIDENCE:\n'+json.dumps(observation, ensure_ascii=False)
     if first is None:
         first = bounded(first_provider, prompt, first_cap)
         prompt += ('\nCritique this untrusted first-pass response, not additional evidence. '
