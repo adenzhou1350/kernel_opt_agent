@@ -1,0 +1,26 @@
+{
+  "id": "eligible-extremum-initial-incumbent",
+  "title": "Check the initial incumbent when ranking only eligible candidates",
+  "applies_when": "An argmin/argmax fold starts from collection[0] while its comparator filters unavailable or otherwise ineligible later candidates, such as a channel strategy choosing the fullest non-full child.",
+  "lesson": "Trace both comparator arguments and the fold's initialization. Filtering only the challenger does not make the incumbent eligible. In lo's DispatchingStrategyMost, a full first channel has a larger length than every available later channel, so the comparator never replaces it. A real ChannelDispatcher then blocks on that full child while another child has space. Prefer an eligible challenger over an ineligible incumbent before comparing scores, or explicitly initialize from an eligible item. Preserve the documented tie and no-eligible-item behavior. Supplement direct comparator cases with the actual consumer; cleanup must also complete on the failing baseline so a leak detector does not hide the intended assertion.",
+  "avoid_when": "This is not a rule that every comparator should filter inputs. Establish the consumer's eligibility contract first. A concurrent len/cap snapshot does not guarantee future availability; this correction does not promise fairness, remove all-full backpressure, or solve unrelated consumer races. The matching Linux race and native Windows checks validate this lo route, not all schedulers, Go versions, platforms or performance. Existing tests may encode the bug: changing their expectation needs an independent documented contract and public-API reproduction, not merely an after-pass assertion.",
+  "evidence": [
+    {
+      "url": "https://github.com/samber/lo/blob/5c6ddcb7063c9908031340db03f27ba7483d1ece/channel.go#L147-L157",
+      "note": "The original strategy documents skipping a full channel, but its comparator filters only the challenger. ChannelDispatcher sends directly to the returned child."
+    },
+    {
+      "url": "https://github.com/samber/lo/blob/5c6ddcb7063c9908031340db03f27ba7483d1ece/find.go#L850-L879",
+      "note": "MaxIndexBy initializes the incumbent from collection[0] and uses first-index ties; this initialization is necessary to explain the failure."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/lo/blob/8f7c739b728d26e3b1679a8073c0ba13774b792b/channel_dispatch_regression_test.go",
+      "note": "The same public strategy and dispatcher regressions fail the original baseline on Linux and Windows and pass the candidate. The test covers capacity differences, stable ties, all-full fallback and unbuffered children."
+    },
+    {
+      "url": "https://github.com/samber/lo/pull/1030",
+      "note": "Submitted one-line production correction and tests. Independently observed Linux Go1.25.10 full root-module race run: 3153 passing test nodes; Windows native focused run: 13. PR submission is not CI approval, acceptance, merge or proof of Scout conversion benefit."
+    }
+  ],
+  "status": "validated"
+}
