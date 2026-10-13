@@ -59,6 +59,19 @@ lookup adds no source fetches, supplies at most one complete card within the
 existing budget, and never displaces primary source evidence. A retrieval test
 does not establish better discovery accuracy or PR conversion.
 
+The Scout reader admits a complete card up to 8,192 serialized UTF-8 JSON bytes;
+larger cards are omitted rather than clipped. Validate structure and the actual
+reader tests available in this checkout:
+
+```sh
+python scripts/knowledge_notes.py check
+python -B -m unittest tests.test_knowledge_context_budget tests.test_scout_lesson_source_paths
+```
+
+These checks establish format and advice availability, not scientific truth or
+measured discovery yield. Keep a new finding scoped rather than raising every
+prompt's allowance to fit an oversized card.
+
 Keep private experiment logs, machine addresses, local run paths, credentials,
 raw timing samples and private discussions out of cards. Contribute the reusable
 finding with public references; if public evidence only explains a possible

@@ -1,0 +1,26 @@
+{
+  "id": "virtual-path-contract-before-host-path-rules",
+  "title": "Validate virtual paths against the interface, not host filename rules",
+  "applies_when": "An abstract filesystem adapter forwards paths to a native or permissive backend, or a candidate labels backslashes, colons, empty roots or dot elements invalid without checking the exposed interface.",
+  "lesson": "Identify the path namespace before choosing a validator or fixture. Go io/fs uses slash-separated relative paths on every OS: dot alone is the root; empty names, leading/trailing slashes and embedded dot/dot-dot/empty elements are invalid. Backslash and colon can be valid literal characters and must not be reinterpreted as separators. Validate before backend dispatch. Test invalid names with a recording backend to distinguish adapter rejection from incidental backend errors; retain successful root, sorted-directory and literal-character controls. Use an in-memory backend that implements the virtual namespace when native OS filename rules differ. Check existing callers/tests for invalid roots instead of weakening the validator to retain green tests.",
+  "avoid_when": "Do not apply io/fs restrictions to native os paths or extractors that intentionally use another namespace. A virtual name being valid does not establish native representability, containment or safety against symlinks. fstest.MapFS controls do not qualify an OS backend. An adapter-contract failure alone is not proof of security exploitation, data deletion or a novel upstream bug. Available advice is not measured discovery yield or cost savings.",
+  "evidence": [
+    {
+      "url": "https://pkg.go.dev/io/fs#ValidPath",
+      "note": "Official namespace contract: paths are slash-separated even on Windows; backslash and colon remain valid literal characters. This is interface semantics, not a host filesystem test result."
+    },
+    {
+      "url": "https://pkg.go.dev/io/fs#WalkDir",
+      "note": "Official traversal example uses dot as the root of os.DirFS; the package path-name contract excludes the empty string."
+    },
+    {
+      "url": "https://github.com/spf13/afero/blob/eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/iofs.go",
+      "note": "At this exact revision IOFS.Open and ReadFile check fs.ValidPath, while ReadDir directly dispatches Fs.Open. Inspect the current source before transfer; this anchor does not establish publication, novelty or all-platform qualification."
+    },
+    {
+      "url": "https://pkg.go.dev/testing/fstest#MapFS",
+      "note": "Standard-library in-memory filesystem supports interface-level controls without importing native host path interpretation. This is a fixture option, not a substitute for native runtime verification."
+    }
+  ],
+  "status": "validated"
+}
