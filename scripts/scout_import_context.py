@@ -9,6 +9,8 @@ import ast
 import re
 from urllib.parse import unquote, urlsplit
 
+from scout_go_context import go_import_requests
+
 IDENT = r"[A-Za-z_$][A-Za-z0-9_$]*"
 NAMED_IMPORT = re.compile(
     rf"import\s+(?:type\s+)?(?:{IDENT}\s*,\s*)?"
@@ -299,6 +301,9 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     raw = cached_source(repo, commit, path)
     if not isinstance(raw, str) or len(raw.encode("utf-8")) > 131072 or "\x00" in raw:
         return []
+    if path.endswith(".go"):
+        return go_import_requests(path, raw, files, sources, repo, commit, hints,
+                                  cached_source, limit=limit)
     bindings = {}
     for local, imported, module in _bindings(path, raw):
         target = _resolve(path, module, files)

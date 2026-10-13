@@ -1627,6 +1627,7 @@ class ResearchProducer:
                 if self.stopped():
                     return False
                 read_request = dict(request)
+                go_import_hint = read_request.pop("go_import_hint", None)
                 if request in imports and re.search(
                     r"(?<!\w)definition[ \t]*\(", request_text[:2000]
                 ):
@@ -1642,6 +1643,9 @@ class ResearchProducer:
                 except ValueError as exc:
                     if str(exc) not in OPTIONAL_SOURCE_UNAVAILABLE:
                         raise
+                else:
+                    if go_import_hint is not None:
+                        sources[-1]["go_import_hint"] = dict(go_import_hint)
             if self.stopped():
                 return False
             title = (
