@@ -1,6 +1,7 @@
 import unittest
 from scripts.scout_shadow_comparison import (
-    choice, make_view, normalized_usage, observe, parsed, run_arm, validate_verdict,
+    bidirectional_rule_choice, choice, make_view, normalized_usage, observe,
+    parsed, rule_choice, run_arm, validate_verdict,
 )
 
 
@@ -105,6 +106,23 @@ class ShadowTests(unittest.TestCase):
         self.packet['question'] = '/workspace/kernel-opt/private/x'
         with self.assertRaises(ValueError):
             make_view(self.packet, repo='o/r', commit='a'*40, assets=self.assets)
+
+    def test_future_rule_reads_before_eof_not_beyond_it(self):
+        source = self.view['packet']['sources'][0]
+        source.update(start_line=3, end_line=3, text='3: third')
+        self.assertEqual(rule_choice(self.view)['error_kind'], 'WINDOW_BEYOND_SOURCE')
+        selected = bidirectional_rule_choice(self.view)
+        self.assertEqual(selected['ranges'], [dict(start_line=1, line_count=2)])
+        self.assertEqual(observe(selected, self.assets)['status'], 'ACQUIRED')
+
+    def test_future_rule_preserves_forward_and_abstains_on_complete_file(self):
+        self.assertEqual(bidirectional_rule_choice(self.view), rule_choice(self.view))
+        self.view['packet']['sources'][0].update(start_line=1, end_line=3)
+        self.assertEqual(bidirectional_rule_choice(self.view)['status'], 'ABSTAIN')
+
+    def test_future_rule_rejects_inconsistent_eof_metadata(self):
+        self.view['packet']['sources'][0].update(start_line=2, end_line=4)
+        self.assertEqual(bidirectional_rule_choice(self.view)['status'], 'UNAVAILABLE')
 
 
 if __name__ == '__main__':

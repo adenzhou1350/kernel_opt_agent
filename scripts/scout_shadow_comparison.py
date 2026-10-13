@@ -93,6 +93,29 @@ def rule_choice(view):
         dict(start_line=target['start_line'], line_count=min(80, remaining))])
 
 
+def bidirectional_rule_choice(view):
+    """Optional future comparator: use known EOF to read above a tail excerpt.
+
+    No model, full-source search or extra evidence allowance. Do not substitute
+    this into a frozen trial or claim it represents the best retrieval method.
+    """
+    forward = rule_choice(view)
+    if forward.get('error_kind') != 'WINDOW_BEYOND_SOURCE':
+        return forward
+    target = first_visible_frontier_or_continuation(view['packet'])
+    entry = next(c for c in view['catalog'] if c['url'] == target['url'])
+    source = next(s for s in view['packet']['sources'] if s.get('url') == target['url'])
+    start, end = source.get('start_line'), source.get('end_line')
+    if (type(start) is not int or type(end) is not int
+            or not 1 <= start <= end == entry['lines']):
+        return dict(status='UNAVAILABLE')
+    if start == 1:
+        return dict(status='ABSTAIN')
+    first = max(1, start-80)
+    return dict(status='SELECTED', path=entry['path'], ranges=[
+        dict(start_line=first, line_count=start-first)])
+
+
 def observe(selection, assets, *, numbered=False):
     if selection['status'] != 'SELECTED':
         return dict(selection, logical_reads=0, logical_source_bytes=0)
