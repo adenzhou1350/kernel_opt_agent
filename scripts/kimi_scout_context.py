@@ -16,6 +16,7 @@ import kimi_scout as scout
 from scout_contribution_policy import repository_settings
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_issue_timeline import linked_pr_context
+from scout_go_context import go_declaration_anchor
 from scout_requested_definition import (
     absent_requested_identifiers,
     requested_definition_inventory,
@@ -413,6 +414,13 @@ class PublicContext:
         )
         if requested is not None:
             start = requested["start_line"]
+        go_anchor = (
+            go_declaration_anchor(raw, request_hints)
+            if path.endswith(".go") and start is None and exact_hint is None
+            else None
+        )
+        if go_anchor is not None:
+            start = go_anchor["line"]
         exact_line = next(
             (
                 i
@@ -501,6 +509,8 @@ class PublicContext:
             evidence["requested_definition_complete"] = (
                 end == requested["end_line"] and evidence["text"] == numbered
             )
+        if go_anchor is not None:
+            evidence["go_declaration_anchor"] = go_anchor
         return evidence
 
     def cached_source_text(self, repo, commit, path):
