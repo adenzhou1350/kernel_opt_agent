@@ -62,3 +62,12 @@ restoring coverage does not establish new defects or improved PR yield.
 ```text
 python -B -m unittest tests.test_scout_declarative_source
 ```
+
+## Explicit implementation scopes
+
+Directory source scopes skip Python `__init__.py` files by default. If a package
+implements behavior in one (rather than just re-exporting names), explicitly
+name its complete repository-relative path in `source_prefixes`, for example
+`pyparsing/diagram/__init__.py`. This includes that file, not every initializer
+under the directory; generated/vendor exclusions still apply. Selection only
+supplies pinned source evidence and does not prove a defect or native execution.

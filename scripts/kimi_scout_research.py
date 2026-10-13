@@ -425,7 +425,9 @@ def source_paths(snapshot, spec):
         for p in snapshot["files"]
         if any(p.startswith(prefix) for prefix in spec["source_prefixes"])
         and source_path(p, spec)
-        and not p.endswith("__init__.py")
+        # Some packages implement real behavior in __init__.py. Keep the
+        # default skip, but honor a scope that explicitly names that file.
+        and (not p.endswith("__init__.py") or p in spec["source_prefixes"])
         and implementation_path(p)
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )

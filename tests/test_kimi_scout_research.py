@@ -1325,6 +1325,29 @@ class ResearchTests(unittest.TestCase):
             ([companion], None),
         )
 
+    def test_initializer_requires_exact_source_scope(self):
+        path = "src/diagram/__init__.py"
+        files = [path, "src/__init__.py", "src/diagram/nested/__init__.py",
+                 "src/generated/__init__.py", path + "i", "src/diagram/render.py"]
+        self.spec["source_prefixes"] = ["src/"]
+        self.assertEqual(research.source_paths(dict(files=files), self.spec),
+                         ["src/diagram/render.py"])
+        self.spec["source_prefixes"].extend([path, "src/generated/__init__.py"])
+        self.assertEqual(research.source_paths(dict(files=files), self.spec),
+                         [path, "src/diagram/render.py"])
+
+    def test_explicit_initializer_enters_pinned_source_audit(self):
+        path = "src/diagram/__init__.py"
+        self.spec["source_prefixes"] = [path]
+        snapshot = dict(commit=self.context.revision, files=[path],
+                        blobs={path: self.context.blob})
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(packet["research"]["stage"], "source_audit")
+        self.assertEqual(packet["sources"][0]["url"],
+                         f"https://raw.githubusercontent.com/a/b/{self.context.revision}/{path}")
+
     def test_rust_source_audit_emits_pinned_implementation_and_companion(self):
         paths = ["src/table.rs", "tests/table_test.rs"]
         snapshot = {
