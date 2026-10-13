@@ -1,5 +1,29 @@
 # Kernel Optimization Agent
 
+我用这个 fork 整理算子优化里容易反复踩的坑：测到的代码是不是刚改的版本、
+一次实验留下了什么证据、已有环境能不能复用。相关工具和实验分散在不同分支，
+这里先给第一次来的读者一个可核对的入口。
+
+**[从这里开始：免 GPU 试用、代码入口与验证范围](PUBLIC_ENTRY.md)**
+
+| 想看什么 | 入口 |
+| --- | --- |
+| 搜索经验、记录一次实验 | [轻量工具固定快照 `4880b87`](https://github.com/adenzhou1350/kernel_opt_agent/tree/4880b87a22281dde93ed54839389164813619c26)；[试用步骤](PUBLIC_ENTRY.md#先试轻量工具) |
+| 环境复用和共享资源排队的实现 | [集成研究快照 `85be3c6`](https://github.com/adenzhou1350/kernel_opt_agent/tree/85be3c623cfc405984da6f20d4111fe02357ed1f)；[源码和测试对照](PUBLIC_ENTRY.md#已有的三组实现) |
+| 基础框架的设计 | [REVIEW.md](REVIEW.md)，以及下方保留的 `main` 用法 |
+
+`main` 保留基础框架；上面两组功能需要切换到对应快照，不能直接在 `main`
+运行。固定快照便于按同一份代码阅读和试用，不代表稳定版发布，也不代表自动
+获得性能提升。GPU 优化仍需具体算子、工作负载、硬件与实测结果。
+
+English: this fork contains work on experiment notebooks, reusable lessons,
+environment reuse and resource coordination. Start with the
+[public entry guide](PUBLIC_ENTRY.md), which separates two pinned snapshots
+from the base framework on `main` and records what was actually checked.
+
+<details>
+<summary>Base framework on main: original design and command reference</summary>
+
 For a human review of the framework boundary, execution flow, directory
 ownership and contract map, start with [REVIEW.md](REVIEW.md). This README is
 the operator quick start; `AGENTS.md` contains mandatory agent policy.
@@ -164,3 +188,5 @@ must be re-run and registered as `EVIDENCE_CLOSED_V2` with official target
 evidence, P0 calibration, source, binary, final SASS and raw samples. New device
 models receive separate snapshots and measurement directories rather than
 inheriting values.
+
+</details>
