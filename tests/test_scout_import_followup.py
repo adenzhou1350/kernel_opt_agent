@@ -35,6 +35,7 @@ class ImportFollowupTests(unittest.TestCase):
         self.config = self.root / "research.json"
         self.config.write_text(json.dumps(self.value), encoding="utf-8")
         self.context = Mock()
+        self.context.observed_repository_settings.return_value = None
         self.context.snapshot.return_value = {
             "commit": COMMIT,
             "files": [

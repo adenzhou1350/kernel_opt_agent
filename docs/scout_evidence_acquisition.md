@@ -618,3 +618,11 @@ and exhaustion in costs. Recheck immediately before calling: this helper is not
 an atomic reservation, dispatcher, request retry or reason to restart Scout.
 Preloaded public source snapshots also require declared setup costs; local reads
 are not network GETs. Neither change retroactively repairs old trial results.
+
+Go import hints skip an exact declaration already found in the supplied file.
+For example, `definition(Result.Bool)` must not spend a module-metadata read
+merely because the file also has unaliased stdlib imports. Mixed requests still
+resolve genuinely imported targets under the original two-read cap. This is a
+lexical acquisition shortcut, not proof of a complete body or type binding.
+An exposed GJSON source replay removed one redundant go.mod request; it does not
+establish prospective model accuracy, token savings or PR-conversion benefit.

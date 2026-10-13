@@ -162,6 +162,15 @@ def go_import_requests(path, raw, files, sources, repo, commit, request, cached,
             targets.append(match.groups())
     if not 1 <= len(targets) <= 2:
         return []
+    # A supplied same-file declaration needs no imported-package lookup. In
+    # particular, an unaliased stdlib import must not turn Result.Bool into a
+    # speculative package name and consume a go.mod read. This only suppresses
+    # redundant acquisition for that exact lexical declaration, not a body or
+    # type-resolution claim; other requested imported targets remain eligible.
+    targets = [(owner, symbol) for owner, symbol in targets
+               if go_declaration_anchor(raw, f"definition({owner}.{symbol})") is None]
+    if not targets:
+        return []
     imports = _imports(raw)
     if not imports or not any(alias is None or alias == target[0] for alias, _ in imports for target in targets):
         return []

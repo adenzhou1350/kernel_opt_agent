@@ -65,6 +65,27 @@ class GoImportContextTests(unittest.TestCase):
         self.assertEqual(actual, [dict(path="go.mod", hints="module directive", max_lines=80)])
         self.assertEqual([call.args[2] for call in cache.call_args_list], ["caller.go", "go.mod"])
 
+    def test_same_file_receiver_does_not_spend_a_module_read_on_stdlib_imports(self):
+        raw = 'package p\nimport "strconv"\ntype Result struct {}\nfunc (r Result) Bool() bool { return false }\n'
+        actual, cache, _, _ = self.request(raw=raw, module=None, request="definition(Result.Bool)")
+        self.assertEqual(actual, [])
+        self.assertEqual([call.args[2] for call in cache.call_args_list], ["caller.go"])
+
+    def test_local_receiver_and_imported_target_keep_the_missing_module_request(self):
+        raw = ('package p\nimport "' + MOD + '/mem"\ntype Result struct {}\n'
+               'func (r *Result) Bool() bool { return false }\n')
+        actual, cache, _, _ = self.request(raw=raw, module=None,
+            request="definition(Result.Bool) definition(mem.SetUID)")
+        self.assertEqual(actual, [dict(path="go.mod", hints="module directive", max_lines=80)])
+        self.assertEqual([call.args[2] for call in cache.call_args_list], ["caller.go", "go.mod"])
+
+    def test_imported_target_without_matching_local_declaration_still_resolves(self):
+        raw = ('package p\nimport "' + MOD + '/different-name"\n'
+               'type Other struct {}\nfunc (r Other) Bool() bool { return false }\n')
+        actual, _, _, _ = self.request(raw=raw, request="definition(Result.Bool)",
+            helpers={"different-name/file.go": "package Result\nfunc Bool() bool { return true }\n"})
+        self.assertEqual(actual, [dict(path="different-name/file.go", start=2, max_lines=80)])
+
     def test_closest_nested_module_uses_its_own_directive(self):
         actual, _, _, _ = self.request(path="nested/caller.go", extras=("go.mod",),
             helpers={"nested/mem/file.go": "package mem\nfunc SetUID() {}\n"})
