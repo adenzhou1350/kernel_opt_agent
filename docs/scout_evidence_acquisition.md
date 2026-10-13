@@ -606,3 +606,15 @@ unchanged; explanation text cannot select advice. The title, scan and two-note
 bounds remain unchanged, as do admission and no-replay behavior. Offline
 regressions cover both callers, not just the memory helper; this repair is not
 a measured PR-conversion or token-saving result.
+
+### Shadow capacity is not a model verdict
+
+An operational pilot can produce zero model calls when every immediately
+observed slot is busy. Preserve that admission failure, not an accuracy score.
+For a **new** frozen protocol, `scout_shadow_admission.wait_for_capacity` offers
+a bounded read-only wait using fresh runtime heartbeats, pause/cooldown flags
+and observed spare capacity. Freeze the cohort independently; keep wait time
+and exhaustion in costs. Recheck immediately before calling: this helper is not
+an atomic reservation, dispatcher, request retry or reason to restart Scout.
+Preloaded public source snapshots also require declared setup costs; local reads
+are not network GETs. Neither change retroactively repairs old trial results.
