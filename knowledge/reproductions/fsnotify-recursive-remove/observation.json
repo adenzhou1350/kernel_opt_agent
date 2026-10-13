@@ -1,0 +1,14 @@
+{
+  "source_commit": "20b1e15ef3c70caeb37ea2bd184f48ef8382669e",
+  "platform": "Linux amd64 inotify",
+  "go_version": "1.25.10",
+  "source_changes": "Only the added probe test; original source bytes unchanged",
+  "public_client": "PASS: default nonrecursive boundary, literal ellipsis directory and independent parent/child removal",
+  "internal_test": "PASS: bounded characterization under unchanged upstream test-only recursion enablement; race instrumentation enabled",
+  "controls": [
+    {"case": "all-valid", "kernel_before": 4, "kernel_after": 0, "go_cache_after": 0, "remove_error": null},
+    {"case": "invalid-only", "kernel_before": 1, "kernel_after": 0, "go_cache_after": 0, "remove_error": "EINVAL"},
+    {"case": "mixed-first-attempt", "kernel_before": 2, "kernel_after": 1, "go_cache_after": 0, "remove_error": "EINVAL"}
+  ],
+  "boundary": "A reproduced internal partial-cleanup defect, not production-default recursive reachability, unexpected-event delivery, permanent OS leakage, all races/backends, a published target-project fix or PR readiness. This development case must not become an unseen evaluation sample."
+}
