@@ -1,0 +1,26 @@
+{
+  "id": "test-only-mode-and-failure-scope",
+  "title": "Label test-only failures separately from production reachability",
+  "applies_when": "A native unit test changes package defaults or enables an internal feature, while a proposed cleanup or correctness defect is being judged for production delivery.",
+  "lesson": "Inspect test initialization as well as production defaults. Run an external public client without test-only initialization, and separately test the internal failure mechanism with explicit scope. At the cited fsnotify revision, production enableRecurse is false but fsnotify_test.go init enables it. Default public calls are nonrecursive. The internal recursive Remove can still leave a live kernel watch after an invalidated descriptor causes an early error return and all Go mappings are cleared. Pair ordinary cleanup, invalid-only and mixed-live/stale controls; observe the actual resource, not only an empty bookkeeping map or an expected event. Here own fdinfo distinguishes EINVAL with no leftover from EINVAL with a remaining watch until Close. Record both results rather than blanket-rejecting an internal defect or calling it a default-production bug.",
+  "avoid_when": "Internal helpers and unreleased features can have genuine bugs; lack of a default caller is not universal no-bug proof. A native internal result is not automatic PR eligibility or maintainer agreement. This observation is Linux inotify/Go1.25.10 at one revision, not all races, unexpected-event delivery, permanent OS leakage or other backends. The reproduction parks a real event reader; inability to establish that state is inconclusive, not a reason to inject an error and claim the same result. This development case is no longer an unseen evaluation sample and establishes no general Scout benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsnotify/fsnotify/blob/20b1e15ef3c70caeb37ea2bd184f48ef8382669e/fsnotify.go#L448-L460",
+      "note": "Production recursion flag is unexported and false; recursivePath explicitly documents test-only enablement. Source gate, not a verdict about all internal cleanup."
+    },
+    {
+      "url": "https://github.com/fsnotify/fsnotify/blob/20b1e15ef3c70caeb37ea2bd184f48ef8382669e/fsnotify_test.go#L22-L24",
+      "note": "The package test init enables recursion. A passing native unit baseline does not establish the default application's dispatch."
+    },
+    {
+      "url": "https://github.com/fsnotify/fsnotify/blob/20b1e15ef3c70caeb37ea2bd184f48ef8382669e/backend_inotify.go#L85-L113",
+      "note": "removePath clears Go mappings before kernel removal; normal watches return one descriptor, recursive watches can return several. The later loop's early return alone does not establish public reachability."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/be4f34fa0fa809b52801ddd432f28a89ac6274e4/knowledge/reproductions/fsnotify-recursive-remove/README.md",
+      "note": "Sanitized independent external-client and internal native probes, with bounded attempts, actual kernel/cache controls and a small scoped observation. No target-project fix or full private log is published."
+    }
+  ],
+  "status": "validated"
+}
