@@ -14,7 +14,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 MAX_BYTES = 2 * 1024 * 1024
-FORMATS = ("go-json", "rust-libtest", "pytest-junit", "node-tap", "vitest-json")
+FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json")
 RUST_SUMMARY = re.compile(
     r"test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
     r"(\d+) measured; (\d+) filtered out; finished in [0-9.]+s"
@@ -238,6 +238,88 @@ def _junit(text, exit_code, expected_results, issue):
     return counts, seen, len(suites), terminal
 
 
+def _gtest_xml(text, exit_code, expected_results, issue):
+    """GoogleTest 1.17 XML, not interchangeable with pytest JUnit.
+
+    Multiple assertion failures count as one failed test. Disabled/suppressed
+    and runtime-skipped tests never count as executed. Unnamed ad-hoc suite or
+    global failures are inconclusive, not reproductions of named assertions.
+    """
+    counts = {"passed": 0, "failed": 0, "skipped": 0, "disabled": 0}
+    seen, names = set(), set()
+    if re.search(r"<!\s*(?:DOCTYPE|ENTITY)\b", text, re.IGNORECASE):
+        issue("GoogleTest DTD/entity declarations are unsupported")
+        return counts, seen, 0, None
+    try:
+        root = ElementTree.fromstring(text)
+    except (ElementTree.ParseError, ValueError, RecursionError):
+        issue("malformed or truncated GoogleTest XML")
+        return counts, seen, 0, None
+    if root.tag != "testsuites" or any(s.tag != "testsuite" for s in root):
+        issue("unsupported GoogleTest root or suite structure")
+        return counts, seen, 0, None
+
+    def totals(element, actual, *, root=False):
+        expected = {"tests": actual["passed"] + actual["failed"] + actual["skipped"],
+                    "failures": actual["failed"], "disabled": actual["disabled"],
+                    "errors": 0, "skipped": actual["skipped"] - actual["disabled"]}
+        for field, value in expected.items():
+            if root and field == "skipped" and field not in element.attrib:
+                continue  # The observed reporter omits the root skipped total.
+            reported = element.get(field, "")
+            if not re.fullmatch(r"[0-9]{1,8}", reported) or int(reported) != value:
+                issue("GoogleTest case/summary cardinality mismatch")
+
+    suite_names = set()
+    for suite in root:
+        suite_name = suite.get("name", "")
+        if not suite_name or suite_name in suite_names or "::" in suite_name:
+            issue("missing, ambiguous or duplicate GoogleTest suite identity")
+        suite_names.add(suite_name)
+        observed = dict.fromkeys(counts, 0)
+        for case in suite:
+            if case.tag != "testcase":
+                issue("unsupported GoogleTest suite child")
+                continue
+            classname, name = case.get("classname", ""), case.get("name", "")
+            qualified = f"{classname}::{name}"
+            if (not classname or not name or classname != suite_name or "::" in name
+                    or len(qualified) > 512 or qualified in names):
+                issue("missing, ambiguous or duplicate GoogleTest case identity; possible setup failure")
+            names.add(qualified)
+            children = [child.tag for child in case]
+            if any(child not in {"failure", "skipped"} for child in children) or any(
+                len(child) for child in case
+            ):
+                issue("unsupported or nested GoogleTest case outcome")
+            failures, skips = children.count("failure"), children.count("skipped")
+            state = (case.get("status"), case.get("result"))
+            if state == ("run", "completed") and not skips:
+                outcome = "failed" if failures else "passed"
+            elif state == ("run", "skipped") and skips == 1 and not failures:
+                outcome = "skipped"
+            elif state == ("notrun", "suppressed") and not children:
+                outcome = "skipped"
+                observed["disabled"] += 1
+            else:
+                issue("unsupported or contradictory GoogleTest execution state")
+                continue
+            observed[outcome] += 1
+            if outcome != "skipped":
+                seen.add(qualified)
+            if qualified in expected_results:
+                expected_results[qualified][outcome] += 1
+        totals(suite, observed)
+        for key in counts:
+            counts[key] += observed[key]
+    totals(root, counts, root=True)
+    if sum(1 for _ in root.iter("testcase")) != counts["passed"] + counts["failed"] + counts["skipped"]:
+        issue("GoogleTest contains cases outside supported suite structure")
+    if exit_code not in {0, 1}:
+        issue("GoogleTest did not exit normally with pass or test-failure status")
+    return counts, seen, len(root), "fail" if counts["failed"] else "pass"
+
+
 def _vitest(text, exit_code, expected_results, issue):
     """Observed Vitest 4 JSON, not arbitrary Jest output or a test oracle.
 
@@ -343,7 +425,7 @@ def _vitest(text, exit_code, expected_results, issue):
 
 
 def summarize(text, *, format, exit_code, expected_tests, package=None):
-    """Count Go/Rust/pytest/Node observations or the observed Vitest 4 JSON.
+    """Count Go/Rust/pytest/GoogleTest/Node observations or observed Vitest 4 JSON.
 
     Go counts include parent tests/subtests and repeats, not assertion counts.
     Rust compact/JSON/bench/custom harness formats are deliberately unsupported.
@@ -385,6 +467,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
 
     if format == "pytest-junit":
         counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue)
+    elif format == "gtest-xml":
+        counts, seen, batches, terminal = _gtest_xml(text, exit_code, expected_results, issue)
     elif format == "node-tap":
         counts, seen, batches, terminal = _node_tap(text, exit_code, expected_results, issue)
     elif format == "vitest-json":
@@ -499,6 +583,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
                         "source/runtime identity, caller reachability, performance or PR qualification."}
     if vitest is not None:
         result["vitest"] = vitest
+    if format == "gtest-xml":
+        result["disabled"] = counts["disabled"]  # subset of skipped, not additive
     return result
 
 

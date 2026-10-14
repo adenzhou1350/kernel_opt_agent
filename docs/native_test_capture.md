@@ -6,7 +6,8 @@ schedule workers, call models, or decide PR readiness. Keep automated unreviewed
 Scout execution disabled unless a separately reviewed isolation backend exists.
 
 `scripts/scout_native_results.py` checks saved Go `go test -json` events, Rust
-verbose libtest output, flat pytest JUnit XML, or Node's built-in TAP reporter.
+verbose libtest output, flat pytest JUnit XML, GoogleTest XML, Vitest JSON, or
+Node's built-in TAP reporter.
 Supply exact expected case names;
 for Go also supply the exact package. Missing targets, skipped expected cases,
 incomplete terminals, abnormal pytest exits, cached Go results, contradictory
@@ -30,6 +31,40 @@ change, malformed/missing report, or surviving owned process group invalidates a
 verdict. It stops only the group it created. The CPU CLI hides CUDA devices but is
 not security isolation. It refuses Windows execution; it never starts local WSL.
 Saved-log parsing remains usable on Windows.
+
+For C++ GoogleTest 1.17, use `--format gtest-xml` with emitted
+`classname::name` identities (including parameter suffixes). The runner appends
+`--gtest_output=xml:FRESH_OUTPUT/gtest.xml`, retains stdout separately, and rejects
+caller-supplied output/repeat flags or `GTEST_OUTPUT`/`GTEST_REPEAT` environment
+settings: repeated runs overwrite XML and cannot establish repeat accounting.
+Use the already built, reviewed absolute binary path; the tool does not build it
+or prove that it corresponds to reviewed source.
+
+The XML reader counts tests, not failure elements: two assertions failing in one
+test are one failed case. Runtime skips and disabled/suppressed cases stay in
+`skipped`; `disabled` is a subset, not an extra count. Neither counts as executed.
+Suite/global setup failures, unnamed ad-hoc failures, unknown execution states,
+unaccounted cases and inconsistent root/suite totals remain inconclusive. Do not
+label GoogleTest XML as pytest JUnit or strip its status/result fields. Support
+was checked against actual pass/failure/skip/disabled/setup output and a real
+Mooncake component baseline/candidate pair; this is not full-repository CI,
+compatibility with every GoogleTest reporter variant, or a PR-quality judgment.
+
+`tests/fixtures/gtest_reporter_control.cpp` is the native reporter control source,
+not a production bug reproduction. With an existing GoogleTest 1.17 library:
+
+```sh
+c++ -std=c++17 -O0 -g0 -pthread -I/REVIEWED_GTEST/include \
+  tests/fixtures/gtest_reporter_control.cpp /REVIEWED_GTEST/libgtest.a \
+  -o /PRIVATE_FRESH/reporter
+/PRIVATE_FRESH/reporter --gtest_filter=Report.* --gtest_output=xml:/PRIVATE_FRESH/mixed.xml
+```
+
+The mixed run deliberately exits 1: one pass, one failed test (two assertions),
+one runtime skip, one disabled test. Select `Report.Pass` for a pass control,
+`SetupFailure.*` for a suite-setup error, or `Report.Pass --environment-failure`
+for a global-setup error. The sanitized observed XML fixtures preserve these
+different outcomes; they are not substitutes for testing a community candidate.
 
 Example with an already compatible private environment and exact source export:
 

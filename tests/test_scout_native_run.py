@@ -152,6 +152,56 @@ class ProcessTests(unittest.TestCase):
         options.update(overrides)
         return self.execute(code, **options)
 
+    def test_gtest_capture_owns_report_and_keeps_terminal_log(self):
+        from test_scout_native_gtest import FIXTURE
+
+        text = FIXTURE["cases"]["pass"]["xml"]
+        code = ("import sys; from pathlib import Path; "
+                "assert sys.argv[-1].startswith('--gtest_output=xml:'); "
+                "Path(sys.argv[-1].split('xml:',1)[1]).write_text(" + repr(text) + "); "
+                "print('native assertion diagnostics')")
+        result = self.execute(code, format="gtest-xml", expected_tests=["Report::Pass"])
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        report = self.root / "output/gtest.xml"
+        self.assertEqual(result["test_report"], {"path": str(report), "sha256": runner.digest(report)})
+        self.assertIn("native assertion diagnostics", (self.root / "output/terminal.log").read_text())
+
+    def test_gtest_output_repeat_flags_and_environment_rejected_before_launch(self):
+        from unittest.mock import patch
+
+        overrides = [{"command": [sys.executable, flag]} for flag in (
+            "--gtest_output=xml:old.xml", "--gtest_output", "--gtest_repeat=2")]
+        overrides += [{"environment": {key: value}} for key, value in (
+            ("GTEST_OUTPUT", "xml:old.xml"), ("GTEST_REPEAT", "2"))]
+        for options in overrides:
+            with self.subTest(options=options), patch.object(runner.subprocess, "Popen") as child:
+                with self.assertRaises(ValueError):
+                    self.execute("", format="gtest-xml", expected_tests=["Report::Pass"], **options)
+                child.assert_not_called()
+            self.assertFalse((self.root / "output").exists())
+
+    def test_gtest_missing_truncated_large_or_symlink_report_is_inconclusive(self):
+        from test_scout_native_gtest import FIXTURE
+
+        text = FIXTURE["cases"]["pass"]["xml"]
+        prefix = ("import sys; from pathlib import Path; "
+                  "report=Path(sys.argv[-1].split('xml:',1)[1]); ")
+        for index, code in enumerate(("print('1 passed')", prefix + "report.write_text(" + repr(text[:-15]) + ")",
+                                     prefix + "report.write_text('x'*(2*1024*1024+1))",
+                                     prefix + "report.symlink_to(Path('source.rs').resolve())")):
+            with self.subTest(index=index):
+                result = self.execute(code, format="gtest-xml", expected_tests=["Report::Pass"],
+                                      output=self.root / ("output" + str(index)))
+                self.assertEqual(result["status"], "INCONCLUSIVE")
+
+    def test_gtest_inherited_repeat_environment_is_rejected(self):
+        from unittest.mock import patch
+
+        with patch.dict(os.environ, {"GTEST_REPEAT": "2"}), patch.object(runner.subprocess, "Popen") as child:
+            with self.assertRaises(ValueError):
+                self.execute("", format="gtest-xml", expected_tests=["Report::Pass"])
+            child.assert_not_called()
+
     def write_vitest(self, failed=False):
         from test_scout_native_vitest import report
 

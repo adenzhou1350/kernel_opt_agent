@@ -1,4 +1,4 @@
-"""Capture one reviewed Go/Rust/pytest/Node/Vitest CPU command on a POSIX worker.
+"""Capture one reviewed Go/Rust/pytest/GoogleTest/Node/Vitest CPU command on POSIX.
 
 No downloads, environment provisioning, SSH, model calls or queue mutations.
 This is execution/log accounting, not a sandbox or a PR qualification oracle.
@@ -85,6 +85,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         arg.startswith(("--reporter", "--outputFile", "--output-file")) for arg in command[1:]
     ):
         raise ValueError("the runner owns the fresh Vitest JSON reporter and report path")
+    if format == "gtest-xml" and any(
+        arg.startswith(("--gtest_output", "--gtest_repeat")) for arg in command[1:]
+    ):
+        raise ValueError("the runner owns the fresh GoogleTest report; repeated runs overwrite XML")
     before = source_identities(cwd, sources)
     # Validate accounting inputs before executing anything, including empty targets.
     native.summarize("", format=format, exit_code=0,
@@ -94,6 +98,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
            or not isinstance(value, str) or "\0" in value
            for key, value in environment.items()):
         raise ValueError("invalid process environment override")
+    if format == "gtest-xml" and any(
+        key in environment or key in os.environ for key in ("GTEST_OUTPUT", "GTEST_REPEAT")
+    ):
+        raise ValueError("GoogleTest output/repeat environment must be unset for fresh single-run capture")
     # Only the owner-reviewed GPU companion uses this library hook. The CLI
     # remains CPU-only; device admission/locking is the companion's responsibility.
     visible = "" if _gpu_uuid is None else _gpu_uuid
@@ -111,6 +119,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         command.append(f"--junitxml={output / 'junit.xml'}")
     elif format == "vitest-json":
         command.extend(["--reporter=json", f"--outputFile={output / 'vitest.json'}"])
+    elif format == "gtest-xml":
+        command.append(f"--gtest_output=xml:{output / 'gtest.xml'}")
     started = time.monotonic()
     reason, written = None, 0
     # Keep output off RAM; cap both the file and the later parser input.
@@ -178,8 +188,9 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if not issues:
         try:
             text = (output / "terminal.log").read_text(encoding="utf-8")
-            if format in {"pytest-junit", "vitest-json"}:
-                report_name = "junit.xml" if format == "pytest-junit" else "vitest.json"
+            if format in {"pytest-junit", "vitest-json", "gtest-xml"}:
+                report_name = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
+                               "gtest-xml": "gtest.xml"}[format]
                 report_path = output / report_name
                 if report_path.is_symlink() or not report_path.is_file():
                     raise ValueError("missing or non-regular test report")
