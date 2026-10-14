@@ -482,6 +482,17 @@ class Inbox:
         visible_live = {k: live[k] for k in ("text", "updated_at", "phase") if k in live}
         if live.get("last_active_phase") in ("requesting", "streaming"):
             visible_live["last_active_phase"] = live["last_active_phase"]
+        provider_http_status = None
+        if row.get("state") == "FAILED":
+            receipt = read_artifact(self.root, f"results/{job_id}.json")
+            status = receipt.get("provider_http_status")
+            if (
+                receipt.get("job_id") == job_id
+                and receipt.get("state") == "FAILED"
+                and receipt.get("failure_scope") == "provider_or_infrastructure"
+                and type(status) is int and 400 <= status <= 599
+            ):
+                provider_http_status = status
         result = json_object(row.get("result"))
         packet = json_object(row.get("packet"))
         prompt = request.get("prompt")
@@ -500,6 +511,7 @@ class Inbox:
             "analysis": result.get("analysis"),
             "answer": answer.get("text", ""),
             "live": visible_live or None,
+            "provider_http_status": provider_http_status,
             "usage": valid_usage(result.get("usage"))
             or valid_usage(answer.get("usage")),
             "finish_reason": answer.get("finish_reason"),

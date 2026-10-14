@@ -83,6 +83,10 @@ prospective comparison.
   displays it without exposing arbitrary backend metadata. These phases do not
   prove server receipt, billing, root cause, or that visible tokens have arrived.
   They add no provider call, retry, timeout or credential logging.
+  Failed backend responses also preserve a numeric HTTP error status (400–599)
+  in the receipt and read-only detail, when actually reported. No response body,
+  headers or inferred status is retained. Older records and local timeouts without
+  an HTTP response remain unknown; this adds no retry or changes to admission.
 - Results require supplied URLs and source excerpts (ignoring only whitespace
   and displayed line-number prefixes). This checks provenance,
   **not truth**. `REVIEW` is an unverified lead; `NEEDS_CONTEXT` needs human/owner

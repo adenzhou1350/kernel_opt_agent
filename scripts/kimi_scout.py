@@ -669,6 +669,7 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     token_accounting = {"reported_usage": None, "interrupted_usage_observation": None}
     backend_completed = False
     failure_phase = None
+    provider_http_status = None
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
@@ -718,6 +719,9 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
             # Backend emits only fixed error codes; never retain stderr/body.
             if response.get("failure_phase") in ("requesting", "streaming"):
                 failure_phase = response["failure_phase"]
+            status = response.get("http_status")
+            if response.get("ok") is False and type(status) is int and 400 <= status <= 599:
+                provider_http_status = status
             try:
                 failure = json.loads(proc.stdout)
                 code = failure.get("error", "backend_failure")
@@ -804,6 +808,8 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     }
     if state == "FAILED" and not backend_completed and failure_phase:
         receipt["failure_phase"] = failure_phase
+    if state == "FAILED" and not backend_completed and provider_http_status is not None:
+        receipt["provider_http_status"] = provider_http_status
     write_json(root / "results" / f"{job['id']}.json", receipt)
 
     def persist_receipt():

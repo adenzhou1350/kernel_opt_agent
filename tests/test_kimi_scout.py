@@ -1030,6 +1030,37 @@ class ScoutTests(unittest.TestCase):
                     self.assertNotIn("failure_phase", receipt)
                 self.assertNotIn("SECRET", json.dumps(live))
 
+    def test_backend_http_status_is_observed_not_inferred(self):
+        for index, status in enumerate((400, 401, 403, 429, 500, 502, 599,
+                                        100, 200, 399, 600, True, 429.0,
+                                        "429", "SECRET", None, {})):
+            with self.subTest(status=status):
+                self.add(f"http-status-{index}")
+                job = scout.claim(self.root, 100, 2000000, 2048)
+                response = {"ok": False, "error": "backend_failure",
+                            "error_type": "InternalServerError", "http_status": status,
+                            "headers": "SECRET", "body": "SECRET"}
+                with patch.object(scout.subprocess, "run", return_value=
+                                  subprocess.CompletedProcess([], 75, json.dumps(response), "SECRET")):
+                    receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+                if type(status) is int and 400 <= status <= 599:
+                    self.assertEqual(receipt["provider_http_status"], status)
+                else:
+                    self.assertNotIn("provider_http_status", receipt)
+                self.assertNotIn("SECRET", json.dumps(receipt))
+                self.assertEqual(receipt["charge_basis"], "reservation")
+
+    def test_http_status_on_success_or_answer_failure_is_ignored(self):
+        for index, valid in enumerate((True, False)):
+            self.add(f"http-success-{index}")
+            job = scout.claim(self.root, 12, 200000, 2048)
+            response = {"ok": True, "text": json.dumps(result()) if valid else "invalid",
+                        "tools_advertised": 0, "tool_calls_executed": 0, "http_status": 500}
+            with patch.object(scout.subprocess, "run", return_value=
+                              subprocess.CompletedProcess([], 0, json.dumps(response), "")):
+                receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+            self.assertNotIn("provider_http_status", receipt)
+
     def test_unexpected_tool_capability_is_rejected(self):
         self.add()
         job = scout.claim(self.root, 12, 200000, 2048)

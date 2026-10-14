@@ -565,6 +565,7 @@
     if (data.finish_reason) metadata.push(["结束原因",data.finish_reason]);
     const backendPhase = backendProgressLabel(job, data.live);
     if (backendPhase) metadata.push(["后端阶段", backendPhase]);
+    if (job.state === "FAILED" && Number.isInteger(data.provider_http_status) && data.provider_http_status >= 400 && data.provider_http_status <= 599) metadata.push(["后端 HTTP 状态", String(data.provider_http_status)]);
     $("detailMeta").replaceChildren(...metadata.map(([label,value]) => { const item = node("div", "meta-item"); item.append(node("dt", "", label),node("dd", "", value)); return item; }));
     [["父任务",job.parent_job_id],["起始任务",job.root_job_id]].forEach(([label,id]) => {
       if (!/^[a-f0-9]{24}$/.test(id || "") || id === job.id) return;

@@ -850,15 +850,46 @@ for (const [state,live] of [
  observations.push($('detailMeta').children.filter(n=>n.children[0].textContent==='后端阶段')
    .map(n=>n.children[1].textContent));
 }
-process.stdout.write(JSON.stringify(observations));
+const http=[];
+for (const [state,status] of [['FAILED',500],['FAILED',429],['FAILED',200],
+ ['FAILED',600],['FAILED','SECRET'],['FAILED',null],['FAILED',{}],['REVIEW',500]]) {
+ renderDetail({job:{id:selectedId,state},provider_http_status:status});
+ http.push($('detailMeta').children.filter(n=>n.children[0].textContent==='后端 HTTP 状态')
+   .map(n=>n.children[1].textContent));
+}
+process.stdout.write(JSON.stringify({phases:observations,http}));
 """
         process = subprocess.run([shutil.which("node"), "-"],
             input=harness + "function backendProgressLabel" + script + exercise,
             text=True, encoding="utf-8", capture_output=True, timeout=10, check=True)
-        rows = json.loads(process.stdout)
+        output = json.loads(process.stdout)
+        rows = output["phases"]
         self.assertEqual(rows[:4], [["等待后端响应流"], ["已取得响应流（正文可能尚未到达）"],
             ["取得响应流前中断（不证明服务端未处理）"], ["响应流建立后中断（不代表已有正文）"]])
         self.assertEqual(rows[4:], [[], [], []])
+        self.assertEqual(output["http"], [["500"], ["429"], [], [], [], [], [], []])
+
+    def test_detail_http_status_requires_matching_failed_provider_receipt(self):
+        path = self.root / "results" / f"{self.job_id}.json"
+        with scout.connect(self.root) as db:
+            db.execute("UPDATE jobs SET state='FAILED'")
+        base = {"job_id": self.job_id, "state": "FAILED",
+                "failure_scope": "provider_or_infrastructure", "headers": "SECRET"}
+        for status in (401, 429, 500, 502, True, 429.0, "500", 200, 600, None, {}):
+            with self.subTest(status=status):
+                scout.write_json(path, {**base, "provider_http_status": status})
+                detail = self.inbox.detail(self.job_id)
+                expected = status if type(status) is int and 400 <= status <= 599 else None
+                self.assertEqual(detail["provider_http_status"], expected)
+                self.assertNotIn("SECRET", json.dumps(detail))
+        for change in ({"job_id": "b" * 24}, {"state": "REVIEW"},
+                       {"failure_scope": "answer"}):
+            scout.write_json(path, {**base, "provider_http_status": 500, **change})
+            self.assertIsNone(self.inbox.detail(self.job_id)["provider_http_status"])
+        scout.write_json(path, {**base, "provider_http_status": 500})
+        with scout.connect(self.root) as db:
+            db.execute("UPDATE jobs SET state='REVIEW'")
+        self.assertIsNone(self.inbox.detail(self.job_id)["provider_http_status"])
 
     def test_dead_and_stale_runner_are_not_silently_running(self):
         scout.write_json(
