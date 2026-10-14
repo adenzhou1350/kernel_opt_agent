@@ -16,12 +16,23 @@ python scripts/kernel_opt.py knowledge search "graph launch overhead" --limit 3
 python scripts/kernel_opt.py knowledge add --file lesson.json
 python scripts/kernel_opt.py knowledge add --file lesson.json --replace
 python scripts/kernel_opt.py knowledge check
+python scripts/kernel_opt.py knowledge inventory
 ```
 
 The standalone entry point is `python scripts/knowledge_notes.py` with the same
 commands. It uses only the Python standard library and performs no network
 requests. Its optional `--directory PATH` goes before the command and selects
 a different lesson directory.
+
+For deployment, compare `inventory` output from the local and actual Scout
+library. It reports filename, raw-byte SHA256 and canonical parsed-content
+SHA256 without card bodies or local paths. Different raw hashes alone can mean
+JSON formatting/BOM changes; differing content hashes mean advice differs.
+Missing, changed and remote-only cards require separate decisions: do not mirror
+an older checkout over newer remote advice or delete remote-only lessons.
+Use reviewed committed cards and compare-and-swap checks for any copy. Inventory
+is read-only, per-file evidence rather than an atomic snapshot of concurrent
+writers, deployment authority, model consumption or measured knowledge benefit.
 
 Each card has these fields:
 

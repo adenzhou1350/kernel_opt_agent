@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import ipaddress
 import json
 import os
@@ -181,6 +182,33 @@ def search(query: str, directory: Path = DEFAULT_DIRECTORY, limit: int = 3) -> d
     return {"query": query, "caution": CAUTION, "matches": matches[:limit]}
 
 
+def inventory(directory: Path = DEFAULT_DIRECTORY) -> dict:
+    """Observe validated card identities without exporting bodies or writing.
+
+    Content hashes ignore JSON formatting; raw hashes retain observed bytes.
+    This is per-file evidence, not an atomic snapshot of concurrent writers,
+    an authenticated deployment, or proof that a model consumed these cards.
+    """
+    entries = {}
+    for path, card in read_cards(directory):
+        raw = path.read_bytes()
+        if json.loads(raw.decode("utf-8-sig")) != card:
+            raise ValueError("Lesson changed while reading inventory; inspect the writer")
+        content = json.dumps(
+            card, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode()
+        entries[path.name] = {
+            "raw_sha256": hashlib.sha256(raw).hexdigest(),
+            "content_sha256": hashlib.sha256(content).hexdigest(),
+        }
+    return {
+        "action": "inventory",
+        "count": len(entries),
+        "entries": entries,
+        "scope": "Validated per-file identities, not an atomic library snapshot, model consumption or efficacy.",
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--directory", type=Path, default=DEFAULT_DIRECTORY)
@@ -196,12 +224,17 @@ def main(argv: list[str] | None = None) -> int:
     commands.add_parser(
         "check", help="Check card fields, filenames, links and duplicates offline"
     )
+    commands.add_parser(
+        "inventory", help="Observe card hashes for local/deployed library comparison"
+    )
     args = parser.parse_args(argv)
     try:
         if args.command == "search":
             result = search(args.query, args.directory, args.limit)
         elif args.command == "add":
             result = add_note(read_card(args.file), args.directory, args.replace)
+        elif args.command == "inventory":
+            result = inventory(args.directory)
         else:
             cards = read_cards(args.directory)
             result = {
