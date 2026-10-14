@@ -681,3 +681,33 @@ nonblocking modes and four rank boundaries. That check is not a proof of all IPC
 behavior, queue-pressure/cancellation safety or the full TransformerEngine stack.
 Reopen only with a distinct supported path or protocol failure; do not create a
 competing partial-write patch from missing initial context.
+
+### Torch-dependent CPU translation units
+
+A serving wheel's platform tag can block installation without making every
+native unit untestable. On a compatible CPU Torch runtime, a reviewed small
+translation unit can be built with `torch.utils.cpp_extension.load` in a private
+directory, with CPU affinity, one compiler job and a process-group deadline.
+This does not qualify the serving package, its supported hardware matrix or a
+model. Check the real translation unit's linked dependencies, not just includes:
+vLLM's [CPU MoE TU](https://github.com/vllm-project/vllm/blob/a2fb4827324bf023075799ef3d70d347834b8137/csrc/cpu/cpu_fused_moe.cpp)
+also needs the unchanged [scratchpad implementation](https://github.com/vllm-project/vllm/blob/a2fb4827324bf023075799ef3d70d347834b8137/csrc/cpu/utils.cpp).
+Keep ISA/build-definition adaptations explicit; an AVX2 vector check is not AMX
+qualification, and disabling unused NUMA setup is not a topology test.
+
+Use an unprivileged task directory whose ancestors are traversable. A private
+child under a root-only parent remains inaccessible after changing the child's
+owner. Disable unrelated uv configuration discovery. A task-owned uv cache
+normally contains relative links to its own archive objects; validate their
+resolved confinement rather than rejecting every symlink or following foreign
+targets. Completed owned artifacts can be reused offline. `--no-deps` is not a
+dependency check: inherited packages must satisfy the actual selected Torch
+METADATA requirements, and their observed versions/provenance must be retained.
+
+A narrow registration shim must preserve the real op schema, mutation aliases,
+default arguments and wrapper behavior. Calling extracted method/test ASTs with
+a seed or fixture adapter is not a full-module import or official pytest run.
+Compare independent numerical oracles and retain failed controls. If an old
+control fails, run the identical input on baseline: bitwise-equal outputs can
+separate a shared baseline discrepancy from a new regression, but cannot turn
+either strict failure into PASS. Do not loosen tolerances or discard the case.
