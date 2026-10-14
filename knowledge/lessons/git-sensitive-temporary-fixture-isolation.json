@@ -1,0 +1,18 @@
+{
+  "id": "git-sensitive-temporary-fixture-isolation",
+  "title": "Verify repository discovery for Git-sensitive temporary fixtures",
+  "applies_when": "Native tests create temporary directories to distinguish non-Git directories, empty repositories or existing repositories, especially when temp storage is redirected onto a workspace disk.",
+  "lesson": "A fresh directory without its own .git can still belong to an enclosing repository. Inspect the test runtime's actual temporary root and Git discovery from the fixture before interpreting a baseline failure. Place intended non-repository fixtures outside enclosing repositories, review inherited Git directory/work-tree variables, and run the same baseline/candidate cases with that environment. Check the intended repository branch separately after git init. Preserve environment-confounded failures as failed attempts, not target regressions. Disk isolation alone does not establish repository isolation.",
+  "avoid_when": "Tests intentionally exercising nested repository discovery should retain their enclosing repository. Do not globally alter Git discovery, initialize a repository to repair a non-Git fixture, delete another task's temp root or infer non-repository status from a missing/broken Git executable. This documented precondition does not qualify a project's whole test suite or prove a PR benefit.",
+  "evidence": [
+    {
+      "url": "https://git-scm.com/docs/git#Documentation/git.txt-GITDISCOVERYACROSSFILESYSTEM",
+      "note": "Git documents upward repository discovery and its filesystem boundary; GIT_CEILING_DIRECTORIES does not override an explicit GIT_DIR. These explain why a fresh nested fixture can inherit repository state."
+    },
+    {
+      "url": "https://nodejs.org/api/os.html#ostmpdir",
+      "note": "Node documents the runtime temporary-root environment precedence: TEMP then TMP on Windows, TMPDIR then TMP then TEMP elsewhere. Redirecting caches does not prove which root a test's os.tmpdir actually selects. No project-specific timing or unpublished test-result claim is included."
+    }
+  ],
+  "status": "validated"
+}
