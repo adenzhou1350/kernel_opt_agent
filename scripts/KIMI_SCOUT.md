@@ -664,6 +664,24 @@ benefited from it. Keep detailed commands/logs in the existing private evidence,
 not in a larger prompt. A shortened note neither resumes workers nor changes an
 earlier verdict.
 
+Use the optional single-writer helper instead of constructing a repository
+filename and writing feedback by hand:
+
+```sh
+python scripts/scout_owner_note.py --root RUN --note reviewed-note.json
+```
+
+The input is the existing six-field note, not a new result or authorization
+schema. Exact same-repository GitHub blob source links are converted to pinned
+raw file links; mutable refs and foreign-fork source/evidence links are rejected.
+Other notes and malformed/oversized history are preserved, not silently pruned.
+The actual installed reader checks the proposed note before replacement; output
+shows whether its bounded projection is selected **now** and whether it is
+clipped. This does not establish that a later model consumed it. Exact repeats
+preserve bytes/recency. `--expected-sha256 HASH` optionally checks a prior file
+snapshot (an absent file hashes as empty bytes). It is not a multiwriter
+transaction, resource lease, required phase or reason to rewrite old logs.
+
 Interrupted attempts are not retried. STOP and uncertain container cleanup block
 new execution stages; repeated failures cool down admissions.
 
