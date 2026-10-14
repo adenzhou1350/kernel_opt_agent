@@ -8,9 +8,11 @@ import json
 from urllib.parse import urlsplit
 
 try:
+    from .scout_bm25_source import bm25_choice
     from .scout_acquisition_choice import first_visible_frontier_or_continuation
     from .scout_source_window import source_windows, validate_source_ranges
 except ImportError:
+    from scout_bm25_source import bm25_choice
     from scout_acquisition_choice import first_visible_frontier_or_continuation
     from scout_source_window import source_windows, validate_source_ranges
 
@@ -173,7 +175,7 @@ SELECT = (
 def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
             each_prompt_bytes=48000, total_prompt_bytes=96000, numbered_new_evidence=False):
     name, first_provider, action, final_provider = arm
-    if action not in {'select', 'none', 'rule', 'bidirectional_rule'}:
+    if action not in {'select', 'none', 'rule', 'bidirectional_rule', 'bm25'}:
         raise ValueError('unknown evidence action')
     calls, used = [], 0
 
@@ -199,6 +201,8 @@ def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
             selection = dict(status='NO_ADDITIONAL_SOURCE')
         elif action == 'bidirectional_rule':
             selection = bidirectional_rule_choice(view)
+        elif action == 'bm25':
+            selection = bm25_choice(view, assets)
         else:
             selection = rule_choice(view)
         first = None

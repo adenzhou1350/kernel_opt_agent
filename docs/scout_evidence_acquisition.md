@@ -643,3 +643,39 @@ resolve genuinely imported targets under the original two-read cap. This is a
 lexical acquisition shortcut, not proof of a complete body or type binding.
 An exposed GJSON source replay removed one redundant go.mod request; it does not
 establish prospective model accuracy, token savings or PR-conversion benefit.
+
+### Optional BM25 window comparator
+
+`scout_shadow_comparison.run_arm` accepts `action="bm25"` for newly declared
+experiments. It ranks preloaded, hash-verified source windows using only the
+prior hypothesis and next-check text. This is an established lexical-retrieval
+comparator, not a new retrieval algorithm or a live Scout routing policy.
+The scoring family follows [Robertson and Zaragoza](https://doi.org/10.1561/1500000019);
+the fixed `k1=1.2`, `b=0.75` and positive IDF variant follow
+[Lucene 9.12.0's documented defaults and IDF](https://github.com/apache/lucene/blob/releases/lucene/9.12.0/lucene/core/src/java/org/apache/lucene/search/similarities/BM25Similarity.java).
+This implementation is not bit-identical to Lucene: it uses binary query terms,
+Unicode words plus camel/snake identifier components, and unquantized lengths.
+
+The index includes paths and full window text, including comments and strings.
+Windows contain at most 80 lines/4,500 characters, fitted before scoring, at
+stride 40 or the fitted length when shorter. A single oversized line is skipped
+without hiding later lines. Positive-score ties use path/start/count order;
+no lexical match abstains. Invalid identities or exceeded budgets fail closed
+without falling back to another policy. Limits are 64 files, 1 MB per file,
+8 MB total, 8,192 windows, and 256 unique query terms within 8,000 query bytes.
+
+Record full-corpus logical index bytes and index wall time separately from the
+selected excerpt, physical snapshot acquisition and downstream calls. Preloaded
+source is not free; this comparator reads more source than a continuation rule.
+The same two model-call opportunities and reviewer caps remain in force, but
+equal caps do not imply equal total costs. It can repeat already visible text
+and cannot retrieve an implementation absent from its catalog. Ranking, valid
+citations and synthetic tests do not establish relevance, native correctness,
+incremental discoveries, recall, PR conversion or superiority to an existing
+agent. Declare the comparator before opening fresh inputs and establish an
+independent executable oracle before purchasing compared calls; unresolved
+cases remain in the cohort, with no replacement or repaired historical answers.
+
+```text
+python -B -m unittest tests.test_scout_bm25_source tests.test_scout_shadow_comparison tests.test_scout_source_window
+```
