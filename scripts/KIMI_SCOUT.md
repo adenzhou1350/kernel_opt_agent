@@ -69,6 +69,11 @@ prospective comparison.
 - Two consecutive provider/infrastructure errors pause new calls for 15 minutes, escalating to at most
   one hour during repeated outages. The worker stays alive, drains in-flight
   calls and resumes with new work after cooldown; failed jobs are not replayed.
+  Backoff is checkpointed in the run's `provider-circuit.json`: restarting the
+  controller preserves the cooldown and single-request recovery probe instead
+  of reopening a full burst. A valid completion restores configured capacity;
+  malformed checkpoints conservatively allow one probe. This file contains
+  only counters and a deadline, not credentials, prompts or provider responses.
   Interrupted jobs are not replayed either. Local storage/infrastructure errors
   still stop the process with an explicit failure reason.
   `stop` prevents new requests; bounded requests already in flight finish.

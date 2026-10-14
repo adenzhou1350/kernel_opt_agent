@@ -670,6 +670,92 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(runtime["admission_limit"], 4)
         self.assertFalse(runtime["recovery_probe"])
 
+    def test_restart_preserves_cooldown_then_admits_one_probe(self):
+        for i in range(5):
+            self.add(str(i))
+        circuit_path = self.root / "provider-circuit.json"
+        circuit = {"failures": 0, "answer_failures": 0, "cycles": 3, "until": 1100.0}
+        scout.write_json(circuit_path, circuit)
+        with patch.object(scout.time, "time", return_value=1000.0):
+            with patch.object(scout, "execute", side_effect=self.fake_execute) as execute:
+                first = scout.run(self.run_args())
+        execute.assert_not_called()
+        self.assertEqual(first["runtime"]["attempted_this_run"], 0)
+        self.assertEqual(first["runtime"]["admission_limit"], 1)
+        # Stopping clears the display deadline, not the durable backoff.
+        self.assertIsNone(first["runtime"]["cooldown_until"])
+        self.assertEqual(json.loads(circuit_path.read_text()), circuit)
+
+        started, release = threading.Event(), threading.Event()
+        restored = threading.Barrier(4)
+        lock = threading.Lock()
+        calls, errors = [], []
+
+        def complete(root, job, *unused):
+            with lock:
+                calls.append(job["id"])
+                number = len(calls)
+            if number == 1:
+                started.set()
+                if not release.wait(timeout=5):
+                    raise AssertionError("recovery probe was not released")
+            else:
+                restored.wait(timeout=5)
+            return self.fake_execute(root, job)
+
+        def run():
+            try:
+                scout.run(self.run_args())
+            except BaseException as error:
+                errors.append(error)
+
+        with (patch.object(scout.time, "time", return_value=1200.0),
+              patch.object(scout, "execute", side_effect=complete)):
+            runner = threading.Thread(target=run)
+            runner.start()
+            try:
+                self.assertTrue(started.wait(timeout=5))
+                self.assertEqual(len(calls), 1)
+                with scout.connect(self.root) as db:
+                    self.assertEqual(db.execute(
+                        "SELECT COUNT(*) FROM jobs WHERE state='RUNNING'"
+                    ).fetchone()[0], 1)
+            finally:
+                release.set()
+                runner.join(timeout=8)
+                if runner.is_alive():
+                    (self.root / "STOP").touch()
+                    runner.join(timeout=5)
+            self.assertFalse(runner.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(calls), 5)
+        self.assertEqual(len(set(calls)), 5)
+        self.assertEqual(json.loads(circuit_path.read_text()), {
+            "failures": 0, "answer_failures": 0, "cycles": 0, "until": 0.0,
+        })
+
+    def test_error_circuit_validation_and_bounded_deadline(self):
+        path = self.root / "provider-circuit.json"
+        self.assertEqual(scout.load_error_circuit(path, 1000.0), (0, 0, 0, 0.0))
+        valid = {"failures": 1, "answer_failures": 2, "cycles": 5, "until": 2000.0}
+        scout.write_json(path, valid)
+        self.assertEqual(scout.load_error_circuit(path, 1000.0), (1, 2, 5, 2000.0))
+        scout.write_json(path, {**valid, "until": 1e100})
+        self.assertEqual(scout.load_error_circuit(path, 1000.0), (1, 2, 5, 4600.0))
+        invalid = [
+            "[]", "broken", "x" * 4097,
+            json.dumps({**valid, "until": float("nan")}),
+            json.dumps({**valid, "until": 10 ** 400}),
+            json.dumps({**valid, "cycles": True}),
+            json.dumps({**valid, "cycles": 6}),
+            json.dumps({**valid, "failures": -1}),
+            json.dumps({**valid, "unexpected": "ignored?"}),
+        ]
+        for body in invalid:
+            with self.subTest(body=body[:80]):
+                path.write_text(body, encoding="utf-8")
+                self.assertEqual(scout.load_error_circuit(path, 1000.0), (0, 0, 1, 0.0))
+
     def test_persistent_bad_answers_have_separate_circuit_breaker(self):
         for i in range(10):
             self.add(str(i))

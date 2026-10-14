@@ -11,6 +11,7 @@ import base64
 import contextlib
 import hashlib
 import json
+import math
 import os
 import re
 import shutil
@@ -889,6 +890,33 @@ def update_error_cooldown(failures, answer_failures, cycles, until, now, base_se
     return failures, answer_failures, cycles, 0.0
 
 
+def load_error_circuit(path, now):
+    """Keep outage recovery across restarts; malformed state admits one probe."""
+    try:
+        if path.stat().st_size > 4096:
+            raise ValueError("oversized circuit state")
+        state = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(state, dict) or set(state) != {
+            "failures", "answer_failures", "cycles", "until"
+        }:
+            raise ValueError("invalid circuit fields")
+        for name, maximum in (("failures", 64), ("answer_failures", 64), ("cycles", 5)):
+            if type(state[name]) is not int or not 0 <= state[name] <= maximum:
+                raise ValueError("invalid circuit count")
+        until = state["until"]
+        if type(until) not in (int, float) or not math.isfinite(until) or until < 0:
+            raise ValueError("invalid circuit deadline")
+        return (
+            state["failures"], state["answer_failures"], state["cycles"],
+            min(until, now + 3600),
+        )
+    except FileNotFoundError:
+        return 0, 0, 0, 0.0
+    except (OSError, ValueError, TypeError, OverflowError, RecursionError):
+        # Do not turn an unreadable checkpoint into a fresh full-size burst.
+        return 0, 0, 1, 0.0
+
+
 def run(args):
     root = Path(args.root).resolve()
     with single_runner(root):
@@ -902,9 +930,27 @@ def run(args):
                 (time.time(),),
             )
         deadline = time.time() + args.hours * 3600 if args.hours else float("inf")
-        running, attempts, failures, next_feed = set(), 0, 0, 0.0
-        answer_failures = 0
-        cooldown_until, error_cycles = 0.0, 0
+        running, attempts, next_feed = set(), 0, 0.0
+        circuit_path = root / "provider-circuit.json"
+        failures, answer_failures, error_cycles, cooldown_until = load_error_circuit(
+            circuit_path, time.time()
+        )
+        saved_circuit = None
+
+        def checkpoint_circuit():
+            nonlocal saved_circuit
+            checkpoint = {
+                "failures": min(failures, 64),
+                "answer_failures": min(answer_failures, 64),
+                # Backoff already saturates after cycle five.
+                "cycles": min(error_cycles, 5),
+                "until": cooldown_until,
+            }
+            if checkpoint != saved_circuit:
+                write_json(circuit_path, checkpoint)
+                saved_circuit = checkpoint
+
+        checkpoint_circuit()
         runtime_path = root / "runtime.json"
         research_path = getattr(args, "research", None)
         producer = None
@@ -923,13 +969,14 @@ def run(args):
             "state": "RUNNING",
             "deadline": deadline if args.hours else None,
             "concurrency": args.concurrency,
-            "admission_limit": args.concurrency,
-            "recovery_probe": False,
+            "admission_limit": 1 if error_cycles else args.concurrency,
+            "recovery_probe": bool(error_cycles and not cooldown_until),
+            "provider_error_cycles": error_cycles,
             "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),
             "min_free_disk_mb": getattr(args, "min_free_disk_mb", 0),
             "daily_max_calls": args.max_jobs or None,
             "daily_token_budget": args.token_budget or None,
-            "cooldown_until": None,
+            "cooldown_until": cooldown_until or None,
             "next_feed_at": time.time() if args.feeds else None,
             "research_mode": bool(research_path),
             "backend_mode": "remote_ssh" if getattr(args, "remote_backend", None) else ("resident" if getattr(args, "resident_backend", False) else "per_request"),
@@ -1012,6 +1059,7 @@ def run(args):
                             args.error_cooldown_seconds,
                         )
                     )
+                    checkpoint_circuit()
                     state = "COOLDOWN" if cooldown_until else "RUNNING"
                     if state != runtime["state"] or runtime["cooldown_until"] != (
                         cooldown_until or None
@@ -1087,6 +1135,7 @@ def run(args):
                         active=len(running),
                         admission_limit=1 if error_cycles else args.concurrency,
                         recovery_probe=bool(error_cycles and not cooldown_until),
+                        provider_error_cycles=error_cycles,
                         memory_paused=bool(
                             reserve
                             and (free_mb is None or free_mb < reserve)
