@@ -163,6 +163,20 @@ results. Public-history memorization, recall, cross-group utility and equal-pric
 budget superiority remain unknown. Neither this historical repair nor a format
 failure is a new PR outcome.
 
+A four-call **exposed development** preflight replaced allegation polarity with
+direct call-outcome labels, with one stateless call for each source-only and
+source-plus-cached-native parent/head condition. It used 5,668 reported
+input/cache/output tokens and 7.547 seconds of model-client time; no new native
+execution or retries. Three answers were format-valid and outcome-correct.
+The source-only parent answer exceeded its 400-character reason cap and still
+paired the wrong empty-iterator label with a correct call-time exception
+explanation. Do not repair that label from its prose. The native-supplied head
+answer cited source, so supplying an observation does not prove reliance on it.
+This one exposed group supports neither automatic verdict routing nor selector
+utility; the direct-label interface did not eliminate the contradiction. Keep
+format, factual outcome and explanation checks separate, and retain invalid
+outputs and all incurred costs in future comparisons.
+
 An additional **exposed development** control now comes from our own
 [Pyodide request repair](https://github.com/fsspec/filesystem_spec/pull/2293).
 The first submitted head `f77a724` passed 65 native tests and nine real-browser
