@@ -639,6 +639,43 @@ defects. Source reading does not authorize arbitrary model-generated test code.
 The [contribution guide](https://github.com/google/go-cmp/blob/b133f1f1932e48f466f597a3346ce6f5a49a0dc1/CONTRIBUTING.md)
 also requires the submitter's Google CLA; do not claim one on their behalf.
 
+Keep race-runtime setup failures distinct from detected data races. A small
+address-space limit can prevent ThreadSanitizer shadow mappings even when RSS is
+modest; [LLVM documents this virtual-address limitation](https://clang.llvm.org/docs/ThreadSanitizer.html#limitations).
+Preserve the failed run and its diagnostics. If changing the execution limits is
+authorized, retain bounded CPU/time/process and memory protection appropriate to
+that worker; sampled RSS and cooperative runtime heap limits are not hard cgroup
+quotas. Do not change assertions or turn off race instrumentation to get PASS.
+
+The native result reader accepts at most 64 expected identities. A full-suite log
+is useful for package accounting, but is not a complete small selection merely
+because the expected cases occur in it. `compare_regression` rejects extra cases.
+Run a fresh focused baseline/candidate selection when that is the required check;
+do not filter away test events or synthesize package terminals. Go parent/subtest
+events are identities, not distinct bugs. This checks captured outcomes, not the
+truth of the assertions or prospective discovery quality.
+
+## TypeScript lifecycle checks without a monorepo rebuild
+
+For a reviewed, self-contained module, a compatible Node runtime and the real
+lock-integrity dependencies can answer a narrow native question. Preserve raw
+source bytes; if a task-local package imports mapping replaces a workspace alias,
+record that adaptation rather than claiming the shipped package was imported.
+Use real filesystem/process dependencies for the behavior at issue, and explain
+any logging wrapper. Check executable access as the actual unprivileged child,
+including parent-directory traversal. Reuse a verified task-private binary copy
+when appropriate; do not relax permissions on another task's tool directory.
+This is not a full TypeScript typecheck, Vitest suite or rendered TUI test.
+
+Acquire the existing contract tests as well as the cache and its caller. Kimi
+Code's pinned [negative-probe test](https://github.com/MoonshotAI/kimi-code/blob/83a39b49ed62627c7a604b39e26d8e9d17ade296/apps/kimi-code/test/utils/git/git-status.test.ts)
+explicitly expects no second probe, including after forced refresh. A real
+`git init` then stale-cache observation establishes a user-visible limitation,
+not by itself a contract-validated repair. Changing that policy needs an explicit
+behavior rationale or maintainer clarification, with throttling/coalescing and
+disposal controls. Existing tests can themselves be wrong; neither this example
+nor a green baseline is a blanket no-bug verdict for negative caches.
+
 ## Small owner-reviewed C++ translation units
 
 Do not substitute a Python arithmetic model for a native compiler pass or
