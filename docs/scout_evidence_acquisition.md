@@ -105,6 +105,30 @@ a next-experiment hypothesis, not evidence that a native-action policy wins.
 Public-history memorization is unknown; strong/cheap-model rank comparisons,
 complete existing-agent methods and equal priced total budgets were not run.
 
+An **exposed development** follow-up used an explicit alleged-acceptance claim,
+strict unfenced JSON and IDs pointing to supplied evidence instead of copied
+multiline quotes. Four MiniMax-M3 calls (5,133 reported tokens) all met that new
+interface. Fixed source-only review missed the parent's acceptance; fixed
+source-plus-native review classified both related states correctly. This is not
+a selection policy, a new repair group, or a budget-matched utility comparison.
+Do not attribute the interface change to any one prompt edit or rescore old runs.
+
+Correct verdicts still carried false explanations: the source-plus-native parent
+answer said `Path` typically strips trailing newlines, and the correct source-only
+head verdict incorrectly attributed rejection to `$` alone. Audit semantic claims
+separately from final labels. The stdlib control below directly exposes `Path.name`,
+`match` and `fullmatch`; it does **not** replace the real-package parent/head check.
+No generated code or external package is imported. Windows CPython 3.12.13 and
+Linux CPython 3.12.10 agreed on all four observations; the two control tests passed
+on both. Preserve runtime identities when transferring this control. These known
+inputs remain development data; prospective action selection and cost/recall
+benefits are still unproven.
+
+```text
+python -B examples/python_filename_semantics.py
+python -B -m unittest tests.test_python_filename_semantics_control
+```
+
 Compare no additional evidence, a strong zero-model acquisition rule, a cheap
 model, a strong model and an applicable existing agent method. Charge selector,
 failed acquisition, downstream review, native setup/execution and owner effort;
