@@ -870,6 +870,10 @@ or unqualified uppercase-name entries. Symbolic entries are shown, not resolved.
 Calls, comprehensions, unpacking and competing bindings abstain. The excerpt shows
 initialization syntax, not an immutable runtime value or a class attribute;
 later mutation and dynamic subclasses still need separate evidence.
+Full-file literal-absence notices carry their own pinned `source_url` and source
+digest. They apply only to that file, never to another excerpt in the packet;
+absence in a runner does not establish absence in its package exports. They are
+reader diagnostics, not quotable source or proof of missing runtime behavior.
 If no unseen Python uses remain, an unqualified name can instead select its
 unique module-level import statement from that same cached file, including
 `if`/`try` branches. Each enclosing guard must already be supplied or fit in the

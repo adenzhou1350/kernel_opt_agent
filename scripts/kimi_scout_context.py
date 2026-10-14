@@ -495,10 +495,12 @@ class PublicContext:
         if absent:
             evidence["requested_identifier_absence"] = {
                 "identifiers": absent,
+                "source_url": url,
                 "source_sha256": hashlib.sha256(raw.encode("utf-8")).hexdigest(),
                 "scope": (
                     "These literal terminal names do not occur anywhere in this "
-                    "complete pinned file, including comments/strings, not just "
+                    "complete pinned file identified by source_url, not another source "
+                    "in the packet. This includes comments/strings, not just "
                     "the visible window. Recheck historical or misspelled names; "
                     "do not repeat the same lookup. Not repository-wide absence, "
                     "missing functionality, declaration or binding resolution."

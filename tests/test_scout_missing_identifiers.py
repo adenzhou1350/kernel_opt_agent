@@ -58,12 +58,40 @@ class MissingIdentifierTests(unittest.TestCase):
                 self.assertEqual(read.call_count, 1)
                 observation = item["requested_identifier_absence"]
                 self.assertEqual(observation["identifiers"], ["failf"])
+                self.assertEqual(observation["source_url"], item["url"])
                 self.assertEqual(observation["source_sha256"], hashlib.sha256(raw.encode()).hexdigest())
                 self.assertNotIn("Usage", item["text"])
                 cached = reader.source("owner/project", "a" * 40, "flag.go",
                                        start=1, max_lines=1, request_hints="references(fail)")
                 self.assertEqual(read.call_count, 1)
                 self.assertNotIn("requested_identifier_absence", cached)
+
+    def test_absence_identity_stays_with_its_file_in_multi_source_packet(self):
+        bodies = {
+            "runner.py": "def runner(): pass\n",
+            "__init__.py": "\n" * 100 + "if AVAILABLE:\n    from backend import target\n",
+        }
+        with tempfile.TemporaryDirectory() as temp:
+            reader = PublicContext(temp)
+            with (
+                patch.object(reader, "snapshot", return_value={
+                    "files": list(bodies),
+                    "blobs": {path: "b" * 40 for path in bodies},
+                }),
+                patch.object(reader, "_source_text", side_effect=lambda repo, blob, url: (
+                    bodies[url.rsplit("/", 1)[-1]], "raw"
+                )) as read,
+            ):
+                sources = [reader.source(
+                    "owner/project", "a" * 40, path, start=1, max_lines=1,
+                    request_hints="references(target)",
+                ) for path in bodies]
+        self.assertEqual(read.call_count, 2)
+        self.assertNotIn("requested_identifier_absence", sources[1])
+        observation = sources[0]["requested_identifier_absence"]
+        self.assertEqual(observation["source_url"], sources[0]["url"])
+        self.assertNotEqual(observation["source_url"], sources[1]["url"])
+        self.assertIn("not another source", observation["scope"])
 
 
 if __name__ == "__main__":
