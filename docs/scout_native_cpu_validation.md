@@ -711,3 +711,25 @@ Compare independent numerical oracles and retain failed controls. If an old
 control fails, run the identical input on baseline: bitwise-equal outputs can
 separate a shared baseline discrepancy from a new regression, but cannot turn
 either strict failure into PASS. Do not loosen tolerances or discard the case.
+
+A Python loop over rank-local contributions is not a distributed check. When the
+failure involves expert placement, run the reviewed real operator in fresh rank
+processes, compare each local contribution (including exact zero for nonlocal
+routes), then use a real collective and compare the global result independently.
+Match safe baseline inputs: do not send global IDs outside the old kernel's local
+array bounds merely to obtain a red result. Keep broader corrected-input coverage
+separate. A four-process Gloo operator check still does not qualify the framework's
+process-group setup, prepare/finalize lifecycle, serving package or model.
+
+Audit oracle precision against the actual implementation. In the pinned vLLM CPU
+MoE TU, the activation intermediate is the input dtype, but the second GEMM and
+weighted accumulator are float32. An extra per-expert BF16 cast changes that
+reference computation even if the test happens to pass. Preserve and supersede
+results obtained with the wrong oracle rather than silently editing their inputs.
+
+Before a full build, check the pinned source's compiler/CMake requirements, not
+only whether the narrow TU compiled. Private compiler packages need a functional
+header/link/runtime canary in addition to download hashes. Bound dependency
+resolution and acquisition too; an exact official artifact can remove resolver
+work, but do not keep retrying unchanged failed setup or call a toolchain canary a
+full-package build.
