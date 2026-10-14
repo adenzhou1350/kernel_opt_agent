@@ -688,6 +688,55 @@ class ContextTests(unittest.TestCase):
             f'repo:{REPO} in:title,body ("OneToOne" OR "One To One")',
         ])
 
+    def test_duplicate_search_retains_closed_report_state_without_rejecting_it(self):
+        report = {
+            "number": 4274, "title": "Nested blob bytes", "body": "Exact repro",
+            "state": "closed", "state_reason": "completed",
+        }
+        with patch.object(context.time, "time", return_value=1234.5):
+            sources, queries = self.duplicate_search("_rebuild_struct", [[report], []])
+        self.assertEqual(len(queries), 2)
+        self.assertEqual(len(sources), 1)
+        self.assertEqual(sources[0]["observed_report_kind"], "issue")
+        self.assertEqual(sources[0]["observed_report_state"], "closed")
+        self.assertEqual(sources[0]["observed_report_state_reason"], "completed")
+        self.assertEqual(sources[0]["lifecycle_observed_at"], 1234.5)
+        self.assertIn("does not prove", sources[0]["lifecycle_scope"])
+        self.assertIn("Exact repro", sources[0]["text"])
+
+    def test_duplicate_search_distinguishes_closed_pr_from_merged(self):
+        pull = {
+            "number": 4305, "title": "Nested blob repair", "body": "Proposed fix",
+            "state": "closed", "state_reason": "completed", "pull_request": {},
+        }
+        sources, queries = self.duplicate_search("_rebuild_struct", [[pull]])
+        self.assertEqual(len(queries), 1)
+        self.assertEqual(sources[0]["observed_report_kind"], "pull_request")
+        self.assertEqual(sources[0]["observed_report_state"], "closed")
+        self.assertIsNone(sources[0]["observed_report_state_reason"])
+        self.assertNotIn("merged", sources[0])
+
+    def test_duplicate_search_missing_or_malformed_state_is_not_invented(self):
+        for state in (None, "merged", True, {"state": "closed"}):
+            with self.subTest(state=state):
+                pull = {
+                    "number": 3, "title": "Potential repair", "body": "details",
+                    "state": state, "state_reason": "completed", "pull_request": {},
+                }
+                sources, _ = self.duplicate_search("factory", [[pull]])
+                self.assertEqual(len(sources), 1)
+                self.assertEqual(sources[0]["observed_report_state"], "unknown")
+                self.assertIsNone(sources[0]["observed_report_state_reason"])
+
+    def test_duplicate_search_open_report_unknown_reason_stays_unknown(self):
+        report = {
+            "number": 4, "title": "Open report", "body": "details",
+            "state": "open", "state_reason": "some new API reason",
+        }
+        sources, _ = self.duplicate_search("factory", [[report], []])
+        self.assertEqual(sources[0]["observed_report_state"], "open")
+        self.assertIsNone(sources[0]["observed_report_state_reason"])
+
     def test_duplicate_fallback_preserves_title_modes(self):
         cases = (
             ("多物品分类打分(MIS融合)路径忽略temperature", '"MIS" "temperature"'),

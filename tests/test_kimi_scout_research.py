@@ -1020,6 +1020,10 @@ class ResearchTests(unittest.TestCase):
                 # Overflow from evidence itself, not incidental knowledge cards.
                 "text": "s" * 4000,
                 "search_exhaustive": False,
+                "observed_report_kind": "pull_request",
+                "observed_report_state": "closed",
+                "observed_report_state_reason": None,
+                "lifecycle_observed_at": 1234.5,
             }
             for i in range(3)
         ]
@@ -1029,6 +1033,11 @@ class ResearchTests(unittest.TestCase):
         packet = json.loads(self.jobs()[0]["packet"])
         self.assertEqual(packet["sources"][:2], code)
         self.assertTrue(any(s.get("truncated") for s in packet["sources"][2:]))
+        for source in packet["sources"][2:]:
+            self.assertEqual(source["observed_report_kind"], "pull_request")
+            self.assertEqual(source["observed_report_state"], "closed")
+            self.assertIsNone(source["observed_report_state_reason"])
+            self.assertEqual(source["lifecycle_observed_at"], 1234.5)
         self.assertLessEqual(
             len((scout.SYSTEM + scout.dumps(packet)).encode()), scout.MAX_INPUT_BYTES
         )

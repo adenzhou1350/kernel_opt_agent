@@ -853,6 +853,7 @@ class PublicContext:
             found = self._json(f"https://api.github.com/search/issues?{query}")
             if not isinstance(found, dict) or not isinstance(found.get("items"), list):
                 raise ValueError("invalid public duplicate search")
+            observed_at = time.time()
             hits = []
             for item in found["items"][:5]:
                 if (
@@ -873,6 +874,22 @@ class PublicContext:
                 )
                 evidence.update(is_pr=is_pr, search_exhaustive=False,
                                 search_query=query_text)
+                # Keep the search observation that otherwise disappears when
+                # only title/body survives. Closed is not a fixed/merged verdict:
+                # retain the report and require current-source comparison.
+                state, reason = item.get("state"), item.get("state_reason")
+                evidence.update(
+                    observed_report_kind="pull_request" if is_pr else "issue",
+                    observed_report_state=state if state in ("open", "closed") else "unknown",
+                    observed_report_state_reason=reason
+                    if not is_pr and reason in ("completed", "not_planned", "reopened", "duplicate")
+                    else None,
+                    lifecycle_observed_at=observed_at,
+                    lifecycle_scope=(
+                        "Search-result observation only; closed does not prove "
+                        "a fix or merge. Check linked work and current source."
+                    ),
+                )
                 hits.append(evidence)
             known = {source["url"] for source in result}
             for source in hits:

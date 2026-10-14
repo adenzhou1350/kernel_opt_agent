@@ -42,6 +42,8 @@ class ReportLifecycleTests(unittest.TestCase):
             )
         if url == API + "/issues/42":
             return json.dumps(self.item)
+        if url == API + "/issues/42/timeline?per_page=50&page=1":
+            return "[]"
         raise AssertionError(f"Unexpected added request: {url}")
 
     def test_open_closed_reopened_are_refetched_without_extra_gets(self):
@@ -58,8 +60,9 @@ class ReportLifecycleTests(unittest.TestCase):
             self.assertEqual(reports[-1]["observed_report_state_reason"], reason)
             self.assertEqual(reports[-1]["lifecycle_observed_at"], 1000)
         self.assertEqual(
-            len(self.calls), 4
-        )  # One public check, three existing issue GETs.
+            len(self.calls), 5
+        )  # Public check, three report GETs, one cached timeline lookup.
+        self.assertEqual(sum("/timeline?" in url for url in self.calls), 1)
         self.assertEqual(len({report["text"] for report in reports}), 1)
         self.assertEqual(reports[1]["observed_report_kind"], "issue")
         self.assertIn("not fix, merge", reports[1]["lifecycle_scope"])
@@ -71,7 +74,7 @@ class ReportLifecycleTests(unittest.TestCase):
         self.assertEqual(report["observed_report_state_reason"], "not_planned")
         self.assertIn("Unchanged body", report["text"])
         self.assertNotIn("decision", report)
-        self.assertEqual(len(self.calls), 2)
+        self.assertEqual(len(self.calls), 3)
 
     def test_closed_pull_is_not_inferred_merged(self):
         self.item.update(state="closed", pull_request={"url": API + "/pulls/42"})
@@ -105,7 +108,7 @@ class ReportLifecycleTests(unittest.TestCase):
             reports = self.context.issue_sources(REPO, 42)
         self.assertEqual(len(reports), 2)
         self.assertIn("Still broken", reports[1]["text"])
-        self.assertEqual(len(self.calls), 3)
+        self.assertEqual(len(self.calls), 4)
 
     def test_dedup_keeps_state_change_but_ignores_observation_time(self):
         first = self.context.issue_sources(REPO, 42)[0]
