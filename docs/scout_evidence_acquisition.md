@@ -137,6 +137,32 @@ false changes and cost, not only precision among the survivors. Zero discovered
 defects cannot establish recall. Stop or simplify the selector if extra spending
 does not improve verified decisions; ordinary PR work need not wait for a paper.
 
+A subsequent frozen-rule-selected historical Toolz repair,
+[`interpose([])`](https://github.com/pytoolz/toolz/commit/d2eba0374a452c2b18fe188b04527e22bda3548c),
+provided another independently executable parent/head group. Complete exact-source
+packages ran the same two upstream test functions through a stdlib adapter:
+parent one empty-call error/one passing nonempty control; head two pass. This
+does not claim full pytest collection. Both initial source windows contained the
+complete implementation; the visible repair was not hidden to manufacture value.
+
+Eleven MiniMax-M3 calls used 16,117 reported input/cache/output tokens under frozen
+caps. Source-only reflection missed the parent; its head answer was invalid JSON
+and received no replacement final call. The selector chose no added observation
+for either state, missed the parent and classified the head correctly. Fixed
+native observation classified the head correctly. On the parent it corrected the
+semantic explanation to an exception during the call, but still emitted the
+opposite verdict. That contradiction remains a wrong label, not a success repaired
+from its prose. Two added native observations took 4.579 seconds including their
+session lifecycle; measured model-client time was 23.748 seconds, not total setup,
+owner or priced cost. All CPU sessions were released.
+
+This group demonstrates no selector benefit and does not justify adding one to
+production. Before buying another comparison, preflight verdict/observation
+consistency on exposed controls; do not repair or rerun these answers as fresh
+results. Public-history memorization, recall, cross-group utility and equal-priced
+budget superiority remain unknown. Neither this historical repair nor a format
+failure is a new PR outcome.
+
 `fetch_source(url)` accepts only HTTPS `raw.githubusercontent.com` URLs with an
 exact 40-character commit and a safe path. Percent-encoded targets are excluded
 in this initial interface. It makes one GET, without authentication, redirect,
