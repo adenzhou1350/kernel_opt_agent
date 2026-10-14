@@ -150,6 +150,18 @@ not downloaded assets. The current format accepts SHA-1 Git identities only.
 Existing `git archive` recipes below remain usable when their intended exported
 members have been checked against Git; disabling autocrlf alone is not that check.
 
+Object reads set `GIT_NO_LAZY_FETCH=1` and disable credential prompts. With Git
+support for that environment variable, missing objects in a partial/promisor
+clone fail the build instead of silently downloading. Materialize missing objects
+in a separate, explicitly budgeted fetch before retrying; this builder is not a
+network sandbox or a Git LFS/submodule downloader. The regression fixture checks
+that an unprotected read attempts a local promisor fetch and the protected build
+does not. It is tested on the installed Git version, not every historical Git.
+The CLI accepts commits, not uncommitted index trees; do not label a staged replay
+as its unchanged HEAD commit. Low-level tree readers are available to reviewed
+callers, but those callers must record the derived tree and any selected/omitted
+paths separately rather than claiming a complete commit bundle.
+
 Build now reads one blob at a time and stages an uncompressed tar on the archive's
 output volume before streamed gzip compression. The verification CLI snapshots
 compressed input and decompresses it into temporary files on that same volume;

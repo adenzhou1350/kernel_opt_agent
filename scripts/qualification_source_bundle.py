@@ -43,12 +43,18 @@ def canonical_json(value: dict) -> bytes:
     return (json.dumps(value, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
+def local_git_environment() -> dict[str, str]:
+    """Do not turn an object read into a promisor fetch or credential prompt."""
+    return {**os.environ, "GIT_NO_LAZY_FETCH": "1", "GIT_TERMINAL_PROMPT": "0"}
+
+
 def git(repo: Path, *args: str) -> bytes:
     completed = subprocess.run(
         ["git", "-C", str(repo), *args],
         check=False,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        env=local_git_environment(),
     )
     if completed.returncode != 0:
         detail = completed.stderr.decode("utf-8", errors="replace").strip()
@@ -118,6 +124,7 @@ def iter_git_tree_blobs(
             stdin=request,
             stdout=subprocess.PIPE,
             stderr=errors,
+            env=local_git_environment(),
         )
         assert process.stdout is not None
         try:

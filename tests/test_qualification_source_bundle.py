@@ -466,6 +466,73 @@ def test_missing_blob_does_not_publish_outputs(
     assert not manifest.exists()
 
 
+def test_promisor_missing_blob_does_not_trigger_fetch(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    blob = run(repo, "rev-parse", f"{commit}:nested/payload.bin")
+    # Only delete a loose object inside this disposable fixture repository.
+    loose_blob = repo / ".git" / "objects" / blob[:2] / blob[2:]
+    loose_blob.chmod(stat.S_IREAD | stat.S_IWRITE)  # Git marks objects read-only.
+    loose_blob.unlink()
+    run(repo, "config", "remote.origin.promisor", "true")
+    run(repo, "config", "remote.origin.url", (tmp_path / "absent-remote").as_uri())
+    trace = tmp_path / "git-trace.log"
+    monkeypatch.setenv("GIT_TRACE", trace.as_posix())
+    monkeypatch.setenv("GIT_NO_LAZY_FETCH", "0")
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "0")
+    # Counterfactual: this fixture actually invokes lazy fetch without the
+    # builder's protection. It can only target a nonexistent local file URI.
+    control = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "blob", blob],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=15,
+    )
+    assert control.returncode != 0
+    control_trace = trace.read_text(encoding="utf-8")
+    assert "fetch origin" in control_trace
+
+    archive, manifest = bundle_paths(tmp_path / "local-only")
+    with pytest.raises(ValueError, match="unexpected git cat-file header"):
+        build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    build_trace = trace.read_text(encoding="utf-8")[len(control_trace) :]
+    assert "fetch origin" not in build_trace
+    assert not archive.exists()
+    assert not manifest.exists()
+
+
+def test_all_git_reads_force_local_only_environment(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    monkeypatch.setenv("GIT_NO_LAZY_FETCH", "0")
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "1")
+    real_run, real_popen = subprocess.run, subprocess.Popen
+    observed = []
+
+    def check_env(kwargs):
+        assert kwargs["env"]["GIT_NO_LAZY_FETCH"] == "1"
+        assert kwargs["env"]["GIT_TERMINAL_PROMPT"] == "0"
+
+    def checked_run(*args, **kwargs):
+        check_env(kwargs)
+        observed.append("run")
+        return real_run(*args, **kwargs)
+
+    def checked_popen(*args, **kwargs):
+        check_env(kwargs)
+        observed.append("popen")
+        return real_popen(*args, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", checked_run)
+    monkeypatch.setattr(subprocess, "Popen", checked_popen)
+    archive, manifest = bundle_paths(tmp_path)
+    build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    assert observed.count("run") == 3
+    assert observed.count("popen") == 4  # three run children plus batch reader
+
+
 def test_submodule_is_not_silently_omitted(tmp_path: Path) -> None:
     repo, commit, _ = source_repo(tmp_path)
     run(repo, "update-index", "--add", "--cacheinfo", f"160000,{commit},vendor")
