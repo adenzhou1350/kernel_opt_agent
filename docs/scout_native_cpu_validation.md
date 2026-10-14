@@ -81,6 +81,40 @@ result/capture tests. Check the actual test names and platform skips: a Windows
 pass cannot establish POSIX process-group cleanup. These are tool integration
 controls, not newly discovered community bugs or PR-conversion measurements.
 
+### Vitest JSON is a separate native format
+
+The same capture runner supports `--format vitest-json`, checked against Vitest
+4.1.4's [JSON reporter](https://github.com/vitest-dev/vitest/blob/v4.1.4/packages/vitest/src/node/reporters/json.ts).
+Use exact emitted `fullName` strings (ancestor titles and test title joined with
+spaces), not the Node TAP `::` convention. For an already reviewed private
+checkout/environment:
+
+```text
+python scripts/scout_native_run.py --cwd PRIVATE_REVIEWED_CHECKOUT --output FRESH_OUTPUT --format vitest-json --expect-test "contract regression" --expect-test "contract control" --source contract.test.ts=REVIEWED_SHA256 -- /absolute/reviewed/node /absolute/reviewed/vitest.mjs run contract.test.ts --maxWorkers 1
+```
+
+The runner owns `--reporter=json` and a fresh `vitest.json` path; do not provide
+reporter/output-file arguments. It retains stdout separately, hashes the report,
+and applies the existing timeout, source-identity and child-group cleanup checks.
+It does not audit imported dependencies or override a repository's test config.
+Windows may parse a saved report but cannot launch this POSIX capture entrance.
+
+Filtered tests and explicit skips share `skipped` in this reporter; they cannot
+be distinguished from JSON alone. Every skipped/todo case stays in the reported
+skip count, while `executed` includes only passed/failed cases. Named skipped,
+missing or pending targets, hook/collection errors, contradictory counts, abnormal
+exit and truncated reports are inconclusive. Suite totals include nested suites,
+not just files. Require globally unique `fullName` values: ambiguous names across
+files/projects are conservatively unsupported, not silently combined.
+
+Matched regression accounting allows unselected unexecuted cases only when both
+arms retain the same complete name inventory and unexecuted count; any extra
+executed case still rejects a declared complete selection. Source/import/test
+semantics must be reviewed independently. A saved report with 364 listed cases,
+3 passed, 2 failed and 359 skipped establishes **5 executed cases**, not a passing
+364-test suite. JSON consistency is neither reporter authenticity nor PR quality,
+and this support does not claim compatibility with all Jest/Vitest versions.
+
 Python source admission distinguishes a function's definition from its body.
 Literal imports in defaults and decorators are required when the definition is
 reached; nested definitions inherit the surrounding lazy/optional context.

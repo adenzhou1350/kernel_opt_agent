@@ -1,4 +1,4 @@
-"""Capture one reviewed Go/Rust/pytest/Node CPU command on a POSIX worker.
+"""Capture one reviewed Go/Rust/pytest/Node/Vitest CPU command on a POSIX worker.
 
 No downloads, environment provisioning, SSH, model calls or queue mutations.
 This is execution/log accounting, not a sandbox or a PR qualification oracle.
@@ -81,6 +81,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         arg.startswith(("--junitxml", "--junit-xml")) for arg in command[1:]
     ):
         raise ValueError("the runner owns the fresh pytest JUnit report path")
+    if format == "vitest-json" and any(
+        arg.startswith(("--reporter", "--outputFile", "--output-file")) for arg in command[1:]
+    ):
+        raise ValueError("the runner owns the fresh Vitest JSON reporter and report path")
     before = source_identities(cwd, sources)
     # Validate accounting inputs before executing anything, including empty targets.
     native.summarize("", format=format, exit_code=0,
@@ -105,6 +109,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     output.mkdir(parents=False, exist_ok=False)
     if format == "pytest-junit":
         command.append(f"--junitxml={output / 'junit.xml'}")
+    elif format == "vitest-json":
+        command.extend(["--reporter=json", f"--outputFile={output / 'vitest.json'}"])
     started = time.monotonic()
     reason, written = None, 0
     # Keep output off RAM; cap both the file and the later parser input.
@@ -172,14 +178,15 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if not issues:
         try:
             text = (output / "terminal.log").read_text(encoding="utf-8")
-            if format == "pytest-junit":
-                report_path = output / "junit.xml"
+            if format in {"pytest-junit", "vitest-json"}:
+                report_name = "junit.xml" if format == "pytest-junit" else "vitest.json"
+                report_path = output / report_name
                 if report_path.is_symlink() or not report_path.is_file():
-                    raise ValueError("missing or non-regular pytest JUnit report")
+                    raise ValueError("missing or non-regular test report")
                 with report_path.open("rb") as stream:
                     raw = stream.read(native.MAX_BYTES + 1)
                 if len(raw) > native.MAX_BYTES:
-                    raise ValueError("JUnit report exceeds 2 MiB; no partial-report verdict")
+                    raise ValueError("test report exceeds 2 MiB; no partial-report verdict")
                 text = raw.decode("utf-8")
                 report = {"path": str(report_path), "sha256": hashlib.sha256(raw).hexdigest()}
             summary = native.summarize(text, format=format, exit_code=process.returncode,
@@ -219,7 +226,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cwd", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit", "node-tap"), required=True)
+    parser.add_argument("--format", choices=native.FORMATS, required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)
     parser.add_argument("--source", action="append", required=True)

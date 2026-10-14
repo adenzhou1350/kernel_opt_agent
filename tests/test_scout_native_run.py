@@ -147,6 +147,63 @@ class ProcessTests(unittest.TestCase):
                 child.assert_not_called()
             self.assertFalse((self.root / "output").exists())
 
+    def execute_vitest(self, code, **overrides):
+        options = {"format": "vitest-json", "expected_tests": ["contract regression"]}
+        options.update(overrides)
+        return self.execute(code, **options)
+
+    def write_vitest(self, failed=False):
+        from test_scout_native_vitest import report
+
+        text = json.dumps(report(("regression", "failed" if failed else "passed")))
+        return ("import sys; from pathlib import Path; assert sys.argv[-2]=='--reporter=json'; "
+                "assert sys.argv[-1].startswith('--outputFile='); "
+                "Path(sys.argv[-1].split('=',1)[1]).write_text(" + repr(text) + ",encoding='utf-8'); ")
+
+    def test_vitest_capture_owns_json_and_keeps_terminal_log(self):
+        result = self.execute_vitest(self.write_vitest() + "print('native diagnostics')")
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        report_path = self.root / "output/vitest.json"
+        self.assertEqual(result["test_report"], {"path": str(report_path), "sha256": runner.digest(report_path)})
+        self.assertIn("native diagnostics", (self.root / "output/terminal.log").read_text())
+        self.assertEqual(result["summary"]["executed"], 1)
+
+    def test_vitest_case_failure_and_abnormal_signal_are_distinct(self):
+        result = self.execute_vitest(self.write_vitest(failed=True) + "sys.exit(1)")
+        self.assertEqual(result["status"], "TESTS_FAILED")
+        result = self.execute_vitest(self.write_vitest(failed=True) +
+            "import os,signal; os.kill(os.getpid(),signal.SIGTERM)", output=self.root / "signal-output")
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertEqual(result["summary"]["failed"], 1)
+
+    def test_vitest_missing_large_symlink_or_non_utf8_report_has_no_pass(self):
+        prefix = "import sys; from pathlib import Path; p=Path(sys.argv[-1].split('=',1)[1]); "
+        codes = ["print('all passed')", prefix + "p.write_bytes(b'x'*(2*1024*1024+1))",
+                 prefix + "p.symlink_to(Path('source.rs').resolve())", prefix + "p.write_bytes(bytes([255]))"]
+        for index, code in enumerate(codes):
+            with self.subTest(index=index):
+                result = self.execute_vitest(code, output=self.root / f"invalid-{index}")
+                self.assertEqual(result["status"], "INCONCLUSIVE")
+                self.assertIsNone(result["summary"])
+
+    def test_vitest_report_cannot_bypass_timeout_or_source_change(self):
+        for index, code in enumerate(("import time; time.sleep(30)", "Path('source.rs').write_text('changed')")):
+            result = self.execute_vitest(self.write_vitest() + code,
+                output=self.root / f"interrupted-{index}", timeout=0.3)
+            self.assertEqual(result["status"], "INCONCLUSIVE")
+            self.assertIsNone(result["summary"])
+
+    def test_vitest_existing_reporter_arguments_rejected_before_child(self):
+        from unittest.mock import patch
+
+        for flag in ("--reporter", "--reporter=json", "--outputFile", "--outputFile=old.json",
+                     "--output-file=old.json", "--outputFile.json=old.json"):
+            with self.subTest(flag=flag), patch.object(runner.subprocess, "Popen") as child:
+                with self.assertRaisesRegex(ValueError, "runner owns"):
+                    self.execute_vitest("print('not run')", command=[sys.executable, "unused", flag])
+                child.assert_not_called()
+            self.assertFalse((self.root / "output").exists())
+
     def test_failed_test_is_not_process_failure_only(self):
         text = PASS.replace("... ok", "... FAILED").replace("result: ok. 1 passed; 0 failed", "result: FAILED. 0 passed; 1 failed")
         result = self.execute("import sys; print(" + repr(text) + "); sys.exit(1)")

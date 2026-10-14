@@ -14,6 +14,7 @@ from pathlib import Path
 from xml.etree import ElementTree
 
 MAX_BYTES = 2 * 1024 * 1024
+FORMATS = ("go-json", "rust-libtest", "pytest-junit", "node-tap", "vitest-json")
 RUST_SUMMARY = re.compile(
     r"test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
     r"(\d+) measured; (\d+) filtered out; finished in [0-9.]+s"
@@ -237,8 +238,112 @@ def _junit(text, exit_code, expected_results, issue):
     return counts, seen, len(suites), terminal
 
 
+def _vitest(text, exit_code, expected_results, issue):
+    """Observed Vitest 4 JSON, not arbitrary Jest output or a test oracle.
+
+    Skipped and filtered-out cases share a status in this reporter. Retain them
+    all, require named targets to execute, and bind the complete name inventory
+    when comparing arms. Pending/run/queued observations are not terminal tests.
+    """
+    counts = {"passed": 0, "failed": 0, "skipped": 0}
+    seen, names, files = set(), set(), set()
+    observed = dict.fromkeys(("passed", "failed", "skipped", "todo"), 0)
+    metadata = {"unselected_unexecuted": 0, "reported_total_tests": 0,
+                "case_inventory_sha256": None}
+
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError("duplicate JSON key")
+            result[key] = value
+        return result
+
+    def reject_constant(value):
+        raise ValueError(value)
+
+    try:
+        report = json.loads(text, object_pairs_hook=pairs, parse_constant=reject_constant)
+    except (ValueError, RecursionError):
+        issue("malformed or truncated Vitest JSON")
+        return counts, seen, 0, None, metadata
+    if not isinstance(report, dict) or not isinstance(report.get("testResults"), list):
+        issue("invalid Vitest report root")
+        return counts, seen, 0, None, metadata
+    suites = report["testResults"]
+    fields = ("numTotalTests", "numPassedTests", "numFailedTests", "numPendingTests",
+              "numTodoTests", "numTotalTestSuites", "numPassedTestSuites",
+              "numFailedTestSuites", "numPendingTestSuites")
+    if any(type(report.get(key)) is not int or not 0 <= report[key] <= 100000
+           for key in fields) or type(report.get("success")) is not bool:
+        issue("invalid or missing Vitest terminal totals")
+        return counts, seen, 0, None, metadata
+    for suite in suites:
+        if not isinstance(suite, dict):
+            issue("invalid Vitest test file")
+            continue
+        filename = suite.get("name")
+        if not isinstance(filename, str) or not filename or filename in files:
+            issue("missing or duplicate Vitest test-file identity")
+        else:
+            files.add(filename)
+        cases = suite.get("assertionResults")
+        if not isinstance(cases, list):
+            issue("missing Vitest assertion results")
+            continue
+        file_failed = False
+        for case in cases:
+            if not isinstance(case, dict):
+                issue("invalid Vitest assertion result")
+                continue
+            name, title, ancestors = case.get("fullName"), case.get("title"), case.get("ancestorTitles")
+            if (not isinstance(name, str) or not name or len(name) > 4096 or name in names
+                    or not isinstance(title, str) or not isinstance(ancestors, list)
+                    or any(not isinstance(part, str) for part in ancestors)
+                    or name != " ".join([*ancestors, *([title] if title else [])])):
+                issue("missing, ambiguous or duplicate Vitest case identity")
+                continue
+            names.add(name)
+            status, failures = case.get("status"), case.get("failureMessages")
+            if (not isinstance(status, str) or status not in observed or not isinstance(failures, list)
+                    or any(not isinstance(message, str) for message in failures)):
+                issue("unsupported, pending or malformed Vitest case outcome")
+                continue
+            if (status == "failed") != any(message.strip() for message in failures):
+                issue("Vitest case/failure diagnostics disagree")
+            observed[status] += 1
+            file_failed |= status == "failed"
+            outcome = status if status in {"passed", "failed"} else "skipped"
+            counts[outcome] += 1
+            if outcome != "skipped":
+                seen.add(name)
+            elif name not in expected_results:
+                metadata["unselected_unexecuted"] += 1
+            if name in expected_results:
+                expected_results[name][outcome] += 1
+        if suite.get("message") != "" or suite.get("status") != ("failed" if file_failed else "passed"):
+            issue("Vitest file setup/collection/hook failure or contradictory status")
+    totals = {"numTotalTests": sum(observed.values()), "numPassedTests": observed["passed"],
+              "numFailedTests": observed["failed"], "numPendingTests": observed["skipped"],
+              "numTodoTests": observed["todo"]}
+    if any(report[key] != value for key, value in totals.items()):
+        issue("Vitest case/summary cardinality mismatch")
+    if (report["numTotalTestSuites"] != sum(report[key] for key in (
+            "numPassedTestSuites", "numFailedTestSuites", "numPendingTestSuites"))
+            or report["numTotalTestSuites"] < len(suites)
+            or report["numPendingTestSuites"]
+            or bool(report["numFailedTestSuites"]) != bool(observed["failed"])):
+        issue("Vitest suite totals are incomplete or contradict test outcomes")
+    terminal = "fail" if observed["failed"] else "pass"
+    if report["success"] != (terminal == "pass") or exit_code not in {0, 1}:
+        issue("Vitest did not terminate consistently with pass or test-failure status")
+    metadata.update(reported_total_tests=report["numTotalTests"],
+                    case_inventory_sha256=hashlib.sha256(json.dumps(sorted(names), ensure_ascii=False).encode()).hexdigest())
+    return counts, seen, len(suites), terminal, metadata
+
+
 def summarize(text, *, format, exit_code, expected_tests, package=None):
-    """Count Go events, Rust batches, pytest JUnit or Node built-in TAP reports.
+    """Count Go/Rust/pytest/Node observations or the observed Vitest 4 JSON.
 
     Go counts include parent tests/subtests and repeats, not assertion counts.
     Rust compact/JSON/bench/custom harness formats are deliberately unsupported.
@@ -247,7 +352,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     test failure. Preserve observed assertions but classify the run inconclusive.
     Shell-normalized positive codes do not reliably identify a signal.
     """
-    if format not in {"go-json", "rust-libtest", "pytest-junit", "node-tap"}:
+    if format not in FORMATS:
         raise ValueError("unsupported native test format")
     if type(exit_code) is not int:
         raise ValueError("exit code must be an observed integer")
@@ -269,6 +374,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     filtered = 0
     rust_running = None
     rust_cases = {}
+    vitest = None
 
     def issue(message):
         if message not in issues and len(issues) < 16:
@@ -281,6 +387,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue)
     elif format == "node-tap":
         counts, seen, batches, terminal = _node_tap(text, exit_code, expected_results, issue)
+    elif format == "vitest-json":
+        counts, seen, batches, terminal, vitest = _vitest(text, exit_code, expected_results, issue)
 
     for line in text.splitlines() if format in {"go-json", "rust-libtest"} else ():
         if format == "go-json":
@@ -380,7 +488,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     if not issues and terminal != "pass" and status == "TESTS_PASSED":
         status = "INCONCLUSIVE"
         issue("package failed outside reported test cases")
-    return {"status": status, "format": format, "exit_code": exit_code,
+    result = {"status": status, "format": format, "exit_code": exit_code,
             "package": package if format == "go-json" else None,
             **counts, "executed": executed, "batches": batches,
             "filtered": filtered if format == "rust-libtest" else None,
@@ -389,6 +497,9 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
             "log_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             "boundary": "Observed log accounting only; not authenticity, test quality, "
                         "source/runtime identity, caller reachability, performance or PR qualification."}
+    if vitest is not None:
+        result["vitest"] = vitest
+    return result
 
 
 def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
@@ -420,9 +531,17 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
             selected = arm["expected_test_results"]
             totals = {key: sum(case[key] for case in selected.values())
                       for key in ("passed", "failed", "skipped")}
-            if any(totals[key] != arm[key] for key in totals):
+            observed = {key: arm[key] for key in totals}
+            if format == "vitest-json":
+                observed["skipped"] -= arm["vitest"]["unselected_unexecuted"]
+            if totals != observed:
                 issues.append("observed cases differ from the declared complete selection")
                 break
+        if format == "vitest-json" and any(
+            baseline["vitest"][key] != candidate["vitest"][key]
+            for key in ("case_inventory_sha256", "reported_total_tests", "unselected_unexecuted")
+        ):
+            issues.append("Vitest report inventories or unexecuted cohorts differ")
         for name in names:
             before = baseline["expected_test_results"][name]
             after = candidate["expected_test_results"][name]
@@ -443,7 +562,7 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)
-    parser.add_argument("--format", choices=("go-json", "rust-libtest", "pytest-junit", "node-tap"), required=True)
+    parser.add_argument("--format", choices=FORMATS, required=True)
     parser.add_argument("--exit-code", type=int, required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)
