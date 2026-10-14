@@ -75,6 +75,11 @@ prospective comparison.
   OS-level single-runner locking prevents duplicate daemons on the same inbox.
   An isolated invalid answer/citation fails only that job; eight consecutive
   invalid answers also activate cooldown to prevent a paid bad-output loop.
+  Failed completion payloads retain a whitelisted `failure_phase`, and live files
+  retain `last_active_phase`: `requesting` before an SDK response stream exists,
+  or `streaming` after it is obtained. Missing fields in older records mean unknown,
+  not zero work. These markers do not prove server receipt, token billing or an
+  outage's cause; they add no provider call, retry, timeout or credential logging.
 - Results require supplied URLs and source excerpts (ignoring only whitespace
   and displayed line-number prefixes). This checks provenance,
   **not truth**. `REVIEW` is an unverified lead; `NEEDS_CONTEXT` needs human/owner

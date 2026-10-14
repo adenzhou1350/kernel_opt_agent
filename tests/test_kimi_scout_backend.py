@@ -272,7 +272,10 @@ class BackendTests(unittest.TestCase):
                 self.assertEqual(json.loads(path.read_text())["text"], "third")
                 progress("final", "failed")
             snapshot = json.loads(path.read_text())
-            self.assertEqual(set(snapshot), {"text", "updated_at", "phase"})
+            self.assertEqual(
+                set(snapshot), {"text", "updated_at", "phase", "last_active_phase"}
+            )
+            self.assertEqual(snapshot["last_active_phase"], "streaming")
             self.assertEqual(snapshot["text"], "final")
             self.assertEqual(snapshot["phase"], "failed")
             self.assertIsInstance(snapshot["updated_at"], float)
@@ -422,6 +425,45 @@ class BackendTests(unittest.TestCase):
         self.assertFalse(
             backend.safe_error(backend.BackendError("invalid_input"))["retryable"]
         )
+
+    def test_failure_phase_distinguishes_pre_stream_from_stream_failure(self):
+        async def no_stream(request, provider, progress, observe_usage):
+            raise TimeoutError("PRIVATE_GATEWAY_BODY")
+
+        with patch.object(backend, "_complete", no_stream):
+            with self.assertRaises(TimeoutError) as caught:
+                asyncio.run(backend.complete({}, {}))
+        before = backend.safe_error(caught.exception)
+        self.assertEqual(before["failure_phase"], "requesting")
+        self.assertTrue(before["retryable"])
+        with self.assertRaises(TimeoutError) as caught:
+            self.fake_completion(
+                [chunk(text="", finish=None, usage=False),
+                 TimeoutError("PRIVATE_STREAM_BODY")]
+            )
+        after = backend.safe_error(caught.exception)
+        self.assertEqual(after["failure_phase"], "streaming")
+        self.assertTrue(after["retryable"])
+        self.assertNotIn("PRIVATE", json.dumps([before, after]))
+        self.assertNotIn("failure_phase", backend.safe_error(TimeoutError()))
+
+    def test_failure_phase_does_not_serialize_arbitrary_exception_attributes(self):
+        for phase in (None, [], {"api_key": "PRIVATE"}, "PRIVATE_GATEWAY"):
+            error = TimeoutError("PRIVATE")
+            error._scout_failure_phase = phase
+            payload = backend.safe_error(error)
+            self.assertNotIn("failure_phase", payload)
+            self.assertNotIn("PRIVATE", json.dumps(payload))
+
+    def test_failed_progress_preserves_pre_stream_phase(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "visible.live.json"
+            progress = backend.ProgressFile(path)
+            progress("", "requesting")
+            progress("", "failed")
+            snapshot = json.loads(path.read_text())
+            self.assertEqual(snapshot["phase"], "failed")
+            self.assertEqual(snapshot["last_active_phase"], "requesting")
 
     def test_stream_failure_retains_observed_usage_not_a_final_total(self):
         for failure in (RuntimeError("SECRET_HEADERS"), TimeoutError("SECRET_BODY")):

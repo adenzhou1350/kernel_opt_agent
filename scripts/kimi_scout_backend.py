@@ -57,6 +57,7 @@ class ProgressFile:
         self.path = path
         self.last_write = float("-inf")
         self.phase = None
+        self.last_active_phase = None
 
     def __call__(self, text: str, phase: str) -> None:
         now = time.monotonic()
@@ -66,11 +67,18 @@ class ProgressFile:
             and now - self.last_write < PROGRESS_INTERVAL_SECONDS
         ):
             return
+        if phase in {"requesting", "streaming"}:
+            self.last_active_phase = phase
         temporary = self.path.with_name(f".{self.path.name}.{os.getpid()}.tmp")
         try:
             temporary.write_text(
                 json.dumps(
-                    {"text": text, "updated_at": time.time(), "phase": phase},
+                    {
+                        "text": text,
+                        "updated_at": time.time(),
+                        "phase": phase,
+                        "last_active_phase": self.last_active_phase,
+                    },
                     ensure_ascii=True,
                 )
                 + "\n",
@@ -195,6 +203,7 @@ async def complete(
 ) -> dict:
     visible_text = ""
     observed_usage = None
+    last_active_phase = "requesting"
 
     def observe_usage(raw_usage) -> None:
         nonlocal observed_usage
@@ -203,7 +212,9 @@ async def complete(
             observed_usage = reported
 
     def update(text: str, phase: str) -> None:
-        nonlocal visible_text
+        nonlocal visible_text, last_active_phase
+        if phase in {"requesting", "streaming"}:
+            last_active_phase = phase
         visible_text = text
         report_progress(progress, text, phase)
 
@@ -211,6 +222,8 @@ async def complete(
     try:
         payload = await _complete(request, provider_config, update, observe_usage)
     except BaseException as error:
+        if isinstance(error, Exception):
+            error._scout_failure_phase = last_active_phase
         if isinstance(error, Exception) and observed_usage is not None:
             # Preserve the original failure/retry classification. An interrupted
             # stream's last counters are observations, not a final usage total.
@@ -351,6 +364,10 @@ async def _complete(request: dict, provider_config: dict, progress, observe_usag
 def safe_error(error: Exception) -> dict:
     """Do not echo exception messages: provider errors may contain request data."""
     payload = _safe_error(error)
+    phase = getattr(error, "_scout_failure_phase", None)
+    if isinstance(phase, str) and phase in {"requesting", "streaming"}:
+        # This is an SDK phase, not proof of server receipt or billed work.
+        payload["failure_phase"] = phase
     observed = getattr(error, "_scout_observed_usage", None)
     if isinstance(observed, dict):
         # Only numeric counters may cross the error boundary, never arbitrary
