@@ -987,7 +987,48 @@ class ScoutTests(unittest.TestCase):
         live = json.loads(path.read_text())
         self.assertEqual(live["text"], "partial answer")
         self.assertEqual(live["phase"], "failed")
+        self.assertEqual(live["last_active_phase"], "streaming")
+        self.assertEqual(receipt["failure_phase"], "streaming")
         self.assertNotIn("SECRET", path.read_text())
+
+    def test_backend_failure_phase_is_whitelisted(self):
+        for index, phase in enumerate(("requesting", "streaming", "SECRET", None, {})):
+            with self.subTest(phase=phase):
+                self.add(f"phase-case-{index}")
+                job = scout.claim(self.root, 12, 200000, 2048)
+                response = {"ok": False, "error": "request_timeout",
+                            "error_type": "TimeoutError", "failure_phase": phase}
+                with patch.object(scout.subprocess, "run", return_value=
+                                  subprocess.CompletedProcess([], 1, json.dumps(response), "PRIVATE")):
+                    receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+                if phase in ("requesting", "streaming"):
+                    self.assertEqual(receipt["failure_phase"], phase)
+                else:
+                    self.assertNotIn("failure_phase", receipt)
+                self.assertNotIn("SECRET", json.dumps(receipt))
+                self.assertNotIn("PRIVATE", json.dumps(receipt))
+
+    def test_hard_timeout_preserves_requesting_but_not_unknown_phase(self):
+        for phase in ("requesting", "SECRET"):
+            with self.subTest(phase=phase):
+                self.add(phase)
+                job = scout.claim(self.root, 12, 200000, 2048)
+                path = self.root / "results" / f"{job['id']}.live.json"
+
+                def timeout(*unused, **kwargs):
+                    scout.write_json(path, {"phase": phase, "text": "", "headers": "SECRET"})
+                    raise subprocess.TimeoutExpired("PRIVATE", 30)
+
+                with patch.object(scout.subprocess, "run", side_effect=timeout):
+                    receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+                live = json.loads(path.read_text())
+                if phase == "requesting":
+                    self.assertEqual(live["last_active_phase"], phase)
+                    self.assertEqual(receipt["failure_phase"], phase)
+                else:
+                    self.assertNotIn("last_active_phase", live)
+                    self.assertNotIn("failure_phase", receipt)
+                self.assertNotIn("SECRET", json.dumps(live))
 
     def test_unexpected_tool_capability_is_rejected(self):
         self.add()

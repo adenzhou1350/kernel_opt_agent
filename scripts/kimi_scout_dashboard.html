@@ -544,6 +544,16 @@
     }));
     text("packetText", JSON.stringify(packet, null, 2));
   }
+  function backendProgressLabel(job, live) {
+    if (job.state === "FAILED") {
+      if (live?.last_active_phase === "requesting") return "取得响应流前中断（不证明服务端未处理）";
+      if (live?.last_active_phase === "streaming") return "响应流建立后中断（不代表已有正文）";
+    } else if (job.state === "RUNNING") {
+      if (live?.phase === "requesting") return "等待后端响应流";
+      if (live?.phase === "streaming") return "已取得响应流（正文可能尚未到达）";
+    }
+    return "";
+  }
   function renderDetail(data) {
     if (!data.job || data.job.id !== selectedId) return;
     detail = data; detailNeedsRefresh = false;
@@ -553,6 +563,8 @@
     text("detailSubtitle", [job.repo, job.name, job.id].filter(Boolean).join(" · "));
     const metadata = [["研究阶段",stageLabel(job.stage)],["创建时间",time(job.created,true)],["开始时间",time(job.started,true)],["结束时间",time(job.finished,true)],["耗时",duration(job.elapsed_seconds)],["Token（输入 / 输出）",usage ? number(usage.input_tokens) + " / " + number(usage.output_tokens) : "未报告"],["Token 总计",usage?.total_tokens != null ? number(usage.total_tokens) : "未报告"]];
     if (data.finish_reason) metadata.push(["结束原因",data.finish_reason]);
+    const backendPhase = backendProgressLabel(job, data.live);
+    if (backendPhase) metadata.push(["后端阶段", backendPhase]);
     $("detailMeta").replaceChildren(...metadata.map(([label,value]) => { const item = node("div", "meta-item"); item.append(node("dt", "", label),node("dd", "", value)); return item; }));
     [["父任务",job.parent_job_id],["起始任务",job.root_job_id]].forEach(([label,id]) => {
       if (!/^[a-f0-9]{24}$/.test(id || "") || id === job.id) return;

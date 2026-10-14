@@ -78,8 +78,11 @@ prospective comparison.
   Failed completion payloads retain a whitelisted `failure_phase`, and live files
   retain `last_active_phase`: `requesting` before an SDK response stream exists,
   or `streaming` after it is obtained. Missing fields in older records mean unknown,
-  not zero work. These markers do not prove server receipt, token billing or an
-  outage's cause; they add no provider call, retry, timeout or credential logging.
+  not zero work or an inferred pre-stream failure. The controller preserves this
+  enum in its failure receipt and during a hard subprocess timeout. The read-only job detail
+  displays it without exposing arbitrary backend metadata. These phases do not
+  prove server receipt, billing, root cause, or that visible tokens have arrived.
+  They add no provider call, retry, timeout or credential logging.
 - Results require supplied URLs and source excerpts (ignoring only whitespace
   and displayed line-number prefixes). This checks provenance,
   **not truth**. `REVIEW` is an unverified lead; `NEEDS_CONTEXT` needs human/owner

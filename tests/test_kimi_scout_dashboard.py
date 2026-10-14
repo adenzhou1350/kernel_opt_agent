@@ -810,6 +810,56 @@ function collect(el) {
         )
         self.assertIsNone(self.inbox.detail(self.job_id)["live"])
 
+    def test_live_failure_phase_only_exposes_known_enum(self):
+        for phase in ("requesting", "streaming", "SECRET", None, {}):
+            with self.subTest(phase=phase):
+                self.artifact("live", {"text": "", "phase": "failed",
+                                      "last_active_phase": phase, "headers": "SECRET"})
+                live = self.inbox.detail(self.job_id)["live"]
+                if phase in ("requesting", "streaming"):
+                    self.assertEqual(live["last_active_phase"], phase)
+                else:
+                    self.assertNotIn("last_active_phase", live)
+                self.assertNotIn("SECRET", json.dumps(live))
+
+    @unittest.skipUnless(shutil.which("node"), "Node needed for actual detail renderer")
+    def test_actual_detail_renderer_displays_backend_stage_without_guessing(self):
+        page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        script = page.split("  function backendProgressLabel", 1)[1].split(
+            "  async function getJSON", 1)[0]
+        harness = r"""
+const elements = new Map();
+function node(tag, cls, value) { return {tag, textContent:value || '', children:[],
+ append(...v) {this.children.push(...v)}, replaceChildren(...v) {this.children=v},
+ scrollHeight:0,scrollTop:0,clientHeight:0}; }
+function $(id) {if (!elements.has(id)) elements.set(id,node('div'));return elements.get(id);}
+function text(id,value) {$(id).textContent=value;}
+const time=String,duration=String,number=String,stageLabel=String,plain=String;
+function badge(){} function setNotice(){} function renderAnalysis(){} function renderPacket(){}
+let selectedId='a'.repeat(24),detail,detailNeedsRefresh=true,detailSignature='';
+"""
+        exercise = r"""
+const observations=[];
+for (const [state,live] of [
+ ['RUNNING',{phase:'requesting'}],['RUNNING',{phase:'streaming'}],
+ ['FAILED',{phase:'failed',last_active_phase:'requesting'}],
+ ['FAILED',{phase:'failed',last_active_phase:'streaming'}],
+ ['FAILED',{phase:'failed'}],['FAILED',{last_active_phase:'SECRET'}],
+ ['REVIEW',{last_active_phase:'requesting'}]]) {
+ renderDetail({job:{id:selectedId,state},live});
+ observations.push($('detailMeta').children.filter(n=>n.children[0].textContent==='后端阶段')
+   .map(n=>n.children[1].textContent));
+}
+process.stdout.write(JSON.stringify(observations));
+"""
+        process = subprocess.run([shutil.which("node"), "-"],
+            input=harness + "function backendProgressLabel" + script + exercise,
+            text=True, encoding="utf-8", capture_output=True, timeout=10, check=True)
+        rows = json.loads(process.stdout)
+        self.assertEqual(rows[:4], [["等待后端响应流"], ["已取得响应流（正文可能尚未到达）"],
+            ["取得响应流前中断（不证明服务端未处理）"], ["响应流建立后中断（不代表已有正文）"]])
+        self.assertEqual(rows[4:], [[], [], []])
+
     def test_dead_and_stale_runner_are_not_silently_running(self):
         scout.write_json(
             self.root / "runtime.json",

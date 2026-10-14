@@ -479,6 +479,9 @@ class Inbox:
         request = self.artifact(job_id, "request")
         answer = self.artifact(job_id, "answer")
         live = self.artifact(job_id, "live")
+        visible_live = {k: live[k] for k in ("text", "updated_at", "phase") if k in live}
+        if live.get("last_active_phase") in ("requesting", "streaming"):
+            visible_live["last_active_phase"] = live["last_active_phase"]
         result = json_object(row.get("result"))
         packet = json_object(row.get("packet"))
         prompt = request.get("prompt")
@@ -496,8 +499,7 @@ class Inbox:
             "prompt_reconstructed": reconstructed,
             "analysis": result.get("analysis"),
             "answer": answer.get("text", ""),
-            "live": {k: live[k] for k in ("text", "updated_at", "phase") if k in live}
-            or None,
+            "live": visible_live or None,
             "usage": valid_usage(result.get("usage"))
             or valid_usage(answer.get("usage")),
             "finish_reason": answer.get("finish_reason"),

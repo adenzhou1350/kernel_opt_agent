@@ -668,6 +668,7 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     charge_basis = "reservation"
     token_accounting = {"reported_usage": None, "interrupted_usage_observation": None}
     backend_completed = False
+    failure_phase = None
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
@@ -715,6 +716,8 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
             )
         if proc.returncode:
             # Backend emits only fixed error codes; never retain stderr/body.
+            if response.get("failure_phase") in ("requesting", "streaming"):
+                failure_phase = response["failure_phase"]
             try:
                 failure = json.loads(proc.stdout)
                 code = failure.get("error", "backend_failure")
@@ -760,6 +763,12 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
                 if live_path.exists()
                 else {}
             )
+            if isinstance(live, dict) and not backend_completed:
+                phase = live.get("phase")
+                if phase not in ("requesting", "streaming"):
+                    phase = live.get("last_active_phase")
+                if failure_phase is None and phase in ("requesting", "streaming"):
+                    failure_phase = phase
             if isinstance(live, dict) and live.get("phase") not in {
                 "completed",
                 "failed",
@@ -771,6 +780,7 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
                         "text": text if isinstance(text, str) else "",
                         "updated_at": time.time(),
                         "phase": "failed",
+                        **({"last_active_phase": failure_phase} if failure_phase else {}),
                     },
                 )
         except (OSError, ValueError):
@@ -792,6 +802,8 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
         "wall_seconds": round(time.monotonic() - started, 3),
         "finished": time.time(),
     }
+    if state == "FAILED" and not backend_completed and failure_phase:
+        receipt["failure_phase"] = failure_phase
     write_json(root / "results" / f"{job['id']}.json", receipt)
 
     def persist_receipt():
