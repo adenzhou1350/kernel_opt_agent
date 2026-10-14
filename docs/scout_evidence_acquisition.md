@@ -684,6 +684,24 @@ python -B -m unittest tests.test_scout_duplicate_query tests.test_scout_duplicat
 python -B -m unittest tests.test_scout_cited_issue_context
 ```
 
+### Optional feature-named companion test
+
+Repositories may opt into `followup_feature_test_context=true`. When a follow-up
+explicitly names a Python method whose definition is visible in either of the
+first two same-file source windows, the companion selector can prefer one
+observed test filename containing an adjacent pair of nongeneric method-name
+components plus a source-module component. Only a unique match replaces the
+ordinary companion test read; ambiguous/unmatched cases keep the old selector.
+It adds no GET or model call and keeps the existing 80-line test budget. A name
+match is a retrieval hint, not proof of test coverage or source reachability.
+
+In an exposed SGLang case, the old module-name match selected a throughput test
+while the same tree already contained `test_xpu_encoder_decoder_varlen.py`, with
+a real-XPU mixed-empty SDPA correctness check for the named helper. Retrospective
+replay selects that file with the opt-in. This does not prove that all-empty or
+multiple-query cases are covered, that the XPU tests pass, or that future model
+accuracy/PR yield improves. New prospective evaluation inputs must remain unseen.
+
 ### Operational refill diagnostics
 
 For a parallel research producer, `research.json.refill_health` reports each

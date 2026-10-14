@@ -1,0 +1,26 @@
+{
+  "id": "attention-lse-log-domain",
+  "title": "Verify the exact returned LSE domain before converting attention merge inputs",
+  "applies_when": "An attention fast path computes a row log-sum-exp directly, or states from different attention backends are merged. Similar op names and internal exp2 use can hide different public LSE domains.",
+  "lesson": "Trace the imported producer and exact merge variant at pinned dependency revisions. Distinguish internal exponential arithmetic from the returned LSE contract. In the reviewed SGLang XPU source, _single_token_self_attn returns the scaled single score, which is its natural-log LSE, and calls merge_state_v2. The reviewed SYCL merge_state_v2 uses exp/log; the distinct merge_state uses exp2/log2. Converting that single score to base two merely because another merge implementation uses exp2 would introduce a mismatch. For a runtime check, use unequal nonzero scores and a nonempty prefix so an incorrect conversion changes merge weights; equal scores or an absent prefix are weak controls.",
+  "avoid_when": "A different dependency revision, merge variant or native wrapper can use another convention. Recheck the actual deployed package and all conversions. These are source-contract observations, not executed XPU numerical tests, proof of all DCP paths, a universal no-bug verdict, performance evidence or measured Scout-routing benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2428d0f531602b882892f9f29521cd07ddd3c959/python/sglang/srt/layers/attention/xpu_backend.py",
+      "note": "The single-token helper returns the scaled score; its DCP extension path passes this state to merge_state_v2_wrapper. The selected native package is sgl-kernel-xpu, not the removed in-tree CUDA kernel source."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2428d0f531602b882892f9f29521cd07ddd3c959/python/sglang/srt/layers/attention/flashattention_backend.py",
+      "note": "The wrapper directly calls the imported merge_state_v2 without a log-base conversion. This is a call-chain observation, not a runtime import identity attestation."
+    },
+    {
+      "url": "https://github.com/sgl-project/sgl-kernel-xpu/blob/92a91a952e69860bb6191d2d67beb49410c8d7e0/src/sycl/merge_states.cpp",
+      "note": "The same native source explicitly distinguishes base-e merge_state_v2 (sycl::exp/log) from base-two merge_state (sycl::exp2/log2). This dependency pin was reviewed independently; no installed XPU wheel was validated."
+    },
+    {
+      "url": "https://github.com/sgl-project/sgl-kernel-xpu/blob/92a91a952e69860bb6191d2d67beb49410c8d7e0/tests/test_merge_state_v2.py",
+      "note": "The upstream v2 reference uses natural exp/log. Test-source existence defines an intended oracle, not an executed passing result."
+    }
+  ],
+  "status": "validated"
+}

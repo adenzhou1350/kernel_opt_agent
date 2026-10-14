@@ -283,7 +283,41 @@ def companion_source_paths(path, files):
     return tests[:1], readme
 
 
-def followup_test_request(packet, snapshot, analysis):
+def feature_companion_test(path, files, source_text, hints):
+    """One unique Python test-name hint for an explicitly named visible method.
+
+    No source search or inferred coverage: require two adjacent method-name
+    components plus a nongeneric source-module component in an observed test
+    path. Ambiguity leaves the ordinary companion selector unchanged.
+    """
+    if not path.endswith(".py"):
+        return None
+    generic = {"test", "tests", "forward", "backward", "get", "set", "is", "has", "with", "backend", "utils", "common", "attention", "attn"}
+    stem = path.rsplit("/", 1)[-1].removesuffix(".py")
+    anchors = {part for part in stem.lower().split("_") if len(part) >= 3 and part not in generic}
+    if not anchors:
+        return None
+    names = re.findall(r"^\s*(?:\d+:\s*)?(?:async\s+)?def\s+([A-Za-z_][A-Za-z0-9_]{0,127})\s*\(", source_text[:9000], re.MULTILINE)[:32]
+    pairs = set()
+    for name in names:
+        if re.search(r"(?<!\w)" + re.escape(name) + r"(?!\w)", hints[:16000]) is None:
+            continue
+        parts = name.lower().strip("_").split("_")
+        pairs.update((a, b) for a, b in zip(parts, parts[1:]) if len(a) >= 3 and len(b) >= 3 and a not in generic and b not in generic and a != b)
+    if not pairs:
+        return None
+    matches = []
+    for candidate in files:
+        parts = candidate.split("/")
+        if not candidate.endswith(".py") or not (any(p in {"test", "tests"} for p in parts[:-1]) or parts[-1].startswith("test_")):
+            continue
+        test_parts = parts[-1].removesuffix(".py").lower().split("_")
+        if anchors.intersection(test_parts) and any((a, b) in pairs for a, b in zip(test_parts, test_parts[1:])):
+            matches.append(candidate)
+    return matches[0] if len(matches) == 1 else None
+
+
+def followup_test_request(packet, snapshot, analysis, *, feature_names=False):
     """Suggest one observed companion test, never a model-produced fetch target.
 
     Prefer tests in the source component over unrelated same-named monorepo files.
@@ -304,6 +338,11 @@ def followup_test_request(packet, snapshot, analysis):
         if path not in snapshot["files"]:
             continue
         tests, _ = companion_source_paths(path, snapshot["files"])
+        if feature_names:
+            visible = "\n".join(s["text"] for s in packet["sources"][:2] if s["url"] == url)
+            feature_test = feature_companion_test(path, snapshot["files"], visible, hints)
+            if feature_test:
+                tests = [feature_test]
         if not tests:
             continue
         request = {"path": tests[0], "hints": hints, "max_lines": 80}
@@ -399,6 +438,8 @@ def configuration(path):
             raise ValueError("followup_discussion_context must be a boolean")
         if type(spec.get("followup_issue_body_context", False)) is not bool:
             raise ValueError("followup_issue_body_context must be a boolean")
+        if type(spec.get("followup_feature_test_context", False)) is not bool:
+            raise ValueError("followup_feature_test_context must be a boolean")
         roots = spec.get("tree_roots", [])
         if (
             not isinstance(roots, list)
@@ -1501,7 +1542,7 @@ class ResearchProducer:
             test_request = (
                 None
                 if contracts
-                else followup_test_request(packet, snapshot, analysis_value)
+                else followup_test_request(packet, snapshot, analysis_value, feature_names=spec.get("followup_feature_test_context", False))
             )
             if references:
                 test_request = None
