@@ -5,6 +5,22 @@ source is available. A baseline may reveal a known upstream failure; retain it
 and compare the same affected tests before/after a candidate. Do not suppress
 warnings or weaken assertions to manufacture a green environment.
 
+## Check the contribution destination before opening a new scope
+
+Native testability does not imply a viable upstream contribution channel. Reuse
+`python scripts/scout_contribution_policy.py --repo OWNER/REPO` (or equivalent
+current public metadata and policy evidence) before paying for a new discovery
+scope. Read its timestamped `repository_settings`, including `archived` and
+`disabled`, rather than treating an unchanged Git head as evidence of activity.
+Missing metadata is unknown, not permission. The command observes public facts;
+it does not establish personal eligibility, CLA completion or publication authority.
+
+An archived dependency can still justify an explicitly bounded reproduction or
+research comparison. Do not leave it in continuous PR discovery without a viable
+maintainer/fork channel. If archive status is found late, retain the original
+sample, calls and setup costs; remove only future discovery scope, not historical
+evidence, and do not replace that case to improve a reported success rate.
+
 ## Owner-only intake across languages
 
 For an existing Scout inbox, `kimi_scout_delivery_source.select_leads(root,
