@@ -871,9 +871,11 @@ Calls, comprehensions, unpacking and competing bindings abstain. The excerpt sho
 initialization syntax, not an immutable runtime value or a class attribute;
 later mutation and dynamic subclasses still need separate evidence.
 If no unseen Python uses remain, an unqualified name can instead select its
-unique top-level import statement from that same cached file. Aliases use their
-local name; qualified receivers, wildcard imports, competing imports,
-conditional/nested imports and statements longer than 80 lines are not followed.
+unique module-level import statement from that same cached file, including
+`if`/`try` branches. Each enclosing guard must already be supplied or fit in the
+same window with the import. Aliases use their local name; qualified receivers,
+wildcard imports, competing imports across branches, function/class-local
+imports and statements longer than 80 lines are not followed.
 Already supplied statements are not repeated. The entire import fits one of
 the same two 80-line windows: no dependency fetch, import execution, model call
 or extra acquisition tier is added. This exposes where the name came from,

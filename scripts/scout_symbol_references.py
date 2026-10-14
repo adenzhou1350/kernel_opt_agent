@@ -118,12 +118,15 @@ def _literal_initializer(node):
     container = isinstance(node, (ast.Tuple, ast.List, ast.Set, ast.Dict))
     for child in ast.walk(node):
         if (
-            container and isinstance(child, ast.Name)
+            container
+            and isinstance(child, ast.Name)
             and isinstance(child.ctx, ast.Load)
             and re.fullmatch(r"[A-Z][A-Z0-9_]{1,127}", child.id)
         ):
             continue  # An observed symbolic entry, not its resolved value.
-        if not isinstance(child, (ast.Constant, ast.Tuple, ast.List, ast.Set, ast.Dict, ast.Load)):
+        if not isinstance(
+            child, (ast.Constant, ast.Tuple, ast.List, ast.Set, ast.Dict, ast.Load)
+        ):
             return False
         if isinstance(child, ast.Dict) and any(key is None for key in child.keys):
             return False  # Even literal-looking **unpacking is outside this hint.
@@ -243,7 +246,8 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     literal assignment as a syntax hint, not a resolved constant.
     These are syntactic references, not resolved bindings or runtime calls.
     When no unseen Python uses remain, an unqualified name may expose its
-    unique top-level import statement instead. This does not resolve the
+    unique module import statement instead, including if/try branches when
+    their guards are supplied or fit the same window. This does not resolve the
     imported value, follow a dependency, or rule out rebinding/shadowing.
     C-family comments/literals and directive lines are excluded; local
     declarations may still be included. Macros/aliases are not expanded. Pick the
@@ -409,14 +413,29 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
 
 def _python_import_windows(tree, names, path, supplied, limit):
     """Expose syntax only: unique module-level imports, never resolve bindings."""
+
+    def module_imports(body, guards=()):
+        for node in body:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                yield node, guards
+            elif isinstance(node, (ast.If, ast.Try)):
+                nested = (*guards, node.lineno)
+                yield from module_imports(node.body, nested)
+                yield from module_imports(node.orelse, nested)
+                if isinstance(node, ast.Try):
+                    for handler in node.handlers:
+                        yield from module_imports(
+                            handler.body, (*nested, handler.lineno)
+                        )
+                    yield from module_imports(node.finalbody, nested)
+
+    imports = list(module_imports(tree.body))
     requests = []
     for name in names:
         if "." in name:
             continue  # A receiver's attribute need not be this module's import.
         matches = []
-        for node in tree.body:
-            if not isinstance(node, (ast.Import, ast.ImportFrom)):
-                continue
+        for node, guards in imports:
             for alias in node.names:
                 local = alias.asname or (
                     alias.name.split(".")[0]
@@ -424,12 +443,13 @@ def _python_import_windows(tree, names, path, supplied, limit):
                     else alias.name
                 )
                 if local == name:
-                    matches.append(node)
+                    matches.append((node, guards))
         if len(matches) != 1:
             continue
-        node = matches[0]
-        first, last = node.lineno, node.end_lineno
-        if last - first >= 80 or all(supplied(n) for n in range(first, last + 1)):
+        node, guards = matches[0]
+        first = min([node.lineno, *(g for g in guards if not supplied(g))])
+        last = node.end_lineno
+        if last - first >= 80 or all(supplied(n) for n in range(node.lineno, last + 1)):
             continue
         if any(r["start"] <= first and last < r["start"] + 80 for r in requests):
             continue

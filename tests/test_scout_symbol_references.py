@@ -220,6 +220,49 @@ class ReferenceTests(unittest.TestCase):
         self.packet["sources"][0].update(start_line=1, end_line=1)
         self.assertEqual(len(self.requests()), 2)
 
+    def test_python_guarded_import_supplies_condition_and_binding_syntax(self):
+        for block in (
+            "if AVAILABLE:\n    from optional_backend import target\n",
+            "try:\n    from optional_backend import target\nexcept ImportError:\n    pass\n",
+        ):
+            with self.subTest(block=block):
+                self.python_source(
+                    'raise RuntimeError("never execute cached source")\n'
+                    + "\n" * 100
+                    + block
+                )
+                result = self.requests()
+                self.assertEqual(len(result), 1)
+                selected = self.raw.splitlines()[
+                    result[0]["start"] - 1 : result[0]["start"] + 79
+                ]
+                self.assertIn(block.splitlines()[0], selected)
+                self.assertIn("    from optional_backend import target", selected)
+
+    def test_python_conditional_duplicate_or_local_imports_abstain(self):
+        for block in (
+            "if AVAILABLE:\n    from a import target\nelse:\n    from b import target\n",
+            "def local():\n    from a import target\n",
+            "class Local:\n    from a import target\n",
+        ):
+            with self.subTest(block=block):
+                self.python_source("\n" * 100 + block)
+                self.assertEqual(self.requests(), [])
+
+    def test_python_distant_guard_must_be_supplied_or_fit_the_window(self):
+        self.python_source(
+            "\n" * 100
+            + "if AVAILABLE:\n"
+            + "\n" * 100
+            + "    from optional_backend import target\n"
+        )
+        self.assertEqual(self.requests(), [])
+        self.packet["sources"][0].update(start_line=101, end_line=101)
+        result = self.requests()
+        self.assertEqual(len(result), 1)
+        self.assertLessEqual(result[0]["start"], 202)
+        self.assertGreater(result[0]["start"] + 80, 202)
+
     def test_python_emitted_followup_supplies_consumer_not_repeat_definition(self):
         self.python_source(
             "def target(value):\n    return value\n"
