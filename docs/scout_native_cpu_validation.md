@@ -601,6 +601,44 @@ authorized workers had no Docker, Podman or bubblewrap executable either. Tool
 absence is not an architecture limitation, and these observations do not justify
 weakening isolation or installing a privileged daemon on shared machines.
 
+## Standard-library-only Go comparison baseline
+
+`google/go-cmp` is a bounded CPU-only discovery target. At
+[`b133f1f1932e48f466f597a3346ce6f5a49a0dc1`](https://github.com/google/go-cmp/tree/b133f1f1932e48f466f597a3346ce6f5a49a0dc1),
+its `go.mod` has no external requirements, so a complete raw-Git export can be
+tested with module network access disabled and a verified compatible Go compiler:
+
+```sh
+env GOENV=off GOTOOLCHAIN=local GOPROXY=off GOSUMDB=off \
+  GOMAXPROCS=2 GOMEMLIMIT=1GiB GOFLAGS='-p=2 -mod=readonly' \
+  HOME="$task_home" TMPDIR="$task_tmp" GOPATH="$task_gopath" \
+  GOMODCACHE="$task_modules" GOCACHE="$task_build_cache" \
+  "$reviewed_go" test -race -json -count=1 -timeout=240s ./...
+```
+
+Run from that verified export on an authorized Linux worker, with task-private
+directories and an external process-group wall limit. `GOPROXY=off` is module
+resolution policy, not network isolation. Recheck the compiler's live path,
+version and hash on the actual worker: a historical cache path on another host
+is not a transferable installed environment. Avoid modifying shared Go installs
+or reusing someone else's writable build cache.
+
+An owner check of this unchanged revision on Linux amd64 Go 1.26.9 completed
+ordinary tests and race tests with 710 passing test/subtest events per run and
+zero failed/skipped test events. Five helper packages reported no test files;
+those are not extra passing tests. Source hashes remained unchanged. This is a
+compatibility baseline, not the project's Go 1.21/macOS CI matrix, a discovered
+bug or evidence of higher PR yield. Repeat relevant native checks for new source
+revisions and proposed changes. The wide Scout template uses mutable `master`
+to discover updates rather than treating the tested commit as forever-current.
+
+Check [package contracts](https://github.com/google/go-cmp/blob/b133f1f1932e48f466f597a3346ce6f5a49a0dc1/cmp/compare.go)
+before proposing a repair: comparison callbacks must satisfy their documented
+semantics, and deliberate panics or diff formatting choices are not necessarily
+defects. Source reading does not authorize arbitrary model-generated test code.
+The [contribution guide](https://github.com/google/go-cmp/blob/b133f1f1932e48f466f597a3346ce6f5a49a0dc1/CONTRIBUTING.md)
+also requires the submitter's Google CLA; do not claim one on their behalf.
+
 ## Small owner-reviewed C++ translation units
 
 Do not substitute a Python arithmetic model for a native compiler pass or

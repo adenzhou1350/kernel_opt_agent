@@ -6,6 +6,22 @@
   "source_windows": 12,
   "repos": [
     {
+      "repo": "google/go-cmp",
+      "ref": "master",
+      "source_windows": 6,
+      "source_prefixes": [
+        "cmp/compare.go",
+        "cmp/options.go",
+        "cmp/path.go",
+        "cmp/cmpopts/equate.go",
+        "cmp/cmpopts/ignore.go",
+        "cmp/cmpopts/sort.go",
+        "cmp/cmpopts/xform.go",
+        "cmp/cmpopts/struct_filter.go"
+      ],
+      "question": "Find bounded supported Equal/Diff, option filtering, transformation or slice/map ordering regressions. Read public contracts and existing tests first: unexported-field/option-conflict panics, nondeterministic or asymmetric comparers and NaN behavior can be intentional. Do not transfer iterator semantics from unrelated libraries or count a prettier diff as a bug. Check author ownership and Google CLA requirements. Every candidate needs independent native reproduction at its actual source revision; discovery alone does not qualify tests or publication."
+    },
+    {
       "repo": "vllm-project/vllm",
       "ref": "main",
       "source_prefixes": [
