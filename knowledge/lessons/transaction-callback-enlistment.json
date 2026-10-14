@@ -20,6 +20,10 @@
     {
       "url": "https://redis.io/docs/latest/develop/programmability/lua-api/",
       "note": "Official Lua API documents redis.call errors, explicit key arguments and RESP-to-Lua conversions. An integer reply becomes a Lua number; a bulk string remains a string. This motivates boundary tests, not a blanket rollback, exact-integer or cluster qualification claim."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/pull/7689",
+      "note": "Public conditional-Lua repair and reproducer at commit 2137311970c254a806d9f828b147b7a0f76df53e. Its report preserves the rejected unconditional-pipeline repair, exact-ID/concurrency/error controls and limits. Initial upstream meta core/non-core, build and lint jobs passed; integration checks and maintainer review were still pending when recorded. Publication and partial CI do not establish general rollback, crash/failover safety or prospective selector utility."
     }
   ],
   "status": "validated"
