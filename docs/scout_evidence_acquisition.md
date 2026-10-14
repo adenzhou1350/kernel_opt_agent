@@ -163,6 +163,32 @@ results. Public-history memorization, recall, cross-group utility and equal-pric
 budget superiority remain unknown. Neither this historical repair nor a format
 failure is a new PR outcome.
 
+An additional **exposed development** control now comes from our own
+[Pyodide request repair](https://github.com/fsspec/filesystem_spec/pull/2293).
+The first submitted head `f77a724` passed 65 native tests and nine real-browser
+direct-request checks, but a subsequent actual `HTTPFileSystem.put_file` check
+still uploaded a generator's repr instead of file bytes. Both POST/PUT methods,
+filesystem/BytesIO sources and binary/empty inputs failed the round-trip
+expectation. Adding more direct JSON assertions would not expose this remaining
+consumer-contract gap.
+
+The follow-up `c851dfe` consumes finite iterator chunks as Blob parts. In the
+same Pyodide 314.0.7/CPython 3.14.2 module-worker runtime it satisfies 19 loopback
+expectations: the original nine, two iterator checks and eight actual upload/read
+round trips, including progress count and caller stream ownership. The complete
+native test file reports 67 passes; the same new tests on the partial head yield
+two failures and 65 passes. Native mocks test conversion-call protocol, whereas
+the browser checks use real Blob and synchronous XHR. The implementation buffers
+finite chunks and does not qualify streaming, large-upload memory or cloud services.
+
+This is one related, owner-exposed partial/extended-repair group, not fresh
+prospective selection labels, nineteen independent discoveries or a comparison
+against a model/rules policy. No new model calls were used; owner/setup cost was
+not fully measured. Keep both revisions together and outside fresh evaluation
+splits. The case motivates including a real upper-consumer observation as an
+available action, not a claim that a selector will choose it or improve recall,
+total cost or PR conversion.
+
 `fetch_source(url)` accepts only HTTPS `raw.githubusercontent.com` URLs with an
 exact 40-character commit and a safe path. Percent-encoded targets are excluded
 in this initial interface. It makes one GET, without authentication, redirect,
