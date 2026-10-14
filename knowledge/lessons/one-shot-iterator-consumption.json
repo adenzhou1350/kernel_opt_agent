@@ -28,6 +28,10 @@
     {
       "url": "https://github.com/samber/lo/blob/5c6ddcb7063c9908031340db03f27ba7483d1ece/it/intersect_test.go",
       "note": "Existing tests explicitly support a single input and duplicate removal, but construct restartable slice-backed iterators. Their presence does not cover a single-use producer."
+    },
+    {
+      "url": "https://github.com/samber/lo/pull/1037",
+      "note": "Separate unary Intersect/By repair delegates to streaming Uniq/UniqBy without buffering the whole input. Public regressions cover ChannelToSeq, transform counts, laziness/early break, named restartable inputs and zero/multiple-input controls. Independently validated on Linux and Windows; an open PR is not upstream acceptance or evidence of prospective routing gains."
     }
   ],
   "status": "validated"
