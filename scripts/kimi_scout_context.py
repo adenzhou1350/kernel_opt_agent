@@ -14,6 +14,7 @@ from pathlib import Path
 
 import kimi_scout as scout
 from scout_contribution_policy import repository_settings
+from scout_public_cache import read_cache
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_issue_timeline import linked_pr_context
 from scout_go_context import go_declaration_anchor
@@ -255,13 +256,10 @@ class PublicContext:
 
     def _load(self, path):
         try:
-            with path.open("rb") as stream:
-                data = stream.read(CACHE_LIMIT + 1)
-            if len(data) > CACHE_LIMIT:
-                return None
+            data = read_cache(path, CACHE_LIMIT)
             value = json.loads(data)
             return value if isinstance(value, dict) else None
-        except (OSError, ValueError):
+        except (OSError, ValueError, EOFError):
             return None
 
     def snapshot(self, repo, ref="main"):

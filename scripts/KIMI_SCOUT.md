@@ -107,6 +107,29 @@ prospective comparison.
   image storage stay in their existing locations; other projects' caches are
   not migrated.
 
+## Optional public-cache maintenance
+
+The reader supports both ordinary JSON and lossless `.json.gz` public-context
+entries within the same decompressed byte cap. A new ordinary entry takes
+precedence; malformed ordinary JSON never falls back to a stale compressed copy.
+Corrupt, truncated or oversized compressed entries are cache misses, not evidence.
+
+With the owned controller stopped, an operator can explicitly compress its
+regenerable `<root>/public-cache` entries:
+
+```sh
+python -B scripts/scout_public_cache.py --cache runs/kimi-scout/public-cache --max-files 2000 --seconds 60
+```
+
+This is not automatic maintenance. It verifies exact round-trip bytes and an
+unchanged original before removing the ordinary copy; conflicting archives and
+write failures preserve the original. Do not run it alongside a cache writer.
+Only named public-cache entries are eligible; jobs, results, weights and private
+configuration are not inputs. Filesystem-compressed entries can already use less
+space than gzip: logical byte savings and observed free-space changes are
+reported separately, not as measured discovery or conversion benefits.
+Offline checks: `python -B -m unittest tests.test_scout_public_cache tests.test_kimi_scout_context`.
+
 ## Run
 
 Before adding a new contribution repository, read its contribution policy and
