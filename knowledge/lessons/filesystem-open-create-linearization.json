@@ -1,0 +1,22 @@
+{
+  "id": "filesystem-open-create-linearization",
+  "title": "Test operation atomicity separately from data-race freedom in file creation",
+  "applies_when": "A concurrent filesystem or keyed resource registry checks absence under one lock, releases it, then creates or replaces the entry under another critical section. Exclusive creation or multiple handles to one live object are part of the public contract.",
+  "lesson": "Trace the whole check-to-publication transition, not merely individual protected map reads and writes. In pinned Afero MemMapFs.OpenFile, openWrite and Create each lock correctly but concurrent missing-path callers can all pass the first check. Exclusive creation can have multiple winners; nonexclusive opens can return different file instances and lose writes from the final path. Recheck under the creation lock, return the existing object or exclusive-create error, and initialize new-object permissions before exposing the entry. Use public concurrent calls, a simultaneous-start gate, normalized path aliases, and existing-file content/mode controls. Check both exclusive and nonexclusive creation: a multiple-winner-only fix can leave handle identity broken. Preserve failed baseline runs and compare the identical tests on the repair. Successful race-detector execution alone cannot prove the operation's atomicity.",
+  "avoid_when": "This is a keyed creation transaction, not a universal instruction to add a global lock, change flag semantics or serialize all I/O. Respect existing access-error precedence, explicit truncation, parent handling, and direct Create semantics. Afero's O_EXCL-without-O_CREATE proposal and concurrent-Rename fix are different mechanisms. Start-gated repeated tests observed on native Linux/Windows are scheduling-sensitive checks, not exhaustive interleaving coverage or proof of every filesystem contract. No performance, remote/cloud filesystem, supported-version matrix, maintainer acceptance, Scout cost/recall or prospective selector advantage follows from this known case.",
+  "evidence": [
+    {
+      "url": "https://github.com/spf13/afero/blob/eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/memmap.go",
+      "note": "Pinned baseline separates the OpenFile lookup from Create's map replacement; Mkdir in the same file already double-checks under its writer lock. Individual synchronization does not establish the compound creation contract."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/afero/blob/02fedff52f26985e9a520912c675c9c3515dbd9f/memmap.go#L240-L260",
+      "note": "Published fork repair rechecks existence and sets initial permissions inside the creation lock; the ordinary existing-file path stays intact. A proposed fork commit, not an upstream merge or CI verdict."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/afero/blob/02fedff52f26985e9a520912c675c9c3515dbd9f/memmap_openfile_atomic_test.go",
+      "note": "Public reproduction source covers exclusive winner count, shared nonexclusive file contents, path aliases, and existing content/mode preservation. Local native outcome records are separate; test source alone is not an executed result."
+    }
+  ],
+  "status": "validated"
+}
