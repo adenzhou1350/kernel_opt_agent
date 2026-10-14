@@ -1,0 +1,22 @@
+{
+  "id": "constructor-global-state-repeatability",
+  "title": "Separate repeatable construction from global state and instance isolation",
+  "applies_when": "A constructor trims or renames shared nodes, changes a global metadata name, or seems safe to test with an in-memory backend while reading process-global state files.",
+  "lesson": "Inspect the complete constructor and its global readers before choosing a repair. Compare the first and second calls under the same options, with an ordinary-configuration control, and assert behavior through the real lookup API rather than only slice length. If independent instances are supported, also check that creating the second instance does not change the first. Copying a slice header or even its pointed-to nodes in the constructor cannot isolate lookups that still read a package-global table. Resolve the supported lifetime contract before a broader API rewrite. Confine constructor state loading, file renames and caches to private temporary paths before native probes; an in-memory storage backend does not make the whole constructor side-effect-free.",
+  "avoid_when": "A documented one-per-process initialization contract can make independent instances a feature request, not a supported-use regression. A repeated-call failure does not prove that the normal one-instance mount fails, that data is lost, or that a shallow-copy fix is sufficient. Restoration around a serial characterization is test isolation, not a production fix or concurrent safety proof. The linked sources establish mechanisms only; they do not publish native results or establish better Scout discovery, PR conversion or cross-framework utility.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/vfs/vfs.go#L1266-L1290",
+      "note": "NewVFS trims/prefixes global internalNodes, prefixes meta.TrashName, and loads/renames an environment-selected or parent-process-based state file. Source evidence motivates repeat-construction and side-effect controls, not a supported multi-instance contract."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/vfs/internal.go#L112-L151",
+      "note": "Exported special-name and internal-node lookups consult the shared node table; a constructor-local copy alone cannot provide instance-specific resolution."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/meta/base.go#L1324",
+      "note": "Metadata lookup also consumes TrashName. Trace these consumers before treating the VFS node array as the whole ownership boundary."
+    }
+  ],
+  "status": "hypothesis"
+}
