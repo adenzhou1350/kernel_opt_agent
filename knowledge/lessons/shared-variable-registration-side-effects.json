@@ -1,0 +1,22 @@
+{
+  "id": "shared-variable-registration-side-effects",
+  "title": "Registering a shared variable can overwrite its current value",
+  "applies_when": "A flag, configuration or binding adapter reuses caller-owned storage while passing original default metadata to a registration helper. Tests copy only freshly declared values, so current value and default are equal.",
+  "lesson": "Trace the registration helper through its initializer, not just its signature: Go flag.StringVar calls newStringValue, which immediately assigns the supplied value to the pointed-to string. In pinned pflag CopyToGoFlagSet, the string branch passes flag.DefValue while the other typed branches pass their current values. After parsing, registration therefore resets both the copy and the source through their shared pointer. Establish the adapter's preservation contract, then test the source before/after copying, destination value, source default metadata, destination default policy, and updates in both directions. Use a nondefault value and an explicit empty value alongside an unchanged-default control. When preserving current state is intended, register with that current value; do not silently turn shared storage into a detached copy.",
+  "avoid_when": "Ordinary declaration is supposed to initialize its variable. A deliberate reset, independent snapshot, pre-parse-only adapter or original-default preservation contract may require a different design. Matching other branches is corroboration, not the entire specification. This lesson explains the pinned source mechanism and reviewed local regression; it does not claim the unpublished repair is accepted, the full supported Go/OS matrix or lint passed, or that retrieval improves Scout conversion, recall or performance.",
+  "evidence": [
+    {
+      "url": "https://go.dev/src/flag/flag.go",
+      "note": "StringVar delegates to newStringValue, whose initializer writes *p = val. Registration can mutate existing caller storage before any new Parse or Set call. This is the standard library mechanism, not an adapter qualification result."
+    },
+    {
+      "url": "https://github.com/spf13/pflag/blob/c966cfef47379dcb01e7929504d66d94b540945b/golangflag.go#L115-L148",
+      "note": "CopyToGoFlagSet adds current flags with shared typed pointers; only the string branch uses DefValue instead of the current value. Reading neighboring branches and the callee identifies the destructive write."
+    },
+    {
+      "url": "https://github.com/spf13/pflag/pull/330",
+      "note": "Original merged implementation and discussion explain Go flag interoperability and shared-value behavior. This is background for the contract, not acceptance of the later local repair or a claim that no other related work exists."
+    }
+  ],
+  "status": "validated"
+}

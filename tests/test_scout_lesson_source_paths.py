@@ -133,6 +133,28 @@ class SourceLessonTests(unittest.TestCase):
         self.assertTrue(any("parseLocalDate" in item["note"] for item in matched["evidence"]))
         self.assertIn("public helper", matched["avoid_when"].casefold())
 
+    def test_shared_registration_card_fits_and_keeps_contract_limit(self):
+        url = (
+            "https://raw.githubusercontent.com/spf13/pflag/"
+            "c966cfef47379dcb01e7929504d66d94b540945b/golangflag.go"
+        )
+        result = lessons.lesson_suggestions(
+            "CopyToGoFlagSet string values and shared default initialization",
+            source_urls=[url],
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertTrue(result["source_path_match"])
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "shared-variable-registration-side-effects")
+        self.assertLessEqual(
+            len(json.dumps(matched, ensure_ascii=False).encode()),
+            lessons.MAX_CARD_BYTES,
+        )
+        self.assertIn("newStringValue", matched["lesson"])
+        self.assertIn("explicit empty value", matched["lesson"])
+        self.assertIn("pre-parse-only", matched["avoid_when"])
+        self.assertNotIn("qualified", result)
+
     def test_research_emitter_supplies_source_urls_without_extra_source_reads(self):
         root = self.root / "run"
         scout.initialize(root)
