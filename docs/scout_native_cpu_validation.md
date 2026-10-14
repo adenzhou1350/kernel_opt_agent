@@ -139,6 +139,69 @@ restored by that trial extractor. Submodule gitlinks are refused, not omitted.
 This fixes newly materialized trials; it does not retroactively establish that
 old source receipts contain commit-exact bytes, or qualify a project's runtime.
 
+## Mooncake Store: private C++ dependencies before model-generated tests
+
+The pinned [Store test targets](https://github.com/kvcache-ai/Mooncake/blob/3312b5182bdcd1f46c13d1e07a190dfc33da5524/mooncake-store/tests/CMakeLists.txt)
+link the real Store and Transfer Engine. A copied initialization conditional does
+not test those implementations. At this revision, `client_integration_test` can
+build on an authorized Linux CPU worker without CUDA, Rust or a running external
+master. Use the exact source and pybind11 gitlink, and the pinned YLT/GTest inputs;
+record whether dependency archives were independently verified or merely reused.
+
+For a task-private Debian/Ubuntu dependency prefix, inspect the upstream
+[dependency list](https://github.com/kvcache-ai/Mooncake/blob/3312b5182bdcd1f46c13d1e07a190dfc33da5524/dependencies.sh)
+before compiling. Verify target-compatible package bytes against their trusted
+package metadata before extracting with `dpkg-deb -x`; this is not a system
+installation. Three observed setup traps are worth checking early:
+
+- `msgpack.hpp` is required by Store even when CMake configuration succeeds.
+  On Ubuntu 22.04 it comes from `libmsgpack-dev`; package splitting differs on
+  newer distributions. Do not substitute a fake serialization header.
+- Private OpenSSL headers also need the prefix's multiarch include directory,
+  such as `usr/include/x86_64-linux-gnu`, for `openssl/opensslconf.h`.
+- An extracted glog CMake target can retain an absolute system `libunwind.so`
+  path. Relocate only that verified private metadata reference to the extracted
+  library, preserving its original bytes and the exact substitution. Do not
+  create a system symlink or change Mooncake to evade the missing dependency.
+
+One reviewed configuration used the following options (replace placeholders
+with fresh private paths; these commands do not provision dependencies):
+
+```sh
+cmake -S "$task_source" -B "$task_build" -G Ninja \
+  -DWITH_STORE=ON -DWITH_STORE_RUST=OFF -DWITH_TE=ON \
+  -DBUILD_UNIT_TESTS=ON -DBUILD_EXAMPLES=OFF -DBUILD_BENCHMARK=OFF \
+  -DUSE_CUDA=OFF -DUSE_TENT=OFF -DUSE_ETCD=OFF -DUSE_REDIS=OFF -DUSE_HTTP=OFF \
+  -DCMAKE_BUILD_TYPE=Debug -DENABLE_DEBUG_SYMBOLS=OFF \
+  -DCMAKE_CXX_FLAGS_DEBUG='-O0 -g0' -DCMAKE_C_FLAGS_DEBUG='-O0 -g0' \
+  -DCMAKE_PREFIX_PATH="$task_prefix/usr" \
+  -DCMAKE_BUILD_RPATH="$task_prefix/usr/lib/x86_64-linux-gnu" \
+  -DJSONCPP_INCLUDE_DIR="$task_prefix/usr/include/jsoncpp" \
+  -DJSONCPP_LIBRARY="$task_prefix/usr/lib/x86_64-linux-gnu/libjsoncpp.so" \
+  -DFETCHCONTENT_SOURCE_DIR_YALANTINGLIBS="$task_ylt" \
+  -DFETCHCONTENT_SOURCE_DIR_GOOGLETEST="$task_gtest" \
+  -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+CPLUS_INCLUDE_PATH="$task_prefix/usr/include/x86_64-linux-gnu" \
+C_INCLUDE_PATH="$task_prefix/usr/include/x86_64-linux-gnu" \
+cmake --build "$task_build" --target client_integration_test --parallel 2
+```
+
+The observed GCC 11.4/CMake 3.22.1 build completed after retained failed setup
+attempts. That establishes this target's buildability, not a clean-build timing,
+general toolchain support or full CI. Inspect resolved native libraries before
+testing; private headers alone do not prove the loader uses matching libraries.
+
+Review listener behavior before running integration tests on a shared host.
+The pinned embedded master binds loopback, but Transfer Engine handshake/data
+listeners can bind wildcard addresses. A private directory is not network
+isolation. Use an available isolated network environment; if a reviewed common
+test adaptation redirects binds to loopback instead, disclose it for both arms
+and do not call the result an unadapted suite or a performance measurement.
+Use a real reachable master and passing TCP control when testing transport-init
+failure: failure to connect to a missing master can make both arms return null
+without ever reaching the suspected installation path. Bound build/test process
+groups, preserve terminal failures, and terminate only owned children on timeout.
+
 ## Windows-native TypeScript checks without bypassing runtime requirements
 
 Read the reviewed checkout's `package.json` engines and test wrappers before
