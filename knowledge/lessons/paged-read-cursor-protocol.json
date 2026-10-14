@@ -1,0 +1,22 @@
+{
+  "id": "paged-read-cursor-protocol",
+  "title": "Test a paged reader through exhaustion, not just its first batch",
+  "applies_when": "A file, archive or adapter exposes repeated bounded reads on one handle, with a contract to advance through entries and eventually report exhaustion. A first full-directory listing can pass while the paged protocol is broken.",
+  "lesson": "Check the state transition across calls. In Afero zipfs at eb6a928, Readdir and Readdirnames each restart traversal of the same map; bounded callers repeat entries and never reach EOF. Use a finite fixture and bounded call sequence, collecting every entry once, then repeat exhausted reads. Cover partial final batches, zero/negative counts after a bounded read, mixed metadata/name methods sharing one cursor, empty directories, independent handles and Close. Do not require a particular map order. A per-handle entry snapshot plus offset provides stable traversal; compare counts against remaining entries before adding them to the offset to avoid huge-count overflow. Release retained snapshot state on Close. Run the same regression file against unchanged and repaired production bytes; a baseline compile failure from asserting a new private field is setup failure, not bug discrimination.",
+  "avoid_when": "A stateless listing API may deliberately restart, or require an explicit continuation token rather than a file cursor. Check that contract first. Snapshotting adds O(directory entry count) metadata and does not justify sorting or buffering archive contents. The linked repair was tested on Linux Go1.26.9 root-module race/vet and native Windows/amd64 CGO-disabled ZIP tests, not every platform, Go version, concurrent handle use or cloud backend. Existing first-listing/path controls do not prove pagination, and a separate pagination failure does not invalidate those controls. An open PR is not maintainer acceptance, portable performance or measured Scout-routing benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/spf13/afero/blob/eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/zipfs/file.go",
+      "note": "Pinned baseline: both directory methods rebuild their result from map traversal with no directory cursor or exhausted positive-read EOF."
+    },
+    {
+      "url": "https://github.com/spf13/afero/blob/9c564ce33e442c5c5b8f5646cc0284d8bfb3d3f1/zipfs/readdir_test.go",
+      "note": "Common public-API regressions and controls cover the sequence and resource lifetime. The repaired source was independently executed; no private-field assertion is needed to compile the tests on the baseline."
+    },
+    {
+      "url": "https://github.com/spf13/afero/pull/699",
+      "note": "Proposed shared-cursor repair with explicit memory and validation scope; Linux and native Windows matched checks pass after baseline assertion failures. This is not a merge or performance claim."
+    }
+  ],
+  "status": "validated"
+}
