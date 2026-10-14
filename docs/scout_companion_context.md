@@ -71,3 +71,25 @@ name its complete repository-relative path in `source_prefixes`, for example
 `pyparsing/diagram/__init__.py`. This includes that file, not every initializer
 under the directory; generated/vendor exclusions still apply. Selection only
 supplies pinned source evidence and does not prove a defect or native execution.
+
+## Inline function names in long issue templates
+
+An issue can name a Python function after a long checklist, outside the generic
+32-word hint budget. The source reader now considers up to eight distinct inline
+backtick identifiers within the existing 2,000-character hint limit. If exactly
+one actual Python function matches, its syntax location takes precedence over
+generic keyword scoring. Existing qualified-member, explicit line/literal and
+explicit definition requests retain their precedence. Paths, URLs, code fences,
+duplicate declarations, multiple matching functions and invalid Python do not
+activate this selection; classes and JavaScript declarations are not resolved by
+this additional hint.
+
+This reuses already-read source and the existing bounded window. It does not
+fetch another file, infer a receiver, execute code or claim the function body is
+complete. The exposed-case regression moved a window from unrelated tail text
+to the named function; it is retrospective reader evidence, not a prospective
+PR-yield or model-accuracy result.
+
+```text
+python -B -m unittest tests.test_scout_inline_issue_anchor tests.test_kimi_scout_context tests.test_scout_requested_definition
+```

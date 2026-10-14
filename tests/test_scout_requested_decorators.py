@@ -52,7 +52,7 @@ class RequestedDecoratorTests(unittest.TestCase):
         raw = "# preceding context\n" * 120 + "@cute.jit\ndef target():\n    return True\n"
         with tempfile.TemporaryDirectory() as directory:
             context = PublicContext(directory)
-            with patch.object(context, "snapshot", return_value={"files": ["kernel.py"]}), \
+            with patch.object(context, "snapshot", return_value={"files": ["kernel.py"], "blobs": {"kernel.py": "b" * 40}}), \
                     patch.object(context, "_read", return_value=raw) as read:
                 for max_lines, complete in ((4, True), (1, False)):
                     evidence = context.source(

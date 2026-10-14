@@ -21,7 +21,7 @@ class RequestedClassTests(unittest.TestCase):
                     + "        hidden_states = self.state.apply_ffn_combine(hidden_states, residual)\n"
                     + "        self.state.clear_coefficients()\n"
                     + "        return hidden_states\n")
-        self.snapshot = patch.object(self.ctx, "snapshot", return_value={"files": ["src/gated.py"]})
+        self.snapshot = patch.object(self.ctx, "snapshot", return_value={"files": ["src/gated.py"], "blobs": {"src/gated.py": "b" * 40}})
         self.snapshot.start()
         self.addCleanup(self.snapshot.stop)
         self.reader = patch.object(self.ctx, "_read", side_effect=lambda *a, **kw: self.raw)
@@ -74,7 +74,7 @@ class RequestedClassTests(unittest.TestCase):
         self.raw = "class _FfnUpdate:\n    # " + "x" * 10000 + "\n    pass\n"
         # The immutable cache belongs to the previous source, so use a fresh cache.
         self.ctx = PublicContext(Path(self.temp.name) / "long")
-        with patch.object(self.ctx, "snapshot", return_value={"files": ["src/gated.py"]}), \
+        with patch.object(self.ctx, "snapshot", return_value={"files": ["src/gated.py"], "blobs": {"src/gated.py": "b" * 40}}), \
                 patch.object(self.ctx, "_read", return_value=self.raw):
             result = self.source()
         self.assertFalse(result["requested_definition_complete"])

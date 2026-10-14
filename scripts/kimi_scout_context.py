@@ -111,7 +111,7 @@ def _test_suite_anchor(lines, hints):
 def _definition_line(lines, hints):
     """Prefer a requested Python/JS declaration to incidental keyword mentions.
 
-    This is a bounded lexical anchor, not parsing, coverage or reachability proof.
+    This is a bounded location hint, not coverage or reachability proof.
     Qualified method names take precedence over their enclosing class names.
     """
     hints = hints[:2000]
@@ -129,6 +129,15 @@ def _definition_line(lines, hints):
         if match and match[1] in priority:
             name = match[1]
             matches.append((name not in qualified, priority[name], index))
+    # Issue templates can consume the generic 32-word budget before an inline
+    # function name. Reuse the syntax-only selector on already-read source:
+    # one actual Python function among <=8 observed names, never a URL/fence
+    # or a guessed receiver. Keep existing qualified-member precedence.
+    inline_names = set(re.findall(r"(?<!`)`([A-Za-z_]\w{2,127})`(?!`)", hints))
+    if 1 <= len(inline_names) <= 8 and not any(not item[0] for item in matches):
+        inline = requested_function_window(lines, " ".join(sorted(inline_names)))
+        if inline is not None:
+            return inline["start_line"] - 1
     # Long issue headers can push the exact class past the generic 32-word
     # fallback. Prefer one observed class unless a qualified member matched.
     class_names = set(re.findall(r"\b[A-Z][A-Za-z0-9]{5,127}\b", hints))
