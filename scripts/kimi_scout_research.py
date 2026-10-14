@@ -20,7 +20,7 @@ import kimi_scout as scout
 import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
-from scout_cited_issue import cited_issue_number
+from scout_cited_issue import cited_issue_number, related_issue_body, requested_issue_number
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint
@@ -375,6 +375,8 @@ def configuration(path):
             raise ValueError("followup_code_search must be a boolean")
         if type(spec.get("followup_discussion_context", False)) is not bool:
             raise ValueError("followup_discussion_context must be a boolean")
+        if type(spec.get("followup_issue_body_context", False)) is not bool:
+            raise ValueError("followup_issue_body_context must be a boolean")
         roots = spec.get("tree_roots", [])
         if (
             not isinstance(roots, list)
@@ -1659,9 +1661,27 @@ class ResearchProducer:
                 else json.loads(row["result"])["analysis"]["title"]
             )
             revisions = []
+            body_number = (
+                requested_issue_number(spec["repo"], packet["sources"], analysis_value)
+                if not number and spec.get("followup_issue_body_context", False)
+                else None
+            )
+            if body_number is not None:
+                try:
+                    expanded = related_issue_body(self.context, spec["repo"], body_number)
+                except (ValueError, OSError) as exc:
+                    progress["issue_body_context_error"] = type(exc).__name__
+                else:
+                    progress.pop("issue_body_context_error", None)
+                    # Prefer the requested body over an inherited clipped search
+                    # hit, without replacing the candidate's primary source.
+                    sources = [sources[0], expanded] + [
+                        source for source in sources[1:]
+                        if source["url"] != expanded["url"]
+                    ]
             requested_pr = (
                 requested_pr_number(spec["repo"], packet["sources"], analysis_value)
-                if spec.get("followup_pr_revision_context", False)
+                if body_number is None and spec.get("followup_pr_revision_context", False)
                 else None
             )
             if requested_pr is not None:
@@ -1681,14 +1701,16 @@ class ResearchProducer:
             )
             related_prs = (
                 self.issue_pr_context(spec["repo"], lookup_number)
-                if lookup_number and not revisions else None
+                if body_number is None and lookup_number and not revisions else None
             )
             if related_prs is not None and not number:
                 related_prs = {
                     **related_prs, "related_issue": lookup_number,
                     "candidate_focus_adopted": False,
                 }
-            if revisions:
+            if body_number is not None:
+                pass  # The one body GET replaces other related-work lookups.
+            elif revisions:
                 sources.extend(revisions)
             elif related_prs and related_prs["sources"]:
                 sources.extend(related_prs["sources"])
@@ -1698,7 +1720,7 @@ class ResearchProducer:
                         spec["repo"], source_duplicate_title(spec["repo"], title, sources)
                     )
                 )
-            if spec.get("followup_discussion_context", False):
+            if body_number is None and spec.get("followup_discussion_context", False):
                 sources.extend(discussion_sources(self.context, spec["repo"], title))
             sources = distinct_sources(sources)
             old_evidence = {retrieval_identity(s) for s in packet["sources"]}

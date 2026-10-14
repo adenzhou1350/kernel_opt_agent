@@ -644,6 +644,46 @@ lexical acquisition shortcut, not proof of a complete body or type binding.
 An exposed GJSON source replay removed one redundant go.mod request; it does not
 establish prospective model accuracy, token savings or PR-conversion benefit.
 
+Related-work search can also use one title-mentioned, visibly defined C++ method
+as its existing query hint. It accepts contiguous numbered out-of-line definitions
+with a body opener in a pinned same-repository source; comments, strings,
+preprocessor directives, declarations without bodies and ambiguous matches retain
+the original title. Unsupported raw strings and clipped signatures abstain.
+This is lexical evidence, not a C++ parser, owner binding, absence/duplicate
+verdict, or extra search request. Python owner-spelling behavior is unchanged.
+The existing lookup still returns at most five issue/PR excerpts in at most two
+queries; a relevant RFC may explain why an apparently small repair needs a wider
+safety change. Read it before publishing, rather than automatically rejecting
+every overlapping contribution. Offline composed checks do not establish live
+search recall or prospective call/PR savings.
+
+Repositories may opt into `followup_issue_body_context=true`. A source-chain
+follow-up can then explicitly name one already displayed canonical issue in
+`next_check`, by its same-repository URL or `#number`. The controller constructs
+one body GET after the usual public-visibility check. It replaces other
+related-work/PR-revision/discussion lookups for that follow-up, not its normal
+source reads. The body uses the existing 5,000-character head-tail budget;
+comments, timeline and recursively linked reports are not fetched. The original
+primary source and chain/root ownership remain unchanged; the requested report
+replaces its inherited search snippet and is not marked peripheral search text.
+Foreign, unseen, malformed and comment-only references cannot create fetch URLs.
+Invalid/failed responses remain errors, not successful-empty reports; defaults
+and citation-only related-PR searches are unchanged.
+
+An exposed Mooncake case had already retrieved [RFC #3231](https://github.com/kvcache-ai/Mooncake/issues/3231),
+but packet-budget trimming retained only its title and opening paragraph, not
+the scope-safety constraints. This was a **body-availability gap**, not proof
+that a better symbol query discovered the report. Reading the RFC changed the
+owner's decision: a recursive-delete-only patch is not a qualified fix for the
+broader unscoped cleanup problem. The new capability honors an explicit request;
+it does not guarantee the model will request, read or apply the relevant body,
+or prove safe deletion, better recall, reduced spend or PR conversion.
+
+```text
+python -B -m unittest tests.test_scout_duplicate_query tests.test_scout_duplicate_owner_spelling tests.test_scout_native_reference_anchor
+python -B -m unittest tests.test_scout_cited_issue_context
+```
+
 ### Optional BM25 window comparator
 
 `scout_shadow_comparison.run_arm` accepts `action="bm25"` for newly declared

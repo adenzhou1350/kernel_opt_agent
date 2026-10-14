@@ -129,6 +129,66 @@ class DuplicateQueryTests(unittest.TestCase):
             source_duplicate_title(self.repo, title, [self.source("update")]), title
         )
 
+    def test_cpp_definition_restores_method_query_without_extra_requests(self):
+        title = "非 eviction 模式 RemoveAll 漏删嵌套文件"
+        source = self.source(url=self.source()["url"].replace("ops.py", "storage.cpp"),
+                             text="583: void StorageBackend::RemoveAll() {\n584:   return;\n585: }")
+        self.assertEqual(source_duplicate_title(self.repo, title, [source]), "RemoveAll")
+        source["text"] = "583: void StorageBackend::RemoveAll(\n584:   ) {\n585: }"
+        self.assertEqual(source_duplicate_title(self.repo, title, [source]), "RemoveAll")
+
+    def test_cpp_comments_strings_calls_declarations_and_unsupported_syntax_abstain(self):
+        title = "RemoveAll misses files"
+        for text in (
+            "583: // void Backend::RemoveAll() {",
+            '583: const char* x = "void Backend::RemoveAll() {";',
+            "583: /* void Backend::RemoveAll() { */",
+            "583: void Backend::RemoveAll();",
+            "583: return Backend::RemoveAll();",
+            "583: auto result = Backend::RemoveAll();",
+            "583: #define CLEAN void Backend::RemoveAll() {",
+            '583: auto x = R"(void Backend::RemoveAll() {)";',
+            "583: void Backend::RemoveAll(\n585: ) {",
+            "void Backend::RemoveAll() {",
+            "583: void Backend::RemoveAll(\n584: )",
+        ):
+            with self.subTest(text=text):
+                source = self.source(url=self.source()["url"].replace("ops.py", "ops.cpp"), text=text)
+                self.assertEqual(source_duplicate_title(self.repo, title, [source]), title)
+
+    def test_multiple_cpp_owners_and_files_remain_ambiguous(self):
+        title = "RemoveAll failure"
+        source = self.source(url=self.source()["url"].replace("ops.py", "ops.cpp"),
+                             text="583: void First::RemoveAll() {\n584: }\n585: void Second::RemoveAll() {\n586: }")
+        self.assertEqual(source_duplicate_title(self.repo, title, [source]), title)
+        source["text"] = "583: void First::RemoveAll() {\n584: }"
+        other = {**source, "url": source["url"].replace("ops.cpp", "other.cpp")}
+        self.assertEqual(source_duplicate_title(self.repo, title, [source, other]), title)
+
+    def test_cpp_hint_composes_with_existing_bounded_issue_search(self):
+        from unittest.mock import patch
+        from urllib.parse import parse_qs, urlsplit
+        import tempfile
+        from kimi_scout_context import PublicContext
+
+        source = self.source(url=self.source()["url"].replace("ops.py", "ops.cpp"),
+                             text="583: void StorageBackend::RemoveAll() {\n584: }")
+        title = "非 eviction 模式 RemoveAll 漏删嵌套文件"
+        queries = []
+        def respond(url):
+            query = parse_qs(urlsplit(url).query)
+            queries.append(query["q"][0])
+            self.assertEqual(query["per_page"], ["5"])
+            return {"items": [{"number": 3231, "title": "Existing RemoveAll RFC", "body": "Nested file-per-key files survive; scope containment required."}]}
+        with tempfile.TemporaryDirectory() as root:
+            context = PublicContext(Path(root))
+            with patch.object(context, "_public"), patch.object(context, "_json", side_effect=respond):
+                related = context.duplicate_sources(self.repo, source_duplicate_title(self.repo, title, [source]))
+        self.assertEqual(queries, [f'repo:{self.repo} in:title,body "RemoveAll"',
+                                   f'repo:{self.repo} is:pr in:title,body ("RemoveAll" OR "Remove All")'])
+        self.assertEqual([item["url"] for item in related], [f"https://github.com/{self.repo}/issues/3231"])
+        self.assertFalse(related[0]["search_exhaustive"])
+
 
 if __name__ == "__main__":
     unittest.main()

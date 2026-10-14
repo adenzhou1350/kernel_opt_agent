@@ -176,8 +176,8 @@ class ResearchTests(unittest.TestCase):
                 ),
             )
 
-    def assert_followup_query(self, name, title, expected):
-        source = {
+    def assert_followup_query(self, name, title, expected, *, source=None):
+        source = source or {
             "url": f"https://raw.githubusercontent.com/a/b/{'a' * 40}/src/kernel.py",
             "text": f"10: def {name}(\n11:     x,\n12: ):\n13:     return x",
             "requested_definition": {"name": name, "start_line": 10},
@@ -200,6 +200,13 @@ class ResearchTests(unittest.TestCase):
 
     def test_followup_related_work_keeps_qualified_method_hint(self):
         self.assert_followup_query("update", "OneToOne.update 一次性输入", "OneToOne.update")
+
+    def test_followup_related_work_uses_visible_cpp_method_hint(self):
+        source = {
+            "url": f"https://raw.githubusercontent.com/a/b/{'a' * 40}/src/storage.cpp",
+            "text": "583: void StorageBackend::RemoveAll() {\n584: }",
+        }
+        self.assert_followup_query("RemoveAll", "非 eviction 模式 RemoveAll 漏删", "RemoveAll", source=source)
 
     def assert_requested_source_priority(self, request, expected, observed=False):
         report = {

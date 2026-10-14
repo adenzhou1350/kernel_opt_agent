@@ -1,6 +1,7 @@
 """Indexed native reference windows should not stop at a using declaration."""
 
 from pathlib import Path
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -21,7 +22,9 @@ class NativeReferenceAnchorTests(unittest.TestCase):
         self.reader = PublicContext(Path(directory.name))
 
     def source(self, raw, request="references(target)", path="src/kernel.cu"):
-        snapshot = {"commit": COMMIT, "files": [path]}
+        data = raw.encode()
+        blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+        snapshot = {"commit": COMMIT, "files": [path], "blobs": {path: blob}}
         with (
             patch.object(self.reader, "snapshot", return_value=snapshot),
             patch.object(self.reader, "_read", return_value=raw) as read,

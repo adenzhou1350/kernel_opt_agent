@@ -11,7 +11,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout  # noqa: E402
 import kimi_scout_research as research  # noqa: E402
-from scout_cited_issue import cited_issue_number  # noqa: E402
+from scout_cited_issue import cited_issue_number, related_issue_body, requested_issue_number  # noqa: E402
 from tests.test_kimi_scout_research import Context  # noqa: E402
 
 URL = "https://github.com/a/b/issues/42"
@@ -21,6 +21,36 @@ ANALYSIS = {"evidence": [{"url": URL, "quote": QUOTE}]}
 
 
 class CitationTests(unittest.TestCase):
+    def test_explicit_body_request_must_name_an_already_displayed_issue(self):
+        for request, expected in (
+            ('Read #42 body', 42), (URL, 42), ('Read #43 then #42', 42),
+            (URL + '#issuecomment-1', None), (URL + '?token=x', None),
+            (URL.replace('a/b', 'foreign/repo'), None),
+            ('#43', None), ('x' * 2000 + ' #42', None),
+        ):
+            with self.subTest(request=request):
+                self.assertEqual(requested_issue_number('a/b', [SOURCE], {'next_check': request}), expected)
+        self.assertIsNone(requested_issue_number('a/b', [SOURCE], {'title': '#42'}))
+        self.assertIsNone(requested_issue_number('a/b', [{'url': URL.replace('issues', 'pull')}], {'next_check': '#42'}))
+
+    def test_body_read_is_bounded_and_identity_checked_without_recursive_lookups(self):
+        from unittest.mock import Mock
+        context = Mock()
+        context._public.return_value = 'a/b'
+        item = {'number': 42, 'html_url': URL, 'title': 'RFC', 'body': 'a' * 7000 + 'END'}
+        context._json.return_value = item
+        source = related_issue_body(context, 'a/b', 42)
+        context._json.assert_called_once_with('https://api.github.com/repos/a/b/issues/42')
+        self.assertLessEqual(len(source['text']), 5000)
+        self.assertTrue(source['text'].endswith('END'))
+        self.assertTrue(source['truncated'])
+        self.assertFalse(source['related_issue_expansion']['candidate_focus_adopted'])
+        for mutation in ({'number': True}, {'number': 43}, {'html_url': 'https://github.com/other/repo/issues/42'}, {'pull_request': {}}, {'body': None}):
+            with self.subTest(mutation=mutation):
+                context._json.return_value = item | mutation
+                with self.assertRaises(ValueError):
+                    related_issue_body(context, 'a/b', 42)
+
     def test_exact_displayed_issue_quote_is_a_number_not_a_url_request(self):
         self.assertEqual(cited_issue_number("a/b", [SOURCE], ANALYSIS), 42)
 
@@ -60,6 +90,45 @@ class CitationTests(unittest.TestCase):
 
 
 class FollowupTests(unittest.TestCase):
+    def test_requested_related_body_replaces_other_lookups_without_adopting_focus(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            scout.initialize(root)
+            config = root / 'config.json'
+            spec = {'repo': 'a/b', 'source_prefixes': ['src/'], 'question': 'Check',
+                    'followup_issue_body_context': True, 'followup_discussion_context': True,
+                    'followup_pr_revision_context': True}
+            config.write_text(json.dumps({'objective': 'Evidence', 'queue_target': 4, 'repos': [spec]}))
+            context = Context()
+            producer = research.ResearchProducer(root, config, context=context)
+            primary = context.source('a/b', 'a' * 40, 'src/kernel.py')
+            producer.emit('source-root', spec, [primary, SOURCE], 'source_audit')
+            with scout.connect(root) as db:
+                row = db.execute('SELECT id FROM jobs').fetchone()
+                db.execute("UPDATE jobs SET state='REVIEW',result=?,finished=? WHERE id=?", (
+                    json.dumps({'analysis': {'title': 'kernel boundary', 'next_check': 'Read #42 body and #81 patch'}}), time.time(), row[0]))
+            item = {'number': 42, 'html_url': URL, 'title': 'Existing RFC', 'body': 'Explicit scope safety contract'}
+            with (patch.object(context, '_public', create=True, return_value='a/b'),
+                  patch.object(context, '_json', create=True, return_value=item) as fetch,
+                  patch.object(context, 'issue_sources') as issue,
+                  patch.object(context, 'duplicate_sources') as duplicate,
+                  patch.object(research, 'discussion_sources') as discussions,
+                  patch.object(research, 'pr_revision_sources') as revisions):
+                self.assertTrue(producer.followup(spec, {}))
+            fetch.assert_called_once_with('https://api.github.com/repos/a/b/issues/42')
+            for lookup in (issue, duplicate, discussions, revisions):
+                lookup.assert_not_called()
+            with scout.connect(root) as db:
+                child = json.loads(db.execute('SELECT packet FROM jobs ORDER BY created DESC LIMIT 1').fetchone()[0])
+            self.assertNotIn('focus_issue', child)
+            self.assertEqual(child['research']['root_job_id'], row[0])
+            self.assertEqual(child['sources'][0], primary)
+            bodies = [s for s in child['sources'] if s['url'] == URL]
+            self.assertEqual(len(bodies), 1)
+            self.assertIn('Explicit scope safety contract', bodies[0]['text'])
+            self.assertNotIn('search_exhaustive', bodies[0])
+            self.assertFalse(bodies[0]['related_issue_expansion']['candidate_focus_adopted'])
+
     def test_optional_lookup_error_is_visible_not_a_successful_empty_search(self):
         producer = object.__new__(research.ResearchProducer)
         producer.context = Context()
