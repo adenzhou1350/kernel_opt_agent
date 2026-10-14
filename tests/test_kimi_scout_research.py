@@ -79,6 +79,30 @@ class Context:
 
 
 class ResearchTests(unittest.TestCase):
+    def test_refill_health_distinguishes_fetching_empty_wait_and_failure(self):
+        rows = research.refill_health(
+            {"a/running": 90},
+            {"b/empty": 120, "c/failed": 110, "d/ready": 99},
+            {
+                "b/empty": {"last_outcome": "NO_NEW_EVIDENCE", "error_code": None},
+                "c/failed": {"last_outcome": "ERROR", "error_code": "TimeoutError"},
+            },
+            100,
+        )
+        self.assertEqual([r["state"] for r in rows], ["FETCHING", "RETRY_WAIT", "ERROR_BACKOFF", "ELIGIBLE"])
+        self.assertEqual(rows[0]["elapsed_seconds"], 10)
+        self.assertEqual(rows[1]["retry_in_seconds"], 20)
+        self.assertEqual(rows[2]["error_code"], "TimeoutError")
+        self.assertNotIn("retry_in_seconds", rows[3])
+
+    def test_refill_health_is_deterministic_nonmutating_and_clamps_age(self):
+        active, ready, outcomes = {"a/b": 101}, {"a/b": 140}, {"a/b": {"last_outcome": "NEW_EVIDENCE"}}
+        before = json.dumps([active, ready, outcomes], sort_keys=True)
+        rows = research.refill_health(active, ready, outcomes, 100)
+        self.assertEqual(rows, [{"repo": "a/b", "last_outcome": "NEW_EVIDENCE", "state": "FETCHING", "elapsed_seconds": 0}])
+        self.assertEqual(json.dumps([active, ready, outcomes], sort_keys=True), before)
+        self.assertEqual(research.refill_health({}, {}, {}, 100), [])
+
     def test_refill_error_code_does_not_expose_untrusted_error_text(self):
         self.assertEqual(
             research.refill_error_code(ValueError("public source exceeds read budget")),
@@ -1993,6 +2017,40 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(value["queue_target"], 4)
         self.assertEqual(value["phase"], "READY")
         self.assertEqual(value["goals"][0]["repo"], "a/b")
+        self.assertEqual(value["refill_health"], [])
+
+    def test_parallel_refill_health_keeps_error_visible_between_publications(self):
+        self.value["context_workers"] = 2
+        self.config.write_text(json.dumps(self.value))
+        producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        error_visible = threading.Event()
+        frames = []
+        original_publish = producer.publish
+
+        def publish(phase, **kwargs):
+            original_publish(phase, **kwargs)
+            value = json.loads((self.root / "research.json").read_text())
+            rows = value["refill_health"]
+            if any(r["state"] == "ERROR_BACKOFF" for r in rows):
+                frames.append(value)
+                if len(frames) == 2:
+                    error_visible.set()
+
+        with (
+            patch.object(producer, "refill", side_effect=ValueError("private token or URL")),
+            patch.object(producer, "publish", side_effect=publish),
+            patch.object(research, "idle_refill_delay", return_value=0.01),
+        ):
+            producer.start()
+            try:
+                self.assertTrue(error_visible.wait(2))
+            finally:
+                producer.stop()
+        self.assertEqual(frames[0]["refill_health"][0]["error_code"], "ValueError:other")
+        self.assertIsNone(frames[1]["last_error"])
+        self.assertEqual(frames[1]["refill_health"][0]["state"], "ERROR_BACKOFF")
+        self.assertNotIn("private token", json.dumps(frames))
+        self.assertEqual(json.loads((self.root / "research.json").read_text())["refill_health"], [])
 
     def test_completion_requires_persisted_eligible_result(self):
         self.producer.issue(self.spec, {})

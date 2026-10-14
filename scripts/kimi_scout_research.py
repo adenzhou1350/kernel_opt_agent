@@ -116,6 +116,28 @@ def refill_retry_delay(made, failure, empty_refills, *, cursor_advanced=False):
     return min(120, 5 * 2 ** max(0, empty_refills - 1))
 
 
+def refill_health(active_since, ready_at, outcomes, now):
+    """Describe coordinator waits, not source exhaustion or model quality.
+
+    Inputs contain only configured repositories and controller-generated codes.
+    Keep deadlines monotonic; never include exception messages or source text.
+    """
+    rows = []
+    for repo in sorted(set(active_since) | set(ready_at) | set(outcomes)):
+        row = {"repo": repo, **outcomes.get(repo, {})}
+        if repo in active_since:
+            row.update(state="FETCHING", elapsed_seconds=round(max(0, now - active_since[repo]), 1))
+        elif ready_at.get(repo, 0) > now:
+            row.update(
+                state="ERROR_BACKOFF" if row.get("error_code") else "RETRY_WAIT",
+                retry_in_seconds=round(ready_at[repo] - now, 1),
+            )
+        else:
+            row["state"] = "ELIGIBLE"
+        rows.append(row)
+    return rows
+
+
 def companion_source_hints(source, stem):
     """Prioritize declarations visible in this JS/TS window over a filename.
 
@@ -708,6 +730,7 @@ class ResearchProducer:
         self.lock = threading.RLock()
         self.inflight_repos = set()
         self.completed_repos = set()
+        self.refill_health = []
         with scout.connect(root) as db:
             shadow.initialize(db)
             db.execute(
@@ -803,6 +826,7 @@ class ResearchProducer:
                 "source_windows": self.config["source_windows"],
                 "refill_batch": self.config["refill_batch"],
                 "context_inflight": len(self.inflight_repos),
+                "refill_health": self.refill_health,
                 "queued": self.pending(),
                 "goals": goals,
                 "followups_created": self.state["followups_created"],
@@ -1871,6 +1895,7 @@ class ResearchProducer:
 
     def parallel_loop(self):
         active, ready_at, empty_refills = {}, {}, {}
+        active_since, outcomes = {}, {}
         failed = set()
         pool = ThreadPoolExecutor(
             max_workers=self.config["context_workers"],
@@ -1885,11 +1910,17 @@ class ResearchProducer:
                         continue
                     made, failure = self.finish_refill(repo, future, progress)
                     del active[repo]
+                    duration = max(0, time.monotonic() - active_since.pop(repo))
                     if failure:
                         failed.add(repo)
                     else:
                         failed.discard(repo)
                     cursor_advanced = progress.get("source_cursor", 0) != initial_cursor
+                    outcomes[repo] = {
+                        "last_outcome": "ERROR" if failure else "NEW_EVIDENCE" if made else "CURSOR_ADVANCED" if cursor_advanced else "NO_NEW_EVIDENCE",
+                        "last_duration_seconds": round(duration, 1),
+                        "error_code": failure,
+                    }
                     if made:
                         empty_refills.pop(repo, None)
                     elif cursor_advanced and not failure:
@@ -1926,6 +1957,7 @@ class ResearchProducer:
                     with self.lock:
                         self.inflight_repos.add(repo)
                     initial_cursor = progress.get("source_cursor", 0)
+                    active_since[repo] = time.monotonic()
                     future = pool.submit(
                         self.refill,
                         spec,
@@ -1950,6 +1982,8 @@ class ResearchProducer:
                 delay = 5
                 if queued < self.config["queue_target"] and ready_at:
                     delay = idle_refill_delay(ready_at, time.monotonic())
+                with self.lock:
+                    self.refill_health = refill_health(active_since, ready_at, outcomes, time.monotonic())
                 self.publish(
                     phase,
                     error=error,
@@ -1965,6 +1999,8 @@ class ResearchProducer:
             for repo, (future, progress, _) in active.items():
                 self.finish_refill(repo, future, progress)
             self.save()
+            with self.lock:
+                self.refill_health = []
             self.publish("STOPPED")
 
     def loop(self):

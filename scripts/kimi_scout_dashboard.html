@@ -212,6 +212,7 @@
     <p id="researchObjective" class="research-objective"></p>
     <div id="researchCounts" class="research-counts"></div>
     <details class="research-details"><summary>查看各仓库取材范围与扫描进度</summary><div id="researchGoals" class="research-goals"></div></details>
+    <details class="research-details" id="refillDetails" hidden><summary>查看取材耗时与等待原因</summary><div id="refillHealth" class="research-goals"></div></details>
     <p id="researchTiming" class="tiny muted"></p>
     <p id="researchError" class="tiny" hidden></p>
     <p class="tiny muted">本地只读状态快照 · 不自动修改代码或运行 GPU 验证</p>
@@ -356,6 +357,11 @@
     $("researchCounts").replaceChildren(...counts.map(value => node("span", "", value)));
     const goals = Array.isArray(research.goals) ? research.goals : [];
     $("researchGoals").replaceChildren(...goals.filter(goal => goal && typeof goal === "object").map(goal => node("span", "", plain(goal.repo) + " · 源码窗口入队 " + number(goal.scanned_sources) + " · 范围文件 " + number(goal.available_sources) + " · Issue 页 " + number(goal.issue_page))));
+    const refills = Array.isArray(research.refill_health) ? research.refill_health : [];
+    const refillLabels = {FETCHING:"正在取材",ERROR_BACKOFF:"请求失败后退避",RETRY_WAIT:"等待再检查",ELIGIBLE:"可再次取材"};
+    const outcomeLabels = {ERROR:"请求失败",NEW_EVIDENCE:"已入队新材料",CURSOR_ADVANCED:"扫描位置前进",NO_NEW_EVIDENCE:"本轮未入队新证据"};
+    $("refillDetails").hidden = !refills.length;
+    $("refillHealth").replaceChildren(...refills.filter(row => row && typeof row === "object").map(row => node("span", "", plain(row.repo) + " · " + (refillLabels[row.state] || plain(row.state)) + (row.state === "FETCHING" ? " " + number(row.elapsed_seconds) + "s" : row.retry_in_seconds != null ? " · " + number(row.retry_in_seconds) + "s 后重查" : "") + (row.last_outcome ? " · 上轮：" + (outcomeLabels[row.last_outcome] || plain(row.last_outcome)) + " " + number(row.last_duration_seconds) + "s" : "") + (row.error_code ? " · " + plain(row.error_code) : ""))));
     text("researchTiming", "快照更新 " + time(research.updated_at, true) + (research.next_scan_at ? " · 下次扫描 " + time(research.next_scan_at, true) : ""));
     $("researchError").hidden = !research.last_error;
     text("researchError", research.last_error ? "研究采集错误：" + plain(research.last_error) : "");

@@ -9,6 +9,48 @@ import unittest
 
 @unittest.skipUnless(shutil.which("node"), "Node needed for offline DOM checks")
 class BriefingTests(unittest.TestCase):
+    def test_refill_details_render_wait_reasons_and_clear_legacy_state(self):
+        page = (Path(__file__).resolve().parents[1] / "scripts/kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        script = page.split("<script>", 1)[1].split("</script>", 1)[0]
+        renderer = script.split("  function renderDelivery() {", 1)[0]
+        harness = """
+const elements = new Map();
+function element() {
+  return {children:[], replaceChildren(...v) {this.children=v;},
+    set innerHTML(v) {throw Error('Unsafe HTML rendering');}};
+}
+global.document = {createElement:element, getElementById(id) {
+  if (!elements.has(id)) elements.set(id,element());
+  return elements.get(id);
+}};
+"""
+        exercise = """
+  state={research:{phase:'REFILLING',refill_health:[
+    {repo:'a/<script>x</script>',state:'FETCHING',elapsed_seconds:9},
+    {repo:'b/error',state:'ERROR_BACKOFF',retry_in_seconds:36,
+      last_outcome:'ERROR',last_duration_seconds:20,error_code:'TimeoutError'},
+    {repo:'c/empty',state:'RETRY_WAIT',retry_in_seconds:3,
+      last_outcome:'NO_NEW_EVIDENCE',last_duration_seconds:1},
+    {repo:'d/ready',state:'ELIGIBLE'}]}};
+  renderResearch();
+  const current={hidden:$('refillDetails').hidden,
+    rows:$('refillHealth').children.map(c=>c.textContent)};
+  state.research={phase:'READY'};renderResearch();
+  const legacy={hidden:$('refillDetails').hidden,count:$('refillHealth').children.length};
+  process.stdout.write(JSON.stringify({current,legacy}));
+})();
+"""
+        result = subprocess.run([shutil.which("node"), "-"], input=harness + renderer + exercise,
+                                capture_output=True, text=True, encoding="utf-8", timeout=10, check=True)
+        value = json.loads(result.stdout)
+        self.assertFalse(value["current"]["hidden"])
+        self.assertIn("a/<script>x</script> · 正在取材 9s", value["current"]["rows"][0])
+        self.assertIn("请求失败后退避 · 36s 后重查", value["current"]["rows"][1])
+        self.assertIn("TimeoutError", value["current"]["rows"][1])
+        self.assertIn("本轮未入队新证据", value["current"]["rows"][2])
+        self.assertIn("可再次取材", value["current"]["rows"][3])
+        self.assertEqual(value["legacy"], {"hidden": True, "count": 0})
+
     def test_live_stale_missing_activity_and_repo_filter(self):
         page = (
             Path(__file__).resolve().parents[1] / "scripts/kimi_scout_dashboard.html"

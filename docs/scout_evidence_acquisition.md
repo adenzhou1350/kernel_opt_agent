@@ -684,6 +684,18 @@ python -B -m unittest tests.test_scout_duplicate_query tests.test_scout_duplicat
 python -B -m unittest tests.test_scout_cited_issue_context
 ```
 
+### Operational refill diagnostics
+
+For a parallel research producer, `research.json.refill_health` reports each
+repository's current fetch age, last completed outcome/duration and remaining
+retry delay. `ERROR_BACKOFF` retains the sanitized controller error code even
+after the one-iteration `last_error` clears. `NO_NEW_EVIDENCE` means that refill
+enqueued nothing, not that the repository has no defects or is fully explored.
+`ELIGIBLE` describes scheduling eligibility, not a stalled or dead process.
+The dashboard exposes these details without new network/model requests or
+changes to queue ordering, deduplication, retry policy or candidate decisions.
+These are process-local diagnostics; restarting clears the timing history.
+
 ### Optional BM25 window comparator
 
 `scout_shadow_comparison.run_arm` accepts `action="bm25"` for newly declared
