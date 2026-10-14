@@ -32,6 +32,10 @@
     {
       "url": "https://github.com/tidwall/sjson/issues/85",
       "note": "An existing report links another author's UTF-8/in-place repair in their fork. Independent reproduction or test-fixture feedback can support that work, but cannot be counted as a novel discovery, our PR, or an upstream merge. Check this route before spending on a competing implementation."
+    },
+    {
+      "url": "https://github.com/MoonshotAI/kimi-code/blob/f28c51c01f025bba9f0d0f58f6309e7517a8cd02/CONTRIBUTING.md",
+      "note": "This revision requires a maintainer's /approve on a linked bug issue before an external fix PR and declines external feature PRs. It permits discussing reports first. Passing native tests, a personal fork or open PR creation settings are not that approval; choose the issue channel before preparing a publication-ready patch. Recheck the live rule before transfer."
     }
   ],
   "status": "validated"
