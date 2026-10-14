@@ -164,8 +164,10 @@ def stage(root, leads, limit=32, *, owner_review=False):
             if made >= limit:
                 break
             if (
-                lead.get("verification_route") in {
-                    "OWNER_NATIVE_CPU_REVIEW_ONLY", "OWNER_REVIEW_ONLY",
+                lead.get("verification_route")
+                in {
+                    "OWNER_NATIVE_CPU_REVIEW_ONLY",
+                    "OWNER_REVIEW_ONLY",
                 }
                 and not owner_review
             ):
@@ -433,11 +435,17 @@ def mark_pr(
     *,
     owner_reproduced_after_block=False,
     owner_verified_legacy=False,
+    owner_verified_parked=False,
 ):
     """Record an owner-verified publication; never infer it from a similar title."""
-    if owner_reproduced_after_block and owner_verified_legacy:
+    if (
+        sum(
+            (owner_reproduced_after_block, owner_verified_legacy, owner_verified_parked)
+        )
+        > 1
+    ):
         raise ValueError(
-            "legacy publication and blocked reproduction are separate attestations"
+            "legacy, blocked and parked publication are separate attestations"
         )
     if not re.fullmatch(r"[0-9a-f]{24}", job_id):
         raise ValueError("invalid candidate id")
@@ -464,6 +472,19 @@ def mark_pr(
             and owner_reproduced_after_block
         )
         legacy_publication = row["state"] == "REPRODUCED" and owner_verified_legacy
+        parked_publication = row["state"] == "OWNER_PARKED" and owner_verified_parked
+        if owner_verified_parked and not parked_publication:
+            raise ValueError("parked publication requires an owner-parked candidate")
+        if parked_publication:
+            disposition = result.get("owner_disposition")
+            if not isinstance(disposition, dict) or any(
+                not isinstance(disposition.get(key), str)
+                or not disposition[key].strip()
+                for key in ("reason", "evidence_url", "reopen_when", "prior_state")
+            ):
+                raise ValueError(
+                    "parked publication requires preserved owner disposition"
+                )
         owner_intake = (
             row["state"] == OWNER_STATE
             and result.get("intake") == "owner_review_unverified"
@@ -472,11 +493,17 @@ def mark_pr(
             row["state"] != OWNER_STATE
             and not blocked_reproduction
             and not legacy_publication
+            and not parked_publication
         ):
             raise ValueError(
                 "owner review or explicit reproduction after an environment block or inconclusive screen is required"
             )
-        if not blocked_reproduction and not legacy_publication and not owner_intake:
+        if not (
+            blocked_reproduction
+            or legacy_publication
+            or parked_publication
+            or owner_intake
+        ):
             handoff = root / "jobs" / job_id / "owner-handoff.json"
             if (
                 not handoff.is_file()
@@ -499,6 +526,9 @@ def mark_pr(
                 if blocked_reproduction
                 else "owner verified publication of legacy candidate; no handoff or new tests inferred"
                 if legacy_publication
+                else "owner verified already-published PR of parked candidate; prior deferral preserved; "
+                "no new reproduction, CI, review or merge inferred"
+                if parked_publication
                 else "owner-linked PR; CI, review and merge are not implied"
             ),
         }
@@ -508,7 +538,7 @@ def mark_pr(
                 "owner linked an explicitly published PR after direct intake; "
                 "no automatic reproduction, human signoff, CI, review or merge inferred"
             )
-        if blocked_reproduction or legacy_publication:
+        if blocked_reproduction or legacy_publication or parked_publication:
             recorded["prior_state"] = row["state"]
             recorded["prior_reason"] = row["reason"]
         result["pr"] = recorded
@@ -1471,6 +1501,11 @@ def main():
     )
     parser.add_argument("--owner-verified-legacy", action="store_true")
     parser.add_argument(
+        "--owner-verified-parked",
+        action="store_true",
+        help="owner verified an already-published PR for a deferred candidate; not new test evidence",
+    )
+    parser.add_argument(
         "--park-owner-job", help="explicitly reviewed candidate to defer"
     )
     parser.add_argument("--park-reason", help="why delivery is not currently justified")
@@ -1547,6 +1582,7 @@ def main():
                 "reject_evidence_url",
                 "owner_reproduced_after_block",
                 "owner_verified_legacy",
+                "owner_verified_parked",
                 "route_blocked_gpu",
                 "max_jobs",
             )
@@ -1584,6 +1620,7 @@ def main():
             args.pr_url,
             args.owner_reproduced_after_block,
             args.owner_verified_legacy,
+            args.owner_verified_parked,
         )
     ):
         if not (args.mark_pr_job and args.pr_url):
@@ -1595,9 +1632,18 @@ def main():
             or args.max_jobs
         ):
             parser.error("publication is a separate operation")
-        if args.owner_reproduced_after_block and args.owner_verified_legacy:
+        if (
+            sum(
+                (
+                    args.owner_reproduced_after_block,
+                    args.owner_verified_legacy,
+                    args.owner_verified_parked,
+                )
+            )
+            > 1
+        ):
             parser.error(
-                "legacy publication and blocked reproduction are separate attestations"
+                "legacy, blocked and parked publication are separate attestations"
             )
         target = args.root.resolve() / "delivery"
         if not (target / "delivery.sqlite").is_file():
@@ -1608,6 +1654,7 @@ def main():
             args.pr_url,
             owner_reproduced_after_block=args.owner_reproduced_after_block,
             owner_verified_legacy=args.owner_verified_legacy,
+            owner_verified_parked=args.owner_verified_parked,
         )
         refresh_owner_snapshots_if_idle(args, target)
         print(scout.dumps(recorded))

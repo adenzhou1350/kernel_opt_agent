@@ -588,9 +588,14 @@ The normal path requires a matching owner-handoff artifact. If the owner instead
 independently reproduced an `ENVIRONMENT_BLOCKED` or `INCONCLUSIVE` candidate in
 a suitable environment, add `--owner-reproduced-after-block`. For an explicitly reviewed
 legacy `REPRODUCED` entry without a handoff, use `--owner-verified-legacy` instead.
+For an `OWNER_PARKED` entry whose PR has now been published and verified by the
+owner, use `--owner-verified-parked`. This preserves the prior deferral and its
+evidence, records the PR separately, and does not claim new reproduction or
+silently reset the candidate to a review/testing state. The flag requires the
+preserved owner disposition and cannot relabel an active or other terminal state.
 These are separate owner attestations, not automatic evidence upgrades.
 Inconclusive test verdicts are preserved, not rewritten as passing Scout tests.
-Prior results and reported costs remain intact; neither flag can promote an
+Prior results and reported costs remain intact; none of these flags can promote an
 executing candidate. Repeating the same link is idempotent, while a different repository or
 replacement PR is rejected. Like parking, publication can be recorded while the
 worker runs without overwriting its snapshots. It makes no model/network/GPU

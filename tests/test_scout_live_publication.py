@@ -196,6 +196,100 @@ class LivePublicationTests(unittest.TestCase):
             with self.assertRaises(OSError):
                 delivery.refresh_owner_snapshots_if_idle(args, self.root)
 
+    def park(self):
+        return delivery.park_owner_candidate(
+            self.root,
+            self.job,
+            "publication awaits owner confirmation",
+            "https://github.com/public/project/blob/" + "b" * 40 + "/module.py",
+            "owner approves publication after independent review",
+        )
+
+    def test_parked_publication_preserves_deferral_and_does_not_infer_tests(self):
+        self.park()
+        before = self.row()
+        evidence = json.loads(before["result"])
+        runtime = b'{"state":"RUNNING","pid":123,"heartbeat_at":456}'
+        (self.root / "runtime.json").write_bytes(runtime)
+        with delivery.scout.single_runner(self.root):
+            self.assertNotEqual(self.cli().returncode, 0)
+            self.assertEqual(self.row(), before)
+            first = self.cli("--owner-verified-parked")
+            self.assertEqual(first.returncode, 0, first.stderr)
+            repeated = self.cli("--owner-verified-parked")
+            self.assertEqual(repeated.returncode, 0, repeated.stderr)
+            self.assertEqual(json.loads(first.stdout), json.loads(repeated.stdout))
+            self.assertEqual((self.root / "runtime.json").read_bytes(), runtime)
+        after = self.row()
+        self.assertEqual(after["state"], "PR_OPEN")
+        for key in ("reported_tokens", "payload", "source_job_id"):
+            self.assertEqual(after[key], before[key])
+        stored = json.loads(after["result"])
+        pr = stored.pop("pr")
+        self.assertEqual(pr["prior_state"], "OWNER_PARKED")
+        self.assertEqual(pr["prior_reason"], before["reason"])
+        self.assertIn(
+            "no new reproduction, CI, review or merge inferred", pr["claim_boundary"]
+        )
+        self.assertEqual(stored, evidence)
+        self.assertFalse(stored["qualified"])
+        self.assertEqual(list((self.root / "jobs").iterdir()), [])
+        self.assertFalse((self.root / "STOP").exists())
+        with self.assertRaisesRegex(ValueError, "another PR"):
+            delivery.mark_pr(
+                self.root, self.job, self.url[:-1] + "2", owner_verified_parked=True
+            )
+
+    def test_parked_attestation_cannot_relabel_other_states(self):
+        for state in (
+            delivery.OWNER_STATE,
+            "TESTING",
+            "PENDING",
+            "FAILED",
+            "NO_BUG",
+            "REPRODUCED",
+            "INCONCLUSIVE",
+        ):
+            with self.subTest(state=state):
+                with delivery.database(self.root) as db:
+                    db.execute("UPDATE delivery SET state=?", (state,))
+                before = self.row()
+                with self.assertRaisesRegex(ValueError, "owner-parked"):
+                    delivery.mark_pr(
+                        self.root, self.job, self.url, owner_verified_parked=True
+                    )
+                self.assertEqual(self.row(), before)
+
+    def test_parked_publication_requires_disposition_and_separate_flags(self):
+        self.park()
+        valid = json.loads(self.row()["result"])
+        for disposition in (None, {}, "invalid", {"reason": "x"}):
+            with self.subTest(disposition=disposition):
+                bad = dict(valid, owner_disposition=disposition)
+                with delivery.database(self.root) as db:
+                    db.execute("UPDATE delivery SET result=?", (json.dumps(bad),))
+                before = self.row()
+                with self.assertRaisesRegex(ValueError, "preserved owner disposition"):
+                    delivery.mark_pr(
+                        self.root, self.job, self.url, owner_verified_parked=True
+                    )
+                self.assertEqual(self.row(), before)
+        with delivery.database(self.root) as db:
+            db.execute("UPDATE delivery SET result=?", (json.dumps(valid),))
+        before = self.row()
+        for other in (
+            "--owner-verified-legacy",
+            "--owner-reproduced-after-block",
+            "--stop",
+            "--max-jobs",
+        ):
+            flags = ["--owner-verified-parked", other]
+            if other == "--max-jobs":
+                flags.append("1")
+            result = self.cli(*flags)
+            self.assertEqual(result.returncode, 2, result.stderr)
+            self.assertEqual(self.row(), before)
+
 
 if __name__ == "__main__":
     unittest.main()
