@@ -1,0 +1,22 @@
+{
+  "id": "transaction-callback-enlistment",
+  "title": "Trace transaction receivers and command-error semantics before moving writes",
+  "applies_when": "A database or queue callback performs a state write plus an audit, replication or outbox write, and the apparent transaction boundary is a closure rather than a receiver used by every operation.",
+  "lesson": "Trace the receiver of each side effect. Lexical placement inside TxPipelined does not enlist a call made through the outer Redis client: in the pinned JuiceFS incrCounter, m.rdb.IncrBy executes immediately while only genLog's pipe commands enter MULTI/EXEC. Check a failure before the transaction is sent, the counter and log together, and the returned allocated value. Do not stop at replacing the receiver. Redis continues executing later queued commands after an EXEC-time command error and does not roll back earlier writes. An unconditional queued log can therefore describe a counter increment that failed, for example on integer overflow. Test this separate error boundary, the success result, disabled logging and read-only behavior before accepting a repair. A conditional server-side operation or a checked optimistic transaction may be appropriate; justify its own failure, concurrency, retry and cluster-slot semantics rather than prescribing it from this pattern alone.",
+  "avoid_when": "This is not a universal ACID or rollback model. Determine whether the actual API implicitly enlists outer-client calls and whether the consumer requires coupled delivery. Allocator gaps can be intentional; a source mismatch alone does not prove data loss or an exploit. Transport-intercepted native unit probes establish command routing and the modeled failure boundary, not real Redis crash durability, retry behavior, replica promotion, full-suite correctness, performance or maintainer acceptance. The examined minimal pipeline repair remains unsuitable: a normal-path improvement cannot erase its counter-error regression. No prospective selection, token-cost or PR-conversion benefit follows from this owner-reviewed case.",
+  "evidence": [
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/meta/redis.go#L485-L511",
+      "note": "Pinned incrCounter calls the outer client inside TxPipelined; genLog instead queues RPUSH and the log-version increment through pipe. Source mechanism, not an accepted fix or public execution receipt."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/docs/en/administration/changelog.md",
+      "note": "The changelog documents external consumption and incremental metadata sync; it is not a standalone backup. Establish a specific consumer's consistency and retry requirements before escalating impact."
+    },
+    {
+      "url": "https://redis.io/docs/latest/develop/using-commands/transactions/",
+      "note": "Official transaction contract distinguishes failure before EXEC from errors while executing queued commands. Later commands still execute on runtime errors; Redis transactions do not support rollback."
+    }
+  ],
+  "status": "validated"
+}
