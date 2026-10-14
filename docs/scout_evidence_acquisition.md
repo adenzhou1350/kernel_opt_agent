@@ -79,6 +79,32 @@ states out of a fresh evaluation split and require independently verified native
 contracts for new cases; neither this control nor green callback plumbing proves
 that selecting evidence improves decisions, recall or cost.
 
+A later natural-pair feasibility check used packaging's upstream
+[filename repair](https://github.com/pypa/packaging/commit/ae9d39c13b5f5485b6295eb100b08ef9c3dde852),
+selected by a frozen first-eligible-fix rule before cloning. The same upstream
+five filename parameters/assertion ran against complete real parent/head packages
+in fresh offline CPU containers: parent 1 failure/4 passing controls; head 5 pass.
+The adapter invoked the unchanged test function directly, not full pytest
+collection. These are two related states of **one** repair, not new discoveries.
+
+Twelve MiniMax-M3 calls compared no-added-source reflection, BM25 reflection and
+model-selected source under the same call/prompt/output ceilings. Reported total
+usage was 50,295 input/cache/output tokens; dollars and owner cost remain unknown.
+Five of six final records failed the frozen format/quote interface. The sole
+interface-valid baseline answer incorrectly inferred that Python `^...$` plus
+`re.match` guarantees complete-string matching; the native trailing-newline case
+disproves that assertion. Getting relevant source was insufficient in this case.
+
+The task itself also mixed a positive requirement question with labels for an
+alleged violation. Therefore **do not rank policy accuracy from this group**, strip
+fences/rescore its answers, or call it selector benefit. Before new inputs, align
+an explicit failure proposition with the verdict direction and preflight the
+response interface on exposed controls. Include a separately costed native
+semantic probe as a candidate observation, not only more source windows. This is
+a next-experiment hypothesis, not evidence that a native-action policy wins.
+Public-history memorization is unknown; strong/cheap-model rank comparisons,
+complete existing-agent methods and equal priced total budgets were not run.
+
 Compare no additional evidence, a strong zero-model acquisition rule, a cheap
 model, a strong model and an applicable existing agent method. Charge selector,
 failed acquisition, downstream review, native setup/execution and owner effort;

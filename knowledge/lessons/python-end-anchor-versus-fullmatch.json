@@ -1,0 +1,18 @@
+{
+  "id": "python-end-anchor-versus-fullmatch",
+  "title": "Python end anchors do not always guarantee a complete filename match",
+  "applies_when": "A Python filename or text validator uses re.match with ^...$ and a source-only argument treats the end anchor as equivalent to fullmatch.",
+  "lesson": "Probe boundary strings through the real public wrapper before dismissing a partial-match allegation. In Python, $ can match immediately before a final newline; ^...$ with re.match can therefore accept a name ending in an extra newline. packaging replaced match with fullmatch for its pylock filename rule and added a rejected trailing-newline case. Reading the regex and caller, or quoting them accurately, does not by itself test the interpreter's edge semantics. A small native operation can resolve this uncertainty more directly than more source text.",
+  "avoid_when": "Do not transfer Python regex semantics to another engine or claim every match call is wrong. Intentional line-oriented matching may accept a final newline. Establish the actual accepted-name contract, flags and wrapper behavior. This scoped counterexample does not prove a general evidence selector, model hierarchy, native-action policy, cost reduction or discovery/PR-yield improvement.",
+  "evidence": [
+    {
+      "url": "https://github.com/pypa/packaging/commit/ae9d39c13b5f5485b6295eb100b08ef9c3dde852",
+      "note": "Natural upstream repair changes the public pylock filename check from match to fullmatch and adds a trailing-newline rejection regression; not our new contribution."
+    },
+    {
+      "url": "https://github.com/pypa/packaging/blob/ae9d39c13b5f5485b6295eb100b08ef9c3dde852/tests/test_pylock.py#L31-L45",
+      "note": "Five upstream filename parameters retain accepted and rejected controls and reject pylock.spam.toml followed by a newline. Same assertion discriminated parent/head in a real-package CPU check; complete pytest collection was not run."
+    }
+  ],
+  "status": "counterexample"
+}
