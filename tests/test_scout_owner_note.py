@@ -101,6 +101,31 @@ class OwnerNoteWriterTests(unittest.TestCase):
             writer.write_note(self.root, bad)
         self.assertEqual(self.target.read_bytes(), before)
 
+    def test_discussion_is_advisory_evidence_not_a_published_pr(self):
+        url = f"https://github.com/{self.repo}/discussions/12"
+        result = writer.write_note(self.root, {**self.note, "evidence_url": url})
+        self.assertEqual(result["context_status"], "SELECTED_NOW")
+        self.assertEqual(result["projection"]["evidence_url"], url)
+        self.assertFalse((self.root / "delivery").exists())
+        summary = writer.memory.publication_summary([
+            {"repo": self.repo, "result": json.dumps({"pr": {"url": url}})}])
+        self.assertEqual(summary["distinct_prs"], 0)
+        self.assertEqual(summary["unverified_links"], 1)
+
+    def test_discussion_evidence_stays_canonical_and_same_repository(self):
+        before = self.write_existing([self.note])
+        for url in (
+            "https://github.com/other/project/discussions/12",
+            f"https://github.com/{self.repo}/discussions/0",
+            f"https://github.com/{self.repo}/discussions/12?token=SECRET",
+            f"https://github.com/{self.repo}/discussions/12#discussioncomment-1",
+            f"http://github.com/{self.repo}/discussions/12",
+            f"https://github.com/{self.repo}/discussions/12/",
+        ):
+            with self.subTest(url=url), self.assertRaisesRegex(ValueError, "same-repository"):
+                writer.write_note(self.root, {**self.note, "evidence_url": url})
+            self.assertEqual(self.target.read_bytes(), before)
+
     def test_schema_limits_and_private_paths_do_not_write(self):
         bad_notes = [
             {**self.note, "execution_authorized": True},

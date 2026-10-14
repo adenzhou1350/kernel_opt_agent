@@ -19,6 +19,9 @@ PR_URL = re.compile(
 ISSUE_URL = re.compile(
     r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/issues/[1-9][0-9]*"
 )
+DISCUSSION_URL = re.compile(
+    r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/discussions/[1-9][0-9]*"
+)
 SOURCE_URL = re.compile(
     r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/"
     r"(?:blob/[0-9a-f]{40}/[^?#\s]+(?:#L[1-9][0-9]*(?:-L[1-9][0-9]*)?)?"
@@ -73,6 +76,7 @@ def advisory_evidence_match(url):
         return None
     return (
         SOURCE_URL.fullmatch(url) or PR_URL.fullmatch(url) or ISSUE_URL.fullmatch(url)
+        or DISCUSSION_URL.fullmatch(url)
     )
 
 

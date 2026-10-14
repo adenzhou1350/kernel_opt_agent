@@ -65,7 +65,7 @@ def validate_note(note):
             raise ValueError(f"{key} contains a recognizable private artifact path")
     match = memory.advisory_evidence_match(note["evidence_url"])
     if not match or match[1].casefold() != repo.casefold():
-        raise ValueError("evidence_url must be a supported same-repository public blob/commit/issue/PR URL; a personal fork is not that repository")
+        raise ValueError("evidence_url must be a supported same-repository public blob/commit/issue/PR/discussion URL; a personal fork is not that repository")
     result = {**note, "source_url": canonical_source(note["source_url"], repo)}
     # Test the deployed reader's actual rules, not a duplicate schema alone.
     with tempfile.TemporaryDirectory(prefix="scout-note-check-") as stage:
