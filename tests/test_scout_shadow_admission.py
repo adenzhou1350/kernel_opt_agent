@@ -51,6 +51,19 @@ class AdmissionTests(unittest.TestCase):
         self.assertEqual(observed_capacity({**runtime(), "active": 15}, 100), "BUSY")
         self.assertEqual(observed_capacity({**runtime(), "active": 0, "admission_limit": 1}, 100), "OBSERVED_SPARE_CAPACITY")
 
+    def test_provider_recovery_slot_is_not_shadow_capacity(self):
+        state = {**runtime(), "active": 0, "admission_limit": 1,
+                 "recovery_probe": True}
+        self.assertEqual(observed_capacity(state, 100), "RECOVERY_PROBE_ONLY")
+        result = self.wait(lambda: state, max_wait=3, poll_seconds=1)
+        self.assertEqual(result["status"], "ADMISSION_WAIT_EXHAUSTED")
+        self.assertEqual(result["last_observation"], "RECOVERY_PROBE_ONLY")
+
+    def test_recovered_provider_can_supply_shadow_capacity(self):
+        state = {**runtime(), "active": 0, "admission_limit": 16,
+                 "recovery_probe": False}
+        self.assertEqual(observed_capacity(state, 100), "OBSERVED_SPARE_CAPACITY")
+
     def test_bad_wait_budgets_raise(self):
         for kwargs in ({"max_wait": -1}, {"max_wait": 601}, {"poll_seconds": 0},
                        {"max_active": True}, {"max_age": 0}):

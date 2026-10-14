@@ -27,6 +27,10 @@ def observed_capacity(runtime, now, *, max_active=14, max_age=30):
         return "RESOURCE_PAUSED_OR_UNKNOWN"
     if cooldown is not None and cooldown > now:
         return "COOLDOWN"
+    # A circuit-recovery probe belongs to the live provider health check, not
+    # a research comparison, even before that single slot becomes active.
+    if runtime.get("recovery_probe") is True:
+        return "RECOVERY_PROBE_ONLY"
     if active > max_active or active >= limit:
         return "BUSY"
     return "OBSERVED_SPARE_CAPACITY"
