@@ -179,6 +179,39 @@ acquisition arms. Identical GET/window caps alone do not match total budgets.
 Judge the incremental verified decision or reproduction, not window validity.
 The present small acquisition trials do not satisfy this study design.
 
+### MiniMax CLI cost observations
+
+For a newly declared study using an already authorized MiniMax CLI, capture
+non-streaming `mmx text chat --output json --non-interactive --no-color` output.
+Set the actual model and region explicitly. **Do not add `--quiet` for this
+accounting path:** in observed mmx 1.0.18 it emits only model answer text, dropping
+the API message envelope and usage. JSON-looking model text is not API metadata.
+An explicit region also avoids the CLI's separate key-region discovery request;
+it must match the user's configured provider, not bypass an authorization error.
+Do not print credentials or enable verbose auth diagnostics.
+
+`scout_shadow_comparison.parse_mmx_message` reads that captured envelope without
+invoking a model. It keeps answer text separate from thinking blocks, preserves
+observed input/output/cache counters, and only returns a usable answer on a
+normal `end_turn` completion. Missing/invalid cache counts remain unknown rather
+than zero. A max-token termination may still carry known usage but cannot supply
+a valid decision. The reader cannot authenticate a transcript, infer attempt
+identity, restore stripped historical counters, price tokens or equalize total
+budgets; keep those responsibilities and failed/uncertain requests in the caller.
+
+Offline controls and optional real-installed-CLI replay:
+
+```text
+python -B -m unittest tests.test_scout_mmx_accounting tests.test_scout_shadow_comparison
+```
+
+Set `SCOUT_TEST_NODE` and `SCOUT_TEST_MMX_ENTRY` to reviewed installed executables
+to include the replay. It uses a loopback fake API, temporary empty CLI config,
+dummy auth and explicit region, not a real model. Its injected token counters
+test preservation only: they are not measured provider cost or decision quality.
+The replay does not start local WSL or download/install a runtime. Old quiet-mode
+observations remain immutable with unknown usage; they are not rescored.
+
 This is our experimental-design inference, informed by
 [Scrouting (sections 6–9)](https://arxiv.org/html/2608.04804v1): its no-router,
 cheap-fixer-plus-verified-handoff ablation ties the routed system on its measured

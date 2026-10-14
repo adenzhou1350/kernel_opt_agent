@@ -4,6 +4,7 @@ Callers freeze sampling, providers, assets, oracle and scoring before unblinding
 This module validates actions/quotes and keeps failure costs; it cannot establish
 semantic correctness, fair dollar budgets, native reachability or paper value.
 """
+import hashlib
 import json
 from urllib.parse import urlsplit
 
@@ -39,6 +40,65 @@ def normalized_usage(provider, raw):
     if not all(type(raw.get(k)) is int and raw[k] >= 0 for k in fields):
         return None
     return sum(raw[k] for k in fields)
+
+
+def parse_mmx_message(text, *, exit_code):
+    """Read captured non-streaming mmx Messages JSON, not quiet model JSON.
+
+    Invocation/attempt identity and costs belong to the caller. This cannot
+    authenticate a transcript, recover stripped usage, or establish pricing.
+    Known usage survives a truncated answer; it does not make that answer valid.
+    """
+    if not isinstance(text, str) or len(text.encode()) > 2 * 1024 * 1024:
+        raise ValueError('mmx output must be UTF-8 text no larger than 2 MiB')
+    if type(exit_code) is not int:
+        raise ValueError('exit code must be an observed integer')
+    record = dict(response=dict(ok=False, error='MMX_MESSAGE_ENVELOPE_UNAVAILABLE'),
+                  usage=None, normalized_total_tokens=None,
+                  log_sha256=hashlib.sha256(text.encode()).hexdigest(),
+                  boundary='Captured response/usage only; not attempt identity, authenticity, '
+                           'dollars, equal total budgets, native correctness or selector benefit.')
+
+    def pairs(items):
+        result = {}
+        for key, value in items:
+            if key in result:
+                raise ValueError('duplicate JSON key')
+            result[key] = value
+        return result
+
+    def constant(value):
+        raise ValueError(value)
+
+    try:
+        value = json.loads(text, object_pairs_hook=pairs, parse_constant=constant)
+    except (ValueError, RecursionError):
+        return record
+    if (not isinstance(value, dict) or value.get('type') != 'message'
+            or value.get('role') != 'assistant'
+            or any(not isinstance(value.get(key), str) or not 1 <= len(value[key]) <= 512
+                   for key in ('id', 'model'))):
+        return record
+    usage = value.get('usage')
+    fields = ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens', 'output_tokens')
+    if isinstance(usage, dict):
+        # Do not turn omitted cache counters into zero or echo unknown fields.
+        record['usage'] = {k: usage[k] for k in fields if type(usage.get(k)) is int and usage[k] >= 0}
+        record['normalized_total_tokens'] = normalized_usage('m3', usage)
+    record.update(model=value['model'], stop_reason=value.get('stop_reason'))
+    blocks = value.get('content')
+    if (not isinstance(blocks, list) or not blocks or any(
+            not isinstance(block, dict) or block.get('type') not in {'text', 'thinking'}
+            or (block['type'] == 'text' and not isinstance(block.get('text'), str))
+            for block in blocks)):
+        record['response']['error'] = 'MMX_UNSUPPORTED_MESSAGE_CONTENT'
+        return record
+    answer = '\n'.join(block['text'] for block in blocks if block['type'] == 'text')
+    if exit_code != 0 or value.get('stop_reason') != 'end_turn' or not answer.strip():
+        record['response']['error'] = 'MMX_INCOMPLETE_MESSAGE'
+        return record
+    record['response'] = dict(ok=True, text=answer)
+    return record
 
 
 def make_view(packet, *, repo, commit, assets):
