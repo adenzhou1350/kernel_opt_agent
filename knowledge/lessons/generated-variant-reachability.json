@@ -2,20 +2,20 @@
   "id": "generated-variant-reachability",
   "title": "Check generated variant registration and callers before reproducing a local anomaly",
   "applies_when": "A candidate comes from a partial window of generated, shape- or dtype-specialized kernel code, especially a low-level binding, reusable helper or host wrapper with separate autotuning and execution paths.",
-  "lesson": "Retrieve the package registry and host dtype/shape dispatch before treating one physical kernel as the public API contract. Trace a requested output dtype through allocation, autotuner eligibility and the launch argument: agreeing buffer allocation alone does not prove these stages agree. Read the downstream validator before calling a mismatch memory corruption; it may reject the call before JIT. Trace the suspected helper to an actual call, and substitute the specialized dimensions into padding/index arithmetic. A bf16-only binding can be correct for its registered key; a constant-false padding branch can be harmless when the dimension is already aligned; an unused helper does not establish an active ordering bug. Equal shared-memory offsets can describe different producer and consumer views of the same data, not independent buffers overwriting each other. Follow actual pointer uses, including lowered numeric offsets, and synchronization before deciding; macro names alone may have no downstream references. A fixed reduction stride can be coupled to a fixed launch grid, partial allocation and second-stage fold; changing just one can break the actual contract. Follow quantization scales through the final store conversion, not merely the shuffled intermediate variable name. These checks can refute a particular premise without compiling its target environment.",
-  "avoid_when": "Do not exclude all generated code or assume an unregistered shape is necessarily acceptable API behavior. Reopen with a supported logical key routed to the wrong variant, a reachable consumer of unwritten bytes, or a real helper call and compiler/runtime evidence. Static reachability and arithmetic are not native numerical correctness, performance or portability tests.",
+  "lesson": "Trace registry and host dtype/shape dispatch before treating a physical kernel as the API contract. Follow output dtype through allocation, autotuner eligibility and launch; a downstream validator may reject a mismatch before JIT, so it is not yet memory corruption. Inspect registration decorators themselves: a register_fake name can wrap a no-op, leaving the apparent fake function unavailable to the compiler. Check the actual dispatcher and a positive registration control before attributing a tracing failure. Require an actual helper call and substitute specialized dimensions into padding/index arithmetic: bf16 keys, aligned padding and unused helpers can refute a local premise. Equal shared-memory bases may be synchronized producer/consumer views of one buffer. Trace real pointer uses and lowered offsets, not unreferenced macros. A reduction stride may depend on fixed grid, partial allocation and final fold: changing one breaks the contract. Follow scales through final store conversion, not shuffled variable names. Static checks refute only their scoped premise, not native execution.",
+  "avoid_when": "Do not exclude all generated code or assume an unregistered shape is necessarily acceptable API behavior. A shared quantization kind need not imply symmetric weight/activation storage: MXFP4/MXFP8 can use packed FP4 weights with unpacked E4M3 activations. Read the role-specific dtype/shape table and staging allocation before borrowing another role's unpacking path. Reopen with a supported logical key routed to the wrong variant, a reachable consumer of unwritten bytes, or real registration/helper calls and compiler/runtime evidence. Static reachability and arithmetic are not native numerical correctness, performance or portability tests.",
   "evidence": [
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/experimental/minimax_h3_varlen_attention/cake_backend.py#L941-L965",
-      "note": "The supported MiniMax-H3 fp8pv amax stage launches 512 CTAs. Its 512-entry partial allocation and quantizer's two 256-entry reads agree with the generated chunk stride; a gridDim local unused by that loop does not establish skipped work. Static caller/consumer evidence, not a native GPU correctness claim."
+      "note": "MiniMax-H3 fp8pv launches 512 CTAs, allocates 512 partials and reads two 256-entry chunks. An unused gridDim variable does not establish skipped work; static evidence only."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/1fc76f71b6e6c1928ffa9acbfe721566e23593ce/flashinfer/experimental/minimax_h3_varlen_attention/csrc/cake_minimax_h3_varlen_attention/cake_minimax_h3_varlen_attention_f3e0c2ed3c60f798ede5_kernel.cu#L383-L493",
-      "note": "Normalization decodes the E4M3-rounded scale; shuffled raw float scales are converted with the same E4M3 rounding opcode before packing/storing. This refutes the unrounded-scale-storage premise, not every lane layout, numerical error or consumer behavior."
+      "note": "Normalization decodes E4M3-rounded scales; final stores apply the same rounding. This refutes unrounded-scale storage, not every lane layout or numerical error."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/1db3fe8ec169056dcd3f0c8bf92845bd76cfbd4c/flashinfer/fused_moe/cute_dsl/fused_moe.py#L552-L585",
-      "note": "The W4A4 host pipeline allocates the requested output dtype but passes a literal BF16 GEMM2 launch dtype. The tuner independently uses BF16 for eligibility; checking just one stage misses the mismatch."
+      "note": "W4A4 allocates the requested dtype but hardcodes BF16 for launch and tuner eligibility. Inspect all three stages."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/1db3fe8ec169056dcd3f0c8bf92845bd76cfbd4c/flashinfer/fused_moe/cute_dsl/blockscaled_contiguous_grouped_gemm_finalize_fusion.py#L580-L601",
@@ -23,7 +23,7 @@
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/pull/5276#issuecomment-5943304894",
-      "note": "Scoped CPU metadata regression: three FP16 checks failed while three BF16 controls passed; aligning launch and eligibility dtype passed six checks. Real Torch buffers and real can_implement checks, kernel execution mocked. Existing author already fixes execution; this contributes the remaining tuner finding, not native GPU correctness or performance."
+      "note": "CPU metadata: three FP16 failures and three BF16 controls became six passes after dtype alignment. Real buffers/eligibility, mocked kernel. Existing author owns execution fix; feedback contributes tuner coverage, not GPU/performance qualification."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/d849eca46875d3561fa48f6093936304580a1698/flashinfer/experimental/cake_nvfp4_per_token/cake_jit.py",
@@ -39,7 +39,31 @@
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/08776e742cf9b07154b36695947a7b6e11c3c29a/flashinfer/experimental/cake_nvfp4_per_token/csrc/cake_nvfp4_per_token/sm_100a/cake_nvfp4_per_token_f0be5b3bf66e17400472_kernel.cu#L623-L691",
-      "note": "The TMA producer writes SFB via smem_v3..v6 addresses; after waiting on tma_full, the MMA role reads scale descriptors via the larger smem_v7/v8 views. Their equal base offsets are used in the same kernel, not mutually exclusive variants. The macros themselves appear only as definitions; actual operands use pointer variables and lowered numbers. This contradicts the premise that simultaneous use of equal offsets necessarily means independent-buffer overwrite, not a native numerical or complete synchronization-safety qualification."
+      "note": "TMA writes SFB through smem_v3..v6; after tma_full, MMA reads larger smem_v7/v8 views at the same base. They coexist; operands use pointers/lowered offsets, not the unreferenced macros. Same base need not mean independent-buffer overwrite; no native/full synchronization qualification."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/moe_ep/kernel_src/sm107/next_cutedsl_megamoe/shim/block_scaled.py#L44-L52",
+      "note": "The mixed mxfp4_mxfp8 kind uses E4M3 activations with full hidden width but half-width packed weights. Role-specific storage refutes assuming identical unpacking; not a native SM107 qualification."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/moe_ep/kernel_src/sm107/next_cutedsl_megamoe/shim/kernel_helpers.py#L449-L477",
+      "note": "The activation helper converts FP8 directly while the weight helper unpacks FP4 for the same kind. CPU helper checks do not qualify the full package or GPU."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/flashinfer/experimental/cake_dsa_train/cake_backend.py#L442-L521",
+      "note": "The public DSA host validates strides modulo eight BF16 elements and base alignment modulo 16 bytes before binding selection. A generated byte-offset check need not duplicate the caller contract; raw bindings and internal backward layouts remain separate."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/04935caeba8bc17ca162eee0497858c192ecc715/tests/experimental/test_cake_dsa_train.py#L2107-L2230",
+      "note": "Host-validator tests distinguish supported strided layouts from rejected stride/base alignment. Existing controls support reading the caller, not full native GPU correctness."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/5ee9bd4f8edb9e2d764f4a508ef24c36caf7bf38/flashinfer/utils.py#L398-L446",
+      "note": "Both Torch-version branches return identity decorators for register_custom_op and register_fake_op. Names do not establish dispatcher registration. This refutes attributing a compiler metadata failure to a dormant fake, not every compile compatibility problem."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/5ee9bd4f8edb9e2d764f4a508ef24c36caf7bf38/flashinfer/quantization/fp4_quantization.py#L650-L768",
+      "note": "Real and fake expert SwiGLU wrappers both derive k=input.shape[-1]//2 before FP4 byte packing. A truncated view created the false premise that only the fake divides twice."
     }
   ],
   "status": "validated"
