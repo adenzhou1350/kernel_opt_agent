@@ -1,0 +1,22 @@
+{
+  "id": "dsl-static-dynamic-integer-semantics",
+  "title": "Check dynamic DSL IR separately from host integer operator spelling",
+  "applies_when": "Investigating integer division, remainder, shifts or casts in a Python-embedded GPU DSL or compiler that emits Python expressions with overloaded scalar types.",
+  "lesson": "Do not infer device semantics from the printed Python operator, or infer dynamic behavior from a constant-only table. Inspect the actual overload and generate IR with block arguments as well as typed constants. Compare signed division and remainder conventions, both operand signs, exact divisions, zero numerators and large representable values. For MLIR, divsi truncates toward zero while floordivsi rounds downward; these are distinct operations. Use native IR folding or execution with an independently computed integer oracle. Avoid floating-point division/casts as a generic integer repair, especially beyond the float mantissa range. Preserve the original runtime input evaluation count. Test the actual compiler-to-runtime path after component checks.",
+  "avoid_when": "Division by zero and minimum-signed-value divided by minus one have undefined behavior in the cited MLIR operations; do not use them as correctness expectations. Python constants, dynamic Numeric values and tensor/vector expressions may follow different overloads. The cited TileLang report concerns an older dependency revision, not proof that every current backend is broken. IR generation/folding and extracted-helper checks do not qualify a full compiler build, target GPU execution, performance or upstream readiness. A missing unrelated import remains an environment failure; an AST component adapter must be disclosed rather than called a successful full-module import.",
+  "evidence": [
+    {
+      "url": "https://github.com/tile-ai/tilelang/issues/2973",
+      "note": "Public report describes negative-operand CuTeDSL division/remainder disagreement and constant-versus-runtime concerns on TileLang 0.1.13 with Cutlass DSL 4.3.1. It motivates independent version-scoped verification, not a blanket current-version verdict."
+    },
+    {
+      "url": "https://github.com/tile-ai/tilelang/blob/c55eeb1c02571e7eb0e4ba4d77eaed5bd3bf87fd/src/cuda/codegen/codegen_cutedsl.cc",
+      "note": "Pinned integer DivNode emits //; PrintVecBinaryOp distinguishes operator spelling from scalar helper calls. This is source evidence, not execution of the full generated program."
+    },
+    {
+      "url": "https://mlir.llvm.org/docs/Dialects/ArithOps/#arithdivsi-arithdivsiop",
+      "note": "MLIR defines divsi rounding toward zero, floordivsi rounding downward, and signed-division undefined inputs. Normative arithmetic semantics, not a GPU benchmark."
+    }
+  ],
+  "status": "validated"
+}
