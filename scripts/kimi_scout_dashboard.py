@@ -21,6 +21,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from scout_publication_context import owner_publication_rows
+
 PAGE = Path(__file__).with_suffix(".html")
 JOB_ID = re.compile(r"[0-9a-f]{24}")
 MAX_FILE_BYTES = 2_000_000
@@ -233,6 +235,33 @@ def activity_summary(jobs, research, now):
     }
 
 
+def recorded_owner_publications(root, repositories):
+    """Bounded advisory links, independent of model leaf or delivery states.
+
+    Read only known repository note files, not the filesystem or queue history.
+    These links may overlap delivery records and never certify tests or authorship.
+    """
+    repos = sorted({repo for repo in repositories if isinstance(repo, str)})[:128]
+    links = {}
+    for repo in repos:
+        for hypothesis, result, _ in owner_publication_rows(root, repo):
+            url = json.loads(result)["pr"]["url"]
+            links.setdefault(url.casefold(), {
+                "repo": repo, "prior_hypothesis": hypothesis, "url": url,
+            })
+    rows = sorted(links.values(), key=lambda row: (row["repo"].casefold(), row["url"]))
+    return {
+        "distinct_recorded_prs": len(rows),
+        "rows": rows[:20],
+        "repositories_checked": len(repos),
+        "claim_boundary": (
+            "Owner-recorded links in up to 128 known repository scopes, at most "
+            "24 per repository; not an exhaustive publication ledger, attribution "
+            "or current CI/review/merge state. May overlap delivery records: do not add."
+        ),
+    }
+
+
 class Inbox:
     def __init__(self, root):
         self.root = Path(root).resolve(strict=True)
@@ -414,6 +443,7 @@ class Inbox:
             job["id"]: job["usage"] for job in jobs if job["usage"] is not None
         }
         history = [self.activity_job(row, latest_usage) for row in self.activity_rows()]
+        activity = activity_summary(history, research, now)
         warnings = []
         runtime["alive"] = process_alive(runtime.get("pid"))
         if runtime.get("state") != "STOPPED" and not runtime["alive"]:
@@ -435,7 +465,10 @@ class Inbox:
             "research": research,
             "delivery": delivery,
             "delivery_gpu": delivery_gpu,
-            "activity": activity_summary(history, research, now),
+            "activity": activity,
+            "owner_publications": recorded_owner_publications(
+                self.root, [repo["repo"] for repo in activity["repos"]]
+            ),
             "summary": {
                 "counts": dict(Counter(job["state"] for job in history)),
                 "total_jobs": len(history),

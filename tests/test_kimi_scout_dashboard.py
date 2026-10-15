@@ -5,6 +5,7 @@ import json
 import shutil
 import sqlite3
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -16,6 +17,7 @@ from urllib.error import HTTPError
 from urllib.request import Request, urlopen
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+sys.path.insert(0, str(SCRIPTS))
 
 
 def load(name):
