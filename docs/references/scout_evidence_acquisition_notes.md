@@ -1177,6 +1177,29 @@ priced/owner costs cannot establish generalization, causal utility or paper
 readiness. Fixed native acquisition remains the necessary simple comparator,
 not a new algorithm inferred from this result.
 
+## Qualified method search hints
+
+The opt-in bounded code-search route also accepts one or two explicit
+`definition(Class.method)` requests sharing a capitalized owner of at least
+four characters. It searches the literal owner once, rather than silently
+falling through to incidental filename matches. Lowercase receivers, nested
+qualification, qualified references, competing owners, mixed qualified/free
+targets and malformed or more-than-two requests retain ordinary acquisition.
+
+This is only a non-exhaustive current-index path hint: results must still belong
+to the observed tree, be read at its exact revision, and contain the owner
+literal in the visible window. It does not prove a class declaration, method
+ownership, complete body or reachability. One search query and at most two
+80-line source views remain the ceiling; no model call or search tier is added.
+The observed Kimi Code chain requested a registry's register/resolve methods
+but received unrelated resolver files. Offline regression covers the previously
+unsupported request shape; actual index hits, PR yield and cost gains remain
+unmeasured.
+
+```text
+python -B -m unittest tests.test_scout_code_search tests.test_scout_exact_definition_reads tests.test_scout_requested_definition
+```
+
 ## Qualified C++ source-location hints
 
 An explicit `definition(Owner::method)` request in a pinned C-family file can

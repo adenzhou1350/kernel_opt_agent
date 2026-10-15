@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
 import kimi_scout_context as context
 import kimi_scout_research as research
+from scout_requested_definition import requested_code_search_symbols
 
 REPO = "owner/project"
 COMMIT = "a" * 40
@@ -29,6 +30,35 @@ def item(path, repo=REPO, private=False):
 
 
 class CodeSearchTests(unittest.TestCase):
+    def test_search_keys_keep_unqualified_targets_and_fold_one_qualified_owner(self):
+        cases = {
+            'references(build_cache) definition(load_cache)': ['build_cache', 'load_cache'],
+            'definition ( AgentRegistry.register )': ['AgentRegistry'],
+            'definition(AgentRegistry.register) definition(AgentRegistry.resolve)': ['AgentRegistry'],
+            'definition(AgentRegistry.register) definition(AgentRegistry.register)': ['AgentRegistry'],
+        }
+        for request, expected in cases.items():
+            with self.subTest(request=request):
+                self.assertEqual(requested_code_search_symbols(request), expected)
+
+    def test_qualified_keys_abstain_on_receiver_guessing_and_ambiguous_requests(self):
+        for request in (
+            'definition(registry.register)',
+            'references(AgentRegistry.register)',
+            'definition(AgentRegistry.register) definition(OtherRegistry.resolve)',
+            'definition(AgentRegistry.register) definition(resolve)',
+            'definition(AgentRegistry..register)',
+            'definition(AgentRegistry.register.more)',
+            'definition(AgentRegistry.register) definition(AgentRegistry.resolve) definition(AgentRegistry.list)',
+            'definition(AgentRegistry.register repo:foreign/repo)',
+            'definition(https://other.invalid/register)',
+            'definition(AgentRegistry.register) definition(bad target)',
+            'x' * 2000 + ' definition(AgentRegistry.register)',
+        ):
+            with self.subTest(request=request):
+                self.assertEqual(requested_code_search_symbols(request), [])
+        self.assertEqual(requested_code_search_symbols(None), [])
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
@@ -207,6 +237,9 @@ class FollowupCodeSearchTests(unittest.TestCase):
             def duplicate_sources(self, *args):
                 return []
 
+            def issue_pr_context(self, *args):
+                return {"sources": [], "status": "PARTIAL_TIMELINE", "search_exhaustive": False}
+
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             scout.initialize(root)
@@ -324,6 +357,28 @@ class FollowupCodeSearchTests(unittest.TestCase):
             with self.subTest(request=request):
                 searches, _, _, _ = self.run_followup(request_text=request)
                 self.assertEqual(searches, [])
+
+    def test_qualified_same_owner_definitions_share_one_bounded_search(self):
+        searches, reads, packets, progress = self.run_followup(
+            request_text=f"definition({SYMBOL}.register) definition({SYMBOL}.resolve)"
+        )
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(len(reads), 1)
+        self.assertEqual(progress["code_search_requests"], 1)
+        evidence = [s for s in packets[0]["sources"] if "code_search_hint" in s]
+        self.assertEqual(len(evidence), 1)
+        self.assertEqual(evidence[0]["code_search_hint"]["symbol"], SYMBOL)
+        self.assertIn(f"/{COMMIT}/{PATH}", evidence[0]["url"])
+        self.assertLessEqual(evidence[0]["end_line"] - evidence[0]["start_line"] + 1, 80)
+        self.assertNotIn("requested_definition_complete", evidence[0])
+
+    def test_qualified_search_retains_opt_in_and_literal_drift_checks(self):
+        request = f"definition({SYMBOL}.register)"
+        searches, reads, _, _ = self.run_followup(enabled=False, request_text=request)
+        self.assertEqual((searches, reads), ([], []))
+        searches, _, packets, _ = self.run_followup(drift=True, request_text=request)
+        self.assertEqual(len(searches), 1)
+        self.assertFalse(any("code_search_hint" in s for p in packets for s in p["sources"]))
 
     def test_definition_retains_opt_in_and_pinned_literal_drift_rejection(self):
         request = f"definition({SYMBOL})"

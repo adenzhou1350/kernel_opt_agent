@@ -24,7 +24,7 @@ from scout_cited_issue import cited_issue_number, related_issue_body, requested_
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint
-from scout_requested_definition import cached_qualified_definition_path
+from scout_requested_definition import cached_qualified_definition_path, requested_code_search_symbols
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_symbol_references import reference_requests
@@ -1596,14 +1596,7 @@ class ResearchProducer:
             code_requests = []
             code_lookup = getattr(self.context, "code_search_paths", None)
             request_text = analysis_value.get("next_check", "")
-            symbols = list(
-                dict.fromkeys(
-                    re.findall(
-                        r"\b(?:references|definition)\(([A-Za-z_][A-Za-z0-9_-]{3,127})\)",
-                        request_text[:2000] if isinstance(request_text, str) else "",
-                    )
-                )
-            )
+            symbols = requested_code_search_symbols(request_text)
             if (
                 spec.get("followup_code_search", False)
                 and callable(code_lookup)
@@ -1615,8 +1608,8 @@ class ResearchProducer:
                 and not continuation
                 and definition_request is None
             ):
-                # Missing unqualified definitions can be in another module even
-                # without a direct import. This remains a lexical path hint, not
+                # Missing definitions or a qualified request's literal owner can
+                # be in another module. This remains a lexical path hint, not
                 # a resolved receiver or call graph. Keep the same one-query cap.
                 # Replace ordinary reads; pinned source must contain the literal.
                 progress["code_search_requests"] = (

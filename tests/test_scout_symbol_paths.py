@@ -59,7 +59,7 @@ class SymbolPathTests(unittest.TestCase):
         hints = " ".join(f"header{i}" for i in range(40)) + f" prefill inspect {SYMBOL}"
         with tempfile.TemporaryDirectory() as tmp:
             ctx = context.PublicContext(Path(tmp))
-            with patch.object(ctx, "snapshot", return_value={"files": [PATH]}), patch.object(ctx, "_read", return_value=raw) as reader:
+            with patch.object(ctx, "snapshot", return_value={"files": [PATH], "blobs": {PATH: "b" * 40}}), patch.object(ctx, "_read", return_value=raw) as reader:
                 result = ctx.source("a/b", "a" * 40, PATH, hints=hints)
             self.assertIn(f"class {SYMBOL}", result["text"])
             self.assertIn("AttentionCGSupport.ALWAYS", result["text"])

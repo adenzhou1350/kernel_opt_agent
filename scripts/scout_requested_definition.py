@@ -11,6 +11,39 @@ import tokenize
 from urllib.parse import unquote
 
 
+def requested_code_search_symbols(request):
+    """Bounded lexical search keys, not a receiver or definition resolver.
+
+    One/two explicit unqualified targets retain the existing query route.
+    One/two Class.method definitions with the same capitalized owner search
+    that owner once. Mixed, nested, malformed or competing owners abstain.
+    """
+    if not isinstance(request, str):
+        return []
+    request = request[:2000]
+    markers = list(re.finditer(r"(?<!\w)(definition|references)[ \t]*\(", request))
+    if not 1 <= len(markers) <= 2:
+        return []
+    names, owners = [], []
+    for marker in markers:
+        match = re.match(
+            r"[ \t]*([A-Za-z_][A-Za-z0-9_-]{3,127})"
+            r"(?:\.([A-Za-z_][A-Za-z0-9_]{0,127}))?[ \t]*\)",
+            request[marker.end():],
+        )
+        if match is None:
+            return []
+        if match[2] is not None:
+            if marker[1] != "definition" or not re.fullmatch(r"[A-Z][A-Za-z0-9_]{3,127}", match[1]):
+                return []
+            owners.append(match[1])
+        else:
+            names.append(match[1])
+    if owners:
+        return [owners[0]] if not names and len(set(owners)) == 1 else []
+    return list(dict.fromkeys(names))
+
+
 def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
     """Locate one explicit Class.method declaration in <=8 already-cached files.
 
