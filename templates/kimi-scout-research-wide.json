@@ -6,6 +6,15 @@
   "source_windows": 12,
   "repos": [
     {
+      "repo": "more-itertools/more-itertools",
+      "ref": "master",
+      "source_windows": 6,
+      "source_prefixes": ["more_itertools/more.py", "more_itertools/recipes.py"],
+      "followup_discussion_context": true,
+      "followup_issue_body_context": true,
+      "question": "Investigate supported iterator consumption, lazy evaluation, boundary and exception behavior only when an observed real production caller or current public report demonstrates its impact. README Development requires an issue before a PR and production-code examples for assistant-found bugs; contrived examples alone are not eligible. Do not fabricate a production consumer or publish from discovery. If production evidence is absent, return no_lead or request that specific evidence. Read existing tests and related fixes before proposing a change. Owner ran unchanged 4aeb4338ae1407d8da9723e86da99efeb446f719: all929 unittest/doctest cases PASS on native Windows CPython3.12.13, no installation or WSL. This is baseline testability, not a new defect or the Python/OS CI matrix. The default64-PID CPU sandbox cannot run the100-thread concurrency test; preserve its failed full-suite result, do not weaken the test or claim sandbox qualification. Each new candidate still needs exact-source independent reproduction and contribution-policy review."
+    },
+    {
       "repo": "google/go-cmp",
       "ref": "master",
       "source_windows": 6,

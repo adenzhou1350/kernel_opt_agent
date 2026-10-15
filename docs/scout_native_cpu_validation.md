@@ -1,5 +1,26 @@
 # Native CPU tests before broadening Scout discovery
 
+## Standard-library iterator tests and concurrency capacity
+
+At [More Itertools 4aeb433](https://github.com/more-itertools/more-itertools/tree/4aeb4338ae1407d8da9723e86da99efeb446f719),
+the unchanged package and its unittest/doctest suite require no installed test
+dependencies. Native Windows CPython 3.12.13 completed all 929 cases with source
+hashes unchanged using `python -B -m unittest -q` from the commit-exact checkout.
+This establishes that baseline only, not the full supported Python/OS matrix,
+packaging, static checks or a discovered defect.
+
+The default offline CPU sandbox instead completed 929 cases with one failure and
+three errors involving thread creation. Its 64-PID limit cannot accommodate the
+[100-thread concurrent-tee test](https://github.com/more-itertools/more-itertools/blob/4aeb4338ae1407d8da9723e86da99efeb446f719/tests/test_more.py#L7098).
+A fresh one-thread canary passed; later failures in the full suite may be cascades,
+not four independent library bugs. Retain the failed run, do not drop cases or
+relax sandbox limits to advertise a green full-suite capability. Use an authorized
+native environment with appropriate capacity for independently reviewed tests.
+
+Also read the repository's [Development rules](https://github.com/more-itertools/more-itertools/blob/4aeb4338ae1407d8da9723e86da99efeb446f719/README.rst#development):
+assistant-found reports require affected production code, and an issue precedes
+a PR. A synthetic red/green test is not a substitute for that contribution route.
+
 Add a repository when a supported baseline can actually run, not just because
 source is available. A baseline may reveal a known upstream failure; retain it
 and compare the same affected tests before/after a candidate. Do not suppress
