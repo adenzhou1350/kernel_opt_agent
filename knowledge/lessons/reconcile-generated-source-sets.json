@@ -7,7 +7,11 @@
   "evidence": [
     {
       "url": "https://github.com/ROCm/aiter/pull/5936",
-      "note": "The MXFP4 MoE auxiliary generator fix and CPU regression tests demonstrate stale .cu removal through direct regeneration and Aiter's JIT staging/publish path. The PR is open; it does not establish AMD GPU performance or maintainer acceptance."
+      "note": "The MXFP4 MoE auxiliary generator fix and CPU regression tests demonstrate stale .cu removal through direct regeneration and Aiter's JIT staging/publish path. Maintainer yzhou103 approved and merged PR5936 on 2026-10-15; the merge page reported 50 checks passed. This establishes upstream acceptance, not an author-run HIP build, AMD GPU correctness or performance."
+    },
+    {
+      "url": "https://github.com/ROCm/aiter/commit/2ae524697f8640dbb1305014458d4ac4df2928d5",
+      "note": "Immutable upstream merge identity for the accepted generated-source cleanup. Retain the original CPU validation scope; acceptance does not broaden it into kernel or whole-workload speed evidence."
     }
   ],
   "status": "validated"
