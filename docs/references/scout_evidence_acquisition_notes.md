@@ -1084,6 +1084,14 @@ can match. It does not assert owner resolution, a complete function body,
 compilation or reachability, and never sets `requested_definition_complete` or
 triggers the optional-read omission intended for complete Python definitions.
 
+One exposed debugging replay used the existing exact TileLang
+[`79401028` source cache](https://github.com/tile-ai/tilelang/blob/7940102813c08c1a589e1b4c57d7010d9aa68982/src/ascend/codegen/codegen_pto.cc#L7600).
+With the same reconstructed parent-analysis/issue-excerpt hints, the old reader
+selected lines 3466–3585 without the target; the new reader selected 7600–7719
+containing it. Both used zero new source fetches and zero model calls. This is
+not an exact recording of the original pre-budget producer arguments, a blinded
+prospective comparison, native PTO codegen qualification or measured PR yield.
+
 ```text
 python -B -m unittest tests.test_scout_cpp_qualified_hint tests.test_scout_native_reference_anchor tests.test_scout_requested_definition tests.test_kimi_scout_context
 ```
