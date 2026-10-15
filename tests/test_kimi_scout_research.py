@@ -460,6 +460,62 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(self.context.calls[-1][1:3], (new_commit, "src/zeta.py"))
         self.assertEqual(progress["source_priority"]["paths"], ["src/zeta.py"])
 
+    def assert_family_cursor_migration(self, *, versioned):
+        # A legacy alphabetical cursor already consumed two generated variants.
+        # The new order must find the wrapper without skipping or paying again
+        # for either old variant, then survive a real producer save/reload.
+        variants = [f"src/op_{index:020x}_kernel.cu" for index in range(3)]
+        paths = variants + ["src/wrapper.py"]
+        snapshot = {
+            "commit": self.context.revision, "files": paths,
+            "blobs": {path: self.context.blob for path in paths},
+        }
+        self.value.update(source_windows=1, queue_target=8)
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        self.producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+        progress.update(source_windows=1, source_cursor=2, source_prefixes=["src/"])
+        if versioned:
+            scope = research.hashlib.sha256(scout.dumps([1, paths]).encode()).hexdigest()
+            progress["source_priority"] = {
+                "commit": self.context.revision, "scope": scope,
+                "paths": [], "base_commit": None, "policy": "changed_blobs_first_v1",
+            }
+        for path in variants[:2]:
+            self.producer.remember(f"source:a/b:{path}:{self.context.blob}:1")
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.assertEqual(self.context.calls[-1][2], paths[-1])
+            self.assertEqual(progress["source_priority"]["policy"], research.SOURCE_ORDER_POLICY)
+            self.producer.save()
+            resumed = research.ResearchProducer(self.root, self.config, context=self.context)
+            resumed_progress = resumed.state["repos"]["a/b"]
+            self.assertTrue(resumed.source_audit(self.spec, resumed_progress))
+            self.assertEqual(self.context.calls[-1][2], variants[2])
+            self.assertFalse(resumed.source_audit(self.spec, resumed_progress))
+        self.assertEqual([call[2] for call in self.context.calls], [paths[-1], variants[2]])
+        self.assertEqual(len(self.jobs()), 2)
+        self.assertEqual(resumed_progress["last_sweep_commit"], snapshot["commit"])
+
+    def test_family_order_migrates_legacy_cursor_with_seen_keys(self):
+        self.assert_family_cursor_migration(versioned=False)
+
+    def test_family_order_migrates_v1_priority_cursor_with_seen_keys(self):
+        self.assert_family_cursor_migration(versioned=True)
+
+    def test_ordinary_legacy_cursor_keeps_its_unchanged_order(self):
+        paths = ["src/alpha.py", "src/middle.py", "src/zeta.py"]
+        snapshot = {
+            "commit": self.context.revision, "files": paths,
+            "blobs": {path: self.context.blob for path in paths},
+        }
+        self.producer.config["source_windows"] = 1
+        progress = dict(source_windows=1, source_cursor=1, source_prefixes=["src/"])
+        self.producer.remember(f"source:a/b:{paths[0]}:{self.context.blob}:1")
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual([call[2] for call in self.context.calls], [paths[1]])
+
     def test_more_source_windows_reopen_completed_unchanged_revision(self):
         progress = {}
         self.assertTrue(self.producer.source_audit(self.spec, progress))

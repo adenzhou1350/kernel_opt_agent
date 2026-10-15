@@ -30,6 +30,12 @@ from scout_symbol_references import reference_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_pr_revision import pr_revision_sources, requested_pr_number
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
+from scout_source_order import (
+    SOURCE_ORDER_POLICY,
+    changed_first_paths,
+    family_round_robin,
+    reset_legacy_cursor,
+)
 from scout_publication_context import (
     fit_publication_context,
     owner_deferral_context,
@@ -496,15 +502,6 @@ def source_paths(snapshot, spec):
         and implementation_path(p)
         and not re.search(r"(?:^|/)(?:generated|third_party|vendor)/|_hdim\d+_", p)
     )
-
-
-def changed_first_paths(paths, current_blobs, previous_blobs, limit=512):
-    """Move changed Git blobs to the front without dropping any source paths."""
-    changed = [
-        path for path in paths if current_blobs[path] != previous_blobs.get(path)
-    ][:limit]
-    changed_set = set(changed)
-    return changed + [path for path in paths if path not in changed_set], changed
 
 
 def continuation_request(packet, snapshot, analysis, *, spec=None):
@@ -1240,11 +1237,14 @@ class ResearchProducer:
         if (
             priority.get("commit") != snapshot["commit"]
             or priority.get("scope") != scope
+            or priority.get("policy") != SOURCE_ORDER_POLICY
         ):
             # A cursor already in flight belongs to the old ordering. Restart
             # the sweep on a scope change or upgrade; seen keys keep this
             # idempotent. Persist the new prefix across process restarts.
-            if priority and progress.get("source_cursor", 0):
+            if (priority and progress.get("source_cursor", 0)) or reset_legacy_cursor(
+                paths, progress.get("source_cursor", 0), priority
+            ):
                 progress["source_cursor"] = 0
             changed = []
             previous = progress.get("priority_reference_commit") or progress.get(
@@ -1262,12 +1262,13 @@ class ResearchProducer:
                 "scope": scope,
                 "paths": changed,
                 "base_commit": previous,
+                "policy": SOURCE_ORDER_POLICY,
             }
             progress["source_priority"] = priority
             progress.pop("priority_reference_commit", None)
-        prioritized = [path for path in priority["paths"] if path in paths]
+        prioritized = family_round_robin([path for path in priority["paths"] if path in paths])
         prioritized_set = set(prioritized)
-        paths = prioritized + [path for path in paths if path not in prioritized_set]
+        paths = prioritized + family_round_robin([path for path in paths if path not in prioritized_set])
         total = len(paths) * windows
         scan_end = min(total, progress.get("source_cursor", 0) + 2048)
         while True:
@@ -1387,7 +1388,7 @@ class ResearchProducer:
                     "Do not call it novel; later stages check related work."
                 ),
                 frontier={
-                    "policy": "changed_blobs_first_v1",
+                    "policy": SOURCE_ORDER_POLICY,
                     "commit": snapshot["commit"],
                     "base_commit": priority.get("base_commit"),
                     "changed_blob": path in prioritized_set,

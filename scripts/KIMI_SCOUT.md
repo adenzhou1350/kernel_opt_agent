@@ -238,6 +238,15 @@ Codex conversation, recurring wakeup or agent-to-agent messaging is required.
   On a new repository revision, changed Git blobs are sampled first; unchanged
   blobs keep their deduplication identity. Mutable refs are refreshed after 900
   seconds, so a stale snapshot is not treated as a new source fact.
+  The changed prefix remains capped at 512 paths. Within it and the remaining
+  paths, naming families of `_<20 lowercase hex>_kernel.cu` and `_binding.cu`
+  variants are interleaved; architecture directories and kernel/binding kinds
+  remain distinct. No path is removed and no variants are declared equivalent.
+  A persisted ordering policy identifies the cursor: changed ordering rewinds
+  safely through existing seen keys, while ordinary unchanged alphabetical
+  cursors retain their position. This is coverage scheduling, not demonstrated
+  model quality, PR conversion or whole-workload speedup. Offline checks:
+  `python -B -m unittest tests.test_scout_family_order tests.test_kimi_scout_research`.
 - Named Python/JavaScript/TypeScript hints prefer a matching declaration over
   incidental comment, import or call mentions; qualified method names precede
   their enclosing class. Explicit line starts and matched exact literals retain
