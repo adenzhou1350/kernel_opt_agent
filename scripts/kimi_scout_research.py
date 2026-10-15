@@ -171,6 +171,11 @@ def companion_source_hints(source, stem):
 def companion_source_paths(path, files):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    # A substring is not a module hint: output.py must not consume a diffusion
+    # outputs generator, nor port.ts an import test. Underscores, hyphens and
+    # path separators still delimit conventional module/test names. This is
+    # only lexical admission, not evidence that the selected test covers it.
+    module_name = re.compile(r"(?<![A-Za-z0-9])" + re.escape(stem) + r"(?![A-Za-z0-9])")
 
     def sibling_source_component(candidate):
         # A matching basename is not a component link. Compare only paths in
@@ -251,7 +256,7 @@ def companion_source_paths(path, files):
             for p in files
             if p != path
             and "test" in p
-            and stem in p
+            and module_name.search(p)
             and p.endswith(SOURCE_SUFFIXES)
             and not sibling_source_component(p)
         ),
