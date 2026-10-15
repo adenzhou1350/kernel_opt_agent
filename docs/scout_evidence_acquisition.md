@@ -909,6 +909,17 @@ checks that the latest hint/caution reaches the request, while the staged lead,
 source and note files remain unchanged. This establishes advice availability,
 not better model decisions, fewer duplicate PRs, recall or measured token savings.
 
+The same four fixtures were also replayed against the actual deployed worker's
+dependencies: the original request missed the publication field, while the
+narrowly patched module passed. Read-only probes against existing owner history
+then exposed pyparsing PR #698 and the scoped fsspec public-API counterexample.
+The update preserved deployed lesson handling and all unrelated methods; only
+the idle delivery module's on-disk bytes changed. Existing controller/viewer
+processes were not restarted. Future delivery processes can import the update;
+this is not evidence that a production model consumed it. An initial installed
+fixture launch failed before test bodies because inherited bootstrap paths were
+parsed as unittest names; its log was retained and only the launcher was fixed.
+
 ```text
 python -B -m unittest tests.test_scout_delivery_owner_memory tests.test_kimi_scout_delivery tests.test_scout_direct_owner_intake tests.test_scout_publication_context
 ```
