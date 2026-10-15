@@ -1,0 +1,22 @@
+{
+  "id": "rank-zero-is-not-a-unique-filesystem-creator",
+  "title": "Rank zero in a parallel group is not a unique shared-directory creator",
+  "applies_when": "Distributed workers guard filesystem initialization with a group-local rank such as tp_rank == 0, while pipeline/data-parallel groups or separate instances share the same parent directory.",
+  "lesson": "Enumerate the parallel coordinates and the actual shared resource, not just per-worker filenames. Distinct PP suffixes do not make their parent directory private: more than one TP-rank-zero creator can legitimately observe it absent. Make creation of an owned shared directory idempotent while preserving existing rank policy and real filesystem errors. A deterministic race test can pause two real existence checks before either creator proceeds, then delegate mkdir to the real filesystem; do not fabricate success or bypass construction.",
+  "avoid_when": "Do not assume group-local ranks, shared storage or concurrent startup without source/caller evidence. A directory-construction race does not establish that a nonzero rank writes before rank zero: intervening collectives or startup barriers can matter. exist_ok is not a symlink/security policy and should not suppress PermissionError or arbitrary I/O failures. Do not delete/recreate a shared directory or broaden every rank's side effects merely to make a synthetic write test pass.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/f2b73d4f9b4e64415b8d775b0f811c7801f1728b/python/sglang/srt/mem_cache/hicache_storage.py#L397-L421",
+      "note": "Baseline constructor accepts independent TP/PP/CP coordinates, uses PP in file suffixes but not the directory path, and performs a check-then-makedirs under TP/CP rank zero. This source establishes the constructor mechanism, not a measured full-engine startup failure."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/0276104d406b8199ea6a410ce872f545645ba1a9/test/registered/unit/mem_cache/test_hicache_file_directory_race.py",
+      "note": "Native Linux Python3.12/Torch2.11 test uses real HiCacheFile constructors, PP ranks 0/1 and real filesystem operations with an existence-check scheduling barrier. The baseline has one race assertion wrapped as an error by CustomTestCase; the candidate and unchanged LRU/path controls pass 40/40 with no skips. Existing-directory contents, nonzero-rank policy and permission failures remain controls. No production stubs, model, GPU or official-CI qualification."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/pull/44422",
+      "note": "Ready PR contains one production-line change, exist_ok=True, plus registered CPU coverage. Hosted CI/review and acceptance remain pending. Windows pre-commit was not fully qualified because its Ruff hook executable was blocked by application control; the denial was not bypassed. This retrospective Scout-to-owner contribution is not evidence of prospective selector utility or generalized PR yield."
+    }
+  ],
+  "status": "validated"
+}
