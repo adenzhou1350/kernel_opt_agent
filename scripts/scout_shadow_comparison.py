@@ -58,6 +58,62 @@ def summarize_reported_tokens(records):
                 unknown_usage_records=len(values)-len(known), call_records=len(values))
 
 
+def summarize_repeated_reviews(records):
+    """Group actual final calls by caller-verified exact request byte digest.
+
+    Do not pass selectors or uncalled/planned review slots. Callers validate
+    their frozen answer schema and oracle first; hashes here do not authenticate
+    requests. Different accepted answers are variability, not independent bugs
+    or an attributable acquisition effect. No raw answers are returned.
+    """
+    if not isinstance(records, list) or len(records) > 10000:
+        raise ValueError('expected at most 10000 actual review records')
+    seen, groups = set(), {}
+    for record in records:
+        if not isinstance(record, dict):
+            raise ValueError('review record must be an object')
+        attempt = record.get('attempt_id')
+        digest = record.get('request_sha256')
+        valid, correct = record.get('valid'), record.get('correct')
+        if (not isinstance(attempt, str) or not 1 <= len(attempt) <= 200
+                or attempt in seen or not isinstance(digest, str)
+                or len(digest) != 64 or any(c not in '0123456789abcdef' for c in digest)
+                or type(valid) is not bool
+                or (correct is not None and type(correct) is not bool)
+                or (not valid and correct is True)):
+            raise ValueError('invalid or duplicate review identity/assessment')
+        seen.add(attempt)
+        group = groups.setdefault(digest, dict(request_sha256=digest, calls=0,
+            valid_reviews=0, invalid_reviews=0, correct_reviews=0,
+            unknown_correctness=0, answers=set()))
+        group['calls'] += 1
+        group['invalid_reviews'] += not valid
+        group['unknown_correctness'] += correct is None
+        group['correct_reviews'] += correct is True
+        if valid:
+            if 'answer' not in record:
+                raise ValueError('valid review requires its accepted answer')
+            try:
+                answer = json.dumps(record['answer'], sort_keys=True,
+                                    ensure_ascii=True, allow_nan=False)
+            except (TypeError, ValueError, RecursionError) as error:
+                raise ValueError('answer must be finite JSON') from error
+            if len(answer) > 131072:
+                raise ValueError('accepted answer exceeds summary limit')
+            group['valid_reviews'] += 1
+            group['answers'].add(answer)
+    result = []
+    for digest in sorted(groups):
+        group = groups[digest]
+        distinct = len(group.pop('answers'))
+        result.append(dict(group, distinct_valid_answers=distinct,
+                           accepted_answer_varied=distinct > 1))
+    return dict(actual_review_calls=len(records), request_groups=len(result),
+                repeated_request_groups=sum(g['calls'] > 1 for g in result),
+                varied_request_groups=sum(g['accepted_answer_varied'] for g in result),
+                groups=result)
+
+
 def _mmx_failure_diagnostic(text):
     """Retain bounded SDK categories, never provider messages or credentials."""
     if not isinstance(text, str) or len(text.encode()) > 4096:

@@ -1280,6 +1280,57 @@ pre-call protocol, common-review variance controls and budget accounting.
 python -B -m unittest tests.test_scout_repair_draw
 ```
 
+## Repeated common review: attrs pilot (2026-10-16)
+
+The admitted attrs group above subsequently received a separately frozen M3
+comparison: source-only, fixed fresh native acquisition, and action-only
+selection, with two planned common final reviews per revision/arm. The question
+was the actual `attrs.fields(C)` and `C()` outcome for a top-level slotted class
+with an unbound `ClassVar[str]` annotation on CPython 3.14.3, not the intended
+semantics. Fresh complete-package public calls gave parent
+`CLASSVAR_AND_VALUE / TYPE_ERROR` and head `VALUE_ONLY / VALUE_1`; ordinary-class
+controls passed. No production export, AST replacement or mock provided the
+native oracle. Source views included the Python 3.14 annotation collector and
+complete relevant functions, without hiding the repair.
+
+| Arm | Actual final reviews / strict correct | Actual model calls | Reported tokens |
+| --- | --- | --- | --- |
+| Source-only | 4 / 0 | 4 | 9,378 |
+| Fixed fresh native acquisition + review | 4 / 4 | 4 | 9,661 |
+| Action-only selector | 0 / not observed | 2 | 4,968 |
+
+Both selectors returned `action=native` but added a forbidden `reason` field.
+Under the predeclared exact schema, both stopped without repair/retry; their four
+planned review slots were **not calls**. These are two format failures, not four
+failed reviews or evidence of wrong semantic action choices. Responses ended
+normally at 118/102 output tokens, below the 128 cap; truncation is not supported.
+All ten calls retained usage, totaling 24,007 normalized tokens. Fixed-arm native
+client time was about 0.328 s; the two shared-oracle calls took about 0.344 s.
+Clone/setup/owner effort and dollars remain separate and incompletely measured.
+
+An offline audit reconstructed every request from frozen inputs, re-parsed raw
+provider envelopes, checked source/probe hashes and compared original request
+bytes. Each revision/arm had two byte-identical review requests: both source-only
+groups varied between incorrect answers, while both native groups agreed on the
+correct outcome. `summarize_repeated_reviews` optionally reports this distinction
+from caller-validated actual calls; it neither authenticates hashes nor validates
+the caller's oracle/schema. Callers must omit selectors and uncalled slots; the
+helper separates invalid answers from accepted-answer variation and returns
+counts, not raw text.
+
+This supports the value of native evidence **on this one historical group**, not
+adaptive selection, independence of repetitions, causal model-quality claims or
+PR yield. Same ceilings are not equal realized/priced budgets; provider sampling
+defaults were not controlled. Do not deploy an adaptive policy, rerun exposed
+groups, relax their parsers or claim paper readiness from these pilots. The next
+efficacy study still needs fresh independent groups, a simple fixed-acquisition
+baseline, cheap/strong and full existing-method comparisons, and total-cost
+accounting. There were zero new PRs/GPU calls/production Scout changes.
+
+```text
+python -B -m unittest tests.test_scout_single_review tests.test_scout_shadow_comparison tests.test_scout_mmx_accounting tests.test_scout_model_usage
+```
+
 ## Qualified method search hints
 
 The opt-in bounded code-search route also accepts one or two explicit

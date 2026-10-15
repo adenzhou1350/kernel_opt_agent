@@ -2,7 +2,9 @@
 import json
 import unittest
 
-from scripts.scout_shadow_comparison import make_view, run_arm, summarize_reported_tokens
+from scripts.scout_shadow_comparison import (
+    make_view, run_arm, summarize_repeated_reviews, summarize_reported_tokens,
+)
 
 
 class SingleReviewTests(unittest.TestCase):
@@ -110,6 +112,57 @@ class SingleReviewTests(unittest.TestCase):
         self.assertEqual(empty['normalized_total_tokens'],0)
         self.assertEqual(empty['call_records'],0)
         with self.assertRaises(ValueError):summarize_reported_tokens([None])
+
+
+class RepeatedReviewTests(unittest.TestCase):
+    def record(self, attempt='one', **changes):
+        return dict(dict(attempt_id=attempt, request_sha256='a'*64,
+                         valid=True, correct=False, answer={'outcome': 'A'}), **changes)
+
+    def test_equal_json_answers_and_different_request_groups(self):
+        rows = [self.record(), self.record('two', answer={'outcome': 'A'}),
+                self.record('three', request_sha256='b'*64, correct=True)]
+        summary = summarize_repeated_reviews(rows)
+        self.assertEqual(summary['actual_review_calls'], 3)
+        self.assertEqual(summary['repeated_request_groups'], 1)
+        self.assertEqual(summary['varied_request_groups'], 0)
+        self.assertEqual(summary['groups'][0]['distinct_valid_answers'], 1)
+        self.assertNotIn('outcome', json.dumps(summary))  # no raw answer objects
+
+    def test_variation_is_separate_from_invalid_format_and_unknown_correctness(self):
+        rows = [self.record(), self.record('two', answer={'outcome': 'B'}, correct=None),
+                self.record('three', valid=False, correct=False, answer='unaccepted prose')]
+        group = summarize_repeated_reviews(rows)['groups'][0]
+        self.assertTrue(group['accepted_answer_varied'])
+        self.assertEqual(group['valid_reviews'], 2)
+        self.assertEqual(group['invalid_reviews'], 1)
+        self.assertEqual(group['unknown_correctness'], 1)
+        self.assertEqual(group['distinct_valid_answers'], 2)
+
+    def test_rejects_duplicate_calls_bad_identity_and_assessments(self):
+        with self.assertRaises(ValueError):
+            summarize_repeated_reviews([self.record(), self.record()])
+        for change in ({'request_sha256': 'short'}, {'request_sha256': 'G'*64},
+                       {'valid': 1}, {'correct': 0}, {'valid': False, 'correct': True},
+                       {'attempt_id': ''}):
+            with self.subTest(change=change), self.assertRaises(ValueError):
+                summarize_repeated_reviews([self.record(**change)])
+
+    def test_rejects_non_json_or_unbounded_accepted_answers(self):
+        for answer in (float('nan'), object(), 'x'*131073):
+            with self.subTest(answer=type(answer)), self.assertRaises(ValueError):
+                summarize_repeated_reviews([self.record(answer=answer)])
+        row = self.record()
+        del row['answer']
+        with self.assertRaises(ValueError):
+            summarize_repeated_reviews([row])
+
+    def test_empty_has_no_calls_or_groups_and_does_not_mutate_input(self):
+        self.assertEqual(summarize_repeated_reviews([])['actual_review_calls'], 0)
+        rows = [self.record()]
+        before = json.dumps(rows, sort_keys=True)
+        summarize_repeated_reviews(rows)
+        self.assertEqual(json.dumps(rows, sort_keys=True), before)
 
 
 if __name__=='__main__':
