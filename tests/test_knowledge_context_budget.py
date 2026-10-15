@@ -210,6 +210,21 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("meta/symbolic", card["avoid_when"])
         self.assertNotIn("qualified", result)
 
+    def test_native_guard_advice_keeps_safe_kernel_witness_scope(self):
+        result = lesson_suggestions(
+            "KDA padded key mask NaN gate guard",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "716c5225aefa7aae0628d88a6d58adddbca7c22c/"
+                "vllm/third_party/flash_linear_attention/ops/fused_recurrent.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "native-operation-inherited-guards")
+        self.assertIn("accessible task-owned guard cells", card["lesson"])
+        self.assertIn("not an out-of-allocation sanitizer", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
