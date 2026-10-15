@@ -177,6 +177,31 @@ utility; the direct-label interface did not eliminate the contradiction. Keep
 format, factual outcome and explanation checks separate, and retain invalid
 outputs and all incurred costs in future comparisons.
 
+A later metadata-only draw fixed the latest 60 first-parent nonmerge commits of
+`more-itertools/more-itertools`, selecting the first small fix/bug-titled change
+with production Python and test paths. Its initial depth-100 clone exposed only
+13 apparent records, including a shallow-boundary merge presented as parentless.
+That preliminary empty draw was retained as incomplete, not a no-repair finding.
+Bounded history acquisition completed the same sampling frame; a subsequent
+300-record mixed-merge traversal cap also stopped before the frame was complete.
+Both setup failures and acquisition costs remain part of this pilot. Do not
+hide them or count the completed draw as a second independent admission.
+
+The first eligible change was
+[`4bd0bd876`](https://github.com/more-itertools/more-itertools/commit/4bd0bd876273a8ff2171352c937b91a8c053d00b),
+titled a `distinct_permutations` fix. Its production-file changes were docstrings,
+not an executable repair. The same unchanged head `DistinctPermutationsTests`
+class on complete exact-source parent/head packages passed six tests per arm,
+with no errors or skips, using Python 3.12.10's real unittest runner in isolated
+offline CPU sessions. Both sessions were released. This is selected-class
+evidence, not full-repository correctness or proof of universal equivalence.
+The predeclared oracle did not discriminate, so the selected group was retained
+and **zero model calls** were purchased; no replacement case was drawn. A fix
+title and test churn do not establish a faulty/fixed behavior pair. This is an
+admission negative, not a selector win, measured counterfactual savings, recall
+or PR result. Strong-provider/existing-agent and total-cost comparisons remain
+unfinished; keep this group outside future unseen evaluation inputs.
+
 An additional **exposed development** control now comes from our own
 [Pyodide request repair](https://github.com/fsspec/filesystem_spec/pull/2293).
 The first submitted head `f77a724` passed 65 native tests and nine real-browser

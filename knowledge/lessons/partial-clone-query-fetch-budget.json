@@ -1,9 +1,9 @@
 {
   "id": "partial-clone-query-fetch-budget",
   "title": "Budget missing-object acquisition before searching a partial clone",
-  "applies_when": "A local repository is a partial clone with a promisor remote, and source investigation needs only a few files or symbols at a pinned revision.",
-  "lesson": "A read-looking Git command can fetch omitted objects. Before a broad revision-content search, list tree paths and choose the files that answer the current question. Read those pinned paths explicitly with a timeout and an acquisition budget. When a strictly local observation is required, supported Git versions offer --no-lazy-fetch or GIT_NO_LAZY_FETCH=1. Treat a missing-object failure as incomplete source, never as proof that a symbol or implementation is absent. Explicitly acquire the needed objects before compilation or a complete source bundle; preserve the commit and blob identities.",
-  "avoid_when": "A full build or repository-wide completeness claim may legitimately require all relevant objects. Do not impose local-only reads as a permanent execution gate, silently skip missing source, assume old Git versions support the switch, or infer lower token cost or higher PR yield from the documented mechanism alone.",
+  "applies_when": "A partial clone omits source objects, or a shallow clone supplies the history for a bounded repair/ancestry investigation.",
+  "lesson": "A read-looking Git command can fetch omitted objects. Before broad content search, list paths and read the pinned files needed with a timeout/acquisition budget. Supported Git versions offer --no-lazy-fetch or GIT_NO_LAZY_FETCH=1 for strictly local observations. Missing objects are incomplete evidence, not proof of absence. Separately, shallow history stops at apparent roots even when raw commits have parents. Check --is-shallow-repository, the requested history count and traversal boundary before interpreting a short log as no eligible repair. Clone depth does not guarantee that many first-parent nonmerge commits. Raw parent headers can distinguish boundary merges, but cannot recover absent ancestry. Acquire only the necessary missing objects/history, preserve identities and charge setup cost.",
+  "avoid_when": "A full build may require all relevant objects; a shallow clone can already contain the complete requested bounded frame. Do not require unshallowing every repository, impose permanent local-only gates, skip missing evidence, assume old Git supports a switch, or claim lower total cost/greater PR yield from these mechanisms. Deepening changes available history, not a frozen sample's outcomes or eligibility rule.",
   "evidence": [
     {
       "url": "https://git-scm.com/docs/partial-clone",
@@ -12,6 +12,10 @@
     {
       "url": "https://git-scm.com/docs/git/2.53.0",
       "note": "This version documents --no-lazy-fetch and GIT_NO_LAZY_FETCH, including using cat-file -e to inspect local object availability without demand-fetching. Verify availability for the actual installed Git."
+    },
+    {
+      "url": "https://git-scm.com/docs/shallow",
+      "note": "Git explicitly treats shallow boundary commits as parentless for traversal although their raw commit objects have parents. This supports the incomplete-history caution, not a measured research or discovery advantage."
     }
   ],
   "status": "validated"
