@@ -192,6 +192,61 @@ def test_verified_stream_is_a_snapshot_and_closes_on_caller_failure(
     assert not list(tmp_path.glob("tmp*"))
 
 
+def test_verification_snapshots_compressed_bytes_under_per_file_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, _, _ = source_repo(tmp_path)
+    # Each source file fits the worker limit; their complete tar does not.
+    for index in range(4):
+        (repo / f"part-{index}.bin").write_bytes(bytes([index]) * 400_000)
+    run(repo, "add", ".")
+    run(repo, "commit", "-m", "larger highly compressible package")
+    archive, manifest = bundle_paths(tmp_path)
+    build_bundle(
+        repo, run(repo, "rev-parse", "HEAD"), REPOSITORY,
+        "source", archive, manifest,
+    )
+    assert archive.stat().st_size < 1024 * 1024
+    import qualification_source_bundle as bundler
+    temporary_file = bundler.tempfile.TemporaryFile
+    written = []
+
+    class LimitedFile:
+        def __init__(self, *args, **kwargs):
+            self.file = temporary_file(*args, **kwargs)
+            written.append(0)
+            self.index = len(written) - 1
+
+        def write(self, data):
+            extent = max(written[self.index], self.file.tell() + len(data))
+            if extent > 1024 * 1024:
+                raise OSError("per-file worker limit")
+            written[self.index] = extent
+            return self.file.write(data)
+
+        def __getattr__(self, name):
+            return getattr(self.file, name)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            self.file.close()
+
+    monkeypatch.setattr(bundler.tempfile, "TemporaryFile", LimitedFile)
+    with verified_bundle(archive, manifest) as (value, stream):
+        # Preserve snapshot isolation even while extraction replays gzip seeks.
+        archive.write_bytes(b"changed after verification")
+        target = tmp_path / "limited-extracted"
+        extract_bundle_stream(stream, value, target)
+        for index in range(4):
+            extracted = target / "source" / f"part-{index}.bin"
+            assert extracted.read_bytes() == bytes([index]) * 400_000
+    assert len(written) == 1
+    assert written[0] == value["archive"]["bytes"]
+    assert stream.closed
+
+
 @pytest.mark.parametrize("corruption", ["truncate", "crc", "mtime"])
 def test_streamed_verify_rejects_rebound_gzip_corruption(
     tmp_path: Path, corruption: str

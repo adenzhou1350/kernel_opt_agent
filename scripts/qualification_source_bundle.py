@@ -412,10 +412,12 @@ def read_manifest(path: Path) -> dict:
 def verified_bundle(
     archive_path: Path, manifest_path: Path
 ) -> Iterator[tuple[dict, BinaryIO]]:
-    """Yield a verified tar snapshot, spooled on the archive's volume.
+    """Yield a seekable tar view of a private compressed snapshot.
 
     Snapshot compressed input before decompression so hashing and extraction
     cannot observe different bytes after the source pathname is replaced.
+    Do not spool the inflated tar: it can exceed a worker's per-file limit even
+    when every source member fits. Backward seeks may replay decompression.
     Temporary files are closed on verification, extraction or caller failure.
     Memory still includes manifest and tar-entry metadata, not entire payloads.
     """
@@ -450,10 +452,7 @@ def verified_bundle(
     ):
         raise ValueError("source.repository must be a non-empty logical identity")
     prefix = validate_prefix(str(archive_record.get("prefix", "")))
-    with (
-        tempfile.TemporaryFile(dir=archive_path.parent) as compressed,
-        tempfile.TemporaryFile(dir=archive_path.parent) as tar_stream,
-    ):
+    with tempfile.TemporaryFile(dir=archive_path.parent) as compressed:
         digest = hashlib.sha256()
         size = 0
         with archive_path.open("rb") as original:
@@ -472,16 +471,19 @@ def verified_bundle(
         if header[4:8] != b"\x00\x00\x00\x00":
             raise ValueError("gzip header mtime must be zero")
         compressed.seek(0)
-        try:
-            with gzip.GzipFile(fileobj=compressed, mode="rb") as handle:
-                shutil.copyfileobj(handle, tar_stream, length=1024 * 1024)
-        except (EOFError, OSError) as error:
-            raise ValueError(f"invalid gzip archive: {error}") from error
-        observed = entries_from_tar_stream(tar_stream, prefix)
-        if observed != entries:
-            raise ValueError("archive entries do not exactly match the manifest")
-        tar_stream.seek(0)
-        yield manifest, tar_stream
+        with gzip.GzipFile(fileobj=compressed, mode="rb") as tar_stream:
+            try:
+                observed = entries_from_tar_stream(tar_stream, prefix)
+                # Tar iteration stops at its end marker, possibly before gzip's
+                # footer. Read through EOF to validate CRC/truncation as before.
+                while tar_stream.read(1024 * 1024):
+                    pass
+            except (EOFError, OSError) as error:
+                raise ValueError(f"invalid gzip archive: {error}") from error
+            if observed != entries:
+                raise ValueError("archive entries do not exactly match the manifest")
+            tar_stream.seek(0)
+            yield manifest, tar_stream
 
 
 def verify_bundle(archive_path: Path, manifest_path: Path) -> tuple[dict, bytes]:

@@ -208,14 +208,17 @@ paths separately rather than claiming a complete commit bundle.
 
 Build now reads one blob at a time and stages an uncompressed tar on the archive's
 output volume before streamed gzip compression. The verification CLI snapshots
-compressed input and decompresses it into temporary files on that same volume;
-file hashes and extraction use bounded reads from the verified snapshot. Leave
-space for the original archive, compressed snapshot, uncompressed tar and (when
-requested) extracted files. This trades extra disk I/O/space for lower payload
-memory and requires a writable archive directory; it does not silently fall back
-to the system temporary drive. It is not a constant-memory claim. Build memory
-still scales with the largest blob; verification retains manifest/member
-metadata. The compatibility
+only compressed input on that same volume, then verifies a seekable gzip view
+without writing an inflated temporary tar. It reads through gzip EOF to validate
+CRC/truncation even when tar parsing stops earlier. File hashes and extraction
+use the private snapshot; replacing the original pathname cannot change it.
+Leave space for the original archive, compressed snapshot and requested extracted
+files; the build step still also needs its uncompressed temporary tar.
+Backward seeks replay decompression, trading CPU work for fewer temporary disk
+writes, not a demonstrated speedup. A writable archive directory is required;
+there is no fallback to the system temporary drive or constant-memory claim.
+Build memory still scales with the largest blob; verification retains
+manifest/member metadata. The compatibility
 `verify_bundle` helper still returns an in-memory tar; use the CLI or the
 `verified_bundle` context manager for streamed verification. Windows extraction
 of symlinks needs host permission; do not silently replace links or start local
@@ -236,6 +239,16 @@ versus streamed tar/gzip identity, large/PAX entries, bounded verification reads
 snapshot replacement, gzip corruption, unsafe members and temporary-file/child
 cleanup. These are transport checks, not project tests or evidence of a higher
 PR conversion rate.
+
+An owner-run offline Linux CPU sandbox comparison kept its original 1 MiB
+per-file limit: old verification failed three cases with `File too large` while
+two hash/CRC controls passed; the compressed-snapshot verifier passed all five.
+This included verification (not full extraction) of a genuine 543,900-byte
+Fsspec bundle and extraction of a synthetic four-member package whose individual
+files fit the limit. The Fsspec bundle still has a 5.3 MB member and 9.3 MB total
+source payload, so its complete extraction/package tests remain outside that
+sandbox's file/persistence limits. No resource limit was raised; this is a tool
+compatibility result, not Fsspec correctness or a community PR.
 
 Historical community trials also reuse the raw-blob reader for their ZIP source
 materialization, so checkout newlines and export attributes cannot silently alter
