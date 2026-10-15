@@ -44,6 +44,20 @@ evidence, and do not replace that case to improve a reported success rate.
 
 ## Owner-only intake across languages
 
+### Missing source is not a native-test failure
+
+Before repairing an environment, inspect the actual excerpt delivered to the
+reviewer. A long requested definition may have been clipped by the packet budget.
+The producer recognizes both `after line 360` and `360行之后`. A requested interval
+can also bridge a short gap between two same-pin windows of one observed file:
+one head and one tail anchor must agree on file identity and total length, and
+the gap must fit the existing 120-line window. It prefers the trailing fragment
+to avoid re-reading the declaration prefix. Duplicate same-direction anchors,
+competing files, changed revisions and arbitrary unseen intervals still abstain.
+This uses the existing read/call budgets; it neither executes source nor proves
+a complete function, correct diagnosis or improved PR yield. Packet trimming
+remains a separate check: route selection alone does not prove final visibility.
+
 For an existing Scout inbox, `kimi_scout_delivery_source.select_leads(root,
 source_ids=[known_job_id], scan_limit=16, owner_review=True)` also returns
 non-Python immutable source leads. The ordinary Python-only selector is unchanged.

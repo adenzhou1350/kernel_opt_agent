@@ -514,8 +514,9 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
     """Honor an adjacent/crossing request against one observed same-pin window.
 
     Model text selects no URL or arbitrary line: its requested boundary must
-    touch the recorded boundary or cross its end from inside exactly one
-    truncated source window. Wholly unseen intervals remain ineligible.
+    touch the recorded boundary or cross its end inside one truncated window.
+    Two same-file windows may jointly anchor a short gap from opposite sides;
+    duplicate/competing boundaries and wholly unseen intervals stay ineligible.
     """
     next_check = analysis.get("next_check", "")
     if not isinstance(next_check, str):
@@ -524,6 +525,7 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
     for expression in (
         r"\bafter\s+line\s+(\d{1,7})\b",
         r"行\s*(\d{1,7})\s*(?:之后|以后|后)",
+        r"(?<!\d)(\d{1,7})\s*行\s*(?:之后|以后|后)",
     ):
         boundaries.update(
             int(value)
@@ -592,7 +594,7 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
                     first = next(iter(ranges))[0]
                     if first < request["start"]:
                         request["head_start"] = first
-                matches.append(request)
+                matches.append((request, "head", start, end, total))
             elif (
                 end < total
                 and not head_boundaries
@@ -608,8 +610,25 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
                     last = next(iter(ranges))[1]
                     if last >= request["start"] + 120:
                         request["tail_start"] = last - 119
-                matches.append(request)
-    return matches[0] if len(matches) == 1 else None
+                matches.append((request, "tail", start, end, total))
+    if len(matches) == 1:
+        return matches[0][0]
+    if len(matches) == 2 and ranges and {m[1] for m in matches} == {"head", "tail"}:
+        head = next(m for m in matches if m[1] == "head")
+        tail = next(m for m in matches if m[1] == "tail")
+        if (
+            head[0]["path"] == tail[0]["path"]
+            and head[4] == tail[4]
+            and 0 < head[2] - tail[3] <= 100
+            and "head_start" not in head[0]
+            and "tail_start" not in tail[0]
+        ):
+            # The request touches both observed windows, not two arbitrary
+            # files. Start near the lower window's end so budget trimming does
+            # not spend the next call on the same long declaration prefix.
+            # Keep a single 120-line read and no completeness claim.
+            return tail[0]
+    return None
 
 
 def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=(), topic_hints="", *, spec=None):

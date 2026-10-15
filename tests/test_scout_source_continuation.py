@@ -34,7 +34,8 @@ class ContinuationTests(unittest.TestCase):
         }
 
     def test_explicit_tail_replaces_one_window_with_overlap(self):
-        for hint in ("查看行360之后的重试分支", "Read after line 360 for cleanup"):
+        for hint in ("查看行360之后的重试分支", "补取360行之后的循环体",
+                     "继续第360 行以后", "Read after line 360 for cleanup"):
             with self.subTest(hint=hint):
                 self.assertEqual(
                     continuation_request(
@@ -42,6 +43,36 @@ class ContinuationTests(unittest.TestCase):
                     ),
                     {"path": "src/worker.ts", "start": 341, "max_lines": 120},
                 )
+
+    def test_same_file_opposite_windows_can_anchor_one_missing_gap(self):
+        source = self.packet["sources"][0]
+        packet = {**self.packet, "sources": [
+            {**source, "start_line": 301, "end_line": 365},
+            {**source, "start_line": 209, "end_line": 272},
+        ]}
+        # Both requests touch recorded evidence, but from opposite directions.
+        # Prefer the trailing fragment: it exposes the missing 273..300 sooner
+        # than fetching the long definition's already-visible prefix again.
+        for hint in ("获取272-301行", "获取209-300行"):
+            with self.subTest(hint=hint):
+                self.assertEqual(
+                    continuation_request(packet, self.snapshot, {"next_check": hint}),
+                    {"path": "src/worker.ts", "start": 253, "max_lines": 120},
+                )
+
+    def test_gap_merge_does_not_admit_ambiguous_files_or_unbounded_gaps(self):
+        source = self.packet["sources"][0]
+        before = {**source, "start_line": 209, "end_line": 272}
+        after = {**source, "start_line": 301, "end_line": 365}
+        snapshot = {**self.snapshot, "files": ["src/worker.ts", "src/other.ts"]}
+        for changed, hint in (
+            ({**after, "url": after["url"].replace("worker.ts", "other.ts")}, "获取272-301行"),
+            ({**after, "total_lines": 538}, "获取272-301行"),
+            ({**after, "start_line": 401, "end_line": 465}, "获取272-401行"),
+        ):
+            with self.subTest(changed=changed):
+                packet = {**self.packet, "sources": [before, changed]}
+                self.assertIsNone(continuation_request(packet, snapshot, {"next_check": hint}))
 
     def test_explicit_head_replaces_one_window_with_overlap(self):
         for hint in ("Read before line 241 for validation", "查看241行之前的参数检查", "查看行241之前"):
@@ -277,6 +308,12 @@ class ContinuationTests(unittest.TestCase):
                          [("src/worker.ts", 341, 120), ("src/worker.ts", 418, 120)])
         for start in (341, 418):
             self.assertTrue(any(s["text"].startswith(f"{start}:") for s in fragments))
+
+    def test_number_before_chinese_line_marker_reaches_producer_source_read(self):
+        calls, fragments = self.run_followup("补取360行之后的循环体")
+        self.assertLessEqual(len(calls), 2)
+        self.assertEqual((calls[0][0], calls[0][1]["start"]), ("src/worker.ts", 341))
+        self.assertTrue(any(s["text"].startswith("341:") for s in fragments))
 
     def test_short_range_and_unbounded_after_do_not_add_tail(self):
         self.assertEqual(
