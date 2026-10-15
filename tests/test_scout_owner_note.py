@@ -118,7 +118,7 @@ class OwnerNoteWriterTests(unittest.TestCase):
             "https://github.com/other/project/discussions/12",
             f"https://github.com/{self.repo}/discussions/0",
             f"https://github.com/{self.repo}/discussions/12?token=SECRET",
-            f"https://github.com/{self.repo}/discussions/12#discussioncomment-1",
+            f"https://github.com/{self.repo}/discussions/12#issuecomment-1",
             f"http://github.com/{self.repo}/discussions/12",
             f"https://github.com/{self.repo}/discussions/12/",
         ):

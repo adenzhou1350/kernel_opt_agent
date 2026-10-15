@@ -794,6 +794,17 @@ state. Notes do not replace inspecting current source and cannot suppress a
 distinct defect. Updating feedback alone creates no new paid task; changed
 primary evidence can still enter the queue normally.
 
+Write reviewed feedback through `scout_owner_note.py --root RUN --note NOTE.json`
+and inspect its `context_status`/`projection`, rather than appending unchecked
+JSON and assuming it reached the reader. Safe same-repository issue comments,
+PR comments/reviews/inline discussions, and discussion comments can be cited by
+their exact GitHub permalink. Queries, arbitrary fragments and cross-endpoint
+comment forms remain rejected; these links never become canonical published-PR
+identities. Keep a stable `prior_hypothesis` and full source path when revising
+one decision: the writer replaces only that key, including across revisions.
+Preserve the old evidence in its existing task record before updating current
+advice. A stored note alone does not establish projection or model consumption.
+
 This closes a published-reader integration gap found when the legacy file grew
 past its byte cap. It does not measure saved calls, recall or PR conversion, and
 is not a prospective selector experiment. Tests cover the actual producer's

@@ -27,6 +27,12 @@ SOURCE_URL = re.compile(
     r"(?:blob/[0-9a-f]{40}/[^?#\s]+(?:#L[1-9][0-9]*(?:-L[1-9][0-9]*)?)?"
     r"|commit/[0-9a-f]{40})"
 )
+ADVISORY_THREAD_URL = re.compile(
+    r"https://github\.com/([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)/"
+    r"(?:(?:issues|pull)/[1-9][0-9]*#issuecomment-[1-9][0-9]*"
+    r"|pull/[1-9][0-9]*#(?:pullrequestreview-[1-9][0-9]*|discussion_r[1-9][0-9]*)"
+    r"|discussions/[1-9][0-9]*#discussioncomment-[1-9][0-9]*)"
+)
 DEFERRAL_CAUTION = (
     "Same-file owner deferrals only, not a no-bug verdict or an exhaustive history. "
     "Public links are ownership/coverage hints, not current issue, CI or review state. "
@@ -71,12 +77,13 @@ def publication_summary(rows):
 
 
 def advisory_evidence_match(url):
-    """Public discussion links are advice, not publication or parking authority."""
+    """Public thread/comment links are advice, never publication identities."""
     if not isinstance(url, str):
         return None
     return (
         SOURCE_URL.fullmatch(url) or PR_URL.fullmatch(url) or ISSUE_URL.fullmatch(url)
         or DISCUSSION_URL.fullmatch(url)
+        or ADVISORY_THREAD_URL.fullmatch(url)
     )
 
 

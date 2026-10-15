@@ -57,7 +57,7 @@ class IssueOwnerEvidenceTests(unittest.TestCase):
         for url, changes in (
             ("https://github.com/other/project/issues/1402", {}),
             (good + "?token=private", {}),
-            (good + "#issuecomment-123", {}),
+            (good + "#pullrequestreview-123", {}),
             (good + "/", {}),
             (good.replace("1402", "0"), {}),
             (good.replace("github.com", "github.com.evil.test"), {}),
