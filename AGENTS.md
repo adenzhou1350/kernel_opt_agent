@@ -38,6 +38,10 @@ reproduction, result and reason for changing direction once.
   matched baseline/candidate workloads. Use interleaved or randomized
   repeats when order, clocks, caches or competing load could confound the result.
   Preserve numerical semantics unless the task explicitly permits a relaxation.
+- For Scout package/CPU leads, `docs/scout_native_cpu_validation.md` routes the
+  existing native runners and commit-exact source bundler. Reuse these before
+  writing task-local export/report adapters; the bundler reads raw Git blobs in
+  one batch, without checkout conversion or one Git process per file.
 - Keep source, workload, hardware, reproduction commands, results and evidence
   in the task's existing record or a lightweight `worklog init|record|status`
   notebook. Record once, not in duplicate formats or for every routine tool call.
