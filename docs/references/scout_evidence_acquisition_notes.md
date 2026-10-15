@@ -428,6 +428,23 @@ utility, PR conversion or accuracy.
 
 ## Requested Python wrapper interfaces
 
+Live continuation requests can also cross the visible tail from inside an
+observed truncated window: for example, `lines 350-400` after seeing 241-360.
+The interval must overlap that same pinned file's window and extend beyond its
+end; wholly unseen, ambiguous, beyond-EOF and mixed-direction requests still
+abstain. This uses the existing one/two-read budget and bounded overlap, not a
+new URL, arbitrary line target or larger prompt allowance.
+
+An exposed TorchAO replay had visible windows 481-600 and 581-669 in
+[`cutedsl_quantize_2d_1x32_32x1_fused.py`](https://github.com/pytorch/ao/blob/f7c8353e8adeefc008a32169e6f92f8271d15e2d/torchao/prototype/moe_training/kernels/mxfp8/cutedsl_quantize_2d_1x32_32x1_fused.py#L650-L700).
+The explicit request for 666-700 previously matched no continuation; it now
+selects 650-700, exposing output validation and the actual `run` arguments.
+A reconstructed untrimmed definition fallback already contained 586-700, so
+this is a shorter tail-focused choice, not proof that the source reader could
+not fetch the tail. Original pre-trimming producer arguments and prospective
+model savings were not replayed/measured. No historical job or answer was
+rewritten and no extra provider call was bought for this diagnostic.
+
 When a follow-up explicitly requests one `definition(...)`, a source-reader
 result marked `requested_definition_complete=true` with target metadata satisfies
 that optional lexical read. The producer need not fill its second ordinary slot

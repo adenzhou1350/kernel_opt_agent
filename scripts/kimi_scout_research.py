@@ -511,10 +511,11 @@ def source_paths(snapshot, spec):
 
 
 def continuation_request(packet, snapshot, analysis, *, spec=None):
-    """Honor an explicit adjacent request against one observed same-pin window.
+    """Honor an adjacent/crossing request against one observed same-pin window.
 
     Model text selects no URL or arbitrary line: its requested boundary must
-    match the recorded start or end of exactly one truncated source window.
+    touch the recorded boundary or cross its end from inside exactly one
+    truncated source window. Wholly unseen intervals remain ineligible.
     """
     next_check = analysis.get("next_check", "")
     if not isinstance(next_check, str):
@@ -547,7 +548,7 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
             (int(first), int(last))
             for first, last in re.findall(expression, next_check[:2000], re.IGNORECASE)
         )
-    # An interval must adjoin the observed start or end, not a model-chosen
+    # An interval must touch or cross the observed boundary, not a model-chosen
     # remote location. Mixed directions and ambiguous boundaries abstain.
     if any(first < 1 or last < first for first, last in ranges):
         return None
@@ -596,7 +597,10 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
                 end < total
                 and not head_boundaries
                 and (not boundaries or boundaries == {end})
-                and all(first in (end, end + 1) for first, _ in ranges)
+                and all(
+                    first in (end, end + 1) or start <= first < end < last
+                    for first, last in ranges
+                )
                 and all(last <= total for _, last in ranges)
             ):
                 request = {"path": path, "start": max(start, end - 19), "max_lines": 120}

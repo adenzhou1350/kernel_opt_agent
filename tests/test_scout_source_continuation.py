@@ -15,7 +15,11 @@ from kimi_scout_research import ResearchProducer
 class ContinuationTests(unittest.TestCase):
     def setUp(self):
         self.sha = "a" * 40
-        self.snapshot = {"commit": self.sha, "files": ["src/worker.ts"]}
+        self.snapshot = {
+            "commit": self.sha,
+            "files": ["src/worker.ts"],
+            "blobs": {"src/worker.ts": "b" * 40},
+        }
         self.packet = {
             "repo": "a/b",
             "sources": [
@@ -136,6 +140,36 @@ class ContinuationTests(unittest.TestCase):
             )
         )
 
+    def test_tail_range_can_overlap_the_observed_end_without_a_new_target(self):
+        for hint in ("Read lines 350-400", "聚焦350–400行", "Read lines 241-537"):
+            with self.subTest(hint=hint):
+                request = continuation_request(
+                    self.packet, self.snapshot, {"next_check": hint}
+                )
+                self.assertEqual(request["path"], "src/worker.ts")
+                self.assertEqual((request["start"], request["max_lines"]), (341, 120))
+                self.assertEqual("tail_start" in request, "537" in hint)
+        for hint in ("Read lines 240-400", "Read lines 350-360", "Read lines 350-538",
+                     "Read lines 350-400 and after line 359"):
+            with self.subTest(hint=hint):
+                self.assertIsNone(continuation_request(
+                    self.packet, self.snapshot, {"next_check": hint}
+                ))
+
+    def test_crossing_tail_keeps_same_pin_and_unique_window_requirements(self):
+        source = self.packet["sources"][0]
+        for changes in ({"url": source["url"].replace(self.sha, "b" * 40)},
+                        {"truncated": False}, {"total_lines": 399},
+                        {"start_line": True}):
+            packet = {**self.packet, "sources": [{**source, **changes}]}
+            self.assertIsNone(continuation_request(
+                packet, self.snapshot, {"next_check": "Read lines 350-400"}
+            ))
+        packet = {**self.packet, "sources": [source, {**source, "start_line": 300}]}
+        self.assertIsNone(continuation_request(
+            packet, self.snapshot, {"next_check": "Read lines 350-400"}
+        ))
+
     def test_head_rejects_drift_ambiguity_and_untrusted_metadata(self):
         source = self.packet["sources"][0]
         for patch in (
@@ -235,6 +269,13 @@ class ContinuationTests(unittest.TestCase):
         self.assertEqual([(path, kw["start"], kw["max_lines"]) for path, kw in calls],
                          [("src/worker.ts", 141, 120), ("src/worker.ts", 100, 120)])
         for start in (141, 100):
+            self.assertTrue(any(s["text"].startswith(f"{start}:") for s in fragments))
+
+    def test_crossing_tail_followup_keeps_the_two_read_budget(self):
+        calls, fragments = self.run_followup("Read lines 350-537 for the missing handler")
+        self.assertEqual([(path, kw["start"], kw["max_lines"]) for path, kw in calls],
+                         [("src/worker.ts", 341, 120), ("src/worker.ts", 418, 120)])
+        for start in (341, 418):
             self.assertTrue(any(s["text"].startswith(f"{start}:") for s in fragments))
 
     def test_short_range_and_unbounded_after_do_not_add_tail(self):
