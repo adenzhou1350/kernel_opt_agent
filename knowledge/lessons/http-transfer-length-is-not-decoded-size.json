@@ -1,0 +1,22 @@
+{
+  "id": "http-transfer-length-is-not-decoded-size",
+  "title": "Trace HTTP transfer length through decoding, caching and EOF",
+  "applies_when": "An HTTP-backed file uses response Content-Length or Content-Range to choose a random-access reader, bound cache fetches or detect EOF, while its transport may decode Content-Encoding automatically.",
+  "lesson": "Establish which representation each length describes before trusting it as file size. Requests can return decoded gzip bytes while headers still describe the encoded transfer. In fsspec's synchronous HTTP implementation, this metadata selects HTTPFile with the shorter size: read-all can truncate and incremental reads can fail after a cached prefix. Leave decoded size unknown when it cannot be established and reuse the supported streaming path. Check both metadata policies (HEAD and GET fallback), real-server read-all and incremental reads, cache/block-size conditions, header casing, unencoded controls and checksum retention. Compare a sibling implementation for an existing compatible solution, not as an assumed oracle. Avoid setting browser-forbidden Accept-Encoding merely to imitate the desktop client.",
+  "avoid_when": "A short Content-Length alone is not proof that ordinary range reads return the wrong offset. In the inspected static-file path, known size bounds the requested range; unknown size selects a non-seekable stream. Existing tests intentionally accept legacy status200 partial responses, so requiring status206 globally would break supported behavior. False caller-supplied size is a distinct diagnostic, not ordinary-path reachability. The submitted repair is qualified with Requests/aiohttp on Linux and Windows, not a Pyodide/browser run, all content encodings, all servers, a full repository result, performance or prospective Scout conversion improvement.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/929eee421ef8a48b755a5ae40493d946b478d91b/fsspec/implementations/http_sync.py",
+      "note": "Pinned synchronous _file_info accepts encoded transfer lengths; _open uses size to choose HTTPFile versus HTTPStreamFile. HTTP ukey explicitly assumes static files. Native public-API loopback observations distinguish accurate static metadata from knowingly incorrect caller size."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/929eee421ef8a48b755a5ae40493d946b478d91b/fsspec/implementations/http.py",
+      "note": "The sibling async _file_info already excludes compressed Content-Length from decoded size. Its range reader also validates short bodies for known sizes; those mechanisms are not interchangeable with transport-length interpretation."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2297",
+      "note": "Owner-discovered adjacent defect after an unconfirmed Scout range hypothesis. Identical native Linux focused tests: baseline6 failures/4 passes, candidate10 passes. Full sync+async HTTP modules: Linux162 passes; Windows161 passes/one existing forkserver skip. Encoded responses reuse streaming, raw-size/checksum controls remain intact, and no browser-forbidden header is added. Submitted correctness evidence, not maintainer acceptance or measured policy benefit."
+    }
+  ],
+  "status": "validated"
+}
