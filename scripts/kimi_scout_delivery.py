@@ -27,7 +27,36 @@ import kimi_scout as scout
 import scout_httpx_cpu as httpx_cpu
 from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
 from kimi_scout_verify import valid_test_summary
-from scout_publication_context import publication_summary
+from scout_publication_context import (
+    owner_deferral_context, publication_context, publication_summary,
+    restore_publication_context,
+)
+
+
+def model_request(prompt):
+    return {"prompt": prompt, "max_output_tokens": 4096, "timeout_seconds": 120}
+
+
+def add_owner_delivery_memory(context, root, prompt_prefix):
+    """Read current bounded advice without rewriting a lead or deciding its fate."""
+    sources = [{"url": context["url"]}]
+    advice = {
+        "owner_publications": publication_context(root, context["repo"], sources),
+        "owner_deferrals": owner_deferral_context(
+            root, context["repo"], sources,
+            prior_analysis=scout.dumps({"title": context["hypothesis"].get("title")}),
+        ),
+    }
+    # Existing source/hypothesis/lesson bytes have priority over optional advice.
+    restore_publication_context(
+        context, advice, min(220000, len(scout.dumps(context).encode()) + 4096),
+    )
+    # A JSON string inside the backend request is escaped again. Fitting the
+    # inner context alone does not prove the actual bounded request will fit.
+    for field in ("owner_deferrals", "owner_publications"):
+        prompt = prompt_prefix + "\nPUBLIC DATA:\n" + scout.dumps(context)
+        if len(scout.dumps(model_request(prompt)).encode()) > 240000:
+            context.pop(field, None)
 
 
 def owner_native_summary(result):
@@ -903,7 +932,7 @@ class Delivery:
         if self.stopped():
             raise RuntimeError("delivery stopped before model call")
         work = self.root / "jobs" / job["id"]
-        request = {"prompt": prompt, "max_output_tokens": 4096, "timeout_seconds": 120}
+        request = model_request(prompt)
         if len(scout.dumps(request).encode()) > 240000:
             raise ValueError("model context exceeds bounded input")
         scout.write_json(work / f"{phase}.request.json", request)
@@ -1051,6 +1080,9 @@ class Delivery:
                 "runtime_profile": profile,
                 "runtime_scope": "isolated single-module CPU screen, not the official repository suite",
             }
+            add_owner_delivery_memory(
+                context, self.args.root, GPU_PROMPT if gpu_only else PROMPT,
+            )
             if gpu_only:
                 return self.prepare_gpu(job, work, context, original)
             prompt = PROMPT + "\nPUBLIC DATA:\n" + scout.dumps(context)

@@ -888,6 +888,31 @@ The dashboard exposes these details without new network/model requests or
 changes to queue ordering, deduplication, retry policy or candidate decisions.
 These are process-local diagnostics; restarting clears the timing history.
 
+### Current owner advice at delivery generation
+
+An old immutable lead can predate a published PR or an owner counterexample.
+Refresh the existing bounded publication/deferral readers when constructing its
+delivery request, using the actual selected source URL rather than copying all
+source-window matches. This supplies coverage and reopening hints, not a reason
+to suppress a distinct candidate or change its source analysis.
+
+Optional advice uses at most 4,096 additional serialized context bytes and only
+the remaining existing context allowance. Fit the actual outer backend request
+too: source quotes and backslashes are escaped again when the prompt is encoded
+as JSON. Drop optional advice before clipping any source, hypothesis or existing
+lesson. Missing, corrupt or unrelated notes leave the original request intact.
+No new network/model call, queue mutation or publication is implied.
+
+The offline worker fixture stages an old lead, records a new public PR hint,
+then intercepts generation without calling a model or executing a subject. It
+checks that the latest hint/caution reaches the request, while the staged lead,
+source and note files remain unchanged. This establishes advice availability,
+not better model decisions, fewer duplicate PRs, recall or measured token savings.
+
+```text
+python -B -m unittest tests.test_scout_delivery_owner_memory tests.test_kimi_scout_delivery tests.test_scout_direct_owner_intake tests.test_scout_publication_context
+```
+
 ### Optional BM25 window comparator
 
 An exposed knowledge-reader development audit compared the existing word-overlap
