@@ -420,6 +420,16 @@ utility, PR conversion or accuracy.
 
 ## Requested Python wrapper interfaces
 
+When a follow-up explicitly requests one `definition(...)`, a source-reader
+result marked `requested_definition_complete=true` with target metadata satisfies
+that optional lexical read. The producer need not fill its second ordinary slot
+with an unrelated file. Incomplete/ambiguous targets, prose-only hints, reference
+scans, code-search hints, continuations and import hops keep their existing reads;
+explicit companion tests and contracts remain intact. This is bounded acquisition,
+not a correctness verdict or a measured model/PR-conversion improvement.
+`tests.test_scout_exact_definition_reads` covers the producer with its real AST
+selector and mocked source transport; it does not execute a candidate repository.
+
 The live producer's optional per-repository `followup_import_context=true`
 uses `scout_import_context.import_requests` to replace guessed follow-up reads,
 not add a new read tier. It accepts relative-import hints in top-level Python

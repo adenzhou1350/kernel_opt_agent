@@ -1664,7 +1664,7 @@ class ResearchProducer:
                             "max_lines": 120,
                         },
                     ]
-            for request in lexical_requests:
+            for read_index, request in enumerate(lexical_requests):
                 if self.stopped():
                     return False
                 read_request = {
@@ -1694,6 +1694,27 @@ class ResearchProducer:
                                 "symbol": request["exact_hint"],
                                 "scope": "Non-exhaustive current-index path hint, independently read at the pinned revision; lexical occurrence only.",
                             }
+                    remaining_reads = len(lexical_requests) - read_index - 1
+                    if (
+                        remaining_reads
+                        and not (references or code_requests or continuation or imports)
+                        and definition_request is None
+                        and len(re.findall(
+                            r"(?<!\w)definition[ \t]*\(", request_text[:2000]
+                        )) == 1
+                        and sources[-1].get("requested_definition_complete") is True
+                        and isinstance(sources[-1].get("requested_definition"), dict)
+                        and sources[-1]["requested_definition"]
+                    ):
+                        # The reader has supplied the complete explicit target.
+                        # Do not fill a second optional lexical slot with an
+                        # unrelated file. Structured test/contract reads below
+                        # remain intact; this is not a correctness verdict.
+                        progress["satisfied_definition_optional_reads_omitted"] = (
+                            progress.get("satisfied_definition_optional_reads_omitted", 0)
+                            + remaining_reads
+                        )
+                        break
             for request in contracts or imports + (
                 [test_request] if test_request else []
             ):
