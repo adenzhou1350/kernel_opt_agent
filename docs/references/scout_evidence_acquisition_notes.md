@@ -1233,6 +1233,53 @@ exposed group or loosen its parser to obtain a positive result; one related
 repair, unrandomized provider order and incomplete total costs cannot establish
 generalization, causal utility or paper readiness.
 
+## Metadata-enrolled native admission (2026-10-16)
+
+`scripts/scout_repair_draw.py` makes a historical Python repair draw repeatable
+without a new task-specific sampler. Freeze the repository/revision, literal
+production/test directories and bounds before reading patch semantics:
+
+```text
+python -B scripts/scout_repair_draw.py --repo <local-repo> --ref <pinned-commit> --production-prefix src/ --test-prefix tests/ --count 60 --max-production-files 4 --max-production-lines 180
+```
+
+It selects the newest eligible fix/bug/correct title in a first-parent nonmerge
+frame with changed Python production and test paths. Security-titled changes are
+excluded; that title filter is not a security audit. Git metadata, not checkout
+bytes or source semantics, drives selection. The result records the resolved
+revision, scopes, bounds, scanned metadata and selected parent/head trees.
+Shallow history is rejected, missing objects fail, and no eligible entry returns
+`selected=null`. Do not replace an unavailable or nondiscriminating draw. Git
+commands have individual 30-second timeouts, not a total experiment deadline.
+This opt-in tool neither clones nor executes tests/models, changes the live
+Scout strategy, or chooses current publishable bugs.
+
+One frozen attrs draw selected the existing
+[ClassVar repair](https://github.com/python-attrs/attrs/commit/97f8d175656bc03c373a1c9038048a4d312c307c).
+On Windows CPython 3.14.3 / pytest 9.0.3, complete raw-Git source packages and the
+unchanged head `tests/test_annotations.py` module produced three failures/four
+passing controls on parent `6851ab593cd25f3c14393e9355d57d22bec2a074`, and seven
+passes on the repair. Selection was
+`-k 'missing_classvar_import or test_is_class_var'`. The original two-value
+`slots` fixture was supplied separately, without the Hypothesis-dependent root
+conftest; this is not the full suite or official CI. Python 3.12 would skip the
+affected upper-level regression, so interpreter compatibility changes what
+native evidence can discriminate.
+
+An initial collection inherited this workspace's pytest config and prefixed node
+IDs with its directories. No test body ran. An explicit private empty config and
+rootdir corrected that before the parent/head executions; the setup failure is
+retained. Accepted-run elapsed time excludes that earlier setup and must not be
+reported as complete acquisition cost. There were zero model/GPU calls and zero
+new PRs; total owner effort and priced cost remain unknown. This is one related,
+already-fixed public-history group, not an unseen-model holdout or a result for
+evidence-selection efficacy. Any future model comparison needs a separate
+pre-call protocol, common-review variance controls and budget accounting.
+
+```text
+python -B -m unittest tests.test_scout_repair_draw
+```
+
 ## Qualified method search hints
 
 The opt-in bounded code-search route also accepts one or two explicit
