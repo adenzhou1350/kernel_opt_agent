@@ -1177,6 +1177,62 @@ priced/owner costs cannot establish generalization, causal utility or paper
 readiness. Fixed native acquisition remains the necessary simple comparator,
 not a new algorithm inferred from this result.
 
+## Action-only selection: retained negative comparison (2026-10-15)
+
+A new metadata-first draw selected Tenacity's
+[`b6201eceed` repair](https://github.com/jd/tenacity/commit/b6201eceedfc719e996dcbc3f6c17f21011fb236)
+and its single parent. It was the first eligible fix among the latest 60
+first-parent nonmerge commits, requiring changed production and test files and
+at most 180 production added/deleted lines, without reading patch semantics
+until the draw was frozen. The draw was not replaced. This is already-fixed
+public history, not a new contribution or memorization-free holdout.
+
+Complete raw-Git-blob packages ran offline under Python 3.12.10. Two unchanged
+head unittest methods were exported into the same-name test class to avoid
+unrelated pytest-module imports: parent had the sole falsy-callable assertion
+failure and a passing None/0 control; head passed both. This is a disclosed test
+adapter, not a full upstream import/suite/CI claim. Separate actual sync/async
+public calls established callback lists `[0.0]` on parent and `[1.0]` on head;
+None/0 controls remained `[0.0]`. Sleep callbacks recorded values without real
+one-second waits. Exact production packages were not patched or exported.
+
+The frozen question asked for these direct sync/async outcomes. Unlike the
+earlier Cachetools trial, the selector only chose `native`, `tests` or `abstain`;
+it did not also answer the question. All arms used the same final-review format.
+The reviewer never saw the selector response. Invalid actions stopped that arm
+without repair, reinterpretation or retry. Source-only and fixed-native arms
+needed one review call each; selectors could use a selection plus review call.
+Equal ceilings do not imply equal realized or priced spend.
+
+| Arm, two related revisions | Strict correct final answers | Calls | Reported tokens |
+| --- | --- | --- | --- |
+| Source-only common review | 0/2 | 2 | 3,268 |
+| Zero-model fixed fresh native acquisition + review | 2/2 | 2 | 3,560 |
+| Action-only selector + acquired evidence + review | 0/2 | 3 | 5,278 |
+
+The parent selector correctly requested native execution, but final review
+contradicted the supplied observation. Its model request was byte-identical to
+the fixed-parent review request that answered correctly, demonstrating
+downstream variability rather than an attributable selection effect. The head
+selector returned an abstain-keyed prose object instead of the required action
+enum; it was invalid despite a complete provider response (117 output tokens,
+below its 128 cap). A plausible answer inside prose was not rescored as success.
+
+All seven model calls retained input/cache/output counters, totaling 12,106
+normalized tokens. Native/client/shared-oracle/setup costs were recorded
+separately; dollars and owner effort remain unknown. Seven sandbox executions
+were terminal with containers removed and their seven exact sessions released.
+There was no GPU, new PR or production Scout strategy change.
+
+This group shows no selector benefit and does not justify adaptive deployment.
+Action-only output alone did not solve interface reliability or evidence-use
+errors. A future fresh multi-group study needs repeated/common-review variance
+controls and simple fixed-acquisition comparators, plus the still-missing
+cheap/strong-provider and full existing-method comparisons. Do not rerun this
+exposed group or loosen its parser to obtain a positive result; one related
+repair, unrandomized provider order and incomplete total costs cannot establish
+generalization, causal utility or paper readiness.
+
 ## Qualified method search hints
 
 The opt-in bounded code-search route also accepts one or two explicit
