@@ -1,9 +1,9 @@
 {
   "id": "native-operation-inherited-guards",
   "title": "Check inherited native-operation guards before adding wrapper validation",
-  "applies_when": "A tensor-view wrapper uses torch.as_strided without an explicit raw-buffer capacity assertion and a candidate alleges silent storage-out-of-bounds access.",
-  "lesson": "Test the actual pinned wrapper with real Torch before assuming as_strided is unchecked. PyTorch's concrete TensorImpl path calls setStrided, which checks the requested size/stride/storage_offset against storage capacity before constructing the view. Contrast an exact-fit control with an undersized buffer through the same wrapper; preserve the native exception rather than replacing Torch with a permissive stand-in. This can refute a missing-capacity-guard hypothesis without building a model or using a GPU.",
-  "avoid_when": "Storage capacity is not the same as the wrapper's logical subregion or ownership boundary: a larger backing storage can admit a view that escapes an intended slice. In-bounds overlapping views, wrong offsets, unchecked custom kernels, meta/symbolic paths and other backends need separate evidence. A clearer public error contract may still justify wrapper validation. Do not treat this mechanism as proof that every tensor view or caller is correct.",
+  "applies_when": "A partial wrapper or dispatch macro lacks a visible validation and a candidate alleges silent invalid-input behavior; especially tensor views or Python/C++ native boundaries.",
+  "lesson": "Follow the exact caller and native binding before buying an expensive reproduction or adding duplicate validation. In vLLM QuickReduce, the macro has no fallback but its allreduce caller rejects unsupported world sizes before dispatch. TransformerEngine ep_bootstrap computes local experts by floor division only after the native initializer validates divisibility. Preserve the whole call chain and guard ordering, not only a matching check string. For Torch as_strided, the concrete TensorImpl path calls setStrided and checks size/stride/storage_offset against storage capacity. Contrast exact-fit and undersized inputs through the actual pinned wrapper using real Torch; a permissive stand-in removes the inherited guard. Static caller evidence can refute a particular silent-failure premise without qualifying GPU behavior or proving every entrypoint safe.",
+  "avoid_when": "A guard after the side effect, a bypassing entrypoint, mismatched group identities, compile-time-disabled validation or a native error swallowed by the caller requires separate investigation. A clearer public error contract may still justify wrapper validation. Storage capacity is not the wrapper's logical subregion or ownership boundary: larger backing storage can admit an escaping view. Overlap, wrong offsets, unchecked custom kernels and meta/symbolic paths need separate evidence. Do not generalize source-only counterexamples to native correctness, performance, all callers or measured Scout conversion benefit.",
   "evidence": [
     {
       "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/aten/src/ATen/native/Resize.h#L83-L124",
@@ -16,6 +16,14 @@
     {
       "url": "https://github.com/sgl-project/sglang/blob/67eab57057062e05eabd4227a943b1aa777e563f/python/sglang/srt/mem_cache/layout/token_major.py#L214-L270",
       "note": "Mamba conv and temporal views are created through real torch.as_strided. Absence of a wrapper assertion alone does not bypass the native check; logical subregions and valid caller invariants remain separate questions."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/a9fe30e9f6f73a982eab0730476df165484ad4d4/csrc/rocm/quickreduce/quick_reduce.h#L207-L241",
+      "note": "The allreduce member rejects world sizes outside 2/4/8 before its TWOSHOT_DISPATCH uses. An initial lines 1-120 excerpt omitted this guard; macro absence alone did not establish silent no-op. Exact-source review, not HIP execution."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/9d9bd9e5c4764633c252fdad905d8f60b6d95098/transformer_engine/common/ep/ep_backend.cpp#L165-L242",
+      "note": "validate_config rejects num_experts % ep_size != 0; initialize calls it before inst.init. The inspected ep_bootstrap -> PyTorch extension ep_initialize -> nvte_ep_initialize -> EPBackend::initialize chain precedes Python's local-expert floor division. This refutes that chain's silent-truncation premise, not runtime/CUDA/NCCL correctness."
     }
   ],
   "status": "counterexample"
