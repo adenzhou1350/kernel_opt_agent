@@ -1,12 +1,49 @@
-"""Select an observed Python function, or an explicitly requested class.
+"""Python declaration selection and qualified C++ literal source locations.
 
 Syntax-only, never imported/executed code or production-reachability proof.
-Ambiguous/missing/non-Python declarations fall back to existing context selection.
+Ambiguous/missing declarations fall back to existing context selection. C++
+locations are explicitly lexical, not parsed definitions or complete bodies.
 """
 import ast
 import io
 import re
 import tokenize
+
+
+def requested_native_literal_anchor(raw, request):
+    """Locate one explicit qualified C++ literal, not a parsed definition.
+
+    Comments/generated strings and inactive branches are not resolved. Repeated
+    occurrences abstain; no overload/owner/body inference or complete-body flag.
+    """
+    if not isinstance(raw, str) or len(raw) > 1_000_000 or not isinstance(request, str):
+        return None
+    request = request[:2000]
+    markers = list(re.finditer(r"(?<!\w)definition[ \t]*\(", request))
+    if len(markers) != 1:
+        return None
+    match = re.match(
+        r"[ \t]*([A-Za-z_][A-Za-z0-9_]{0,127}"
+        r"(?:::[A-Za-z_][A-Za-z0-9_]{0,127}){1,4})[ \t]*\)",
+        request[markers[0].end():],
+    )
+    if match is None or len(match[1]) > 256:
+        return None
+    symbol = match[1]
+    pattern = rf"(?<![\w:]){re.escape(symbol)}(?![\w:])\s*\("
+    matches = re.finditer(pattern, raw)
+    first = next(matches, None)
+    if first is None or next(matches, None) is not None:
+        return None
+    return {
+        "literal": symbol,
+        "line": raw.count("\n", 0, first.start()) + 1,
+        "scope": (
+            "Unique requested qualified literal followed by ( in this pinned "
+            "C-family file, including comments/strings. Not a parsed definition, "
+            "resolved owner, active preprocessor branch or complete body."
+        ),
+    }
 
 
 def absent_requested_identifiers(raw, request):

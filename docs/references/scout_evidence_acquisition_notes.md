@@ -1068,3 +1068,22 @@ synthetic SDK error tests cannot establish current provider health.
 ```text
 python -B -m unittest tests.test_scout_single_review tests.test_scout_shadow_comparison tests.test_scout_mmx_accounting tests.test_scout_model_usage
 ```
+
+## Qualified C++ source-location hints
+
+An explicit `definition(Owner::method)` request in a pinned C-family file can
+locate the unique full qualified literal followed by `(`, rather than scoring
+unrelated prose keywords. Namespace spelling is literal; ambiguous/missing,
+multiple, template/operator and unsupported requests retain the old fallback.
+An explicit start or exact hint takes precedence. This uses already-read bytes
+and preserves the existing line/character caps and physical-read count.
+
+The returned `requested_native_literal` records a text location, not a parsed
+definition: comments, generated source strings and inactive preprocessor paths
+can match. It does not assert owner resolution, a complete function body,
+compilation or reachability, and never sets `requested_definition_complete` or
+triggers the optional-read omission intended for complete Python definitions.
+
+```text
+python -B -m unittest tests.test_scout_cpp_qualified_hint tests.test_scout_native_reference_anchor tests.test_scout_requested_definition tests.test_kimi_scout_context
+```

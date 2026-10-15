@@ -22,6 +22,7 @@ from scout_requested_definition import (
     absent_requested_identifiers,
     requested_definition_inventory,
     requested_function_window,
+    requested_native_literal_anchor,
 )
 from scout_symbol_references import (
     NATIVE_SUFFIXES,
@@ -421,6 +422,13 @@ class PublicContext:
         )
         if requested is not None:
             start = requested["start_line"]
+        native_literal = (
+            requested_native_literal_anchor(raw, request_hints)
+            if path.endswith(NATIVE_SUFFIXES) and start is None and exact_hint is None
+            else None
+        )
+        if native_literal is not None:
+            start = native_literal["line"]
         go_anchor = (
             go_declaration_anchor(raw, request_hints)
             if path.endswith(".go") and start is None and exact_hint is None
@@ -518,6 +526,8 @@ class PublicContext:
             evidence["requested_definition_complete"] = (
                 end == requested["end_line"] and evidence["text"] == numbered
             )
+        if native_literal is not None:
+            evidence["requested_native_literal"] = native_literal
         if go_anchor is not None:
             evidence["go_declaration_anchor"] = go_anchor
         return evidence
