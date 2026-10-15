@@ -890,6 +890,34 @@ These are process-local diagnostics; restarting clears the timing history.
 
 ### Optional BM25 window comparator
 
+An exposed knowledge-reader development audit compared the existing word-overlap
+policy with this scorer over 33 existing/literal queries, using both unweighted
+fields and the old field weights as token repetition. The weighted variant moved
+the relevant consumer-contract card first for two exposed walrus/swizzle queries,
+but also moved a CLI-input-transport card ahead of the parser/plugin contract for
+a configuration query. These owner-read examples are not independent relevance
+labels, prospective recall, runtime savings or PR outcomes. Index preloading and
+file-reading costs differed, so the recorded intervals are not speedup evidence.
+No default ranking was changed.
+
+The actual producer already passes immutable source URLs, which can prioritize
+a same-repository/full-path lesson before generic word overlap. The development
+library's synthetic queue fixture retained that advice, but the same fixture on
+the deployed modules/library failed: the deployed consumer-contract card lacked
+four newer source anchors. It also contained one older unique host-memory anchor
+absent locally. Its recorded `utils/host_memory.py` path was invalid at the pinned
+commit; inspection of the raw Git tree/source places it under
+`mem_cache/host_memory.py`. The host/cgroup minimum applies only without the
+explicit environment override. Preserve that bounded fact and the old snapshot
+when merging, not the invalid active pointer or an unconditional cap claim.
+
+The merged card retains these distinct examples within the existing 8,192-byte
+reader cap; no whole-library mirror, larger prompt or ranking change is needed.
+Recheck the same isolated producer fixture against the deployed library after a
+scoped compare-and-swap update. Passing local tests or finding a card in a second
+checkout does not establish actual deployed packet availability, model use or
+knowledge benefit. Keep the failed deployed check as a negative control.
+
 `scout_shadow_comparison.run_arm` accepts `action="bm25"` for newly declared
 experiments. It ranks preloaded, hash-verified source windows using only the
 prior hypothesis and next-check text. This is an established lexical-retrieval

@@ -2,20 +2,24 @@
   "id": "consumer-contract-before-regression",
   "title": "Establish the consumer contract before writing a failing regression",
   "applies_when": "A formatting, validation, shape, resource-budget, backend-support or uninitialized-local allegation relies on partial source rather than the actual producer and consumer.",
-  "lesson": "Trace allocation, transformations, enclosing guards and every consumer before inventing a regression. Later assignments can overwrite registry values. Check Python walrus assignments: a clipped branch cannot establish absence of a prior binding. Distinguish hostnames from instance labels and request count from captured token capacity. Normalize byte/int32/int4 units and instantiate actual template constants before comparing swizzle indices with shared-memory allocation. Intersect fallback triggers with native launch constraints before allocating huge reproductions. Fabricated metadata and shape/dtype acceptance do not prove a reachable empty/sentinel-only path. Missing validation or changing an assertion does not establish backend support. Require a supported caller and observable native failure before environment repair or publication.",
+  "lesson": "Trace allocation, transformations, enclosing guards and every consumer before inventing a regression. Later assignments can overwrite values. Check Python walrus assignments: a clipped branch cannot establish absence of a prior binding. Distinguish instance/host labels and request/token counts. Normalize byte/int32/int4 units and instantiate actual template constants before comparing swizzle indices with shared-memory allocation. Intersect fallback triggers with native launch constraints before huge reproductions. Fabricated metadata or accepted shape/dtype does not prove a reachable empty/sentinel-only path. Missing validation or a changed assertion does not establish backend support. Require a supported caller and observable native failure before environment repair or publication.",
   "avoid_when": "Reachable malformed inputs can be defects. A rank-zero scalar has one element, not zero storage. Fragment-only readers may be valid while a later full-tensor overflow check sees stale scratch; trace reuse and reproduce corruption through a real prior operation and finite training step, not arbitrary poisoning. Callback stand-ins must preserve transformations: RoPE+SDPA can return BHSD from BSHD unlike plain SDPA. Error wording may have a documented contract. Static source or extracted-function checks refute only the specific claim, not native/GPU/general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
       "url": "https://github.com/sgl-project/sglang/blob/11bfd868ac36c0d5c7089c3f1a65ed575feb5540/python/sglang/srt/layers/attention/attention_registry.py#L388-L567",
-      "note": "The enclosing if cfg := mambaish_config(...) binds cfg before direct hybrid branches read it; registry fallback rebinds it. Frozen e1f43c9 and current 11bfd86 blobs match. Extracted-function/backend-stub checks are not GPU execution or supported-model integration."
+      "note": "Enclosing if cfg := mambaish_config(...) binds cfg before hybrid reads; fallback rebinds it. Extracted-function/stub checks are not GPU execution or supported-model integration."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/8c9030ce3f58eec16ad3b9912d37480d34d6de52/python/sglang/srt/mem_cache/host_memory.py#L128-L137",
+      "note": "Without the explicit SGLANG_HICACHE_HOST_MEMORY_BYTES override, min(host available, cgroup headroom) caps the result despite a v1 unlimited sentinel. Static invariant only."
     },
     {
       "url": "https://github.com/deepspeedai/DeepSpeed/pull/8728",
-      "note": "Public DP2 regression: real NaN then finite steps, BF16/FP16 masters and FP32 controls. Reports old finite-update failures and four patched B300 passes; review/CI, convergence and performance unproven."
+      "note": "Real NaN-to-finite DP2 regression reports old failures and four B300 passes (BF16/FP16 masters, FP32 controls). Review/CI, convergence and performance unproven."
     },
     {
       "url": "https://github.com/deepspeedai/DeepSpeed/blob/c687df79653459d08c0c6fada6d124971d966662/deepspeed/runtime/zero/stage_1_and_2.py#L1081-L1106",
-      "note": "Restoration writes only the owned fragment into reused scratch then clones a full view. The full-gradient overflow reader and reset lifetime, not fragment readers alone, motivate the regression."
+      "note": "Restoration updates only the owned fragment in reused scratch, then clones a full view. Inspect full-gradient overflow and reset lifetime, not fragment readers alone."
     },
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/src/megatron_fsdp/utils.py#L655-L662",
@@ -23,7 +27,7 @@
     },
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/blob/05fb87bcd050e83ec89c13937df9a59041f168e5/megatron/core/distributed/fsdp/mcore_fsdp_adapter.py#L470-L497",
-      "note": "The adapter constructs matching dense/expert dimension names; a mismatched-mesh regression needs another caller."
+      "note": "Adapter dense/expert dimension names match; a mismatched-mesh regression needs another caller."
     },
     {
       "url": "https://github.com/flashinfer-ai/flashinfer/blob/240de7a90bd43d663e3eb93429bf47559b50fd5b/flashinfer/msa_ops/_blackwell_sm100_reverse_plan.py#L253",
@@ -39,7 +43,7 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/arg_groups/fields/exec_.py#L428",
-      "note": "CLI choices reach argparse; choices.py permits plugins. Enum CUSTOM fallback alone does not prove typo acceptance; programmatic callers remain separate."
+      "note": "CLI choices reach argparse; plugins are permitted. CUSTOM fallback alone does not prove typo acceptance; programmatic callers are separate."
     },
     {
       "url": "https://www.rfc-editor.org/rfc/rfc6763.html#section-4.1.1",
@@ -55,7 +59,7 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/53225fadf40428149315d43f53b6df80d12957e0/python/sglang/srt/layers/attention/qwen_sparse_attn_backend.py#L884",
-      "note": "Capture sets metadata_rows=num_tokens; replay uses captured sequence_lengths.numel(). Refutes request-count sizing for initialized capture, not GPU correctness."
+      "note": "Capture sets metadata_rows=num_tokens; replay uses sequence_lengths.numel(). Refutes request-count sizing for initialized capture, not GPU correctness."
     },
     {
       "url": "https://github.com/ROCm/aiter/blob/49c6fdd4558a45b2cd34e713b74d0280a2a61c88/csrc/opus_gemm/opus_gemm_common.py#L843",
@@ -67,7 +71,7 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/4dfc0ac131274e6fc4599345d33863e949e52947/python/sglang/srt/layers/attention/deepseek_v4_backend_hip_radix.py#L1206",
-      "note": "Raw-verify leaves extend_seq_lens=None; consumer creates a new tensor via minimum before clamp_min_. Fabricated non-None metadata does not prove corruption; other setters unverified."
+      "note": "Raw-verify leaves extend_seq_lens=None; minimum creates a tensor before clamp_min_. Fabricated non-None metadata is not corruption proof; other setters unverified. Tensor.to alone need not copy."
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/a9c97c9f6973c03e778d1fe1e63a6b9f58a55012/python/sglang/srt/layers/radix_linear_attention.py#L78",
@@ -75,7 +79,7 @@
     },
     {
       "url": "https://github.com/sgl-project/sglang/blob/d26b6a5a9c4752e2ad0309df66eaca2f33816d68/python/sglang/srt/mem_cache/prefill_budget.py#L343-L375",
-      "note": "prepare_load_back base returns True; shared-SWA override computes/reclaims without offset debit; reserve debits after admission. Frozen 9336681/current d26b6a5 match. Inspect overrides, not only first-symbol windows. Reclaim/eviction and GPU correctness remain separate."
+      "note": "Base prepare_load_back returns True; shared-SWA override computes/reclaims without offset debit; reserve debits after admission. Inspect overrides, not first-symbol windows. Reclaim/eviction and GPU correctness remain separate."
     },
     {
       "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L398-L465",

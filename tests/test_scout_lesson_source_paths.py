@@ -176,6 +176,29 @@ class SourceLessonTests(unittest.TestCase):
         self.assertEqual(packet["lesson_suggestions"]["matches"], [self.focused])
         self.assertEqual(packet["sources"], [source])
 
+    def test_real_library_ambiguous_query_retains_source_bound_advice_in_packet(self):
+        root = self.root / "real-library-run"
+        scout.initialize(root)
+        spec = dict(repo="sgl-project/sglang", source_prefixes=["python/"],
+                    question="uninitialized Python local walrus enclosing guards")
+        config = self.root / "real-library-config.json"
+        config.write_text(json.dumps(dict(objective="test", queue_target=8, repos=[spec])), encoding="utf-8")
+        producer = research.ResearchProducer(root, config, context=object())
+        source = dict(
+            url="https://raw.githubusercontent.com/sgl-project/sglang/"
+                "11bfd868ac36c0d5c7089c3f1a65ed575feb5540/"
+                "python/sglang/srt/layers/attention/attention_registry.py",
+            text="388: if cfg := mambaish_config(model_config):",
+        )
+        self.assertTrue(producer.emit("source-bound-contract", spec, [source], "discovery"))
+        with scout.connect(root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+        advice = packet["lesson_suggestions"]
+        self.assertTrue(advice["source_path_match"])
+        self.assertEqual(advice["matches"][0]["id"], "consumer-contract-before-regression")
+        self.assertIn("clipped branch cannot establish absence", advice["matches"][0]["lesson"])
+        self.assertEqual(packet["sources"], [source])
+
     def test_callee_mutex_advice_retains_pair_atomicity_limit(self):
         url = (
             "https://raw.githubusercontent.com/spf13/afero/"

@@ -22,11 +22,11 @@ class KnowledgeNotesTests(unittest.TestCase):
         self.assertEqual(advice["status"], "ADVISORY_MATCH")
         card = advice["matches"][0]
         self.assertEqual(card["id"], "check-imported-source")
-        self.assertIn("screen limitation, not NO_BUG", card["avoid_when"])
-        self.assertIn("not NO_BUG or permission to execute a full checkout", card["avoid_when"])
+        self.assertIn("screen limit, not NO_BUG or execution authority", card["avoid_when"])
         self.assertIn("same-commit pure-Python shim", card["avoid_when"])
         self.assertIn("name.startswith('flashinfer.')", card["avoid_when"])
-        self.assertIn("does not prove their ABI compatibility", card["avoid_when"])
+        self.assertIn("Source selection does not prove ABI compatibility", card["avoid_when"])
+        self.assertIn("genuine distribution entry-point metadata", card["lesson"])
         evidence = next(e for e in card["evidence"] if e["url"].endswith("/6338"))
         self.assertIn("not full-suite", evidence["note"])
         self.assertIn("prospective Scout-improvement", evidence["note"])
@@ -135,19 +135,30 @@ class KnowledgeNotesTests(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
 
     def test_uninitialized_local_advice_retains_enclosing_assignment_and_scope(self):
-        result = notes.search("uninitialized Python local walrus enclosing guards")
-        cards = {entry["card"]["id"]: entry["card"] for entry in result["matches"]}
-        self.assertIn("consumer-contract-before-regression", cards)
-        card = cards["consumer-contract-before-regression"]
+        from scout_lesson_context import lesson_suggestions
+
+        # Production intake supplies the immutable source URL too. Generic word
+        # overlap is advisory, not a semantic top-three relevance guarantee.
+        actual = lesson_suggestions(
+            "uninitialized Python local walrus enclosing guards",
+            source_urls=[
+                "https://raw.githubusercontent.com/sgl-project/sglang/"
+                "11bfd868ac36c0d5c7089c3f1a65ed575feb5540/"
+                "python/sglang/srt/layers/attention/attention_registry.py"
+            ],
+        )
+        self.assertTrue(actual["source_path_match"])
+        card = actual["matches"][0]
+        self.assertEqual(card["id"], "consumer-contract-before-regression")
         self.assertIn("clipped branch cannot establish absence", card["lesson"])
         evidence = [e for e in card["evidence"] if "attention_registry.py" in e["url"]]
         self.assertEqual(len(evidence), 1)
         self.assertIn("cfg := mambaish_config", evidence[0]["note"])
         self.assertIn("not GPU execution", evidence[0]["note"])
-        from scout_lesson_context import lesson_suggestions
-
-        actual = lesson_suggestions("consumer contract uninitialized Python local cfg walrus")
-        self.assertEqual(actual["matches"][0]["id"], card["id"])
+        host = next(e for e in card["evidence"] if "host_memory.py" in e["url"])
+        self.assertIn("/mem_cache/host_memory.py", host["url"])
+        self.assertIn("Without the explicit SGLANG_HICACHE_HOST_MEMORY_BYTES override", host["note"])
+        self.assertIn("Static invariant only", host["note"])
         self.assertEqual(actual["oversized_matches_omitted"], 0)
         self.assertLessEqual(len(json.dumps(actual["matches"][0]).encode()), 8192)
 
