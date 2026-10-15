@@ -210,6 +210,23 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("meta/symbolic", card["avoid_when"])
         self.assertNotIn("qualified", result)
 
+    def test_sharding_advice_binds_the_registered_operator_not_its_neighbor(self):
+        result = lesson_suggestions(
+            "custom_sharding output count fused four tensors",
+            source_urls=[
+                "https://raw.githubusercontent.com/pytorch/ao/"
+                "f7c8353e8adeefc008a32169e6f92f8271d15e2d/"
+                "torchao/prototype/moe_training/kernels/mxfp8/quant.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "registered-operator-identity-before-arity")
+        self.assertEqual(card["status"], "counterexample")
+        self.assertIn("complete operator name", card["lesson"])
+        self.assertIn("source-only counterexample", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_native_guard_advice_keeps_safe_kernel_witness_scope(self):
         result = lesson_suggestions(
             "KDA padded key mask NaN gate guard",

@@ -1,0 +1,18 @@
+{
+  "id": "registered-operator-identity-before-arity",
+  "title": "Bind a sharding rule to its exact registered operator before counting outputs",
+  "applies_when": "A custom-op, fake/meta or distributed sharding output-count allegation compares adjacent functions with similar names in a partial source window.",
+  "lesson": "Read the registration decorator's complete operator name, then that exact operator's schema, implementation and fake registration. Similar prefixes and adjacent definitions do not establish identity. In TorchAO, custom_sharding_for_cutedsl_mxfp8_2d_1x32_kernel registers mxfp8_quantize_2d_1x32_cutedsl, whose implementation/fake return two tensors. Its two output placements therefore do not conflict with the neighboring four-tensor fused mxfp8_quantize_2d_1x32_32x1_cutedsl. Request the registered target definition before constructing a four-output regression or provisioning a GPU. Preserve unrelated layout or input-placement questions for separate analysis.",
+  "avoid_when": "This is a source-only counterexample to the specific arity mismatch, not execution of TorchAO, DTensor, CuTe DSL or a GPU. A real schema/implementation mismatch or unsupported placement can still be a bug. Aliases, dynamic registration and wrappers require further binding evidence; a lexical name match is not universal runtime resolution. No measured Scout accuracy, cost or PR-conversion improvement is established.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytorch/ao/blob/f7c8353e8adeefc008a32169e6f92f8271d15e2d/torchao/prototype/moe_training/kernels/mxfp8/quant.py#L1251-L1264",
+      "note": "Decorator names the non-fused 1x32 operator; each declared sharding has two output placements. Static binding evidence only."
+    },
+    {
+      "url": "https://github.com/pytorch/ao/blob/f7c8353e8adeefc008a32169e6f92f8271d15e2d/torchao/prototype/moe_training/kernels/mxfp8/quant.py#L1054-L1081",
+      "note": "The registered non-fused implementation returns qdata and scales. The adjacent fused 1x32_32x1 operator is a distinct four-output entry, not this sharding rule's target."
+    }
+  ],
+  "status": "counterexample"
+}
