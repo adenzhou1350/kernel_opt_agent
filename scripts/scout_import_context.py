@@ -262,6 +262,8 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     """Propose <=2 definitions explicitly requested in the prior next_check.
 
     Same-file free functions, named aliases and .js -> .ts are hints only.
+    An explicitly named already-supplied module may replace the primary source;
+    ambiguous basenames or revision drift abstain. Reports are not code modules.
     Local JS function declarations are lexical, not a complete language parser.
     Python named relative and observed same-package absolute imports supply
     module hints, not proof of local-name or installed-package resolution.
@@ -280,10 +282,27 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     sources = packet.get("sources", [])
     if not sources or not requested:
         return []
-    url = urlsplit(sources[0].get("url", ""))
     repo, commit = packet.get("repo", ""), snapshot.get("commit", "")
     if not re.fullmatch(r"[0-9a-f]{40}", commit):
         return []
+    observed = {}
+    for source in sources[:8]:
+        parsed = urlsplit(source.get("url", ""))
+        match = re.fullmatch(rf"/{re.escape(repo)}/[a-f0-9]{{40}}/(.+)", parsed.path)
+        if parsed.scheme == "https" and parsed.netloc == "raw.githubusercontent.com" and match:
+            observed.setdefault(unquote(match[1]), source)
+
+    def mentioned(value):
+        return bool(re.search(
+            rf"(?<![\w./-]){re.escape(value)}(?![\w./-])", hints[:2000]
+        ))
+
+    named = [path for path in observed
+             if mentioned(path) or mentioned(path.rsplit("/", 1)[-1])]
+    if len(named) > 1:
+        return []
+    selected = observed[named[0]] if named else sources[0]
+    url = urlsplit(selected.get("url", ""))
     prefix = f"/{repo}/{commit}/"
     if (
         not repo
@@ -322,7 +341,7 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
             start = max(1, local[0] - 8)
             end = min(len(raw.splitlines()), start + 79)
             if path in paths or any(
-                source.get("url") == sources[0]["url"]
+                source.get("url") == selected["url"]
                 and type(source.get("start_line")) is int
                 and type(source.get("end_line")) is int
                 and source["start_line"] <= start

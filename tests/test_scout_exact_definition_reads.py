@@ -36,6 +36,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
         continuation=None,
         definition_metadata=True,
         ranked_paths=None,
+        observed_text="current_leaves = self._session_leaves[session_id]",
     ):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -97,7 +98,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
                     [
                         {
                             "url": f"https://raw.githubusercontent.com/{REPO}/{ctx.revision}/{PATH}",
-                            "text": "current_leaves = self._session_leaves[session_id]",
+                            "text": observed_text,
                         }
                     ],
                     "source_audit",
@@ -158,6 +159,27 @@ class ExactDefinitionReadTests(unittest.TestCase):
         self.assertIn("defaultdict(set)", scout.dumps(packet))
         self.assertNotIn("unrelated fallback source", scout.dumps(packet))
         self.assertEqual(progress["satisfied_definition_optional_reads_omitted"], 1)
+
+    def test_explicit_definition_precedes_incidental_kernel_launch(self):
+        calls, _, _ = self.run_followup(
+            observed_text="120: incidental_kernel[(n,)]()",
+        )
+        self.assertEqual(calls, [PATH])
+
+    def test_explicit_references_precedes_incidental_kernel_launch(self):
+        calls, _, _ = self.run_followup(
+            request="references(block_tables_ptr)",
+            observed_text="120: incidental_kernel[(n,)]()",
+            references=[{"path": PATH, "start": 80, "max_lines": 80}],
+        )
+        self.assertEqual(calls, [PATH])
+
+    def test_malformed_explicit_target_does_not_select_another_kernel(self):
+        calls, _, _ = self.run_followup(
+            request="definition(Owner..method)",
+            observed_text="120: incidental_kernel[(n,)]()",
+        )
+        self.assertEqual(calls, [PATH, OTHER])
 
     def test_incomplete_definition_keeps_the_existing_fallback(self):
         calls, _, progress = self.run_followup(complete=False)

@@ -1496,7 +1496,20 @@ class ResearchProducer:
                 + [ref["quote"] for ref in analysis_value.get("evidence", [])]
                 + [s["url"] + "\n" + s["text"] for s in sources]
             )
-            definition_request = same_file_kernel_definition(packet, snapshot)
+            # A launch in an old window is only a fallback hint. Do not let it
+            # preempt the model's explicit next-evidence target (including a
+            # malformed target, which the existing selectors must abstain on).
+            # Otherwise an imported kernel can repeatedly fetch its wrapper,
+            # suppressing reference/import/code-search routes within the budget.
+            explicit_request = analysis_value.get("next_check", "")
+            has_explicit_target = isinstance(explicit_request, str) and re.search(
+                r"(?<!\w)(?:definition|references)[ \t]*\(",
+                explicit_request[:2000],
+            )
+            definition_request = (
+                None if has_explicit_target
+                else same_file_kernel_definition(packet, snapshot)
+            )
             if definition_request is not None:
                 path, symbol = definition_request
                 try:

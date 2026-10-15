@@ -518,6 +518,16 @@ python -B -m unittest tests.test_scout_symbol_references
 
 ## Optional missing-implementation discovery
 
+Explicit `definition(...)` and `references(...)` next-evidence requests take
+precedence over an incidental kernel-launch hint from an earlier excerpt.
+Otherwise a wrapper importing a kernel from another module can repeatedly win
+the fallback and suppress the requested import/reference lookup. The import
+helper can use one explicitly named, already-supplied module after an issue
+source; ambiguous basenames, foreign revisions and unobserved paths abstain.
+This retains the existing read budgets and does not resolve runtime bindings.
+The exposed KDA chain supplied the development counterexample; fixing its
+acquisition route is not GPU defect verification or a prospective PR-yield result.
+
 A repository may opt into `followup_code_search=true`. When a needs-context
 follow-up explicitly asks for `references(identifier)` or an unqualified
 `definition(identifier)` (one or two bounded ASCII identifiers or hyphenated

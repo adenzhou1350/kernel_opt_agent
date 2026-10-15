@@ -12,6 +12,43 @@ COMMIT = "a" * 40
 
 
 class ImportContextTests(unittest.TestCase):
+    def test_explicit_supplied_module_after_issue_can_supply_import_hint(self):
+        path = "pkg/wrapper.py"
+        packet = {"repo": "o/r", "sources": [
+            {"url": "https://github.com/o/r/issues/42", "text": "report"},
+            {"url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/{path}",
+             "text": "190: borrowed_kernel[(n,)]()"},
+        ]}
+        snapshot = {"commit": COMMIT, "files": [path, "pkg/fused.py"]}
+        cache = Mock(return_value="from .fused import borrowed_kernel\n")
+        result = import_requests(packet, snapshot, {"next_check":
+            "definition(borrowed_kernel) in pkg/wrapper.py"}, cache)
+        self.assertEqual(result, [
+            {"path": "pkg/fused.py", "hints": "borrowed_kernel", "max_lines": 80},
+        ])
+        cache.assert_called_once_with("o/r", COMMIT, path)
+
+    def test_issue_first_import_selection_does_not_guess_a_source(self):
+        for request, urls in (
+            ("definition(borrowed_kernel)", [f"{COMMIT}/pkg/wrapper.py"]),
+            ("definition(borrowed_kernel) wrapper.py", [
+                f"{COMMIT}/pkg/wrapper.py", f"{COMMIT}/other/wrapper.py"]),
+            ("definition(borrowed_kernel) wrapper.py", [f"{'b'*40}/pkg/wrapper.py"]),
+            ("definition(borrowed_kernel) absent.py", [f"{COMMIT}/pkg/wrapper.py"]),
+        ):
+            with self.subTest(request=request, urls=urls):
+                cache = Mock(side_effect=AssertionError("Must abstain before cache read"))
+                packet = {"repo": "o/r", "sources": [
+                    {"url": "https://github.com/o/r/issues/42", "text": "report"},
+                    *[{"url": "https://raw.githubusercontent.com/o/r/" + url,
+                       "text": "190: borrowed_kernel[(n,)]()"} for url in urls],
+                ]}
+                snapshot = {"commit": COMMIT, "files": [
+                    "pkg/wrapper.py", "other/wrapper.py", "pkg/fused.py"]}
+                self.assertEqual(import_requests(packet, snapshot,
+                    {"next_check": request}, cache), [])
+                cache.assert_not_called()
+
     def test_absolute_python_named_alias_uses_same_observed_package(self):
         result, cache, _, _ = self.requests(
             "from tilelang.jit.libgen import Generator as Schema\n",
