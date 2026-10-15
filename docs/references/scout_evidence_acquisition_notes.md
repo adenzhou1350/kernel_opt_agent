@@ -1106,6 +1106,60 @@ synthetic SDK error tests cannot establish current provider health.
 python -B -m unittest tests.test_scout_single_review tests.test_scout_shadow_comparison tests.test_scout_mmx_accounting tests.test_scout_model_usage
 ```
 
+## Direct-outcome negative comparison (2026-10-15)
+
+A new metadata-only draw selected the first eligible small repair from the
+latest 60 first-parent nonmerge commits of `tkem/cachetools`:
+[`bcf9e8176ebe16da58751fce971c98ffe045ede1`](https://github.com/tkem/cachetools/commit/bcf9e8176ebe16da58751fce971c98ffe045ede1),
+parent `eadb91cc9d54a57d6738386bc5c575ff3c7d22ec`. Selection used commit titles,
+paths and line counts before reading semantics, with no replacement draw.
+This is public historical source, not guaranteed absent from model training.
+
+Complete raw-blob packages and identical unchanged head `tests/test_rr.py` and
+`tests/__init__.py` were tested in separate restored offline Python 3.12.10 CPU
+sandboxes. The official unittest loader ran `tests.test_rr.RRCacheTest`: parent
+28 passed/one error; head 29 passed; zero skips. The sole parent error is
+`test_rr_popitem_empty_custom_choice`, where `min` raises `ValueError` instead
+of the expected `KeyError`. These are 29 test methods, not independent bugs.
+An owner eligibility correction preceded model calls: a temporary classifier
+guessed the old Python exception message, whereas the worker used a different
+wording. Its false decision remains in the raw record. The substantive declared
+oracle was satisfied, but this was not a perfectly implemented automatic gate.
+
+The frozen question asked for actual exception types on fresh empty `RRCache`
+instances using `min`, `max` and `next(iter(seq))` as choice functions. Source
+windows included the complete relevant class without hiding the repair. Three
+arms used the same MiniMax-M3 final-review instruction/output cap: source-only
+provisional answer plus reflection; fixed fresh native observations plus review;
+and model-selected native/test context/abstention plus review. Selector answers
+were withheld from final review. Invalid first responses stopped their arm;
+outputs were not repaired, relabeled or retried.
+
+| Arm, two related revisions | Strict correct final answers | Calls | Reported tokens |
+| --- | --- | --- | --- |
+| Source-only reflection | 1/2; other first response had the wrong JSON shape | 3 | 2,984 |
+| Fixed native acquisition + review | 2/2 | 2 | 2,388 |
+| Selector + review | 0/2; both first responses violated the interface | 2 | 2,173 |
+
+All seven calls had observed input/cache/output counters: 7,545 total normalized
+tokens and about 16.10 s model-client wall. The two fresh fixed-arm probes took
+about 4.16 s client lifecycle; shared oracle calls, clone/setup and owner work
+are separate costs. Dollar cost and owner effort remain unknown. Equal ceilings
+are not equal realized or priced budgets; failed arms' lower spend is not a
+useful-efficiency win. Every created sandbox session was released after terminal
+container cleanup. No GPU, new PR or production Scout change was involved.
+
+No selector benefit is demonstrated. The selector was asked for both an outcome
+vector and an acquisition action, adding a task/interface burden absent from
+fixed acquisition. Its observed end-to-end failures are real, but cannot isolate
+action-selection quality. A fresh comparison should use action-only selection,
+common final review and predeclared invalid-action handling; do not rerun this
+exposed group or silently relax its parser. One related repair group, missing
+cheap/strong-provider and full existing-method comparisons, and incomplete
+priced/owner costs cannot establish generalization, causal utility or paper
+readiness. Fixed native acquisition remains the necessary simple comparator,
+not a new algorithm inferred from this result.
+
 ## Qualified C++ source-location hints
 
 An explicit `definition(Owner::method)` request in a pinned C-family file can

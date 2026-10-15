@@ -65,6 +65,12 @@ budgets. Missing usage/prices/owner effort stay unknown, not zero. Separate
 format validity, observed outcome, final label and explanatory correctness;
 do not relabel an incorrect answer from its otherwise correct prose.
 
+Keep the selector's job to choosing an observation, then use a common final
+reviewer. Requiring only the selector to also solve the case introduces an
+answer/interface burden that can obscure acquisition quality. A small
+[native-backed negative comparison](references/scout_evidence_acquisition_notes.md#direct-outcome-negative-comparison-2026-10-15)
+illustrates this limitation; it does not establish that learned selection works.
+
 The [research findings](references/scout_evidence_acquisition_notes.md#research-boundary-2026-10-11)
 include unresolved novelty/utility requirements and negative comparisons.
 Nothing here authorizes a learned selector in production or a paper claim.
