@@ -361,5 +361,87 @@ class ContinuationTests(unittest.TestCase):
             self.assertNotIn("requested_definition_complete", preceding)
 
 
+class TestCompanionContinuation(unittest.TestCase):
+    def followup(self, total):
+        from kimi_scout_context import PublicContext
+
+        sha = "a" * 40
+        test_path = "tests/s3_adapter_config_test.cpp"
+        header = "src/config/s3_adapter_config.h"
+        short = "include/conductor/common/types.h"
+        snapshot = {
+            "commit": sha,
+            "files": [header, short, test_path],
+            "blobs": {path: "b" * 40 for path in (header, short, test_path)},
+        }
+        raw = {header: "struct S3AdapterConfig {};\n" * 27,
+               short: "// shared types\n" * 62,
+               test_path: "// configuration case\n" * total}
+        calls = []
+
+        class Context(PublicContext):
+            def snapshot(self, repo, ref="main"):
+                return snapshot
+
+            def _read(self, url, *args, **kwargs):
+                prefix = f"https://raw.githubusercontent.com/a/b/{sha}/"
+                if not url.startswith(prefix):
+                    raise AssertionError("Unexpected network target")
+                return raw[url[len(prefix):]]
+
+            def source(self, repo, commit, path, **kwargs):
+                calls.append((path, kwargs))
+                return super().source(repo, commit, path, **kwargs)
+
+            def duplicate_sources(self, repo, title):
+                return []
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scout.initialize(root)
+            config = root / "config.json"
+            spec = {"repo": "a/b", "source_prefixes": ["src/", "include/"],
+                    "question": "Check the configuration contract"}
+            config.write_text(json.dumps({"objective": "Bounded evidence", "queue_target": 4,
+                                          "repos": [spec]}), encoding="utf-8")
+            context = Context(root)
+            producer = ResearchProducer(root, config, context=context)
+            sources = [context.source("a/b", sha, header, start=1),
+                       context.source("a/b", sha, test_path, start=119, max_lines=80)]
+            producer.emit("configuration", spec, sources, "source_audit")
+            with scout.connect(root) as db:
+                db.execute("UPDATE jobs SET state='NEEDS_CONTEXT',finished=1,result=?",
+                           (json.dumps({"analysis": {
+                               "title": "S3AdapterConfig::FromEnvironment still missing",
+                               "decision": "needs_context",
+                               "next_check": f"definition(S3AdapterConfig::FromEnvironment), read s3_adapter_config_test.cpp lines 198-{total}",
+                           }}),))
+            calls.clear()
+            self.assertTrue(producer.followup(spec, {}))
+            with scout.connect(root) as db:
+                packet = json.loads(db.execute(
+                    "SELECT packet FROM jobs WHERE state='PENDING'"
+                ).fetchone()[0])
+            return calls, packet
+
+    def test_test_companion_cannot_steal_the_continuation_path(self):
+        calls, packet = self.followup(228)
+        self.assertLessEqual(len(calls), 2)
+        self.assertEqual((calls[0][0], calls[0][1]["start"]),
+                         ("tests/s3_adapter_config_test.cpp", 179))
+        self.assertTrue(all(path == "tests/s3_adapter_config_test.cpp" or "start" not in kwargs
+                            for path, kwargs in calls))
+        self.assertTrue(any(source.get("start_line") == 179 and source.get("end_line") == 228
+                            for source in packet["sources"]))
+
+    def test_long_test_tail_reuses_two_slots_without_a_duplicate_test_read(self):
+        calls, packet = self.followup(537)
+        self.assertEqual([(path, kwargs["start"]) for path, kwargs in calls],
+                         [("tests/s3_adapter_config_test.cpp", 179),
+                          ("tests/s3_adapter_config_test.cpp", 418)])
+        self.assertTrue(all(source["truncated"] for source in packet["sources"]
+                            if source.get("start_line") in (179, 418)))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -32,6 +32,25 @@ selection and the resulting extra producer read. These establish selection
 behavior, not PR yield or improved model accuracy. No community-code, GPU, or
 whole-workload performance claim is made.
 
+## Continuation and companion requests must keep the same file identity
+
+A supplied test window can be both an explicit continuation target and the
+automatic companion test. In that case the continuation consumes the ordinary
+read slot; omit the duplicate companion request. Do not first remove its path
+and then apply its numeric offsets to the next lexical source. A real refill
+attempt did exactly that: a test's line-179 continuation reached an unrelated
+short header and repeatedly raised an end-of-file error. This was path-routing
+failure, not source revision drift or a provider outage.
+
+The regressions use the actual source reader and producer with offline fixture
+text. They require correct path/window binding, no more than two source reads,
+and preservation of the second tail window when needed. They establish reader
+routing, not native target-project qualification or improved PR yield.
+
+```text
+python -B -m unittest tests.test_scout_source_continuation
+```
+
 ## Declarative implementations are opt-in evidence text
 
 Some repositories store implementations inside YAML, not Python files. An

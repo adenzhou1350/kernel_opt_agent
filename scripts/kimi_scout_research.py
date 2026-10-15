@@ -1651,6 +1651,14 @@ class ResearchProducer:
                     if code_requests:
                         test_request = None
 
+            if (
+                test_request and continuation
+                and test_request["path"] == continuation["path"]
+            ):
+                # The continuation already supplies this test within the ordinary
+                # read budget. Removing its path here would attach that file's
+                # line offsets to the next, unrelated lexical source instead.
+                test_request = None
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]
             if not (
