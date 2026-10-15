@@ -324,6 +324,7 @@ class ProcessTests(unittest.TestCase):
                     result = self.execute(code, output=self.root / f"output{exit_code}")
                     self.assertEqual(result["status"], "INCONCLUSIVE")
                     self.assertIsNone(result["summary"])
+                    self.assertTrue(result["post_exit_group_cleanup_required"])
                     self.assert_child_stopped(int((self.root / "child.pid").read_text()))
                 finally:
                     # Preserve safe teardown even when replayed against the old runner.
@@ -333,6 +334,48 @@ class ProcessTests(unittest.TestCase):
                             os.kill(int(pid_file.read_text()), signal.SIGTERM)
                         except ProcessLookupError:
                             pass
+
+    def test_naturally_exiting_descendant_is_awaited_without_signals(self):
+        from unittest.mock import patch
+
+        child = (
+            "import sys,time; from pathlib import Path; "
+            "Path('child.ready').touch(); sys.stdin.buffer.read(); time.sleep(0.05)"
+        )
+        code = (
+            "import subprocess,sys,time; from pathlib import Path; "
+            "p=subprocess.Popen([sys.executable,'-B','-c'," + repr(child) + "],"
+            "stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "
+            "Path('child.pid').write_text(str(p.pid)); "
+            "exec(\"while not Path('child.ready').exists(): time.sleep(0.01)\"); "
+            "print(" + repr(PASS) + ")"
+        )
+        with patch.object(runner, "stop_group", wraps=runner.stop_group) as stop:
+            result = self.execute(code)
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        self.assertFalse(result["post_exit_group_cleanup_required"])
+        self.assertGreater(result["post_exit_group_wait_seconds"], 0.01)
+        stop.assert_not_called()
+        self.assert_child_stopped(int((self.root / "child.pid").read_text()))
+
+    def test_natural_group_wait_never_extends_the_command_deadline(self):
+        from unittest.mock import patch
+
+        with patch.object(runner.os, "killpg") as probe, \
+                patch.object(runner.time, "monotonic", return_value=20.0), \
+                patch.object(runner.time, "sleep") as sleep:
+            self.assertFalse(runner.wait_for_group_exit(123, 19.0))
+        probe.assert_called_once_with(123, 0)
+        sleep.assert_not_called()
+
+    def test_group_disappearance_must_be_observed(self):
+        from unittest.mock import patch
+
+        with patch.object(runner.os, "killpg", side_effect=[None, ProcessLookupError]), \
+                patch.object(runner.time, "monotonic", return_value=20.0), \
+                patch.object(runner.time, "sleep") as sleep:
+            self.assertTrue(runner.wait_for_group_exit(123, 20.005))
+        self.assertAlmostEqual(sleep.call_args.args[0], 0.005)
 
     def test_success_does_not_signal_a_process_outside_owned_group(self):
         import subprocess

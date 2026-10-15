@@ -48,6 +48,15 @@ actual outcome; do not rewrite the original Scout answer into a verified result.
 
 ## Check the deployed native runner, not another checkout
 
+The CPU capture entrance permits at most 0.5 seconds of natural process-group
+shutdown after the leader exits, within the original command deadline. This
+handles short-lived runtime helpers without a helper-name whitelist. The whole
+owned group must actually disappear; a persistent group still makes the capture
+inconclusive and is terminated. Results record the observed wait and whether
+post-exit cleanup was required. This is not a sandbox or proof about children
+that escape the owned group. Historical inconclusive reports stay unchanged;
+an XML pass count alone must not override their capture verdict.
+
 Before planning a native run, inspect `python scripts/scout_native_run.py --help`
 in the **actual execution checkout** and record the tool files used. A supported
 format in a committed development worktree does not mean the live Scout directory

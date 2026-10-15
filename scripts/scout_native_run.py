@@ -63,6 +63,19 @@ def stop_group(process):
     process.wait(timeout=5)
 
 
+def wait_for_group_exit(pgid, deadline):
+    """Allow bounded natural shutdown; never classify a still-present group as gone."""
+    while True:
+        try:
+            os.killpg(pgid, 0)
+        except ProcessLookupError:
+            return True
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return False
+        time.sleep(min(0.01, remaining))
+
+
 def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         timeout=120, environment=None, _gpu_uuid=None):
     invocation_started = time.monotonic()
@@ -123,6 +136,7 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         command.append(f"--gtest_output=xml:{output / 'gtest.xml'}")
     started = time.monotonic()
     reason, written = None, 0
+    post_exit_group_wait_seconds, post_exit_group_cleanup_required = 0.0, False
     # Keep output off RAM; cap both the file and the later parser input.
     with (output / "terminal.log").open("xb") as log:
         process = subprocess.Popen(command, cwd=cwd, env={**os.environ, **environment},
@@ -163,12 +177,16 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
             else:
                 # EOF and a reaped leader do not prove descendants have exited:
                 # a background child may close or redirect its output descriptors.
-                # Only query/signal the session group created for this invocation.
-                try:
-                    os.killpg(process.pid, 0)
-                except ProcessLookupError:
-                    pass
-                else:
+                # Python's forkserver can still be shutting down at leader exit.
+                # Wait at most 0.5s, within the original command deadline. There
+                # is no helper-name whitelist: every group must actually vanish.
+                # Only query/signal the group created for this invocation.
+                group_wait_started = time.monotonic()
+                deadline = min(started + timeout, group_wait_started + 0.5)
+                group_gone = wait_for_group_exit(process.pid, deadline)
+                post_exit_group_wait_seconds = time.monotonic() - group_wait_started
+                if not group_gone:
+                    post_exit_group_cleanup_required = True
                     reason = reason or "owned process group remains after command exit"
                     stop_group(process)
             process.stdout.close()
@@ -210,6 +228,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
               "issues": issues, "summary": summary, "exit_code": process.returncode,
               "wall_seconds": time.monotonic() - invocation_started,
               "command_wall_seconds": command_wall_seconds, "cwd": str(cwd),
+              "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
+              "post_exit_group_cleanup_required": post_exit_group_cleanup_required,
               "command": list(command), "tool_path": str(executable), "tool_sha256": tool_hash,
               "source_before": before, "source_after": after,
               "terminal_log_sha256": digest(output / "terminal.log"),
