@@ -53,6 +53,7 @@ class IssuePrContextTests(unittest.TestCase):
         self.assertEqual(result["sources"][0]["reference_literal"], "#42")
         self.assertEqual(result["sources"][0]["observed_pr_state"], "open")
         self.assertEqual(result["status"], "PARTIAL_SEARCH")
+        self.assertEqual(result["verified_reference_count"], 1)
         self.assertFalse(result["search_exhaustive"])
         self.assertEqual(len(self.calls), 2)
         self.assertTrue(all(kwargs["github_auth"] for _, kwargs in self.calls))
@@ -78,6 +79,18 @@ class IssuePrContextTests(unittest.TestCase):
         items[4]["number"] = True
         self.found.update(items=items, total_count=5)
         self.assertEqual(self.context.issue_pr_context(REPO, 42)["sources"], [])
+
+    def test_raw_numeric_hit_is_not_a_verified_reference_count(self):
+        # A dependency commit hash can match GitHub's numeric issue search.
+        self.found.update(items=[pr(body="Bump dependency from abc42def to fedcba")],
+                          total_count=1)
+        result = self.context.issue_pr_context(REPO, 42)
+        self.assertEqual(result["total_count"], 1)
+        self.assertEqual(result["returned_items"], 1)
+        self.assertEqual(result["verified_reference_count"], 0)
+        self.assertEqual(result["sources"], [])
+        self.assertIn("raw numeric search hits", result["scope"])
+        self.assertFalse(result["search_exhaustive"])
 
     def test_invalid_numbers_do_not_fetch(self):
         for number in [True, -1, 0, 1_000_000_001, "42 is:closed"]:

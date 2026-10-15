@@ -734,7 +734,8 @@ class PublicContext:
             "incomplete_results": found.get("incomplete_results"),
             "total_count": found.get("total_count"),
             "returned_items": len(found["items"][:5]),
-            "scope": "At most five PR-body hits; explicit issue references only. Neither a fix/merge verdict nor proof that an empty sample excludes existing work.",
+            "verified_reference_count": len(result),
+            "scope": "total_count and returned_items count raw numeric search hits, not verified issue references. verified_reference_count counts the accepted explicit-reference sources. At most five hits are inspected. Neither a fix/merge verdict nor proof that an empty sample excludes existing work.",
         }
 
     def code_search_paths(self, repo, snapshot, symbol, *, deprioritize=()):

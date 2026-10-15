@@ -52,3 +52,13 @@ This closes a delivery gap, not a measured token saving or recall/conversion
 improvement. It spends an extra lookup at first triage; utility still needs a
 prospective total-cost comparison. Later pages and cross-repository work remain
 outside this bounded sample, and cached PR state is not live merge/CI evidence.
+
+Keep raw search counts separate from accepted references. In the October 15
+Pluggy #794 follow-up, `total_count=1` and `returned_items=1` survived into the
+packet even though the explicit-reference filter accepted no PR. The model
+incorrectly treated this as one PR referencing the report. The visible search
+result was an unrelated dependency update. The lookup now also carries
+`verified_reference_count` and explains what each count means; zero accepted
+references still does not establish novelty. A focused regression preserves
+the raw numeric hit while requiring zero accepted references. This removes an
+ambiguous evidence field, not proof of better model accuracy or PR conversion.
