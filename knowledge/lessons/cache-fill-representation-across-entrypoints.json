@@ -1,0 +1,22 @@
+{
+  "id": "cache-fill-representation-across-entrypoints",
+  "title": "Keep cache-fill representation consistent across cold read entrypoints",
+  "applies_when": "A caching wrapper decompresses or transforms bytes while filling a shared local cache, and open, cat, bulk reads or prefetch can populate that cache through different paths.",
+  "lesson": "Identify which layer owns decoding and what bytes consumers expect in the cache. A raw target download must not be recorded as a complete decoded cache entry. Compare cold cat then open against open then cat; include warm reads, a fresh instance reloading the same cache, scalar and multi-file inputs, inferred/explicit codecs and the no-transform control. Inspect stored bytes, not only returned values. Reuse the existing decoding fill helper for transformed misses while preserving the default raw bulk path. A separate test that ignores cat's return and checks the subsequent open can distinguish cache poisoning from uncertainty about cat's own API contract.",
+  "avoid_when": "Some APIs intentionally cache original stored bytes and decode in an outer read wrapper. For fsspec, cache-level compression on the filesystem constructor differs from compression on the outer OpenFile; do not make every filesystem cat eagerly decompress. The cited repair covers synchronous whole-file cache cat with local temporary storage and a memory backend, not async paths, compressed progress callbacks, cloud providers or performance. Windows focused tests pass, but broader Windows file-locking failures remain unexplained; later diagnostic passes do not erase them. Advice availability is not measured Scout accuracy, lower total cost or conversion improvement.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/929eee421ef8a48b755a5ae40493d946b478d91b/fsspec/implementations/cached.py",
+      "note": "The constructor documents decompression on download. The existing open fill helpers decode, while synchronous cat uses raw bulk get and records complete cache entries. Source evidence for the distinct cache-fill paths, not execution."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/929eee421ef8a48b755a5ae40493d946b478d91b/fsspec/implementations/tests/test_cached.py",
+      "note": "Existing test_with_compression explicitly distinguishes outer OpenFile decompression, which leaves stored bytes compressed, from cache-level decompression, which stores decoded bytes. This establishes the relevant representation contract."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2296",
+      "note": "Proposed small repair reuses the decoding helper only on compressed misses. Exact-source Linux matched tests: old 24 failed/34 passed, candidate 58 passed; complete two cache test files 387 passed/15 optional FTP skips. Windows focused 58 pass; full Windows qualification is not claimed because retained file-locking failures did not recur in ten matched control pairs. No upstream acceptance or full-platform/performance claim."
+    }
+  ],
+  "status": "validated"
+}
