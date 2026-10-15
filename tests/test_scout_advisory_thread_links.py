@@ -38,11 +38,9 @@ class AdvisoryThreadLinkTests(unittest.TestCase):
     def test_comment_evidence_does_not_become_a_canonical_pr(self):
         url = self.base + "/pull/12#issuecomment-34"
         self.assertIsNotNone(writer.memory.advisory_evidence_match(url))
-        summary = writer.memory.publication_summary([
-            dict(repo=self.repo, result=json.dumps(dict(pr=dict(url=url)))),
-        ])
-        self.assertEqual(summary["distinct_prs"], 0)
-        self.assertEqual(summary["unverified_links"], 1)
+        # Use the canonical identity primitive shared by deployed and current
+        # readers; publication-metrics integration has its own separate suite.
+        self.assertIsNone(writer.memory.PR_URL.fullmatch(url))
 
     def test_policy_update_replaces_only_the_stable_hypothesis_key(self):
         old = {**self.note, "reason": "Wait for a policy decision.", "evidence_url": self.base + "/pull/12"}
