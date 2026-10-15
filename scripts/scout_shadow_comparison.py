@@ -1,4 +1,4 @@
-"""Optional offline two-pass comparison mechanics, never a live Scout policy.
+"""Optional offline comparison mechanics, never a live Scout policy.
 
 Callers freeze sampling, providers, assets, oracle and scoring before unblinding.
 This module validates actions/quotes and keeps failure costs; it cannot establish
@@ -40,6 +40,22 @@ def normalized_usage(provider, raw):
     if not all(type(raw.get(k)) is int and raw[k] >= 0 for k in fields):
         return None
     return sum(raw[k] for k in fields)
+
+
+def summarize_reported_tokens(records):
+    """Keep a known lower bound when any captured usage is unavailable.
+
+    Records are caller-supplied observations, not authenticated request counts.
+    This does not recover missing usage or price tokens/cache/owner work.
+    """
+    if not isinstance(records, list) or any(not isinstance(r, dict) for r in records):
+        raise ValueError('token accounting requires a list of call records')
+    values = [r.get('normalized_total_tokens') for r in records]
+    known = [v for v in values if type(v) is int and v >= 0]
+    total = sum(known)
+    return dict(normalized_total_tokens=total if len(known) == len(values) else None,
+                known_token_lower_bound=total, known_usage_records=len(known),
+                unknown_usage_records=len(values)-len(known), call_records=len(values))
 
 
 def parse_mmx_message(text, *, exit_code):
@@ -233,7 +249,16 @@ SELECT = (
 
 
 def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
-            each_prompt_bytes=48000, total_prompt_bytes=96000, numbered_new_evidence=False):
+            each_prompt_bytes=48000, total_prompt_bytes=96000, numbered_new_evidence=False,
+            single_review=False):
+    """Legacy two-pass default, or an explicitly frozen single final review.
+
+    single_review never gives the reviewer another arm's/selector's answer.
+    Callers still must freeze the same reviewer/instructions/cap across arms;
+    one versus two actual calls must be costed, not padded to equal call counts.
+    """
+    if type(single_review) is not bool:
+        raise ValueError('single_review must be a boolean')
     name, first_provider, action, final_provider = arm
     if action not in {'select', 'none', 'rule', 'bidirectional_rule', 'bm25'}:
         raise ValueError('unknown evidence action')
@@ -272,7 +297,7 @@ def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
         'Do not remove numbering or reconstruct raw code in decisive_evidence. '
         if numbered_new_evidence else '')
     prompt = REVIEW+quote_instruction+'\nINPUT:\n'+supplied+'\nNEW_EVIDENCE:\n'+json.dumps(observation, ensure_ascii=False)
-    if first is None:
+    if first is None and not single_review:
         first = bounded(first_provider, prompt, first_cap)
         prompt += ('\nCritique this untrusted first-pass response, not additional evidence. '
                    'Correct errors or retain INSUFFICIENT.\n'+json.dumps(
@@ -282,9 +307,11 @@ def run_arm(view, assets, arm, invoke, *, first_cap=768, final_cap=1024,
     value = parsed(final)
     valid = validate_verdict(value, view, observation)
     first_valid = (selection['status'] != 'INVALID_SELECTION' if action == 'select'
-                   else validate_verdict(parsed(first), view, observation))
-    return dict(arm=name, selection=selection, observation=observation, calls=calls,
+                   else True if single_review else validate_verdict(parsed(first), view, observation))
+    result = dict(arm=name, selection=selection, observation=observation, calls=calls,
                 final_verdict=value, valid_verdict=valid, prompt_bytes=used,
-                protocol_valid=bool(valid and first_valid and first['response'].get('ok')),
-                normalized_total_tokens=(sum(c['normalized_total_tokens'] for c in calls)
-                    if all(c.get('normalized_total_tokens') is not None for c in calls) else None))
+                protocol_valid=bool(valid and first_valid and (first is None or first['response'].get('ok'))),
+                normalized_total_tokens=summarize_reported_tokens(calls)['normalized_total_tokens'])
+    if single_review:
+        result.update(review_mode='single_final_review', token_accounting=summarize_reported_tokens(calls))
+    return result

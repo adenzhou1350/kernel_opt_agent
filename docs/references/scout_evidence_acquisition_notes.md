@@ -1034,3 +1034,37 @@ or full-repository qualification, a memorization-free held-out sample, recall,
 matched total-cost superiority or paper evidence. The strong-provider,
 applicable existing-method and prospective multi-group requirements remain
 unmet; do not present admission as their completion.
+
+## Optional common final review and interrupted pilot (2026-10-15)
+
+For newly frozen comparisons, `scout_shadow_comparison.run_arm(...,
+single_review=True)` removes the fixed arm's first-pass reflection. Fixed/rule/
+BM25 arms use one final reviewer call; a selected-source arm uses its selector
+and one final reviewer call. Selector answers and reasons are not supplied to
+the final reviewer. Freeze the same final provider, instructions and caps across
+arms, retaining their different evidence. Charge actual calls; do not add dummy
+calls to make counts equal. The legacy default is unchanged. This helper still
+calls the reviewer after an invalid selector and marks the protocol invalid;
+caller-owned stopping policies must not be inferred from it.
+
+`summarize_reported_tokens` keeps the sum of known nonnegative integer counters
+as `known_token_lower_bound`; if any record lacks valid usage, total usage is
+null. Its record count includes injected no-call controls and is not an
+authenticated provider request count. This does not recover usage, normalize
+prices or account for owner effort.
+
+A bounded development pilot on the exposed Boltons group above planned eight
+arms using the same fresh final M3 reviewer. It attempted two model calls: the
+parent fixed-native review completed correctly (1,504 reported tokens); the
+head fixed-native review returned CLIError without a message envelope or usage.
+The frozen stop rule ended the pilot without retry: one complete arm, one
+incomplete arm, six unstarted arms. Total tokens remain unknown, with a known
+lower bound of 1,504. No selector, source-only or rule comparison ran, so there
+is no selector-benefit result. Sandbox sessions were released. The old transport
+did not retain the SDK error category, so authentication, quota and network
+causes remain undiagnosed. Future error-category logging can help diagnosis;
+synthetic SDK error tests cannot establish current provider health.
+
+```text
+python -B -m unittest tests.test_scout_single_review tests.test_scout_shadow_comparison tests.test_scout_mmx_accounting tests.test_scout_model_usage
+```
