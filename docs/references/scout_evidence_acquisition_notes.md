@@ -340,6 +340,14 @@ a valid decision. The reader cannot authenticate a transcript, infer attempt
 identity, restore stripped historical counters, price tokens or equalize total
 budgets; keep those responsibilities and failed/uncertain requests in the caller.
 
+An SDK caller may also supply `diagnostic_text` containing only
+`error_class`, integer `sdk_exit_code` and `usage_unknown: true`.
+The reader retains recognized SDK categories without echoing free-form messages
+or hints. This is captured diagnostic metadata, not proof of an HTTP status or
+recovered usage. Auth/quota failures remain failures, not permission to switch
+credentials or providers. Old class-only errors stay unclassified; do not rewrite
+past trials using a later quota check or successful request.
+
 Offline controls and optional real-installed-CLI replay:
 
 ```text

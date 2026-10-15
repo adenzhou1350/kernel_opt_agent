@@ -58,7 +58,37 @@ def summarize_reported_tokens(records):
                 unknown_usage_records=len(values)-len(known), call_records=len(values))
 
 
-def parse_mmx_message(text, *, exit_code):
+def _mmx_failure_diagnostic(text):
+    """Retain bounded SDK categories, never provider messages or credentials."""
+    if not isinstance(text, str) or len(text.encode()) > 4096:
+        return None
+
+    def unique(items):
+        value = dict(items)
+        if len(value) != len(items):
+            raise ValueError('duplicate diagnostic key')
+        return value
+
+    try:
+        value = json.loads(text, object_pairs_hook=unique)
+    except (ValueError, RecursionError):
+        return None
+    categories = {1: 'GENERAL', 2: 'USAGE', 3: 'AUTH', 4: 'QUOTA',
+                  5: 'TIMEOUT', 6: 'NETWORK', 10: 'CONTENT_FILTER'}
+    if (not isinstance(value, dict)
+            or set(value) != {'error_class', 'sdk_exit_code', 'usage_unknown'}
+            or not isinstance(value['error_class'], str)
+            or value['error_class'] not in {'CLIError', 'SDKError', 'Error', 'AbortError'}
+            or value['usage_unknown'] is not True
+            or type(value['sdk_exit_code']) is not int
+            or value['sdk_exit_code'] not in categories):
+        return None
+    return dict(error_class=value['error_class'], sdk_exit_code=value['sdk_exit_code'],
+                category=categories[value['sdk_exit_code']],
+                scope='Captured SDK diagnostic, not HTTP attestation or recovered usage.')
+
+
+def parse_mmx_message(text, *, exit_code, diagnostic_text=''):
     """Read captured non-streaming mmx Messages JSON, not quiet model JSON.
 
     Invocation/attempt identity and costs belong to the caller. This cannot
@@ -74,6 +104,9 @@ def parse_mmx_message(text, *, exit_code):
                   log_sha256=hashlib.sha256(text.encode()).hexdigest(),
                   boundary='Captured response/usage only; not attempt identity, authenticity, '
                            'dollars, equal total budgets, native correctness or selector benefit.')
+    diagnostic = _mmx_failure_diagnostic(diagnostic_text)
+    if diagnostic is not None:
+        record['provider_failure'] = diagnostic
 
     def pairs(items):
         result = {}
@@ -102,6 +135,9 @@ def parse_mmx_message(text, *, exit_code):
         record['usage'] = {k: usage[k] for k in fields if type(usage.get(k)) is int and usage[k] >= 0}
         record['normalized_total_tokens'] = normalized_usage('m3', usage)
     record.update(model=value['model'], stop_reason=value.get('stop_reason'))
+    if diagnostic is not None:
+        record['response']['error'] = 'MMX_SDK_FAILURE_RECORDED'
+        return record
     blocks = value.get('content')
     if (not isinstance(blocks, list) or not blocks or any(
             not isinstance(block, dict) or block.get('type') not in {'text', 'thinking'}

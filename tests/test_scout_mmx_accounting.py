@@ -21,6 +21,45 @@ def message():
 
 
 class MmxAccountingTests(unittest.TestCase):
+    def test_sdk_failure_metadata_is_retained_without_guessing_missing_usage(self):
+        for code, category in ((1, 'GENERAL'), (2, 'USAGE'), (3, 'AUTH'), (4, 'QUOTA'),
+                               (5, 'TIMEOUT'), (6, 'NETWORK'), (10, 'CONTENT_FILTER')):
+            diagnostic = json.dumps(dict(error_class='CLIError', sdk_exit_code=code, usage_unknown=True))
+            result = parse_mmx_message('', exit_code=1, diagnostic_text=diagnostic)
+            self.assertEqual(result['provider_failure']['category'], category)
+            self.assertEqual(result['provider_failure']['sdk_exit_code'], code)
+            self.assertFalse(result['response']['ok'])
+            self.assertIsNone(result['normalized_total_tokens'])
+
+    def test_invalid_sdk_diagnostics_do_not_echo_free_text_or_invent_a_category(self):
+        valid = dict(error_class='CLIError', sdk_exit_code=4, usage_unknown=True)
+        for raw in (
+            'private upstream diagnostic',
+            json.dumps({**valid, 'message': 'private upstream diagnostic'}),
+            json.dumps({**valid, 'error_class': 'private upstream diagnostic'}),
+            json.dumps({**valid, 'sdk_exit_code': True}),
+            json.dumps({**valid, 'sdk_exit_code': 0}),
+            json.dumps({**valid, 'sdk_exit_code': 99}),
+            json.dumps({**valid, 'usage_unknown': False}),
+            '{"error_class":"CLIError","sdk_exit_code":3,"sdk_exit_code":4,"usage_unknown":true}',
+        ):
+            with self.subTest(raw=raw):
+                result = parse_mmx_message('', exit_code=1, diagnostic_text=raw)
+                self.assertNotIn('provider_failure', result)
+                self.assertNotIn('private upstream', json.dumps(result))
+
+    def test_failure_diagnostic_cannot_turn_successful_exit_into_accepted_message(self):
+        diagnostic = json.dumps(dict(error_class='SDKError', sdk_exit_code=6, usage_unknown=True))
+        result = parse_mmx_message(json.dumps(message()), exit_code=0, diagnostic_text=diagnostic)
+        self.assertFalse(result['response']['ok'])
+        self.assertEqual(result['normalized_total_tokens'], 20)
+
+    def test_diagnostic_input_is_bounded_and_old_error_class_only_stays_unknown(self):
+        for raw in ('x' * 4097, None, json.dumps(dict(error_class='CLIError', usage_unknown=True))):
+            result = parse_mmx_message('', exit_code=1, diagnostic_text=raw)
+            self.assertNotIn('provider_failure', result)
+            self.assertIsNone(result['normalized_total_tokens'])
+
     def parse(self, value=None, code=0):
         return parse_mmx_message(json.dumps(message() if value is None else value), exit_code=code)
 
