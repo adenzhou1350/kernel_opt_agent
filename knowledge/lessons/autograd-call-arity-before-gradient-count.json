@@ -1,0 +1,22 @@
+{
+  "id": "autograd-call-arity-before-gradient-count",
+  "title": "Autograd gradient count follows actual apply arguments, not forward defaults",
+  "applies_when": "A torch.autograd.Function backward hypothesis counts the forward signature's optional arguments, especially a Float8Tensor SplitAlongDim path with squeeze=False.",
+  "lesson": "Inspect actual Function.apply call sites before declaring a gradient-count bug. An omitted Python default is not an additional autograd input. The PyTorch engine compares backward results against the arguments supplied to apply; it also discards extra trailing None results. TransformerEngine's multi-head-attention calls supply three arguments even though forward declares a fourth optional squeeze argument. Therefore the alleged unconditional four-versus-three failure does not follow for those callers. A small native Torch control can test this mechanism cheaply before building the operator environment.",
+  "avoid_when": "Explicitly passing False or True does add an input and may require another backward result. This observation must not reject all four-argument concerns. Trace requires_grad, the actual gradient subclass and squeezed shape before reproducing that path. A generic Torch control does not execute TransformerEngine, its Float8Tensor storage branch, attention kernels or numerical reference, and does not prove those paths correct.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytorch/pytorch/blob/v2.11.0/torch/csrc/autograd/python_function.cpp",
+      "note": "The engine uses is_variable_input.size() as the expected result count, permits excess results only when all excess entries are None, and rejects remaining mismatches (lines 172-199). Public engine mechanism, not operator qualification."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/14be43fb924af0431d99e3fcc9043574b3afbefd/transformer_engine/pytorch/attention/multi_head_attention.py#L1056-L1058",
+      "note": "The packed-QKV caller supplies only mixed_x_layer, split_dim and sections; the mixed-KV caller at lines 1122-1126 also supplies three inputs. Static counterevidence to counting an omitted squeeze default."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/14be43fb924af0431d99e3fcc9043574b3afbefd/transformer_engine/pytorch/attention/dot_product_attention/utils.py#L3607",
+      "note": "A separate dequantization helper explicitly passes True as a fourth argument. Its reachability and gradient-shape contract remain separate questions; it must not be covered by a blanket no-bug conclusion."
+    }
+  ],
+  "status": "counterexample"
+}
