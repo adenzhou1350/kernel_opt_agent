@@ -430,6 +430,14 @@ not a correctness verdict or a measured model/PR-conversion improvement.
 `tests.test_scout_exact_definition_reads` covers the producer with its real AST
 selector and mocked source transport; it does not execute a candidate repository.
 
+For one explicit `definition(Class.method)`, a bounded cache-only lookup can
+move its unique declaring Python file ahead of same-basename lexical matches.
+It examines at most eight already-supplied sources at the same commit and only
+reorders an otherwise eligible path. Missing/malformed/ambiguous caches abstain;
+explicit full paths and structured reference/import/continuation reads retain
+their precedence. This is declaration location, not receiver resolution, and
+does not add acquisition/model calls or establish a downstream savings claim.
+
 The live producer's optional per-repository `followup_import_context=true`
 uses `scout_import_context.import_requests` to replace guessed follow-up reads,
 not add a new read tier. It accepts relative-import hints in top-level Python

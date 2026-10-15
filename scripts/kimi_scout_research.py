@@ -24,6 +24,7 @@ from scout_cited_issue import cited_issue_number, related_issue_body, requested_
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint
+from scout_requested_definition import cached_qualified_definition_path
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_symbol_references import reference_requests
@@ -1637,6 +1638,17 @@ class ResearchProducer:
 
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]
+            if not (
+                references or code_requests or continuation or imports
+                or contracts or definition_request
+            ):
+                cached_target = cached_qualified_definition_path(
+                    packet, snapshot, analysis_value, cached_source
+                )
+                if cached_target in paths:
+                    # A new excerpt is needed, not another physical file fetch.
+                    # Keep structured requests and the ordinary read cap intact.
+                    paths = [cached_target] + [p for p in paths if p != cached_target]
             # Prefer the observed variant's registration/contract over an unrelated
             # lexical match, or replace one lexical match with a component test.
             # Neither hint increases the ordinary follow-up's source read count.

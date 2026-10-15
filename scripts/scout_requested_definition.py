@@ -8,6 +8,58 @@ import ast
 import io
 import re
 import tokenize
+from urllib.parse import unquote
+
+
+def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
+    """Locate one explicit Class.method declaration in <=8 already-cached files.
+
+    No fetch, import, execution, new path or receiver-resolution claim. Ambiguous
+    or unavailable caches abstain. Callers retain their existing read budgets.
+    """
+    request = analysis.get("next_check") if isinstance(analysis, dict) else None
+    if not isinstance(request, str) or not callable(cached_source):
+        return None
+    request = request[:2000]
+    if len(re.findall(r"(?<!\w)definition[ \t]*\(", request)) != 1:
+        return None
+    if not re.search(
+        r"(?<!\w)definition[ \t]*\([ \t]*[A-Za-z_]\w{0,127}"
+        r"\.[A-Za-z_]\w{0,127}[ \t]*\)", request
+    ):
+        return None
+    repo, commit = packet.get("repo"), snapshot.get("commit")
+    if (
+        not isinstance(repo, str)
+        or not isinstance(commit, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", commit)
+    ):
+        return None
+    prefix = f"https://raw.githubusercontent.com/{repo}/{commit}/"
+    files = set(snapshot.get("files", []))
+    candidates = []
+    for source in packet.get("sources", [])[:8]:
+        url = source.get("url") if isinstance(source, dict) else None
+        if not isinstance(url, str) or not url.startswith(prefix):
+            continue
+        path = unquote(url[len(prefix) :])
+        if path in files and path.endswith(".py") and path not in candidates:
+            candidates.append(path)
+    explicit_paths = [path for path in candidates if path in request]
+    matches = []
+    for path in candidates:
+        if explicit_paths and path not in explicit_paths:
+            continue
+        try:
+            raw = cached_source(repo, commit, path)
+            if not isinstance(raw, str) or len(raw) > 1_000_000:
+                continue
+            target = requested_function_window(raw.splitlines(), request)
+        except (OSError, ValueError, RecursionError):
+            continue
+        if target is not None:
+            matches.append(path)
+    return matches[0] if len(matches) == 1 else None
 
 
 def requested_native_literal_anchor(raw, request):

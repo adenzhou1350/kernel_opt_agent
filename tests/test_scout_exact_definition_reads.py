@@ -35,6 +35,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
         imports=None,
         continuation=None,
         definition_metadata=True,
+        ranked_paths=None,
     ):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -125,7 +126,8 @@ class ExactDefinitionReadTests(unittest.TestCase):
                     patch.object(ctx, "source", side_effect=source),
                     patch.object(ctx, "duplicate_sources", return_value=[]),
                     patch.object(
-                        research, "relevant_paths", return_value=[PATH, OTHER]
+                        research, "relevant_paths",
+                        return_value=[PATH, OTHER] if ranked_paths is None else ranked_paths,
                     ),
                     patch.object(
                         research, "continuation_request", return_value=continuation
@@ -161,6 +163,16 @@ class ExactDefinitionReadTests(unittest.TestCase):
         calls, _, progress = self.run_followup(complete=False)
         self.assertEqual(calls, [PATH, OTHER])
         self.assertNotIn("satisfied_definition_optional_reads_omitted", progress)
+
+    def test_cached_qualified_target_precedes_an_unrelated_ranked_path(self):
+        calls, packet, _ = self.run_followup(ranked_paths=[OTHER, PATH])
+        self.assertEqual(calls, [PATH])
+        self.assertIn("defaultdict(set)", scout.dumps(packet))
+        self.assertNotIn("unrelated fallback source", scout.dumps(packet))
+
+    def test_cached_target_does_not_add_an_ineligible_path(self):
+        calls, _, _ = self.run_followup(ranked_paths=[OTHER])
+        self.assertEqual(calls, [OTHER])
 
     def test_truthy_non_boolean_completeness_does_not_skip(self):
         calls, _, _ = self.run_followup(complete=1)
