@@ -914,9 +914,13 @@ when merging, not the invalid active pointer or an unconditional cap claim.
 The merged card retains these distinct examples within the existing 8,192-byte
 reader cap; no whole-library mirror, larger prompt or ranking change is needed.
 Recheck the same isolated producer fixture against the deployed library after a
-scoped compare-and-swap update. Passing local tests or finding a card in a second
-checkout does not establish actual deployed packet availability, model use or
-knowledge benefit. Keep the failed deployed check as a negative control.
+scoped compare-and-swap update. After that update, both the same ambiguous-query
+fixture and the existing source-affinity control passed on the actual deployed
+modules and 135-card library. The other 134 card files and runtime code remained
+byte-identical; no production jobs, model calls or controller restarts were used.
+These synthetic queue fixtures establish scoped deployed packet availability,
+not actual production-model use or knowledge benefit. Keep the failed deployed
+check as a negative control.
 
 `scout_shadow_comparison.run_arm` accepts `action="bm25"` for newly declared
 experiments. It ranks preloaded, hash-verified source windows using only the
