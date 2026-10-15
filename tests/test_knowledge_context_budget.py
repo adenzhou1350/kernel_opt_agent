@@ -11,6 +11,19 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_private_target_advice_checks_loaded_dependency_not_only_metadata(self):
+        result = lesson_suggestions("pip --target .pth site.addsitedir distribution metadata")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "separate-dependency-transport-from-native-tests")
+        self.assertIn("does not process its .pth files", card["lesson"])
+        self.assertIn("old globally imported module", card["lesson"])
+        self.assertIn("__file__ before testing", card["lesson"])
+        self.assertTrue(any("import lines" in e["note"] for e in card["evidence"]))
+        self.assertTrue(any("--no-deps" in e["note"] for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_dependency_probe_advice_does_not_replace_upstream_qualification(self):
         result = lesson_suggestions("dependency transport stdlib-only public-caller test package")
         card = next(c for c in result["matches"] if c["id"] == "separate-dependency-transport-from-native-tests")
