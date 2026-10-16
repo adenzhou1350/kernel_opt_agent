@@ -59,11 +59,32 @@ def load_config(path):
     return value
 
 
+def reported_usage(raw):
+    """Normalize only numeric observations, independently of answer acceptance."""
+    if not isinstance(raw, dict):
+        return None
+    details = raw.get("prompt_tokens_details")
+    details = (SimpleNamespace(cached_tokens=details.get("cached_tokens"))
+               if isinstance(details, dict) else None)
+    usage = contract.usage_payload(SimpleNamespace(
+        prompt_tokens=raw.get("prompt_tokens"), completion_tokens=raw.get("completion_tokens"),
+        cached_tokens=raw.get("cached_tokens"), prompt_tokens_details=details))
+    if usage is not None:
+        completion = raw.get("completion_tokens_details")
+        reasoning = completion.get("reasoning_tokens") if isinstance(completion, dict) else None
+        # This is a subset of inclusive completion tokens, never an extra charge.
+        usage["reported_reasoning_output_tokens"] = (
+            reasoning if type(reasoning) is int and 0 <= reasoning <= usage["output_tokens"] else None)
+    return usage
+
+
 def decode_answer(raw):
     if len(raw) > MAX_RESPONSE_BYTES:
         raise contract.BackendError("output_too_large")
+    usage = None
     try:
         data = json.loads(raw)
+        usage = reported_usage(data.get("usage")) if isinstance(data, dict) else None
         choices = data["choices"]
         if not isinstance(choices, list) or len(choices) != 1:
             raise ValueError
@@ -79,26 +100,13 @@ def decode_answer(raw):
         reason = choice.get("finish_reason")
         if reason is not None and not isinstance(reason, str):
             raise ValueError
-        usage = data.get("usage")
-        if isinstance(usage, dict):
-            details = usage.get("prompt_tokens_details")
-            details = SimpleNamespace(**details) if isinstance(details, dict) else None
-            usage = contract.usage_payload(SimpleNamespace(
-                prompt_tokens=usage.get("prompt_tokens"), completion_tokens=usage.get("completion_tokens"),
-                cached_tokens=usage.get("cached_tokens"), prompt_tokens_details=details))
-            # Optional provider telemetry only: never retain reasoning text or
-            # add this subset to the inclusive completion-token charge.
-            completion_details = data["usage"].get("completion_tokens_details")
-            reasoning_tokens = (completion_details.get("reasoning_tokens")
-                                if isinstance(completion_details, dict) else None)
-            if usage is not None:
-                usage["reported_reasoning_output_tokens"] = (
-                    reasoning_tokens if type(reasoning_tokens) is int
-                    and 0 <= reasoning_tokens <= usage["output_tokens"] else None)
-        else:
-            usage = None
+    except contract.BackendError as error:
+        error._scout_final_usage = usage
+        raise
     except (ValueError, TypeError, KeyError, AttributeError):
-        raise contract.BackendError("invalid_http_backend_response") from None
+        error = contract.BackendError("invalid_http_backend_response")
+        error._scout_final_usage = usage
+        raise error from None
     ok = reason == "stop" and bool(text.strip())
     payload = dict(ok=ok, text=text, usage=usage,
         finish_reason=reason if reason in {None, "stop", "length", "content_filter", "tool_calls", "function_call"} else "unexpected",
@@ -162,6 +170,16 @@ class BackendPool:
             payload = asyncio.run(complete(request, self.config, contract.ProgressFile(progress_file)))
         except Exception as error:
             payload = contract.safe_error(error)
+            observed = getattr(error, "_scout_final_usage", None)
+            if isinstance(error, contract.BackendError) and isinstance(observed, dict):
+                # Re-normalize a whitelist; no arbitrary exception data crosses.
+                usage = reported_usage(dict(prompt_tokens=observed.get("input_tokens"),
+                    completion_tokens=observed.get("output_tokens"),
+                    cached_tokens=observed.get("cached_input_tokens"),
+                    completion_tokens_details=dict(
+                        reasoning_tokens=observed.get("reported_reasoning_output_tokens"))))
+                if usage is not None:
+                    payload["usage"] = usage
             # Preserve the existing supervisor's terminal access-denial route.
             if payload.get("http_status") in {401, 403}:
                 payload["error_type"] = ("AuthenticationError" if payload["http_status"] == 401

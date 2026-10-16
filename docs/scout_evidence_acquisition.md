@@ -105,6 +105,13 @@ the latter keeps complete final usage separate from interrupted partial usage.
 Preserve a wrong old report and bind a correction to the original request and
 envelope instead of rerunning or silently changing a frozen trial.
 
+The tool-free HTTP backend also retains final numeric usage from a complete,
+bounded JSON response when its answer is rejected (for example, forbidden tool
+calls or malformed content). The queue still records failure and executes no
+tools; usage accounting is not answer acceptance. Invalid/missing counters,
+malformed JSON and responses exceeding the body cap do not acquire invented
+usage. Transport errors and interrupted streaming observations remain separate.
+
 Keep the selector's job to choosing an observation, then use a common final
 reviewer. Requiring only the selector to also solve the case introduces an
 answer/interface burden that can obscure acquisition quality. A small

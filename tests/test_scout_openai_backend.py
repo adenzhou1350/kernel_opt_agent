@@ -111,6 +111,88 @@ class BackendTests(unittest.TestCase):
         with self.assertRaisesRegex(backend.contract.BackendError, "unexpected_tool_call"):
             backend.decode_answer(json.dumps(data).encode())
 
+    def test_rejected_complete_http_answers_keep_final_usage_without_tool_data(self):
+        original = json.loads(answer(usage=dict(prompt_tokens=23, completion_tokens=41,
+            prompt_tokens_details=dict(cached_tokens=9))))
+        variants = []
+        for kind in ("tool", "content", "choices", "finish", "large"):
+            data = json.loads(json.dumps(original))
+            message = data["choices"][0]["message"]
+            if kind == "tool":
+                message["tool_calls"] = [{"function": {"arguments": "private tool data"}}]
+            elif kind == "content":
+                message["content"] = [{"text": "private malformed content"}]
+            elif kind == "choices":
+                data["choices"] = []
+            elif kind == "finish":
+                data["choices"][0]["finish_reason"] = ["private malformed reason"]
+            else:
+                message["content"] = "x" * (backend.contract.MAX_OUTPUT_CHARS + 1)
+            variants.append((kind, json.dumps(data).encode()))
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "provider.json"
+            path.write_text(json.dumps(dict(endpoint="https://test.invalid/v1", model="m", alias="glm")))
+            pool = backend.BackendPool(path)
+            for kind, raw in variants:
+                async def rejected(*args):
+                    return backend.decode_answer(raw)
+                with self.subTest(kind=kind), patch.object(backend, "complete", rejected):
+                    value = json.loads(pool.run(dict(prompt="public", max_output_tokens=256),
+                        Path(directory) / "live.json", 30).stdout)
+                    self.assertFalse(value["ok"])
+                    self.assertFalse(value["retryable"])
+                    self.assertEqual((value.get("usage") or {}).get("total_tokens"), 64)
+                    self.assertEqual(value["usage"]["cached_input_tokens"], 9)
+                    self.assertNotIn("private", json.dumps(value))
+                    self.assertNotIn("tool_calls", value)
+
+    def test_rejected_http_reply_remains_failed_and_charges_provider_usage_once(self):
+        from tests.test_kimi_scout import scout, packet
+        data = json.loads(answer(usage=dict(prompt_tokens=23, completion_tokens=41)))
+        data["choices"][0]["message"]["tool_calls"] = [{"function": {"arguments": "private tool data"}}]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scout.initialize(root)
+            config = root / "provider.json"
+            config.write_text(json.dumps(dict(endpoint="https://test.invalid/v1", model="m", alias="glm")))
+            pool = backend.BackendPool(config)
+            scout.enqueue(root, packet())
+            job = scout.claim(root, 0, 0, 4096)
+            calls = []
+            async def rejected(*args):
+                calls.append(True)
+                return backend.decode_answer(json.dumps(data).encode())
+            with patch.object(backend, "complete", rejected):
+                receipt = scout.execute(root, job, sys.executable, 30, 4096, pool)
+            self.assertEqual(calls, [True])
+            self.assertEqual(receipt["state"], "FAILED")
+            self.assertIsNone(receipt["result"])
+            self.assertEqual(receipt["charge_basis"], "provider_report")
+            self.assertEqual(receipt["charged_tokens_or_reservation"], 64)
+            self.assertEqual(receipt["token_accounting"]["reported_usage"]["total_tokens"], 64)
+            self.assertIsNone(receipt["token_accounting"]["interrupted_usage_observation"])
+            self.assertNotIn("private", json.dumps(receipt))
+
+    def test_error_usage_boundary_filters_forged_attributes_and_keeps_unknowns(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "provider.json"
+            path.write_text(json.dumps(dict(endpoint="https://test.invalid/v1", model="m", alias="glm")))
+            pool = backend.BackendPool(path)
+            for incoming, expected in (({}, None),
+                (dict(input_tokens="private", output_tokens=2, total_tokens=99), None),
+                (dict(input_tokens=0, output_tokens=0, total_tokens="private", extra="private"), 0),
+                (dict(input_tokens=7, output_tokens=5, total_tokens=99, extra="private"), 12)):
+                error = backend.contract.BackendError("invalid_http_backend_response")
+                error._scout_final_usage = incoming
+                async def rejected(*args):
+                    raise error
+                with self.subTest(expected=expected), patch.object(backend, "complete", rejected):
+                    value = json.loads(pool.run(dict(prompt="public", max_output_tokens=256),
+                        Path(directory) / "live.json", 30).stdout)
+                    self.assertEqual((value.get("usage") or {}).get("total_tokens"), expected)
+                    self.assertFalse(value["ok"])
+                    self.assertNotIn("private", json.dumps(value))
+
     def test_invalid_responses_and_output_bound(self):
         for raw in (b"null", b"{}", b"not JSON", b'{"choices":[]}',
                     b'{"choices":[{},{}]}', b"x" * (backend.MAX_RESPONSE_BYTES + 1)):
