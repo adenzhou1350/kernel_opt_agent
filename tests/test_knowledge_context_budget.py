@@ -11,6 +11,23 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_checkpoint_stats_advice_covers_lazy_routes_and_cache_identity(self):
+        result = lesson_suggestions(
+            "checkpoint image_mean image_std normalization disaggregated encoder"
+        )
+        card = next(
+            c for c in result["matches"]
+            if c["id"] == "checkpoint-statistics-through-all-entrypoints"
+        )
+        self.assertIn("audio-first lazy initialization", card["lesson"])
+        self.assertIn("checkpoint A/B/A", card["lesson"])
+        self.assertIn("three-argument hooks", card["lesson"])
+        self.assertIn("not official CI qualification", card["avoid_when"])
+        self.assertIn("not an independently reproduced", card["evidence"][0]["note"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_issue_status_advice_reads_reporter_validation_without_own_pass_claim(self):
         result = lesson_suggestions(
             "open closed issue subcase reporter-confirmed repair latest discussion"

@@ -1,0 +1,26 @@
+{
+  "id": "checkpoint-statistics-through-all-entrypoints",
+  "title": "Trace checkpoint normalization through every constructor and cache",
+  "applies_when": "A multimodal processor hard-codes image_mean/image_std, has image and video entrypoints, or is reconstructed separately by a disaggregated encoder.",
+  "lesson": "Use statistics from the already-loaded checkpoint image processor, preserving the documented legacy fallback. Trace ordinary construction and independent encoder construction separately; a constructor-only repair can leave encoder requests unchanged. Forward optional processor context through the existing signature-aware hook adapter so legacy three-argument hooks remain valid. Exercise image, video, an audio-first lazy initialization followed by image, missing-statistics controls, and checkpoint A/B/A in one process. Cache keys must include normalization statistics as well as device; device-only caching can reuse another checkpoint's tensors. Compare actual normalized pixels against independent arithmetic, not merely whether a configuration field was stored.",
+  "avoid_when": "Different checkpoints can intentionally use different statistics: neither CLIP nor ImageNet is a universal correction. A separate preprocessor_config is not necessarily embedded in model config. Do not add an unpinned download or change revision/trust settings to recover data already loaded by the caller. The cited issue and source establish the routing risk; they do not prove model accuracy, GPU behavior, upstream acceptance or evidence-selector utility. Source-export tests are not full-package tests, and cached nonexact dependencies are not official CI qualification.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/issues/44789",
+      "note": "Reporter distinguishes MiMo-VL CLIP statistics from MiMo-V2.6 checkpoint ImageNet statistics. This is the reported contract and motivation, not an independently reproduced model-accuracy result."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2948662026a8addefdba7697060aa109d821ec23/python/sglang/srt/multimodal/processors/mimo_v2.py",
+      "note": "Exact source has CLIP pixel constants, a device-only mean/std cache, ordinary MiMoV2Processor construction and separate image/video transforms. These are source facts, not a general claim that CLIP normalization is wrong."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2948662026a8addefdba7697060aa109d821ec23/python/sglang/srt/models/mimo_v2.py",
+      "note": "preprocess_mm_for_encoder lazily constructs a separate MiMoProcessor from model configuration; repairing only the ordinary processor constructor does not propagate loaded checkpoint statistics to this path."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/2948662026a8addefdba7697060aa109d821ec23/python/sglang/srt/multimodal/encoder_preprocessing.py",
+      "note": "invoke_encoder_preprocessor already filters optional context against the hook signature, allowing processor context without breaking legacy hooks. Inspect the video caller too: it can bypass this adapter."
+    }
+  ],
+  "status": "validated"
+}
