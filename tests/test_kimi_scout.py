@@ -978,6 +978,26 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(receipt["token_accounting"]["reported_usage"]["total_tokens"], 0)
         self.assertIsNone(receipt["token_accounting"]["interrupted_usage_observation"])
 
+    def test_output_budget_exhaustion_is_failed_answer_not_provider_outage(self):
+        response = dict(ok=False, error="incomplete_response", finish_reason="length",
+                        tools_advertised=0, tool_calls_executed=0, text="partial JSON",
+                        usage=dict(total_tokens=16384))
+        for index, change in enumerate(({}, {"finish_reason": None},
+                                        {"finish_reason": "content_filter"},
+                                        {"http_status": 429}, {"tools_advertised": 1},
+                                        {"tool_calls_executed": 1}, {"error": "backend_failure"})):
+            with self.subTest(change=change):
+                self.add(str(index))
+                job = scout.claim(self.root, 0, 0, 2048)
+                with patch.object(scout.subprocess, "run", return_value=subprocess.CompletedProcess(
+                        [], 1, json.dumps({**response, **change}), "")):
+                    receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+                self.assertEqual(receipt["state"], "FAILED")
+                self.assertIsNone(receipt["result"])
+                self.assertEqual(receipt["failure_scope"],
+                                 "provider_or_infrastructure" if change else "answer")
+                self.assertEqual(receipt["charged_tokens_or_reservation"], 16384)
+
     def test_success_is_only_review_and_records_usage(self):
         self.add()
         job = scout.claim(self.root, 12, 200000, 2048)

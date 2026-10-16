@@ -665,6 +665,7 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     charge_basis = "reservation"
     token_accounting = {"reported_usage": None, "interrupted_usage_observation": None}
     backend_completed = False
+    answer_budget_exhausted = False
     failure_phase = None
     provider_http_status = None
     try:
@@ -713,6 +714,17 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
                 },
             )
         if proc.returncode:
+            # A completed, tool-free response exhausting its output allowance
+            # is an answer-budget failure, not evidence of a provider outage.
+            # It remains FAILED and is never parsed or automatically retried.
+            answer_budget_exhausted = (
+                response.get("ok") is False
+                and response.get("error") == "incomplete_response"
+                and response.get("finish_reason") == "length"
+                and response.get("tools_advertised") == 0
+                and response.get("tool_calls_executed") == 0
+                and response.get("http_status") is None
+            )
             # Backend emits only fixed error codes; never retain stderr/body.
             if response.get("failure_phase") in ("requesting", "streaming"):
                 failure_phase = response["failure_phase"]
@@ -793,7 +805,7 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
         "result": result,
         "error": error,
         "failure_scope": (
-            "answer" if backend_completed else "provider_or_infrastructure"
+            "answer" if backend_completed or answer_budget_exhausted else "provider_or_infrastructure"
         )
         if state == "FAILED"
         else None,

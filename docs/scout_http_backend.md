@@ -54,7 +54,11 @@ do not assume every compatible service honors Kimi-specific thinking switches.
 There are no transport retries or automatic provider fallback. Authentication
 and permission errors preserve the existing supervisor's terminal-denial route.
 Only `finish_reason=stop` with a nonempty visible answer can reach the ordinary
-Scout result validator. The dashboard identifies this backend as `openai_http`
+Scout result validator. A tool-free `length` response is an answer-budget
+failure, not a provider outage: it stays `FAILED`, keeps its usage and visible
+partial answer, and is not replayed. Repeated answer failures still use the
+existing answer-quality circuit; transport and access-denial guards remain.
+The dashboard identifies this backend as `openai_http`
 and results retain the configured model alias. Neither high request throughput
 nor a valid source citation establishes correctness, novelty or PR readiness;
 owner-side independent reproduction and the target project's rules still apply.
