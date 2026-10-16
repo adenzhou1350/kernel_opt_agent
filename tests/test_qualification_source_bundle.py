@@ -119,6 +119,92 @@ def test_manifest_validates_against_public_schema(tmp_path: Path) -> None:
     jsonschema.Draft202012Validator(schema).validate(value)
 
 
+def test_literal_subset_is_exact_deterministic_and_labeled(tmp_path: Path) -> None:
+    repo, commit, payload = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path, "subset")
+    value = build_bundle(
+        repo, commit, REPOSITORY, "source", archive, manifest,
+        included_paths=["run.sh", "nested", "nested"],
+    )
+    assert value["source"]["included_paths"] == ["nested", "run.sh"]
+    schema = json.loads((ROOT / "schemas/qualification_source_bundle.schema.json").read_bytes())
+    jsonschema.Draft202012Validator(schema).validate(value)
+    verified, tar_bytes = verify_bundle(archive, manifest)
+    target = tmp_path / "subset-extracted"
+    extract_bundle(tar_bytes, verified, target)
+    assert (target / "source/nested/payload.bin").read_bytes() == payload
+    assert not (target / "source/ignored.txt").exists()
+    assert {e["path"] for e in value["entries"] if e["type"] == "file"} == {
+        "source/nested/payload.bin", "source/run.sh"
+    }
+    archive2, manifest2 = bundle_paths(tmp_path, "reordered")
+    build_bundle(repo, commit, REPOSITORY, "source", archive2, manifest2,
+                 included_paths=["nested", "run.sh"])
+    assert archive.read_bytes() == archive2.read_bytes()
+    assert manifest.read_bytes() == manifest2.read_bytes()
+
+
+def test_subset_avoids_unrelated_missing_blob_but_not_selected_missing_blob(tmp_path: Path) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    blob = run(repo, "rev-parse", f"{commit}:ignored.txt")
+    loose_blob = repo / ".git/objects" / blob[:2] / blob[2:]
+    loose_blob.chmod(stat.S_IREAD | stat.S_IWRITE)
+    loose_blob.unlink()  # Disposable fixture, not a user repository.
+    archive, manifest = bundle_paths(tmp_path, "full-missing")
+    with pytest.raises(ValueError, match="unexpected git cat-file header"):
+        build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    assert not archive.exists() and not manifest.exists()
+    archive, manifest = bundle_paths(tmp_path, "available-subset")
+    build_bundle(repo, commit, REPOSITORY, "source", archive, manifest,
+                 included_paths=["nested"])
+    verify_bundle(archive, manifest)
+    archive, manifest = bundle_paths(tmp_path, "selected-missing")
+    with pytest.raises(ValueError, match="unexpected git cat-file header"):
+        build_bundle(repo, commit, REPOSITORY, "source", archive, manifest,
+                     included_paths=["ignored.txt"])
+    assert not archive.exists() and not manifest.exists()
+
+
+@pytest.mark.parametrize("paths", [[], ["../outside"], ["/absolute"], ["a/../b"],
+                                  ["a\\b"], ["nested/"], ["./nested"], ["a//b"],
+                                  ["C:/source"], [None], ["bad\0path"], ["absent"],
+                                  ["nested", "absent"], [":(glob)*"], ["nest*"]])
+def test_subset_rejects_unsafe_or_unmatched_literal_paths(tmp_path: Path, paths) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    with pytest.raises(ValueError):
+        build_bundle(repo, commit, REPOSITORY, "source", archive, manifest,
+                     included_paths=paths)
+    assert not archive.exists() and not manifest.exists()
+
+
+def test_subset_verifier_rejects_scope_lie(tmp_path: Path) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    value = build_bundle(repo, commit, REPOSITORY, "source", archive, manifest)
+    value["source"]["included_paths"] = ["nested"]
+    manifest.write_bytes(canonical_json(value))
+    with pytest.raises(ValueError, match="outside included_paths"):
+        verify_bundle(archive, manifest)
+
+
+def test_subset_cli_round_trip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    repo, commit, _ = source_repo(tmp_path)
+    archive, manifest = bundle_paths(tmp_path)
+    monkeypatch.setattr(sys, "argv", ["bundle", "--build", "--repo", str(repo),
+        "--commit", commit, "--repository-url", REPOSITORY, "--path", "nested",
+        "--archive", str(archive), "--manifest", str(manifest)])
+    assert main() == 0
+    target = tmp_path / "cli-subset"
+    monkeypatch.setattr(sys, "argv", ["bundle", "--verify", "--extract-root", str(target),
+        "--archive", str(archive), "--manifest", str(manifest)])
+    assert main() == 0
+    assert (target / "source/nested/payload.bin").is_file()
+    monkeypatch.setattr(sys, "argv", ["bundle", "--verify", "--path", "nested",
+        "--archive", str(archive), "--manifest", str(manifest)])
+    assert main() == 2
+
+
 def test_autocrlf_checkout_cannot_change_bundle_text(tmp_path: Path) -> None:
     repo, _, _ = source_repo(tmp_path)
     run(repo, "config", "core.autocrlf", "true")

@@ -104,6 +104,31 @@ The [research findings](references/scout_evidence_acquisition_notes.md#research-
 include unresolved novelty/utility requirements and negative comparisons.
 Nothing here authorizes a learned selector in production or a paper claim.
 
+## Published-method comparator boundary
+
+[SWE-Search, ICLR 2025](https://arxiv.org/html/2410.20285v4) is a relevant
+reference, not a reproduced baseline here. Its Sections 3.2–3.5 combine editable
+repository states, test execution, heuristic tree selection, LLM state valuation
+and final solution discrimination. A one-shot evidence ranking prompt is not
+that pipeline. Appendix I reports additional search cost; Appendix J compares
+five search solutions with five independent base-agent runs. Neither makes our
+equal request caps a matched total-cost comparison.
+
+For this project's next experiment, distinguish two questions before enrollment:
+
+- **Observation routing:** keep repair generation and final adjudication common;
+  compare a declared, limited adaptation with rules, fixed native evidence and
+  cheap/strong model selectors. Label the adaptation, omitted stages and costs.
+- **Repository repair:** an actual method reproduction needs its compatible
+  execution/tool environment, pinned implementation and full search stages.
+  Do not place it in a table against a one-window classifier as an equivalent task.
+
+These are experiment-design decisions, not measured advantages. First show an
+improvement over the cheap fixed-native alternative. Known deterministic outputs
+should not require model paraphrasing just to justify a learned layer. Retain
+unavailable native actions and unknown owner/review costs; do not replace them
+with easier cases or retrospectively call them budget-matched.
+
 ## Focused offline checks
 
 ```text

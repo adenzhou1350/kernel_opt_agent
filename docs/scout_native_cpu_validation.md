@@ -223,6 +223,25 @@ The real synchronous BufferedReader failure is distinct from the unproved async
 zip/tar impact. This is one negative-stratum counterexample, not population recall,
 an estimate of missed PRs, or a budget-matched selector benefit.
 
+## Scoped raw-Git source transport
+
+`qualification_source_bundle.py --build --path python/sglang --path pyproject.toml`
+selects literal repository-relative files or directories. Repeat `--path` as
+needed; it is not a glob or a Git pathspec. `--prefix` only names the archive root.
+Without `--path`, the existing full-tree behavior and manifest remain unchanged.
+
+A scoped manifest explicitly records `source.included_paths`; it does not prove
+that the selection contains every import, build input or transitive dependency.
+Include the real package and relevant tests/configuration, then check actual
+imports. Verification/extraction needs the updated reader: older strict readers
+will reject the new optional field. Do not remove the field to make them accept a
+partial bundle as a full-tree export.
+
+Missing blobs inside the selection still fail, without lazy fetch or credential
+prompts. Unrelated unmaterialized blobs outside the selection are not read. This
+helps partial clones without inventing a source export adapter for each lead;
+it is not an isolation or execution authorization mechanism.
+
 ## Check the deployed native runner, not another checkout
 
 To stage a standalone native-test task, export the matching tool siblings once:

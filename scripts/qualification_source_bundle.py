@@ -77,7 +77,34 @@ def read_exact(handle: BinaryIO, size: int) -> bytes:
     return data
 
 
-def git_tree_entries(repo: Path, commit: str) -> list[tuple[str, str, str]]:
+def literal_source_paths(values: list[str]) -> list[str]:
+    """Canonical repository-relative files/directories, never Git pathspecs."""
+    if not isinstance(values, list) or not values:
+        raise ValueError("included_paths must be a non-empty list")
+    for value in values:
+        if (
+            not isinstance(value, str)
+            or not value
+            or "\\" in value
+            or any(ord(char) < 32 for char in value)
+            or PurePosixPath(value).is_absolute()
+            or any(part in {"", ".", ".."} for part in value.split("/"))
+            or ":" in value
+        ):
+            raise ValueError(f"unsafe literal source path: {value!r}")
+    return sorted(set(values))
+
+
+def path_selected(path: str, included_paths: list[str]) -> bool:
+    return any(
+        path == selected or path.startswith(selected + "/")
+        for selected in included_paths
+    )
+
+
+def git_tree_entries(
+    repo: Path, commit: str, included_paths: list[str] | None = None
+) -> list[tuple[str, str, str]]:
     """List tracked blob identities without reading their contents."""
     records = git(repo, "ls-tree", "-rz", "--full-tree", "-r", commit).split(b"\0")
     identities: list[tuple[str, str, str]] = []
@@ -92,6 +119,8 @@ def git_tree_entries(repo: Path, commit: str) -> list[tuple[str, str, str]]:
             raise ValueError(
                 "Git tree contains an unsupported path or record"
             ) from error
+        if included_paths is not None and not path_selected(path, included_paths):
+            continue
         if object_type != "blob" or mode not in {"100644", "100755", "120000"}:
             raise ValueError(
                 f"unsupported Git tree entry {mode} {object_type} at {path!r}"
@@ -102,6 +131,10 @@ def git_tree_entries(repo: Path, commit: str) -> list[tuple[str, str, str]]:
         identities.append((path, mode, object_id))
     if not identities:
         raise ValueError("source bundle must contain at least one Git blob")
+    if included_paths is not None:
+        for selected in included_paths:
+            if not any(path_selected(path, [selected]) for path, _, _ in identities):
+                raise ValueError(f"source path has no tracked blobs: {selected!r}")
     return sorted(identities)
 
 
@@ -340,6 +373,8 @@ def build_bundle(
     prefix: str,
     archive_path: Path,
     manifest_path: Path,
+    *,
+    included_paths: list[str] | None = None,
 ) -> dict:
     repo = repo.resolve()
     if not (repo / ".git").exists() and not (repo / "HEAD").is_file():
@@ -361,7 +396,9 @@ def build_bundle(
     )
     if not full_sha1(resolved_commit) or not full_sha1(tree):
         raise ValueError("Git commit and tree must use full SHA-1 identities")
-    identities = git_tree_entries(repo, resolved_commit)
+    if included_paths is not None:
+        included_paths = literal_source_paths(included_paths)
+    identities = git_tree_entries(repo, resolved_commit, included_paths)
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
     # Keep the uncompressed tar on the output volume, not in RAM or system TEMP.
@@ -394,6 +431,8 @@ def build_bundle(
         },
         "entries": entries,
     }
+    if included_paths is not None:
+        manifest["source"]["included_paths"] = included_paths
     with manifest_path.open("xb") as handle:
         handle.write(canonical_json(manifest))
     return manifest
@@ -427,7 +466,10 @@ def verified_bundle(
     entries = manifest.get("entries")
     if not isinstance(archive_record, dict) or not isinstance(source, dict):
         raise ValueError("manifest archive and source records are required")
-    if set(source) != {"commit", "git_tree", "repository"}:
+    if set(source) not in (
+        {"commit", "git_tree", "repository"},
+        {"commit", "git_tree", "repository", "included_paths"},
+    ):
         raise ValueError(
             "manifest source record contains missing or unrecognized fields"
         )
@@ -442,6 +484,32 @@ def verified_bundle(
         )
     if not isinstance(entries, list) or not entries:
         raise ValueError("manifest entries must be a non-empty array")
+    if "included_paths" in source:
+        selected = literal_source_paths(source["included_paths"])
+        if selected != source["included_paths"]:
+            raise ValueError("included_paths must be sorted and unique")
+        prefix = validate_prefix(str(archive_record.get("prefix", "")))
+        content_paths = []
+        for entry in entries:
+            if not isinstance(entry, dict):
+                raise ValueError("invalid selected source entry")
+            path = safe_member_path(str(entry.get("path", "")), prefix)
+            relative = PurePosixPath(*path.parts[1:]).as_posix()
+            if entry.get("type") == "directory":
+                if relative != "." and not any(
+                    path_selected(relative, [item]) or item.startswith(relative + "/")
+                    for item in selected
+                ):
+                    raise ValueError("directory outside included_paths")
+            else:
+                if not path_selected(relative, selected):
+                    raise ValueError("source entry outside included_paths")
+                content_paths.append(relative)
+        if any(
+            not any(path_selected(path, [item]) for path in content_paths)
+            for item in selected
+        ):
+            raise ValueError("included source path has no archive content")
     for field in ("commit", "git_tree"):
         value = source.get(field)
         if not full_sha1(value):
@@ -610,6 +678,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--commit")
     parser.add_argument("--repository-url")
     parser.add_argument("--prefix", default="source")
+    parser.add_argument(
+        "--path", action="append", dest="included_paths",
+        help="include this literal repo-relative file/directory (repeatable; no glob expansion); default is the full tree",
+    )
     parser.add_argument("--archive", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--extract-root", type=Path)
@@ -634,6 +706,7 @@ def main() -> int:
                 args.prefix,
                 args.archive,
                 args.manifest,
+                included_paths=args.included_paths,
             )
             receipt = {
                 "schema_version": "qualification-source-bundle-build-result-v1",
@@ -652,9 +725,12 @@ def main() -> int:
                 "claim_boundary": "DETERMINISTIC SOURCE TRANSPORT ONLY; NO BUILD, IMPORT, CORRECTNESS, PERFORMANCE, GPU OR EXECUTION AUTHORIZATION",
             }
         else:
-            if args.repo is not None or args.commit or args.repository_url:
+            if (
+                args.repo is not None or args.commit or args.repository_url
+                or args.included_paths is not None
+            ):
                 raise ValueError(
-                    "--repo, --commit, and --repository-url are valid only with --build"
+                    "--repo, --commit, --repository-url, and --path are valid only with --build"
                 )
             with verified_bundle(args.archive, args.manifest) as (manifest, stream):
                 if args.extract_root is not None:
