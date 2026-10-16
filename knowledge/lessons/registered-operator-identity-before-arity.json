@@ -1,9 +1,9 @@
 {
   "id": "registered-operator-identity-before-arity",
-  "title": "Bind a sharding rule to its exact registered operator before counting outputs",
-  "applies_when": "A custom-op, fake/meta or distributed sharding output-count allegation compares adjacent functions with similar names in a partial source window.",
-  "lesson": "Read the registration decorator's complete operator name, then that exact operator's schema, implementation and fake registration. Similar prefixes and adjacent definitions do not establish identity. In TorchAO, custom_sharding_for_cutedsl_mxfp8_2d_1x32_kernel registers mxfp8_quantize_2d_1x32_cutedsl, whose implementation/fake return two tensors. Its two output placements therefore do not conflict with the neighboring four-tensor fused mxfp8_quantize_2d_1x32_32x1_cutedsl. Request the registered target definition before constructing a four-output regression or provisioning a GPU. Preserve unrelated layout or input-placement questions for separate analysis.",
-  "avoid_when": "This is a source-only counterexample to the specific arity mismatch, not execution of TorchAO, DTensor, CuTe DSL or a GPU. A real schema/implementation mismatch or unsupported placement can still be a bug. Aliases, dynamic registration and wrappers require further binding evidence; a lexical name match is not universal runtime resolution. No measured Scout accuracy, cost or PR-conversion improvement is established.",
+  "title": "Bind the exact registered backend before comparing operator signatures",
+  "applies_when": "A custom-op, fake/meta, sharding or backend-forwarding allegation compares similar names or a Python alias that resolves differently across platforms.",
+  "lesson": "Resolve the complete operator name and platform-dependent binding, then read that exact schema and implementation. Similar prefixes or Python aliases do not establish identity. In TorchAO, custom_sharding_for_cutedsl_mxfp8_2d_1x32_kernel registers mxfp8_quantize_2d_1x32_cutedsl with two outputs, not the neighboring four-output mxfp8_quantize_2d_1x32_32x1_cutedsl. In SGLang, the CPU AMX flash_attn_varlen_func alias resolves to torch.ops.sgl_kernel, while XPU imports a different implementation under the same name. The cited CPU schema has no softmax_scale argument and its C++ implementation computes 1/sqrt(head_size). Merely forwarding the keyword, with a permissive mock accepting it, cannot qualify a native fix. The cited Gemma4 model already avoids AMX by default for scale/mask limitations. First inspect the real consumer and supported caller reachability; then decide whether a native API change, a compatible fallback, or no change is appropriate.",
+  "avoid_when": "Each case is a source-only counterexample to a particular arity claim or a Python-only forwarding repair, not execution of TorchAO, DTensor, CuTe DSL or AMX attention. The SGLang scale limitation is real in the cited source; this lesson does not prove every model is protected, an explicit AMX override is safe, or a supported failing caller is absent. A schema/implementation mismatch can still be a bug. Mocked forwarding tests can isolate wrapper behavior but do not validate an actual backend schema or numerical result. No measured Scout accuracy, cost or PR-conversion improvement is established.",
   "evidence": [
     {
       "url": "https://github.com/pytorch/ao/blob/f7c8353e8adeefc008a32169e6f92f8271d15e2d/torchao/prototype/moe_training/kernels/mxfp8/quant.py#L1251-L1264",
@@ -12,6 +12,22 @@
     {
       "url": "https://github.com/pytorch/ao/blob/f7c8353e8adeefc008a32169e6f92f8271d15e2d/torchao/prototype/moe_training/kernels/mxfp8/quant.py#L1054-L1081",
       "note": "The registered non-fused implementation returns qdata and scales. The adjacent fused 1x32_32x1 operator is a distinct four-output entry, not this sharding rule's target."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/4e85e8ed3738ac9d7686946fb6db7242bc66a2a9/python/sglang/srt/layers/attention/vision.py",
+      "note": "CPU AMX binds the Python name to torch.ops.sgl_kernel; XPU imports its own flash_attn implementation. AMX ignores softmax_scale supplied by the common caller, while XPU forwards it. This source comparison alone is not native qualification."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/4e85e8ed3738ac9d7686946fb6db7242bc66a2a9/python/sglang/kernels/aot/csrc/cpu/torch_extension_cpu.cpp#L820-L824",
+      "note": "The registered CPU flash_attn_varlen_func schema accepts q/k/v, cumulative sequence lengths, maximum lengths and causal, but no scale keyword."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/4e85e8ed3738ac9d7686946fb6db7242bc66a2a9/python/sglang/kernels/aot/csrc/cpu/flash_attn.cpp",
+      "note": "The exact CPU implementation computes sm_scale from head_size internally. No native numerical test or proposed API change was executed for this observation."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/4e85e8ed3738ac9d7686946fb6db7242bc66a2a9/python/sglang/srt/models/gemma4_vision.py",
+      "note": "Gemma4 selects SDPA by default on CPU and explicitly documents AMX scale/mask limitations; an explicit user backend override remains separate. This is a caller-specific protection, not a universal absence-of-bug claim."
     }
   ],
   "status": "counterexample"

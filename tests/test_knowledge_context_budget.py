@@ -249,6 +249,23 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_amx_alias_advice_keeps_native_schema_and_caller_limits(self):
+        result = lesson_suggestions(
+            "VisionAMXAttention softmax_scale forwarding native backend",
+            source_urls=[
+                "https://raw.githubusercontent.com/sgl-project/sglang/"
+                "4e85e8ed3738ac9d7686946fb6db7242bc66a2a9/"
+                "python/sglang/srt/layers/attention/vision.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "registered-operator-identity-before-arity")
+        self.assertIn("torch.ops.sgl_kernel", card["lesson"])
+        self.assertIn("schema has no softmax_scale", card["lesson"])
+        self.assertIn("does not prove every model is protected", card["avoid_when"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_native_guard_advice_keeps_safe_kernel_witness_scope(self):
         result = lesson_suggestions(
             "KDA padded key mask NaN gate guard",
