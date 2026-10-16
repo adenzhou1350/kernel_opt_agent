@@ -1254,6 +1254,18 @@ commands have individual 30-second timeouts, not a total experiment deadline.
 This opt-in tool neither clones nor executes tests/models, changes the live
 Scout strategy, or chooses current publishable bugs.
 
+The default `--history-scope first-parent` deliberately excludes commits on
+merged side branches as well as merge commits. On a merge-based repository,
+60 such entries can span years and omit the ordinary repair history; an empty
+draw is not evidence that the repository has no repairs. For a separately
+declared cohort, `--history-scope reachable` includes single-parent commits
+reachable through merged branches. It still excludes merge commits and compares
+each selected fix with its own sole parent, **not** a merge's net diff. This is
+a different population, not an automatic fallback for an empty default draw.
+Freeze the scope before enrollment, retain earlier empty/failed draws, and group
+related branch/release revisions rather than treating them as independent bugs.
+It does not resolve native eligibility, counterfactual cost or publication value.
+
 One frozen attrs draw selected the existing
 [ClassVar repair](https://github.com/python-attrs/attrs/commit/97f8d175656bc03c373a1c9038048a4d312c307c).
 On Windows CPython 3.14.3 / pytest 9.0.3, complete raw-Git source packages and the

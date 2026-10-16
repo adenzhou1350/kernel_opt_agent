@@ -26,7 +26,10 @@ class RepairDrawTests(unittest.TestCase):
         self.commit("Initial")
 
     def git(self, *args):
-        return subprocess.check_output(["git", "-C", str(self.root), *args], stderr=subprocess.DEVNULL).decode().strip()
+        result = subprocess.run(["git", "-C", str(self.root), *args], capture_output=True)
+        if result.returncode:
+            self.fail(f"Git fixture {args!r} failed: {result.stderr.decode(errors='replace')}")
+        return result.stdout.decode().strip()
 
     def commit(self, title):
         self.git("add", ".")
@@ -69,6 +72,62 @@ class RepairDrawTests(unittest.TestCase):
         self.assertEqual(result["frame_count"], 1)
         self.assertFalse(result["replacement_on_failure"])
 
+    def merged_fix(self, title="Fix side-branch input"):
+        original = self.git("branch", "--show-current")
+        self.git("checkout", "-qb", "repair-side")
+        fix = self.change(title)
+        self.git("checkout", "-q", original)
+        (self.root / "README").write_text("Maintenance only\n")
+        self.commit("Update README")
+        self.git("merge", "--no-ff", "-qm", "Merge branch 'repair-side'", "repair-side")
+        return fix
+
+    def test_reachable_opt_in_sees_merged_side_fix_without_enrolling_merge(self):
+        fix = self.merged_fix()
+        default = self.inspect()
+        self.assertEqual(default["history_scope"], "first-parent")
+        self.assertIsNone(default["selected"])
+        result = self.inspect(history_scope="reachable")
+        self.assertEqual(result["history_scope"], "reachable")
+        self.assertEqual(result["selected"]["commit"], fix)
+        self.assertNotEqual(result["selected"]["commit"], result["head"])
+        self.assertTrue(all(len(row["parents"]) <= 1 for row in result["scanned"]))
+        self.assertEqual(result["selected"]["parent"], self.git("rev-parse", fix + "^"))
+        self.assertFalse(result["source_semantics_shown"])
+
+    def test_reachable_still_excludes_security_and_preserves_empty_draw(self):
+        self.merged_fix("Fix security boundary")
+        result = self.inspect(history_scope="reachable")
+        self.assertIsNone(result["selected"])
+        self.assertTrue(any(row.get("excluded") == "SECURITY_TITLE" for row in result["scanned"]))
+        self.assertFalse(result["replacement_on_failure"])
+
+    def test_reachable_does_not_look_outside_pinned_ancestor(self):
+        before = self.git("rev-parse", "HEAD")
+        self.merged_fix()
+        result = draw(self.root, before, production_prefixes=["src/"],
+                      test_prefixes=["tests/"], history_scope="reachable")
+        self.assertEqual(result["head"], before)
+        self.assertIsNone(result["selected"])
+        self.assertEqual(result["frame_count"], 1)
+
+    def test_reachable_cap_counts_commits_not_eligible_repairs(self):
+        self.merged_fix()
+        self.change("Refactor most recent input")
+        result = self.inspect(count=1, history_scope="reachable")
+        self.assertIsNone(result["selected"])
+        self.assertEqual(result["frame_count"], 1)
+
+    def test_cli_preserves_explicit_history_scope(self):
+        self.merged_fix()
+        import sys
+        command = [sys.executable, "-B", str(Path(__file__).resolve().parents[1] / "scripts/scout_repair_draw.py"),
+                   "--repo", str(self.root), "--production-prefix", "src/", "--test-prefix", "tests/",
+                   "--history-scope", "reachable"]
+        result = json.loads(subprocess.check_output(command))
+        self.assertEqual(result["history_scope"], "reachable")
+        self.assertIsNotNone(result["selected"])
+
     def test_pinned_revision_and_parameters_survive_newer_commits(self):
         fix = self.change("Fix frozen input")
         self.change("Fix newer input")
@@ -85,7 +144,8 @@ class RepairDrawTests(unittest.TestCase):
             with self.subTest(ref=ref), self.assertRaises(ValueError):
                 draw(self.root, ref, production_prefixes=["src/"], test_prefixes=["tests/"])
         for bounds in ({"count": True}, {"count": 1001}, {"max_production_files": 0},
-                       {"max_production_lines": False}):
+                       {"max_production_lines": False}, {"history_scope": "all"},
+                       {"history_scope": None}):
             with self.subTest(bounds=bounds), self.assertRaises(ValueError):
                 self.inspect(**bounds)
 

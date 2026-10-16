@@ -18,13 +18,16 @@ SHA = re.compile(r"[0-9a-f]{40}")
 
 
 def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
-         max_production_files=4, max_production_lines=180):
+         max_production_files=4, max_production_lines=180,
+         history_scope="first-parent"):
     if type(count) is not int or not 1 <= count <= 1000:
         raise ValueError("frame count must be within 1..1000")
     if any(type(n) is not int or n <= 0 for n in (max_production_files, max_production_lines)):
         raise ValueError("positive production bounds required")
     if not isinstance(ref, str) or not ref or ref.startswith("-") or "\0" in ref:
         raise ValueError("nonempty Git revision, not an option, required")
+    if history_scope not in ("first-parent", "reachable"):
+        raise ValueError("history_scope must be first-parent or reachable")
     for group in (production_prefixes, test_prefixes):
         if not group or any(not isinstance(p, str) or not p.endswith("/")
             or p.startswith(("/", "-")) or "\\" in p or ":" in p
@@ -44,7 +47,8 @@ def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
     if not SHA.fullmatch(head):
         raise ValueError("only SHA-1 Git repositories are supported")
     frame = []
-    for line in git("log", "--first-parent", "--no-merges", f"-{count}",
+    history_args = ["--first-parent"] if history_scope == "first-parent" else []
+    for line in git("log", *history_args, "--no-merges", f"-{count}",
                     "--format=%H%x00%P%x00%s", head).splitlines():
         commit, parents, title = line.split("\0", 2)
         frame.append(dict(commit=commit, parents=parents.split(), title=title))
@@ -78,11 +82,12 @@ def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
                         parent_tree=git("rev-parse", parent + "^{tree}").strip())
         break
     return dict(head=head, frame_count=len(frame), requested_frame_count=count,
+                history_scope=history_scope,
                 production_prefixes=list(production_prefixes), test_prefixes=list(test_prefixes),
                 max_production_files=max_production_files, max_production_lines=max_production_lines,
                 scanned=scanned, selected=selected, source_semantics_shown=False,
                 replacement_on_failure=False, model_calls=0,
-                boundary="Non-shallow first-parent metadata frame only; no native discrimination, new PR, memorization-free holdout or policy utility implied.")
+                boundary="Non-shallow metadata frame of single-parent commits only; history scope is explicit. Reachable side-branch commits are not independent groups or merge-net-change labels. No native discrimination, new PR, memorization-free holdout or policy utility implied.")
 
 
 def main():
@@ -93,13 +98,16 @@ def main():
     parser.add_argument("--count", type=int, default=60)
     parser.add_argument("--max-production-files", type=int, default=4)
     parser.add_argument("--max-production-lines", type=int, default=180)
+    parser.add_argument("--history-scope", choices=("first-parent", "reachable"), default="first-parent",
+                        help="reachable also includes single-parent commits on merged side branches; declares a different draw population")
     parser.add_argument("--production-prefix", action="append", required=True)
     parser.add_argument("--test-prefix", action="append", required=True)
     args = parser.parse_args()
     print(json.dumps(draw(args.repo, args.ref, production_prefixes=args.production_prefix,
                           test_prefixes=args.test_prefix, count=args.count,
                           max_production_files=args.max_production_files,
-                          max_production_lines=args.max_production_lines), ensure_ascii=False, indent=2))
+                          max_production_lines=args.max_production_lines,
+                          history_scope=args.history_scope), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":
