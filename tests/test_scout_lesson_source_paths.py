@@ -220,6 +220,22 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("atomic pair", evidence["note"])
         self.assertIn("not all-race proof", evidence["note"])
 
+    def test_existing_seek_fix_does_not_hide_a_return_contract_subcase(self):
+        url = (
+            "https://raw.githubusercontent.com/fsspec/filesystem_spec/"
+            "16fad6169ad2c61e9e7afc6791ab9f560ed21ee0/fsspec/implementations/http.py"
+        )
+        result = lessons.lesson_suggestions(
+            "No-op seek returns None despite an existing merged fix", source_urls=[url]
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertTrue(result["source_path_match"])
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "closed-issue-subcase-coverage")
+        self.assertIn("does not require", matched["lesson"])
+        self.assertIn("does not prove async", matched["avoid_when"])
+        self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -108,6 +108,16 @@ building. Keep an unsupported environment or source-refuted premise distinct fro
 native test failure. Use existing owner disposition/publication records after the
 actual outcome; do not rewrite the original Scout answer into a verified result.
 
+Pending-lead selection alone cannot measure misses: it omits terminal negative
+decisions. For a negative audit, predeclare the sample and native budget, retain
+unexecutable cases, and freeze the native conclusion before reading the final
+model answer. Keep earlier proposer claims untrusted. One such owner audit found
+[Fsspec #2306](https://github.com/fsspec/filesystem_spec/pull/2306): a related merged
+seek restriction was incorrectly taken as explicit approval of a `None` return.
+The real synchronous BufferedReader failure is distinct from the unproved async
+zip/tar impact. This is one negative-stratum counterexample, not population recall,
+an estimate of missed PRs, or a budget-matched selector benefit.
+
 ## Check the deployed native runner, not another checkout
 
 The CPU capture entrance permits at most 0.5 seconds of natural process-group

@@ -1,9 +1,9 @@
 {
   "id": "closed-issue-subcase-coverage",
   "title": "Closed issue status is not subcase coverage or proof of novelty",
-  "applies_when": "A source-audit lead resembles a closed issue, a merged fix to a sibling method, or a multi-case report whose title mentions only one API.",
-  "lesson": "Read the issue body and linked patch before deciding whether a finding is new or fixed. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? AnyIO #1081 names receive(max_bytes) in its title but also reports negative receive_exactly(nbytes) in its body. Merged #1191 adds max_bytes validation to receive implementations; the pinned buffered receive_exactly implementation still takes a negative slice. This supports returning to the existing report and clarifying the remaining contract, not a competing fresh-discovery PR. Record scoped owner advice with a reopening condition rather than suppressing the whole file or changing raw model results.",
-  "avoid_when": "A closed issue can contain unresolved or distinct actionable bugs; neither its status nor a same-file match justifies rejecting a new lead. A current native failure does not prove novelty, intended behavior or maintainer acceptance. Do not copy a sibling API's positive-size constraint: zero-length exact reads can deliberately differ from bounded receive. This is one source/history counterexample, not a measured improvement in Scout conversion or a universal negative-length rule.",
+  "applies_when": "A source-audit lead resembles a closed issue, a merged fix to a sibling method, a multi-case report, or a prior no-op restriction whose return-value contract was not checked.",
+  "lesson": "Read the issue body and linked patch before deciding whether a finding is new or fixed. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? AnyIO #1081 also reports negative receive_exactly, beyond the receive API in its title; merged #1191's max_bytes validation does not prove exact-read coverage. Return to that report rather than claiming fresh discovery. Similarly, a maintainer's prohibition on moving a stream position does not require an accepted no-op seek to return None: check the actual return contract and consumer separately. An existing repair or passing characterization test is not evidence that every remaining behavior was deliberately requested. Record scoped advice without suppressing the whole file or rewriting raw model answers.",
+  "avoid_when": "A current native failure does not prove novelty, intended behavior or maintainer acceptance. Do not copy a sibling API's positive-size constraint: zero-length exact reads can differ from bounded receive. Preserve streaming restrictions when repairing no-op returns; a synchronous BufferedReader reproduction does not prove async zip/tar compatibility or justify random access. These are scoped counterexamples, not a measured Scout conversion/miss-rate improvement or a universal rule to reopen closed issues.",
   "evidence": [
     {
       "url": "https://github.com/agronholm/anyio/issues/1081",
@@ -16,6 +16,18 @@
     {
       "url": "https://github.com/agronholm/anyio/blob/31c678218e9c2cbabd275f4a3745ae2a0f10f1b7/src/anyio/streams/buffered.py#L94-L113",
       "note": "Pinned source still uses buffer[:nbytes] when remaining <= 0, with no negative-nbytes guard. This is scoped current-source evidence, not proof that the behavior is supported, novel or accepted for repair."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/issues/1772#issuecomment-2591111121",
+      "note": "The maintainer asks that async/streaming files not be seekable. This addresses position-changing seeks, not an explicit requirement that permitted no-op calls return None."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/16fad6169ad2c61e9e7afc6791ab9f560ed21ee0/fsspec/implementations/http.py#L931-L972",
+      "note": "After merged #2214, both HTTP stream classes still return None from accepted no-op seeks. Same-function repair history does not remove this distinct return-value behavior."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2306",
+      "note": "Proposed follow-up returns current offsets without enabling random access. Exact-source loopback BufferedReader raises TypeError before and returns integer positions after; 110 official HTTP cases pass. Open PR, not maintainer acceptance, full CI or measured selector utility."
     }
   ],
   "status": "counterexample"
