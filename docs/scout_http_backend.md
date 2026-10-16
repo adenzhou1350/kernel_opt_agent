@@ -58,6 +58,24 @@ may require a separately reviewed floor/reservation combination; do not silently
 disable guards or mistake host-wide RAM for container headroom. HTTP capacity
 tests do not establish a particular provider's throughput or answer quality.
 
+For a read-only Linux diagnosis on the actual controller host, run
+`python scripts/scout_linux_memory.py`. This reports the unchanged conservative
+admission value, the visible cgroup limit/current/headroom and optional
+anon/file/inactive-file/shmem/dirty/mapped counters plus memory events. It does
+not write cgroups, clear cache, restart a controller or credit cache as capacity.
+Missing optional statistics remain unavailable; membership changes are marked
+stale. The observation is non-atomic and does not prove the process is leaking.
+
+Distinguish this raw charge reserve from physical RAM exhaustion:
+[Docker's Linux CLI](https://docs.docker.com/reference/cli/docker/container/stats/)
+subtracts inactive-file cache for its usage display, whereas this admission probe
+does not. That display convention is not an allocation guarantee. The
+[kernel's cgroup documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory)
+defines inactive-file as reclaim-list state and explains OOM when the hard
+limit cannot be reduced. A large cache and zero OOM events explain why different
+displays disagree; they alone do not establish reclaimability, safe concurrency
+or permission to stop another task. Keep those conclusions separate.
+
 Requests contain only the supplied evidence, with no model tools or conversation
 history. Responses are bounded to 1 MiB and the existing visible-text limit.
 Reasoning text is not persisted or shown as a result. Reported completion tokens

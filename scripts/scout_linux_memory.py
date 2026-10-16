@@ -110,3 +110,78 @@ def linux_available_memory_mb(read_text=None):
         return available // MIB
     except (OSError, ValueError, IndexError):
         return None
+
+
+def linux_memory_diagnostics(read_text=None):
+    """Explain the conservative probe without crediting cache as capacity.
+
+    Capture the paths/counters used by the real admission reader, then inspect
+    optional statistics at those same visible levels. No writes, allocations,
+    process control, hidden-ancestor inference or admission-policy change.
+    """
+    read = read_text or _read_text
+    captured = {}
+
+    def capture(path):
+        try:
+            value = read(path)
+        except OSError:
+            captured[path] = None
+            raise
+        captured[path] = value
+        return value
+
+    available = linux_available_memory_mb(capture)
+    result = {
+        'admission_available_mb': available,
+        'status': 'OBSERVED' if available is not None else 'UNKNOWN',
+        'cgroups': [],
+        'boundary': 'Read-only, non-atomic diagnostics. Inactive file bytes are '
+                    'not guaranteed reclaimable allocation capacity; admission '
+                    'still uses max-current and host MemAvailable.',
+    }
+    for path, limit in captured.items():
+        if not path.endswith('/memory.max'):
+            continue
+        node = str(PurePosixPath(path).parent)
+        row = {'level': len(result['cgroups']), 'limit_mb': None,
+               'charged_mb': None, 'raw_headroom_mb': None,
+               'stat_mib': {}, 'events': {}, 'unavailable': []}
+        try:
+            current = captured.get(node + '/memory.current')
+            if limit not in (None, 'max') and limit.strip() != 'max':
+                bound, charged = _count(limit), _count(current)
+                row.update(limit_mb=bound // MIB, charged_mb=charged // MIB,
+                           raw_headroom_mb=max(0, bound - charged) // MIB)
+        except (ValueError, AttributeError, TypeError):
+            row['unavailable'].append('limit/current')
+        for filename, keys, destination, divisor in (
+            ('memory.stat', ('anon', 'file', 'shmem', 'inactive_file',
+                             'active_file', 'file_dirty', 'file_writeback',
+                             'file_mapped', 'unevictable'), 'stat_mib', MIB),
+            ('memory.events', ('low', 'high', 'max', 'oom', 'oom_kill',
+                               'oom_group_kill'), 'events', 1),
+        ):
+            try:
+                pairs = [line.split() for line in read(node + '/' + filename).splitlines()]
+                if any(len(pair) != 2 for pair in pairs):
+                    raise ValueError('malformed statistics')
+                values = dict(pairs)
+                if len(values) != len(pairs):
+                    raise ValueError('duplicate statistics')
+                row[destination] = {key: _count(values[key]) // divisor
+                                    for key in keys if key in values}
+            except (OSError, ValueError):
+                row['unavailable'].append(filename)
+        result['cgroups'].append(row)
+    try:
+        if read('/proc/self/cgroup') != captured.get('/proc/self/cgroup'):
+            result['status'] = 'STALE_MEMBERSHIP'
+    except OSError:
+        result['status'] = 'UNKNOWN'
+    return result
+
+
+if __name__ == '__main__':
+    import json
+    print(json.dumps(linux_memory_diagnostics(), indent=2))
