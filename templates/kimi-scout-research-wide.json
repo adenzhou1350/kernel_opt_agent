@@ -6,6 +6,15 @@
   "source_windows": 12,
   "repos": [
     {
+      "repo": "python-humanize/humanize",
+      "ref": "main",
+      "source_windows": 4,
+      "source_prefixes": ["src/humanize/number.py", "src/humanize/time.py", "src/humanize/filesize.py", "src/humanize/lists.py"],
+      "followup_import_context": true,
+      "followup_discussion_context": true,
+      "question": "Investigate documented number/time/size/list API behavior with supported callers and ordinary controls. Do not confuse this Python utility with the Humanize agent workflow. Owner tested unchanged commit 785e5dcc0d0308ad0dff3f6cc0faa7085ad0375b using a normally built installed wheel on native Windows CPython3.14.3/pytest9.1.1: 744 PASS, 112 SKIP, 0 FAIL; production Python files matched raw Git blobs. Benchmarks were disabled. Missing GNU gettext tools/catalogs account for all skips; localization, full Tox/coverage, lint, Linux and other Python versions are not qualified. This is baseline testability only, not a discovered defect. Every new lead needs current source, documented semantics, existing-author/PR review and separate paired native reproduction. Do not fabricate executions or treat unusual rounding/unsupported inputs as bugs without a contract."
+    },
+    {
       "repo": "more-itertools/more-itertools",
       "ref": "master",
       "source_windows": 6,

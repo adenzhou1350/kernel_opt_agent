@@ -78,6 +78,22 @@ class Context:
         ]
 
 
+class TemplateTests(unittest.TestCase):
+    def test_humanize_core_template_keeps_translation_and_native_limits(self):
+        template = Path(__file__).resolve().parents[1] / "templates/kimi-scout-research-wide.json"
+        config = research.configuration(template)
+        selected = [spec for spec in config["repos"] if spec["repo"] == "python-humanize/humanize"]
+        self.assertEqual(len(selected), 1)
+        spec = selected[0]
+        self.assertEqual(spec["source_prefixes"], [
+            "src/humanize/number.py", "src/humanize/time.py",
+            "src/humanize/filesize.py", "src/humanize/lists.py",
+        ])
+        self.assertIn("112 SKIP", spec["question"])
+        self.assertIn("localization, full Tox/coverage, lint, Linux", spec["question"])
+        self.assertIn("separate paired native reproduction", spec["question"])
+
+
 class ResearchTests(unittest.TestCase):
     def test_refill_health_distinguishes_fetching_empty_wait_and_failure(self):
         rows = research.refill_health(

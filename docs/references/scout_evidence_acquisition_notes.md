@@ -42,6 +42,33 @@ already covers several broader claims:
   independently re-executes performance claims. Merges and benchmark mentions
   are not sufficient performance outcomes.
 
+### Further related-work check (2026-10-16)
+
+[Humanize](https://arxiv.org/html/2610.08900v2), sections 6 and 8, describes
+independent builder/reviewer judgment and reports observational deployment
+evidence. It explicitly discusses environment-dependent verification failures,
+review tails and unmeasured round costs. Independent review or a feedback
+knowledge base is therefore not, by itself, a new contribution here. This is a
+focused reading of the method/limitations, not reproduction of its applications.
+
+[HMA](https://arxiv.org/html/2610.13494v1), sections 3.4 and 4.1 and appendix C.3,
+alternates native agents with context resets, a per-session experiment cap,
+persistent candidates and reserved final-review time. Its main evaluation is
+MLE-bench, not OSS bug triage; it cannot establish our PR yield. Some reported
+gains use the mean of the constituent single-agent results: distinguish that
+reference from the stronger constituent, and matched wall time from equal tokens
+or dollars. Do not call independent stateless prompts an HMA reproduction.
+
+For a future OSS adaptation, record every changed task, tool, stopping and review
+interface. Separate an existing-method pipeline comparison from an acquisition
+ablation: hold session/reset and final-review policy fixed when estimating the
+effect of choosing evidence. Conversely, compare reset/alternation with the same
+evidence options when estimating that workflow's effect. Include the stronger
+single-agent baseline, startup/handoff/final-review costs and failed native
+admissions. These are proposed controls, not an executed comparison or proof
+that our narrower research question is novel. The closed unavailable/negative
+cohorts remain unchanged; do not recycle exposed cases into a fresh test split.
+
 Consequently, a model hierarchy, proactive PR search, abstention, or collecting
 failed optimizations is not by itself our contribution. A remaining **unproven**
 question is whether choosing an executable next observation improves verified
