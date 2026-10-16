@@ -114,6 +114,25 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("not self.training", result["matches"][0]["lesson"])
         self.assertNotIn("qualified", result)
 
+    def test_workspace_fallback_card_keeps_false_and_exception_distinct(self):
+        url = (
+            "https://raw.githubusercontent.com/sgl-project/sglang/"
+            "44be30d2165318011fa1e9002cf58d6061907ed4/"
+            "python/sglang/srt/layers/flashinfer_comm_fusion.py"
+        )
+        result = lessons.lesson_suggestions(
+            "dtype change silently reuses a workspace after size rejection",
+            source_urls=[url],
+        )
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "exception-fallback-versus-validator-rejection")
+        self.assertTrue(result["source_path_match"])
+        self.assertLessEqual(len(json.dumps(matched, ensure_ascii=False).encode()), lessons.MAX_CARD_BYTES)
+        self.assertIn("False", matched["lesson"])
+        self.assertIn("arbitrary raising fake", matched["lesson"])
+        self.assertIn("static version-bound evidence", matched["avoid_when"])
+        self.assertEqual(matched["status"], "counterexample")
+
     def test_callable_hash_card_keeps_fallback_and_compiler_scope_distinct(self):
         url = (
             "https://raw.githubusercontent.com/Dao-AILab/flash-attention/"

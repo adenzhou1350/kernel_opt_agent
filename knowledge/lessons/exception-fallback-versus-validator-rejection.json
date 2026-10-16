@@ -1,0 +1,30 @@
+{
+  "id": "exception-fallback-versus-validator-rejection",
+  "title": "A backend validator returning false does not enter an exception fallback",
+  "applies_when": "A wrapper catches exceptions around a dependency validator and a lead claims that a rejected size, dtype or configuration silently enters a weaker fallback.",
+  "lesson": "Read the exact dependency version and distinguish its false return from an escaping exception before constructing a regression. SGLang's FlashInfer workspace wrapper directly returns the backend validator result; its dimension-only fallback runs only when that call raises. In pinned FlashInfer 0.7.2, the TRTLLM validator catches metadata ValueError and returns False, including incompatible FP32-Lamport mode. That normal rejection requests reconstruction rather than reaching the wrapper's exception branch. MNNVL has a different byte/strategy capacity contract. Inspect the backend signature adaptation and supported dtype-changing caller as well. An arbitrary raising fake can demonstrate the fallback's local behavior, but cannot establish that a supported backend reaches it or that a wrong kernel runs. Acquire a natural supported exception or contradictory dependency contract before spending GPU time or imposing stricter cache keys.",
+  "avoid_when": "Do not conclude the wrapper is universally safe: an unsupported keyword, dependency regression, malformed metadata or real backend exception can change reachability. Do not equate exact dtype inequality with insufficient storage for every backend, or reject public-helper defects merely because no internal caller was found. This is static version-bound evidence, not an executed backend, distributed collective, CUDA Graph, model or performance result. Advice retrieval is not measured Scout accuracy or PR conversion.",
+  "evidence": [
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/44be30d2165318011fa1e9002cf58d6061907ed4/python/sglang/srt/layers/flashinfer_comm_fusion.py",
+      "note": "is_buffer_size_sufficient directly returns the backend result; only escaping exceptions reach dimension-only reuse. Initialization inspects the backend's use_oneshot/strategy signature, records dtype and forwards real input dtype from residual/RMSNorm calls."
+    },
+    {
+      "url": "https://github.com/sgl-project/sglang/blob/44be30d2165318011fa1e9002cf58d6061907ed4/python/pyproject.toml",
+      "note": "Pins flashinfer_python[cu13] to 0.7.2. Read the matching dependency rather than assuming that an old or invented backend lacks its size-check API."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/d84335d8c54e0c8f9f7e22faa15c7e34a58abf94/flashinfer/comm/allreduce.py",
+      "note": "The v0.7.2 commit's TRTLLMAllReduceFusionWorkspace catches the metadata validator's ValueError and returns False. It does not propagate normal insufficiency to the caller's exception handler."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/d84335d8c54e0c8f9f7e22faa15c7e34a58abf94/flashinfer/comm/trtllm_ar.py",
+      "note": "check_trtllm_allreduce_fusion_workspace_metadata rejects FP32-Lamport incompatibility with ValueError; the unified workspace method catches that exception."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/blob/d84335d8c54e0c8f9f7e22faa15c7e34a58abf94/flashinfer/comm/trtllm_mnnvl_ar.py",
+      "note": "MNNVL implements the strategy-valued size-check API and compares required bytes with buffer_size_bytes. This source contract is not proof that every strategy, version or runtime call succeeds."
+    }
+  ],
+  "status": "counterexample"
+}
