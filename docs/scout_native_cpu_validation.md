@@ -246,6 +246,14 @@ python scripts/qualification_source_bundle.py --build --repo REVIEWED_REPO --com
 python scripts/qualification_source_bundle.py --verify --archive task/candidate.tar.gz --manifest task/candidate.manifest.json --extract-root task/candidate-export
 ```
 
+`--extract-root` (and the Python API's `target`) must **not already exist**:
+use a fresh child of the workspace, never the workspace itself. Extraction keeps
+the archive prefix beneath that child; with `--prefix source` and a `src` layout,
+the import path is `task/candidate-export/source/src`, not the staging parent.
+Preflight the same CLI/API locally on the reviewed bundle before paying for
+remote setup or model comparisons. Successful extraction proves only source
+identity; it must not be scored as package import or test success.
+
 Use fresh output paths for each arm. On an authorized Linux test host, transfer
 the archive, manifest and reviewed verifier, then run the second command there;
 the package root is `task/candidate-export/source`. Review the source before
