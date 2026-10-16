@@ -880,6 +880,28 @@ past its byte cap. It does not measure saved calls, recall or PR conversion, and
 is not a prospective selector experiment. Tests cover the actual producer's
 changed-source/no-replay behavior as well as bounded read-only note loading.
 
+For new feedback in a growing repository, use
+`scout_owner_note.py --root RUN --note NOTE.json --indexed`. This writes a
+standard-library SQLite index, `owner-source-notes.sqlite`, without migrating,
+expanding, pruning or rewriting either legacy JSON file. The original command
+remains compatible and explicitly reports the indexed alternative when full.
+The indexed key is repository + full source path + stable hypothesis; updates
+replace only that decision across source revisions. Preserve its superseded
+evidence in the existing task record. Exact repeats do not refresh recency.
+
+The reader queries up to eight requested source paths, using a path index, and
+returns at most 24 indexed rows with a total serialized budget of 64 KiB and a
+16 KiB per-note cap. It still exposes at most two advisory items and drops optional
+memory before clipping primary source. More than eight paths abstains from the
+optional index rather than widening the query. Legacy files retain their separate
+64 KiB caps. A valid indexed revision shadows only the same legacy hypothesis/file;
+invalid, locked, corrupt or unknown-schema index data cannot erase legacy advice.
+Both the actual reader and writer validate projection. Indexed
+`--expected-sha256` binds that note's canonical UTF-8 bytes, not the whole database
+or legacy file; an absent indexed note hashes as empty bytes. A stored note is
+not proof of model consumption, saved tokens or a new finding. Updating feedback
+does not replay old source or mutate discovery/delivery jobs.
+
 Followup production and owner intake project only the already-parsed hypothesis
 title into the memory reader. Passing a complete analysis longer than its
 2,500-character input cap used to silently disable identifier ranking, letting

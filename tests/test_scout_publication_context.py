@@ -13,9 +13,41 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
 import kimi_scout_research as research
 import scout_publication_context as memory
+import scout_owner_note as note_writer
 
 
 class PublicationContextTests(unittest.TestCase):
+    def test_indexed_feedback_reaches_new_packets_without_replaying_old_source(self):
+        scout.initialize(self.root)
+        config = self.root / "config.json"
+        config.write_text(json.dumps({
+            "objective": "test", "queue_target": 8, "source_windows": 2,
+            "repos": [{"repo": self.repo, "question": "test", "source_prefixes": ["src/"]}],
+        }), encoding="utf-8")
+        producer = research.ResearchProducer(self.root, config, context=object())
+        spec = producer.config["repos"][0]
+        self.assertTrue(producer.emit("before", spec, [self.source], "source_audit"))
+        note = dict(
+            repo=self.repo, prior_hypothesis="ImageProcessor checkpoint stats",
+            source_url=self.source["url"], reason="Matched native pair, limited scope",
+            reopen_when="A new supported caller or changed source contract",
+            evidence_url=f"https://github.com/{self.repo}/issues/12")
+        note_writer.write_indexed_note(self.root, note)
+        for i in range(25):
+            note_writer.write_indexed_note(self.root, {
+                **note, "source_url": self.source["url"].replace("subject.py", f"other{i}.py")})
+        self.assertFalse(producer.emit("same", spec, [self.source], "source_audit"))
+        newer = {**self.source, "text": "1: new supported caller"}
+        self.assertTrue(producer.emit("new", spec, [newer], "source_audit"))
+        with scout.connect(self.root) as db:
+            packets = [json.loads(row[0]) for row in
+                       db.execute("SELECT packet FROM jobs ORDER BY created,id")]
+        self.assertEqual(len(packets), 2)
+        self.assertNotIn("owner_deferrals", packets[0])
+        self.assertEqual(packets[1]["sources"], [newer])
+        self.assertEqual(packets[1]["owner_deferrals"]["items"][0]["reason"], note["reason"])
+        self.assertFalse((self.root / "delivery").exists())
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)

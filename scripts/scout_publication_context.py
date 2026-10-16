@@ -43,6 +43,68 @@ DEFERRAL_CAUTION = (
 )
 
 OWNER_NOTE_LIMIT_BYTES = 65536
+OWNER_INDEX_NOTE_LIMIT_BYTES = 16384
+OWNER_INDEX_PATH_LIMIT = 8
+
+
+def owner_note_index_path(root):
+    return Path(root).resolve() / "owner-source-notes.sqlite"
+
+
+def indexed_owner_notes(root, repo, sources=None):
+    """Return <=24 indexed notes and <=64 KiB, optionally scoped to <=8 files.
+
+    This optional index never replaces, migrates or rewrites legacy JSON.
+    Missing/locked/unknown-schema indexes leave independent legacy advice intact.
+    """
+    path = owner_note_index_path(root)
+    if path.is_symlink() or not path.is_file():
+        return []
+    wanted = sorted(source_paths(sources, repo)) if sources is not None else None
+    if wanted is not None and (not wanted or len(wanted) > OWNER_INDEX_PATH_LIMIT):
+        return []
+    try:
+        with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True,
+                                     timeout=0.05)) as db:
+            if db.execute("PRAGMA user_version").fetchone() != (1,):
+                return []
+            # Optional advice must not turn an unexpected DB into an unbounded scan.
+            budget = 100
+            def interrupted():
+                nonlocal budget
+                budget -= 1
+                return budget <= 0
+            db.set_progress_handler(interrupted, 1000)
+            clauses, parameters = [], []
+            for source_path in wanted if wanted is not None else [None]:
+                where = "repo=?"
+                parameters.append(repo)
+                if source_path is not None:
+                    where += " AND source_path=?"
+                    parameters.append(source_path)
+                clauses.append(
+                    "SELECT revision,substr(note,1,16385) AS note FROM "
+                    "(SELECT revision,note FROM owner_notes WHERE " + where +
+                    " ORDER BY revision DESC LIMIT 24)"
+                )
+            query = "SELECT note FROM (" + " UNION ALL ".join(clauses) + ") ORDER BY revision DESC LIMIT 24"
+            notes, used = [], 0
+            for (raw,) in db.execute(query, parameters):
+                if not isinstance(raw, str):
+                    continue
+                size = len(raw.encode("utf-8"))
+                if size > OWNER_INDEX_NOTE_LIMIT_BYTES:
+                    continue
+                if used + size > OWNER_NOTE_LIMIT_BYTES:
+                    break
+                used += size
+                try:
+                    notes.append(json.loads(raw))
+                except (ValueError, RecursionError):
+                    continue
+            return notes  # Newest first; consumers still validate every field.
+    except (OSError, sqlite3.Error):
+        return []
 
 
 def publication_summary(rows):
@@ -116,8 +178,8 @@ def read_owner_notes(path):
     return notes
 
 
-def owner_note_rows(root, repo):
-    """Read <=24 recent distinct valid notes from two <=64 KiB files.
+def owner_note_rows(root, repo, *, sources=None):
+    """Read <=24 valid notes from bounded legacy JSON and the optional index.
 
     The requested repository file takes precedence over the optional legacy
     list. No directory scan, history rewrite, network, model call or job mutation.
@@ -128,38 +190,26 @@ def owner_note_rows(root, repo):
         return []
     notes = read_owner_notes(Path(root).resolve() / "owner-source-notes.json")
     notes += read_owner_notes(path)
+    indexed = indexed_owner_notes(root, repo, sources)
+    # Indexed notes take precedence without changing the retained legacy bytes.
+    # Only a valid same-hypothesis/file revision may shadow legacy advice.
+    indexed = [note for note in indexed if valid_owner_note(note, repo)]
+    replaced = {(note["prior_hypothesis"], tuple(sorted(source_paths(
+        [{"url": note["source_url"]}], repo)))) for note in indexed}
+    notes = [note for note in notes if not (
+        isinstance(note, dict) and isinstance(note.get("prior_hypothesis"), str)
+        and (note["prior_hypothesis"], tuple(sorted(source_paths(
+            [{"url": note.get("source_url")}], repo)))) in replaced
+    )]
+    notes += list(reversed(indexed))
     rows, seen = [], set()
-    required = {
-        "repo",
-        "prior_hypothesis",
-        "source_url",
-        "reason",
-        "reopen_when",
-        "evidence_url",
-    }
     for note in reversed(notes):
-        if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
+        if not valid_owner_note(note, repo):
             continue
         title = note["prior_hypothesis"]
         reason, reopen, url = (
             note[key] for key in ("reason", "reopen_when", "evidence_url")
         )
-        match = advisory_evidence_match(url)
-        if (
-            not isinstance(title, str)
-            or not 0 < len(title.strip()) <= 200
-            or not all(
-                isinstance(text, str) and 0 < len(text.strip()) <= 1000
-                for text in (reason, reopen)
-            )
-            or any(
-                contains_local_artifact_path(text) for text in (title, reason, reopen)
-            )
-            or not match
-            or match[1].casefold() != repo.casefold()
-            or not source_paths([{"url": note["source_url"]}], repo)
-        ):
-            continue
         key = (note["source_url"], reason, reopen, url)
         if key in seen:
             continue
@@ -171,7 +221,7 @@ def owner_note_rows(root, repo):
                     {
                         key: note[key]
                         for key in ("reason", "reopen_when", "evidence_url")
-                    }
+                    }, ensure_ascii=False
                 ),
                 json.dumps({"packet": {"sources": [{"url": note["source_url"]}]}}),
             )
@@ -179,6 +229,23 @@ def owner_note_rows(root, repo):
         if len(rows) == 24:
             break
     return rows
+
+
+def valid_owner_note(note, repo):
+    required = {"repo", "prior_hypothesis", "source_url", "reason", "reopen_when", "evidence_url"}
+    if not isinstance(note, dict) or set(note) != required or note["repo"] != repo:
+        return False
+    title, reason, reopen, url = (note[key] for key in
+                                  ("prior_hypothesis", "reason", "reopen_when", "evidence_url"))
+    match = advisory_evidence_match(url)
+    return (
+        isinstance(title, str) and 0 < len(title.strip()) <= 200
+        and all(isinstance(text, str) and 0 < len(text.strip()) <= 1000
+                for text in (reason, reopen))
+        and not any(contains_local_artifact_path(text) for text in (title, reason, reopen))
+        and bool(match) and match[1].casefold() == repo.casefold()
+        and bool(source_paths([{"url": note["source_url"]}], repo))
+    )
 
 
 # Optional memory is not a channel for task-local artifact locations. This is
@@ -392,7 +459,7 @@ def owner_deferral_context(root, repo, sources, *, prior_analysis=None):
     path = Path(root).resolve() / "delivery" / "delivery.sqlite"
     if not wanted:
         return None
-    rows = owner_note_rows(root, repo)
+    rows = owner_note_rows(root, repo, sources=sources)
     try:
         if path.is_file():
             with closing(
