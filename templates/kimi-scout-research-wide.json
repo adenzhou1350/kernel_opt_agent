@@ -206,6 +206,15 @@
       "question": "Find supported wrapper, shape/layout, dtype, cache-key or architecture-guard correctness gaps. Do not transfer CUDA assumptions to ROCm; require exact supported hardware and a bounded test plan."
     },
     {
+      "repo": "cenkalti/backoff",
+      "ref": "v7",
+      "source_prefixes": ["backoff.go", "retry.go", "error.go", "exponential.go", "ticker.go", "timer.go"],
+      "source_windows": 6,
+      "followup_import_context": true,
+      "followup_issue_body_context": true,
+      "question": "Investigate supported retry scheduling, cancellation, RetryAfter and Permanent error chains, duration bounds and ticker lifetimes. Read actual API contracts and existing issue/PR ownership before proposing behavior changes. This library intentionally guarantees an initial attempt and does not interrupt a running operation; neither is automatically a bug. Contribution rules require issue discussion before a PR and favor common use cases over new options. Require a concrete supported public-API reproduction and normal controls, not arbitrary raising fakes, invalid parameter assumptions or documentation-only busywork. Current v7 b1a30d947ca896d37518610255281904b439c619 passed unchanged Linux amd64 Go1.25.10 ordinary/race suites (41 test/subtest events each), offline module resolution with no external requirements; this establishes baseline testability only, not the Go1.23/OS matrix or a discovered repair. Issue194 already reports Notify cancellation before a zero-delay next attempt; retain that owner-reported work and investigate distinct uncovered paths rather than creating another report or PR."
+    },
+    {
       "repo": "ggml-org/llama.cpp",
       "ref": "master",
       "source_prefixes": ["src/", "ggml/src/", "common/"],

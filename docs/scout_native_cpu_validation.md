@@ -825,6 +825,33 @@ do not filter away test events or synthesize package terminals. Go parent/subtes
 events are identities, not distinct bugs. This checks captured outcomes, not the
 truth of the assertions or prospective discovery quality.
 
+### A small dependency-free retry library
+
+`cenkalti/backoff` is another native Go discovery source. At current-v7
+[`b1a30d9`](https://github.com/cenkalti/backoff/tree/b1a30d947ca896d37518610255281904b439c619),
+`go.mod` requires Go 1.23 and no external modules. An unchanged raw-Git export
+passed ordinary and race suites on Linux amd64 Go 1.25.10: 41 passing
+test/subtest events per run, no failures/skips, with all source hashes unchanged.
+This is baseline testability, not Go 1.23/Windows CI or a performance result.
+The examples use real loopback HTTP, so the Python-only offline sandbox without
+Go is not an equivalent execution environment. Reuse a compatible authorized
+native toolchain in a private directory; disable module acquisition and keep
+the test child environment free of credentials. Disabled module resolution is
+not network-namespace isolation.
+
+The [contribution rules](https://github.com/cenkalti/backoff/blob/b1a30d947ca896d37518610255281904b439c619/README.md#contributing)
+require discussing an issue before a PR. The independently reproduced
+[Notify cancellation report #194](https://github.com/cenkalti/backoff/issues/194)
+is an open report, not an accepted repair or Scout discovery result. Its real
+zero-delay timer can be ready alongside cancellation; the old select branch
+starts a second operation and can report success after synchronous cancellation
+in Notify. Separate controls retain the initial-attempt guarantee, ordinary
+zero-delay retry and cancellation of a long wait. This concerns dispatch of a
+future attempt, not interruption of a running operation. Do not conflate it
+with older context-wrapper or in-flight cancellation discussions or count the
+128 repetition bound as independent bugs. Follow maintainer direction before
+publishing a repair, and keep the original baseline failure.
+
 ## TypeScript lifecycle checks without a monorepo rebuild
 
 For a reviewed, self-contained module, a compatible Node runtime and the real
