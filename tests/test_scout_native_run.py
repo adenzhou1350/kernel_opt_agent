@@ -1,12 +1,16 @@
 """Runner controls are synthetic; real native verification is a separate replay."""
 
 import hashlib
+import io
 import json
 import os
+import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
+from contextlib import redirect_stderr
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -14,6 +18,113 @@ import scout_native_run as runner
 
 PASS = "running 1 test\ntest contract ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
 JUNIT_PASS = '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="tests.test_contract" name="test_case"/></testsuite>'
+
+
+class RuntimeExportTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name).resolve()
+
+    def test_fresh_export_is_exact_and_has_all_sibling_tools(self):
+        output = self.root / "tools"
+        with patch.object(runner.subprocess, "Popen") as child:
+            result = runner.export_runtime(output)
+        child.assert_not_called()
+        self.assertEqual(result["status"], "EXPORTED")
+        self.assertEqual(set(result["files"]), set(runner.RUNTIME_FILES))
+        self.assertEqual(set(p.name for p in output.iterdir()), set(runner.RUNTIME_FILES))
+        for name, record in result["files"].items():
+            body = (output / name).read_bytes()
+            self.assertEqual(body, (Path(runner.__file__).parent / name).read_bytes())
+            self.assertEqual(record, {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()})
+
+    def test_cli_export_runs_from_an_unrelated_directory_without_pythonpath(self):
+        output = self.root / "tools"
+        env = dict(os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1")
+        command = [sys.executable, "-B", str(Path(runner.__file__).resolve())]
+        result = subprocess.run([*command, "--export-runtime", str(output)],
+                                cwd=self.root, env=env, capture_output=True, text=True, timeout=10)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(json.loads(result.stdout)["status"], "EXPORTED")
+        for name in ("scout_native_run.py", "qualification_source_bundle.py"):
+            help_result = subprocess.run([sys.executable, "-B", str(output / name), "--help"],
+                                         cwd=self.root, env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(help_result.returncode, 0, help_result.stderr)
+        nested = self.root / "second-copy"
+        reexport = subprocess.run([sys.executable, "-B", str(output / "scout_native_run.py"),
+                                  "--export-runtime", str(nested)], cwd=self.root, env=env,
+                                 capture_output=True, text=True, timeout=10)
+        self.assertEqual(reexport.returncode, 0, reexport.stderr)
+        self.assertEqual(json.loads(reexport.stdout)["files"], json.loads(result.stdout)["files"])
+
+    def test_existing_destination_is_preserved(self):
+        output = self.root / "tools"
+        output.mkdir()
+        sentinel = output / "keep.txt"
+        sentinel.write_text("existing user data")
+        with self.assertRaises(FileExistsError):
+            runner.export_runtime(output)
+        self.assertEqual(sentinel.read_text(), "existing user data")
+        self.assertEqual(list(output.iterdir()), [sentinel])
+
+    def test_missing_sibling_fails_before_creating_destination(self):
+        library = self.root / "incomplete"
+        library.mkdir()
+        (library / "scout_native_run.py").write_text("# fixture\n")
+        with patch.object(runner, "__file__", str(library / "scout_native_run.py")):
+            with self.assertRaisesRegex(ValueError, "scout_native_results.py"):
+                runner.export_runtime(self.root / "output")
+        self.assertFalse((self.root / "output").exists())
+
+    def test_invalid_source_fails_before_creating_destination(self):
+        library = self.root / "invalid"
+        library.mkdir()
+        for name in runner.RUNTIME_FILES:
+            (library / name).write_text("invalid Python source !!!")
+        with patch.object(runner, "__file__", str(library / "scout_native_run.py")):
+            with self.assertRaises(SyntaxError):
+                runner.export_runtime(self.root / "output")
+        self.assertFalse((self.root / "output").exists())
+
+    def test_oversized_source_fails_before_creating_destination(self):
+        library = self.root / "large"
+        library.mkdir()
+        (library / "scout_native_run.py").write_bytes(b"#" * (512 * 1024 + 1))
+        with patch.object(runner, "__file__", str(library / "scout_native_run.py")):
+            with self.assertRaisesRegex(ValueError, "export budget"):
+                runner.export_runtime(self.root / "output")
+        self.assertFalse((self.root / "output").exists())
+
+    @unittest.skipUnless(os.name == "posix", "POSIX source symlink")
+    def test_symlinked_source_is_not_exported(self):
+        library = self.root / "links"
+        library.mkdir()
+        (library / "scout_native_run.py").symlink_to(Path(runner.__file__).resolve())
+        with patch.object(runner, "__file__", str(library / "scout_native_run.py")):
+            with self.assertRaisesRegex(ValueError, "non-regular"):
+                runner.export_runtime(self.root / "output")
+        self.assertFalse((self.root / "output").exists())
+
+    def test_export_and_execution_options_cannot_mix(self):
+        with patch.object(runner, "export_runtime") as export, \
+                patch.object(runner, "run") as execute, redirect_stderr(io.StringIO()) as errors:
+            for tail in (["--cwd", str(self.root)], ["--env", "A=B"], ["--timeout", "1"],
+                         ["--", sys.executable]):
+                with self.subTest(tail=tail), self.assertRaises(SystemExit) as exit:
+                    runner.main(["--export-runtime", str(self.root / "tools"), *tail])
+                self.assertEqual(exit.exception.code, 2)
+            export.assert_not_called()
+            execute.assert_not_called()
+        self.assertIn("cannot be combined", errors.getvalue())
+
+    def test_execution_still_requires_explicit_inputs(self):
+        with patch.object(runner, "run") as execute, redirect_stderr(io.StringIO()) as errors, \
+                self.assertRaises(SystemExit) as exit:
+            runner.main([])
+        self.assertEqual(exit.exception.code, 2)
+        execute.assert_not_called()
+        self.assertIn("required for execution", errors.getvalue())
 
 
 class InputTests(unittest.TestCase):

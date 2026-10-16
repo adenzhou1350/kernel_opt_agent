@@ -120,6 +120,20 @@ an estimate of missed PRs, or a budget-matched selector benefit.
 
 ## Check the deployed native runner, not another checkout
 
+To stage a standalone native-test task, export the matching tool siblings once:
+
+```text
+python scripts/scout_native_run.py --export-runtime task/native-tools
+```
+
+This copies the runner, result reader and commit-exact source bundler into a
+fresh directory and prints their byte hashes. Transfer that complete directory,
+not just `scout_native_run.py` (which imports `scout_native_results.py`). Existing
+destinations are refused; the parent task directory must exist. Export performs
+no execution, install or network call;
+it does not supply pytest/compilers or qualify a target package. Keep the reviewed
+command, exact sources and expected test identities for the normal run entrance.
+
 The CPU capture entrance permits at most 0.5 seconds of natural process-group
 shutdown after the leader exits, within the original command deadline. This
 handles short-lived runtime helpers without a helper-name whitelist. The whole

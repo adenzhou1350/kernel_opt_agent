@@ -19,6 +19,38 @@ from pathlib import Path
 
 import scout_native_results as native
 
+RUNTIME_FILES = ("scout_native_run.py", "scout_native_results.py", "qualification_source_bundle.py")
+
+
+def export_runtime(output):
+    """Copy the small stdlib-only CPU tool set into a fresh directory.
+
+    No subprocess, target code, install, network or credential acquisition.
+    Returned hashes identify these snapshots, not a project/environment approval.
+    A write failure leaves a partial fresh directory, never an export success.
+    """
+    library = Path(__file__).absolute().parent
+    snapshots = {}
+    for name in RUNTIME_FILES:
+        path = library / name
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"missing or non-regular runtime source: {name}")
+        with path.open("rb") as stream:
+            body = stream.read(512 * 1024 + 1)
+        if len(body) > 512 * 1024:
+            raise ValueError(f"runtime source exceeds export budget: {name}")
+        compile(body, name, "exec")
+        snapshots[name] = body
+    output = Path(output).absolute()
+    output.mkdir(exist_ok=False)
+    records = {}
+    for name, body in snapshots.items():
+        with (output / name).open("xb") as stream:
+            stream.write(body)
+        records[name] = {"bytes": len(body), "sha256": hashlib.sha256(body).hexdigest()}
+    return {"status": "EXPORTED", "directory": str(output), "files": records,
+            "boundary": "Tool-source snapshots only; no target tests, environment qualification or execution authority."}
+
 
 def digest(path):
     value = hashlib.sha256()
@@ -253,18 +285,34 @@ def assignments(values, *, environment=False):
     return pairs
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--cwd", type=Path, required=True)
-    parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--format", choices=native.FORMATS, required=True)
+    parser.add_argument("--export-runtime", type=Path,
+                        help="copy the three stdlib-only CPU tools into a fresh directory; do not execute")
+    parser.add_argument("--cwd", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--format", choices=native.FORMATS)
     parser.add_argument("--package")
-    parser.add_argument("--expect-test", action="append", required=True)
-    parser.add_argument("--source", action="append", required=True)
+    parser.add_argument("--expect-test", action="append")
+    parser.add_argument("--source", action="append")
     parser.add_argument("--env", action="append", default=[])
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("command", nargs=argparse.REMAINDER)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.export_runtime is not None:
+        if any((args.cwd, args.output, args.format, args.package, args.expect_test,
+                args.source, args.env, args.command)) or args.timeout != 120:
+            parser.error("--export-runtime cannot be combined with execution options")
+        try:
+            result = export_runtime(args.export_runtime)
+        except (OSError, ValueError, SyntaxError) as error:
+            parser.error(str(error))
+        print(json.dumps(result))
+        return 0
+    missing = [name for name in ("cwd", "output", "format", "expect_test", "source")
+               if getattr(args, name) is None]
+    if missing:
+        parser.error("required for execution: " + ", ".join("--" + name.replace("_", "-") for name in missing))
     command = args.command[1:] if args.command[:1] == ["--"] else args.command
     try:
         result = run(cwd=args.cwd, output=args.output, command=command,
