@@ -23,7 +23,13 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("checkpoint A/B/A", card["lesson"])
         self.assertIn("three-argument hooks", card["lesson"])
         self.assertIn("not official CI qualification", card["avoid_when"])
+        self.assertIn("list-versus-tuple", card["avoid_when"])
         self.assertIn("not an independently reproduced", card["evidence"][0]["note"])
+        self.assertTrue(any(
+            "Retrospective source-export mutations" in item["note"]
+            and "not prospective selector benefit" in item["note"]
+            for item in card["evidence"]
+        ))
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
         self.assertNotIn("qualified", result)
