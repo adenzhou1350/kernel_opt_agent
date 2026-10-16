@@ -118,6 +118,10 @@ def refill_retry_delay(made, failure, empty_refills, *, cursor_advanced=False):
         return 60
     if made:
         return 0.2
+    if made is None:
+        # An interrupted/delayed rotation observed no complete empty frontier.
+        # The outer pending guard still prevents refills while the queue is full.
+        return 0.5
     if cursor_advanced:
         # Seen source windows still move the scan toward a fresh revision.
         return 0.5
@@ -1961,6 +1965,7 @@ class ResearchProducer:
         return None
 
     def refill(self, spec, progress, first, batch_size=1):
+        """True: admitted work; False: complete dry rotation; None: deferred."""
         methods = (self.followup, self.issue, self.source_audit)
         # Context retrieval is much slower than model consumption. Refill a
         # bounded batch from each already-open repository frontier instead of
@@ -1985,9 +1990,9 @@ class ResearchProducer:
                     dry += 1
                     if dry >= len(methods):
                         break
-            return made > 0
+            return True if made else False if dry >= len(methods) else None
         except QueueFull:
-            return made > 0
+            return True if made else None
 
     def finish_refill(self, repo, future, progress):
         """Only the coordinator merges worker state and persists the frontier."""
@@ -2059,7 +2064,7 @@ class ResearchProducer:
                         failed.discard(repo)
                     cursor_advanced = progress.get("source_cursor", 0) != initial_cursor
                     outcomes[repo] = {
-                        "last_outcome": "ERROR" if failure else "NEW_EVIDENCE" if made else "CURSOR_ADVANCED" if cursor_advanced else "NO_NEW_EVIDENCE",
+                        "last_outcome": "ERROR" if failure else "NEW_EVIDENCE" if made else "CURSOR_ADVANCED" if cursor_advanced else "QUEUE_CAPACITY_DEFERRED" if made is None else "NO_NEW_EVIDENCE",
                         "last_duration_seconds": round(duration, 1),
                         "error_code": failure,
                     }
@@ -2067,7 +2072,7 @@ class ResearchProducer:
                         empty_refills.pop(repo, None)
                     elif cursor_advanced and not failure:
                         empty_refills.pop(repo, None)
-                    elif not failure:
+                    elif not failure and made is not None:
                         empty_refills[repo] = min(6, empty_refills.get(repo, 0) + 1)
                     ready_at[repo] = time.monotonic() + refill_retry_delay(
                         made,

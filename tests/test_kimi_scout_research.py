@@ -2061,9 +2061,10 @@ class ResearchTests(unittest.TestCase):
                     for spec, p in zip(specs, progress)
                 ]
                 made = [f.result() for f in futures]
-        self.assertEqual(sum(made), 1)
+        # Exactly one admission wins; the loser did not complete a dry scan.
+        self.assertCountEqual(made, [True, None])
         self.assertEqual(len(self.jobs()), 4)
-        deferred = made.index(False)
+        deferred = made.index(None)
         self.assertEqual(progress[deferred].get("source_cursor", 0), 0)
         with scout.connect(self.root) as db:
             db.execute("UPDATE jobs SET state='NO_LEAD'")

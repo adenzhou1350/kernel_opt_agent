@@ -28,6 +28,13 @@ These are options, not a required tool sequence. Read the relevant reference
 section when its restrictions matter; do not load every historical experiment
 into ordinary delivery context.
 
+In refill health, `QUEUE_CAPACITY_DEFERRED` means a rotation could not complete
+because admission filled (or owned shutdown interrupted it). It is not evidence
+that a repository was checked and had nothing new. Such a deferral does not
+increment empty-frontier backoff; the queue-capacity guard still applies.
+`NO_NEW_EVIDENCE` requires a complete dry rotation. Neither signal establishes
+repository exhaustion, candidate quality, fairness or improved PR conversion.
+
 Repair draws default to Python with disjoint production/test directory scopes.
 Optional `--language go` classifies `*_test.go` separately from other `.go` files,
 allowing co-located directory scopes; explicit `./` selects the repository root.
