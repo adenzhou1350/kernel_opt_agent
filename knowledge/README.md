@@ -64,7 +64,9 @@ publishing, acceptance or a readiness claim.
 
 Scout may prefer a card whose immutable GitHub evidence link names the same
 repository and full source path as a supplied excerpt. Exact revisions rank
-first; a cross-revision path match is only a reason to read the old lesson and
+first. For equal revision/path affinity, query word overlap breaks the tie before
+the stable ID; alphabetization should not hide a relevant lesson when several
+cards cite the same large source file. A cross-revision path match is only a reason to read the old lesson and
 check today's implementation, not proof that its conclusion still holds. This
 lookup adds no source fetches, supplies at most one complete card within the
 existing budget, and never displaces primary source evidence. A retrieval test

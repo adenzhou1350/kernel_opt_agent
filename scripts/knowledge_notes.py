@@ -160,22 +160,25 @@ def add_note(
     }
 
 
+def query_score(query: str, card: dict) -> int:
+    """Lexical relevance only; not evidence strength or behavioral equivalence."""
+    terms = set(normalized(query).split())
+    return sum(
+        weight * len(terms & set(normalized(card[key]).split()))
+        for key, weight in (
+            ("id", 3), ("title", 3), ("applies_when", 2),
+            ("lesson", 1), ("avoid_when", 1),
+        )
+    )
+
+
 def search(query: str, directory: Path = DEFAULT_DIRECTORY, limit: int = 3) -> dict:
     terms = set(normalized(query).split())
     if not terms or limit < 1:
         raise ValueError("search needs a nonempty query and a positive limit")
     matches = []
     for path, card in read_cards(directory):
-        score = sum(
-            weight * len(terms & set(normalized(card[key]).split()))
-            for key, weight in (
-                ("id", 3),
-                ("title", 3),
-                ("applies_when", 2),
-                ("lesson", 1),
-                ("avoid_when", 1),
-            )
-        )
+        score = query_score(query, card)
         if score:
             matches.append({"score": score, "source": str(path), "card": card})
     matches.sort(key=lambda match: (-match["score"], match["card"]["id"]))

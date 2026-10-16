@@ -38,7 +38,7 @@ def source_file_identity(value):
         return None
 
 
-def source_path_matches(source_urls, directory):
+def source_path_matches(source_urls, directory, query=""):
     """Same repository and full path, not basename/fork or behavior equivalence.
 
     An older revision is still useful advice; current source must be checked.
@@ -61,9 +61,13 @@ def source_path_matches(source_urls, directory):
         }
         overlap = paths & {identity[:3] for identity in evidence}
         if overlap:
-            matches.append((len(identities & evidence), len(overlap), card))
-    matches.sort(key=lambda item: (-item[0], -item[1], item[2]["id"]))
-    return [{"card": item[2]} for item in matches]
+            matches.append((len(identities & evidence), len(overlap),
+                            knowledge_notes.query_score(query, card), card))
+    # Several distinct lessons can cite the same large implementation file.
+    # Do not let filename alphabetization hide a relevant policy lesson. Exact
+    # revision/path affinity still wins; query overlap only breaks equal ties.
+    matches.sort(key=lambda item: (-item[0], -item[1], -item[2], item[3]["id"]))
+    return [{"card": item[3]} for item in matches]
 
 
 def fit_lesson_context(packet, limit, prefix=""):
@@ -99,7 +103,8 @@ def lesson_suggestions(query, *, source_urls=(), exclude=(), directory=None):
     excluded = set(exclude)
     try:
         source_matches = source_path_matches(
-            source_urls, directory or knowledge_notes.DEFAULT_DIRECTORY
+            source_urls, directory or knowledge_notes.DEFAULT_DIRECTORY,
+            query=text[:MAX_QUERY_CHARS],
         )
         found = knowledge_notes.search(
             text[:MAX_QUERY_CHARS],

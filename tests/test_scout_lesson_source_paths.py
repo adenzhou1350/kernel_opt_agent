@@ -82,6 +82,23 @@ class SourceLessonTests(unittest.TestCase):
             with self.subTest(url=url):
                 self.assertEqual(self.lookup([url])["matches"], [self.generic])
 
+    def test_equal_source_affinity_uses_query_relevance_not_alphabetic_id(self):
+        relevant = card("z-pickle-policy", self.focused["evidence"][0]["url"],
+                        "Preserve pickle cache_options maxblocks trim reopen policy.")
+        self.save(relevant)
+        result = lessons.lesson_suggestions(
+            "pickle cache_options maxblocks trim", source_urls=[RAW],
+            directory=self.library,
+        )
+        self.assertEqual(result["matches"], [relevant])
+        self.assertTrue(result["source_path_match"])
+        exact = dict(self.focused, evidence=[dict(url=RAW, note="Exact revision.")])
+        self.save(exact)
+        self.assertEqual(lessons.lesson_suggestions(
+            "pickle cache_options maxblocks trim", source_urls=[RAW],
+            directory=self.library,
+        )["matches"], [exact])
+
     def test_exclusion_size_and_url_budget_preserve_generic_fallback(self):
         self.assertEqual(self.lookup([RAW], exclude=[self.focused["id"]])["matches"], [self.generic])
         self.save(dict(self.focused, lesson="x" * (lessons.MAX_CARD_BYTES + 1)))
@@ -274,6 +291,18 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("proposed unmerged", json.dumps(matched).lower())
         self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
         self.assertNotIn("qualified", result)
+
+    def test_pickle_card_is_relevant_across_revision_ties(self):
+        url = (
+            "https://raw.githubusercontent.com/fsspec/filesystem_spec/"
+            + "b" * 40 + "/fsspec/spec.py"
+        )
+        result = lessons.lesson_suggestions(
+            "pickle cache_options maxblocks trim reopen policy", source_urls=[url]
+        )
+        self.assertTrue(result["source_path_match"])
+        self.assertEqual(result["matches"][0]["id"],
+                         "serialization-policy-without-runtime-cache")
 
     def test_existing_seek_fix_does_not_hide_a_return_contract_subcase(self):
         url = (
