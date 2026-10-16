@@ -367,8 +367,8 @@ class ScoutTests(unittest.TestCase):
         with scout.connect(self.root) as db:
             self.assertEqual(db.execute("SELECT state FROM jobs").fetchone()[0], "NO_LEAD")
 
-    def test_eight_and_sixteen_workers_can_really_run_simultaneously(self):
-        for count in (8, 16):
+    def test_eight_sixteen_and_thirty_two_workers_can_really_run_simultaneously(self):
+        for count in (8, 16, 32):
             with self.subTest(concurrency=count):
                 for i in range(count):
                     self.add(f"{count}-{i}")
@@ -403,9 +403,19 @@ class ScoutTests(unittest.TestCase):
                 with patch.object(scout, "run", return_value={}) as run:
                     self.assertEqual(scout.main([*args[:6], str(count), *args[7:]]), 0)
                 self.assertEqual(run.call_args.args[0].concurrency, count)
-        for count in (0, 17):
+        for count in (0, 33):
             with self.subTest(concurrency=count), self.assertRaises(SystemExit):
                 scout.main([*args[:6], str(count), *args[7:]])
+        for count in (17, 32):
+            with self.subTest(concurrency=count):
+                invocation = [*args[:6], str(count), *args[7:]]
+                with patch.object(scout, "run", return_value={}) as run:
+                    self.assertEqual(scout.main(invocation), 2)
+                    run.assert_not_called()
+                    self.assertEqual(scout.main([
+                        *invocation, "--openai-backend-config", "private-http.json"
+                    ]), 0)
+                    self.assertEqual(run.call_args.args[0].concurrency, count)
 
     def test_memory_reserve_pauses_before_claiming_work(self):
         self.add("memory-guard")

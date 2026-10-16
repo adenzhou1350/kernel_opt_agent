@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
 import kimi_scout as scout
-from scout_linux_memory import linux_available_memory_mb, MIB
+from scout_linux_memory import linux_available_memory_mb, supervisor_memory_action, MIB
 
 
 def fixture(member='/', mount_root='/', mount_point='/sys/fs/cgroup'):
@@ -16,6 +16,24 @@ def fixture(member='/', mount_root='/', mount_point='/sys/fs/cgroup'):
 
 
 class LinuxMemoryTests(unittest.TestCase):
+    def test_supervision_pause_recovers_without_restart_or_lowering_admission(self):
+        samples = [5000, 4096, 4095, 2048, 4300, 2047, None]
+        observed = [supervisor_memory_action(value, admission_floor_mb=4096,
+                                            critical_floor_mb=2048) for value in samples]
+        self.assertEqual(observed, ['NORMAL', 'NORMAL', 'PAUSE', 'PAUSE',
+                                    'NORMAL', 'DRAIN', 'DRAIN'])
+        self.assertFalse(scout.memory_admits_call(4095, 4096, 64, 0))
+        self.assertTrue(scout.memory_admits_call(4300, 4096, 64, 0))
+
+    def test_supervision_unknown_samples_drain_and_bad_thresholds_fail_closed(self):
+        for value in (True, -1, '5000', 5000.0, float('nan')):
+            self.assertEqual(supervisor_memory_action(value, admission_floor_mb=4096,
+                                                     critical_floor_mb=2048), 'DRAIN')
+        for admission, critical in ((4096, 0), (4096, 4097), (True, 1), (4096, 1.0)):
+            with self.assertRaises(ValueError):
+                supervisor_memory_action(5000, admission_floor_mb=admission,
+                                         critical_floor_mb=critical)
+
     def observe(self, files):
         def read(path):
             value = files.get(path, FileNotFoundError(path))

@@ -9,6 +9,23 @@ import re
 MIB = 1024 * 1024
 
 
+def supervisor_memory_action(available_mb, *, admission_floor_mb, critical_floor_mb):
+    """Separate a recoverable admission pause from a terminal owned drain.
+
+    The controller must still enforce its worker reservations and admission
+    floor. This only guides supervision: it never allocates, restarts a child,
+    clears STOP, replays work or changes cgroup limits.
+    """
+    if (type(admission_floor_mb) is not int or type(critical_floor_mb) is not int
+            or not 0 < critical_floor_mb <= admission_floor_mb):
+        raise ValueError('require 0 < critical floor <= admission floor in MiB')
+    if type(available_mb) is not int or available_mb < critical_floor_mb:
+        return 'DRAIN'
+    if available_mb < admission_floor_mb:
+        return 'PAUSE'
+    return 'NORMAL'
+
+
 def _read_text(path):
     return Path(path).read_text(encoding='ascii')
 

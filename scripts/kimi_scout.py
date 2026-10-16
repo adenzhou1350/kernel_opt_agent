@@ -1258,7 +1258,8 @@ def main(argv=None):
     worker.add_argument(
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
     )
-    worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
+    worker.add_argument("--concurrency", type=int, choices=range(1, 33), default=2,
+                        help="1..16 workers; opt-in HTTP backend permits up to 32")
     backend = worker.add_mutually_exclusive_group()
     backend.add_argument(
         "--openai-backend-config", type=Path,
@@ -1337,6 +1338,7 @@ def main(argv=None):
                 )
             if not (
                 0 <= args.hours <= 168
+                and args.concurrency <= (32 if args.openai_backend_config else 16)
                 and 0 <= args.max_jobs <= 100
                 and (args.token_budget == 0 or 1024 <= args.token_budget <= 2_000_000)
                 and 256 <= args.output_tokens <= (32768 if getattr(args, "openai_backend_config", None) else 4096)
