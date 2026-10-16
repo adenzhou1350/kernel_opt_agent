@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
 import re
 import selectors
@@ -107,6 +108,36 @@ def wait_for_group_exit(pgid, deadline):
         if remaining <= 0:
             return False
         time.sleep(min(0.01, remaining))
+
+
+def reaped_child_cpu():
+    """Process-wide POSIX counters, not a complete owned-process-tree meter."""
+    try:
+        value = os.times()
+        return value.children_user, value.children_system
+    except OSError:
+        return None
+
+
+def reaped_child_cpu_delta(before, after):
+    """Keep unavailable/regressed readings unknown, never a free failed run.
+
+    Includes other children reaped concurrently by this runner process; excludes
+    descendants whose usage is not propagated through a waited parent. Prefer
+    one sequential CLI invocation when interpreting these observed counters.
+    """
+    result = {"method": "posix_process_reaped_children_delta",
+              "user_seconds": None, "system_seconds": None}
+    if before is None or after is None:
+        return result
+    values = (*before, *after)
+    if (len(before) != 2 or len(after) != 2
+            or any(type(v) not in (int, float) or not math.isfinite(v) or v < 0
+                   for v in values)
+            or any(a < b for b, a in zip(before, after))):
+        return result
+    return dict(result, user_seconds=after[0] - before[0],
+                system_seconds=after[1] - before[1])
 
 
 def run(*, cwd, output, command, sources, format, expected_tests, package=None,
@@ -227,6 +258,7 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
               "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
               "post_exit_group_cleanup_required": post_exit_group_cleanup_required,
               "process_backend": "windows-job" if native_windows else "posix-process-group",
+              "cpu_accounting": captured["cpu_accounting"],
               "command": list(command), "tool_path": str(executable), "tool_sha256": tool_hash,
               "source_before": before, "source_after": after,
               "terminal_log_sha256": digest(output / "terminal.log"),
@@ -244,6 +276,7 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
 
 def capture_posix(*, command, cwd, output, environment, timeout, started):
     reason, written = None, 0
+    cpu_before = reaped_child_cpu()
     post_exit_group_wait_seconds, post_exit_group_cleanup_required = 0.0, False
     # Keep output off RAM; cap both the file and the later parser input.
     with (output / "terminal.log").open("xb") as log:
@@ -299,6 +332,7 @@ def capture_posix(*, command, cwd, output, environment, timeout, started):
                     stop_group(process)
             process.stdout.close()
     return {"reason": reason, "exit_code": process.returncode,
+            "cpu_accounting": reaped_child_cpu_delta(cpu_before, reaped_child_cpu()),
             "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
             "post_exit_group_cleanup_required": post_exit_group_cleanup_required}
 

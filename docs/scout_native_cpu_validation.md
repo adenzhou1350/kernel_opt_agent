@@ -94,3 +94,15 @@ still needs the [actual consumer contract](references/scout_native_cpu_validatio
 Separate an evidence-backed stop, environment limitation, author-owned fix and
 reviewable new contribution. No test count or source-reader success establishes
 PR yield, recall or evidence-selection research benefit.
+
+New runner reports include `cpu_accounting` even for failing commands. Windows
+queries [cumulative user/kernel time](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information)
+for the private Job Object, including its trusted launcher. An `active_processes`
+value above zero means that reading is not final job consumption. POSIX records the
+runner process's [reaped-child CPU delta](https://docs.python.org/3/library/os.html#os.times):
+concurrent children can contribute, and unpropagated descendant usage is absent.
+Prefer sequential CLI invocations and retain the method label; these scopes are
+not interchangeable complete process-tree costs. Missing readings remain null,
+not zero. Compilation inside the command contributes; model calls, preparation
+outside it and human effort are separate. These observations do not establish a
+priced, budget-matched comparison. Historical reports stay unchanged.

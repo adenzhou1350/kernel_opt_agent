@@ -153,6 +153,19 @@ class InputTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             runner.assignments(["broken"])
 
+    def test_cpu_deltas_keep_failed_work_and_unknown_counters_distinct(self):
+        observed = runner.reaped_child_cpu_delta((1.25, 0.5), (2.0, 0.75))
+        self.assertEqual(observed["user_seconds"], 0.75)
+        self.assertEqual(observed["system_seconds"], 0.25)
+        self.assertEqual(runner.reaped_child_cpu_delta((1, 1), (1, 1))["user_seconds"], 0)
+        for before, after in ((None, (1, 1)), ((1, 1), None),
+                              ((2, 1), (1, 1)), ((1, 1), (float("nan"), 2)),
+                              ((True, 1), (2, 2)), ((1,), (2, 2))):
+            with self.subTest(before=before, after=after):
+                value = runner.reaped_child_cpu_delta(before, after)
+                self.assertIsNone(value["user_seconds"])
+                self.assertIsNone(value["system_seconds"])
+
     @unittest.skipUnless(os.name == "posix", "POSIX source symlinks")
     def test_symlink_even_inside_checkout_rejected(self):
         (self.root / "alias.rs").symlink_to(self.source)
@@ -173,6 +186,39 @@ class InputTests(unittest.TestCase):
 class ProcessTests(unittest.TestCase):
     def setUp(self):
         InputTests.setUp(self)
+
+    def test_cpu_accounting_survives_an_assertion_failure(self):
+        failure = PASS.replace("... ok", "... FAILED").replace(
+            "result: ok. 1 passed; 0 failed", "result: FAILED. 0 passed; 1 failed")
+        busy = ("import time; until=time.process_time()+0.1; "
+                "exec('while time.process_time()<until: pass')")
+        code = ("import subprocess,sys; subprocess.run([sys.executable,'-I','-S','-c',"
+                + repr(busy) + "],check=True); print(" + repr(failure)
+                + "); sys.exit(1)")
+        result = self.execute(code)
+        self.assertEqual(result["status"], "TESTS_FAILED")
+        cpu = result["cpu_accounting"]
+        self.assertGreater(cpu["user_seconds"] + cpu["system_seconds"], 0)
+        if os.name == "nt":
+            self.assertEqual(cpu["active_processes"], 0)
+        self.assertEqual(cpu["method"], "windows_private_job_including_launcher"
+                         if os.name == "nt" else "posix_process_reaped_children_delta")
+        saved = json.loads((self.root / "output/result.json").read_text())
+        self.assertEqual(saved["cpu_accounting"], cpu)
+
+    def test_missing_cpu_observation_does_not_change_native_verdict(self):
+        if os.name == "nt":
+            from scout_native_windows import JobAPI
+            missing = patch.object(JobAPI, "cpu_accounting", side_effect=OSError("unavailable"))
+        else:
+            missing = patch.object(runner, "reaped_child_cpu", return_value=None)
+        with missing:
+            result = self.execute("print(" + repr(PASS) + ")")
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        self.assertIsNone(result["cpu_accounting"]["user_seconds"])
+        self.assertIsNone(result["cpu_accounting"]["system_seconds"])
+        if os.name == "nt":
+            self.assertIsNone(result["cpu_accounting"]["active_processes"])
 
     def execute(self, code, **overrides):
         options = {"cwd": self.root, "output": self.root / "output",
@@ -397,6 +443,8 @@ class ProcessTests(unittest.TestCase):
         result = self.execute(code, timeout=0.3)
         self.assertEqual(result["status"], "INCONCLUSIVE")
         self.assertIsNone(result["summary"])
+        self.assertIsNotNone(result["cpu_accounting"]["user_seconds"])
+        self.assertIsNotNone(result["cpu_accounting"]["system_seconds"])
         pid = int((self.root / "child.pid").read_text())
         self.assert_child_stopped(pid)
 
@@ -549,6 +597,8 @@ class WindowsProcessTests(unittest.TestCase):
     test_gtest_output_repeat_flags_and_environment_rejected_before_launch = ProcessTests.test_gtest_output_repeat_flags_and_environment_rejected_before_launch
     test_vitest_capture_owns_json_and_keeps_terminal_log = ProcessTests.test_vitest_capture_owns_json_and_keeps_terminal_log
     test_failed_test_is_not_process_failure_only = ProcessTests.test_failed_test_is_not_process_failure_only
+    test_cpu_accounting_survives_an_assertion_failure = ProcessTests.test_cpu_accounting_survives_an_assertion_failure
+    test_missing_cpu_observation_does_not_change_native_verdict = ProcessTests.test_missing_cpu_observation_does_not_change_native_verdict
     test_source_mutation_invalidates_pass = ProcessTests.test_source_mutation_invalidates_pass
     test_log_limit_stops_without_partial_pass = ProcessTests.test_log_limit_stops_without_partial_pass
     test_non_utf8_log_has_no_verdict = ProcessTests.test_non_utf8_log_has_no_verdict
@@ -583,6 +633,8 @@ class WindowsProcessTests(unittest.TestCase):
                 result = self.execute(code, output=self.root / f"timeout-{index}", timeout=1)
                 self.assertEqual(result["status"], "INCONCLUSIVE", result)
                 self.assertTrue(result["windows_job_cleanup_verified"], result)
+                self.assertIsNotNone(result["cpu_accounting"]["user_seconds"])
+                self.assertIsNotNone(result["cpu_accounting"]["system_seconds"])
                 self.assert_pid_stopped(int((self.root / "child.pid").read_text()))
                 self.assertIsNone(other.poll(), "unrelated process was touched")
         finally:

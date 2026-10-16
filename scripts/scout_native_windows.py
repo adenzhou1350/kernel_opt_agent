@@ -82,6 +82,17 @@ class JobAPI:
         self.checked("QueryInformationJobObject", job, 1, ctypes.byref(info), ctypes.sizeof(info), None)
         return info.active
 
+    def cpu_accounting(self, job):
+        """Cumulative private-job CPU, including the trusted launcher."""
+        info = self.Accounting()
+        self.checked("QueryInformationJobObject", job, 1, ctypes.byref(info), ctypes.sizeof(info), None)
+        if info.times[0] < 0 or info.times[1] < 0:
+            raise ValueError("negative Windows job CPU counters")
+        return {"method": "windows_private_job_including_launcher",
+                "user_seconds": info.times[0] / 10_000_000,
+                "system_seconds": info.times[1] / 10_000_000,
+                "active_processes": info.active}
+
     def wait_empty(self, job, deadline):
         while self.active(job):
             remaining = deadline - time.monotonic()
@@ -144,6 +155,8 @@ def capture(*, command, cwd, output, environment, timeout, max_bytes, log):
     reason, returncode, written = None, None, 0
     members = []
     cleanup_required, cleanup_verified, wait_seconds = False, False, 0.0
+    cpu = {"method": "windows_private_job_including_launcher",
+           "user_seconds": None, "system_seconds": None, "active_processes": None}
     started = time.monotonic()
     nonce = uuid.uuid4().hex
     status_path = output / "windows-launch-status.json"
@@ -245,10 +258,15 @@ def capture(*, command, cwd, output, environment, timeout, max_bytes, log):
             if process is not None:
                 process.stdout.close()
             if job is not None:
+                try:
+                    cpu = api.cpu_accounting(job)
+                except (OSError, ValueError):
+                    pass  # Missing cost observation must not become zero or a test failure.
                 api.checked("CloseHandle", job)
     return {"exit_code": returncode, "reason": reason,
             "post_exit_group_wait_seconds": wait_seconds,
             "post_exit_group_cleanup_required": cleanup_required,
+            "cpu_accounting": cpu,
             "windows_job_cleanup_verified": cleanup_verified}
 
 
