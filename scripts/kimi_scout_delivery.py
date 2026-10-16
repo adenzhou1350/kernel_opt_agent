@@ -25,7 +25,7 @@ from pathlib import Path
 
 import kimi_scout as scout
 import scout_httpx_cpu as httpx_cpu
-from kimi_scout_delivery_source import UnsupportedEnvironment, load_source, select_leads
+from kimi_scout_delivery_source import SourceEvidenceRequired, UnsupportedEnvironment, load_source, select_leads
 from kimi_scout_verify import valid_test_summary
 from scout_publication_context import (
     owner_deferral_context, publication_context, publication_summary,
@@ -1184,6 +1184,14 @@ class Delivery:
             observed["qualified"] = False
             update(self.root, job["id"], state, reason, observed)
             return state
+        except SourceEvidenceRequired as error:
+            update(
+                self.root, job["id"], "INCONCLUSIVE", str(error),
+                {"executed": False, "qualified": False,
+                 "next_evidence": "owning immutable implementation source and caller context",
+                 "source_selection": "UNRESOLVED"},
+            )
+            return "INCONCLUSIVE"
         except UnsupportedEnvironment as error:
             update(self.root, job["id"], "ENVIRONMENT_BLOCKED", str(error))
             return "ENVIRONMENT_BLOCKED"

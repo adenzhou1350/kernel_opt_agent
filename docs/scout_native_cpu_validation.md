@@ -121,7 +121,28 @@ remains a separate check: route selection alone does not prove final visibility.
 
 For an existing Scout inbox, `kimi_scout_delivery_source.select_leads(root,
 source_ids=[known_job_id], scan_limit=16, owner_review=True)` also returns
-non-Python immutable source leads. The ordinary Python-only selector is unchanged.
+non-Python immutable source leads. Use `owner_language="go"` (also `python`,
+`rust`, `typescript`, `javascript`, `cpp`) for a language-specific owner inbox,
+or `native_cpu=True` for Go/Rust. These modes are mutually exclusive with
+`owner_review=True`. C++ includes host headers, not CUDA/HIP translation units;
+selection is not evidence that a file can compile on CPU. `exclude_repos` can
+omit repositories before the bounded scan. Immutable URL, target-language and
+already-staged checks run before `scan_limit`, so a companion Python file or
+invalid raw URL cannot consume the scan budget for a matching-language target.
+
+The automatic route remains Python-only, but now uses the unique immutable
+same-repository code URL cited in `analysis.evidence`, not the first Python
+companion. The URL must have been supplied in the packet. Repeated citations
+of that URL are one target; issue-only, absent, malformed, unsupplied or
+multi-module code evidence needs independent source selection. Those leads stay
+visible using the first code source for inbox language classification only;
+`load_source` refuses to fetch this fallback. The worker records `INCONCLUSIVE`
+with `source_selection=UNRESOLVED`, without fetching, model calls or execution.
+This is not an environment failure or a refuted bug. Legacy records with no
+evidence field use the first immutable code source; a native primary is not
+recast as its Python companion. Citation binding proves provenance only, not
+the hypothesis, caller reachability or runnable package context.
+
 Opt-in results may also carry `owner_deferrals`: at most two same-file historical
 decisions, public evidence links and reopening conditions from the existing
 bounded memory reader. Advice is fetched only for the final selected leads,

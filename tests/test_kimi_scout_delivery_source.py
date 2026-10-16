@@ -47,16 +47,17 @@ class SelectionTests(unittest.TestCase):
             "CREATE TABLE jobs (id TEXT PRIMARY KEY,state TEXT,packet TEXT,result TEXT,finished REAL)"
         )
 
-    def add(self, job_id, value=None, state="REVIEW", finished=1, hypothesis=None):
+    def add(self, job_id, value=None, state="REVIEW", finished=1, hypothesis=None, evidence=None):
+        analysis = {"hypothesis": hypothesis or job_id, "title": job_id}
+        if evidence is not None:
+            analysis["evidence"] = evidence
         self.db.execute(
             "INSERT INTO jobs VALUES (?,?,?,?,?)",
             (
                 job_id,
                 state,
                 json.dumps(value or packet()),
-                json.dumps(
-                    {"analysis": {"hypothesis": hypothesis or job_id, "title": job_id}}
-                ),
+                json.dumps({"analysis": analysis}),
                 finished,
             ),
         )
@@ -181,10 +182,101 @@ class SelectionTests(unittest.TestCase):
             {"url": RAW.replace(COMMIT, "b" * 40)},
         ]))
         owner = delivery.select_leads(self.root, owner_review=True)[0]
-        automatic = delivery.select_leads(self.root)[0]
         self.assertEqual(owner["commit"], COMMIT)
-        self.assertEqual(automatic["commit"], "b" * 40)
-        self.assertEqual(owner["canonical_key"], automatic["canonical_key"])
+        self.assertEqual(delivery.select_leads(self.root), [])
+
+    def test_unique_cited_source_controls_language_revision_and_dedup(self):
+        rust = RAW.replace("check.py", "check.rs")
+        python = RAW.replace(COMMIT, "b" * 40)
+        mixed = packet(sources=[{"url": rust}, {"url": python}])
+        self.add("mixed", mixed, evidence=[{"url": python}], hypothesis="same", finished=2)
+        self.add("single", packet(sources=[{"url": python}]), hypothesis="same", finished=1)
+        before = (self.root / "scout.sqlite").read_bytes()
+        selected = delivery.select_leads(self.root, scan_limit=1)
+        self.assertEqual([row["id"] for row in selected], ["mixed"])
+        self.assertEqual(selected[0]["commit"], "b" * 40)
+        self.assertEqual(len(delivery.select_leads(self.root)), 1)
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
+    def test_owner_language_filters_before_scan_limit_and_stays_unclaimable(self):
+        import kimi_scout_delivery as intake
+
+        suffixes = {"go": ".go", "rust": ".rs", "typescript": ".tsx",
+                    "javascript": ".mjs", "cpp": ".hpp", "python": ".py"}
+        for index, (language, suffix) in enumerate(suffixes.items()):
+            self.add(language, packet(sources=[{"url": RAW.replace(".py", suffix)}]), finished=index)
+        self.add("cuda", packet(sources=[{"url": RAW.replace(".py", ".cu")}]), finished=100)
+        before = (self.root / "scout.sqlite").read_bytes()
+        folder = self.root / "delivery"
+        intake.initialize(folder)
+        for language in suffixes:
+            with self.subTest(language=language):
+                rows = delivery.select_leads(self.root, owner_language=language, scan_limit=1)
+                self.assertEqual([row["id"] for row in rows], [language])
+                self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
+                with self.assertRaisesRegex(ValueError, "owner_review=True"):
+                    intake.stage(folder, rows)
+                self.assertEqual(intake.stage(folder, rows, owner_review=True), 1)
+                self.assertIsNone(intake.claim(folder))
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+        self.assertEqual(list((folder / "jobs").iterdir()), [])
+
+    def test_native_cpu_and_repository_exclusion_precede_scan_limit(self):
+        self.add("python", finished=30)
+        self.add("busy", packet(repo="busy/repo", sources=[{
+            "url": RAW.replace(REPO, "busy/repo").replace(".py", ".go"),
+        }]), finished=20)
+        self.add("rust", packet(sources=[{"url": RAW.replace(".py", ".rs")}]), finished=10)
+        rows = delivery.select_leads(self.root, native_cpu=True, exclude_repos=["busy/repo"], scan_limit=1)
+        self.assertEqual([row["id"] for row in rows], ["rust"])
+        self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
+
+    def test_invalid_immutable_url_does_not_consume_scan_limit(self):
+        for index, url in enumerate((RAW + "?download=1", RAW.replace("/src/", "/../"),
+                                     RAW.replace(REPO, "other/project"), RAW.replace(COMMIT, "main"))):
+            self.add("invalid" + str(index), packet(sources=[{"url": url}]), finished=20 + index)
+        self.add("valid", finished=1)
+        self.assertEqual([row["id"] for row in delivery.select_leads(self.root, scan_limit=1)], ["valid"])
+
+    def test_cited_native_target_not_python_companion_before_limit(self):
+        native = RAW.replace(".py", ".go")
+        self.add("mixed", packet(sources=[{"url": RAW}, {"url": native}]),
+                 evidence=[{"url": native}], finished=2)
+        self.add("python", finished=1)
+        self.assertEqual([row["id"] for row in delivery.select_leads(self.root, scan_limit=1)], ["python"])
+        self.assertEqual([row["id"] for row in delivery.select_leads(
+            self.root, owner_language="go", scan_limit=1)], ["mixed"])
+
+    def test_invalid_analysis_does_not_consume_scan_limit(self):
+        self.add("malformed", finished=3)
+        self.db.execute("UPDATE jobs SET result=? WHERE id='malformed'", (json.dumps({"analysis": "bad"}),))
+        self.db.commit()
+        self.add("fresh", finished=1)
+        self.assertEqual([row["id"] for row in delivery.select_leads(self.root, scan_limit=1)], ["fresh"])
+
+    def test_explicit_exclusions_do_not_consume_scan_limit(self):
+        self.add("excluded", finished=2)
+        self.add("fresh", finished=1)
+        self.assertEqual([row["id"] for row in delivery.select_leads(
+            self.root, exclude_source_ids=["excluded"], scan_limit=1)], ["fresh"])
+
+    def test_unresolved_issue_only_lead_remains_visible_without_source_fetch(self):
+        issue = f"https://github.com/{REPO}/issues/1"
+        self.add("issue", packet(sources=[{"url": RAW}, {"url": issue}]), evidence=[{"url": issue}])
+        rows = delivery.select_leads(self.root)
+        self.assertEqual([row["id"] for row in rows], ["issue"])
+        with patch.object(delivery.scout, "fetch") as fetch:
+            with self.assertRaises(delivery.SourceEvidenceRequired):
+                delivery.load_source(rows[0])
+        fetch.assert_not_called()
+
+    def test_owner_modes_validate_before_io(self):
+        for options in ({"native_cpu": 1}, {"owner_language": "cuda"},
+                        {"owner_language": "go", "native_cpu": True},
+                        {"owner_language": "go", "owner_review": True},
+                        {"native_cpu": True, "owner_review": True}):
+            with self.subTest(options=options), self.assertRaises(ValueError):
+                delivery.select_leads(self.root / "missing", **options)
 
     def test_owner_review_exact_ids_do_not_bypass_existing_delivery(self):
         self.add("staged", packet(sources=[{"url": RAW.replace(".py", ".go")}]))
@@ -398,6 +490,41 @@ class SourceTests(unittest.TestCase):
         self.assertTrue(original["packet"]["sources"])
         self.assertEqual(self.calls, [(API, 100000, True), (RAW, 100000, False)])
 
+    def test_loads_unique_cited_module_not_first_companion(self):
+        companion = RAW.replace("check.py", "companion.py")
+        value = lead(packet(sources=[{"url": companion}, {"url": RAW}]))
+        value["analysis"] = {"evidence": [{"url": RAW}]}
+        self.assertEqual(delivery.load_source(value)["url"], RAW)
+        self.assertEqual([call[0] for call in self.calls], [API, RAW])
+
+    def test_unresolved_or_unobserved_citations_never_fetch(self):
+        issue = f"https://github.com/{REPO}/issues/1"
+        other = RAW.replace("check.py", "other.py")
+        mutable = RAW.replace(COMMIT, "main")
+        foreign = RAW.replace(REPO, "other/project")
+        sources = [{"url": url} for url in (RAW, other, issue, mutable, foreign)]
+        for evidence in ([], [{"url": issue}], [{"url": RAW}, {"url": other}],
+                         [{"url": RAW + "?not-supplied"}], [{"url": mutable}],
+                         [{"url": foreign}], ["not a citation"], "not a list"):
+            value = lead(packet(sources=sources))
+            value["analysis"] = {"evidence": evidence}
+            with self.subTest(evidence=evidence), self.assertRaises(delivery.SourceEvidenceRequired):
+                delivery.load_source(value)
+        self.assertEqual(self.calls, [])
+
+    def test_issue_and_one_supplied_code_citation_resolve(self):
+        issue = f"https://github.com/{REPO}/issues/1"
+        value = lead(packet(sources=[{"url": RAW}]))
+        value["packet"]["related_open_items_sample"] = [{"url": issue}]
+        value["analysis"] = {"evidence": [{"url": issue}, {"url": RAW}, {"url": RAW}]}
+        self.assertEqual(delivery.load_source(value)["url"], RAW)
+
+    def test_native_primary_is_not_recast_as_python_companion(self):
+        value = lead(packet(sources=[{"url": RAW.replace(".py", ".cu")}, {"url": RAW}]))
+        with self.assertRaises(delivery.UnsupportedEnvironment):
+            delivery.load_source(value)
+        self.assertEqual(self.calls, [])
+
     def test_validated_cache_avoids_raw_fetch_and_is_not_written(self):
         cached = self.cache("import json\nvalue = 2\n")
         before = cached.read_bytes()
@@ -482,10 +609,10 @@ class SourceTests(unittest.TestCase):
                 delivery.load_source(lead(packet(sources=[{"url": url, "text": "x"}])))
         self.assertEqual(self.calls, [])
 
-    def test_first_eligible_python_source_not_model_suggested_url(self):
+    def test_legacy_first_code_source_not_model_suggested_url(self):
         value = packet(
             sources=[
-                {"url": RAW.replace(".py", ".cu"), "text": "x"},
+                {"url": RAW.replace(".py", ".md"), "text": "x"},
                 {"url": RAW, "text": "x"},
             ]
         )

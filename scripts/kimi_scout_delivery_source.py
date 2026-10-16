@@ -19,6 +19,19 @@ from scout_publication_context import owner_deferral_context
 
 SOURCE_LIMIT = 100_000
 CACHE_LIMIT = 1_000_000
+CODE_SUFFIXES = (
+    ".py", ".pyi", ".go", ".rs", ".cu", ".cuh", ".hip", ".c", ".cc",
+    ".cpp", ".cxx", ".h", ".hpp", ".hxx", ".ts", ".tsx", ".js",
+    ".jsx", ".mjs", ".cjs",
+)
+OWNER_LANGUAGE_SUFFIXES = {
+    "python": (".py",),
+    "go": (".go",),
+    "rust": (".rs",),
+    "typescript": (".ts", ".tsx"),
+    "javascript": (".js", ".jsx", ".mjs", ".cjs"),
+    "cpp": (".cpp", ".cc", ".cxx", ".hpp", ".hxx", ".h"),
+}
 # Explicit Python 3.10 top-level stdlib names, not the controller interpreter's
 # sys.stdlib_module_names (which would admit newer modules such as tomllib).
 # Platform-specific modules and newer APIs within these modules still need the
@@ -55,6 +68,10 @@ class UnsupportedEnvironment(ValueError):
         self.reason = reason
         self.path = path
         super().__init__(f"{path}: {reason}" if path else reason)
+
+
+class SourceEvidenceRequired(ValueError):
+    """Missing/ambiguous implementation evidence, not an environment failure."""
 
 
 def _repo(value):
@@ -94,17 +111,94 @@ def _raw_sources(packet, repo):
         yield {"url": url, "commit": commit, "path": path}
 
 
+def _first_code_source(packet, repo):
+    return next(
+        (s for s in _raw_sources(packet, repo) if s["path"].endswith(CODE_SUFFIXES)),
+        None,
+    )
+
+
+def candidate_code_source(packet, repo, analysis):
+    """Resolve supplied code citations, not an arbitrary companion module.
+
+    A unique cited module establishes provenance, not truth or reachability.
+    Multi-module claims require owner selection. Legacy records without evidence
+    retain first-code-source routing. Never synthesize URLs from model prose.
+    """
+    if analysis is None or (isinstance(analysis, dict) and "evidence" not in analysis):
+        return _first_code_source(packet, repo)
+    if not isinstance(analysis, dict) or not isinstance(analysis.get("evidence"), list):
+        raise SourceEvidenceRequired("source evidence is malformed; obtain owning implementation")
+    supplied = {
+        s["url"] for s in packet.get("sources", [])
+        if isinstance(s, dict) and isinstance(s.get("url"), str)
+    }
+    supplied.update(
+        s["url"] for s in packet.get("related_open_items_sample", [])
+        if isinstance(s, dict) and isinstance(s.get("url"), str)
+    )
+    cited = set()
+    for ref in analysis["evidence"]:
+        if not isinstance(ref, dict) or not isinstance(ref.get("url"), str):
+            raise SourceEvidenceRequired("source citation is malformed")
+        if ref["url"] not in supplied:
+            raise SourceEvidenceRequired("source citation was not supplied in the packet")
+        cited.add(ref["url"])
+    candidates = {
+        s["url"]: s for s in _raw_sources(packet, repo)
+        if s["url"] in cited and s["path"].endswith(CODE_SUFFIXES)
+    }
+    if not candidates:
+        raise SourceEvidenceRequired(
+            "no cited immutable same-repository implementation; obtain owning source "
+            "before choosing a test environment (issue evidence alone is not source selection)"
+        )
+    if len(candidates) != 1:
+        raise SourceEvidenceRequired(
+            "multiple cited implementation modules; owner must select the target "
+            "and retain caller/consumer context before single-module testing"
+        )
+    return next(iter(candidates.values()))
+
+
+def _selection_code_source(packet, repo, analysis):
+    # An unresolved lead stays visible; this fallback classifies its language
+    # only. load_source resolves evidence again and never fetches this fallback.
+    try:
+        return candidate_code_source(packet, repo, analysis)
+    except SourceEvidenceRequired:
+        return _first_code_source(packet, repo)
+
+
+def _primary_packet_suffix(raw_packet, suffixes, raw_result):
+    """Validate immutable source identity and language before SQLite LIMIT."""
+    try:
+        packet = json.loads(raw_packet)
+        analysis = json.loads(raw_result)["analysis"]
+        if not isinstance(analysis, dict):
+            return 0
+        item = _selection_code_source(packet, _repo(packet["repo"]), analysis)
+        return int(item is not None and item["path"].endswith(suffixes))
+    except (ValueError, TypeError, KeyError, AttributeError):
+        return 0
+
+
 def select_leads(
     root, limit=20, *, exclude_source_ids=(), exclude_keys=(), scan_limit=None,
-    source_ids=None, owner_review=False,
+    source_ids=None, owner_review=False, native_cpu=False, owner_language=None,
+    exclude_repos=(),
 ):
     """Return source-pinned REVIEW leads fairly; no DB/cache writes.
 
     Reproduction plans come first within each repository. canonical_key is exact
     normalized text/path deduplication, not semantic hypothesis uniqueness.
-    By default, other-language leads remain for a matching verifier. Explicit
-    owner_review also admits them, marking ALL selected leads owner-only so
-    stage() cannot accidentally schedule them in the automatic model queue.
+    Unique supplied code citations select the target; unresolved claims stay
+    visible but cannot enter automatic source testing. Legacy records use the
+    first immutable code source, never a Python companion of a native target.
+    owner_review admits all code languages. native_cpu selects Go/Rust;
+    owner_language selects one supported language (not CUDA/HIP). These mutually
+    exclusive modes mark ALL selected leads owner-only so stage() cannot
+    accidentally schedule them in the automatic model queue.
     This broadens source inspection, not execution or qualification support.
     source_ids optionally restricts selection to known job IDs before decoding
     packets or applying LIMIT. It does not bypass any admission/exclusion rule.
@@ -113,6 +207,21 @@ def select_leads(
     """
     if type(owner_review) is not bool:
         raise ValueError("owner_review must be a boolean")
+    if type(native_cpu) is not bool:
+        raise ValueError("native_cpu must be a boolean")
+    if owner_language is not None and (
+        not isinstance(owner_language, str) or owner_language not in OWNER_LANGUAGE_SUFFIXES
+    ):
+        raise ValueError("owner_language must name a supported language")
+    if sum((owner_review, native_cpu, owner_language is not None)) > 1:
+        raise ValueError("owner_review, native_cpu and owner_language are mutually exclusive")
+    owner_only = owner_review or native_cpu or owner_language is not None
+    suffixes = (
+        CODE_SUFFIXES if owner_review else
+        OWNER_LANGUAGE_SUFFIXES[owner_language] if owner_language is not None else
+        (".go", ".rs") if native_cpu else (".py",)
+    )
+    excluded_repos = tuple(sorted({_repo(repo) for repo in exclude_repos}))
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
     if source_ids is not None:
@@ -135,6 +244,13 @@ def select_leads(
     excluded_ids = set(exclude_source_ids)
     try:
         connection.execute("PRAGMA query_only=ON")
+        connection.create_function(
+            "scout_selected_primary", 3,
+            lambda job_id, packet, result: (
+                0 if job_id in excluded_ids else _primary_packet_suffix(packet, suffixes, result)
+            ),
+            deterministic=True,
+        )
         delivery_db = Path(root) / "delivery" / "delivery.sqlite"
         if delivery_db.is_file():
             connection.execute(
@@ -153,41 +269,34 @@ def select_leads(
             "id IN (" + ",".join("?" for _ in source_ids) + ") AND "
             if source_ids is not None else ""
         )
-        source_pattern = (
-            "https://raw.githubusercontent.com/*"
-            if owner_review else "https://raw.githubusercontent.com/*.py"
+        repo_filter = (
+            "AND json_extract(packet,'$.repo') NOT IN ("
+            + ",".join("?" for _ in excluded_repos) + ")"
+            if excluded_repos else ""
         )
         query = f"""SELECT id,packet,result FROM jobs
             WHERE {source_filter}state='REVIEW' AND id NOT IN (
               SELECT json_extract(packet,'$.research.parent_job_id') FROM jobs
               WHERE json_extract(packet,'$.research.parent_job_id') IS NOT NULL
             )
-            AND EXISTS (
-              SELECT 1 FROM json_each(jobs.packet,'$.sources') AS source
-              WHERE CASE WHEN json_valid(source.value)
-                THEN json_extract(source.value,'$.url') END
-                GLOB ?
-            )
+            AND scout_selected_primary(id,packet,result)=1
             {unstaged}
+            {repo_filter}
             ORDER BY CASE json_extract(packet,'$.research.stage')
               WHEN 'reproduction_plan' THEN 0 ELSE 1 END, finished DESC, id"""
         if scan_limit is not None:
             query += " LIMIT ?"
-        params = (*(source_ids or ()), source_pattern, *((scan_limit,) if scan_limit else ()))
+        params = (*(source_ids or ()), *excluded_repos, *((scan_limit,) if scan_limit else ()))
         rows = connection.execute(query, params)
         for row in rows:
-            if row["id"] in excluded_ids:
-                continue
             try:
                 packet = json.loads(row["packet"])
                 analysis = json.loads(row["result"])["analysis"]
                 repo = _repo(packet["repo"])
                 if not isinstance(analysis, dict):
                     continue
-                sources = list(_raw_sources(packet, repo))
-                primary = sources[0] if sources else None
-                python = next((s for s in sources if s["path"].endswith(".py")), None)
-                if primary is None or (python is None and not owner_review):
+                primary = _selection_code_source(packet, repo, analysis)
+                if primary is None or not primary["path"].endswith(suffixes):
                     continue
                 text = analysis.get("hypothesis") or analysis.get("title") or row["id"]
                 if not isinstance(text, str):
@@ -210,11 +319,11 @@ def select_leads(
                 {
                     "id": row["id"],
                     "repo": repo,
-                    "commit": (primary if owner_review else python)["commit"],
+                    "commit": primary["commit"],
                     "packet": packet,
                     "analysis": analysis,
                     "canonical_key": key,
-                    **({"verification_route": "OWNER_REVIEW_ONLY"} if owner_review else {}),
+                    **({"verification_route": "OWNER_REVIEW_ONLY"} if owner_only else {}),
                 }
             )
     finally:
@@ -226,7 +335,7 @@ def select_leads(
         selected.append(bucket.popleft())
         if bucket:
             active.append(bucket)
-    if owner_review:
+    if owner_only:
         for lead in selected:
             context = owner_deferral_context(
                 root, lead["repo"], lead["packet"].get("sources", []),
@@ -443,12 +552,12 @@ def load_source(lead, github_auth=False, *, root=None, allow_dependencies=False)
     packet = lead["packet"]
     if packet.get("repo") != repo:
         raise UnsupportedEnvironment("lead/packet repository mismatch")
-    item = next(
-        (s for s in _raw_sources(packet, repo) if s["path"].endswith(".py")), None
-    )
+    item = candidate_code_source(packet, repo, lead.get("analysis"))
     if item is None:
+        raise UnsupportedEnvironment("no immutable same-repository code source URL in packet")
+    if not item["path"].endswith(".py"):
         raise UnsupportedEnvironment(
-            "no immutable same-repository Python source URL in packet"
+            "primary immutable source is not a same-repository Python module"
         )
     path = item["path"]
     if lead.get("commit") is not None and lead["commit"] != item["commit"]:

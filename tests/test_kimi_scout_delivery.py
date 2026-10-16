@@ -294,6 +294,39 @@ class DeliveryTests(unittest.TestCase):
         self.assertTrue((work / "gpu-test.py").is_file())
         self.assertFalse((work / "approval.json").exists())
 
+    def test_unresolved_source_stops_before_fetch_model_and_sandbox(self):
+        raw = "https://raw.githubusercontent.com/public/project/" + "a" * 40 + "/check.py"
+        issue = "https://github.com/public/project/issues/1"
+        other = raw.replace("check.py", "other.py")
+        for index, evidence in enumerate(([{"url": issue}], [{"url": raw}, {"url": other}])):
+            value = lead(index)
+            value["packet"] = {
+                "repo": value["repo"],
+                "sources": [{"url": url} for url in (raw, other, issue)],
+            }
+            value["analysis"]["evidence"] = evidence
+            delivery.stage(self.worker.root, [value])
+            job = delivery.claim(self.worker.root)
+            with (
+                self.subTest(evidence=evidence),
+                patch.object(delivery.scout, "fetch") as fetch,
+                patch.object(self.worker, "model") as model,
+                patch.object(self.worker, "sandbox") as sandbox,
+            ):
+                self.assertEqual(self.worker.execute(job), "INCONCLUSIVE")
+            fetch.assert_not_called()
+            model.assert_not_called()
+            sandbox.assert_not_called()
+            with delivery.database(self.worker.root) as db:
+                row = db.execute("SELECT state,result FROM delivery WHERE id=?", (job["id"],)).fetchone()
+            self.assertEqual(row["state"], "INCONCLUSIVE")
+            result = json.loads(row["result"])
+            self.assertEqual(result["source_selection"], "UNRESOLVED")
+            self.assertFalse(result["executed"])
+            self.assertFalse(result["qualified"])
+            self.assertIsNone(delivery.claim(self.worker.root))
+            self.assertEqual(list((self.worker.root / "jobs" / job["id"]).iterdir()), [])
+
     def test_explicit_gpu_route_preserves_cpu_terminal_and_is_once_only(self):
         delivery.stage(self.worker.root, [lead()])
         job = delivery.claim(self.worker.root)
