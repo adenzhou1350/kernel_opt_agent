@@ -1,0 +1,36 @@
+{
+  "scope": "One exposed-owner public historical repair development pilot; not matched realized/priced total budgets or efficacy.",
+  "repository": "python-humanize/humanize",
+  "module_sha256": {
+    "__init__.py": "69586bc9cba2dbe0daa63d9f82eed16f8511a9da1ccf2e1045cd5175a9028e40",
+    "filesize.py": "8b7f3068b8ee85e3f8e03380debff698891656d2211b404f9ba42b06e9096e40",
+    "i18n.py": "6de81719bcb5c30df5474607ca124262cbcc1ff2fea25293f31fcc5b8e0ec08c",
+    "lists.py": "622534ad0d9e026280ec627f363ebe8c4be0dbe6345561b570187f5c3be726a1",
+    "number.py": "8faa9b6f4aceb7a75717579712995fcaba46873a2fb5dfd8c987b5c9b938f3cf"
+  },
+  "arms": {
+    "parent": {
+      "commit": "ca892b368a535a79cc5e2181d052245b94fd6652",
+      "time_sha256": "b36713b8f25d310cbaf081ba9b7530e91de27ebab0569c977eccd33b31cab1eb"
+    },
+    "head": {
+      "commit": "392aef707c0e74341ab4a51420984e9ea6b566c5",
+      "time_sha256": "4144e8173116bd55ed318c854ce68581270e1c8055093fa5de2334c9cc8c4710"
+    }
+  },
+  "provider": "MiniMax-M3",
+  "max_output_tokens_per_call": 768,
+  "model_calls": 18,
+  "provider_reported_inclusive_tokens": 29006,
+  "final_reviews": 16,
+  "related_repair_groups": 1,
+  "source_only": {"reviews": 4, "valid": 1, "exact_correct": 1},
+  "rules_continuation": {"reviews": 4, "valid": 1, "exact_correct": 0},
+  "fixed_native": {"reviews": 4, "valid": 3, "exact_correct": 3},
+  "selected_observation": {"reviews": 4, "valid": 2, "exact_correct": 1},
+  "missing_comparators": ["independent strong-provider", "complete applicable published agent method"],
+  "total_owner_cost": null,
+  "dollars": null,
+  "new_prs": 0,
+  "production_routing_changed": false
+}

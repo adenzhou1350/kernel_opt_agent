@@ -91,6 +91,15 @@ answer/interface burden that can obscure acquisition quality. A small
 [native-backed negative comparison](references/scout_evidence_acquisition_notes.md#direct-outcome-negative-comparison-2026-10-15)
 illustrates this limitation; it does not establish that learned selection works.
 
+A separate [Humanize native-observation example](../examples/scout-evidence-humanize/README.md)
+retains a historical repair, native parent/head discrimination and 18 real
+common-review calls. Fixed cheap native observations outperformed the learned
+choice in its frozen small pilot, with schema drift a substantial confound.
+It is exposed development data, not unseen/generalizable or priced efficacy.
+Do not require a model to restate a deterministic native fact merely to give
+the routing layer another job; keep contract/repair judgment distinct from
+structured observation handling and test that alternative in a fresh study.
+
 The [research findings](references/scout_evidence_acquisition_notes.md#research-boundary-2026-10-11)
 include unresolved novelty/utility requirements and negative comparisons.
 Nothing here authorizes a learned selector in production or a paper claim.
