@@ -114,6 +114,24 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("not self.training", result["matches"][0]["lesson"])
         self.assertNotIn("qualified", result)
 
+    def test_callable_hash_card_keeps_fallback_and_compiler_scope_distinct(self):
+        url = (
+            "https://raw.githubusercontent.com/Dao-AILab/flash-attention/"
+            "e9d8944c855489e03c66262d07ba4c81d9d8dd31/flash_attn/cute/utils.py"
+        )
+        result = lessons.lesson_suggestions(
+            "hash_callable missing co_consts causes a wrong compiled cache hit",
+            source_urls=[url],
+        )
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "callable-hash-fallback-reachability")
+        self.assertTrue(result["source_path_match"])
+        self.assertLessEqual(len(json.dumps(matched, ensure_ascii=False).encode()), lessons.MAX_CARD_BYTES)
+        self.assertIn("inspect.getsource", matched["lesson"])
+        self.assertIn("wrapper construction is not kernel compilation", matched["lesson"])
+        self.assertIn("not the whole FlashAttention package", matched["avoid_when"])
+        self.assertEqual(matched["status"], "counterexample")
+
     def test_helper_contract_card_fits_and_retains_callee_counterexample(self):
         url = (
             "https://raw.githubusercontent.com/pelletier/go-toml/"

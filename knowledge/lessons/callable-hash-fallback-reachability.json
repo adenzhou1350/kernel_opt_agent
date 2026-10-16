@@ -1,0 +1,26 @@
+{
+  "id": "callable-hash-fallback-reachability",
+  "title": "Separate callable hash fallback collisions from supported compiler inputs",
+  "applies_when": "A Python JIT or compile cache hashes callable source, bytecode or captured values, and a proposed bug attributes every inline-constant difference to a missing co_consts field.",
+  "lesson": "Trace the actual hash precedence before constructing a collision: an explicit __cute_hash__, a wrapped callable's hash, inspect.getsource, and only then the bytecode fallback can represent different paths. FlashAttention's source-visible controls can already distinguish literal changes; its co_code-only fallback is used when source inspection fails. CPython keeps literal payloads separately in co_consts, so source-unavailable functions can have equal bytecode and different behavior. A real helper collision still needs a supported consumer: wrapper construction is not kernel compilation or a wrong compiled-cache hit. Check the compiler's source-admission path before spending GPU time. CuTe's published frontend retrieves function source and rejects unsupported source-unavailable input; recheck the exact backend/version and any preprocessed or cached path rather than promoting a synthetic hash collision into a numerical kernel failure.",
+  "avoid_when": "Do not turn one source-admission rejection into a universal no-bug verdict. Other compilers, explicit hashes, preprocessed functions or changed source contracts may admit a different path. A direct whole-module helper import is not the whole FlashAttention package, a compiled score/mask modifier, cache execution, GPU correctness or performance. The public sources establish mechanisms; the scoped native helper observation does not establish system-wide safety, Scout accuracy, lower total cost or PR conversion.",
+  "evidence": [
+    {
+      "url": "https://github.com/Dao-AILab/flash-attention/blob/e9d8944c855489e03c66262d07ba4c81d9d8dd31/flash_attn/cute/utils.py",
+      "note": "_compute_base_hash prefers inspect.getsource and reaches co_code only after inspection failure; hash_callable also has explicit/wrapped hash fast paths. This contradicts an unconditional bytecode-only explanation, not every fallback collision."
+    },
+    {
+      "url": "https://docs.python.org/3.12/reference/datamodel.html#code-objects",
+      "note": "The code-object contract distinguishes bytecode instructions in co_code from literal values in co_consts. Equal instructions alone do not establish equal callable behavior."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/inspect.html#inspect.getsource",
+      "note": "Source retrieval can raise OSError or TypeError. Source availability must be tested independently of a function object's existence."
+    },
+    {
+      "url": "https://github.com/NVIDIA/cutlass/blob/main/python/CuTeDSL/cutlass/base_dsl/ast_preprocessor.py",
+      "note": "Mutable upstream frontend source retrieves source lines and rejects unsupported source-unavailable/REPL functions. Check the target version; this link is not an immutable wheel identity or an executed GPU failure."
+    }
+  ],
+  "status": "counterexample"
+}
