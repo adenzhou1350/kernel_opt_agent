@@ -34,7 +34,8 @@ class BackendTests(unittest.TestCase):
                 async def completion(request, *args):
                     self.assertEqual(request["max_output_tokens"], 16384)
                     return dict(ok=True, text=json.dumps(analysis), finish_reason="stop",
-                        usage=dict(input_tokens=100, output_tokens=700, total_tokens=800),
+                        usage=dict(input_tokens=100, output_tokens=700, total_tokens=800,
+                                   reported_reasoning_output_tokens=600),
                         tools_advertised=0, tool_calls_executed=0)
                 with patch.object(backend, "complete", completion):
                     receipt = scout.execute(root, job, sys.executable, 30, 16384, pool)
@@ -44,6 +45,7 @@ class BackendTests(unittest.TestCase):
                 if valid:
                     self.assertEqual(receipt["result"]["model"], "glm")
                     self.assertFalse(receipt["result"]["qualified"])
+                    self.assertEqual(receipt["result"]["usage"]["reported_reasoning_output_tokens"], 600)
                 else:
                     self.assertEqual(receipt["failure_scope"], "answer")
 
@@ -60,9 +62,40 @@ class BackendTests(unittest.TestCase):
         result = backend.decode_answer(answer(usage=dict(prompt_tokens=23, completion_tokens=41,
             total_tokens=64, reasoning_tokens=30)))
         self.assertTrue(result["ok"])
-        self.assertNotIn("reasoning", json.dumps(result))
+        self.assertNotIn("private reasoning not returned", json.dumps(result))
+        # A top-level vendor field is not assumed to be the standard subset.
+        self.assertIsNone(result["usage"]["reported_reasoning_output_tokens"])
         self.assertEqual(result["usage"]["total_tokens"], 64)
         self.assertIsNone(result["usage"]["cached_input_tokens"])
+
+    def test_optional_reasoning_counter_is_numeric_subset_not_extra_charge(self):
+        for finish in ("stop", "length"):
+            data = json.loads(answer(usage=dict(prompt_tokens=23, completion_tokens=41,
+                completion_tokens_details=dict(reasoning_tokens=30, private="never retain"))))
+            data["choices"][0]["finish_reason"] = finish
+            result = backend.decode_answer(json.dumps(data).encode())
+            self.assertEqual(result["usage"]["reported_reasoning_output_tokens"], 30)
+            self.assertEqual(result["usage"]["total_tokens"], 64)
+            self.assertEqual(result["ok"], finish == "stop")
+            self.assertNotIn("never retain", json.dumps(result))
+            self.assertNotIn("private reasoning not returned", json.dumps(result))
+
+    def test_missing_or_invalid_reasoning_counter_remains_unknown(self):
+        for value in (None, {}, "secret", [], dict(reasoning_tokens=True),
+                      dict(reasoning_tokens=-1), dict(reasoning_tokens=42),
+                      dict(reasoning_tokens=1.0), dict(reasoning_tokens="30")):
+            with self.subTest(details=value):
+                result = backend.decode_answer(answer(usage=dict(prompt_tokens=23,
+                    completion_tokens=41, completion_tokens_details=value)))
+                self.assertIsNone(result["usage"]["reported_reasoning_output_tokens"])
+                self.assertEqual(result["usage"]["total_tokens"], 64)
+        for value in (0, 41):
+            result = backend.decode_answer(answer(usage=dict(prompt_tokens=23,
+                completion_tokens=41, completion_tokens_details=dict(reasoning_tokens=value))))
+            self.assertEqual(result["usage"]["reported_reasoning_output_tokens"], value)
+        result = backend.decode_answer(answer(usage=dict(prompt_tokens=-1, completion_tokens=41,
+            completion_tokens_details=dict(reasoning_tokens=30))))
+        self.assertIsNone(result["usage"])
 
     def test_truncation_not_success_and_usage_preserved(self):
         data = json.loads(answer(usage=dict(prompt_tokens=2, completion_tokens=256)))

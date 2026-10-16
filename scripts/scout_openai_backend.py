@@ -86,6 +86,15 @@ def decode_answer(raw):
             usage = contract.usage_payload(SimpleNamespace(
                 prompt_tokens=usage.get("prompt_tokens"), completion_tokens=usage.get("completion_tokens"),
                 cached_tokens=usage.get("cached_tokens"), prompt_tokens_details=details))
+            # Optional provider telemetry only: never retain reasoning text or
+            # add this subset to the inclusive completion-token charge.
+            completion_details = data["usage"].get("completion_tokens_details")
+            reasoning_tokens = (completion_details.get("reasoning_tokens")
+                                if isinstance(completion_details, dict) else None)
+            if usage is not None:
+                usage["reported_reasoning_output_tokens"] = (
+                    reasoning_tokens if type(reasoning_tokens) is int
+                    and 0 <= reasoning_tokens <= usage["output_tokens"] else None)
         else:
             usage = None
     except (ValueError, TypeError, KeyError, AttributeError):

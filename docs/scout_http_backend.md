@@ -64,6 +64,12 @@ Reasoning text is not persisted or shown as a result. Reported completion tokens
 remain inclusive: do not add reasoning tokens a second time. Missing usage/cache
 counters remain unknown. Truncation, extra choices, tool requests, malformed
 answers and unsupported source citations are failures, not qualified leads.
+If supplied, the numeric `completion_tokens_details.reasoning_tokens` subset is
+retained as `usage.reported_reasoning_output_tokens`, including length failures.
+Missing, malformed or greater-than-completion values remain unknown, not zero.
+This provider-reported observation is not independently measured cost, latency
+or answer quality; it is never added to the inclusive charge. Do not infer a
+visible-token count by retokenizing text or reconstruct past reasoning usage.
 HTTP mode permits an explicitly selected output budget up to 32,768 tokens;
 Kimi's default remains 4,096. A forced-thinking model may consume a small cap
 before emitting any visible answer. Preserve that failed trial and choose a
