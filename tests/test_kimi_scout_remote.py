@@ -78,10 +78,13 @@ for raw in sys.stdin:
         envelope = dict(request_id="a" * 32,
                         request=dict(prompt="public", max_output_tokens=256, timeout_seconds=10),
                         progress_file="C:/never-open-this.json")
+        flags = {name: getattr(remote.sys.flags, name) for name in dir(remote.sys.flags)
+                 if not name.startswith('_')}
+        flags.update(isolated=1, dev_mode=False, ignore_environment=True)
         for ready in (True, False):
             output = io.StringIO()
             with patch.object(remote, "MAX_REQUESTS", 1), \
-                    patch.object(remote.sys, "flags", SimpleNamespace(isolated=1, dev_mode=False, ignore_environment=True)), \
+                    patch.object(remote.sys, "flags", SimpleNamespace(**flags)), \
                     patch.object(backend, "load_provider", return_value={"model_alias": "test"}), \
                     patch.object(backend, "complete", side_effect=complete) as calls, \
                     patch.object(remote, "load_backend", return_value=backend), \
