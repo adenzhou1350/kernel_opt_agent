@@ -1292,6 +1292,47 @@ pre-call protocol, common-review variance controls and budget accounting.
 python -B -m unittest tests.test_scout_repair_draw
 ```
 
+## Go enrollment and a retained output-limit stop (2026-10-16)
+
+The optional historical sampler now accepts `--language go`. Production `.go`
+files exclude `*_test.go`; directory scopes may coincide and explicit `./`
+selects the repository root. Python defaults and its disjoint-directory rule
+are unchanged. Language-specific production bounds are not bounds on all
+files in a mixed-language commit. Real-Git tests cover suffix classification,
+root/subdirectory selection, frozen-frame caps, security-title exclusion,
+invalid scopes and the CLI. An initial fixture miscounted its one-line source
+as two lines, and one Windows teardown reported `WinError145`; both are retained.
+The corrected full 19-case run passed without suppressing cleanup errors.
+
+One newly frozen Go draw used the latest 60 reachable nonmerge commits in
+`go-chi/chi`, after reading public repository metadata/README but before repair
+source. It selected the existing
+[self-mount repair](https://github.com/go-chi/chi/commit/aba86186a27484f3cadc55b8d6448d2049af71bf).
+Complete parent/head raw production exports ran the identical unchanged head
+mounting tests on Linux amd64 Go1.25.10/race. Parent had three failed test/subtest
+events and three passing controls; head passed all six. They are one historical
+repair group, not three bugs. Tests call `Mount` and recover without serving a
+request through the invalid self-mount. This is scoped call-time discrimination,
+not full CI, a new PR or a training-unseen sample. An owner report adapter called
+the comparison API incorrectly after both captures finished; existing saved
+logs were re-aggregated through its actual interface with no repeated execution.
+
+A subsequent separately frozen common-review pilot allowed one cached
+observation, two repetitions per arm and at most eight M3 calls. It stopped on
+the first selector: the complete provider envelope ended at `max_tokens`, with
+128 output tokens and incomplete JSON. No action was accepted and no final
+review occurred; this does not measure semantic selector accuracy or evidence
+utility. Actual normalized usage was 1,173 tokens (888 input + 157 cache read
++ 128 output), with about 33.13s client time. The task-local collector incorrectly
+reported zero because it gated accounting on answer validity. The original
+report remains preserved with a hash-bound correction using the existing usage
+helpers; no model call was replayed or output ceiling raised on the exposed case.
+
+Native admission and cached observations are separate costs. Equal ceilings
+are not equal realized/priced budgets. Strong-model/full existing-method
+comparators, monetary/owner cost and multiple independent groups remain absent;
+there is no adaptive-policy, PR-yield or paper-readiness result here.
+
 ## Repeated common review: attrs pilot (2026-10-16)
 
 The admitted attrs group above subsequently received a separately frozen M3

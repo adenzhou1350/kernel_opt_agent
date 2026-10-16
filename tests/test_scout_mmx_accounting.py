@@ -8,7 +8,8 @@ import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
-from scripts.scout_shadow_comparison import make_view, parse_mmx_message, parsed, run_arm
+from scripts.scout_shadow_comparison import make_view, parse_mmx_message, parsed, run_arm, summarize_reported_tokens
+from scripts.scout_model_usage import summarize_token_attempts
 
 
 def message():
@@ -103,6 +104,26 @@ class MmxAccountingTests(unittest.TestCase):
             self.assertEqual(result['normalized_total_tokens'], 20)
         for code in (1, 127, -9):
             self.assertFalse(self.parse(code=code)['response']['ok'])
+
+    def test_output_limit_failure_is_charged_before_answer_quality(self):
+        data = message()
+        data['stop_reason'] = 'max_tokens'
+        data['content'][0]['text'] = '{"action":"native","reason":"unfinished'
+        data['usage'] = dict(input_tokens=888, cache_read_input_tokens=157,
+                             cache_creation_input_tokens=0, output_tokens=128)
+        record = self.parse(data)
+        self.assertFalse(record['response']['ok'])
+        self.assertEqual('MMX_INCOMPLETE_MESSAGE', record['response']['error'])
+        self.assertIsNone(parsed(record))
+        # Complete provider-final usage is not gated by a usable action/answer.
+        totals = summarize_reported_tokens([record])
+        self.assertEqual(1173, totals['normalized_total_tokens'])
+        self.assertEqual(1, totals['known_usage_records'])
+        attempts = summarize_token_attempts([dict(attempt_id='truncated-selector',
+            arm='selected', total_tokens=record['normalized_total_tokens'],
+            usage_final=True, elapsed_seconds=33.1)])
+        self.assertEqual(1173, attempts['selected']['final_token_total'])
+        self.assertEqual(1, attempts['selected']['attempts'])
 
     def test_thinking_is_not_returned_as_answer_and_tool_content_is_unsupported(self):
         data = message()

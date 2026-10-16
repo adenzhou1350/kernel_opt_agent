@@ -19,7 +19,7 @@ SHA = re.compile(r"[0-9a-f]{40}")
 
 def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
          max_production_files=4, max_production_lines=180,
-         history_scope="first-parent"):
+         history_scope="first-parent", language="python"):
     if type(count) is not int or not 1 <= count <= 1000:
         raise ValueError("frame count must be within 1..1000")
     if any(type(n) is not int or n <= 0 for n in (max_production_files, max_production_lines)):
@@ -28,12 +28,23 @@ def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
         raise ValueError("nonempty Git revision, not an option, required")
     if history_scope not in ("first-parent", "reachable"):
         raise ValueError("history_scope must be first-parent or reachable")
+    if language not in ("python", "go"):
+        raise ValueError("language must be python or go")
+
+    def valid_prefix(prefix):
+        # Go convention puts production and *_test.go files together, often
+        # at the module root. Only this explicit mode admits that root scope.
+        if language == "go" and prefix == "./":
+            return True
+        return (isinstance(prefix, str) and prefix.endswith("/")
+                and not prefix.startswith(("/", "-")) and "\\" not in prefix
+                and ":" not in prefix
+                and not any(part in ("", ".", "..") for part in prefix[:-1].split("/")))
+
     for group in (production_prefixes, test_prefixes):
-        if not group or any(not isinstance(p, str) or not p.endswith("/")
-            or p.startswith(("/", "-")) or "\\" in p or ":" in p
-            or any(part in ("", ".", "..") for part in p[:-1].split("/")) for p in group):
+        if not group or any(not valid_prefix(p) for p in group):
             raise ValueError("literal repository-relative directory prefixes required")
-    if any(a.startswith(b) or b.startswith(a) for a in production_prefixes for b in test_prefixes):
+    if language == "python" and any(a.startswith(b) or b.startswith(a) for a in production_prefixes for b in test_prefixes):
         raise ValueError("production and test scopes must be disjoint")
     repo = Path(repo).resolve(strict=True)
     env = dict(os.environ, GIT_NO_LAZY_FETCH="1", GIT_TERMINAL_PROMPT="0")
@@ -62,11 +73,23 @@ def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
             record["excluded"] = "SECURITY_TITLE"
             continue
         parent, commit = row["parents"][0], row["commit"]
+        scopes = (*production_prefixes, *test_prefixes)
+        pathspecs = [] if "./" in scopes else [":(literal)" + p for p in scopes]
         stat = git("diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--numstat", "-z",
-                   parent, commit, "--", *(":(literal)" + p for p in (*production_prefixes, *test_prefixes)))
+                   parent, commit, "--", *pathspecs)
         entries = [item.split("\t", 2) for item in stat.split("\0") if item]
-        production = [e for e in entries if e[2].endswith(".py") and e[2].startswith(tuple(production_prefixes))]
-        tests = [e[2] for e in entries if e[2].endswith(".py") and e[2].startswith(tuple(test_prefixes))]
+
+        def in_scope(path, prefixes):
+            return any(p == "./" or path.startswith(p) for p in prefixes)
+
+        if language == "go":
+            production = [e for e in entries if e[2].endswith(".go")
+                          and not e[2].endswith("_test.go") and in_scope(e[2], production_prefixes)]
+            tests = [e[2] for e in entries if e[2].endswith("_test.go")
+                     and in_scope(e[2], test_prefixes)]
+        else:
+            production = [e for e in entries if e[2].endswith(".py") and in_scope(e[2], production_prefixes)]
+            tests = [e[2] for e in entries if e[2].endswith(".py") and in_scope(e[2], test_prefixes)]
         if not 1 <= len(production) <= max_production_files or not tests:
             continue
         if any(not a.isdigit() or not b.isdigit() for a, b, _ in production):
@@ -82,12 +105,12 @@ def draw(repo, ref, *, production_prefixes, test_prefixes, count=60,
                         parent_tree=git("rev-parse", parent + "^{tree}").strip())
         break
     return dict(head=head, frame_count=len(frame), requested_frame_count=count,
-                history_scope=history_scope,
+                history_scope=history_scope, language=language,
                 production_prefixes=list(production_prefixes), test_prefixes=list(test_prefixes),
                 max_production_files=max_production_files, max_production_lines=max_production_lines,
                 scanned=scanned, selected=selected, source_semantics_shown=False,
                 replacement_on_failure=False, model_calls=0,
-                boundary="Non-shallow metadata frame of single-parent commits only; history scope is explicit. Reachable side-branch commits are not independent groups or merge-net-change labels. No native discrimination, new PR, memorization-free holdout or policy utility implied.")
+                boundary="Non-shallow metadata frame of single-parent commits only; history scope and language are explicit. Production bounds count only that language's classified source, not the entire commit. Reachable side-branch commits are not independent groups or merge-net-change labels. No native discrimination, new PR, memorization-free holdout or policy utility implied.")
 
 
 def main():
@@ -100,6 +123,8 @@ def main():
     parser.add_argument("--max-production-lines", type=int, default=180)
     parser.add_argument("--history-scope", choices=("first-parent", "reachable"), default="first-parent",
                         help="reachable also includes single-parent commits on merged side branches; declares a different draw population")
+    parser.add_argument("--language", choices=("python", "go"), default="python",
+                        help="Go separates production and tests by *_test.go; permits co-located prefixes and explicit ./ root scope")
     parser.add_argument("--production-prefix", action="append", required=True)
     parser.add_argument("--test-prefix", action="append", required=True)
     args = parser.parse_args()
@@ -107,7 +132,7 @@ def main():
                           test_prefixes=args.test_prefix, count=args.count,
                           max_production_files=args.max_production_files,
                           max_production_lines=args.max_production_lines,
-                          history_scope=args.history_scope), ensure_ascii=False, indent=2))
+                          history_scope=args.history_scope, language=args.language), ensure_ascii=False, indent=2))
 
 
 if __name__ == "__main__":

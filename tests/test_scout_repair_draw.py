@@ -165,6 +165,76 @@ class RepairDrawTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             draw(self.root, "HEAD", production_prefixes=["src/"], test_prefixes=["src/tests/"])
 
+    def go_change(self, paths, title="Fix ordinary Go input"):
+        for name in paths:
+            path = self.root / name
+            path.parent.mkdir(exist_ok=True, parents=True)
+            path.write_bytes(b"package sample\nvar Value = 1\n")
+        return self.commit(title)
+
+    def test_go_opt_in_classifies_colocated_tests_by_suffix(self):
+        fix = self.go_change(["src/a.go", "src/a_test.go"])
+        self.assertIsNone(self.inspect()["selected"])
+        result = draw(self.root, "HEAD", production_prefixes=["src/"],
+                      test_prefixes=["src/"], language="go")
+        self.assertEqual("go", result["language"])
+        self.assertEqual(fix, result["selected"]["commit"])
+        self.assertEqual(["src/a.go"], result["selected"]["production_paths"])
+        self.assertEqual(["src/a_test.go"], result["selected"]["test_paths"])
+        self.assertEqual(2, result["selected"]["changed_production_lines"])
+
+    def test_go_explicit_root_scope_and_normal_filename_not_test_prefix(self):
+        fix = self.go_change(["retry.go", "retry_test.go", "test_helper.go", "sub/b_test.go"])
+        result = draw(self.root, "HEAD", production_prefixes=["./"],
+                      test_prefixes=["./"], language="go")
+        self.assertEqual(fix, result["selected"]["commit"])
+        self.assertEqual(["retry.go", "test_helper.go"], result["selected"]["production_paths"])
+        self.assertEqual(["retry_test.go", "sub/b_test.go"], result["selected"]["test_paths"])
+        with self.assertRaises(ValueError):
+            draw(self.root, "HEAD", production_prefixes=["./"], test_prefixes=["tests/"])
+
+    def test_go_prefixes_do_not_admit_foreign_tests_or_python_repairs(self):
+        self.go_change(["src/a.go", "other/a_test.go"])
+        self.change("Fix Python-only input")
+        result = draw(self.root, "HEAD", production_prefixes=["src/"],
+                      test_prefixes=["tests/"], language="go")
+        self.assertIsNone(result["selected"])
+
+    def test_go_test_only_change_is_not_production_repair(self):
+        self.go_change(["src/a_test.go"])
+        result = draw(self.root, "HEAD", production_prefixes=["./"],
+                      test_prefixes=["./"], language="go")
+        self.assertIsNone(result["selected"])
+        self.assertFalse(result["replacement_on_failure"])
+
+    def test_go_retains_frame_bounds_and_security_exclusion(self):
+        fix = self.go_change(["src/a.go", "src/a_test.go"])
+        self.go_change(["src/b.go", "src/b_test.go"], "Fix security input")
+        options = dict(production_prefixes=["./"], test_prefixes=["./"], language="go")
+        self.assertIsNone(draw(self.root, "HEAD", count=1, **options)["selected"])
+        self.assertIsNone(draw(self.root, "HEAD", max_production_lines=1, **options)["selected"])
+        result = draw(self.root, "HEAD", **options)
+        self.assertEqual(fix, result["selected"]["commit"])
+        self.assertEqual("SECURITY_TITLE", result["scanned"][0]["excluded"])
+
+    def test_go_cli_declares_language_and_root_scope(self):
+        self.go_change(["retry.go", "retry_test.go"])
+        import sys
+        command = [sys.executable, "-B", str(Path(__file__).resolve().parents[1] / "scripts/scout_repair_draw.py"),
+                   "--repo", str(self.root), "--production-prefix", "./", "--test-prefix", "./",
+                   "--language", "go"]
+        result = json.loads(subprocess.check_output(command))
+        self.assertEqual("go", result["language"])
+        self.assertIsNotNone(result["selected"])
+
+    def test_go_still_rejects_unsafe_prefixes_and_unknown_language(self):
+        for prefix in ("../", "src/../", "./src/", "/", "src\\", ""):
+            with self.subTest(prefix=prefix), self.assertRaises(ValueError):
+                draw(self.root, "HEAD", production_prefixes=[prefix], test_prefixes=["./"], language="go")
+        for language in (None, "rust", "Go"):
+            with self.subTest(language=language), self.assertRaises(ValueError):
+                self.inspect(language=language)
+
 
 if __name__ == "__main__":
     unittest.main()

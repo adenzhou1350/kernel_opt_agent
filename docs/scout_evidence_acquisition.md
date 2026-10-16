@@ -19,13 +19,23 @@ not establish that evidence selection improves discovery, recall or total cost.
 | Missing implementation, literal or companion test? | [Missing-implementation discovery](references/scout_evidence_acquisition_notes.md#optional-missing-implementation-discovery), [literal hints](references/scout_evidence_acquisition_notes.md#cached-python-literal-assignment-hints), [feature-named tests](references/scout_evidence_acquisition_notes.md#optional-feature-named-companion-test) | That the selected code/test establishes the allegation |
 | Need a cheap acquisition comparator? | `scout_acquisition_choice`, `scout_bm25_source`; [rule](references/scout_evidence_acquisition_notes.md#visible-frontier-rule-for-fresh-comparisons) and [BM25](references/scout_evidence_acquisition_notes.md#optional-bm25-window-comparator) scopes | An existing published agent method or measured utility |
 | Need actual package behavior? | [Native CPU validation](scout_native_cpu_validation.md) and the commit-exact source bundler | Full-platform, serving or performance qualification |
-| Need a reproducible historical Python repair draw? | `scout_repair_draw`; [enrollment limits](references/scout_evidence_acquisition_notes.md#metadata-enrolled-native-admission-2026-10-16) | New discovery, unseen training data or selection-policy benefit |
+| Need a reproducible historical Python/Go repair draw? | `scout_repair_draw`; [enrollment limits](references/scout_evidence_acquisition_notes.md#metadata-enrolled-native-admission-2026-10-16) | New discovery, unseen training data or selection-policy benefit |
 | Need provider cost observations? | `scout_model_usage`, `scout_shadow_comparison.parse_mmx_message` | Dollar pricing, complete owner cost or budget equality |
 | Need to diagnose low activity or owner feedback? | [Refill diagnostics](references/scout_evidence_acquisition_notes.md#operational-refill-diagnostics), [current owner advice](references/scout_evidence_acquisition_notes.md#current-owner-advice-at-delivery-generation) | That a lock/state file proves a process is live |
 
 These are options, not a required tool sequence. Read the relevant reference
 section when its restrictions matter; do not load every historical experiment
 into ordinary delivery context.
+
+Repair draws default to Python with disjoint production/test directory scopes.
+Optional `--language go` classifies `*_test.go` separately from other `.go` files,
+allowing co-located directory scopes; explicit `./` selects the repository root.
+For example, a predeclared root-level Go frame can use
+`--language go --production-prefix ./ --test-prefix ./`. Other traversal/root
+spellings stay invalid. Freeze language and scopes before sampling: changed-line
+bounds cover the classified language source, not an entire mixed-language commit.
+Go metadata eligibility is not a native Go oracle or a memorization-free holdout;
+retain missing/non-discriminating historical draws without replacement.
 
 ## Keep acquisition and execution claims distinct
 
@@ -65,6 +75,15 @@ and review effort. Same call/output caps are not equal realized or priced total
 budgets. Missing usage/prices/owner effort stay unknown, not zero. Separate
 format validity, observed outcome, final label and explanatory correctness;
 do not relabel an incorrect answer from its otherwise correct prose.
+
+Normalize and account for every actual provider envelope **before** checking
+whether its answer is usable. A complete MiniMax `max_tokens` response can have
+final reported usage but no accepted JSON action. `response.ok=false` must not
+short-circuit cost collection or be renamed a transport/unknown-usage failure.
+Use `summarize_reported_tokens` or `summarize_token_attempts` unconditionally;
+the latter keeps complete final usage separate from interrupted partial usage.
+Preserve a wrong old report and bind a correction to the original request and
+envelope instead of rerunning or silently changing a frozen trial.
 
 Keep the selector's job to choosing an observation, then use a common final
 reviewer. Requiring only the selector to also solve the case introduces an
