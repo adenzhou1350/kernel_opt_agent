@@ -860,6 +860,16 @@ targets. Completed owned artifacts can be reused offline. `--no-deps` is not a
 dependency check: inherited packages must satisfy the actual selected Torch
 METADATA requirements, and their observed versions/provenance must be retained.
 
+Runtime visibility and installer reuse are separate checks. For a uv-created
+`--system-site-packages` environment, [uv documents](https://docs.astral.sh/uv/reference/cli/#uv-venv--system-site-packages)
+that its list/install commands ignore inherited system packages even though
+Python can import them. A successful Torch/numpy import therefore does not imply
+that a subsequent uv resolution will reuse those distributions or work offline.
+Inspect the actual interpreter paths and package metadata before allocating a
+large repair budget. If the target requires uv, prepare its explicit private
+closure; otherwise an inheritance-aware installer is an option to evaluate,
+not an assumed fix. Never install into the shared base to make either route pass.
+
 A narrow registration shim must preserve the real op schema, mutation aliases,
 default arguments and wrapper behavior. Calling extracted method/test ASTs with
 a seed or fixture adapter is not a full-module import or official pytest run.

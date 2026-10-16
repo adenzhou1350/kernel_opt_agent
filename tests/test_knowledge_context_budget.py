@@ -11,6 +11,15 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_inherited_imports_do_not_imply_uv_dependency_reuse(self):
+        result = lesson_suggestions("uv --system-site-packages inherited base distributions")
+        card = next(c for c in result["matches"] if c["id"] == "separate-dependency-transport-from-native-tests")
+        self.assertIn("uv list/install ignore them", card["lesson"])
+        self.assertIn("where upstream requires uv", card["lesson"])
+        self.assertTrue(any("#uv-venv--system-site-packages" in e["url"] for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
     def test_private_target_advice_checks_loaded_dependency_not_only_metadata(self):
         result = lesson_suggestions("pip --target .pth site.addsitedir distribution metadata")
         card = result["matches"][0]
