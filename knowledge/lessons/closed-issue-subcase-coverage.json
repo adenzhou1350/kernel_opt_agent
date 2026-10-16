@@ -1,9 +1,9 @@
 {
   "id": "closed-issue-subcase-coverage",
-  "title": "Closed issue status is not subcase coverage or proof of novelty",
-  "applies_when": "A source-audit lead resembles a closed issue, a merged fix to a sibling method, a multi-case report, or a prior no-op restriction whose return-value contract was not checked.",
-  "lesson": "Read the issue body and linked patch before deciding whether a finding is new or fixed. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? AnyIO #1081 also reports negative receive_exactly, beyond the receive API in its title; merged #1191's max_bytes validation does not prove exact-read coverage. Return to that report rather than claiming fresh discovery. Similarly, a maintainer's prohibition on moving a stream position does not require an accepted no-op seek to return None: check the actual return contract and consumer separately. An existing repair or passing characterization test is not evidence that every remaining behavior was deliberately requested. Record scoped advice without suppressing the whole file or rewriting raw model answers.",
-  "avoid_when": "A current native failure does not prove novelty, intended behavior or maintainer acceptance. Do not copy a sibling API's positive-size constraint: zero-length exact reads can differ from bounded receive. Preserve streaming restrictions when repairing no-op returns; a synchronous BufferedReader reproduction does not prove async zip/tar compatibility or justify random access. These are scoped counterexamples, not a measured Scout conversion/miss-rate improvement or a universal rule to reopen closed issues.",
+  "title": "Issue status does not establish fix coverage or novelty",
+  "applies_when": "A source-audit lead resembles an open or closed issue, a merged fix to a sibling method, a multi-case report, or a prior no-op restriction whose return-value contract was not checked.",
+  "lesson": "Read the issue body, latest discussion and linked patch before deciding whether a finding is new or fixed. An open issue can already have a reporter-confirmed repair: Megatron #8179's comments point to #7582 and report that the original tied-weight reproducer passed. Preserve author ownership, not a competing fix based only on the initial body. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? AnyIO #1081 also reports negative receive_exactly, beyond the receive API in its title; merged #1191's max_bytes validation does not prove exact-read coverage. Return to that report rather than claiming fresh discovery. Similarly, a maintainer's prohibition on moving a stream position does not require an accepted no-op seek to return None: check the actual return contract and consumer separately. An existing repair or passing characterization test is not evidence that every remaining behavior was deliberately requested. Record scoped advice without suppressing the whole file or rewriting raw model answers.",
+  "avoid_when": "Reporter-confirmed repair is not our independent native qualification, proof of merge or all-case support. A current native failure does not prove novelty, intended behavior or maintainer acceptance. Do not copy a sibling API's positive-size constraint: zero-length exact reads can differ from bounded receive. Preserve streaming restrictions when repairing no-op returns; a synchronous BufferedReader reproduction does not prove async zip/tar compatibility or justify random access. These are scoped counterexamples, not a measured Scout conversion/miss-rate improvement or a universal rule to reopen closed issues.",
   "evidence": [
     {
       "url": "https://github.com/agronholm/anyio/issues/1081",
@@ -28,6 +28,10 @@
     {
       "url": "https://github.com/fsspec/filesystem_spec/pull/2306",
       "note": "Proposed follow-up returns current offsets without enabling random access. Exact-source loopback BufferedReader raises TypeError before and returns integer positions after; 110 official HTTP cases pass. Open PR, not maintainer acceptance, full CI or measured selector utility."
+    },
+    {
+      "url": "https://github.com/NVIDIA/Megatron-LM/issues/8179",
+      "note": "The open issue's Oct14 discussion points to PR7582; the reporter confirms the original tied-weight reproduction completes two iterations, validation and test. This is reported evidence, not our execution or a merge verdict."
     }
   ],
   "status": "counterexample"

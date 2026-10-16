@@ -11,6 +11,23 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_issue_status_advice_reads_reporter_validation_without_own_pass_claim(self):
+        result = lesson_suggestions(
+            "open closed issue subcase reporter-confirmed repair latest discussion"
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "closed-issue-subcase-coverage")
+        self.assertIn("latest discussion", card["lesson"])
+        self.assertIn("original tied-weight reproducer", card["lesson"])
+        self.assertIn("not our independent native qualification", card["avoid_when"])
+        self.assertTrue(any(
+            item["url"].endswith("/Megatron-LM/issues/8179")
+            and "not our execution or a merge verdict" in item["note"]
+            for item in card["evidence"]
+        ))
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+
     def test_inherited_imports_do_not_imply_uv_dependency_reuse(self):
         result = lesson_suggestions("uv --system-site-packages inherited base distributions")
         card = next(c for c in result["matches"] if c["id"] == "separate-dependency-transport-from-native-tests")
