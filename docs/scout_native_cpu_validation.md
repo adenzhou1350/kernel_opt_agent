@@ -44,6 +44,19 @@ evidence, and do not replace that case to improve a reported success rate.
 
 ## Owner-only intake across languages
 
+### Native behavior is not the entire acceptance contract
+
+A real loopback HTTP test can show that **that server** replaces bytes on PUT;
+it does not establish the behavior of every remote server. In
+[Fsspec #2294](https://github.com/fsspec/filesystem_spec/pull/2294#issuecomment-6193718335),
+maintainer review accepted rejecting unsupported `pipe_file` modes but required
+the explanation to be defensive: PUT semantics remain server-dependent. The
+[merged implementation](https://github.com/fsspec/filesystem_spec/blob/16fad6169ad2c61e9e7afc6791ab9f560ed21ee0/fsspec/implementations/http.py)
+keeps that boundary. Preserve the native before/after evidence, but independently
+justify the intended contract; do not turn one test server's behavior into a
+universal protocol claim. A merged contribution is an observed delivery outcome,
+not by itself a controlled comparison of Scout strategies or knowledge utility.
+
 ### Missing source is not a native-test failure
 
 Before repairing an environment, inspect the actual excerpt delivered to the
