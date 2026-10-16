@@ -65,6 +65,18 @@ Freeze enrollment, related-revision grouping, available observations, common
 review interfaces, stopping rules and independent adjudication before compared
 calls. Keep exposed owner examples and interface repairs out of unseen results.
 
+For new queue admissions, `kimi_scout_shadow.enroll_future_source_audits` reads
+the first requested source-audit jobs after a predeclared `created_after` cutoff
+in a fixed repository frame, ordered by creation time and ID. Freeze those
+arguments before admission and persist each returned prefix. It reads neither
+answers nor current states, so later failure/no-lead/CI outcomes cannot select a
+more convenient case. Missing or mismatched queue-time packet bindings retain
+their slots; an incomplete frame is not an empty or successful trial. Raw packet
+bodies belong in private run storage, not Git. Owner-context flags and related
+revisions still need exposure/grouping review. This reader is enrollment only:
+it does not freeze providers, action menus, independent native oracles, stopping
+rules, realized costs or prices, and does not make a comparison budget-matched.
+
 Compare no additional evidence, a strong zero-model rule, cheap and strong
 models, and an applicable existing method or explicitly labeled adaptation.
 A component smoke is not that method's full pipeline. Verify that the selected

@@ -6,8 +6,13 @@ admission. It never reads a model result, rejects a lead, or dispatches work.
 
 from __future__ import annotations
 
+from contextlib import closing
 import hashlib
+import json
+import math
+from pathlib import Path
 import re
+import sqlite3
 import time
 from urllib.parse import urlsplit
 
@@ -21,6 +26,59 @@ PINNED_SOURCE = re.compile(
     r"^/(?P<owner>[^/]+)/(?P<repo>[^/]+)/(?P<commit>[0-9a-f]{40})/"
     r"(?P<path>[^?#]+)$"
 )
+
+
+def enroll_future_source_audits(root, *, created_after, repositories, count=4):
+    """Read the first future admissions, never their results or current states.
+
+    Freeze cutoff/repositories/count before admission. Incomplete frames keep
+    their prefix; missing or mismatched queue-time records retain their slots,
+    not replacement cases. Output is private trial input, not a public dataset,
+    independent oracle, execution permission or proof of budget equality.
+    """
+    if (type(created_after) not in (int, float) or not math.isfinite(created_after)
+            or created_after < 0 or type(count) is not int or not 1 <= count <= 20):
+        raise ValueError("finite cutoff and count within 1..20 required")
+    if (not isinstance(repositories, (list, tuple)) or not 1 <= len(repositories) <= 64
+            or any(not isinstance(repo, str) or not re.fullmatch(
+                r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo)
+                or any(part in (".", "..") for part in repo.split("/")) for repo in repositories)):
+        raise ValueError("explicit repository frame required")
+    repositories = sorted(set(repositories))
+    path = (Path(root) / "scout.sqlite").resolve(strict=True)
+    with closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True, timeout=15)) as db:
+        rows = db.execute(
+            "SELECT j.id,j.created,j.packet,s.packet_sha256,s.job_created,s.recorded_at "
+            "FROM jobs AS j INDEXED BY scout_jobs_created "
+            "LEFT JOIN research_action_shadow AS s ON s.job_id=j.id "
+            "WHERE j.created>? AND json_extract(j.packet,'$.research.stage')='source_audit' "
+            "AND json_extract(j.packet,'$.repo') IN ("
+            + ",".join("?" for _ in repositories) + ") ORDER BY j.created,j.id LIMIT ?",
+            (created_after, *repositories, count),
+        ).fetchall()
+    cases = []
+    for ident, created, body, recorded_hash, recorded_created, recorded_at in rows:
+        digest = hashlib.sha256(body.encode("utf-8")).hexdigest()
+        packet = json.loads(body)
+        if recorded_hash is None:
+            status = "MISSING_PREDECISION_RECORD"
+        elif recorded_hash != digest or recorded_created != created:
+            status = "PREDECISION_PACKET_BINDING_MISMATCH"
+        elif (type(recorded_at) not in (int, float) or not math.isfinite(recorded_at)
+              or recorded_at < created):
+            status = "INVALID_PREDECISION_TIME"
+        else:
+            status = "BOUND_PREDECISION_PACKET"
+        cases.append(dict(job_id=ident, created=created, packet_sha256=digest,
+                          predecision_status=status, packet_body=body,
+                          owner_context_present=bool(packet.get("owner_deferrals")
+                                                     or packet.get("owner_publications"))))
+    return dict(status="FRAME_COMPLETE" if len(cases) == count else "FRAME_INCOMPLETE",
+                created_after=created_after, repositories=repositories, requested_count=count,
+                cases=cases, replacement_on_failure=False, model_calls=0,
+                scope="First admitted source-audit jobs by created/id, irrespective of outcomes. "
+                "Queue-time binding is not unseen training data, independent adjudication, "
+                "native testability, PR yield or a budget-matched experiment.")
 
 
 def initialize(db) -> None:
