@@ -191,7 +191,7 @@ To stage a standalone native-test task, export the matching tool siblings once:
 python scripts/scout_native_run.py --export-runtime task/native-tools
 ```
 
-This copies the runner, result reader and commit-exact source bundler into a
+This copies the runner, result reader, Windows backend and commit-exact source bundler into a
 fresh directory and prints their byte hashes. Transfer that complete directory,
 not just `scout_native_run.py` (which imports `scout_native_results.py`). Existing
 destinations are refused; the parent task directory must exist. Export performs
@@ -239,11 +239,43 @@ The owner capture runner accepts `node-tap` for Node's built-in test reporter:
 python scripts/scout_native_run.py --cwd PRIVATE_REVIEWED_CHECKOUT --output FRESH_OUTPUT --format node-tap --expect-test "suite::regression" --expect-test "suite::control" --source contract.mjs=REVIEWED_SHA256 -- /absolute/reviewed/node --test --test-reporter=tap contract.mjs
 ```
 
-Run that capture command only on an authorized POSIX worker, after reviewing the
-command/source and setting up its private dependencies. The capture runner still
-refuses local Windows execution; Windows can independently run a reviewed native
-Node test and use `scout_native_results.py --format node-tap` on its saved report.
-Neither route starts WSL. Arbitrary generated JavaScript remains untrusted.
+Run that capture command on an authorized POSIX worker, after reviewing the
+command/source and setting up its private dependencies. On native Windows, add
+`--native-windows` and supply an absolute Windows executable path. Windows
+execution remains refused without that explicit opt-in; neither route starts WSL.
+Arbitrary generated JavaScript remains untrusted.
+
+The Windows CPU backend uses a private, unnamed
+[Job Object](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects).
+A trusted `-I -S` Python launcher joins it before starting the reviewed command;
+ordinary CreateProcess descendants inherit the job, not its handle. Output is
+bounded on disk, and timeouts include compilation and pipe closure. The runner
+allows at most 0.5 seconds for natural background shutdown within the original
+deadline. Remaining members are terminated only through the owned job, and their
+wait handles plus zero active job membership must confirm cleanup. Unrelated
+processes are never selected by name or inventory PID. Windows environment names
+are checked case-insensitively so a lowercase CUDA override cannot reopen GPUs.
+
+This is process-lifecycle accounting, **not a security sandbox**: service/WMI
+launches, malicious code, network access, CPU/memory quotas and full dependency
+identity are not isolated or proven. No Windows GPU hook is supported here.
+The backend serializes its own handle-inheritance window; callers must not
+concurrently launch unrelated inherit-all-handles children in the same Python
+process. Prefer the standalone CLI when sharing a host with other controllers.
+Job assignment, execution-policy denial, missing launcher status or uncertain
+cleanup produce an inconclusive capture; there is no alternate-runtime fallback
+or policy bypass. Keep a denied run as evidence rather than automatically trying
+another interpreter or host. Native dependencies and target-repository policies
+remain the task owner's responsibility.
+
+Windows CPython 3.14 controls cover live descendants with open and redirected
+output, natural shutdown, timeout/log-limit cleanup, controller termination,
+unrelated-process preservation and rejection before failed job assignment.
+The unchanged POSIX controls are separately replayed on Linux. A historical
+Humanize repair also reproduces through the opt-in CLI with the same 39 upstream
+tests on both normal wheel packages: parent 37 pass/2 fail, repair 39 pass.
+These establish execution-tool behavior and one known red/green replay, not new
+discoveries, supported-platform CI, performance or acquisition-policy efficacy.
 
 Use emitted, TAP-escaped test names, joined with `::` for nested cases. Suites
 are containers, not extra passing tests. Missing targets, TODO/skipped cases,
@@ -275,7 +307,8 @@ The runner owns `--reporter=json` and a fresh `vitest.json` path; do not provide
 reporter/output-file arguments. It retains stdout separately, hashes the report,
 and applies the existing timeout, source-identity and child-group cleanup checks.
 It does not audit imported dependencies or override a repository's test config.
-Windows may parse a saved report but cannot launch this POSIX capture entrance.
+Native Windows can use the same explicit `--native-windows` CPU opt-in. A saved
+report alone still establishes only log accounting, not a captured execution.
 
 Filtered tests and explicit skips share `skipped` in this reporter; they cannot
 be distinguished from JSON alone. Every skipped/todo case stays in the reported

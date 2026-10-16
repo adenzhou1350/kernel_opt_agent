@@ -110,7 +110,7 @@ class RuntimeExportTests(unittest.TestCase):
         with patch.object(runner, "export_runtime") as export, \
                 patch.object(runner, "run") as execute, redirect_stderr(io.StringIO()) as errors:
             for tail in (["--cwd", str(self.root)], ["--env", "A=B"], ["--timeout", "1"],
-                         ["--", sys.executable]):
+                         ["--native-windows"], ["--", sys.executable]):
                 with self.subTest(tail=tail), self.assertRaises(SystemExit) as exit:
                     runner.main(["--export-runtime", str(self.root / "tools"), *tail])
                 self.assertEqual(exit.exception.code, 2)
@@ -525,6 +525,170 @@ class ProcessTests(unittest.TestCase):
             with self.subTest(overrides=overrides), self.assertRaises(ValueError):
                 self.execute("print('should not run')", **overrides)
             self.assertFalse((self.root / "output").exists())
+
+
+@unittest.skipUnless(os.name == "nt", "native Windows Job Object controls")
+class WindowsProcessTests(unittest.TestCase):
+    setUp = ProcessTests.setUp
+    execute_junit = ProcessTests.execute_junit
+    write_junit = ProcessTests.write_junit
+    execute_vitest = ProcessTests.execute_vitest
+    write_vitest = ProcessTests.write_vitest
+
+    def execute(self, code, **overrides):
+        overrides.setdefault("native_windows", True)
+        overrides.setdefault("timeout", 3)
+        return ProcessTests.execute(self, code, **overrides)
+
+    test_complete_terminal_and_private_environment = ProcessTests.test_complete_terminal_and_private_environment
+    test_exit_zero_without_registered_target_is_inconclusive = ProcessTests.test_exit_zero_without_registered_target_is_inconclusive
+    test_junit_capture_owns_report_and_preserves_stdout = ProcessTests.test_junit_capture_owns_report_and_preserves_stdout
+    test_junit_assertion_failure_remains_a_test_failure = ProcessTests.test_junit_assertion_failure_remains_a_test_failure
+    test_preexisting_junit_output_argument_rejected_before_launch = ProcessTests.test_preexisting_junit_output_argument_rejected_before_launch
+    test_gtest_capture_owns_report_and_keeps_terminal_log = ProcessTests.test_gtest_capture_owns_report_and_keeps_terminal_log
+    test_gtest_output_repeat_flags_and_environment_rejected_before_launch = ProcessTests.test_gtest_output_repeat_flags_and_environment_rejected_before_launch
+    test_vitest_capture_owns_json_and_keeps_terminal_log = ProcessTests.test_vitest_capture_owns_json_and_keeps_terminal_log
+    test_failed_test_is_not_process_failure_only = ProcessTests.test_failed_test_is_not_process_failure_only
+    test_source_mutation_invalidates_pass = ProcessTests.test_source_mutation_invalidates_pass
+    test_log_limit_stops_without_partial_pass = ProcessTests.test_log_limit_stops_without_partial_pass
+    test_non_utf8_log_has_no_verdict = ProcessTests.test_non_utf8_log_has_no_verdict
+
+    def assert_pid_stopped(self, pid):
+        import ctypes
+        dll = ctypes.WinDLL("kernel32", use_last_error=True)
+        dll.OpenProcess.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+        dll.OpenProcess.restype = ctypes.c_void_p
+        dll.WaitForSingleObject.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+        dll.CloseHandle.argtypes = [ctypes.c_void_p]
+        handle = dll.OpenProcess(0x100000, False, pid)  # SYNCHRONIZE only.
+        if not handle:
+            self.assertEqual(ctypes.get_last_error(), 87)  # No process with this PID.
+            return
+        try:
+            self.assertEqual(dll.WaitForSingleObject(handle, 5000), 0)
+        finally:
+            dll.CloseHandle(handle)
+
+    def test_timeout_and_leader_exit_kill_only_owned_job(self):
+        other = subprocess.Popen([sys.executable, "-I", "-S", "-c", "import time; time.sleep(30)"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            for index, leader_wait in enumerate((True, False)):
+                code = (
+                    "import subprocess,sys,time; from pathlib import Path; "
+                    "p=subprocess.Popen([sys.executable,'-I','-S','-c','import time; time.sleep(30)']); "
+                    "Path('child.pid').write_text(str(p.pid)); "
+                    + ("time.sleep(30)" if leader_wait else "print(" + repr(PASS) + ")")
+                )
+                result = self.execute(code, output=self.root / f"timeout-{index}", timeout=1)
+                self.assertEqual(result["status"], "INCONCLUSIVE", result)
+                self.assertTrue(result["windows_job_cleanup_verified"], result)
+                self.assert_pid_stopped(int((self.root / "child.pid").read_text()))
+                self.assertIsNone(other.poll(), "unrelated process was touched")
+        finally:
+            other.terminate()
+            other.wait(timeout=5)
+
+    def test_redirected_background_child_cannot_hide_behind_pass_report(self):
+        code = (
+            "import subprocess,sys; from pathlib import Path; "
+            "p=subprocess.Popen([sys.executable,'-I','-S','-c','import time; time.sleep(30)'],"
+            "stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "
+            "Path('child.pid').write_text(str(p.pid)); print(" + repr(PASS) + ")"
+        )
+        result = self.execute(code)
+        self.assertEqual(result["status"], "INCONCLUSIVE", result)
+        self.assertTrue(result["post_exit_group_cleanup_required"])
+        self.assertTrue(result["windows_job_cleanup_verified"])
+        self.assert_pid_stopped(int((self.root / "child.pid").read_text()))
+
+    def test_natural_background_shutdown_is_awaited(self):
+        child = "import sys,time; from pathlib import Path; Path('ready').touch(); sys.stdin.read(); time.sleep(.1)"
+        code = (
+            "import subprocess,sys,time; from pathlib import Path; "
+            "p=subprocess.Popen([sys.executable,'-I','-S','-c'," + repr(child) + "],"
+            "stdin=subprocess.PIPE,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "
+            "\nwhile not Path('ready').exists(): time.sleep(.01)\n"
+            "print(" + repr(PASS) + ")"
+        )
+        result = self.execute(code)
+        self.assertEqual(result["status"], "TESTS_PASSED", result)
+        self.assertFalse(result["post_exit_group_cleanup_required"])
+        self.assertTrue(result["windows_job_cleanup_verified"])
+        self.assertGreater(result["post_exit_group_wait_seconds"], 0.01)
+
+    def test_native_exit_code_not_launcher_success_is_parsed(self):
+        result = self.execute("import os; print(" + repr(PASS) + ",flush=True); os._exit(7)")
+        self.assertEqual(result["exit_code"], 7)
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+
+    def test_missing_and_oversized_junit_are_not_passes(self):
+        large = ("import sys; from pathlib import Path; "
+                 "Path(sys.argv[-1].split('=',1)[1]).write_text('x' * (2*1024*1024+1))")
+        for index, code in enumerate(("print('all passed')", large)):
+            result = self.execute_junit(code, output=self.root / f"report-{index}")
+            self.assertEqual(result["status"], "INCONCLUSIVE")
+            self.assertIsNone(result["summary"])
+
+    def test_invalid_expected_names_and_gpu_rejected_before_launch(self):
+        for overrides in ({"expected_tests": []}, {"_gpu_uuid": "GPU-00000000-0000-0000-0000-000000000000"},
+                          {"environment": {"cuda_visible_devices": "0"}},
+                          {"environment": {"PATH": "x", "Path": "y"}}):
+            with patch.object(runner.subprocess, "Popen") as child, self.assertRaises(ValueError):
+                self.execute("raise RuntimeError('must not run')", **overrides)
+            child.assert_not_called()
+        self.assertFalse((self.root / "output").exists())
+
+    def test_isolated_launcher_does_not_load_ambient_sitecustomize(self):
+        (self.root / "sitecustomize.py").write_text("raise RuntimeError('ambient code')")
+        result = self.execute("print(" + repr(PASS) + ")", environment={"PYTHONPATH": str(self.root)})
+        # The reviewed target may load its own sitecustomize; the -I -S launcher must not.
+        self.assertEqual(result["status"], "TESTS_PASSED", result)
+        self.assertEqual((self.root / "output/terminal.log").read_text().count("ambient code"), 1)
+
+    def test_failed_assignment_does_not_launch_reviewed_target(self):
+        import scout_native_windows
+        config = self.root / "config.json"
+        sentinel = self.root / "must-not-exist"
+        config.write_text(json.dumps({"job": 0, "nonce": "control",
+            "status": str(self.root / "status.json"),
+            "command": [sys.executable, "-c", "from pathlib import Path; Path(" + repr(str(sentinel)) + ").touch()"]}))
+        child = subprocess.run([sys.executable, "-I", "-S", "-B", scout_native_windows.__file__, str(config)],
+                               capture_output=True, timeout=5)
+        self.assertNotEqual(child.returncode, 0)
+        self.assertFalse(sentinel.exists())
+        self.assertFalse((self.root / "status.json").exists())
+
+    def test_controller_exit_closes_job_and_stops_owned_descendants(self):
+        target = (
+            "import os,subprocess,sys,time; from pathlib import Path; "
+            "p=subprocess.Popen([sys.executable,'-I','-S','-c','import time; time.sleep(30)']); "
+            "Path('owned.pids').write_text(str(os.getpid())+' '+str(p.pid)); time.sleep(30)"
+        )
+        options = dict(cwd=str(self.root), output=str(self.root / "controller-output"),
+                       command=[sys.executable, "-I", "-S", "-c", target],
+                       sources=[("source.rs", self.sha)], format="rust-libtest",
+                       expected_tests=["contract"], native_windows=True, timeout=30)
+        code = ("import sys; sys.path.insert(0," + repr(str(Path(runner.__file__).parent)) + "); "
+                "import scout_native_run; scout_native_run.run(**" + repr(options) + ")")
+        controller = subprocess.Popen([sys.executable, "-I", "-S", "-B", "-c", code],
+                                      stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            deadline = time.monotonic() + 5
+            while not (self.root / "owned.pids").exists() and time.monotonic() < deadline:
+                self.assertIsNone(controller.poll())
+                time.sleep(.01)
+            self.assertTrue((self.root / "owned.pids").exists())
+            pids = [int(pid) for pid in (self.root / "owned.pids").read_text().split()]
+            self.assertEqual(len(pids), 2)
+            controller.terminate()
+            controller.wait(timeout=5)
+            for pid in pids:
+                self.assert_pid_stopped(pid)
+        finally:
+            if controller.poll() is None:
+                controller.terminate()
+                controller.wait(timeout=5)
 
 
 if __name__ == "__main__":

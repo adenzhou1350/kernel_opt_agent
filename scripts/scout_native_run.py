@@ -1,4 +1,4 @@
-"""Capture one reviewed Go/Rust/pytest/GoogleTest/Node/Vitest CPU command on POSIX.
+"""Capture one reviewed native CPU command on POSIX or opt-in Windows.
 
 No downloads, environment provisioning, SSH, model calls or queue mutations.
 This is execution/log accounting, not a sandbox or a PR qualification oracle.
@@ -19,7 +19,8 @@ from pathlib import Path
 
 import scout_native_results as native
 
-RUNTIME_FILES = ("scout_native_run.py", "scout_native_results.py", "qualification_source_bundle.py")
+RUNTIME_FILES = ("scout_native_run.py", "scout_native_results.py", "qualification_source_bundle.py",
+                 "scout_native_windows.py")
 
 
 def export_runtime(output):
@@ -109,10 +110,12 @@ def wait_for_group_exit(pgid, deadline):
 
 
 def run(*, cwd, output, command, sources, format, expected_tests, package=None,
-        timeout=120, environment=None, _gpu_uuid=None):
+        timeout=120, environment=None, _gpu_uuid=None, native_windows=False):
     invocation_started = time.monotonic()
-    if os.name != "posix":
+    if os.name != "posix" and not (os.name == "nt" and native_windows):
         raise ValueError("execute on an authorized POSIX worker; do not start local WSL")
+    if native_windows and (os.name != "nt" or _gpu_uuid is not None):
+        raise ValueError("--native-windows requires native Windows and CPU-only execution")
     if not 0 < timeout <= 3600:
         raise ValueError("timeout must be within 0..3600 seconds")
     cwd = Path(cwd).resolve(strict=True)
@@ -143,6 +146,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
            or not isinstance(value, str) or "\0" in value
            for key, value in environment.items()):
         raise ValueError("invalid process environment override")
+    if native_windows:
+        if len({key.upper() for key in environment}) != len(environment):
+            raise ValueError("duplicate case-insensitive Windows environment override")
+        environment = {key.upper(): value for key, value in environment.items()}
     if format == "gtest-xml" and any(
         key in environment or key in os.environ for key in ("GTEST_OUTPUT", "GTEST_REPEAT")
     ):
@@ -167,6 +174,75 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     elif format == "gtest-xml":
         command.append(f"--gtest_output=xml:{output / 'gtest.xml'}")
     started = time.monotonic()
+    if native_windows:
+        import scout_native_windows
+        with (output / "terminal.log").open("xb") as log:
+            captured = scout_native_windows.capture(
+                command=command, cwd=cwd, output=output, environment={**os.environ, **environment},
+                timeout=timeout, max_bytes=native.MAX_BYTES, log=log)
+    else:
+        captured = capture_posix(command=command, cwd=cwd, output=output,
+                                 environment=environment, timeout=timeout, started=started)
+    reason, returncode = captured["reason"], captured["exit_code"]
+    post_exit_group_wait_seconds = captured["post_exit_group_wait_seconds"]
+    post_exit_group_cleanup_required = captured["post_exit_group_cleanup_required"]
+    command_wall_seconds = time.monotonic() - started
+    issues = [reason] if reason else []
+    try:
+        after = source_identities(cwd, sources)
+    except (OSError, ValueError) as error:
+        after = None
+        issues.append(str(error))
+    try:
+        if digest(executable) != tool_hash:
+            issues.append("test executable changed during execution")
+    except OSError as error:
+        issues.append(str(error))
+    summary, report = None, None
+    if not issues:
+        try:
+            text = (output / "terminal.log").read_text(encoding="utf-8")
+            if format in {"pytest-junit", "vitest-json", "gtest-xml"}:
+                report_name = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
+                               "gtest-xml": "gtest.xml"}[format]
+                report_path = output / report_name
+                if report_path.is_symlink() or not report_path.is_file():
+                    raise ValueError("missing or non-regular test report")
+                with report_path.open("rb") as stream:
+                    raw = stream.read(native.MAX_BYTES + 1)
+                if len(raw) > native.MAX_BYTES:
+                    raise ValueError("test report exceeds 2 MiB; no partial-report verdict")
+                text = raw.decode("utf-8")
+                report = {"path": str(report_path), "sha256": hashlib.sha256(raw).hexdigest()}
+            summary = native.summarize(text, format=format, exit_code=returncode,
+                                       expected_tests=expected_tests, package=package)
+        except UnicodeError:
+            issues.append("log or test report is not UTF-8")
+        except (OSError, ValueError) as error:
+            issues.append(str(error))
+    result = {"status": "INCONCLUSIVE" if issues else summary["status"],
+              "issues": issues, "summary": summary, "exit_code": returncode,
+              "wall_seconds": time.monotonic() - invocation_started,
+              "command_wall_seconds": command_wall_seconds, "cwd": str(cwd),
+              "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
+              "post_exit_group_cleanup_required": post_exit_group_cleanup_required,
+              "process_backend": "windows-job" if native_windows else "posix-process-group",
+              "command": list(command), "tool_path": str(executable), "tool_sha256": tool_hash,
+              "source_before": before, "source_after": after,
+              "terminal_log_sha256": digest(output / "terminal.log"),
+              "test_report": report,
+              "environment_sha256": {key: hashlib.sha256(value.encode()).hexdigest()
+                                     for key, value in sorted(environment.items())},
+              "boundary": "Reviewed command only; selected file/tool observations do not prove "
+                          "the executed binary corresponds to source, full dependency identity, "
+                          "test quality, isolation, performance or PR readiness."}
+    if native_windows:
+        result["windows_job_cleanup_verified"] = captured["windows_job_cleanup_verified"]
+    (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+    return result
+
+
+def capture_posix(*, command, cwd, output, environment, timeout, started):
     reason, written = None, 0
     post_exit_group_wait_seconds, post_exit_group_cleanup_required = 0.0, False
     # Keep output off RAM; cap both the file and the later parser input.
@@ -222,57 +298,9 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
                     reason = reason or "owned process group remains after command exit"
                     stop_group(process)
             process.stdout.close()
-    command_wall_seconds = time.monotonic() - started
-    issues = [reason] if reason else []
-    try:
-        after = source_identities(cwd, sources)
-    except (OSError, ValueError) as error:
-        after = None
-        issues.append(str(error))
-    try:
-        if digest(executable) != tool_hash:
-            issues.append("test executable changed during execution")
-    except OSError as error:
-        issues.append(str(error))
-    summary, report = None, None
-    if not issues:
-        try:
-            text = (output / "terminal.log").read_text(encoding="utf-8")
-            if format in {"pytest-junit", "vitest-json", "gtest-xml"}:
-                report_name = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
-                               "gtest-xml": "gtest.xml"}[format]
-                report_path = output / report_name
-                if report_path.is_symlink() or not report_path.is_file():
-                    raise ValueError("missing or non-regular test report")
-                with report_path.open("rb") as stream:
-                    raw = stream.read(native.MAX_BYTES + 1)
-                if len(raw) > native.MAX_BYTES:
-                    raise ValueError("test report exceeds 2 MiB; no partial-report verdict")
-                text = raw.decode("utf-8")
-                report = {"path": str(report_path), "sha256": hashlib.sha256(raw).hexdigest()}
-            summary = native.summarize(text, format=format, exit_code=process.returncode,
-                                       expected_tests=expected_tests, package=package)
-        except UnicodeError:
-            issues.append("log or test report is not UTF-8")
-        except (OSError, ValueError) as error:
-            issues.append(str(error))
-    result = {"status": "INCONCLUSIVE" if issues else summary["status"],
-              "issues": issues, "summary": summary, "exit_code": process.returncode,
-              "wall_seconds": time.monotonic() - invocation_started,
-              "command_wall_seconds": command_wall_seconds, "cwd": str(cwd),
-              "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
-              "post_exit_group_cleanup_required": post_exit_group_cleanup_required,
-              "command": list(command), "tool_path": str(executable), "tool_sha256": tool_hash,
-              "source_before": before, "source_after": after,
-              "terminal_log_sha256": digest(output / "terminal.log"),
-              "test_report": report,
-              "environment_sha256": {key: hashlib.sha256(value.encode()).hexdigest()
-                                     for key, value in sorted(environment.items())},
-              "boundary": "Reviewed command only; selected file/tool observations do not prove "
-                          "the executed binary corresponds to source, full dependency identity, "
-                          "test quality, isolation, performance or PR readiness."}
-    (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
-    return result
+    return {"reason": reason, "exit_code": process.returncode,
+            "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
+            "post_exit_group_cleanup_required": post_exit_group_cleanup_required}
 
 
 def assignments(values, *, environment=False):
@@ -288,7 +316,9 @@ def assignments(values, *, environment=False):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--export-runtime", type=Path,
-                        help="copy the three stdlib-only CPU tools into a fresh directory; do not execute")
+                        help="copy the stdlib-only CPU tools into a fresh directory; do not execute")
+    parser.add_argument("--native-windows", action="store_true",
+                        help="explicitly allow native Windows CPU capture using a private Job Object")
     parser.add_argument("--cwd", type=Path)
     parser.add_argument("--output", type=Path)
     parser.add_argument("--format", choices=native.FORMATS)
@@ -301,7 +331,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.export_runtime is not None:
         if any((args.cwd, args.output, args.format, args.package, args.expect_test,
-                args.source, args.env, args.command)) or args.timeout != 120:
+                args.source, args.env, args.command, args.native_windows)) or args.timeout != 120:
             parser.error("--export-runtime cannot be combined with execution options")
         try:
             result = export_runtime(args.export_runtime)
@@ -318,7 +348,8 @@ def main(argv=None):
         result = run(cwd=args.cwd, output=args.output, command=command,
                      sources=assignments(args.source), format=args.format,
                      expected_tests=args.expect_test, package=args.package,
-                     environment=dict(assignments(args.env, environment=True)), timeout=args.timeout)
+                     environment=dict(assignments(args.env, environment=True)), timeout=args.timeout,
+                     native_windows=args.native_windows)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     print(json.dumps(result))
