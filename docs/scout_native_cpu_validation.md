@@ -17,6 +17,29 @@ providers available. Explicitly load the reviewed private plugin (for example,
 `-p pytest_mock` when upstream uses `mocker`) and record that environment change.
 Retain missing-fixture errors instead of scoring the unexecuted test as a pass.
 
+## SQLite read-only queries still need temporary capacity
+
+When a read-only Scout query reports `database or disk is full`, inspect the
+temporary filesystem separately from the database filesystem. `GROUP BY`,
+`ORDER BY` and materialized subqueries can require temporary storage. On the
+usual Unix VFS, `/var/tmp` precedes `/tmp` when no temporary-directory override
+is set; free space beside the database therefore does not rule out this failure.
+Check the actual query plan, VFS/build and process environment rather than
+assuming corruption or an exhausted database size limit. See SQLite's
+[temporary-file mechanisms and locations](https://www.sqlite.org/tempfiles.html).
+
+For a bounded counterfactual, run the same read-only query in a fresh child with
+`SQLITE_TMPDIR` pointing to a short, permission-restricted task directory on a
+filesystem with verified capacity. Set it before the child initializes SQLite;
+do not change the process-global temporary-directory pragma in a threaded
+controller. SQLite explicitly discourages that
+[global interface](https://www.sqlite.org/c3ref/temp_directory.html).
+Windows uses a different OS-specific selection mechanism; do not assume the
+Unix environment variable applies there. Keep the original failure, and report
+the child-only environment change. A successful retry is scoped recovery
+evidence, not a database-health or throughput certificate. Do not clear shared
+temporary directories, disable journaling, or force all temporary work into RAM.
+
 ## Collection skips are not executed tests
 
 Pytest can report a whole skipped module as a JUnit `testcase` with an empty
