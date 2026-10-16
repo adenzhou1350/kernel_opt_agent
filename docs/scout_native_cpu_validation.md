@@ -134,6 +134,24 @@ no execution, install or network call;
 it does not supply pytest/compilers or qualify a target package. Keep the reviewed
 command, exact sources and expected test identities for the normal run entrance.
 
+Check the Python API contract before upload or environment repair as well as
+checking CLI help. The collector requires **1..64 exact expected test names**;
+an empty list is not an opt-out. Its supported formats are actual test-report
+formats, not a generic `unittest`/setup-log mode. The existing stdlib
+`scout_native_results.summarize` can reject an invalid format/name list locally
+before staging. An empty report with valid inputs remains inconclusive, not a
+successful preflight test. Use names from the real test inventory and keep
+setup/import subprocess exits and costs separate from registered test results.
+
+For file reporters such as pytest JUnit, run the capture driver and reviewed
+child under the same unprivileged task identity. The driver creates the fresh
+output directory; a root-owned private directory can prevent a `nobody` child
+from writing its XML even after assertions ran. Prefer correct ownership over
+world-writable output or running the tests as root. Preserve the original
+inconclusive capture, fix only the task's identity/paths, and use fresh reports
+with unchanged assertions. Partial terminal failure/pass dots do not replace
+the missing JUnit report or override the strict capture verdict.
+
 The CPU capture entrance permits at most 0.5 seconds of natural process-group
 shutdown after the leader exits, within the original command deadline. This
 handles short-lived runtime helpers without a helper-name whitelist. The whole
