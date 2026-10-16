@@ -8,7 +8,35 @@ import ast
 import io
 import re
 import tokenize
-from urllib.parse import unquote
+from urllib.parse import unquote, urlsplit
+
+
+def prefer_supplied_snapshot_source(sources, selected, repo, commit):
+    """Prefer an already-supplied current-pin window of the selected exact path.
+
+    Never relabel old bytes, choose another file, fetch or mutate a source. If
+    the packet has no matching pin within its first eight items, preserve the
+    original selection so callers keep their existing drift/URL abstention.
+    """
+    if not isinstance(selected, dict):
+        return selected
+    try:
+        url = urlsplit(selected.get("url", ""))
+        match = re.fullmatch(rf"/{re.escape(repo)}/[0-9a-f]{{40}}/(.+)", url.path)
+        if (url.scheme != "https" or url.netloc != "raw.githubusercontent.com"
+                or url.query or url.fragment or match is None):
+            return selected
+        target = f"/{repo}/{commit}/{match[1]}"
+        for source in sources[:8]:
+            if not isinstance(source, dict):
+                continue
+            candidate = urlsplit(source.get("url", ""))
+            if (candidate.scheme == "https" and candidate.netloc == "raw.githubusercontent.com"
+                    and candidate.path == target and not candidate.query and not candidate.fragment):
+                return source
+    except (TypeError, ValueError):
+        pass
+    return selected
 
 
 def requested_code_search_symbols(request):

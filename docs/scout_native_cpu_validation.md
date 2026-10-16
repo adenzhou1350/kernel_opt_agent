@@ -38,6 +38,13 @@ complete body. Repeated literals abstain. Exact line/literal requests retain
 precedence. This avoids returning an earlier prose reference when the requested
 function is elsewhere; inspect the actual code before inferring behavior.
 
+Reference/import hints can reuse a current-pin window already supplied later in
+the packet even when an older window of that same exact path appears first.
+This preference inspects only the existing eight-source bound, does not relabel
+old bytes or ranges, and does not fetch missing pins. Without a supplied
+same-path current pin, revision-drift abstention remains in force. A successful
+lookup is source evidence, not proof of a defect or of lower discovery cost.
+
 ## Commit-exact source before native validation
 
 For a committed baseline/candidate, prefer raw Git objects over copying a dirty or

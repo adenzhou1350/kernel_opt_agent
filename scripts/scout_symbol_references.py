@@ -8,6 +8,8 @@ import ast
 import re
 from urllib.parse import unquote, urlsplit
 
+from scout_requested_definition import prefer_supplied_snapshot_source
+
 NATIVE_SUFFIXES = (
     ".c",
     ".cc",
@@ -297,6 +299,7 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     if len(named) > 1:
         return []
     selected = observed[named[0]] if named else sources[0]
+    selected = prefer_supplied_snapshot_source(sources, selected, repo, commit)
     selected_url = selected.get("url", "")
     url = urlsplit(selected_url)
     prefix = f"/{repo}/{commit}/"

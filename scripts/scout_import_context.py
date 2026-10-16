@@ -10,6 +10,7 @@ import re
 from urllib.parse import unquote, urlsplit
 
 from scout_go_context import go_import_requests
+from scout_requested_definition import prefer_supplied_snapshot_source
 
 IDENT = r"[A-Za-z_$][A-Za-z0-9_$]*"
 NAMED_IMPORT = re.compile(
@@ -302,6 +303,7 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     if len(named) > 1:
         return []
     selected = observed[named[0]] if named else sources[0]
+    selected = prefer_supplied_snapshot_source(sources, selected, repo, commit)
     url = urlsplit(selected.get("url", ""))
     prefix = f"/{repo}/{commit}/"
     if (
