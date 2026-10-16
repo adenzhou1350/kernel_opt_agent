@@ -99,6 +99,50 @@ class SourceLessonTests(unittest.TestCase):
             directory=self.library,
         )["matches"], [exact])
 
+    def test_imported_api_anchors_preserve_existing_source_text_interface(self):
+        expected = {
+            "import torch as pt\npt.bool": "bool pt",
+            "from torch import nn as layers\nlayers.Linear": "layers linear",
+            '17: import (\n18: h "net/http"\n19: )\n20: h.DefaultClient.Do(req)':
+                "defaultclient do http",
+            'const hf = await import("@huggingface/transformers");\nhf.AutoTokenizer.from_pretrained(n)':
+                "autotokenizer from_pretrained hf transformers",
+            "hf = eval('import(\"@huggingface/transformers\")');\nhf.AutoTokenizer.from_pretrained(n)":
+                "autotokenizer from_pretrained hf transformers",
+            "row.name; db.prepare; torch.bool": "",
+            'const hf = await import(moduleName);\nhf.AutoTokenizer.from_pretrained(n)': "",
+            "hf = eval(expression);\nhf.AutoTokenizer.from_pretrained(n)": "",
+        }
+        for source, terms in expected.items():
+            with self.subTest(source=source):
+                self.assertEqual(lessons.source_api_query(source), terms)
+        self.assertEqual(lessons.source_api_query("x" * lessons.MAX_SOURCE_CHARS
+                         + "\nimport torch\ntorch.bool"), "")
+        self.assertLessEqual(len(lessons.source_api_query(
+            "import public\n" + " ".join(f"public.api{i}" for i in range(3000))
+        )), lessons.MAX_QUERY_CHARS)
+
+    def test_imported_api_advice_does_not_displace_source_identity_or_budget(self):
+        imported = card("torch-bool-cache-policy", "https://example.org/evidence",
+                        "Observe torch bool before assigning a dtype bug.")
+        self.save(imported)
+        source = "import torch\ntorch.ones(n, dtype=torch.bool)"
+        result = lessons.lesson_suggestions(
+            "production correctness regression", source_text=source,
+            directory=self.library,
+        )
+        self.assertEqual(result["matches"], [imported])
+        self.assertTrue(result["source_query_used"])
+        same_file = self.lookup([RAW], source_text=source)
+        self.assertEqual(same_file["matches"], [self.focused])
+        self.assertFalse(same_file["source_query_used"])
+        excluded = lessons.lesson_suggestions(
+            "production correctness regression", source_text=source,
+            directory=self.library, exclude=[imported["id"]],
+        )
+        self.assertEqual(excluded["matches"], [self.generic])
+        self.assertNotIn("qualified", result)
+
     def test_exclusion_size_and_url_budget_preserve_generic_fallback(self):
         self.assertEqual(self.lookup([RAW], exclude=[self.focused["id"]])["matches"], [self.generic])
         self.save(dict(self.focused, lesson="x" * (lessons.MAX_CARD_BYTES + 1)))
@@ -221,6 +265,7 @@ class SourceLessonTests(unittest.TestCase):
         real = lessons.lesson_suggestions
 
         def lookup(*args, **kwargs):
+            self.assertEqual(kwargs["source_text"], source["text"])
             return real(*args, **kwargs, directory=self.library)
 
         with patch.object(research, "lesson_suggestions", side_effect=lookup):

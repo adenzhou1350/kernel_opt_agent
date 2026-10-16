@@ -949,6 +949,7 @@ class ResearchProducer:
                 + spec["question"],
                 exclude=(card["id"] for card in self.lessons),
                 source_urls=(source["url"] for source in sources),
+                source_text="\n".join(source.get("text", "") for source in sources)[:24000],
             ),
             "research": {
                 "stage": stage,

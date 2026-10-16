@@ -72,6 +72,15 @@ lookup adds no source fetches, supplies at most one complete card within the
 existing budget, and never displaces primary source evidence. A retrieval test
 does not establish better discovery accuracy or PR conversion.
 
+When no source-path card fits, the reader also preserves the running Scout's
+bounded `source_text` interface: simple imported namespaces in the already
+supplied text can suggest a more focused API lesson before generic task prose.
+This lexical hint reads at most 24,000 characters and requires at least two
+matching title terms. It does not parse/execute imports, resolve modules, fetch
+missing code or prove applicability; comments and strings can match too. A
+partial excerpt without imports falls back to the task query. Protocol/source
+identity, exclusions and the complete-card budget still take precedence.
+
 The Scout reader admits a complete card up to 8,192 serialized UTF-8 JSON bytes;
 larger cards are omitted rather than clipped. Validate structure and the actual
 reader tests available in this checkout:
