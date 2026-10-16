@@ -953,6 +953,9 @@ def run(args):
         research_path = getattr(args, "research", None)
         producer = None
         backend_pool = None
+        backend_mode = ("openai_http" if getattr(args, "openai_backend_config", None) else
+            "remote_ssh" if getattr(args, "remote_backend", None) else
+            "resident" if getattr(args, "resident_backend", False) else "per_request")
         if research_path:
             from kimi_scout_research import ResearchProducer
 
@@ -977,7 +980,7 @@ def run(args):
             "cooldown_until": cooldown_until or None,
             "next_feed_at": time.time() if args.feeds else None,
             "research_mode": bool(research_path),
-            "backend_mode": "remote_ssh" if getattr(args, "remote_backend", None) else ("resident" if getattr(args, "resident_backend", False) else "per_request"),
+            "backend_mode": backend_mode,
             "queue_policy": "review_weighted"
             if getattr(args, "review_priority", False)
             else "fifo",
@@ -1008,7 +1011,11 @@ def run(args):
         heartbeat_thread.start()
         reason = "stop, deadline, or --once queue drained"
         try:
-            if getattr(args, "remote_backend", None):
+            if getattr(args, "openai_backend_config", None):
+                from scout_openai_backend import BackendPool
+
+                backend_pool = BackendPool(args.openai_backend_config)
+            elif getattr(args, "remote_backend", None):
                 from kimi_scout_remote import RemotePool
 
                 backend_pool = RemotePool(
@@ -1187,7 +1194,7 @@ def run(args):
                 cooldown_until=None,
                 next_feed_at=None,
                 reason=reason,
-                backend_mode="remote_ssh" if getattr(args, "remote_backend", None) else ("resident" if backend_pool else "per_request"),
+                backend_mode=backend_mode,
                 backend_process_starts=backend_pool.process_starts if backend_pool else None,
             )
     # Continuous daemons should not scan and print the entire historical inbox
@@ -1241,6 +1248,10 @@ def main(argv=None):
     )
     worker.add_argument("--concurrency", type=int, choices=range(1, 17), default=2)
     backend = worker.add_mutually_exclusive_group()
+    backend.add_argument(
+        "--openai-backend-config", type=Path,
+        help="opt-in controller-owned HTTP endpoint/model JSON; no inherited Kimi credentials or tools",
+    )
     backend.add_argument(
         "--resident-backend", action="store_true",
         help="reuse bounded tool-free backend processes (32 requests each); no automatic request replay",
@@ -1316,7 +1327,7 @@ def main(argv=None):
                 0 <= args.hours <= 168
                 and 0 <= args.max_jobs <= 100
                 and (args.token_budget == 0 or 1024 <= args.token_budget <= 2_000_000)
-                and 256 <= args.output_tokens <= 4096
+                and 256 <= args.output_tokens <= (32768 if getattr(args, "openai_backend_config", None) else 4096)
                 and 15 <= args.timeout <= 600
                 and 0 <= args.min_free_memory_mb <= 1_048_576
                 and 0 <= args.min_free_disk_mb <= 1_048_576
