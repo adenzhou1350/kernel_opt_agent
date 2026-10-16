@@ -367,8 +367,8 @@ class ScoutTests(unittest.TestCase):
         with scout.connect(self.root) as db:
             self.assertEqual(db.execute("SELECT state FROM jobs").fetchone()[0], "NO_LEAD")
 
-    def test_eight_sixteen_and_thirty_two_workers_can_really_run_simultaneously(self):
-        for count in (8, 16, 32):
+    def exercise_concurrent_workers(self, counts):
+        for count in counts:
             with self.subTest(concurrency=count):
                 for i in range(count):
                     self.add(f"{count}-{i}")
@@ -385,6 +385,13 @@ class ScoutTests(unittest.TestCase):
                 self.assertEqual(current["runtime"]["attempted_this_run"], count)
                 self.assertEqual(current["runtime"]["concurrency"], count)
                 self.assertEqual(current["runtime"]["queue_policy"], "review_weighted")
+
+    def test_eight_sixteen_and_thirty_two_workers_can_really_run_simultaneously(self):
+        self.exercise_concurrent_workers((8, 16, 32))
+
+    @unittest.skipIf(sys.platform == "win32", "64/100-way SQLite/temp I/O qualified separately on Linux")
+    def test_sixty_four_and_one_hundred_workers_run_simultaneously(self):
+        self.exercise_concurrent_workers((64, 100))
 
     def test_cli_accepts_up_to_sixteen_workers(self):
         args = [
@@ -403,10 +410,10 @@ class ScoutTests(unittest.TestCase):
                 with patch.object(scout, "run", return_value={}) as run:
                     self.assertEqual(scout.main([*args[:6], str(count), *args[7:]]), 0)
                 self.assertEqual(run.call_args.args[0].concurrency, count)
-        for count in (0, 33):
+        for count in (0, 101):
             with self.subTest(concurrency=count), self.assertRaises(SystemExit):
                 scout.main([*args[:6], str(count), *args[7:]])
-        for count in (17, 32):
+        for count in (17, 32, 64, 100):
             with self.subTest(concurrency=count):
                 invocation = [*args[:6], str(count), *args[7:]]
                 with patch.object(scout, "run", return_value={}) as run:
@@ -425,6 +432,19 @@ class ScoutTests(unittest.TestCase):
         ):
             current = scout.run(self.run_args(min_free_memory_mb=1024))
         self.assertEqual(current["runtime"]["attempted_this_run"], 0)
+        self.assertTrue(current["runtime"]["memory_paused"])
+        self.assertEqual(current["jobs"][0]["state"], "PENDING")
+        execute.assert_not_called()
+
+    def test_worker_ram_reservation_is_applied_before_claiming(self):
+        self.add("worker-reservation")
+        with (
+            patch.object(scout, "available_memory_mb", return_value=2063),
+            patch.object(scout, "execute") as execute,
+        ):
+            current = scout.run(self.run_args(min_free_memory_mb=2048, worker_memory_mb=16))
+        self.assertEqual(current["runtime"]["attempted_this_run"], 0)
+        self.assertEqual(current["runtime"]["worker_memory_mb"], 16)
         self.assertTrue(current["runtime"]["memory_paused"])
         self.assertEqual(current["jobs"][0]["state"], "PENDING")
         execute.assert_not_called()

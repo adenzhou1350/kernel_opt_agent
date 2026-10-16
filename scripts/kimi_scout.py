@@ -986,6 +986,7 @@ def run(args):
             "recovery_probe": bool(error_cycles and not cooldown_until),
             "provider_error_cycles": error_cycles,
             "min_free_memory_mb": getattr(args, "min_free_memory_mb", 0),
+            "worker_memory_mb": getattr(args, "worker_memory_mb", 0),
             "min_free_disk_mb": getattr(args, "min_free_disk_mb", 0),
             "daily_max_calls": args.max_jobs or None,
             "daily_token_budget": args.token_budget or None,
@@ -1100,8 +1101,9 @@ def run(args):
                         next_feed = time.time() + args.poll_seconds
                         publish(next_feed_at=next_feed)
                     reserve = getattr(args, "min_free_memory_mb", 0)
-                    free_mb = available_memory_mb() if reserve else None
-                    commit_mb = available_commit_headroom_mb() if reserve else None
+                    worker_memory = getattr(args, "worker_memory_mb", 0)
+                    free_mb = available_memory_mb() if reserve or worker_memory else None
+                    commit_mb = available_commit_headroom_mb() if reserve or worker_memory else None
                     disk_reserve = getattr(args, "min_free_disk_mb", 0)
                     disk_free_mb = available_disk_mb(root) if disk_reserve else None
                     while (
@@ -1111,7 +1113,7 @@ def run(args):
                         and time.time() < deadline
                         and not (root / "STOP").exists()
                     ):
-                        if reserve and (free_mb is None or free_mb < reserve):
+                        if not memory_admits_call(free_mb, reserve, len(running), worker_memory):
                             break
                         if not commit_admits_call(
                             commit_mb, len(running), getattr(args, "worker_memory_mb", 0),
@@ -1157,8 +1159,8 @@ def run(args):
                         if error_cycles:
                             recovery_probes.add(future)
                         attempts += 1
-                        free_mb = available_memory_mb() if reserve else None
-                        commit_mb = available_commit_headroom_mb() if reserve else None
+                        free_mb = available_memory_mb() if reserve or worker_memory else None
+                        commit_mb = available_commit_headroom_mb() if reserve or worker_memory else None
                         disk_free_mb = (
                             available_disk_mb(root) if disk_reserve else None
                         )
@@ -1167,10 +1169,7 @@ def run(args):
                         admission_limit=1 if error_cycles else args.concurrency,
                         recovery_probe=bool(error_cycles and not cooldown_until),
                         provider_error_cycles=error_cycles,
-                        memory_paused=bool(
-                            reserve
-                            and (free_mb is None or free_mb < reserve)
-                        ),
+                        memory_paused=not memory_admits_call(free_mb, reserve, len(running), worker_memory),
                         available_memory_mb=free_mb,
                         available_commit_headroom_mb=commit_mb,
                         commit_paused=not commit_admits_call(
@@ -1258,8 +1257,8 @@ def main(argv=None):
     worker.add_argument(
         "--hours", type=float, default=24, help="0 runs until explicitly stopped"
     )
-    worker.add_argument("--concurrency", type=int, choices=range(1, 33), default=2,
-                        help="1..16 workers; opt-in HTTP backend permits up to 32")
+    worker.add_argument("--concurrency", type=int, choices=range(1, 101), default=2,
+                        help="1..16 workers; opt-in HTTP backend permits up to 100")
     backend = worker.add_mutually_exclusive_group()
     backend.add_argument(
         "--openai-backend-config", type=Path,
@@ -1279,6 +1278,8 @@ def main(argv=None):
         default=0,
         help="pause new calls below this host-available RAM; 0 disables the guard",
     )
+    worker.add_argument("--worker-memory-mb", type=int, default=0,
+                        help="additional RAM reservation per submitted call")
     worker.add_argument(
         "--min-free-disk-mb",
         type=int,
@@ -1338,12 +1339,13 @@ def main(argv=None):
                 )
             if not (
                 0 <= args.hours <= 168
-                and args.concurrency <= (32 if args.openai_backend_config else 16)
+                and args.concurrency <= (100 if args.openai_backend_config else 16)
                 and 0 <= args.max_jobs <= 100
                 and (args.token_budget == 0 or 1024 <= args.token_budget <= 2_000_000)
                 and 256 <= args.output_tokens <= (32768 if getattr(args, "openai_backend_config", None) else 4096)
                 and 15 <= args.timeout <= 600
                 and 0 <= args.min_free_memory_mb <= 1_048_576
+                and 0 <= args.worker_memory_mb <= 1_048_576
                 and 0 <= args.min_free_disk_mb <= 1_048_576
                 and args.poll_seconds >= 300
                 and 60 <= args.error_cooldown_seconds <= 3600

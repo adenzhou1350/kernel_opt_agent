@@ -309,7 +309,7 @@
   }
   function renderBriefing() {
     const activity = state.activity || {}, runtime = state.runtime || {}, research = state.research || {};
-    const counts = state.summary?.counts || {}, limit = Math.max(1, Math.min(32, Number(runtime.concurrency) || 4));
+    const counts = state.summary?.counts || {}, limit = Math.max(1, Math.min(100, Number(runtime.concurrency) || 4));
     const heartbeatAge = Number(state.now) - Number(runtime.heartbeat_at);
     const heartbeatFresh = typeof runtime.heartbeat_at === "number" && heartbeatAge >= 0 && heartbeatAge <= 180;
     const live = runtime.alive === true && heartbeatFresh && !["STOPPED", "OFFLINE"].includes(runtime.state);
@@ -485,7 +485,7 @@
     text("runtimeMeta", runtimeParts.join(" · "));
     const feedErrors = (state.feed?.errors || []).map(error => "资料采集：" + plain(error));
     const warnings = [...(state.warnings || []).map(plain), ...feedErrors];
-    const workerCount = Math.max(1, Math.min(32, Number(runtime.concurrency) || 4));
+    const workerCount = Math.max(1, Math.min(100, Number(runtime.concurrency) || 4));
     if (count("RUNNING") > workerCount) warnings.push("运行任务超过配置槽位；请检查是否有遗留状态，其他任务可在历史中查看。");
     if (!isAlive && count("RUNNING")) warnings.push("守护进程未运行，RUNNING 为保存状态，任务可能已中断。");
     setNotice("warnings", warnings.join("\n"));

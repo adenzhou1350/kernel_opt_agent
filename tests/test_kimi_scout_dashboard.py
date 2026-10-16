@@ -109,7 +109,7 @@ class DashboardTests(unittest.TestCase):
     @unittest.skipUnless(
         shutil.which("node"), "Node is needed for the offline DOM test"
     )
-    def test_worker_cards_follow_runtime_concurrency_up_to_thirty_two(self):
+    def test_worker_cards_follow_runtime_concurrency_up_to_one_hundred(self):
         page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
         script = page.split("<script>", 1)[1].split("</script>", 1)[0]
         # Execute the actual overview renderer with a tiny DOM, without polling.
@@ -135,7 +135,7 @@ global.document = {
         exercise = """
   function renderHistory() {}
   const observations = [];
-  for (const count of [1, 8, 16, 32, 64]) {
+  for (const count of [1, 8, 16, 32, 64, 100, 101]) {
     state = {
       summary: {counts: {RUNNING: count}},
       runtime: {concurrency: count, alive: true, state: "RUNNING"},
@@ -164,12 +164,15 @@ global.document = {
             check=True,
         )
         values = json.loads(result.stdout)
-        self.assertEqual([value["count"] for value in values], [1, 8, 16, 32, 32])
+        self.assertEqual([value["count"] for value in values], [1, 8, 16, 32, 64, 100, 100])
         self.assertEqual(values[2]["last"], "job-15")
         self.assertEqual(values[2]["warning"], "")
         self.assertEqual(values[3]["last"], "job-31")
         self.assertEqual(values[3]["warning"], "")
-        self.assertTrue(values[4]["warning"])
+        self.assertEqual(values[4]["last"], "job-63")
+        self.assertEqual(values[5]["last"], "job-99")
+        self.assertEqual(values[5]["warning"], "")
+        self.assertTrue(values[6]["warning"])
 
     def test_actual_usage_not_reservations_including_failed_answers(self):
         with scout.connect(self.root) as db:

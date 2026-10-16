@@ -36,7 +36,7 @@ controller memory. A memory estimate for SDK children is not a measurement of
 HTTP threads, but a smaller estimate also needs evidence and reserve headroom.
 Preserve existing shared-host memory/disk guards and drain owned work before
 switching a running controller; do not run two controllers against one inbox.
-HTTP mode permits up to 32 in-flight requests; SDK/SSH Kimi stays capped at 16.
+HTTP mode permits up to 100 in-flight requests; SDK/SSH Kimi stays capped at 16.
 This is an admission ceiling, not a target occupancy. An empty deduplicated
 evidence frontier cannot be accelerated by raising it. Track completed valid
 answers per minute, latency, provider errors and independent reproductions;
@@ -48,6 +48,15 @@ floor from a lower critical drain floor. While paused, keep the same controller
 alive and let its existing reservation guard refuse new calls; do not clear STOP
 or restart/replay work. Unknown telemetry or critical pressure still drains.
 Choose thresholds from the actual worker, not a universal recommendation.
+`--worker-memory-mb` reserves RAM for each already-submitted and next request
+in addition to `--min-free-memory-mb`. Admission requires measured available
+RAM >= floor + (in-flight + 1) * worker reservation. Recheck between claims.
+Defaults remain unchanged (zero extra reservation); this is conservative
+accounting, not a guarantee of future allocations. Linux observations include
+visible cgroup ancestors and do not discount inactive file cache. A high count
+may require a separately reviewed floor/reservation combination; do not silently
+disable guards or mistake host-wide RAM for container headroom. HTTP capacity
+tests do not establish a particular provider's throughput or answer quality.
 
 Requests contain only the supplied evidence, with no model tools or conversation
 history. Responses are bounded to 1 MiB and the existing visible-text limit.
