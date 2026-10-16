@@ -57,6 +57,20 @@ justify the intended contract; do not turn one test server's behavior into a
 universal protocol claim. A merged contribution is an observed delivery outcome,
 not by itself a controlled comparison of Scout strategies or knowledge utility.
 
+### A no-op setter does not make a probe state-free
+
+Check the state of the parser/iterator/owner around an observation, not only its
+value callback. In [Cobra #2529 at e94da41](https://github.com/spf13/cobra/blob/e94da41f7c050e2c35fd505cbabfa1294206dcbf/completions.go),
+`ParseAll` with a no-op setter fixes duplicated flag values but its synthetic
+`--` still changes the live `ArgsLenAtDash()` metadata. An
+[independent native check](https://github.com/spf13/cobra/pull/2529#issuecomment-6208428527)
+reproduced that leftover state in both completion commands. Isolate a probe's
+mutable metadata as well as its callbacks and argument backing storage; check
+the actual consumer-visible state. This is a scoped counterexample, not proof
+that arbitrary shallow copies are safe. Recheck current linked PRs before
+implementing: an empty cached/partial timeline is not proof of no existing fix.
+Contribute uncovered evidence to that PR instead of opening a duplicate.
+
 ### Missing source is not a native-test failure
 
 Before repairing an environment, inspect the actual excerpt delivered to the
