@@ -298,6 +298,15 @@ def select_leads(
                 primary = _selection_code_source(packet, repo, analysis)
                 if primary is None or not primary["path"].endswith(suffixes):
                     continue
+                selection = None
+                if owner_only:
+                    try:
+                        candidate_code_source(packet, repo, analysis)
+                        selection = {"status": "LEGACY_FIRST_SOURCE" if "evidence" not in analysis
+                                     else "RESOLVED_CITATION"}
+                    except SourceEvidenceRequired as error:
+                        selection = {"status": "UNRESOLVED", "reason": str(error),
+                                     "boundary": "commit is a visibility fallback, not an owner-selected test target"}
                 text = analysis.get("hypothesis") or analysis.get("title") or row["id"]
                 if not isinstance(text, str):
                     continue
@@ -324,6 +333,7 @@ def select_leads(
                     "analysis": analysis,
                     "canonical_key": key,
                     **({"verification_route": "OWNER_REVIEW_ONLY"} if owner_only else {}),
+                    **({"source_selection": selection} if owner_only else {}),
                 }
             )
     finally:

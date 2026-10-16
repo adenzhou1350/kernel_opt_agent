@@ -198,6 +198,28 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(len(delivery.select_leads(self.root)), 1)
         self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
 
+    def test_owner_summary_marks_multi_revision_fallback_as_unresolved(self):
+        current = RAW.replace(COMMIT, "b" * 40)
+        self.add("comparison", packet(sources=[{"url": RAW}, {"url": current}]),
+                 evidence=[{"url": RAW}, {"url": current}], finished=3)
+        self.add("resolved", packet(sources=[{"url": current}]),
+                 evidence=[{"url": current}], hypothesis="distinct", finished=2)
+        self.add("legacy", hypothesis="legacy", finished=1)
+        before = (self.root / "scout.sqlite").read_bytes()
+        rows = {row["id"]: row for row in delivery.select_leads(self.root, owner_language="python")}
+        self.assertEqual(rows["comparison"]["commit"], COMMIT)  # Visibility only; do not rewrite old packets.
+        selection = rows["comparison"]["source_selection"]
+        self.assertEqual(selection["status"], "UNRESOLVED")
+        self.assertIn("visibility fallback", selection["boundary"])
+        self.assertIn("multiple cited", selection["reason"])
+        self.assertEqual(rows["resolved"]["source_selection"]["status"], "RESOLVED_CITATION")
+        self.assertEqual(rows["legacy"]["source_selection"]["status"], "LEGACY_FIRST_SOURCE")
+        with patch.object(delivery.scout, "fetch") as fetch:
+            with self.assertRaises(delivery.SourceEvidenceRequired):
+                delivery.load_source(rows["comparison"])
+        fetch.assert_not_called()
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
     def test_owner_language_filters_before_scan_limit_and_stays_unclaimable(self):
         import kimi_scout_delivery as intake
 

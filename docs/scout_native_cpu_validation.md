@@ -80,6 +80,17 @@ original author's test claims are not independent native validation.
 
 ## Owner-only intake across languages
 
+Owner intake exposes `source_selection` separately from its visibility `commit`:
+`RESOLVED_CITATION` identifies one supplied immutable implementation citation;
+`LEGACY_FIRST_SOURCE` retains older records without evidence; `UNRESOLVED`
+means an owner must choose the target before testing. A packet comparing two
+revisions of the same file is ambiguous too, not just a multi-file claim. The
+fallback commit keeps the line visible and classifies its language; it is not
+permission to execute that version or silently rewrite the model's citations.
+The source loader still refuses unresolved evidence before fetching anything.
+Preserve this marker and the bounded owner advice in summaries/frontends rather
+than showing the commit alone. Resolution identifies provenance, not correctness.
+
 Long issue text keeps its head and tail and, when it fits, one literal middle
 Markdown section headed as a workaround, patch, proposed fix or suggested fix.
 This uses the same character budget and no extra read; simple fenced-code
