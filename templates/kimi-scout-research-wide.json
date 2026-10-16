@@ -8,6 +8,7 @@
     {
       "repo": "python-humanize/humanize",
       "ref": "main",
+      "followup_pr_review_context": true,
       "source_windows": 4,
       "source_prefixes": ["src/humanize/number.py", "src/humanize/time.py", "src/humanize/filesize.py", "src/humanize/lists.py"],
       "followup_import_context": true,

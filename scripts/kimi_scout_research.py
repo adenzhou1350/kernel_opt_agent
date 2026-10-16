@@ -30,6 +30,7 @@ from scout_import_context import import_requests
 from scout_symbol_references import reference_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_pr_revision import pr_revision_sources, requested_pr_number
+from scout_pr_review import pr_review_sources, requested_pr_review_number
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_source_order import (
     SOURCE_ORDER_POLICY,
@@ -444,6 +445,8 @@ def configuration(path):
             raise ValueError("followup_import_context must be a boolean")
         if type(spec.get("followup_pr_revision_context", False)) is not bool:
             raise ValueError("followup_pr_revision_context must be a boolean")
+        if type(spec.get("followup_pr_review_context", False)) is not bool:
+            raise ValueError("followup_pr_review_context must be a boolean")
         if type(spec.get("followup_code_search", False)) is not bool:
             raise ValueError("followup_code_search must be a boolean")
         if type(spec.get("followup_discussion_context", False)) is not bool:
@@ -1821,12 +1824,27 @@ class ResearchProducer:
                         source for source in sources[1:]
                         if source["url"] != expanded["url"]
                     ]
-            requested_pr = (
-                requested_pr_number(spec["repo"], packet["sources"], analysis_value)
-                if body_number is None and spec.get("followup_pr_revision_context", False)
+            requested_review = (
+                requested_pr_review_number(spec["repo"], packet["sources"], analysis_value)
+                if body_number is None and spec.get("followup_pr_review_context", False)
                 else None
             )
-            if requested_pr is not None:
+            requested_pr = (
+                requested_pr_number(spec["repo"], packet["sources"], analysis_value)
+                if (
+                    body_number is None and requested_review is None
+                    and spec.get("followup_pr_revision_context", False)
+                )
+                else None
+            )
+            if requested_review is not None:
+                try:
+                    revisions = pr_review_sources(self.context, spec["repo"], requested_review)
+                except (ValueError, OSError) as exc:
+                    progress["pr_review_context_error"] = type(exc).__name__
+                else:
+                    progress.pop("pr_review_context_error", None)
+            elif requested_pr is not None:
                 try:
                     revisions = pr_revision_sources(
                         self.context, spec["repo"], requested_pr, packet["sources"]
@@ -1843,7 +1861,10 @@ class ResearchProducer:
             )
             related_prs = (
                 self.issue_pr_context(spec["repo"], lookup_number)
-                if body_number is None and lookup_number and not revisions else None
+                if (
+                    body_number is None and requested_review is None
+                    and lookup_number and not revisions
+                ) else None
             )
             if related_prs is not None and not number:
                 related_prs = {
@@ -1852,7 +1873,7 @@ class ResearchProducer:
                 }
             if body_number is not None:
                 pass  # The one body GET replaces other related-work lookups.
-            elif revisions:
+            elif revisions or requested_review is not None:
                 sources.extend(revisions)
             elif related_prs and related_prs["sources"]:
                 sources.extend(related_prs["sources"])
@@ -1862,7 +1883,10 @@ class ResearchProducer:
                         spec["repo"], source_duplicate_title(spec["repo"], title, sources)
                     )
                 )
-            if body_number is None and spec.get("followup_discussion_context", False):
+            if (
+                body_number is None and requested_review is None
+                and spec.get("followup_discussion_context", False)
+            ):
                 sources.extend(discussion_sources(self.context, spec["repo"], title))
             sources = distinct_sources(sources)
             old_evidence = {retrieval_identity(s) for s in packet["sources"]}

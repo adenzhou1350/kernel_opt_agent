@@ -979,6 +979,36 @@ The dashboard exposes these details without new network/model requests or
 changes to queue ordering, deduplication, retry policy or candidate decisions.
 These are process-local diagnostics; restarting clears the timing history.
 
+### Optional PR review feedback
+
+Set `followup_pr_review_context: true` for a deliberately selected repository to
+let an explicit `next_check` request for a displayed PR's reviews/comments use
+`scout_pr_review.pr_review_sources`. The default is off. Model text selects only
+an already supplied same-repository PR number; it cannot supply a new URL to fetch.
+This route replaces PR patch/search/discussion expansion for that follow-up,
+not its ordinary source reads. A failed feedback read records an error code,
+not an empty-success claim, and does not trigger extra related-work lookups.
+
+The reader refreshes PR metadata, reads the first page of at most 100
+chronological review submissions and at most 10 updated-desc inline comments,
+then supplies up to two body-bearing submissions and one inline comment.
+That costs three bounded GETs plus any required public-visibility check; each
+response is capped at 300,000 UTF-8 bytes and each displayed body at 1,200
+characters. The first page can omit later reviews; an empty sample does not
+prove no feedback. It does not retrieve ordinary issue-conversation comments
+or resolved-thread state. See GitHub's distinct
+[review](https://docs.github.com/en/rest/pulls/reviews#list-reviews-for-a-pull-request)
+and [review-comment](https://docs.github.com/en/rest/pulls/comments#list-review-comments-on-a-pull-request)
+interfaces.
+
+Pending submissions never enter evidence. An inline comment must link to a
+submitted review observed in that page. Keep that review's commit separate from
+the comment's current/original commit fields and the initially observed PR head;
+diff-position updates do not make an old review current. All bodies remain
+untrusted statements, not test results, a fix verdict, human signoff or authority
+to execute their suggested commands. Offline tests cover producer routing and
+these bounds, not live API compatibility or measured discovery benefit.
+
 ### Current owner advice at delivery generation
 
 An old immutable lead can predate a published PR or an owner counterexample.
