@@ -1333,6 +1333,13 @@ are not equal realized/priced budgets. Strong-model/full existing-method
 comparators, monetary/owner cost and multiple independent groups remain absent;
 there is no adaptive-policy, PR-yield or paper-readiness result here.
 
+Separately, the current Chi root package at `3a33ba578e0dd93444e0ff386cc26e665d92e31e`
+passed unchanged ordinary and race runs on Linux amd64 Go1.25.10, with 80
+test/subtest events per run and no module downloads. This supports a small
+router-only Scout discovery scope, not a finding or selector result. Middleware,
+examples, the declared Go1.24-1.27/Windows CI matrix and performance remain
+unverified. The historical self-mount fix is already present and is not a new lead.
+
 ## Repeated common review: attrs pilot (2026-10-16)
 
 The admitted attrs group above subsequently received a separately frozen M3

@@ -206,6 +206,15 @@
       "question": "Find supported wrapper, shape/layout, dtype, cache-key or architecture-guard correctness gaps. Do not transfer CUDA assumptions to ROCm; require exact supported hardware and a bounded test plan."
     },
     {
+      "repo": "go-chi/chi",
+      "ref": "master",
+      "source_prefixes": ["mux.go", "tree.go", "context.go", "chain.go", "chi.go"],
+      "source_windows": 6,
+      "followup_import_context": true,
+      "followup_discussion_context": true,
+      "question": "Investigate supported routing, Mount/With/Group ownership, route walking, URL parameters and request-context lifetime. Read actual API contracts, complete callers and existing tests before reporting a defect. Deliberate duplicate/self-mount and late-middleware panics are not automatically bugs. The historical self-mount repair aba86186 is already included and covered by TestMountingSelf; do not report it as new. Require a distinct current supported reproduction and related issue/PR check, not hypothetical invalid input or documentation-only busywork. Owner tested unchanged master 3a33ba578e0dd93444e0ff386cc26e665d92e31e: root-package ordinary and race runs each passed 80 test/subtest events on Linux amd64 Go1.25.10, with raw committed source unchanged, task-private caches and module downloads disabled. This is baseline testability only; middleware, examples and the supported Go1.24-1.27/Windows matrix were not tested. Each new lead needs separate exact-source native reproduction and contribution review. No execution, performance or PR-readiness claim from discovery alone."
+    },
+    {
       "repo": "cenkalti/backoff",
       "ref": "v7",
       "source_prefixes": ["backoff.go", "retry.go", "error.go", "exponential.go", "ticker.go", "timer.go"],
