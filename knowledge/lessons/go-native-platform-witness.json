@@ -1,9 +1,9 @@
 {
   "id": "go-native-platform-witness",
   "title": "Run the Go platform witness, not just its cross-compiler",
-  "applies_when": "A pure-Go package has OS-dependent path or filesystem behavior, the target Windows machine lacks Go, and an authorized Linux build host is available. Source and test dependencies must be independently inspected and runnable in task-private directories.",
+  "applies_when": "A pure-Go package has OS-dependent path, filesystem or error-classification behavior, and an authorized Linux build host plus a native Windows execution target are available. Source and test dependencies must be independently inspected and runnable in task-private directories.",
   "lesson": "Use a pinned Go toolchain to cross-build the real package test executable with CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go test -c -o fs.test.exe ./package. Bind the source revision plus test bytes, verify the transferred executable hash, then actually run it on native Windows with task-private TEMP/TMP. Compare unchanged baseline and repair using the identical regression, and retain a Linux control. Cross-compilation alone cannot expose runtime separators. A standalone test executable does not carry external testdata: use a reviewed package working directory with hash-verified fixtures. Preserve missing-fixture failures; rerun the identical binary with the correct runtime inputs rather than patching production or dropping tests. For ZIPs, assert archive entry names from a nested directory source; archiving one file may retain only its basename and miss the recursive join. Keep archive-internal path.Join separate from filesystem filepath.Join, but do not infer a defect from the import alone: afero's index and lookup both normalize with filepath, and the original issue395 archive passes on current Windows source. A focused pass does not erase an unchanged broader-suite failure: record its baseline/candidate result and test inventory separately. Inspect hosted CI commands before treating a green badge as a platform witness: Afero PR700's successful AppVeyor log only shows go version and test discovery, not a test invocation or results.",
-  "avoid_when": "Do not disable cgo to pretend that a cgo-dependent production path was tested; cross-builds can exclude files and require a C cross-compiler or target libraries. Match target architecture and OS capabilities, check source and test safety before execution, and do not start local WSL or install global tools merely to reproduce this workflow. An application-control denial is unexecuted, not test failure or permission to rename/move/re-route the binary. Evidence covers a goraven Go1.27.2 repair and an afero Go1.26.9 negative witness, not full application/CI, all archives, old runtimes or universal Windows support. No claim of measured cost savings, PR acceptance, recall or throughput follows from the method.",
+  "avoid_when": "Do not disable cgo to pretend that a cgo-dependent production path was tested; cross-builds can exclude files and require a C cross-compiler or target libraries. Match target architecture and OS capabilities, check source and test safety before execution, and do not start local WSL or install global tools merely to reproduce this workflow. An application-control denial is unexecuted, not test failure or permission to rename/move/re-route the binary. Evidence covers a goraven Go1.27.2 repair and scoped afero Go1.26.9 negative witnesses, not full application/CI, all archives, old runtimes or universal Windows support. The permission checks do not recreate the 2022 reporter's runtime/dependency versions, its Afero.WriteFile wrapper reproduction or pkg/errors assertions. No claim of measured cost savings, PR acceptance, recall or throughput follows from the method.",
   "evidence": [
     {
       "url": "https://go.dev/wiki/WindowsCrossCompiling",
@@ -28,6 +28,14 @@
     {
       "url": "https://ci.appveyor.com/project/spf13/afero/builds/54899233",
       "note": "Hosted PR700 head80658d58: successful two-second Windows job logs Go1.13.3 version and test discovery, with no go test command or results. This badge does not close the disclosed Windows runtime gap; GitHub Actions separately awaits maintainer approval."
+    },
+    {
+      "url": "https://github.com/spf13/afero/issues/350#issuecomment-6213631370",
+      "note": "Current-runtime counterexample: unchanged eb6a928 on Go1.26.9 Linux and native Windows/amd64 recognizes EPERM through os.IsPermission and errors.Is for 14 rejected ReadOnlyFs mutations, with read, missing-file and direct-runtime controls. The Windows binary was cross-built, hash-verified, then executed; each platform has 18 passing parent/subtest events, not 18 independent defects. This is not the original 2022 dependency stack or the complete Afero suite."
+    },
+    {
+      "url": "https://github.com/spf13/afero/blob/eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/readonlyfs.go",
+      "note": "The inspected current wrapper still returns syscall.EPERM. That unchanged return statement and an open old issue do not establish a current permission-classification failure; test the effective runtime rather than blindly replacing the error type."
     }
   ],
   "status": "validated"

@@ -266,6 +266,23 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_windows_permission_witness_does_not_rewrite_old_runtime_claims(self):
+        result = lesson_suggestions(
+            "ReadOnlyFs EPERM errors.Is Windows permission classification",
+            source_urls=[
+                "https://raw.githubusercontent.com/spf13/afero/"
+                "eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/readonlyfs.go"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "go-native-platform-witness")
+        self.assertIn("pkg/errors assertions", card["avoid_when"])
+        self.assertIn("Afero.WriteFile wrapper reproduction", card["avoid_when"])
+        evidence = next(row for row in card["evidence"] if "issuecomment-6213631370" in row["url"])
+        self.assertIn("not 18 independent defects", evidence["note"])
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_native_guard_advice_keeps_safe_kernel_witness_scope(self):
         result = lesson_suggestions(
             "KDA padded key mask NaN gate guard",
