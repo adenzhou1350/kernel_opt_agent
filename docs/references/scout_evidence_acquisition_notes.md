@@ -902,6 +902,12 @@ or legacy file; an absent indexed note hashes as empty bytes. A stored note is
 not proof of model consumption, saved tokens or a new finding. Updating feedback
 does not replay old source or mutate discovery/delivery jobs.
 
+Retain explicit `owner_rejection` evidence from terminal `NO_BUG` delivery rows
+as a reminder to reassess the old explanation, not proof that current source has
+no bug. Bare model rejection text and a disposition stored under the wrong state
+do not qualify. Public source/evidence and privacy checks still apply; the reader
+does not invent a human-authored reopening decision.
+
 Followup production and owner intake project only the already-parsed hypothesis
 title into the memory reader. Passing a complete analysis longer than its
 2,500-character input cap used to silently disable identifier ranking, letting

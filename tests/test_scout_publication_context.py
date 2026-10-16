@@ -17,6 +17,39 @@ import scout_owner_note as note_writer
 
 
 class PublicationContextTests(unittest.TestCase):
+    def test_explicit_owner_rejection_reminds_reassessment_not_current_no_bug(self):
+        self.initialize()
+        self.add(1, "", state="NO_BUG", result=json.dumps({"owner_rejection": {
+            "reason": "That explanation bypassed a supported caller guard",
+            "evidence_url": f"https://github.com/{self.repo}/issues/12",
+        }}))
+        context = self.deferrals()
+        self.assertEqual(context["items"][0]["reopen_when"], memory.REJECTION_REOPEN)
+        self.assertIn("not a no-bug verdict", context["caution"])
+        self.assertEqual(context["items"][0]["reason"],
+                         "That explanation bypassed a supported caller guard")
+
+    def test_raw_model_no_bug_or_disposition_in_wrong_state_is_not_owner_evidence(self):
+        self.initialize()
+        for i, record in enumerate((
+            {"decision": "reject", "reason": "Model thinks no bug"},
+            {"owner_disposition": {"reason": "Wrong state", "reopen_when": "Changed source",
+                                   "evidence_url": f"https://github.com/{self.repo}/issues/12"}},
+        )):
+            self.add(i, "", state="NO_BUG", result=json.dumps(record))
+        self.assertIsNone(self.deferrals())
+
+    def test_owner_rejection_cannot_export_private_or_foreign_evidence(self):
+        self.initialize()
+        for i, rejection in enumerate((
+            {"reason": "Read D:/private/log", "evidence_url": f"https://github.com/{self.repo}/issues/12"},
+            {"reason": "Foreign source", "evidence_url": "https://github.com/other/project/issues/12"},
+        )):
+            self.add(i, "", state="NO_BUG", result=json.dumps({"owner_rejection": rejection}))
+        before = self.path.read_bytes()
+        self.assertIsNone(self.deferrals())
+        self.assertEqual(self.path.read_bytes(), before)
+
     def test_indexed_feedback_reaches_new_packets_without_replaying_old_source(self):
         scout.initialize(self.root)
         config = self.root / "config.json"
