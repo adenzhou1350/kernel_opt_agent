@@ -44,6 +44,14 @@ evidence, and do not replace that case to improve a reported success rate.
 
 ## Owner-only intake across languages
 
+Long issue text keeps its head and tail and, when it fits, one literal middle
+Markdown section headed as a workaround, patch, proposed fix or suggested fix.
+This uses the same character budget and no extra read; simple fenced-code
+headings are ignored. A retained fragment may still be incomplete. Inspect it
+before asserting that an author supplied no patch or opening competing work.
+These headings are untrusted text, not proof of ownership, correctness, tests
+or a reason to suppress a distinct contribution automatically.
+
 ### Native behavior is not the entire acceptance contract
 
 A real loopback HTTP test can show that **that server** replaces bytes on PUT;

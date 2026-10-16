@@ -34,6 +34,61 @@ class IssueExcerptTests(unittest.TestCase):
         producer.lessons = []
         return producer
 
+    def work_body(self):
+        return ("Environment and observed failure\n" + "startup diagnostics\n" * 350
+                + "## Minimal workaround tested locally\n```diff\n"
+                + "- assert boundary <= maximum\n+ if boundary > maximum: continue\n```\n"
+                + "## Additional logs\n" + "shutdown diagnostics\n" * 300 + OWNER_TEXT)
+
+    def test_middle_workaround_is_literal_and_keeps_head_tail_and_budget(self):
+        result = issue_evidence("https://github.com/owner/project/issues/1", "Report", self.work_body())
+        self.assertTrue(result["text"].startswith("Report\nEnvironment"))
+        self.assertTrue(result["text"].endswith(OWNER_TEXT))
+        self.assertIn("## Minimal workaround tested locally", result["text"])
+        self.assertIn("+ if boundary > maximum: continue", result["text"])
+        self.assertEqual(len(result["text"]), 5000)
+        self.assertTrue(result["truncated"])
+        self.assertEqual(set(result), {"url", "text", "truncated", "issue_excerpt"})
+
+    def test_fenced_heading_is_not_selected_instead_of_real_workaround(self):
+        text = ("Environment\n" + "x" * 6500 + "\n```markdown\n## Patch\n"
+                + "this is a quoted example, not the report section\n```\n"
+                + "## Suggested fix\nACTUAL_SECTION\n## Logs\n" + "y" * 6500 + OWNER_TEXT)
+        result = issue_text_excerpt(text, 5000)
+        self.assertIn("ACTUAL_SECTION", result)
+        self.assertNotIn("quoted example", result)
+        self.assertTrue(result.endswith(OWNER_TEXT))
+
+    def test_unrecognized_middle_heading_retains_existing_policy(self):
+        text = "HEAD\n" + "x" * 6500 + "\n## Environment\n" + "y" * 6500 + OWNER_TEXT
+        available = 5000 - len(OMISSION)
+        tail = available // 3
+        self.assertEqual(issue_text_excerpt(text, 5000), text[:available-tail] + OMISSION + text[-tail:])
+
+    def test_small_budgets_and_already_visible_work_keep_existing_policy(self):
+        texts = [self.work_body(), "## Proposed fix\nAlready in the prefix\n" + "x" * 8000 + OWNER_TEXT]
+        for text, limit in ((texts[0], 128), (texts[0], 511), (texts[1], 5000)):
+            with self.subTest(limit=limit):
+                available = limit - len(OMISSION)
+                tail = available // 3
+                self.assertEqual(issue_text_excerpt(text, limit), text[:available-tail] + OMISSION + text[-tail:])
+
+    def test_repeated_shrinks_remain_bounded_and_keep_untrusted_literal_work(self):
+        text = self.work_body().replace("Minimal workaround tested locally", "Proposed fix (not yet tested)")
+        for limit in (5000, 3750, 2200, 1000, 512):
+            text = issue_text_excerpt(text, limit)
+            self.assertLessEqual(len(text), limit)
+            self.assertIn("Proposed fix (not yet tested)", text)
+            self.assertIn("+ if boundary > maximum: continue", text)
+            self.assertTrue(text.endswith(OWNER_TEXT))
+
+    def test_workaround_survives_actual_packet_shrink_without_more_requests(self):
+        self.body = self.work_body()
+        self.test_actual_packet_budget_shrink_keeps_issue_tail_and_partial_marker()
+        with scout.connect(self.root / "second") as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+        self.assertIn("+ if boundary > maximum: continue", packet["sources"][0]["text"])
+
     def test_short_text_is_unchanged_and_claims_are_not_classified(self):
         text = "I do not plan to submit a PR."
         result = issue_evidence("https://github.com/owner/project/issues/1", "Report", text)
