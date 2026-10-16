@@ -30,6 +30,14 @@ are not semantic drift, and matching titles or empty samples prove neither
 coverage nor novelty. Check the final subject's existing author-owned work before
 implementation or dependency setup; this display is advisory, not a phase gate.
 
+For an already selected Rust file, one explicit unqualified `definition(name)`
+can locate a unique `fn name(` or `fn name<` literal within the existing source
+window budget. `requested_rust_fn_literal` is a lexical location, including
+comments/strings; it does not parse Rust, resolve impl/cfg/macros, or certify a
+complete body. Repeated literals abstain. Exact line/literal requests retain
+precedence. This avoids returning an earlier prose reference when the requested
+function is elsewhere; inspect the actual code before inferring behavior.
+
 ## Commit-exact source before native validation
 
 For a committed baseline/candidate, prefer raw Git objects over copying a dirty or

@@ -1,7 +1,7 @@
-"""Python declaration selection and qualified C++ literal source locations.
+"""Python declarations and explicitly requested C++/Rust literal locations.
 
 Syntax-only, never imported/executed code or production-reachability proof.
-Ambiguous/missing declarations fall back to existing context selection. C++
+Ambiguous/missing declarations fall back to existing context selection. C++/Rust
 locations are explicitly lexical, not parsed definitions or complete bodies.
 """
 import ast
@@ -93,6 +93,42 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
         if target is not None:
             matches.append(path)
     return matches[0] if len(matches) == 1 else None
+
+
+def requested_rust_fn_anchor(raw, request):
+    """Locate one explicit unqualified Rust fn literal, not a parsed body.
+
+    Comments/strings, macros, cfg branches and impl ownership are unresolved.
+    Every repeated occurrence abstains, even if one is only documentation.
+    """
+    if not isinstance(raw, str) or len(raw) > 1_000_000 or not isinstance(request, str):
+        return None
+    request = request[:2000]
+    markers = list(re.finditer(r"(?<!\w)definition[ \t]*\(", request))
+    if len(markers) != 1:
+        return None
+    match = re.match(
+        r"[ \t]*([A-Za-z_][A-Za-z0-9_]{0,127})[ \t]*\)",
+        request[markers[0].end():],
+    )
+    if match is None:
+        return None
+    name = match[1]
+    matches = re.finditer(
+        rf"(?<!\w)fn[ \t]+{re.escape(name)}(?!\w)[ \t]*(?=[(<])", raw
+    )
+    first = next(matches, None)
+    if first is None or next(matches, None) is not None:
+        return None
+    return {
+        "literal": "fn " + name,
+        "line": raw.count("\n", 0, first.start()) + 1,
+        "scope": (
+            "Unique requested Rust fn-name literal followed by ( or < in this "
+            "pinned file, including comments/strings. Not a parsed definition, "
+            "resolved impl owner, active cfg branch, macro expansion or complete body."
+        ),
+    }
 
 
 def requested_native_literal_anchor(raw, request):

@@ -23,6 +23,7 @@ from scout_requested_definition import (
     requested_definition_inventory,
     requested_function_window,
     requested_native_literal_anchor,
+    requested_rust_fn_anchor,
 )
 from scout_symbol_references import (
     NATIVE_SUFFIXES,
@@ -436,6 +437,13 @@ class PublicContext:
         )
         if go_anchor is not None:
             start = go_anchor["line"]
+        rust_anchor = (
+            requested_rust_fn_anchor(raw, request_hints)
+            if path.endswith(".rs") and start is None and exact_hint is None
+            else None
+        )
+        if rust_anchor is not None:
+            start = rust_anchor["line"]
         exact_line = next(
             (
                 i
@@ -528,6 +536,8 @@ class PublicContext:
             )
         if native_literal is not None:
             evidence["requested_native_literal"] = native_literal
+        if rust_anchor is not None:
+            evidence["requested_rust_fn_literal"] = rust_anchor
         if go_anchor is not None:
             evidence["go_declaration_anchor"] = go_anchor
         return evidence
