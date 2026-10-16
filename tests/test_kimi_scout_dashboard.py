@@ -842,7 +842,7 @@ function node(tag, cls, value) { return {tag, textContent:value || '', children:
 function $(id) {if (!elements.has(id)) elements.set(id,node('div'));return elements.get(id);}
 function text(id,value) {$(id).textContent=value;}
 const time=String,duration=String,number=String,stageLabel=String,plain=String;
-function badge(){} function setNotice(){} function renderAnalysis(){} function renderPacket(){}
+function badge(){} function setNotice(){} function renderAnalysis(){} function renderRelatedWorkScope(){} function renderPacket(){}
 let selectedId='a'.repeat(24),detail,detailNeedsRefresh=true,detailSignature='';
 """
         exercise = r"""

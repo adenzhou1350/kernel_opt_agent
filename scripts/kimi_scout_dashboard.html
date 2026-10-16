@@ -240,6 +240,7 @@
         <div id="detailNotice" class="notice detail-notice" hidden></div>
         <div id="detailError" class="notice error detail-notice" role="alert" hidden></div>
         <div id="analysis" class="analysis" hidden></div>
+        <section id="relatedWorkScope" class="analysis" aria-label="相关工作查询范围" hidden></section>
         <div class="tabbar" role="tablist" aria-label="任务内容"><button type="button" class="tab" id="tabAnswer" role="tab" aria-selected="true" aria-controls="answerPanel" data-panel="answerPanel">模型回答</button><button type="button" class="tab" id="tabSources" role="tab" aria-selected="false" aria-controls="sourcesPanel" data-panel="sourcesPanel" tabindex="-1">输入资料</button><button type="button" class="tab" id="tabPrompt" role="tab" aria-selected="false" aria-controls="promptPanel" data-panel="promptPanel" tabindex="-1">输入提示词</button></div>
         <div id="answerPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabAnswer"><div class="status-line"><span id="answerStatus"></span><span id="answerMeta" class="mono"></span></div><pre id="answer" class="output" tabindex="0" aria-label="模型回答文本"></pre></div>
         <div id="sourcesPanel" class="tab-panel" role="tabpanel" aria-labelledby="tabSources" hidden><div class="tiny muted">用户问题 / 任务目标</div><p id="question" class="input-question"></p><div id="packetMeta" class="source-meta muted"></div><div id="sources"></div><details class="source"><summary>完整公开资料包（JSON）</summary><div class="source-body"><pre id="packetText" tabindex="0"></pre></div></details></div>
@@ -554,6 +555,47 @@
     if (!refs.length) evidence.append(node("p", "tiny muted", "未提供引用证据"));
     $("analysis").replaceChildren(heading, grid, evidence);
   }
+  function renderRelatedWorkScope(packet, analysis) {
+    const panel = $("relatedWorkScope");
+    panel.replaceChildren();
+    panel.hidden = !analysis || analysis.decision !== "lead" || !packet || typeof packet !== "object" || Array.isArray(packet);
+    if (panel.hidden) return;
+    const clip = (value, limit) => value.length <= limit ? value : value.slice(0, limit) + " [truncated]";
+    const title = typeof analysis.title === "string" ? analysis.title.trim() : "";
+    let priorTitle = "";
+    if (typeof packet.untrusted_prior_analysis === "string" && packet.untrusted_prior_analysis.length <= 2500) {
+      try {
+        const prior = JSON.parse(packet.untrusted_prior_analysis);
+        if (prior && !Array.isArray(prior) && typeof prior.title === "string") priorTitle = prior.title.trim();
+      } catch (_) { /* Clipped or legacy prose is unavailable, not a matching title. */ }
+    }
+    const queries = [], seen = new Set();
+    const sources = Array.isArray(packet.sources) ? packet.sources : [];
+    for (const source of sources.slice(0,64)) {
+      if (!source || typeof source.search_query !== "string" || !source.search_query.trim()) continue;
+      const query = source.search_query.trim();
+      if (seen.has(query)) continue;
+      seen.add(query); queries.push(clip(query,512));
+      if (queries.length === 4) break;
+    }
+    const body = node("div", "evidence");
+    body.append(node("div", "tiny muted", "只读展示已有元数据，不新增查询或模型调用；最多 4 个查询、前 64 份来源。不是完整查重、相关性或作者归属结论。"));
+    body.append(node("div", "analysis-text", "本轮标题：" + (title ? clip(title,200) : "未提供")));
+    if (priorTitle) {
+      body.append(node("div", "analysis-text", "前一轮标题：" + clip(priorTitle,200)));
+      body.append(node("p", "tiny muted", title && title !== priorTitle
+        ? "标题文本不同，可能只是改写。实施前请核对已有查询是否覆盖最终假设。"
+        : "标题文本相同也不证明已有查询覆盖该假设。"));
+    } else {
+      body.append(node("p", "tiny muted", "前一轮标题不可恢复（可能缺失或被截断）；不推断假设相同或不同。"));
+    }
+    if (queries.length) {
+      body.append(node("pre", "analysis-text", queries.join("\n")));
+    } else {
+      body.append(node("p", "tiny muted", "资料包未提供可展示的查询元数据；不代表未搜索或没有重复项。"));
+    }
+    panel.append(node("div", "analysis-heading", "相关工作样本 · 非查重结论"), body);
+  }
   function renderPacket(packet) {
     const signature = JSON.stringify(packet);
     if (signature === packetSignature) return;
@@ -600,6 +642,7 @@
     setNotice("detailNotice", job.state === "REVIEW" ? "这是一条待验证线索。尚未经过复现、正确性或性能验证，也不代表可提交 PR。" : job.state === "RUNNING" ? "分析进行中。下方显示已收到的回答正文；内容可能不完整。" : job.state === "PENDING" ? "任务等待分配，尚未开始模型分析。" : "", job.state === "REVIEW" ? "warning" : "");
     setNotice("detailError", job.error ? "任务错误：" + plain(job.error) : "");
     renderAnalysis(data.analysis);
+    renderRelatedWorkScope(data.packet, data.analysis);
     renderPacket(data.packet);
     const liveText = data.live?.text || "", answer = data.answer || liveText;
     let status = "模型返回的回答正文";

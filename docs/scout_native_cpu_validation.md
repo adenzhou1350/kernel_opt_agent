@@ -22,6 +22,14 @@ proof of a defect. Generated code remains untrusted until reviewed. Check curren
 contribution rules, supported callers, existing work and the actual test entrypoint
 before installing dependencies. Preserve unavailable actions and original failures.
 
+For a terminal lead, inspect the dashboard's **related-work sample** beside its
+analysis: it shows the current/prior title when recoverable and the recorded
+search queries, without extra requests. A final hypothesis can change after the
+last lookup; inherited results may concern the old subject. Title text differences
+are not semantic drift, and matching titles or empty samples prove neither
+coverage nor novelty. Check the final subject's existing author-owned work before
+implementation or dependency setup; this display is advisory, not a phase gate.
+
 ## Commit-exact source before native validation
 
 For a committed baseline/candidate, prefer raw Git objects over copying a dirty or
