@@ -26,6 +26,15 @@ that a Windows kernel-pool leak is fixed, nor of increased PR quality. Profile
 host memory and actual candidate outcomes separately. Resident imports also hold
 memory while idle, so measure both retained memory and startup churn.
 
+The provider circuit observes completions in finish order. Once it opens, a
+successful request admitted before the outage cannot clear it, even when both
+results arrive in the same scheduler batch. After the cooldown and old requests
+drain, only the one newly admitted recovery probe can restore configured capacity.
+Restarted controllers also preserve probe-only recovery when an older checkpoint
+has a nonzero deadline but its cycle count was cleared by a stale success.
+This prevents a specific retry burst; it does not establish sustainable provider
+throughput or dynamically tune the configured concurrency limit.
+
 Offline tests use native fake subprocesses and cover recycling, concurrency,
 cross-wiring, broken/oversized replies, blocked stdin, hard deadlines, no replay,
 server frame checks, no conversation history and real controller persistence.

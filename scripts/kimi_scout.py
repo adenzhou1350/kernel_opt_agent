@@ -907,7 +907,8 @@ def load_error_circuit(path, now):
         if type(until) not in (int, float) or not math.isfinite(until) or until < 0:
             raise ValueError("invalid circuit deadline")
         return (
-            state["failures"], state["answer_failures"], state["cycles"],
+            state["failures"], state["answer_failures"],
+            max(state["cycles"], 1 if until else 0),
             min(until, now + 3600),
         )
     except FileNotFoundError:
@@ -931,6 +932,7 @@ def run(args):
             )
         deadline = time.time() + args.hours * 3600 if args.hours else float("inf")
         running, attempts, next_feed = set(), 0, 0.0
+        recovery_probes = set()
         circuit_path = root / "provider-circuit.json"
         failures, answer_failures, error_cycles, cooldown_until = load_error_circuit(
             circuit_path, time.time()
@@ -1033,10 +1035,12 @@ def run(args):
                             running, timeout=1, return_when=FIRST_COMPLETED
                         )
                         receipts = sorted(
-                            (future.result() for future in done),
-                            key=lambda r: r["finished"],
+                            ((future, future.result()) for future in done),
+                            key=lambda item: item[1]["finished"],
                         )
-                        for receipt in receipts:
+                        for future, receipt in receipts:
+                            is_recovery_probe = future in recovery_probes
+                            recovery_probes.discard(future)
                             if producer:
                                 producer.notify_completion(receipt)
                             if (
@@ -1047,8 +1051,19 @@ def run(args):
                             elif receipt["state"] == "FAILED":
                                 failures = 0
                                 answer_failures += 1
-                            else:
+                            elif not error_cycles or is_recovery_probe:
                                 failures, answer_failures, error_cycles = 0, 0, 0
+                            # A success from the pre-outage batch cannot prove
+                            # recovery. Observe failures in completion order so
+                            # a later success in this same batch cannot erase
+                            # an already-open circuit.
+                            failures, answer_failures, error_cycles, cooldown_until = (
+                                update_error_cooldown(
+                                    failures, answer_failures, error_cycles,
+                                    cooldown_until, time.time(),
+                                    args.error_cooldown_seconds,
+                                )
+                            )
                     failures, answer_failures, error_cycles, cooldown_until = (
                         update_error_cooldown(
                             failures,
@@ -1114,17 +1129,18 @@ def run(args):
                                     (job["id"],),
                                 )
                             break
-                        running.add(
-                            pool.submit(
-                                execute,
-                                root,
-                                job,
-                                args.kimi_python,
-                                min(args.timeout, remaining),
-                                args.output_tokens,
-                                *([backend_pool] if backend_pool else []),
-                            )
+                        future = pool.submit(
+                            execute,
+                            root,
+                            job,
+                            args.kimi_python,
+                            min(args.timeout, remaining),
+                            args.output_tokens,
+                            *([backend_pool] if backend_pool else []),
                         )
+                        running.add(future)
+                        if error_cycles:
+                            recovery_probes.add(future)
                         attempts += 1
                         free_mb = available_memory_mb() if reserve else None
                         commit_mb = available_commit_headroom_mb() if reserve else None

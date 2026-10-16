@@ -593,12 +593,22 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(sum(j["state"] == "PENDING" for j in current["jobs"]), 3)
 
     def test_recovery_admits_one_probe_then_restores_configured_capacity(self):
+        self.assert_recovery_admission(mixed_outcomes=False)
+
+    def test_old_batch_success_cannot_cancel_required_recovery_probe(self):
+        self.assert_recovery_admission(mixed_outcomes=True)
+
+    def test_old_successes_draining_later_cannot_close_open_circuit(self):
+        self.assert_recovery_admission(mixed_outcomes=True, separate_batches=True)
+
+    def assert_recovery_admission(self, *, mixed_outcomes, separate_batches=False):
         for i in range(8):
             self.add(str(i))
         clock = [1000.0]
         barrier = threading.Barrier(4)
         probe_started = threading.Event()
         release_probe = threading.Event()
+        admission_observed = threading.Event()
         restored = threading.Barrier(3)
         calls, errors = [], []
         lock = threading.Lock()
@@ -608,7 +618,13 @@ class ScoutTests(unittest.TestCase):
         def batch_wait(futures, **options):
             if first_wait[0]:
                 first_wait[0] = False
-                return real_wait(futures, timeout=5, return_when=ALL_COMPLETED)
+                done, pending = real_wait(futures, timeout=5, return_when=ALL_COMPLETED)
+                if separate_batches:
+                    first = set(sorted(done, key=lambda f: f.result()["finished"])[:2])
+                    return first, (done - first) | pending
+                return done, pending
+            if probe_started.is_set():
+                admission_observed.set()
             return real_wait(futures, **options)
 
         def execute(root, job, *unused):
@@ -617,7 +633,7 @@ class ScoutTests(unittest.TestCase):
                 number = len(calls)
             if number <= 4:
                 barrier.wait(timeout=5)
-                state = "FAILED"
+                state = "FAILED" if not mixed_outcomes or number <= 2 else "NO_LEAD"
             else:
                 if number == 5:
                     probe_started.set()
@@ -626,12 +642,14 @@ class ScoutTests(unittest.TestCase):
                 else:
                     restored.wait(timeout=5)
                     if number == 8:
+                        if not admission_observed.wait(timeout=5):
+                            raise AssertionError("admission was not observed")
                         (root / "STOP").touch()
                 state = "NO_LEAD"
             with scout.connect(root) as db:
                 db.execute("UPDATE jobs SET state=?,finished=? WHERE id=?",
                            (state, clock[0], job["id"]))
-            return {"state": state, "finished": clock[0]}
+            return {"state": state, "finished": clock[0] + number / 1000}
 
         def advance(_):
             clock[0] += 1
@@ -650,6 +668,8 @@ class ScoutTests(unittest.TestCase):
             runner.start()
             try:
                 self.assertTrue(probe_started.wait(timeout=5))
+                self.assertTrue(admission_observed.wait(timeout=5))
+                self.assertGreaterEqual(clock[0], 1060)
                 self.assertEqual(len(calls), 5)
                 with scout.connect(self.root) as db:
                     self.assertEqual(db.execute(
@@ -742,6 +762,10 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(scout.load_error_circuit(path, 1000.0), (1, 2, 5, 2000.0))
         scout.write_json(path, {**valid, "until": 1e100})
         self.assertEqual(scout.load_error_circuit(path, 1000.0), (1, 2, 5, 4600.0))
+        for until in (900.0, 2000.0):
+            with self.subTest(stale_success_deadline=until):
+                scout.write_json(path, {**valid, "cycles": 0, "until": until})
+                self.assertEqual(scout.load_error_circuit(path, 1000.0), (1, 2, 1, until))
         invalid = [
             "[]", "broken", "x" * 4097,
             json.dumps({**valid, "until": float("nan")}),
