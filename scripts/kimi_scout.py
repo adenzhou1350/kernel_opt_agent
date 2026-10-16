@@ -28,12 +28,13 @@ from pathlib import Path
 
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_commit_memory import available_commit_headroom_mb, commit_admits_call
+from scout_linux_memory import linux_available_memory_mb
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def available_memory_mb():
-    """Return host-available physical memory, or None if it cannot be read."""
+    """Return available RAM, constrained by visible Linux cgroup limits."""
     if os.name == "nt":
         import ctypes
 
@@ -53,12 +54,7 @@ def available_memory_mb():
             return None
         return status.avail_phys // (1024 * 1024)
     if sys.platform.startswith("linux"):
-        try:
-            for line in Path("/proc/meminfo").read_text(encoding="ascii").splitlines():
-                if line.startswith("MemAvailable:"):
-                    return int(line.split()[1]) // 1024
-        except (OSError, ValueError, IndexError):
-            pass
+        return linux_available_memory_mb()
     return None
 
 
