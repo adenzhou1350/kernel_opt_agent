@@ -1,8 +1,8 @@
 {
   "id": "borrowed-stream-versus-acquired-transport",
-  "title": "Distinguish borrowed TLS streams from factory-acquired transports",
-  "applies_when": "A Python stream wrap or upgrade helper raises during handshake and a leak hypothesis relies on its missing close. Determine whether the caller supplied an existing stream or the API acquired a new connection.",
-  "lesson": "Inspect the owning caller before adding cleanup to the wrapper. In pinned AnyIO, TLSStream.wrap receives an existing transport; a failed wrapper does not make the original caller handle inaccessible. connect_tcp and TLSConnectable acquire transports and forcefully close them on BaseException. TLSListener delegates failed or cancelled handshakes to a handler whose documented first action is forceful close. Test real protocol failure and cancellation after ClientHello, observe peer EOF and actual handle closure, and retain a direct-wrap control where the caller closes its borrowed transport. An encrypted send losing a TLS record is a different state-integrity contract; its broken flag is not proof of handshake ownership transfer.",
+  "title": "Distinguish borrowed streams from factory-acquired resources",
+  "applies_when": "A Python stream/archive wrapper adds cleanup on failure or explicit close. Determine whether the caller supplied an existing handle or the API acquired the resource; do not test only the owning factory path.",
+  "lesson": "Inspect the owning caller before adding cleanup to the wrapper. In pinned AnyIO, TLSStream.wrap receives an existing transport; a failed wrapper does not make the original caller handle inaccessible. connect_tcp and TLSConnectable acquire transports and forcefully close them on BaseException. TLSListener delegates failed or cancelled handshakes to a handler whose documented first action is forceful close. Test real protocol failure and cancellation after ClientHello, observe peer EOF and actual handle closure, and retain a direct-wrap control where the caller closes its borrowed transport. For archive close fixes, pair immediate cached-publication tests with caller-owned BytesIO and file controls, keeping the wrapper alive after close. Fsspec PR2313's generic __exit__ call closes both borrowed handles early; PR2312 restricts cleanup to OpenFile. Idempotency does not establish ownership. An encrypted send losing a TLS record is a different state-integrity contract; its broken flag is not proof of handshake ownership transfer.",
   "avoid_when": "An API may explicitly transfer ownership even on failure; inspect its documented contract and actual callers. A new supported owning path, source drift, a distinct cancellation phase, external SSLContext implementation or platform can invalidate this example. Do not universally waive cleanup of failed acquisitions, add unconditional close of caller-owned resources, or infer permanent leakage from a retained handle alone. Native Windows CPython3.12 loopback controls do not qualify every SSL implementation or platform. This lesson supplies a next check, not an automatic no-bug verdict, measured selector gain or PR-yield claim.",
   "evidence": [
     {
@@ -24,6 +24,14 @@
     {
       "url": "https://github.com/agronholm/anyio/blob/1805944a9f6a062527c10aa044ded959782bfc3e/tests/streams/test_tls.py#L492-L518",
       "note": "The truststore certificate-failure test keeps the original TCP stream in async-with around wrap, illustrating explicit caller ownership. Optional truststore behavior is not every SSLContext implementation."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/b7505a613a6901d6f9c3df0c5147908de38c4a9e/fsspec/implementations/zip.py",
+      "note": "PR2313 calls __exit__ on any supplied context after ZIP close and clears of. Cached-publication regressions pass, but native Windows public BytesIO/file controls both fail because close now closes the caller's handle. CI success did not cover this contract."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/5668d9350ff0ad20037d607668d067cc39bc8dc3/fsspec/implementations/tests/test_zip.py",
+      "note": "Existing author PR2312 includes caller-owned buffer/file, owned OpenFile, cached publication, open-member retry and upload-error cases. Native Windows caller controls and its 49-test ZIP suite pass at this head. This is independent validation, not our PR or a full CI/Linux qualification."
     }
   ],
   "status": "counterexample"
