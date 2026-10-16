@@ -1,0 +1,22 @@
+{
+  "id": "serialization-policy-without-runtime-cache",
+  "title": "Preserve cache constructor policy without serializing the populated runtime cache",
+  "applies_when": "A buffered file serializes a reopen recipe rather than its live cache, and cache_options controls bounds or eviction such as maxblocks or trim. The reader can replace its cache implementation after construction.",
+  "lesson": "Compare the actual public open/read/pickle/reopen path, not just direct cache-object pickling. Excluding populated cache bytes is compatible with preserving the caller's constructor policy: otherwise a round trip can silently reset a bounded cache or change trimming. Retain the original constructor options separately from mutable runtime state, and only reuse them when the effective cache implementation is still compatible. Include position/returned-byte checks, an initially empty reconstructed-cache control and a read-all/cache-replacement control. In the pinned Fsspec case, both synchronous and asynchronous HTTP readers reset maxblocks=2 to32 and trim=False toTrue; the proposed fix preserves options but does not pass BytesCache options to an AllBytes replacement.",
+  "avoid_when": "This does not establish a serialization contract for every backend or cache. Caller-supplied options can contain data or unpicklable resources; preserving them does not guarantee a small or universally picklable object. Runtime changes to cache policy need a separate contract. Native loopback correctness and proposed tests are not full CI, production performance, maintainer acceptance or a controlled knowledge-benefit experiment.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/76ba99e652820d997dbaab9eebda1e2215f6c4ff/fsspec/spec.py",
+      "note": "Pinned implementation constructs the cache with cache_options, but its file reopen recipe omits these consumed options. Source mechanism, not a native test by itself."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/filesystem_spec/blob/3ca5c8c4fa2cd62b5af40da16f4028cf892602fd/fsspec/tests/test_spec.py",
+      "note": "Proposed unmerged tests use real loopback HTTP for both implementations. Identical focused native Linux selection has four failing option-preservation cases and five passing controls on baseline, all nine passing on candidate. The controls retain cache exclusion and read-all replacement behavior; not full CI or acceptance."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/1753",
+      "note": "Earlier merged change intentionally excludes populated runtime caches from file pickles. Do not reverse that design to fix constructor-option loss."
+    }
+  ],
+  "status": "validated"
+}

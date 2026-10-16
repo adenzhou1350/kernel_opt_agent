@@ -1,5 +1,22 @@
 # Native CPU tests before broadening Scout discovery
 
+## Keep test-process temporary paths short and private
+
+Python multiprocessing's forkserver can create an AF_UNIX listener beneath the
+test process's temporary directory. A long source-identity/run path can exceed
+the socket path limit before the package operation under test runs. Preserve
+that setup failure; use a fresh short task-owned temporary directory for a new
+matched run rather than removing the forkserver test or changing shared TMPDIR.
+Check source/test identities and repeat the same declared selection on both
+arms. A path repair is not a library fix or evidence of all-platform support.
+See the actual listener construction in
+[CPython's forkserver](https://github.com/python/cpython/blob/v3.12.13/Lib/multiprocessing/forkserver.py).
+
+Similarly, disabling pytest plugin autoload does not make installed fixture
+providers available. Explicitly load the reviewed private plugin (for example,
+`-p pytest_mock` when upstream uses `mocker`) and record that environment change.
+Retain missing-fixture errors instead of scoring the unexecuted test as a pass.
+
 ## Collection skips are not executed tests
 
 Pytest can report a whole skipped module as a JUnit `testcase` with an empty

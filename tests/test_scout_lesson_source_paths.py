@@ -257,6 +257,24 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("atomic pair", evidence["note"])
         self.assertIn("not all-race proof", evidence["note"])
 
+    def test_pickle_policy_card_preserves_runtime_cache_exclusion_and_replacement(self):
+        url = (
+            "https://raw.githubusercontent.com/fsspec/filesystem_spec/"
+            "76ba99e652820d997dbaab9eebda1e2215f6c4ff/fsspec/spec.py"
+        )
+        result = lessons.lesson_suggestions(
+            "pickle cache_options maxblocks trim reopen policy", source_urls=[url]
+        )
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "serialization-policy-without-runtime-cache")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("populated cache bytes", matched["lesson"])
+        self.assertIn("AllBytes replacement", matched["lesson"])
+        self.assertIn("unpicklable", matched["avoid_when"])
+        self.assertIn("proposed unmerged", json.dumps(matched).lower())
+        self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_existing_seek_fix_does_not_hide_a_return_contract_subcase(self):
         url = (
             "https://raw.githubusercontent.com/fsspec/filesystem_spec/"
