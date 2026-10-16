@@ -131,6 +131,46 @@ class NativeResultsTests(unittest.TestCase):
                      valid.replace('name="test_case"', 'name=""')):
             self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
 
+    def test_pytest_collection_skip_is_retained_but_never_executed(self):
+        root = ET.fromstring(junit(("test_case", None), ("tests.test_optional", "skipped")))
+        collection = root[0][1]
+        collection.set("classname", "")
+        collection[0].set("message", "collection skipped")
+        text = ET.tostring(root, encoding="unicode")
+        value = self.junit(text)
+        self.assertEqual((value["status"], value["passed"], value["skipped"], value["executed"]),
+                         ("TESTS_PASSED", 1, 1, 1))
+        # A skipped module must not satisfy any declared regression/control.
+        missing = self.junit(text, expected_tests=("@collection::tests.test_optional",))
+        self.assertEqual(missing["status"], "INCONCLUSIVE")
+        self.assertEqual(missing["missing_expected_tests"], ["@collection::tests.test_optional"])
+
+    def test_collection_skip_does_not_relax_other_identity_checks(self):
+        for name, message, outcome in (
+            ("tests.test_optional", "ordinary skip", "skipped"),
+            ("", "collection skipped", "skipped"),
+            ("tests::test_optional", "collection skipped", "skipped"),
+            ("tests.test_optional", "collection skipped", "failure"),
+            ("tests.test_optional", "collection skipped", None),
+        ):
+            root = ET.fromstring(junit(("test_case", None), (name, outcome)))
+            case = root[0][1]
+            case.set("classname", "")
+            if outcome:
+                case[0].set("message", message)
+            with self.subTest(name=name, message=message, outcome=outcome):
+                self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"),
+                                           1 if outcome == "failure" else 0)["status"],
+                                 "INCONCLUSIVE")
+        root = ET.fromstring(junit(("test_case", None),
+                                   ("tests.test_optional", "skipped"),
+                                   ("tests.test_optional", "skipped")))
+        for case in list(root[0])[1:]:
+            case.set("classname", "")
+            case[0].set("message", "collection skipped")
+        self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"],
+                         "INCONCLUSIVE")
+
     def test_junit_non_pytest_notrun_status_cannot_be_counted_as_pass(self):
         root = ET.fromstring(junit(("test_case", None)))
         root[0][0].set("status", "notrun")

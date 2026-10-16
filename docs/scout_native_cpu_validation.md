@@ -1,5 +1,17 @@
 # Native CPU tests before broadening Scout discovery
 
+## Collection skips are not executed tests
+
+Pytest can report a whole skipped module as a JUnit `testcase` with an empty
+`classname`, a module name, and `skipped message="collection skipped"`.
+The native result reader retains that exact form as an `@collection::...` skip
+event; it cannot satisfy a required regression/control or count as executed.
+One module skip says nothing about how many tests inside it were not collected.
+Ordinary passing/failing cases still require qualified identities; duplicate,
+missing or contradictory outcomes remain inconclusive. Preserve the original
+XML and old parser result when deriving a new analysis with a corrected reader;
+do not edit skipped records or rerun a costly suite only to change its format.
+
 ## Standard-library iterator tests and concurrency capacity
 
 At [More Itertools 4aeb433](https://github.com/more-itertools/more-itertools/tree/4aeb4338ae1407d8da9723e86da99efeb446f719),

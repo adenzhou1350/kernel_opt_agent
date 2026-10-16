@@ -205,13 +205,20 @@ def _junit(text, exit_code, expected_results, issue):
                 issue("unsupported JUnit suite child")
                 continue
             classname, name = case.get("classname", ""), case.get("name", "")
-            qualified = f"{classname}::{name}"
-            if not classname or not name or len(qualified) > 512 or qualified in names:
+            outcomes = [child.tag for child in case if child.tag in {"failure", "error", "skipped"}]
+            # pytest emits one classless record for a module-level skip. It is
+            # a skipped collection event, never an executed test identity.
+            collection_skip = (
+                not classname and outcomes == ["skipped"]
+                and case.find("skipped").get("message") == "collection skipped"
+                and re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", name)
+            )
+            qualified = f"@collection::{name}" if collection_skip else f"{classname}::{name}"
+            if not (classname or collection_skip) or not name or len(qualified) > 512 or qualified in names:
                 issue("missing, overlong or duplicate JUnit case identity")
             if "status" in case.attrib:
                 issue("non-pytest JUnit status attributes are unsupported")
             names.add(qualified)
-            outcomes = [child.tag for child in case if child.tag in {"failure", "error", "skipped"}]
             if len(outcomes) > 1 or any(child.tag not in {
                 "failure", "error", "skipped", "properties", "system-out", "system-err"
             } for child in case):
