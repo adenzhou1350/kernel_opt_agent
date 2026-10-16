@@ -104,6 +104,14 @@ The [research findings](references/scout_evidence_acquisition_notes.md#research-
 include unresolved novelty/utility requirements and negative comparisons.
 Nothing here authorizes a learned selector in production or a paper claim.
 
+A [two-repair Python/Go comparison](../examples/scout-evidence-native-facts/README.md)
+extends that countercheck with matched native regression/control tests and fresh
+public-call observations. Fixed native evidence and M3-selected evidence both
+answered all four related states; the latter always chose native and consumed
+more model tokens. Direct handling avoided four review calls without changing
+those observed values. Construction/setup costs are not zero or fully metered;
+this is neither a new-discovery benchmark nor a general adaptive-policy result.
+
 ## Published-method comparator boundary
 
 [SWE-Search, ICLR 2025](https://arxiv.org/html/2410.20285v4) is a relevant
