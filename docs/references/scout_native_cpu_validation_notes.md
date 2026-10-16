@@ -17,6 +17,13 @@ providers available. Explicitly load the reviewed private plugin (for example,
 `-p pytest_mock` when upstream uses `mocker`) and record that environment change.
 Retain missing-fixture errors instead of scoring the unexecuted test as a pass.
 
+When an exported package sits beneath a larger repository, pytest may inherit
+the ancestor's root and emit a longer JUnit `classname` than expected. Declare
+`--rootdir=<reviewed-export>` and qualified expected test names before execution.
+If only the report prefix differs, preserve the original inconclusive capture
+and reconcile the same hashed XML against the exact predefined test; do not
+rerun assertions merely to repair accounting or accept a different test.
+
 ## SQLite read-only queries still need temporary capacity
 
 When a read-only Scout query reports `database or disk is full`, inspect the
@@ -298,6 +305,12 @@ world-writable output or running the tests as root. Preserve the original
 inconclusive capture, fix only the task's identity/paths, and use fresh reports
 with unchanged assertions. Partial terminal failure/pass dots do not replace
 the missing JUnit report or override the strict capture verdict.
+
+Also check traversal through the task's extraction parent: the source bundler
+creates its fresh target with mode `0700`. A root-owned parent can hide an
+otherwise readable `go.mod` from a nonroot child, which may report "no modules
+specified" rather than a package failure. Set appropriate ownership or traversal
+on that task-owned parent only; keep source content and shared paths unchanged.
 
 The CPU capture entrance permits at most 0.5 seconds of natural process-group
 shutdown after the leader exits, within the original command deadline. This
