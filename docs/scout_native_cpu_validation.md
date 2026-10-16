@@ -63,6 +63,16 @@ The builder does not silently lazy-fetch missing objects. See the
 [full restrictions](references/scout_native_cpu_validation_notes.md#commit-exact-source-before-native-validation)
 before using this route with partial clones, LFS, submodules or symlinks.
 
+If a test preceded the commit, compare its recorded source hashes with the raw
+committed blobs before crediting the published head. Windows checkout bytes can
+differ only by CRLF normalization; prove that difference rather than silently
+relabeling the old run. When exact-head execution matters, export the committed
+bytes and retain the earlier run separately. Stop a dependent commit/push step
+when a prerequisite check fails; orchestration must inspect each process exit.
+For JIT/native tests, include changed headers in source identity and use a fresh
+task-private build cache unless dependency-aware invalidation is demonstrated.
+A fresh Python process alone does not establish a fresh compiled extension.
+
 ## Package and language routes
 
 - Python: [Humanize and missing translations](references/scout_native_cpu_validation_notes.md#humanize-core-baseline-with-translation-gaps-retained),

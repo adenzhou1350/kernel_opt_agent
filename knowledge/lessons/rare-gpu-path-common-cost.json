@@ -1,0 +1,18 @@
+{
+  "id": "rare-gpu-path-common-cost",
+  "title": "A rarely taken GPU correctness branch can still cost the common path",
+  "applies_when": "An elementwise conversion or fused GPU kernel gains a branch for rare boundary values, while ordinary values dominate the workload.",
+  "lesson": "Boundary correctness and common-path cost need separate evidence. A rarely taken branch is not automatically free for the other elements. After preserving exact boundary semantics, inspect whether both ranges can share a guarded scaled representation and common arithmetic, then measure representative kernels. In the FlashInfer FP16 stochastic-rounding review, a shared add-and-truncate form was proposed instead of a separate subnormal early return. Classify original nonfinite input bits before random perturbation and guard variable shifts; equivalence for finite examples alone misses Inf/NaN and overflow behavior.",
+  "avoid_when": "This is not a universal branchless-code rule: extra arithmetic, register pressure, compiler lowering or workload distribution can favor branching. The cited H100/RTX5090 performance observations are maintainer-reported for particular SSU workloads, not our independent performance reproduction or a portable speedup. A passing conversion test does not prove SSU performance recovery, B300 hardware parity or model accuracy.",
+  "evidence": [
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/pull/6114#discussion_r4300103184",
+      "note": "Public maintainer review reports a normal-path SSU regression despite rare subnormal inputs, supplies a common-expression alternative and points out original-input Inf/NaN classification. This is a scoped counterexample to rare-path-is-free, not an independently measured performance result."
+    },
+    {
+      "url": "https://github.com/flashinfer-ai/flashinfer/commit/e34d2f670a5b08c667a99d91fba8c3191cff761f",
+      "note": "The follow-up implements the shared expression and special-value/finite-overflow tests. Source and correctness tests do not establish recovered performance or maintainer CI success."
+    }
+  ],
+  "status": "counterexample"
+}
