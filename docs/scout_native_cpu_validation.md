@@ -68,6 +68,16 @@ maintainer/fork channel. If archive status is found late, retain the original
 sample, calls and setup costs; remove only future discovery scope, not historical
 evidence, and do not replace that case to improve a reported success rate.
 
+Duplicate checks also need the linked history, not only current open-PR search.
+[go-retryablehttp #179](https://github.com/hashicorp/go-retryablehttp/issues/179)
+has a same-scope [fix #299](https://github.com/hashicorp/go-retryablehttp/pull/299)
+that a maintainer closed unmerged; partial issue/index views omitted that link.
+The closure had no visible explanation at owner review. Do not infer an accepted
+design or an invitation to submit the same patch. Clarify the contribution route
+or establish a distinct uncovered defect before paying for a replacement. A
+closed prior PR is not a universal ban; its intent may remain unknown. The
+original author's test claims are not independent native validation.
+
 ## Owner-only intake across languages
 
 Long issue text keeps its head and tail and, when it fits, one literal middle
