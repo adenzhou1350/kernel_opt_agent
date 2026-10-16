@@ -73,10 +73,22 @@ visible-token count by retokenizing text or reconstruct past reasoning usage.
 HTTP mode permits an explicitly selected output budget up to 32,768 tokens;
 Kimi's default remains 4,096. A forced-thinking model may consume a small cap
 before emitting any visible answer. Preserve that failed trial and choose a
-new bounded budget rather than silently retrying or treating HTTP 200 as success.
+new bounded task/budget rather than silently retrying or treating HTTP 200 as success.
 For example, the [GLM thinking-mode documentation](https://docs.z.ai/guides/capabilities/thinking-mode)
 explicitly says GLM-5.3 thinking cannot be disabled. Verify the actual endpoint;
 do not assume every compatible service honors Kimi-specific thinking switches.
+
+Admit the actual task interface before expanding occupancy. A literal-copy
+canary can pass while a whole-file defect hunt exhausts its answer budget.
+Try a separately recorded, source-bound small question with an independently
+checked native answer before spending on more broad calls; keep the failed
+requests and their reported usage. If context, task or output cap changes, the
+new observation is not a controlled efficiency or quality comparison. A valid
+small answer proves neither fresh discovery nor the ability to review a large
+packet. Include known related fixes before pursuing a lead and use the existing
+window reader for missing context, rather than asking every worker to rediscover
+already-reviewed bugs. This is adaptable admission guidance, not a mandatory
+question size or a claim that smaller prompts always work better.
 
 There are no transport retries or automatic provider fallback. Authentication
 and permission errors preserve the existing supervisor's terminal-denial route.
