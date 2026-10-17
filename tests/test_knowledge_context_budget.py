@@ -355,6 +355,18 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_separate_go_binary_advice_keeps_native_execution_boundary(self):
+        result = lesson_suggestions("Go cross-built Windows binary test2json framing native execution")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "go-native-platform-witness")
+        self.assertIn("-test.v=test2json", card["lesson"])
+        self.assertIn("Verify both executables", card["lesson"])
+        self.assertIn("parent/subtest identities", card["lesson"])
+        self.assertIn("application-control denial is unexecuted", card["avoid_when"])
+        self.assertTrue(any(e["url"] == "https://pkg.go.dev/cmd/test2json" for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
     def test_native_guard_advice_keeps_safe_kernel_witness_scope(self):
         result = lesson_suggestions(
             "KDA padded key mask NaN gate guard",

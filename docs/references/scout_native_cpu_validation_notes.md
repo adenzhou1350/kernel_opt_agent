@@ -1044,6 +1044,23 @@ do not filter away test events or synthesize package terminals. Go parent/subtes
 events are identities, not distinct bugs. This checks captured outcomes, not the
 truth of the assertions or prospective discovery quality.
 
+For a separately cross-built Windows test executable, the existing native
+Windows runner can consume the official converter's JSON stream:
+
+```text
+python scripts/scout_native_run.py --native-windows --cwd TASK_DIR --output FRESH_OUTPUT --format go-json --package PACKAGE --source fs.test.exe=SHA256 --expect-test TestRegression --expect-test TestControl --timeout 30 -- ABSOLUTE_TEST2JSON_EXE -t -p PACKAGE ABSOLUTE_TEST_EXE -test.v=test2json -test.count=1 -test.timeout=20s
+```
+
+Replace the template's paths/hashes and supply every selected test identity,
+including parents/subtests. Set task-private TEMP/TMP through `--env` when used.
+Bind both executable hashes and record compiler/converter versions. This
+[official single-binary interface](https://pkg.go.dev/cmd/test2json) needs a
+toolchain supporting the framing flag; plain `-test.v` is lower fidelity.
+Prefer `go test -json` when a native compiler is available. A JSON converter
+does not make compilation a runtime witness, replace fixtures, verify source,
+or qualify Windows race/other Go versions. Reviewed commands still need local
+physical and commit headroom; do not reroute an application-control denial.
+
 ### A small dependency-free retry library
 
 `cenkalti/backoff` is another native Go discovery source. At current-v7
