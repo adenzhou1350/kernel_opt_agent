@@ -13,6 +13,7 @@ optional context, not a mandatory sequence or a new acceptance gate.
 | Resolve a lead's actual implementation | `kimi_scout_delivery_source.select_leads` with `owner_review=True` or an explicit supported `owner_language` | [Intake and missing source](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
 | Transfer committed code without checkout newline changes | `qualification_source_bundle.py --build` / `--verify` | [Commit-exact transport](references/scout_native_cpu_validation_notes.md#commit-exact-source-before-native-validation), [literal path subsets](references/scout_native_cpu_validation_notes.md#scoped-raw-git-source-transport) |
 | Reuse the tested capture tools on another host | `scout_native_run.py --export-runtime FRESH_DIRECTORY` | [Runtime/API limits](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
+| Prepare a separate public-source Scout batch without migrating a live queue | `scout_public_export.py --repo REPO --commit FULL_COMMIT --output FRESH_DIRECTORY` | [Pinned Scout source and lessons](#pinned-scout-source-and-lessons) |
 | Inspect an existing private dependency tree without installing or copying it | `scout_dependency_tree.py EXISTING_TREE` | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Run an owner-reviewed command and retain native reports | `scout_native_run.py --help`; choose a supported actual report format | [POSIX/Windows capture and cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout), [Vitest JSON](references/scout_native_cpu_validation_notes.md#vitest-json-is-a-separate-native-format) |
 | Compare the same regressions and controls before/after | `scout_native_results.compare_regression` | [Report validity and collection skips](references/scout_native_cpu_validation_notes.md#collection-skips-are-not-executed-tests) |
@@ -77,6 +78,29 @@ The runtime exporter writes its snapshots as bytes to avoid that mismatch.
 For JIT/native tests, include changed headers in source identity and use a fresh
 task-private build cache unless dependency-aware invalidation is demonstrated.
 A fresh Python process alone does not establish a fresh compiled extension.
+
+### Pinned Scout source and lessons
+
+`scout_public_export.py` reads the two Scout entrypoints' static flat-module
+imports and all committed default lesson cards from one explicit local Git
+commit. It reuses the source bundler's local-only raw-object reader, in batches,
+without importing the target code. Dirty/untracked files, live databases and
+provider configuration are not selected. Per-file hashes and byte counts are
+written to `manifest.json`; output must be fresh. Limits are 512 files, 512 KiB
+per blob and 4 MiB total. A failed write can leave a partial fresh directory;
+directory existence alone is not export success.
+
+Review the selected bytes/manifest before transferring them under existing
+authority. This is not a secret scanner or a redistribution/license package;
+include required notices before redistribution. Static imports do not resolve
+dynamic imports, package data or external dependencies. Single-dot sibling
+imports follow the same pinned flat modules, without executing package code.
+Parent-relative, unresolved-relative and local-package imports stop this
+exporter rather than being silently omitted.
+Check the worker's actual interpreter, imports and lesson inventory separately.
+Exporting advice proves neither that a model consumed it nor that it helped.
+Provider configuration and any original queue/credential migration remain
+separate, explicitly scoped actions. This tool never transfers or starts work.
 
 For a reviewed Python command on native Windows, explicitly pass
 `--env PYTHONUTF8=1 --env PYTHONIOENCODING=utf-8` when its captured console may

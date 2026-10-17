@@ -720,6 +720,40 @@ def test_early_blob_iterator_close_reaps_child(
     assert child.stdout.closed
 
 
+def test_blob_read_budget_rejects_header_before_allocating_payload(tmp_path, monkeypatch):
+    import qualification_source_bundle as bundler
+    object_id = "a" * 40
+
+    class Child:
+        stdout = io.BytesIO(f"{object_id} blob 999999999\n".encode())
+        returncode = None
+        killed = False
+
+        def poll(self):
+            return self.returncode
+
+        def kill(self):
+            self.killed = True
+            self.returncode = -9
+
+        def wait(self):
+            return self.returncode
+
+    child = Child()
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **kw: child)
+    monkeypatch.setattr(bundler, "read_exact", lambda *a: pytest.fail("payload must not be read"))
+    with pytest.raises(ValueError, match="exceeds read budget"):
+        list(iter_git_tree_blobs(tmp_path, [("file", "100644", object_id)], max_blob_bytes=1024))
+    assert child.killed and child.stdout.closed
+
+
+@pytest.mark.parametrize("cap", [0, -1, True, 1.0])
+def test_invalid_blob_budget_does_not_launch_git(tmp_path, monkeypatch, cap):
+    monkeypatch.setattr(subprocess, "Popen", lambda *a, **kw: pytest.fail("must validate first"))
+    with pytest.raises(ValueError, match="positive integer"):
+        list(iter_git_tree_blobs(tmp_path, [], max_blob_bytes=cap))
+
+
 def test_archive_or_manifest_tamper_fails_closed(tmp_path: Path) -> None:
     repo, commit, _ = source_repo(tmp_path)
     archive, manifest = bundle_paths(tmp_path)
