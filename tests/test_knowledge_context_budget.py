@@ -11,6 +11,24 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_barrel_delete_prior_repair_is_available_without_native_head_claim(self):
+        result = lesson_suggestions(
+            "BarrelList del_slice clipped bounds empty deletion",
+            source_urls=[
+                "https://raw.githubusercontent.com/mahmoud/boltons/"
+                "4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/listutils.py"
+            ],
+        )
+        card = result['matches'][0]
+        self.assertEqual(card['id'], 'closed-issue-subcase-coverage')
+        self.assertTrue(any(
+            item['url'].endswith('/boltons/pull/549')
+            and 'not independently qualified here' in item['note']
+            for item in card['evidence']
+        ))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result['oversized_matches_omitted'], 0)
+
     def test_packed_state_allocation_advice_keeps_maintainer_evidence_attributed(self):
         result = lesson_suggestions(
             "packed recurrent final state allocation sequence grid",
