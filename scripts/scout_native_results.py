@@ -13,8 +13,13 @@ import re
 from pathlib import Path
 from xml.etree import ElementTree
 
+try:
+    from .scout_bun_junit import summarize as summarize_bun_junit
+except ImportError:
+    from scout_bun_junit import summarize as summarize_bun_junit
+
 MAX_BYTES = 2 * 1024 * 1024
-FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json")
+FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json", "bun-junit")
 RUST_SUMMARY = re.compile(
     r"test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
     r"(\d+) measured; (\d+) filtered out; finished in [0-9.]+s"
@@ -464,6 +469,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     rust_running = None
     rust_cases = {}
     vitest = None
+    bun_junit = None
 
     def issue(message):
         if message not in issues and len(issues) < 16:
@@ -480,6 +486,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         counts, seen, batches, terminal = _node_tap(text, exit_code, expected_results, issue)
     elif format == "vitest-json":
         counts, seen, batches, terminal, vitest = _vitest(text, exit_code, expected_results, issue)
+    elif format == "bun-junit":
+        counts, seen, batches, terminal, bun_junit = summarize_bun_junit(text, exit_code, expected_results, issue)
 
     for line in text.splitlines() if format in {"go-json", "rust-libtest"} else ():
         if format == "go-json":
@@ -590,6 +598,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
                         "source/runtime identity, caller reachability, performance or PR qualification."}
     if vitest is not None:
         result["vitest"] = vitest
+    if bun_junit is not None:
+        result["bun_junit"] = bun_junit
     if format == "gtest-xml":
         result["disabled"] = counts["disabled"]  # subset of skipped, not additive
     return result
@@ -635,6 +645,11 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
             for key in ("case_inventory_sha256", "reported_total_tests", "unselected_unexecuted")
         ):
             issues.append("Vitest report inventories or unexecuted cohorts differ")
+        if format == "bun-junit" and any(
+            baseline["bun_junit"][key] != candidate["bun_junit"][key]
+            for key in ("grouped_case_inventory_sha256", "reported_total_tests")
+        ):
+            issues.append("Bun grouped test inventories or multiplicities differ")
         for name in names:
             before = baseline["expected_test_results"][name]
             after = candidate["expected_test_results"][name]

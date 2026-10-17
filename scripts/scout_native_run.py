@@ -21,7 +21,7 @@ from pathlib import Path
 import scout_native_results as native
 
 RUNTIME_FILES = ("scout_native_run.py", "scout_native_results.py", "qualification_source_bundle.py",
-                 "scout_native_windows.py")
+                 "scout_native_windows.py", "scout_bun_junit.py")
 
 
 def export_runtime(output):
@@ -164,6 +164,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         arg.startswith(("--reporter", "--outputFile", "--output-file")) for arg in command[1:]
     ):
         raise ValueError("the runner owns the fresh Vitest JSON reporter and report path")
+    if format == "bun-junit" and any(arg.startswith('--reporter') for arg in command[1:]):
+        raise ValueError("the runner owns the fresh Bun JUnit reporter and report path")
     if format == "gtest-xml" and any(
         arg.startswith(("--gtest_output", "--gtest_repeat")) for arg in command[1:]
     ):
@@ -204,6 +206,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         command.extend(["--reporter=json", f"--outputFile={output / 'vitest.json'}"])
     elif format == "gtest-xml":
         command.append(f"--gtest_output=xml:{output / 'gtest.xml'}")
+    elif format == "bun-junit":
+        command.extend(['--reporter=junit', f"--reporter-outfile={output / 'bun.xml'}"])
     started = time.monotonic()
     if native_windows:
         import scout_native_windows
@@ -233,9 +237,9 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if not issues:
         try:
             text = (output / "terminal.log").read_text(encoding="utf-8")
-            if format in {"pytest-junit", "vitest-json", "gtest-xml"}:
+            if format in {"pytest-junit", "vitest-json", "gtest-xml", "bun-junit"}:
                 report_name = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
-                               "gtest-xml": "gtest.xml"}[format]
+                               "gtest-xml": "gtest.xml", "bun-junit": "bun.xml"}[format]
                 report_path = output / report_name
                 if report_path.is_symlink() or not report_path.is_file():
                     raise ValueError("missing or non-regular test report")

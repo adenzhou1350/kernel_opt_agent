@@ -80,7 +80,8 @@ A fresh Python process alone does not establish a fresh compiled extension.
   [HTTPX](references/scout_native_cpu_validation_notes.md#httpx-example),
   [HTTPcore fixtures](references/scout_native_cpu_validation_notes.md#httpcore-plugins-and-behavior-matched-test-context).
 - JavaScript/TypeScript: [Windows-native constraints](references/scout_native_cpu_validation_notes.md#windows-native-typescript-checks-without-bypassing-runtime-requirements),
-  [bounded lifecycle tests](references/scout_native_cpu_validation_notes.md#typescript-lifecycle-checks-without-a-monorepo-rebuild).
+  [bounded lifecycle tests](references/scout_native_cpu_validation_notes.md#typescript-lifecycle-checks-without-a-monorepo-rebuild),
+  [Bun JUnit](#bun-native-junit-reports).
 - Go: [standard-library-only comparison](references/scout_native_cpu_validation_notes.md#standard-library-only-go-comparison-baseline),
   [small retry library](references/scout_native_cpu_validation_notes.md#a-small-dependency-free-retry-library).
 - C++: [small native translation units](references/scout_native_cpu_validation_notes.md#small-owner-reviewed-c-translation-units),
@@ -93,6 +94,47 @@ dependencies. Before remote execution, inspect
 [sandbox feasibility](references/scout_native_cpu_validation_notes.md#remote-sandbox-feasibility-before-model-execution)
 and the authorized environment; do not silently start local WSL or bypass an
 execution-policy denial. Process capture is not a security sandbox.
+
+### Bun native JUnit reports
+
+Use `--format bun-junit` with a reviewed `bun test` command. The runner supplies
+its own `--reporter=junit` and fresh `bun.xml` path, preserving the separate
+console log. Do not supply reporter flags yourself. Export a fresh runtime with
+`--export-runtime`; copying only the entry script omits required sibling modules,
+including `scout_bun_junit.py`.
+
+Expected names are exact JSON location/group IDs, not just display names. For
+example, if `probe.test.ts` declares `describe('group', ...)` on line 1 and
+`test('regression', ...)` on line 2:
+
+```python
+from scripts.scout_bun_junit import case_id
+
+regression = case_id('probe.test.ts', 2, [('group', 1)], 'regression')
+# '["probe.test.ts",2,[["group",1]],"regression"]'
+```
+
+Freeze these locations against the reviewed test bytes. Identical parameterized
+names at the same location form a group with observed multiplicity; Bun's report
+does not identify parameter values. The reader counts nested cases once, and
+`compare_regression` requires the same grouped inventory and multiplicities in
+both arms. Declare the complete selected cohort, including passing controls;
+a group mixing passing and failing instances is not an all-failed regression.
+
+Missing import reports, unlocated hook failures, timeouts, unsupported report
+shapes and inconsistent counters are `INCONCLUSIVE`, not bug reproductions.
+Skip/TODO cases are retained but not counted as executed. A located failure still
+needs inspection of the actual caller contract; parsing it is not a correctness
+oracle or permission to run generated code.
+
+The entrance was replayed with native Linux Bun 1.4.3 on the already exposed
+[MiniMax CLI quiet/JSON repair](https://github.com/MiniMax-AI/cli/pull/292): identical
+test bytes yielded 7 passes/1 regression failure before and 8 passes after, with
+matching grouped inventories. Separate native probes covered nested groups,
+assertion failure, skips/TODO, hook/import failures and timeout. Windows tests
+exercise process capture with injected XML, not Windows Bun. This qualification
+is neither a new Scout discovery nor evidence of prospective selection benefit,
+full-package portability or a security sandbox.
 
 ## Keep the outcome useful
 
