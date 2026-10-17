@@ -41,7 +41,9 @@ reproduction, result and reason for changing direction once.
 - For Scout package/CPU leads, `docs/scout_native_cpu_validation.md` routes the
   existing native runners and commit-exact source bundler. Reuse these before
   writing task-local export/report adapters; the bundler reads raw Git blobs in
-  one batch, without checkout conversion or one Git process per file.
+  one batch, without checkout conversion or one Git process per file. For a
+  reviewed model source packet from existing local objects, `scout_git_source.py`
+  reuses that reader and the existing excerpt/budget rules without queue writes.
 - Keep source, workload, hardware, reproduction commands, results and evidence
   in the task's existing record or a lightweight `worklog init|record|status`
   notebook. Record once, not in duplicate formats or for every routine tool call.

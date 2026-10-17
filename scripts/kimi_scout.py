@@ -447,8 +447,14 @@ def enqueue(root, packet, *, db=None):
     identity.pop("lesson_suggestions", None)
     # Channel observations (including their timestamps) are not fresh source.
     identity.pop("repository_settings", None)
+    # Local Git packet provenance is retained in the stored packet. A change
+    # outside the visible excerpt alone is not a new paid source observation.
     identity["sources"] = [
-        dict(source, url=re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]))
+        dict(
+            {key: value for key, value in source.items()
+             if key not in {"full_file_sha256", "git_blob_sha1"}},
+            url=re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]),
+        )
         for source in packet["sources"]
     ]
     job_id = hashlib.sha256(dumps(identity).encode()).hexdigest()[:24]

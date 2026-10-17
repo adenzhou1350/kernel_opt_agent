@@ -12,6 +12,7 @@ optional context, not a mandatory sequence or a new acceptance gate.
 | --- | --- | --- |
 | Start a separate tool-free model batch | Reuse `kimi_scout.py add` / `run --once` and an explicit controller-owned backend configuration | [Model effort before fan-out](#model-effort-before-fan-out) |
 | Resolve a lead's actual implementation | `kimi_scout_delivery_source.select_leads` with `owner_review=True` or an explicit supported `owner_language` | [Intake and missing source](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
+| Prepare a reviewed source packet from existing local Git objects | `scout_git_source.py --repo LOCAL_REPO --spec selection.json --output FRESH_PACKET.json` | [Local pinned packet](#local-pinned-packet) |
 | Transfer committed code without checkout newline changes | `qualification_source_bundle.py --build` / `--verify` | [Commit-exact transport](references/scout_native_cpu_validation_notes.md#commit-exact-source-before-native-validation), [literal path subsets](references/scout_native_cpu_validation_notes.md#scoped-raw-git-source-transport) |
 | Reuse the tested capture tools on another host | `scout_native_run.py --export-runtime FRESH_DIRECTORY` | [Runtime/API limits](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
 | Prepare a separate public-source Scout batch without migrating a live queue | `scout_public_export.py --repo REPO --commit FULL_COMMIT --output FRESH_DIRECTORY` | [Pinned Scout source and lessons](#pinned-scout-source-and-lessons) |
@@ -69,6 +70,42 @@ This preference inspects only the existing eight-source bound, does not relabel
 old bytes or ranges, and does not fetch missing pins. Without a supplied
 same-path current pin, revision-drift abstention remains in force. A successful
 lookup is source evidence, not proof of a defect or of lower discovery cost.
+
+### Local pinned packet
+
+Use the local reader when the reviewed commit is already available, rather than
+writing per-task `git show`/AST excerpt adapters. A selection JSON contains
+`name`, public `repo` (`owner/project`), full 40-character `commit`, `question`
+and `files`. Each file has a literal `path`; optional inclusive line `ranges`
+use `{"start": 1, "end": 20}`, and Python `definitions` use explicit names such
+as `["Client._close"]`. Both can be combined to retain headers and callers.
+Omitting both selects the complete file. Missing/ambiguous definitions reject
+the packet, rather than falling back to another body. The existing selector
+retains decorators; it does not resolve inheritance or prove reachability.
+
+The reader uses one `git cat-file --batch` for up to eight regular files, with
+the existing 100,000-byte per-file delivery read bound. It ignores checkout
+newline conversion and dirty files, retains raw blob/SHA256 identities and
+visible line ranges, and produces commit-pinned `raw.githubusercontent.com`
+URLs accepted by delivery source routing. Files are emitted in the selection's
+order. Over-budget packets reject without truncating evidence; `--lessons` is
+an optional advisory lookup, dropped first by the existing 24,000-byte input
+budget. No fetch, queue, model, target import or test is run. The output must be
+fresh. Review it before using the ordinary queue entrance.
+
+The stored packet retains both hashes, but those two new provenance fields do
+not affect content dedup: a different full-file hash with the same visible
+excerpt/question alone is not another paid observation. Visible source changes
+still matter. This neither proves omitted bodies are equivalent nor updates
+historical job IDs/packets; obtain missing current context when it can change a
+decision, rather than treating excerpt dedup as a whole-file no-bug verdict.
+
+The supplied public repository name is a caller declaration, **not verified
+public provenance**: local Git availability does not prove the commit is
+published there, the clone is current, the source is safe to share, or a repair
+is novel. This entrance neither transfers credentials nor checks contribution
+policy. Retain failed original model outputs; generating clearer owner context
+does not repair their verdicts or establish better discovery/PR yield.
 
 ### Model effort before fan-out
 
