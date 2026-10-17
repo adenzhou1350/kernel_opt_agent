@@ -106,6 +106,28 @@ def test_build_is_git_object_exact_and_checkout_independent(tmp_path: Path) -> N
     assert (target / "source" / "substitution.txt").read_bytes() == b"$Format:%H$\n"
 
 
+def test_sparse_checkout_does_not_hide_pinned_tree_bytes(tmp_path: Path) -> None:
+    repo, commit, payload = source_repo(tmp_path)
+    run(repo, "sparse-checkout", "set", "--cone")
+    assert not (repo / "nested" / "payload.bin").exists()
+    sparse_config = run(repo, "config", "core.sparseCheckout")
+    assert sparse_config == "true"
+    sparse_patterns = (repo / ".git/info/sparse-checkout").read_bytes()
+    archive, manifest = bundle_paths(tmp_path, "sparse-source")
+    build_bundle(
+        repo, commit, REPOSITORY, "source", archive, manifest,
+        included_paths=["nested"],
+    )
+    metadata, stream = verify_bundle(archive, manifest)
+    target = tmp_path / "sparse-export"
+    extract_bundle(stream, metadata, target)
+    assert (target / "source/nested/payload.bin").read_bytes() == payload
+    assert not (repo / "nested" / "payload.bin").exists()
+    assert run(repo, "config", "core.sparseCheckout") == sparse_config
+    assert (repo / ".git/info/sparse-checkout").read_bytes() == sparse_patterns
+    assert run(repo, "status", "--porcelain") == ""
+
+
 def test_manifest_validates_against_public_schema(tmp_path: Path) -> None:
     repo, commit, _ = source_repo(tmp_path)
     archive, manifest = bundle_paths(tmp_path)
