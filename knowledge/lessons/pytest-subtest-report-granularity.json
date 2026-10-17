@@ -1,0 +1,18 @@
+{
+  "id": "pytest-subtest-report-granularity",
+  "title": "Separate pytest subtest outcomes from JUnit case cardinality",
+  "applies_when": "A native pytest run succeeds or reproduces an assertion failure, but a case-level JUnit validator rejects suite totals that exceed emitted testcase nodes, especially with pytest 9 subtests.",
+  "lesson": "Check the actual producer and original report before repairing candidate code or rerunning a full suite. Pytest's subtest reports can share the parent's node identity; passing subtests need not become separate JUnit testcase nodes, even when aggregate counters include them. A minimal plain-test versus passing-subtests canary on the same installed framework can distinguish report serialization from the candidate. Preserve CLI outcomes, original XML, exit status, framework version and the scoped validation result separately. A separately declared focused selection can qualify its own complete case inventory; it does not repair or replace the full-suite report.",
+  "avoid_when": "Do not infer that every count mismatch is caused by subtests, that unrepresented cases passed, or that malformed/truncated XML is acceptable. Do not rewrite aggregate counters, invent subtest identities, filter inconvenient cases or convert CLI success into complete structured acceptance. Failed subtests and teardown errors can have different serialization. The public reports establish a reporting limitation, not a universal producer contract, a new undisclosed bug, full CI success or measured Scout yield/cost improvement. Recheck current producer behavior and existing upstream discussion before proposing a competing repair.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytest-dev/pytest/issues/13876",
+      "note": "Existing upstream report and maintainer discussion explain that subtests are not independently itemized in JUnit and can share their parent's node reporter. This is prior public reporting, not our new discovery or a guarantee of every current pytest version's counters."
+    },
+    {
+      "url": "https://pytest.org/en/latest/how-to/subtests.html",
+      "note": "Official documentation distinguishes runtime subtests from parametrized collected test items and notes the feature's integration into pytest 9. Reporting behavior may evolve; individual subtests cannot be selected as ordinary CLI test items."
+    }
+  ],
+  "status": "validated"
+}

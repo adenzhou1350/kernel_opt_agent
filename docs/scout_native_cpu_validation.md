@@ -244,6 +244,10 @@ rewrite counters, infer missing case identities, filter the report to force a
 match or silently relabel CLI success as structured acceptance. A separately
 declared focused test selection is different evidence, not a replay or repair
 of the original full-suite record; retain both scopes and their costs.
+The existing upstream discussion
+[pytest #13876](https://github.com/pytest-dev/pytest/issues/13876) describes
+subtests sharing their parent's JUnit reporter. Check today's producer rather
+than treating that history as an exemption for arbitrary count mismatches.
 
 ## Keep the outcome useful
 
