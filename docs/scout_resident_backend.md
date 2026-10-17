@@ -38,6 +38,13 @@ pauses admission. An absent controller or unlimited v2 hierarchy uses host RAM.
 This is a non-atomic observation, not an OOM guarantee or a leak diagnosis;
 independent supervision and the original reserve remain necessary.
 
+For read-only diagnosis, run `python scripts/scout_linux_memory.py`. Its
+`host_mem_available_mb` and `admission_available_mb` are intentionally separate:
+a nearly full cgroup can have a large file-cache charge while the host still has
+available RAM. Neither the charge nor its difference from `memory.max` is a
+process-RSS or leak measurement. Optional cache/event counters explain the
+observation; they do not raise the admission result or authorize reclaim/restart.
+
 The provider circuit observes completions in finish order. Once it opens, a
 successful request admitted before the outage cannot clear it, even when both
 results arrive in the same scheduler batch. After the cooldown and old requests

@@ -49,6 +49,14 @@ def _count(text):
     return int(text)
 
 
+def _host_available_bytes(text):
+    entries = [line.split() for line in text.splitlines()
+               if line.startswith('MemAvailable:')]
+    if len(entries) != 1 or len(entries[0]) != 3 or entries[0][2] != 'kB':
+        raise ValueError('invalid host MemAvailable observation')
+    return _count(entries[0][1]) * 1024
+
+
 def linux_available_memory_mb(read_text=None):
     """Min of host MemAvailable and finite visible v2 max-current, in MiB.
 
@@ -60,11 +68,7 @@ def linux_available_memory_mb(read_text=None):
     """
     read = read_text or _read_text
     try:
-        entries = [line.split() for line in read('/proc/meminfo').splitlines()
-                   if line.startswith('MemAvailable:')]
-        if len(entries) != 1 or len(entries[0]) != 3 or entries[0][2] != 'kB':
-            return None
-        available = _count(entries[0][1]) * 1024
+        available = _host_available_bytes(read('/proc/meminfo'))
         membership = read('/proc/self/cgroup')
         rows = [line.split(':', 2) for line in membership.splitlines()]
         if any(len(row) != 3 for row in rows):
@@ -132,13 +136,20 @@ def linux_memory_diagnostics(read_text=None):
         return value
 
     available = linux_available_memory_mb(capture)
+    try:
+        host_available_mb = _host_available_bytes(captured.get('/proc/meminfo') or '') // MIB
+    except ValueError:
+        host_available_mb = None
     result = {
         'admission_available_mb': available,
+        'host_mem_available_mb': host_available_mb,
         'status': 'OBSERVED' if available is not None else 'UNKNOWN',
         'cgroups': [],
         'boundary': 'Read-only, non-atomic diagnostics. Inactive file bytes are '
                     'not guaranteed reclaimable allocation capacity; admission '
-                    'still uses max-current and host MemAvailable.',
+                    'still uses max-current and host MemAvailable. Host '
+                    'MemAvailable is not a cgroup allocation allowance; cgroup '
+                    'charged memory includes file cache, not just process RSS.',
     }
     for path, limit in captured.items():
         if not path.endswith('/memory.max'):
