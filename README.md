@@ -100,6 +100,13 @@ source/issue triage to an existing Kimi Code account. It has no model tools or
 publication rights, deduplicates inputs, and caps concurrency and daily usage.
 Its output is an unverified hypothesis inbox, not a replacement for validation.
 
+For the separately frozen [prospective observation pilot](docs/references/scout_prospective_observation_pilot.md),
+`scripts/scout_observation_pilot.py` coordinates six rotated arms, journals requests
+before dispatch and retains failed/unknown usage. It requires reviewed, time-bounded
+provider/native adapters and durable caller-owned logging; it does not enroll cases,
+run commands, restart Scout or establish research efficacy. Its offline checks are
+`python -B -m unittest tests.test_scout_observation_pilot`.
+
 Useful specialist tools include paired sample analysis, [commit-exact source bundle
 transport](docs/scout_native_cpu_validation.md#commit-exact-source-before-native-validation),
 runtime import checks, hardware queries and profiler analysis. Use whichever is
