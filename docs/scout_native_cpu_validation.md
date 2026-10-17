@@ -16,6 +16,7 @@ optional context, not a mandatory sequence or a new acceptance gate.
 | Inspect an existing private dependency tree without installing or copying it | `scout_dependency_tree.py EXISTING_TREE` | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Run an owner-reviewed command and retain native reports | `scout_native_run.py --help`; choose a supported actual report format | [POSIX/Windows capture and cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout), [Vitest JSON](references/scout_native_cpu_validation_notes.md#vitest-json-is-a-separate-native-format) |
 | Compare the same regressions and controls before/after | `scout_native_results.compare_regression` | [Report validity and collection skips](references/scout_native_cpu_validation_notes.md#collection-skips-are-not-executed-tests) |
+| Compare a wider pytest suite with unchanged optional skips | `scout_native_results.compare_pytest_suite_regression` | [Complete pytest cohorts](#complete-pytest-cohorts) |
 | Diagnose failure before package assertions ran | Inspect the original process/report and actual imported paths | [Temporary paths](references/scout_native_cpu_validation_notes.md#keep-test-process-temporary-paths-short-and-private), [SQLite temporary capacity](references/scout_native_cpu_validation_notes.md#sqlite-read-only-queries-still-need-temporary-capacity), [backend identity](references/scout_native_cpu_validation_notes.md#verify-realized-backends-not-parameter-labels) |
 
 Selection, export and a self-consistent manifest are not execution permission or
@@ -185,6 +186,46 @@ use an isolated copy or an actual read-only sandbox/mount for dependency writers
 untrusted generated code or conflicting users. Do not change the runner's source
 symlink rejection or treat the reader as execution authority. No automatic
 dependency linking, queue policy or sandbox protection is added by this tool.
+
+## Complete pytest cohorts
+
+For a small all-executed selection, keep using `compare_regression`: its declared
+regressions and controls must describe the entire observed report. Do not pass a
+wide report with only a few declared cases, filter away unwanted results, or
+reinterpret its rejection as a successful comparison.
+
+When a reviewed broader **pytest** selection contains optional skips, use:
+
+```python
+from scripts.scout_native_results import compare_pytest_suite_regression
+
+comparison = compare_pytest_suite_regression(
+    baseline_xml, candidate_xml, baseline_exit=1, candidate_exit=0,
+    regressions=["tests.test_contract::test_regression"],
+    controls=["tests.test_contract::test_success"],
+)
+```
+
+Freeze the same suite command, regression identities and passing controls before
+running either arm. `MATCHED_SUITE_REGRESSION_OBSERVED` requires identical complete
+case inventories: only declared regressions change, from failure to pass. Every
+other outcome stays unchanged; skipped attributes must also match. With an
+explicit nonempty skip `message`, the body is retained but not compared: native pytest
+reports include the arm's volatile source location there. Without a message,
+the text must match too. This does not establish equivalence of arbitrary skip
+body prose. Missing
+or extra cases, pass/skip transitions, changed skip reasons, additional failures,
+setup/collection errors, invalid counters and abnormal exits cannot match. This
+separate API does not weaken the existing strict comparison or default summary.
+
+Identical collection skips remain **unexecuted coverage**, not successful tests;
+equal XML inventories cannot reveal tests hidden behind a skipped module. A
+changed skip reason can make a legitimate repair incomparable; retain the
+reports and explain or rerun a predeclared matched environment, not strip the
+difference. The reader verifies saved-report accounting only, not authenticity,
+source/runtime identity, assertion quality, caller support or PR readiness.
+It makes no selection-policy or PR-yield claim. Other report formats retain their
+existing entrances; this is not a generic JUnit dialect adapter.
 
 ## Keep the outcome useful
 

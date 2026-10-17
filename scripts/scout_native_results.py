@@ -173,7 +173,7 @@ def _node_tap(text, exit_code, expected_results, issue):
     return counts, seen, batches, terminal
 
 
-def _junit(text, exit_code, expected_results, issue):
+def _junit(text, exit_code, expected_results, issue, inventory=None):
     """Conservative flat pytest JUnit accounting, with qualified case names."""
     counts = {"passed": 0, "failed": 0, "skipped": 0, "errors": 0}
     seen, names = set(), set()
@@ -230,6 +230,14 @@ def _junit(text, exit_code, expected_results, issue):
                 issue("unsupported or contradictory JUnit case outcomes")
             outcome = {"failure": "failed", "error": "errors", "skipped": "skipped"}.get(
                 outcomes[0] if outcomes else None, "passed")
+            if inventory is not None:
+                inventory[qualified] = {"outcome": outcome}
+                if outcome == "skipped":
+                    skipped = case.find("skipped")
+                    if list(skipped):
+                        issue("nested JUnit skip content is unsupported")
+                    inventory[qualified]["skip_attributes"] = dict(skipped.attrib)
+                    inventory[qualified]["skip_text"] = skipped.text or ""
             observed[outcome] += 1
             if outcome in {"passed", "failed"}:
                 seen.add(qualified)
@@ -436,7 +444,7 @@ def _vitest(text, exit_code, expected_results, issue):
     return counts, seen, len(suites), terminal, metadata
 
 
-def summarize(text, *, format, exit_code, expected_tests, package=None):
+def summarize(text, *, format, exit_code, expected_tests, package=None, include_inventory=False):
     """Count Go/Rust/pytest/GoogleTest/Node observations or observed Vitest 4 JSON.
 
     Go counts include parent tests/subtests and repeats, not assertion counts.
@@ -445,9 +453,13 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     A negative subprocess return code denotes signal termination, not a normal
     test failure. Preserve observed assertions but classify the run inconclusive.
     Shell-normalized positive codes do not reliably identify a signal.
+    Optional pytest-only inventory retains case outcomes and raw skip details;
+    the default result shape does not change.
     """
     if format not in FORMATS:
         raise ValueError("unsupported native test format")
+    if type(include_inventory) is not bool or (include_inventory and format != "pytest-junit"):
+        raise ValueError("case inventory is supported only for pytest JUnit")
     if type(exit_code) is not int:
         raise ValueError("exit code must be an observed integer")
     if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_BYTES:
@@ -470,6 +482,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
     rust_cases = {}
     vitest = None
     bun_junit = None
+    inventory = {} if include_inventory else None
 
     def issue(message):
         if message not in issues and len(issues) < 16:
@@ -479,7 +492,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         issue("process terminated by signal")
 
     if format == "pytest-junit":
-        counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue)
+        counts, seen, batches, terminal = _junit(text, exit_code, expected_results, issue, inventory)
     elif format == "gtest-xml":
         counts, seen, batches, terminal = _gtest_xml(text, exit_code, expected_results, issue)
     elif format == "node-tap":
@@ -602,7 +615,64 @@ def summarize(text, *, format, exit_code, expected_tests, package=None):
         result["bun_junit"] = bun_junit
     if format == "gtest-xml":
         result["disabled"] = counts["disabled"]  # subset of skipped, not additive
+    if inventory is not None:
+        result["case_inventory"] = inventory
     return result
+
+
+def compare_pytest_suite_regression(baseline_text, candidate_text, *, baseline_exit,
+                                    candidate_exit, regressions, controls):
+    """Compare complete pytest inventories, permitting only stable skipped cases.
+
+    Freeze the suite command, regression names and passing controls before either
+    run. All other cases must retain their outcome; skip attributes must match.
+    With a nonempty skip message, the body is retained as diagnostic text but
+    not compared (pytest includes source locations). Otherwise text must match.
+    A changed coverage cohort is not a matched comparison.
+    This is captured-report accounting, not source/test authenticity or PR policy.
+    The stricter existing compare_regression API remains unchanged.
+    """
+    if any(not isinstance(group, (list, tuple)) or not group for group in (regressions, controls)):
+        raise ValueError("declare regressions and passing controls")
+    names = list(regressions) + list(controls)
+    if any(not isinstance(name, str) or not name for name in names) or len(set(names)) != len(names):
+        raise ValueError("declarations must be distinct nonempty test names")
+    arms = [summarize(text, format="pytest-junit", exit_code=code,
+                      expected_tests=names, include_inventory=True)
+            for text, code in ((baseline_text, baseline_exit), (candidate_text, candidate_exit))]
+    before, after = arms
+    issues = []
+
+    def comparable(case):
+        if case["outcome"] == "skipped" and case["skip_attributes"].get("message"):
+            return {key: value for key, value in case.items() if key != "skip_text"}
+        return case
+
+    if any(arm["issues"] for arm in arms):
+        issues.append("incomplete or contradictory arm accounting")
+    else:
+        old, new = before["case_inventory"], after["case_inventory"]
+        if old.keys() != new.keys():
+            issues.append("complete pytest case inventories differ")
+        for name in old.keys() & new.keys():
+            if name in regressions:
+                if old[name]["outcome"] != "failed" or new[name]["outcome"] != "passed":
+                    issues.append(f"declared regression pattern not observed: {name}")
+            elif comparable(old[name]) != comparable(new[name]):
+                issues.append(f"undeclared case outcome or skip detail changed: {name}")
+        if any(old[name]["outcome"] != "passed" or new[name]["outcome"] != "passed"
+               for name in controls):
+            issues.append("declared controls did not pass in both arms")
+        if after["failed"] or after["errors"]:
+            issues.append("candidate suite contains failures or errors")
+        if before["failed"] != len(regressions):
+            issues.append("baseline failure count differs from declared regressions")
+    return {"status": "INCONCLUSIVE" if any(arm["issues"] for arm in arms)
+            else "PATTERN_NOT_OBSERVED" if issues else "MATCHED_SUITE_REGRESSION_OBSERVED",
+            "issues": sorted(set(issues))[:16], "baseline": before, "candidate": after,
+            "regressions": list(regressions), "controls": list(controls),
+            "boundary": "Complete captured pytest inventory only; stable skips are not executed "
+                        "coverage. Not source/runtime identity, authenticity, test quality or PR readiness."}
 
 
 def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
