@@ -32,6 +32,22 @@
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/issues/8179",
       "note": "The open issue's Oct14 discussion points to PR7582; the reporter confirms the original tied-weight reproduction completes two iterations, validation and test. This is reported evidence, not our execution or a merge verdict."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/pull/523",
+      "note": "An existing author-owned repair already addresses OneToOne.update dropping the first pair of one-shot iterables. Independent Linux CPython3.12 checking of exact head e5f2c7b gives 50 focused passes; unchanged 4e5faa3 with identical author tests gives 43 passes and 7 failures, with all other outcomes unchanged. No competing repair is needed. This is focused native evidence, not installed tox, the complete interpreter/OS matrix or maintainer acceptance."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/pull/498",
+      "note": "The prior open PR already reports CachedFunction ignoring scoped=True and provides its own reproduction/repair. The PR body and committed change description match that hypothesis; this entry does not independently qualify its head. Current main can retain a real bug while a matching repair waits upstream. Check current discussions before spending another discovery batch; a stale search-engine snapshot or an empty collected item list is not evidence of novelty."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/dictutils.py",
+      "note": "Pinned OneToOne.update still consumes a pair before materializing the remaining iterator, despite the already-open PR523. Reproduction and novelty are separate questions. Do not suppress the whole module: copy, serialization or other update subcases need their own contract, duplicate and native checks."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/cacheutils.py",
+      "note": "Pinned CachedFunction still omits scoped from key construction while PR498 already exists. Source affinity makes this prior report available to the next audit, not an automatic negative label, universal file exclusion or measured improvement in discovery yield."
     }
   ],
   "status": "counterexample"
