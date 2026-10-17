@@ -341,6 +341,32 @@ class ScoutTests(unittest.TestCase):
             )
         return {"state": "NO_LEAD", "finished": time.time()}
 
+    def test_once_token_budget_stop_does_not_report_queue_drained(self):
+        self.add()
+        with patch.object(scout, "execute") as execute:
+            current = scout.run(self.run_args(token_budget=1024))
+        execute.assert_not_called()
+        self.assertEqual(current["runtime"]["attempted_this_run"], 0)
+        self.assertEqual(current["jobs"][0]["state"], "PENDING")
+        self.assertIn("pending work not admitted", current["runtime"]["reason"])
+
+    def test_once_memory_stop_preserves_pending_job_and_explains_admission(self):
+        self.add()
+        with (patch.object(scout, "available_memory_mb", return_value=1024),
+              patch.object(scout, "execute") as execute):
+            current = scout.run(self.run_args(min_free_memory_mb=4096))
+        execute.assert_not_called()
+        self.assertEqual(current["jobs"][0]["state"], "PENDING")
+        self.assertTrue(current["runtime"]["memory_paused"])
+        self.assertIn("pending work not admitted", current["runtime"]["reason"])
+
+    def test_once_empty_queue_reports_actual_drain(self):
+        with patch.object(scout, "execute") as execute:
+            current = scout.run(self.run_args())
+        execute.assert_not_called()
+        self.assertEqual(current["jobs"], [])
+        self.assertEqual(current["runtime"]["reason"], "once queue drained")
+
     def test_unlimited_run_drains_four_way_and_has_no_deadline(self):
         for i in range(9):
             self.add(str(i))

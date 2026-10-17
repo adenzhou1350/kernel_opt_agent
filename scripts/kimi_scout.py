@@ -1187,6 +1187,14 @@ def run(args):
                     )
                     if not running:
                         if args.once:
+                            with connect(root) as db:
+                                pending = db.execute(
+                                    "SELECT 1 FROM jobs WHERE state='PENDING' LIMIT 1"
+                                ).fetchone() is not None
+                            reason = (
+                                "once stopped with pending work not admitted; inspect budget/resource limits"
+                                if pending else "once queue drained"
+                            )
                             break
                         time.sleep(1)
         except Exception:
