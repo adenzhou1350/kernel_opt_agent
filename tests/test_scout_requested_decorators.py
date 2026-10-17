@@ -32,6 +32,22 @@ class RequestedDecoratorTests(unittest.TestCase):
         self.assertEqual(result["start_line"], 3)
         self.assertEqual(result["end_line"], 6)
 
+    def test_property_excerpt_preserves_attribute_binding_not_method_truthiness(self):
+        lines = ["class Job:", "    @property", "    def should_run(self):",
+                 "        return False"]
+        target = requested_function_window(lines, "definition(Job.should_run)")
+        self.assertEqual(target["start_line"], 2)
+        namespace = {}
+        excerpt = "\n".join(lines[target["start_line"] - 1:target["end_line"]])
+        exec("class Job:\n" + excerpt, namespace)
+        self.assertIsInstance(namespace["Job"].should_run, property)
+        self.assertFalse(namespace["Job"]().should_run)
+        # AST FunctionDef.lineno alone starts at def and changes binding. This
+        # negative control is an excerpt defect, not a target-library bug.
+        without_decorator = {}
+        exec("class Job:\n" + "\n".join(lines[2:]), without_decorator)
+        self.assertTrue(without_decorator["Job"]().should_run)
+
     def test_strings_comments_and_previous_decorators_do_not_shift_plain_function(self):
         lines = ["@previous", "def other():", "    pass", "# @comment",
                  "text = '@not_a_decorator'", "def target():", "    return text"]

@@ -1,0 +1,18 @@
+{
+  "id": "definition-excerpt-preserves-binding-decorators",
+  "title": "A definition excerpt must retain its binding decorators",
+  "applies_when": "Python source is shortened for a model or a targeted reproduction using AST function line ranges, particularly properties, class/static methods and decorated native/JIT wrappers.",
+  "lesson": "Audit the supplied evidence before implementing its predicted bug. FunctionDef.lineno can start at def, omitting earlier decorators. A body containing def should_run without @property looks like a truthy bound method; the actual Schedule Job exposes a boolean property, so run_pending is correct without parentheses. Prefer the existing requested definition selector over a task-local AST slicer, retain decorators and original line ranges, and inspect the actual package. Keep malformed packets and their model costs as preparation failures rather than counting a proposed repair as a discovery. Structured JSON acceptance does not verify a model's runtime claim or its restatement of test accounting; collected total minus skips is not the total number of passing tests.",
+  "avoid_when": "An ordinary fixed source window can legitimately be partial; mark that limitation instead of inferring an omitted decorator is absent. Retaining syntax does not resolve inherited/dynamic binding, imports, defaults, wrappers or caller reachability. The regular Scout requested-definition selector already preserves decorators; a task-local clipping failure does not prove that reader is broken. This mechanism and counterexample do not establish a measured reduction in false positives, improved PR conversion or prospective model-comparison results.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3/library/ast.html#ast.FunctionDef",
+      "note": "AST documentation represents function decorators separately in decorator_list. Review the source span and decorator syntax rather than treating a function body alone as its complete binding contract."
+    },
+    {
+      "url": "https://github.com/dbader/schedule/blob/82a43db1b938d8fdf60103bd41f329e06c8d3651/schedule/__init__.py",
+      "note": "Pinned run_pending reads job.should_run, and Job.should_run is decorated with @property. This source contradicts the bound-method premise; it is not a new Schedule bug or performance result."
+    }
+  ],
+  "status": "counterexample"
+}

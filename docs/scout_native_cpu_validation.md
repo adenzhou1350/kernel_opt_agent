@@ -25,6 +25,15 @@ proof of a defect. Generated code remains untrusted until reviewed. Check curren
 contribution rules, supported callers, existing work and the actual test entrypoint
 before installing dependencies. Preserve unavailable actions and original failures.
 
+For an owner-prepared Python excerpt, reuse
+`scout_requested_definition.requested_function_window(lines, "definition(Class.method)")`
+against the full pinned file instead of slicing from `FunctionDef.lineno`.
+The existing selector retains binding decorators, including parenthesized ones.
+Dropping `@property` can turn a false boolean attribute into a truthy bound method
+in the supplied evidence. Preserve original ranges and mark missing context;
+selection is syntax-only, not runtime dispatch proof. Keep any malformed packet
+and its cost, and recheck the actual package before crediting a model's repair.
+
 For a terminal lead, inspect the dashboard's **related-work sample** beside its
 analysis: it shows the current/prior title when recoverable and the recorded
 search queries, without extra requests. A final hypothesis can change after the
