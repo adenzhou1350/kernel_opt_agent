@@ -19,6 +19,18 @@ This does not reconstruct historical costs, authenticate provider counters or
 change retry policy. Delivery `reported_tokens` is not a complete study inventory.
 Offline regression: `python -B -m unittest tests.test_kimi_scout_backend tests.test_kimi_scout`.
 
+The opt-in `run --openai-backend-config PRIVATE_JSON` uses a controller-owned
+OpenAI-compatible HTTP endpoint instead of Kimi credentials. Its configuration
+accepts `endpoint`, `model`, `alias`, optional `api_key`, explicit `allow_http`
+for HTTP, and optional `reasoning_effort` (`low`, `high`, `max`). Omission preserves
+the provider default; a packet cannot set this field. It does not advertise tools,
+retry failed calls, copy credentials or change the output cap. Provider support
+and actual savings must be checked separately before changing a live deployment.
+In particular, [GLM-5.3's model card](https://huggingface.co/zai-org/GLM-5.3#note)
+documents a default of `max`, including for unknown effort values. `none` is not
+a thinking-off setting for that model. Frozen comparisons retain their original
+provider configuration; do not silently apply a new effort to historical arms.
+
 Knowledge uses the existing lexical search, not a fixed GPU advice bundle.
 Matches retain applicability, exceptions, evidence and status; a lexical match
 does not prove relevance. Optional advice is omitted before source windows are

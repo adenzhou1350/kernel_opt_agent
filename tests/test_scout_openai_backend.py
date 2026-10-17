@@ -237,6 +237,18 @@ class BackendTests(unittest.TestCase):
             self.assertNotIn("kimi_version", result)
             self.assertEqual(pool.process_starts, 0)
 
+    def test_reasoning_effort_is_explicit_controller_configuration_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "provider.json"
+            base = dict(endpoint="https://test.invalid/v1", model="glm-5.3", alias="glm")
+            for effort in ("low", "high", "max"):
+                path.write_text(json.dumps({**base, "reasoning_effort": effort}))
+                self.assertEqual(backend.load_config(path)["reasoning_effort"], effort)
+            for effort in (None, True, 1, "none", "medium", "LOW", {}, []):
+                path.write_text(json.dumps({**base, "reasoning_effort": effort}))
+                with self.subTest(effort=effort), self.assertRaises(backend.contract.BackendError):
+                    backend.load_config(path)
+
     def test_http_protocol_is_bounded_closed_and_never_retried(self):
         seen = {}
         class Context:
@@ -256,9 +268,19 @@ class BackendTests(unittest.TestCase):
                 seen["calls"] = seen.get("calls", 0) + 1
                 return Response()
         fake = SimpleNamespace(AsyncClient=Client, Timeout=lambda *a, **k: (a, k))
-        with patch.dict(sys.modules, {"httpx": fake}):
-            result = asyncio.run(backend.complete(dict(prompt="public", max_output_tokens=256,
-                timeout_seconds=2), dict(endpoint="https://test.invalid/v1", model="m", alias="m")))
+        for effort in (None, "low", "high", "max"):
+            seen.clear()
+            config = dict(endpoint="https://test.invalid/v1", model="m", alias="m")
+            if effort is not None:
+                config["reasoning_effort"] = effort
+            with patch.dict(sys.modules, {"httpx": fake}):
+                result = asyncio.run(backend.complete(dict(prompt="public", max_output_tokens=256,
+                    timeout_seconds=2, reasoning_effort="packet-must-not-override-controller"), config))
+            if effort is None:
+                self.assertNotIn("reasoning_effort", seen["request"]["json"])
+            else:
+                self.assertEqual(seen["request"]["json"]["reasoning_effort"], effort)
+            self.assertEqual(seen["calls"], 1)
         self.assertTrue(result["ok"])
         self.assertFalse(seen["client"]["trust_env"])
         self.assertFalse(seen["client"]["follow_redirects"])

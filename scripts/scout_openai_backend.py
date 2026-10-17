@@ -35,7 +35,7 @@ def load_config(path):
     except (OSError, ValueError):
         raise contract.BackendError("invalid_http_backend_configuration") from None
     if not isinstance(value, dict) or set(value) - {
-        "endpoint", "model", "alias", "api_key", "allow_http"
+        "endpoint", "model", "alias", "api_key", "allow_http", "reasoning_effort"
     }:
         raise contract.BackendError("invalid_http_backend_configuration")
     if any(not isinstance(value.get(k), str) or not value[k].strip()
@@ -45,6 +45,8 @@ def load_config(path):
     if key is not None and (not isinstance(key, str) or not key.strip() or "\n" in key or "\r" in key):
         raise contract.BackendError("invalid_http_backend_configuration")
     if "allow_http" in value and type(value["allow_http"]) is not bool:
+        raise contract.BackendError("invalid_http_backend_configuration")
+    if "reasoning_effort" in value and value["reasoning_effort"] not in ("low", "high", "max"):
         raise contract.BackendError("invalid_http_backend_configuration")
     try:
         url = urlsplit(value["endpoint"])
@@ -129,6 +131,8 @@ async def complete(request, config, progress=None):
         dict(role="system", content=contract.SYSTEM_PROMPT),
         dict(role="user", content=request["prompt"])],
         max_tokens=request["max_output_tokens"], stream=False, n=1)
+    if "reasoning_effort" in config:
+        body["reasoning_effort"] = config["reasoning_effort"]
     headers = {"Content-Type": "application/json", "User-Agent": "kernel-opt-scout-tool-free"}
     if config.get("api_key"):
         headers["Authorization"] = "Bearer " + config["api_key"]

@@ -1,0 +1,18 @@
+{
+  "id": "reasoning-effort-is-model-specific",
+  "title": "Calibrate the model's reasoning effort before increasing discovery concurrency",
+  "applies_when": "A reasoning model exhausts completion allowances without a final answer, or a model migration assumes that none and omitted effort disable thinking.",
+  "lesson": "Check the exact model's template and serving documentation before raising output caps or parallelism. GLM-5.3 documents low/high/max and defaults to max for omitted or unrecognized effort; none is not a thinking-off setting. Explicit low is a bounded calibration candidate, not a universal default. Freeze the exact request and compare completed visible answers, schema validity, inclusive completion usage and wall time on representative tasks. Keep incomplete responses and their charged usage; do not classify them as no findings. Apply any change explicitly in controller configuration and keep frozen research arms unchanged.",
+  "avoid_when": "Do not transfer GLM-5.3 settings to another model or assume a gateway forwards a parameter merely because it accepts the request. Low effort may reduce discovery quality. A completed answer is not a verified bug, and a single diagnostic is not accuracy, PR yield, causal cost or throughput evidence. An absent reasoning-token counter remains unknown; do not subtract guessed reasoning from inclusive completion tokens.",
+  "evidence": [
+    {
+      "url": "https://huggingface.co/zai-org/GLM-5.3#note",
+      "note": "The model authors document three effort levels and a max default for omitted or unknown values. This describes the model, not any particular private endpoint's runtime configuration."
+    },
+    {
+      "url": "https://docs.vllm.ai/en/latest/api/vllm/parser/glm47_moe/",
+      "note": "The GLM-5.3 parser guard ignores disabling switches for an always-thinking chat template rather than leaking reasoning into content. This is serving implementation evidence, not a measured efficiency result."
+    }
+  ],
+  "status": "validated"
+}
