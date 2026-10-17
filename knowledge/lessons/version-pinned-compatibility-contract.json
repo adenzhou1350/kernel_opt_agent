@@ -1,8 +1,8 @@
 {
   "id": "version-pinned-compatibility-contract",
-  "title": "Compare compatibility shims with the supported reference version",
-  "applies_when": "A compatibility shim claims to replace a removed upstream helper, and a regression assumes buffer fallback, exception behavior or another contract from an unverified reference version; examples include TensorRT-LLM hf_parameter_utils get_parameter_device/get_parameter_dtype.",
-  "lesson": "Resolve the consumer's supported dependency revision, then read that revision's actual replacement API before designing the expected result. TensorRT-LLM's parameter-only getters match Transformers 5.5.4 ModuleUtilsMixin device/dtype properties, including StopIteration for buffer-only modules. A test demanding buffer fallback therefore does not establish the claimed upstream mismatch. Check both the boundary and a normal control against unchanged reference code; label AST-extracted getter checks as component evidence, not whole-package qualification. If broader fallback is independently required by a supported caller or documented API, propose that behavior change on its own merits.",
+  "title": "Compare compatibility shims with the supported reference API and version",
+  "applies_when": "A compatibility shim or backport is compared with a similarly named API, or a regression assumes buffer fallback, exception behavior or another contract from an unverified reference version; examples include TensorRT-LLM hf_parameter_utils getters and Zipp Path.relative_to.",
+  "lesson": "First identify which upstream API is actually promised, then resolve its supported revision before designing the expected result. A Path-like interface is not a promise to duplicate every pathlib.Path behavior: Zipp names zipfile.Path as its backport reference. Its relative_to and the native CPython 3.14.3 zipfile.Path both return a string and allow parent traversal; a two-case native comparison agrees for child and nonchild paths. This refutes a mismatch premise, not all possible defects. Likewise, TensorRT-LLM's parameter-only getters match Transformers 5.5.4 ModuleUtilsMixin device/dtype properties, including StopIteration for buffer-only modules. A test demanding buffer fallback therefore does not establish the claimed upstream mismatch. Check both the boundary and a normal control against unchanged reference code; label AST-extracted getter checks as component evidence, not whole-package qualification. If broader fallback is independently required by a supported caller or documented API, propose that behavior change on its own merits.",
   "avoid_when": "Matching the pinned reference does not prove either implementation meets every caller's needs. A shared upstream defect can still warrant a change. Other dependency versions, overridden properties, quantized module representations and actual model paths need separate evidence. Do not reject a real public API defect solely because internal callers omit the boundary, or claim measured PR-conversion gains from this source counterexample.",
   "evidence": [
     {
@@ -16,6 +16,14 @@
     {
       "url": "https://github.com/huggingface/transformers/blob/75d3bdcd4b3ba70cee21287218d9764f33da41f0/src/transformers/modeling_utils.py#L843-L856",
       "note": "Transformers 5.5.4's actual device and dtype properties use the same parameter-only behavior. These pinned sources disprove a buffer-fallback compatibility-mismatch premise; they do not establish full-model correctness."
+    },
+    {
+      "url": "https://github.com/jaraco/zipp/blob/8f98e1b5a6203557bf70ed3e84969543d4360c76/README.rst",
+      "note": "The project explicitly describes itself as the official backport of zipfile.Path and says to use Zipp Path in its place. This identifies the comparison API, not an unconditional promise of every pathlib method or behavior."
+    },
+    {
+      "url": "https://github.com/jaraco/zipp/blob/8f98e1b5a6203557bf70ed3e84969543d4360c76/zipp/__init__.py",
+      "note": "Path.relative_to delegates to posixpath.relpath. An independent native Windows CPython3.14.3 two-case check against its installed zipfile.Path confirms string return and identical child/nonchild behavior. This is scoped local reference evidence; the remote CPython tagged source was not acquired, and no full compatibility, model-quality or PR-conversion benefit is claimed."
     }
   ],
   "status": "counterexample"

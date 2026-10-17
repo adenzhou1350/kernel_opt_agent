@@ -29,6 +29,20 @@ class CompatibilityReferenceLessonTests(unittest.TestCase):
             any("/huggingface/transformers/" in e["url"] for e in card["evidence"])
         )
 
+    def test_backport_path_uses_named_reference_without_universal_equivalence(self):
+        result = lesson_suggestions(
+            "Zipp Path.relative_to pathlib compatibility reference",
+            source_urls=["https://github.com/jaraco/zipp/blob/"
+                         "8f98e1b5a6203557bf70ed3e84969543d4360c76/zipp/__init__.py"],
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "version-pinned-compatibility-contract")
+        self.assertIn("zipfile.Path", card["lesson"])
+        self.assertIn("not all possible defects", card["lesson"])
+        self.assertIn("shared upstream defect", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+
 
 if __name__ == "__main__":
     unittest.main()
