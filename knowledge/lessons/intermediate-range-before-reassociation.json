@@ -1,13 +1,21 @@
 {
   "id": "intermediate-range-before-reassociation",
   "title": "Check intermediate ranges before reassociation or hoisting",
-  "applies_when": "Fusion, quantization algebra or validation hoisting changes where a low-precision product, subtraction, accumulation or cast occurs.",
-  "lesson": "Compare intermediate ranges and rounding points in the original and rewritten expressions. A representable final mathematical result can still overflow during evaluation. Test legal extrema and cancellation cases alongside ordinary inputs; retain required casts or use a permitted wider accumulator when the new expression exceeds its dtype range.",
-  "avoid_when": "Real-number algebra alone does not justify a floating-point rewrite. This lesson does not prohibit reassociation when the operator contract permits its numerical effect and range analysis covers the legal domain.",
+  "applies_when": "Fusion, quantization algebra or validation hoisting changes where a low-precision product, subtraction, accumulation or cast occurs; a generic numeric validator converts an integer-domain input to float before its real operation.",
+  "lesson": "Compare intermediate ranges and rounding points in the original and rewritten expressions. A representable final mathematical result can still overflow during evaluation. Test legal extrema and cancellation cases alongside ordinary inputs; retain required casts or use a permitted wider accumulator when the new expression exceeds its dtype range. A finiteness guard is also a conversion: Python float(10**400) raises OverflowError, while float(str(10**400)) becomes infinity although int() accepts both. For an integer-domain API, check whether integer conversion should precede the float-only exceptional-value fallback. Preserve NaN/infinity, invalid strings and ordinary fractional-input behavior; do not merely swallow OverflowError or return the unformatted input.",
+  "avoid_when": "Real-number algebra alone does not justify a floating-point rewrite. This lesson does not prohibit reassociation when the operator contract permits its numerical effect and range analysis covers the legal domain. Arbitrary-precision Python integer semantics do not transfer to fixed-width device types. The Humanize example is a pinned ordinal contract failure already covered by another author's open PR, not a novel Scout discovery or proof of that PR's complete correctness. Six limited-evidence reviews abstaining on it do not establish population recall or selection-policy efficacy.",
   "evidence": [
     {
       "url": "https://docs.pytorch.org/docs/main/notes/numerical_accuracy.html#extremal-values",
       "note": "PyTorch gives an intermediate-overflow example with a representable mathematical result. This supports the range hazard, not a speed or correctness claim for a specific rewrite."
+    },
+    {
+      "url": "https://github.com/python-humanize/humanize/blob/785e5dcc0d0308ad0dff3f6cc0faa7085ad0375b/src/humanize/number.py#L94-L140",
+      "note": "ordinal promises any integer but calls float(value) before int(value). An authentic wheel retaining all tracked Python bytes reproduced integer OverflowError and integer-string +Inf on Windows 3.14/Linux 3.12; ordinary/non-finite controls passed. This is a focused baseline contract check, not a full suite, repaired candidate or performance result."
+    },
+    {
+      "url": "https://github.com/python-humanize/humanize/pull/414",
+      "note": "Existing author-owned integer-first repair and compatibility discussion predate the local audit; reuse or independently verify this work instead of opening a competing PR. Author tests/reviews are not replaced by the focused baseline check."
     }
   ],
   "status": "validated"
