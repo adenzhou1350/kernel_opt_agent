@@ -127,6 +127,14 @@ Do not require a model to restate a deterministic native fact merely to give
 the routing layer another job; keep contract/repair judgment distinct from
 structured observation handling and test that alternative in a fresh study.
 
+The [prospective observation pilot](references/scout_prospective_observation_pilot.md)
+freezes the existing four-slot future-admission frame, action menu, six arms,
+common reviewer, resource ceilings and native adjudication before reading case
+outcomes. Its two synthetic integer-ID calls only test formatting/usage capture;
+the frame currently has no cases and no efficacy result. Equal ceilings are not
+matched realized dollar costs. The optional `parse_action_id` helper rejects
+aliases/extra keys without changing legacy trials or live Scout routing.
+
 The [research findings](references/scout_evidence_acquisition_notes.md#research-boundary-2026-10-11)
 include unresolved novelty/utility requirements and negative comparisons.
 Nothing here authorizes a learned selector in production or a paper claim.

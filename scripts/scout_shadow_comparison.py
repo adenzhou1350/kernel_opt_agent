@@ -28,6 +28,43 @@ def parsed(record):
         return None
 
 
+def parse_action_id(text, allowed_ids):
+    """Optional acquisition-only interface for newly frozen comparisons.
+
+    IDs describe a caller-frozen observation menu, not executable commands.
+    Reject aliases, booleans, extra keys and duplicate keys without repairing
+    or retrying a model answer. This does not replace any historical interface.
+    A valid ID is not an available observation or a correctness verdict.
+    """
+    if (not isinstance(allowed_ids, (list, tuple)) or not allowed_ids
+            or len(allowed_ids) > 32
+            or any(type(value) is not int or not 0 <= value <= 31 for value in allowed_ids)
+            or len(set(allowed_ids)) != len(allowed_ids)):
+        raise ValueError('expected a unique frozen menu of 1..32 integer IDs within 0..31')
+    if not isinstance(text, str):
+        return None
+    try:
+        if len(text.encode('utf-8')) > 4096:
+            return None
+    except UnicodeEncodeError:
+        return None
+
+    def unique(items):
+        result = dict(items)
+        if len(result) != len(items):
+            raise ValueError('duplicate key')
+        return result
+
+    try:
+        value = json.loads(text, object_pairs_hook=unique)
+    except (ValueError, RecursionError):
+        return None
+    if (not isinstance(value, dict) or set(value) != {'action_id'}
+            or type(value['action_id']) is not int or value['action_id'] not in allowed_ids):
+        return None
+    return value['action_id']
+
+
 def normalized_usage(provider, raw):
     """Missing observations stay unknown; cache conventions are provider-specific."""
     if not isinstance(raw, dict):

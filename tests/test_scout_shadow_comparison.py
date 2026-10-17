@@ -1,7 +1,8 @@
+import json
 import unittest
 from scripts.scout_shadow_comparison import (
     bidirectional_rule_choice, choice, make_view, normalized_usage, observe,
-    parsed, rule_choice, run_arm, validate_verdict,
+    parse_action_id, parsed, rule_choice, run_arm, validate_verdict,
 )
 
 
@@ -59,6 +60,36 @@ class ShadowTests(unittest.TestCase):
     def test_completion_and_strict_json(self):
         self.assertIsNone(parsed(dict(response=dict(ok=False, text='{}'))))
         self.assertIsNone(parsed(dict(response=dict(ok=True, text='```json\n{}\n```'))))
+
+    def test_new_action_id_interface_accepts_only_the_frozen_menu(self):
+        for action in (0, 2, 31):
+            self.assertEqual(parse_action_id('{"action_id":%d}' % action, [0, 2, 31]), action)
+        self.assertEqual(parse_action_id(' \n {"action_id":2} \t', (0, 2)), 2)
+        self.assertIsNone(parse_action_id('{"action_id":1}', [0, 2]))
+
+    def test_action_id_does_not_repair_an_answer_or_execute_a_command(self):
+        for raw in (
+            '{"action_id":true}', '{"action_id":false}', '{"action_id":2.0}',
+            '{"action_id":"2"}', '{"action_id":null}', '{"action_id":NaN}',
+            '{"action_id":Infinity}', '{"action_id":[]}', '[2]', '2',
+            '{"action_id":2,"reason":"native"}', '{"action":2}',
+            '{"action_id":0,"action_id":2}', '{"action_id":2} trailing',
+            '```json\n{"action_id":2}\n```', None, '', 'x' * 4097,
+            '\ud800', ' ' * 4096 + '{"action_id":2}',
+        ):
+            with self.subTest(raw=raw):
+                self.assertIsNone(parse_action_id(raw, [0, 2]))
+
+    def test_action_menu_must_be_frozen_unique_and_bounded(self):
+        for menu in ([], [0, 0], [True], [1.0], [-1], [32], list(range(33)),
+                     {0, 2}, '02', None):
+            with self.subTest(menu=menu), self.assertRaises(ValueError):
+                parse_action_id('{"action_id":0}', menu)
+
+    def test_action_format_checks_do_not_change_legacy_selection(self):
+        legacy = dict(path='a.go', ranges=[dict(start_line=2, line_count=1)], reason='x')
+        self.assertEqual(choice(legacy, self.view['catalog'])['status'], 'SELECTED')
+        self.assertIsNone(parse_action_id(json.dumps(legacy), [0, 2]))
 
     def test_malformed_verdict_is_invalid_not_a_crash(self):
         verdict = dict(verdict=[], decisive_evidence='first', reason='x', next_native_check=None)
