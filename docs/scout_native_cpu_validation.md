@@ -26,6 +26,13 @@ proof of a defect. Generated code remains untrusted until reviewed. Check curren
 contribution rules, supported callers, existing work and the actual test entrypoint
 before installing dependencies. Preserve unavailable actions and original failures.
 
+For a pytest export nested under another repository, also read the
+[root/configuration note](references/scout_native_cpu_validation_notes.md#keep-test-process-temporary-paths-short-and-private)
+before freezing expected JUnit IDs. `cwd` and disabled plugin autoload do not stop
+ancestor configuration discovery. Use the target's reviewed configuration with
+`-c` when appropriate; `--rootdir` alone is not configuration or import isolation.
+Do not rerun an otherwise valid capture just to fix an expected-name typo.
+
 For an owner-prepared Python excerpt, reuse
 `scout_requested_definition.requested_function_window(lines, "definition(Class.method)")`
 against the full pinned file instead of slicing from `FunctionDef.lineno`.

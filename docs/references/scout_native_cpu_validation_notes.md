@@ -20,6 +20,16 @@ Retain missing-fixture errors instead of scoring the unexecuted test as a pass.
 When an exported package sits beneath a larger repository, pytest may inherit
 the ancestor's root and emit a longer JUnit `classname` than expected. Declare
 `--rootdir=<reviewed-export>` and qualified expected test names before execution.
+Separately check `configfile`: `--rootdir` does not select or disable a configuration
+file. When appropriate, explicitly pass `-c <target's-reviewed-config>`; preserve
+its upstream settings rather than inventing an empty configuration to hide failures.
+For example, a raw Tomlkit export with no pytest options in its `pyproject.toml`
+can otherwise select a containing workspace's `pytest.ini`. An explicit target
+configuration and root produced 108 passing items/probe tests on native Windows
+in one development check; this is not its full corpus, dependency recipe or CI.
+Pytest documents these distinct controls in its
+[rootdir/configfile algorithm](https://docs.pytest.org/en/stable/reference/customize.html#finding-the-rootdir).
+Neither control establishes the actual imported package path; verify that separately.
 If only the report prefix differs, preserve the original inconclusive capture
 and reconcile the same hashed XML against the exact predefined test; do not
 rerun assertions merely to repair accounting or accept a different test.
