@@ -65,6 +65,76 @@ def parse_action_id(text, allowed_ids):
     return value['action_id']
 
 
+def parse_observation_hypothesis(text, evidence_by_id):
+    """Strict final-review interface for the frozen observation pilot.
+
+    Return the accepted object (including explicit abstention), or None for an
+    invalid answer. Evidence keys describe text actually delivered to this arm:
+    0 is its original packet, 1..3 are acquired observations. Literal quote
+    membership is not a contract check, reproduction or correctness verdict.
+    This never changes historical verdict interfaces or repairs an answer.
+    """
+    if (not isinstance(evidence_by_id, dict) or 0 not in evidence_by_id
+            or any(type(key) is not int or key not in range(4)
+                   or not isinstance(value, str)
+                   for key, value in evidence_by_id.items())):
+        raise ValueError('expected delivered evidence keyed by integer IDs 0..3, including 0')
+    try:
+        for source in evidence_by_id.values():
+            source.encode('utf-8')
+    except UnicodeEncodeError as error:
+        raise ValueError('delivered evidence must be UTF-8 encodable') from error
+    if not isinstance(text, str):
+        return None
+    try:
+        if len(text.encode('utf-8')) > 131072:
+            return None
+    except UnicodeEncodeError:
+        return None
+
+    def unique(items):
+        value = dict(items)
+        if len(value) != len(items):
+            raise ValueError('duplicate JSON key')
+        return value
+
+    def constant(value):
+        raise ValueError('nonfinite JSON constant')
+
+    try:
+        value = json.loads(text, object_pairs_hook=unique, parse_constant=constant)
+    except (ValueError, RecursionError):
+        return None
+    if not isinstance(value, dict) or set(value) != {'hypothesis'}:
+        return None
+    hypothesis = value['hypothesis']
+    if hypothesis is None:
+        return value
+    fields = {'public_entrypoint', 'contract', 'failure', 'reproduction'}
+    if (not isinstance(hypothesis, dict) or set(hypothesis) != fields | {'evidence'}
+            or any(not isinstance(hypothesis[key], str)
+                   or not hypothesis[key].strip() or len(hypothesis[key]) > 2000
+                   for key in fields)):
+        return None
+    try:
+        for key in fields:
+            hypothesis[key].encode('utf-8')
+    except UnicodeEncodeError:
+        return None
+    quotes = hypothesis['evidence']
+    if not isinstance(quotes, list) or not 1 <= len(quotes) <= 4:
+        return None
+    for quote in quotes:
+        if not isinstance(quote, dict) or set(quote) != {'observation_id', 'quote'}:
+            return None
+        identifier, literal = quote['observation_id'], quote['quote']
+        if (type(identifier) is not int or identifier not in evidence_by_id
+                or not isinstance(literal, str) or not 1 <= len(literal) <= 1000
+                or literal not in evidence_by_id[identifier]):
+            return None
+    return value
+
+
 def normalized_usage(provider, raw):
     """Missing observations stay unknown; cache conventions are provider-specific."""
     if not isinstance(raw, dict):
