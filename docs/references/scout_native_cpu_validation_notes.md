@@ -1061,6 +1061,20 @@ does not make compilation a runtime witness, replace fixtures, verify source,
 or qualify Windows race/other Go versions. Reviewed commands still need local
 physical and commit headroom; do not reroute an application-control denial.
 
+For a dependency-bearing Go package, first make a small bounded request for an
+actually needed module's version metadata on the intended worker. Local Git
+access or an installed compiler does not prove that its module proxy or checksum
+service is reachable. Preserve a timed-out preparation and stop its owned
+process group; it is not a failing test. A separately reviewed public mirror
+can change transport without changing the frozen `go.mod`/`go.sum` or replacing
+real imports with stubs. Keep acquisition task-private, use `-mod=readonly`, and
+compare both files with the raw source after preparation and testing. Checksum
+verification against a trusted existing `go.sum` and fresh checksum-database
+authentication are different guarantees: [Go documents their relationship](https://go.dev/ref/mod#authenticating).
+Do not silently disable authentication or accept newly generated sums. Once the
+required modules are present, turn module acquisition off for the comparison;
+this still is not network-namespace isolation or full-application qualification.
+
 ### A small dependency-free retry library
 
 `cenkalti/backoff` is another native Go discovery source. At current-v7
