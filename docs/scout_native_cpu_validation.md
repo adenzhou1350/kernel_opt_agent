@@ -10,6 +10,7 @@ optional context, not a mandatory sequence or a new acceptance gate.
 
 | Need | Existing entrance | Read when relevant |
 | --- | --- | --- |
+| Start a separate tool-free model batch | Reuse `kimi_scout.py add` / `run --once` and an explicit controller-owned backend configuration | [Model effort before fan-out](#model-effort-before-fan-out) |
 | Resolve a lead's actual implementation | `kimi_scout_delivery_source.select_leads` with `owner_review=True` or an explicit supported `owner_language` | [Intake and missing source](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
 | Transfer committed code without checkout newline changes | `qualification_source_bundle.py --build` / `--verify` | [Commit-exact transport](references/scout_native_cpu_validation_notes.md#commit-exact-source-before-native-validation), [literal path subsets](references/scout_native_cpu_validation_notes.md#scoped-raw-git-source-transport) |
 | Reuse the tested capture tools on another host | `scout_native_run.py --export-runtime FRESH_DIRECTORY` | [Runtime/API limits](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
@@ -41,6 +42,11 @@ last lookup; inherited results may concern the old subject. Title text differenc
 are not semantic drift, and matching titles or empty samples prove neither
 coverage nor novelty. Check the final subject's existing author-owned work before
 implementation or dependency setup; this display is advisory, not a phase gate.
+An empty general web-search result is not that repository check: search indexes
+can omit an already-open exact repair. When direct API access is unavailable,
+use the repository's visible all-state issue/PR search under existing authority,
+or keep duplicate coverage unknown. Finding an author's repair redirects work
+to scoped independent verification, not a competing PR or a credited discovery.
 
 For an already selected Rust file, one explicit unqualified `definition(name)`
 can locate a unique `fn name(` or `fn name<` literal within the existing source
@@ -56,6 +62,28 @@ This preference inspects only the existing eight-source bound, does not relabel
 old bytes or ranges, and does not fetch missing pins. Without a supplied
 same-path current pin, revision-drift abstention remains in force. A successful
 lookup is source evidence, not proof of a defect or of lower discovery cost.
+
+### Model effort before fan-out
+
+A fresh small public-source batch need not inherit or migrate a live Scout queue,
+credentials or provider configuration. Export pinned source/lessons, explicitly
+enqueue reviewed packets and use the existing `--once`, attempt/token/time limits
+and memory/disk admission. Distinguish a terminal batch with pending unadmitted
+jobs from a drained queue; increasing concurrency does not fix a conservative
+token reservation that cannot fit the next packet.
+
+For a model migration or empty length-limited responses, search the existing
+model-specific lessons before repeating a default configuration. For example,
+`knowledge search "GLM reasoning effort"` routes
+[`reasoning-effort-is-model-specific`](../knowledge/lessons/reasoning-effort-is-model-specific.json).
+The documented GLM-5.3 default is max effort when the parameter is omitted;
+explicit `low` is a calibration candidate, not a universal quality-preserving
+default. Preserve failed calls and usage. A revised bounded invocation can
+consume previously unattempted packets without resetting failed rows or
+silently retrying them. Record changed effort/output/reservation ceilings before
+the invocation and leave frozen study arms unchanged. Different packets and
+settings cannot establish a causal efficiency or discovery-quality comparison.
+Accepted request syntax does not prove a gateway realized the selected effort.
 
 ## Commit-exact source before native validation
 
