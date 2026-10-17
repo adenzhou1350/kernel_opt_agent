@@ -78,6 +78,14 @@ For JIT/native tests, include changed headers in source identity and use a fresh
 task-private build cache unless dependency-aware invalidation is demonstrated.
 A fresh Python process alone does not establish a fresh compiled extension.
 
+For a reviewed Python command on native Windows, explicitly pass
+`--env PYTHONUTF8=1 --env PYTHONIOENCODING=utf-8` when its captured console may
+contain localized warnings. The report reader requires UTF-8: valid JUnit and a
+zero exit do not make an undecodable console a qualified capture. Preserve the
+original inconclusive run; do not silently decode arbitrary logs with replacement
+characters or hide its warnings. These flags are Python-specific, not a general
+encoding fix for every executable.
+
 ## Package and language routes
 
 - Python: [Humanize and missing translations](references/scout_native_cpu_validation_notes.md#humanize-core-baseline-with-translation-gaps-retained),

@@ -1,0 +1,22 @@
+{
+  "id": "batch-backend-validation-before-side-effects",
+  "title": "Validate every resolved backend before batch side effects",
+  "applies_when": "A generic filesystem wrapper resolves a backend from the first URL and forwards an entire multi-URL copy or removal batch to it.",
+  "lesson": "Resolve every batch member before performing any side effect. A memory-first removal can interpret a local URL as an unrelated memory key, silently delete that shadow and leave the intended local file untouched; reversing the order can partially delete before raising. If mixed backends are unsupported, reject the whole batch before dispatch. Preserve homogeneous aliases and legitimate uncached instances: in fsspec, equivalent filesystem configurations have equality even when skip_instance_cache creates different objects. Identity-only guards can reject an ordinary single-file call. Test both mixed orders, untouched shadow entries and targets, homogeneous protocol aliases, and uncached single/list controls through the actual public API.",
+  "avoid_when": "A wrapper may explicitly support grouping by backend; that needs its own ordering/error contract rather than unconditional rejection. Identical protocol strings do not prove identical host, credentials or backend configuration. Equality is library-specific, not a universal substitute for ownership or connection identity. Real memory/local tests do not qualify cloud stores, all custom filesystem subclasses, full CI, atomicity after a backend starts removal or performance. This is a reusable next check, not measured Scout selection efficacy or maintainer acceptance.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/685f62eaf4baa00a974e1f7865746a1879816d9b/fsspec/generic.py#L264-L274",
+      "note": "The current-source removal picks urls[0] then forwards the entire list. Independent native Linux public calls show wrong-backend shadow deletion in memory-first order and partial deletion followed by FileNotFoundError in reverse order. The same revision's copy guard validates both lists before dispatch."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/685f62eaf4baa00a974e1f7865746a1879816d9b/fsspec/spec.py#L98-L117",
+      "note": "Instance construction creates a configuration token and separately permits bypassing the instance cache. Filesystem __eq__ at lines 281-282 compares class/token, not object identity. Inspect that contract before transferring this comparison to another library."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/filesystem_spec/blob/df65beba855aae66944e426e95fc65c765f28c9a/fsspec/tests/test_generic.py#L32-L87",
+      "note": "Six added parameterized controls cover mixed orders, homogeneous memory/local aliases and uncached single/list calls. Native Windows CPython3.14 and Linux CPython3.12 generic suites pass 31 tests; the Linux unchanged-production comparison with the same tests fails exactly the two mixed cases. Linux generic/memory/local selection passes 383 with 18 skips. Windows retains an HTTP-server teardown warning. The initial identity-only candidate failed the two uncached controls. Fork evidence, not an accepted upstream PR or full CI qualification."
+    }
+  ],
+  "status": "validated"
+}
