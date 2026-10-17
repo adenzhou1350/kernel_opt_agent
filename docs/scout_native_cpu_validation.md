@@ -235,6 +235,16 @@ source/runtime identity, assertion quality, caller support or PR readiness.
 It makes no selection-policy or PR-yield claim. Other report formats retain their
 existing entrances; this is not a generic JUnit dialect adapter.
 
+Cardinality errors include the affected counter and its declared/observed
+values, without echoing malformed counter text. A captured pytest run can report
+passed subtests in its CLI total while its JUnit suite count exceeds the emitted
+case nodes. Keep that report inconclusive: inspect the original report and the
+actual test framework before attributing the discrepancy to a candidate. Do not
+rewrite counters, infer missing case identities, filter the report to force a
+match or silently relabel CLI success as structured acceptance. A separately
+declared focused test selection is different evidence, not a replay or repair
+of the original full-suite record; retain both scopes and their costs.
+
 ## Keep the outcome useful
 
 Use identical test bytes and matched inputs for both arms, passing ordinary

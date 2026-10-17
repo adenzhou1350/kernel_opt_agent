@@ -96,6 +96,30 @@ class NativeResultsTests(unittest.TestCase):
         root.set("tests", "2")
         self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"], "INCONCLUSIVE")
 
+    def test_junit_cardinality_diagnostic_does_not_accept_missing_cases(self):
+        root = ET.fromstring(junit(("test_case", None)))
+        root[0].set("tests", "13")
+        value = self.junit(ET.tostring(root, encoding="unicode"))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual(value["passed"], 1)
+        self.assertIn(
+            "JUnit case/summary cardinality mismatch "
+            "(testsuite.tests: declared 13, observed 1)",
+            value["issues"],
+        )
+
+    def test_junit_malformed_counter_is_not_echoed_into_diagnostics(self):
+        root = ET.fromstring(junit(("test_case", None)))
+        root[0].set("tests", "PRIVATE_COUNTER_TEXT" * 1000)
+        value = self.junit(ET.tostring(root, encoding="unicode"))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertIn(
+            "JUnit case/summary cardinality mismatch "
+            "(testsuite.tests: declared invalid, observed 1)",
+            value["issues"],
+        )
+        self.assertNotIn("PRIVATE_COUNTER_TEXT", json.dumps(value["issues"]))
+
     def test_junit_setup_errors_do_not_reproduce_an_assertion_failure(self):
         value = self.junit(junit(("test_case", "error")), 1)
         self.assertEqual(value["status"], "INCONCLUSIVE")

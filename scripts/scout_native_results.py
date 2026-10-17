@@ -198,8 +198,13 @@ def _junit(text, exit_code, expected_results, issue, inventory=None):
                                ("errors", "errors"), ("skipped", "skipped")):
             value = element.get(attribute, "")
             total = sum(actual.values()) if key is None else actual[key]
-            if not re.fullmatch(r"[0-9]{1,8}", value) or int(value) != total:
-                issue("JUnit case/summary cardinality mismatch")
+            valid = re.fullmatch(r"[0-9]{1,8}", value)
+            if not valid or int(value) != total:
+                declared = int(value) if valid else "invalid"
+                issue(
+                    "JUnit case/summary cardinality mismatch "
+                    f"({element.tag}.{attribute}: declared {declared}, observed {total})"
+                )
 
     for suite in suites:
         observed = dict.fromkeys(counts, 0)
