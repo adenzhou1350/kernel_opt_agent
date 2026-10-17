@@ -27,11 +27,11 @@
     },
     {
       "url": "https://github.com/fsspec/filesystem_spec/blob/b7505a613a6901d6f9c3df0c5147908de38c4a9e/fsspec/implementations/zip.py",
-      "note": "PR2313 calls __exit__ on any supplied context after ZIP close and clears of. Cached-publication regressions pass, but native Windows public BytesIO/file controls both fail because close now closes the caller's handle. CI success did not cover this contract."
+      "note": "PR2313 calls __exit__ on any supplied context after ZIP close and clears of. Cached-publication regressions pass, but the same public BytesIO/file controls both fail on native Windows CPython3.14 and Linux CPython3.12: close now closes the caller's handle. Unchanged parent and author PR2312 preserve both handles. Repeated close passing and green CI did not cover this ownership contract."
     },
     {
       "url": "https://github.com/fsspec/filesystem_spec/blob/5668d9350ff0ad20037d607668d067cc39bc8dc3/fsspec/implementations/tests/test_zip.py",
-      "note": "Existing author PR2312 includes caller-owned buffer/file, owned OpenFile, cached publication, open-member retry and upload-error cases. Native Windows caller controls and its 49-test ZIP suite pass at this head. This is independent validation, not our PR or a full CI/Linux qualification."
+      "note": "Existing author PR2312 includes caller-owned buffer/file, owned OpenFile, cached publication, open-member retry and upload-error cases. Exact-source native Windows CPython3.14 and Linux CPython3.12 caller controls and its 49-test ZIP suite pass at this head. Linux used existing pytest9.1.1 with plugin autoload disabled, fresh private roots and verified imports, without installing dependencies. This is independent validation, not our PR, maintainer acceptance, full CI, live storage integration or arbitrary context-manager qualification."
     }
   ],
   "status": "counterexample"
