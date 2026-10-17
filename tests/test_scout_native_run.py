@@ -47,7 +47,7 @@ class RuntimeExportTests(unittest.TestCase):
                                 cwd=self.root, env=env, capture_output=True, text=True, timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(json.loads(result.stdout)["status"], "EXPORTED")
-        for name in ("scout_native_run.py", "qualification_source_bundle.py"):
+        for name in ("scout_native_run.py", "qualification_source_bundle.py", "scout_dependency_tree.py"):
             help_result = subprocess.run([sys.executable, "-B", str(output / name), "--help"],
                                          cwd=self.root, env=env, capture_output=True, text=True, timeout=10)
             self.assertEqual(help_result.returncode, 0, help_result.stderr)

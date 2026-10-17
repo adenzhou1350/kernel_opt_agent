@@ -13,6 +13,7 @@ optional context, not a mandatory sequence or a new acceptance gate.
 | Resolve a lead's actual implementation | `kimi_scout_delivery_source.select_leads` with `owner_review=True` or an explicit supported `owner_language` | [Intake and missing source](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
 | Transfer committed code without checkout newline changes | `qualification_source_bundle.py --build` / `--verify` | [Commit-exact transport](references/scout_native_cpu_validation_notes.md#commit-exact-source-before-native-validation), [literal path subsets](references/scout_native_cpu_validation_notes.md#scoped-raw-git-source-transport) |
 | Reuse the tested capture tools on another host | `scout_native_run.py --export-runtime FRESH_DIRECTORY` | [Runtime/API limits](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
+| Inspect an existing private dependency tree without installing or copying it | `scout_dependency_tree.py EXISTING_TREE` | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Run an owner-reviewed command and retain native reports | `scout_native_run.py --help`; choose a supported actual report format | [POSIX/Windows capture and cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout), [Vitest JSON](references/scout_native_cpu_validation_notes.md#vitest-json-is-a-separate-native-format) |
 | Compare the same regressions and controls before/after | `scout_native_results.compare_regression` | [Report validity and collection skips](references/scout_native_cpu_validation_notes.md#collection-skips-are-not-executed-tests) |
 | Diagnose failure before package assertions ran | Inspect the original process/report and actual imported paths | [Temporary paths](references/scout_native_cpu_validation_notes.md#keep-test-process-temporary-paths-short-and-private), [SQLite temporary capacity](references/scout_native_cpu_validation_notes.md#sqlite-read-only-queries-still-need-temporary-capacity), [backend identity](references/scout_native_cpu_validation_notes.md#verify-realized-backends-not-parameter-labels) |
@@ -69,6 +70,9 @@ differ only by CRLF normalization; prove that difference rather than silently
 relabeling the old run. When exact-head execution matters, export the committed
 bytes and retain the earlier run separately. Stop a dependent commit/push step
 when a prerequisite check fails; orchestration must inspect each process exit.
+A generated driver also has transport bytes: hash the actual emitted file, not
+only an in-memory string when text-mode writing can translate its newlines.
+The runtime exporter writes its snapshots as bytes to avoid that mismatch.
 For JIT/native tests, include changed headers in source identity and use a fresh
 task-private build cache unless dependency-aware invalidation is demonstrated.
 A fresh Python process alone does not establish a fresh compiled extension.
@@ -135,6 +139,52 @@ assertion failure, skips/TODO, hook/import failures and timeout. Windows tests
 exercise process capture with injected XML, not Windows Bun. This qualification
 is neither a new Scout discovery nor evidence of prospective selection benefit,
 full-package portability or a security sandbox.
+
+### Dependency reuse: content is not isolation
+
+Account for preparation and postchecks as well as test time. A reviewed Linux
+Bun replay exposed a practical bottleneck: native test/typecheck/lint commands
+took about 34 seconds, but the outer 280-second job expired during final checks
+after duplicating dependencies. Preserve that failure; successful test exits do
+not turn the entire timed-out job into a successful bounded execution.
+
+For owner-reviewed commands known not to write dependencies, an existing
+**task-private** installation can sometimes be reused instead of copied. Keep
+fresh source roots, HOME, temporary files and reports. Preserve the original
+locked-install provenance, runtime identities and actual import paths; equal
+`package.json`/lockfile bytes alone do not prove an installation matches them.
+Do not silently substitute a system or another project's dependency tree.
+
+The optional, standard-library-only reader is included in fresh runtime exports:
+
+```text
+python scripts/scout_dependency_tree.py EXISTING_PRIVATE_TREE
+python scripts/scout_dependency_tree.py EXISTING_PRIVATE_TREE --expect-sha256 SHA_FROM_BEFORE
+```
+
+It hashes regular-file contents, relative paths, empty directories and in-tree
+symlink targets, without following those links as duplicate subtrees. External,
+dangling or root links, junctions, special files, unreadable subtrees and exceeded
+budgets abstain rather than returning a partial digest. Defaults are 20,000
+entries, 1 GiB read bytes, 8 MiB retained entry metadata and a cooperative
+60-second deadline; retain an outer
+timeout for stalled filesystem I/O. Modes, owners, timestamps, hardlink aliasing
+and atomicity are **not** established. The digest is a new content/layout format,
+not interchangeable with older task-local file-only inventory hashes.
+
+A separate known-case feasibility replay linked an existing private Bun
+installation into fresh sources and completed the same focused old/new checks
+in 28.4 seconds, including matching before/after file/link inventories. It did
+not repeat the full suite, measure cold-cache alternatives or compare policies
+under equal realized resources. Do not infer a speedup ratio or Scout yield.
+
+**A directory symlink does not make its target read-only.** Matching observations do not prevent
+concurrent writes, write-and-restore changes or access outside the tree. Keep
+this reuse opt-in for reviewed nonwriting commands with controlled ownership;
+use an isolated copy or an actual read-only sandbox/mount for dependency writers,
+untrusted generated code or conflicting users. Do not change the runner's source
+symlink rejection or treat the reader as execution authority. No automatic
+dependency linking, queue policy or sandbox protection is added by this tool.
 
 ## Keep the outcome useful
 
