@@ -132,7 +132,13 @@ quote, or emit literal backslash-n sequences as source text. Copy PR titles and
 descriptions too; do not rewrite them into a quotation. Acquisition metadata,
 missing-symbol notices and prior analyses are not source quotations: describe
 those observations outside evidence. For no_lead or needs_context, an empty
-evidence list is allowed; do not invent quotations to fill it.
+evidence list is allowed; do not invent quotations to fill it. All nine keys
+are mandatory even when abstaining: use "evidence": [], never omit that key.
+Example shape for an abstention (replace the text with your actual reasons):
+{"decision":"no_lead","title":"No supported failure identified",
+"hypothesis":"","baseline":"Supplied source only","next_check":"",
+"duplicate_risk":"Not searched","uncertainty":"Not executed",
+"knowledge_suggestion":"","evidence":[]}
 Answer concisely in Chinese; source quotations stay unchanged.
 Keep the entire answer under 600 Chinese characters excluding evidence URLs.
 """

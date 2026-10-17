@@ -27,7 +27,7 @@
     },
     {
       "url": "https://github.com/fsspec/filesystem_spec/pull/2306",
-      "note": "Proposed follow-up returns current offsets without enabling random access. Exact-source loopback BufferedReader raises TypeError before and returns integer positions after; 110 official HTTP cases pass. Open PR, not maintainer acceptance, full CI or measured selector utility."
+      "note": "Follow-up returns current offsets without enabling random access. Exact-source loopback BufferedReader raises TypeError before and returns integer positions after; 110 official HTTP cases pass. Observed merged on 2026-10-18 (merge 29fa21219ea457eb83f36ee838a3744ec87c697a): scoped maintainer acceptance, not proof of all CI passing, async archive compatibility or measured selector utility."
     },
     {
       "url": "https://github.com/NVIDIA/Megatron-LM/issues/8179",

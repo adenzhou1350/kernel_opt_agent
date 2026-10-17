@@ -87,6 +87,24 @@ class ScoutTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             scout.validate_result(value, packet())
 
+    def test_prompt_abstention_example_matches_unchanged_result_contract(self):
+        marker = "Example shape for an abstention (replace the text with your actual reasons):\n"
+        example = scout.SYSTEM.split(marker, 1)[1].split("\nAnswer concisely", 1)[0]
+        value = json.loads(example)
+        self.assertEqual(value["decision"], "no_lead")
+        self.assertEqual(value["evidence"], [])
+        self.assertEqual(scout.validate_result(value, packet()), value)
+        # The example is guidance for future calls, not repair of old answers.
+        missing = {key: item for key, item in value.items() if key != "evidence"}
+        with self.assertRaisesRegex(ValueError, "unexpected result fields"):
+            scout.validate_result(missing, packet())
+        forged = dict(value, evidence=[{
+            "url": packet()["sources"][0]["url"],
+            "quote": "return an invented value",
+        }])
+        with self.assertRaisesRegex(ValueError, "not a supplied excerpt"):
+            scout.validate_result(forged, packet())
+
     def test_cli_help_without_workspace_pythonpath(self):
         env = dict(os.environ)
         env.pop("PYTHONPATH", None)
