@@ -1,9 +1,9 @@
-# Source-inception v2: first-slot diagnostic result
+# Source-inception v2: two-slot diagnostic results
 
 Protocol: [frozen two-slot pilot v2](scout_source_inception_pilot_v2.md), committed
 as `9e016ec7f8d92c90baa0ce3159bb58088a617ea5` before selected source acquisition
-and model calls. The second, Pluggy slot remains unexecuted. Original pilot v1
-remains frame-incomplete; neither study receives replacement successful examples.
+and model calls. Both original slots are now terminal. Original pilot v1 remains
+frame-incomplete; neither study receives replacement successful examples.
 
 ## Humanize, 2026-10-18
 
@@ -66,7 +66,7 @@ integer/string/Decimal failure and integer-first repair. This is not a novel
 discovery or a new PR opportunity. No competing implementation or redundant
 verification comment was published; the PR already has detailed peer checks.
 
-## Cost and decision
+## First-slot cost and decision
 
 Retain actual envelopes, journal, immutable input identities, original failures,
 wheel and native reports privately. Source preparation/transfer recorded about
@@ -79,8 +79,87 @@ logical read microseconds do not make acquisition free.
 
 For this slot, learned selection cost more reported tokens and produced no
 additional finding. Do not promote it into Scout's default routing or paper
-claims. Keep the remaining frozen slot and budget (10 attempts / 57,535 reported
-tokens remain); a separate future comparison could examine function-aware source
-windows and contract-boundary tests, but cannot replace this outcome. The lesson
-update derived **after** the experiment must not leak into its remaining original
-arms or be used to rerun this case for a favorable result.
+claims. At this point the remaining frozen slot retained 10 attempts / 57,535
+reported tokens. The lesson update derived **after** this case was excluded from
+the remaining original model inputs. No case was rerun for a favorable result.
+
+## Pluggy, 2026-10-18
+
+Pin `09fabb162b8f84af0292b827c94e0149b82d448a`, `src/pluggy/_hooks.py` and
+`testing/test_hookcaller.py`. The implementation slot is now a compatibility
+reexport module shorter than 80 lines. Observation 1 truthfully reports EOF;
+it does not follow imports into a different implementation file. The owner read
+all package Python sources as required by the target's contribution instructions;
+that preparation exposure did not enter model prompts.
+
+Native preparation built the unchanged real Git worktree through its own
+setuptools-scm backend after fetching ancestor tags. The resulting version is
+`1.7.1.dev3+g09fabb162`, and all 13 tracked production Python files were verified
+byte-identical to Git blobs in the wheel. The offline pytest stack's donor Pluggy
+1.6.0 was **not** used as the subject: the target wheel was placed before it,
+and imported module path and distribution version were checked before pytest
+started. The target `tox.ini`, full companion and original `conftest.py` were
+retained. No package install/build/network occurred inside an observation.
+
+| Arm | Acquired IDs | Model calls | Reported tokens | Final review |
+| --- | --- | ---: | ---: | --- |
+| Source only | none | 1 | 790 | valid abstention |
+| Rule | 2: companion start | 1 | 1,376 | valid abstention |
+| Fixed native | 3: first test | 1 | 944 | valid abstention |
+| GLM selected | 2: companion start | 2 | 2,050 | valid abstention |
+| M3 selected | 3: first test | 2 | 1,797 | valid abstention |
+| GLM sequential | 1: EOF, then 3 | 3 | 2,401 | valid abstention |
+
+The preselected `test_adding_nonwrappers` ran once and passed. Three arms received
+that same cached physical observation; these are logical reads, not independent
+native repetitions. Preparation/build/transfer recorded 12.24 seconds, excluding
+earlier source/policy review and fetching ancestor history. Those excluded costs
+remain unpriced and unmeasured, not zero.
+
+After predictions were saved, accepted hypotheses were deduplicated and stripped
+of arm/provider labels. The owner read only that null-hypothesis set before a
+bounded audit of the whole companion file plus compatibility alias identities.
+That audit passed 24 pytest cases on nonroot, network-disabled Linux/Python
+3.12.10 with 512 MiB/64 tasks. Its fresh container was removed and session
+released. This did not replay observation 3 or qualify the full repository,
+all hookspec/plugin consumers, all versions or all platforms. No further defect
+was confirmed in this bounded scope; the exhaustive miss inventory remains
+unknown. The owner is still not an independent human assessor.
+
+## Aggregate stop decision
+
+Both original slots consumed **20 actual model attempts / 26,823 reported
+tokens**, with complete observed usage, 12 schema-valid abstentions, zero model
+proposals and zero new qualified discoveries/PRs. The study's attempt stop is
+reached. Do not reuse its remaining token allowance to invent more slots.
+
+| Arm | Total calls | Total reported tokens | Additional confirmed discoveries |
+| --- | ---: | ---: | ---: |
+| Source only | 2 | 2,047 | 0 |
+| Rule | 2 | 3,642 | 0 |
+| Fixed native | 2 | 2,276 | 0 |
+| GLM selected | 4 | 5,216 | 0 |
+| M3 selected | 4 | 5,158 | 0 |
+| GLM sequential | 6 | 8,484 | 0 |
+
+The Humanize audit exposes one known contract defect missed by all arms; it is
+already author-owned upstream work, not a new contribution. Pluggy provides a
+runnable native observation but no useful difference in final findings. The
+limited windows, first-test choice, convenience sampling, uncontrolled provider
+sampling/effort realization, shared reviewer, incomplete total-cost accounting
+and Humanize blinding deviation prevent an effectiveness, recall, cost-optimality
+or paper-novelty claim. This is not an equivalent ReAct/SWE-Search comparison or
+a cheap-versus-strong model evaluation. Six arms are not twelve independent
+repository samples.
+
+Production Scout already has opt-in `followup_import_context` and explicit
+`definition(Class.method)` acquisition through cached import hints. Those tools
+were outside this study's fixed three-action menu. The thin-shim result therefore
+does not demonstrate that the production reader lacks reexport support, and no
+new resolver is justified merely by this restricted experiment.
+
+**Do not promote learned evidence selection into default Scout routing on these
+results.** Keep simple existing behavior while improving a specific demonstrated
+source/native bottleneck. Any future function-aware or contract-boundary study
+needs a fresh prospective cohort and comparable evidence/action capacity; it
+must retain this completed null/negative result instead of silently replacing it.
