@@ -21,7 +21,8 @@ class AuditOwnersTests(unittest.TestCase):
         self.context = PublicContext(self.tmp.name)
 
     def acquire(self, raw, start=1, count=120):
-        with patch.object(self.context, "snapshot", return_value={"files": [PATH]}), \
+        with patch.object(self.context, "snapshot", return_value={
+                "files": [PATH], "blobs": {PATH: "b" * 40}}), \
                 patch.object(self.context, "_read", return_value=raw):
             return self.context.source(REPO, COMMIT, PATH, start=start, max_lines=count)
 
@@ -80,6 +81,31 @@ class AuditOwnersTests(unittest.TestCase):
         self.assertEqual(len(info["definitions"]), 4)
         self.assertTrue(info["omitted"])
         self.assertLess(len(json.dumps(info)), 1600)
+
+    def test_capped_hints_keep_constructor_at_window_end(self):
+        raw = ("".join(f"def f{i}():\n    return {i}\n\n" for i in range(4))
+               + "class Model:\n    def __init__(self):\n"
+               "        self.ready = False\n        self.ready = True\n")
+        end = raw.splitlines().index("        self.ready = False") + 1
+        source = self.acquire(raw, start=2, count=end - 1)
+        info = self.annotate(source)["python_definition_context"]
+        self.assertEqual([d["qualified_name"] for d in info["definitions"]],
+                         ["f0", "f1", "f2", "Model.__init__"])
+        self.assertTrue(info["omitted"])
+        self.assertEqual((info["window_start_line"], info["window_end_line"]),
+                         (2, end))
+        self.assertEqual(self.annotate(source)["text"], source["text"])
+
+    def test_capped_hints_prioritize_innermost_boundary_owner(self):
+        raw = ("def outer():\n"
+               + "".join(f"    def f{i}():\n        return {i}\n" for i in range(6)))
+        end = raw.splitlines().index("        return 5") + 1
+        info = self.annotate(self.acquire(raw, start=3, count=end - 2))[
+            "python_definition_context"]
+        self.assertEqual([d["qualified_name"] for d in info["definitions"]],
+                         ["outer", "outer.f0", "outer.f1", "outer.f5"])
+        self.assertTrue(info["omitted"])
+        self.assertEqual(len(info["definitions"]), 4)
 
     def test_invalid_full_file_and_oversize_cache_do_not_parse(self):
         source = self.acquire("def real():\n    return 1\ntrailing(\n")

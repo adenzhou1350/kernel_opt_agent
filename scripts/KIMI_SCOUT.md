@@ -39,6 +39,10 @@ change alone does not establish higher finding accuracy or PR conversion.
 
 Python discovery windows also carry up to four lexical function names/ranges
 from the same pinned source cache, when its AST and excerpt identity agree.
+When more definitions overlap, the innermost function at each window edge takes
+priority within that same four-item cap; remaining slots keep earlier overlaps.
+The omitted flag remains explicit. This prevents earlier small methods from
+crowding out a constructor that continues beyond the end of the excerpt.
 This adds no network read or function bodies, and keeps the original window
 range explicit if packet fitting later trims it. Names describe lexical
 ownership, not runtime dispatch, complete evidence, or a bug verdict. Unsupported

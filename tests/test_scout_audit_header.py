@@ -34,7 +34,8 @@ class AuditHeaderTests(unittest.TestCase):
         self.addCleanup(self.tmp.cleanup)
         self.context = PublicContext(self.tmp.name)
         self.case = 0
-        snapshot = patch.object(self.context, "snapshot", return_value={"files": [PATH]})
+        snapshot = patch.object(self.context, "snapshot", return_value={
+            "files": [PATH], "blobs": {PATH: "b" * 40}})
         snapshot.start()
         self.addCleanup(snapshot.stop)
 
@@ -43,7 +44,8 @@ class AuditHeaderTests(unittest.TestCase):
         # cache entry for the same revision in one context.
         self.case += 1
         context = PublicContext(Path(self.tmp.name) / str(self.case))
-        with patch.object(context, "snapshot", return_value={"files": [PATH]}), \
+        with patch.object(context, "snapshot", return_value={
+                "files": [PATH], "blobs": {PATH: "b" * 40}}), \
                 patch.object(context, "_read", return_value=raw) as read:
             source = context.source(REPO, COMMIT, PATH, start=1)
             expanded = contextual_audit_header(context, REPO, COMMIT, PATH, source)

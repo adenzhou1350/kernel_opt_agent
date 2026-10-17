@@ -11,6 +11,8 @@ def contextual_audit_owners(context, repo, commit, path, source):
     full-file AST ranges help distinguish them without copying their bodies or
     claiming that a lexical definition proves runtime dispatch or reachability.
     The range is explicitly the original window if packet fitting trims later.
+    Under the four-definition cap, retain the innermost owners of both window
+    edges before filling with earlier overlaps. This is not a body extension.
     """
     start, end, total = (source.get(key) for key in
                          ("start_line", "end_line", "total_lines"))
@@ -37,6 +39,7 @@ def contextual_audit_owners(context, repo, commit, path, source):
     except (SyntaxError, ValueError, RecursionError):
         return source
     definitions, omitted = [], False
+    boundary_owners = {}
     stack = [(tree, "")]
     while stack:
         node, prefix = stack.pop()
@@ -46,15 +49,34 @@ def contextual_audit_owners(context, repo, commit, path, source):
             if last < start or first > end:
                 continue
             if not isinstance(node, ast.ClassDef):
-                if len(definitions) < 4 and len(name.encode("utf-8")) <= 128:
-                    definitions.append({"qualified_name": name,
-                                        "start_line": first, "end_line": last})
+                if len(name.encode("utf-8")) <= 128:
+                    definition = {"qualified_name": name,
+                                  "start_line": first, "end_line": last}
+                    if len(definitions) < 4:
+                        definitions.append(definition)
+                    else:
+                        omitted = True
+                    for edge in (start, end):
+                        previous = boundary_owners.get(edge)
+                        if first <= edge <= last and (
+                            previous is None or last - first
+                            < previous["end_line"] - previous["start_line"]
+                        ):
+                            boundary_owners[edge] = definition
                 else:
                     omitted = True
             prefix = name + "."
         stack.extend((child, prefix) for child in reversed(list(ast.iter_child_nodes(node))))
     if not definitions:
         return source
+    # At most two edge owners plus the original four candidates are retained;
+    # do not accumulate full-file metadata or acquire any extra source text.
+    selected = []
+    for definition in (*boundary_owners.values(), *definitions):
+        if definition not in selected and len(selected) < 4:
+            selected.append(definition)
+    definitions = sorted(selected, key=lambda item: (
+        item["start_line"], -item["end_line"], item["qualified_name"]))
     return {**source, "python_definition_context": {
         "window_start_line": start, "window_end_line": end,
         "definitions": definitions, "omitted": omitted,
