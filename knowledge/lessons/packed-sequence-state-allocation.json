@@ -1,0 +1,22 @@
+{
+  "id": "packed-sequence-state-allocation",
+  "title": "Allocate packed recurrent final states by sequence count, not tensor batch size",
+  "applies_when": "A recurrent GPU wrapper flattens variable-length sequences into a tensor with batch dimension one while a launch grid or final-state pointer is indexed by a separate sequence count.",
+  "lesson": "Trace the output allocation, launch grid and store index together. In FLA IPLR, dense inputs use N=B, but packed inputs use N=len(cu_seqlens)-1. The kernel stores one H-by-K-by-V final state per sequence; allocating by the flattened B can undersize that buffer even when dense tests pass. Derive allocation from the same ownership dimension as the consumer rather than changing the kernel or masking away valid sequences. Compare packed output, every sequence's final state and all supported input gradients against a per-sequence reference. Include single-sequence, asymmetric K/V with a partial tile, both initial-state modes and an empty middle sequence; empty states must retain the documented zero/initial value, not merely have the right shape. Keep existing tolerances and unrelated dense/chunk tests unchanged.",
+  "avoid_when": "This sequence-count formula is the cited IPLR contract, not a universal allocation rule for every packed operator or every empty-input case. Follow the actual consumer's indexing and supported boundary semantics. Allocation interception can discriminate an unsafe extent without deliberately executing a known out-of-bounds baseline GPU write. Source review, our historical RTX5090 test and a maintainer's GB200 rerun are distinct evidence: do not attribute the maintainer's execution to us, extrapolate other devices, claim sanitizer coverage or call this a speed optimization. A merged correctness repair is not evidence that Scout routing improves yield, total cost or recall.",
+  "evidence": [
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/29f4364a918a0a7dd27635d7b8d806b75204d25d/fla/ops/generalized_delta_rule/iplr/fused_recurrent.py",
+      "note": "Pinned implementation derives N from the packed boundaries (or B for dense input), allocates final_state with N and indexes kernel states by sequence/head. This is the allocation/consumer mechanism, not a performance measurement."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/blob/29f4364a918a0a7dd27635d7b8d806b75204d25d/tests/ops/test_iplr_delta.py",
+      "note": "The reviewed packed regression compares per-sequence references, final-state shape, exact empty-sequence initialization and individual gradients; it retains 0.003 tolerances and adds asymmetric K32/V48 coverage. Test definitions alone are not an execution result."
+    },
+    {
+      "url": "https://github.com/fla-org/flash-linear-attention/pull/1419#pullrequestreview-5557371105",
+      "note": "Maintainer yzhangcs reports exact current-head GB200 execution of all 24 IPLR cases with FLA_CI_ENV=0, the standard NaN fixture and unchanged tolerances: zero failures/skips, 175.61 seconds. This is attributed maintainer evidence, not our own GB200 run. PR1419 was merged as c067059dd60fafd96f83120327bd7d8d72fc7d02 and replaced PR1396; they represent one repair lineage, not two independent successful discoveries."
+    }
+  ],
+  "status": "validated"
+}

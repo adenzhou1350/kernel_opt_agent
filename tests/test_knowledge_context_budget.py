@@ -11,6 +11,29 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_packed_state_allocation_advice_keeps_maintainer_evidence_attributed(self):
+        result = lesson_suggestions(
+            "packed recurrent final state allocation sequence grid",
+            source_urls=[
+                "https://raw.githubusercontent.com/fla-org/flash-linear-attention/"
+                "29f4364a918a0a7dd27635d7b8d806b75204d25d/"
+                "fla/ops/generalized_delta_rule/iplr/fused_recurrent.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "packed-sequence-state-allocation")
+        self.assertIn("N=len(cu_seqlens)-1", card["lesson"])
+        self.assertIn("empty middle sequence", card["lesson"])
+        self.assertIn("not a universal allocation rule", card["avoid_when"])
+        self.assertTrue(any(
+            "not our own GB200 run" in item["note"]
+            and "one repair lineage" in item["note"]
+            for item in card["evidence"]
+        ))
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_first_group_counter_advice_keeps_shared_consumer_scope(self):
         result = lesson_suggestions(
             "PruneOptimizer num_steps parameter group counter schedule",
