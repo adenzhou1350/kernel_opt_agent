@@ -1,0 +1,22 @@
+{
+  "id": "copy-bookkeeping-is-not-shared-payload",
+  "title": "Shallow payload sharing still needs private mutation bookkeeping",
+  "applies_when": "A shallow container copy shares mutable internal occurrence/index lists, or an append-in-place performance optimization intersects an earlier copy-on-write repair.",
+  "lesson": "Separate user payload from container bookkeeping. A shallow copy can intentionally share nested payload objects without allowing top-level assignment or concatenation to alter the original's named entries. Trace every writer, not only index-renumbering methods: append-in-place can invalidate an earlier invariant that assignment always rebinds a fresh list. Test source-to-copy and copy-to-source assignment, accumulated names and concatenation alongside intentional nested sharing. Read both optimization and correctness histories before choosing a repair. Pyparsing's original PR650 tracked list ownership; its simplified upstream append combined with PR645's shallow occurrence-list sharing leaves these writers unprotected. Support the existing author and show the missing regression rather than claim a new optimization or silently reverse the accepted hot-path tradeoff.",
+  "avoid_when": "Documented views and in-place APIs may intentionally share structure. Do not deep-copy opaque payloads, restore quadratic list concatenation, or eagerly clone every metadata list on a hot copy path merely because a narrow test passes. Original-author-head targeted tests are not a current-main rebase, full suite or performance qualification. A readable source example and public history establish the aliasing mechanism, not measured Scout conversion/recall, a universal fix or a portable speedup.",
+  "evidence": [
+    {
+      "url": "https://github.com/pyparsing/pyparsing/blob/f803ae834288032a700331977639fc49c62fcd7f/pyparsing/results.py",
+      "note": "copy() duplicates only the outer _tokdict and intentionally shares occurrence lists; both __setitem__ branches append to an existing list in place. The copy docstring separately says contained ParseResults payloads remain shared. This supports the concrete writer/alias distinction, not all parser semantics."
+    },
+    {
+      "url": "https://github.com/pyparsing/pyparsing/pull/645#issuecomment-5153449427",
+      "note": "Maintainer explicitly requests keeping the parsing hot path optimal. The final repair copies lists only in renumbering mutations; later discussion assumes assignment and concatenation already create fresh lists. Read that assumption against current code."
+    },
+    {
+      "url": "https://github.com/pyparsing/pyparsing/pull/650",
+      "note": "Original author proposed _own_keys tracking, including copy.copy serialization paths, to preserve semantics while avoiding quadratic append work. Maintainer incorporated an append-only simplification as 9671184 instead. Author timing claims are not our measurements or proof of current-head acceptance."
+    }
+  ],
+  "status": "validated"
+}
