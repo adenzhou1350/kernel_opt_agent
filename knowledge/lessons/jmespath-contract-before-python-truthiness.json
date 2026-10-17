@@ -1,0 +1,26 @@
+{
+  "id": "jmespath-contract-before-python-truthiness",
+  "title": "Check JMESPath contracts instead of importing Python truthiness and membership rules",
+  "applies_when": "A JMESPath candidate concerns numeric-zero truthiness, multiselect input types, contains membership, or variadic argument validation in jmespath/jmespath.py.",
+  "lesson": "Read the language specification before treating Python behavior or a model's confidence as the oracle. JMESPath's false-like list does not include numeric zero; returning 0 for a || b is not that alleged bug. Multiselect expressions evaluate their child expressions against the current document; do not invent object-only/array-only input constraints. contains has an any-typed search parameter, and the specification's non-string substring example returns false rather than invalid-type. Boolean/number membership must still respect JMESPath equality rather than Python's False == 0. Existing PRs #378 (scalar membership), #360 (string/non-string) and #372 (nested equality) are related author-owned repairs: inspect their current diffs/status before proposing a competing change. A source discrepancy in develop is not evidence that nobody is fixing it.",
+  "avoid_when": "These are specific language and revision boundaries, not a universal Python bug filter. A passing upstream suite may lack these edge cases. Do not reject a distinct unsupported-by-the-existing-PR mechanism from a title match alone. The cited open PRs are not merged fixes or proof of complete compliance, CI, performance, deployment behavior or model accuracy.",
+  "evidence": [
+    {
+      "url": "https://jmespath.org/specification.html#or-expressions",
+      "note": "False-like values are empty list, empty object, empty string, false and null; numeric zero is absent. Multiselect sections describe constructing results from child expressions, not the alleged input-type restrictions."
+    },
+    {
+      "url": "https://jmespath.org/specification.html#contains",
+      "note": "Signature is contains(array|string, any); array membership uses equality, and the string/non-string example returns false. This corrects the proposed invalid-type oracle."
+    },
+    {
+      "url": "https://github.com/jmespath/jmespath.py/pull/378",
+      "note": "Author-owned scalar boolean/number membership fix at 9c3540a explicitly leaves nested equality to #372 and string argument handling to #360. Open work is not novelty for a new competing PR."
+    },
+    {
+      "url": "https://github.com/jmespath/jmespath.py/blob/2812594e69d43098ef60f81f4efc404c071b0418/jmespath/functions.py",
+      "note": "Pinned source uses Python membership in contains. This identifies the affected implementation, not the normative expected result or qualification of a new fix."
+    }
+  ],
+  "status": "validated"
+}
