@@ -6,6 +6,10 @@
   "avoid_when": "An absent profile/file, missing setting or failed read is not permission. Also read README contribution sections: a minimal reproduction need not meet a project's separate requirement for actual affected production code. Do not manufacture a production witness. Ordinary exploratory packets should reuse the existing repository question as well as their task-specific question; standalone packets do not inherit it automatically. Do not retrofit this advice into admitted frozen experiment arms. Settings are timestamped observations, not contributor authorization; all does not prove an available per-user quota or permissive written rules. A prior contributor's reported denial is a reason to investigate, not proof that every user remains restricted. Limits can expire and policies can change. Do not transfer an organization's policy elsewhere, infer eligibility from keywords, or treat disclosure/review requirements as blanket bans. Internal reference testing does not authorize externally submitting its AI-generated output. A PR restriction does not by itself forbid bug reports; review the actual issue policy independently. No PR-yield or cost benefit is established by this lesson.",
   "evidence": [
     {
+      "url": "https://github.com/aio-libs/.github/blob/df5def2d78949a4ff7150de6fbd5aa27eb45b090/CONTRIBUTING.md",
+      "note": "The effective organization guide permits AI-assisted code but requires actual human review and forbids LLM-authored community speech, explicitly including PR descriptions and changelogs except translation/grammar. A passing privately tested repair still needs genuine human review and wording; a generic publish approval is not authorship. This guide is inherited even when the target clone has no CONTRIBUTING file."
+    },
+    {
       "url": "https://github.com/tkem/cachetools/blob/912a8b4240450700c05b9ceab0860a794393e4fa/.github/PULL_REQUEST_TEMPLATE.md",
       "note": "This pinned template requires an open issue for nontrivial PRs and tox validation; a raw unittest run is not the requested complete contribution check. Read the actual test recipe before preparing a publication-ready change."
     },

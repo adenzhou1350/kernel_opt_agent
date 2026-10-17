@@ -10,6 +10,7 @@ optional context, not a mandatory sequence or a new acceptance gate.
 
 | Need | Existing entrance | Read when relevant |
 | --- | --- | --- |
+| Resolve effective contribution rules, including organization defaults | `scout_contribution_policy.py --repo OWNER/REPO --output FRESH_FILE.json`; read its complete documents and linked rules | [Inherited rules before setup](#inherited-rules-before-setup) |
 | Start a separate tool-free model batch | Reuse `kimi_scout.py add` / `run --once` and an explicit controller-owned backend configuration | [Model effort before fan-out](#model-effort-before-fan-out) |
 | Resolve a lead's actual implementation | `kimi_scout_delivery_source.select_leads` with `owner_review=True` or an explicit supported `owner_language` | [Intake and missing source](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
 | Prepare a reviewed source packet from existing local Git objects | `scout_git_source.py --repo LOCAL_REPO --spec selection.json --output FRESH_PACKET.json` | [Local pinned packet](#local-pinned-packet) |
@@ -26,6 +27,25 @@ Selection, export and a self-consistent manifest are not execution permission or
 proof of a defect. Generated code remains untrusted until reviewed. Check current
 contribution rules, supported callers, existing work and the actual test entrypoint
 before installing dependencies. Preserve unavailable actions and original failures.
+
+### Inherited rules before setup
+
+A clone with no CONTRIBUTING or PR template can still inherit both from the
+owner's `.github` repository. Use the existing bounded policy reader before
+paid discovery or environment setup. `UNKNOWN` after an API failure is not
+an empty policy: under existing authority, read the repository's visible
+Contributing tab and linked organization files, or retain the uncertainty.
+Do not add another classifier, mandatory schema or automatic publication gate.
+
+For example, [aio-libs' organization guide](https://github.com/aio-libs/.github/blob/df5def2d78949a4ff7150de6fbd5aa27eb45b090/CONTRIBUTING.md)
+permits AI-assisted code but requires human review and human-authored community
+communication, explicitly including PR descriptions and changelogs. Permission
+to use AI is not permission for an agent to author those texts. Keep code/test
+evidence private pending actual review; ask for the human's own explanation and
+limit language assistance to translation/grammar. Do not turn a generic approval
+into a claim of authorship. This is that organization's policy, not a universal
+AI ban. Recheck current effective rules before publication. A successful native
+run changes technical evidence, not contributor eligibility or PR conversion.
 
 For a pytest export nested under another repository, also read the
 [root/configuration note](references/scout_native_cpu_validation_notes.md#keep-test-process-temporary-paths-short-and-private)
