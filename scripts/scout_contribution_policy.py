@@ -2,6 +2,7 @@
 
 Optional owner intake, not an automatic policy classifier or publication gate.
 GitHub's community profile can point at an owner's inherited .github document.
+Repository READMEs can carry the only contribution rules; retain them too.
 """
 
 import argparse
@@ -170,7 +171,7 @@ def collect(repo, *, github_auth=False, fetch=None):
     except (OSError, ValueError) as exc:
         result["errors"].append({"scope": "profile", "error": type(exc).__name__})
         return result
-    for kind in ("contributing", "pull_request_template"):
+    for kind in ("contributing", "pull_request_template", "readme"):
         item = files.get(kind)
         if item is None:
             continue

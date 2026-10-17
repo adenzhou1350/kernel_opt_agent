@@ -150,8 +150,9 @@ Offline checks: `python -B -m unittest tests.test_scout_public_cache tests.test_
 
 Before adding a new contribution repository, read its contribution policy and
 check whether the intended contributor and AI-assisted workflow are eligible.
-An optional read-only intake helper captures the public contribution guide and
-PR template reported by GitHub, including an owner's inherited `.github` file:
+An optional read-only intake helper captures the public contribution guide,
+PR template and README reported by GitHub, including an owner's inherited
+`.github` file. Contribution rules may live only in the README:
 
 ```sh
 python scripts/scout_contribution_policy.py --repo owner/repository --github-auth \
@@ -163,6 +164,14 @@ classify permissions, execute source, spend model calls or schedule work. Missin
 documents or failed reads are not approval; also read linked rules, `AGENTS.md`
 and maintainer instructions. Recheck the live policy before publication. Keep the
 snapshot local; do not turn it into a new mandatory phase or per-request check.
+
+For ordinary owner-created exploratory batches, reuse the repository's existing
+configured `question` alongside the task-specific question; a standalone packet
+does not inherit research-scope rules automatically. For example, More Itertools
+requires real affected production code for assistant-found reports and an issue
+before a PR. A valid synthetic reproduction alone is not publishable there.
+Do not rewrite already-admitted packets or add this advice retroactively to a
+frozen comparison arm. This is intake guidance, not an automatic policy verdict.
 
 The same metadata GET now supplies timestamped `repository_settings`: archived/
 disabled state, issue/PR feature flags, PR creation policy and the API viewer's

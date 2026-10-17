@@ -101,6 +101,33 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(self.collect()["status"], "DOCUMENTS_REQUIRE_REVIEW")
         self.assertNotIn("example/.github", self.calls)
 
+    def test_readme_only_rules_are_retained_without_classifying_permission(self):
+        self.add_document("readme", "example/project", "README.rst",
+                          "AI-assisted reports require affected production code.")
+        result = self.collect()
+        self.assertEqual(result["status"], "DOCUMENTS_REQUIRE_REVIEW")
+        self.assertEqual([d["kind"] for d in result["documents"]], ["readme"])
+        self.assertEqual(result["documents"][0]["path"], "README.rst")
+        self.assertIn("affected production code", result["documents"][0]["text"])
+        self.assertNotIn("allowed", result)
+
+    def test_readme_and_guide_share_one_pinned_commit_lookup(self):
+        self.add_document(repo="example/project")
+        self.add_document("readme", "example/project", "README.md")
+        result = self.collect()
+        self.assertEqual([d["kind"] for d in result["documents"]],
+                         ["contributing", "readme"])
+        self.assertEqual(self.calls.count("example/project/commits/main"), 1)
+        self.assertEqual(result["errors"], [])
+
+    def test_oversized_readme_remains_unknown_not_missing_policy(self):
+        content = self.add_document("readme", "example/project", "README.md")
+        content["size"] = policy.DOCUMENT_LIMIT + 1
+        result = self.collect()
+        self.assertEqual(result["status"], "UNKNOWN")
+        self.assertEqual(result["documents"], [])
+        self.assertEqual(result["errors"][0]["scope"], "readme")
+
     def test_absence_is_not_permission(self):
         result = self.collect()
         self.assertEqual(result["status"], "NO_DOCUMENTS_IN_PROFILE")
