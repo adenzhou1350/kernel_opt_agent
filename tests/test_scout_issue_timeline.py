@@ -33,6 +33,12 @@ def issue_event(number=8):
     return value
 
 
+def comment_event(number=51, body="I can contribute the tested fix. Please assign it to me."):
+    return {"event": "commented", "id": number, "body": body,
+            "url": f"{API}/issues/comments/{number}",
+            "html_url": f"https://github.com/{REPO}/issues/42#issuecomment-{number}"}
+
+
 class TimelineTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory()
@@ -134,6 +140,85 @@ class TimelineTests(unittest.TestCase):
         self.events = [issue_event(42), forged, wrong_path, malformed]
         self.assertEqual(self.lookup()['sources'], [])
         self.assertTrue(all(url in (API, TIMELINE) for url, _ in self.calls))
+
+    def test_embedded_comments_fill_unused_slots_without_extra_get_or_verdict(self):
+        self.events = [comment_event(), {"event": "labeled"}, comment_event(52)]
+        result = self.lookup()
+        sources = result['sources']
+        self.assertEqual([s['url'] for s in sources], [
+            f'https://github.com/{REPO}/issues/42#issuecomment-{n}' for n in (52, 51)
+        ])
+        self.assertTrue(all(s['relationship'] == 'issue_timeline_comment' for s in sources))
+        self.assertTrue(all(not s['is_pr'] and not s['search_exhaustive'] for s in sources))
+        self.assertTrue(all('Please assign it to me.' in s['text'] for s in sources))
+        self.assertTrue(all('ownership verdict' not in s for s in sources))
+        self.assertEqual(self.lookup(), result)
+        self.assertEqual([url for url, _ in self.calls], [API, TIMELINE])
+
+    def test_comments_share_existing_cap_and_never_displace_related_work(self):
+        self.events = [comment_event(n) for n in range(50, 55)] + [event(), issue_event()]
+        result = self.lookup()
+        self.assertEqual(len(result['sources']), 3)
+        self.assertEqual(result['sources'][-1]['url'], f'https://github.com/{REPO}/issues/42#issuecomment-54')
+        self.clear_cache()
+        self.events += [event(9)]
+        self.assertEqual([s['relationship'] for s in self.lookup()['sources']],
+                         ['issue_timeline_cross_reference'] * 3)
+
+    def test_comment_tail_and_partial_flag_survive_compact_cache(self):
+        body = 'Reproduction start\n' + 'x' * 10000 + '\nI can submit a PR with the tests.'
+        self.events = [comment_event(51, body), comment_event(51, body), comment_event(52, 'unrelated')]
+        first = self.lookup()
+        self.assertEqual(len(first['sources']), 2)
+        source = first['sources'][-1]
+        self.assertTrue(source['text'].endswith('I can submit a PR with the tests.'))
+        self.assertTrue(source['truncated'])
+        self.assertLessEqual(len(source['text']), 1800)
+        self.assertEqual(self.lookup(), first)
+        self.assertLess(self.context._cache_path('issue-linked-pr', [REPO, 42]).stat().st_size, 12000)
+
+    def test_invalid_comment_identity_or_body_is_not_followed_or_retained(self):
+        mutations = [
+            lambda x: x.update(id=True), lambda x: x.update(id=-1),
+            lambda x: x.update(id=10**18 + 1), lambda x: x.update(body={}),
+            lambda x: x.update(body='   '), lambda x: x.update(event='referenced'),
+            lambda x: x.update(html_url=f'https://github.com/{REPO}/issues/43#issuecomment-51'),
+            lambda x: x.update(html_url='https://github.com/private/repo/issues/42#issuecomment-51'),
+            lambda x: x.update(url=f'{API}/issues/comments/52'),
+        ]
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                self.clear_cache()
+                item = comment_event()
+                mutate(item)
+                self.events = [item]
+                self.assertEqual(self.lookup()['sources'], [])
+        self.assertTrue(all(url in (API, TIMELINE) for url, _ in self.calls))
+
+    def test_full_issue_read_does_not_duplicate_comments_from_existing_endpoint(self):
+        self.events = [comment_event()]
+        original = self.context._json
+        def response(url, *args, **kwargs):
+            if url == f'{API}/issues/42':
+                return dict(number=42, title='Report', body='bug', comments=1)
+            if url == f'{API}/issues/42/comments?per_page=3&page=1':
+                return [dict(id=51, body='Actual last-page comment')]
+            return original(url, *args, **kwargs)
+        with patch.object(self.context, '_json', side_effect=response):
+            sources = self.context.issue_sources(REPO, 42)
+        self.assertEqual(len(sources), 2)
+        self.assertEqual(sources[-1]['text'], 'Actual last-page comment')
+        self.assertEqual(len({source['url'] for source in sources}), len(sources))
+
+    def test_v2_cache_without_comments_refreshes_once(self):
+        cache = self.context._cache_path('issue-linked-pr', [REPO, 42])
+        ctx.scout.write_json(cache, dict(version=2, at=1000, events=[], events_observed=2))
+        self.events = [comment_event()]
+        with patch('scout_issue_timeline.time.time', return_value=1001):
+            first = self.lookup()
+            self.assertEqual(self.lookup(), first)
+        self.assertEqual(len(first['sources']), 1)
+        self.assertEqual(sum(url == TIMELINE for url, _ in self.calls), 1)
 
     def test_legacy_pr_only_cache_is_refreshed_once_with_explicit_version(self):
         cache = self.context._cache_path('issue-linked-pr', [REPO, 42])

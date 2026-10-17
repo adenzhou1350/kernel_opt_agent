@@ -606,7 +606,7 @@ class PublicContext:
         return result
 
     def issue_linked_pr_context(self, repo, number):
-        """Legacy name: bounded PR/issue hints without fetching linked reports/comments."""
+        """Bounded related work and embedded comments, no recursive fetches."""
         return linked_pr_context(self, repo, number)
 
     def issue_sources(self, repo, number):
@@ -664,7 +664,8 @@ class PublicContext:
         if kind == "issues":
             linked = self.issue_linked_pr_context(repo, number)
             result[0]["linked_pr_lookup"] = {k: v for k, v in linked.items() if k != "sources"}
-            result.extend(linked["sources"])
+            known = {source["url"] for source in result}
+            result.extend(source for source in linked["sources"] if source["url"] not in known)
         return result
 
     def issue_pr_context(self, repo, number):

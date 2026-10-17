@@ -14,6 +14,10 @@
       "note": "Pinned integer DivNode emits //; PrintVecBinaryOp distinguishes operator spelling from scalar helper calls. This is source evidence, not execution of the full generated program."
     },
     {
+      "url": "https://github.com/tile-ai/tilelang/issues/2973#issuecomment-6227272455",
+      "note": "Contributor's scoped Cutlass DSL 4.7.0 full-math/helper MLIR checks: 16 int32/int64 folding cases, old expression wrong in eight, divsi helper correct in all. Plain Python integers need their own branch because % floors there. This is component/IR evidence, not exact TileLang C++ emission, compiled GPU execution, performance or maintainer acceptance. Existing contributor coordination replaces a competing PR."
+    },
+    {
       "url": "https://mlir.llvm.org/docs/Dialects/ArithOps/#arithdivsi-arithdivsiop",
       "note": "MLIR defines divsi rounding toward zero, floordivsi rounding downward, and signed-division undefined inputs. Normative arithmetic semantics, not a GPU benchmark."
     }

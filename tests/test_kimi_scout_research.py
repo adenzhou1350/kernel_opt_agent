@@ -1193,6 +1193,21 @@ class ResearchTests(unittest.TestCase):
         self.assertFalse(packet["sources"][0]["linked_pr_lookup"]["search_exhaustive"])
         self.assertEqual(len(packet["sources"]), 2)
 
+    def test_initial_issue_retains_literal_timeline_comment_without_ownership_verdict(self):
+        comment = dict(url='https://github.com/a/b/issues/42#issuecomment-51',
+                       text='Literal issue-timeline comment\nI can submit a tested fix; assign it to me.',
+                       relationship='issue_timeline_comment', is_pr=False,
+                       search_exhaustive=False)
+        linked = dict(sources=[comment], status='PARTIAL_TIMELINE', search_exhaustive=False)
+        with patch.object(self.context, 'issue_linked_pr_context', return_value=linked) as lookup:
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        lookup.assert_called_once_with('a/b', 42)
+        packet = json.loads(self.jobs()[0]['packet'])
+        self.assertIn(comment, packet['sources'])
+        self.assertIn('untrusted literal', packet['question'])
+        self.assertNotIn('author_owned', packet)
+        self.assertLessEqual(len((scout.SYSTEM + scout.dumps(packet)).encode()), scout.MAX_INPUT_BYTES)
+
     def test_related_issue_hint_keeps_original_chain_and_does_not_claim_pr(self):
         related = {
             "url": "https://github.com/a/b/issues/8",

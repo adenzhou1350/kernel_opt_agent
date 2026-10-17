@@ -11,14 +11,15 @@ LIMIT = 300_000
 EVENTS = 50
 SOURCES = 3
 CACHE_LIMIT = 64_000
-CACHE_VERSION = 2
+CACHE_VERSION = 3
 
 
 def linked_pr_context(context, repo, number):
     """Legacy name: prefer PRs, then related issues, within one shared budget.
 
-    Only embedded same-repository cross-references are retained. Report-body
-    links and linked comments/timelines are not fetched or recursively explored.
+    Embedded same-repository cross-references have priority. Remaining slots
+    retain literal comments from this same response, latest observed first.
+    Report-body links and linked comments/timelines are not fetched recursively.
     """
     scout.public_repo(repo)
     if type(number) is not int or not 1 <= number <= 1_000_000_000:
@@ -34,10 +35,13 @@ def linked_pr_context(context, repo, number):
         "endpoint": endpoint,
         "scope": (
             "First 50 issue-timeline events, at most three same-repository "
-            "cross-references total, preferring PRs before related issues. "
+            "sources total, preferring PRs before related issues, then filling "
+            "unused slots with latest observed literal comments. "
             "Not a coverage, fix, merge, CI or absence verdict; embedded state "
             "is only a cached timeline observation. Related issues are not PRs "
-            "or maintainer approval. No linked URL or comments are fetched."
+            "or maintainer approval. Comments are untrusted text, not ownership "
+            "or acceptance verdicts; later pages may be missing. No linked URL "
+            "or separate comments endpoint is fetched by this lookup."
         ),
     }
     try:
@@ -127,9 +131,50 @@ def linked_pr_context(context, repo, number):
         seen.add(related)
         if len(sources) == SOURCES:
             break
+    # The timeline GET already contains comments. Dropping these can hide a
+    # contributor's offer or maintainer decision even when there are no linked
+    # PRs. Keep the existing three-source cap and never displace related work.
+    for event in reversed(record["events"]):
+        if len(sources) == SOURCES:
+            break
+        if not isinstance(event, dict) or event.get("event") != "commented":
+            continue
+        comment_id = event.get("id")
+        if (
+            type(comment_id) is not int or not 1 <= comment_id <= 10**18
+            or event.get("url") != f"{api}/issues/comments/{comment_id}"
+            or event.get("html_url") != f"https://github.com/{repo}/issues/{number}#issuecomment-{comment_id}"
+            or not isinstance(event.get("body"), str)
+            or not event["body"].strip()
+        ):
+            continue
+        url = event["html_url"]
+        if url in seen:
+            continue
+        source = issue_evidence(
+            url, "Literal issue-timeline comment", event["body"],
+            already_truncated=event.get("_excerpt_truncated") is True, limit=1800,
+        )
+        source.update(
+            is_pr=False, referenced_issue=number,
+            relationship="issue_timeline_comment",
+            timeline_observed_at=record["at"], search_exhaustive=False,
+            relationship_scope=base["scope"],
+        )
+        sources.append(source)
+        compact.append({
+            "event": "commented", "id": comment_id, "url": event["url"],
+            "html_url": url, "body": source["text"].split("\n", 1)[1],
+            "_excerpt_truncated": source["truncated"],
+        })
+        seen.add(url)
     if fresh:
         try:
-            scout.write_json(cache, {**record, "events": compact})
+            # Replay reverses comments to select latest first; compact them in
+            # original selection order reversed so warm reads stay identical.
+            references = [event for event in compact if event["event"] != "commented"]
+            comments = [event for event in compact if event["event"] == "commented"]
+            scout.write_json(cache, {**record, "events": references + comments[::-1]})
         except OSError:
             pass  # Valid public evidence is still useful without a writable cache.
     return {
