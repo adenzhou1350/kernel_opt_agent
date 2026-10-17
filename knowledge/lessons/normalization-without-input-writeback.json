@@ -18,6 +18,10 @@
       "note": "Open correctness PR also keeps table-creation storage merges local and preserves typed option precedence. Validation uses current TypeScript with a released native library plus strict matching-release checks; no current-head Rust/native rebuild, GPU or performance claim."
     },
     {
+      "url": "https://github.com/8treenet/goraven/blob/b17666240a7a0cdfccf55f3fe21d2ca1dbd84ba5/util/http.go",
+      "note": "Pinned upstream transport injects provider and conversation headers directly into the caller's request. This implementation path lets the existing source-affinity reader find the scoped ownership lesson; the source link alone is not a runtime or production-prevalence result."
+    },
+    {
       "url": "https://pkg.go.dev/net/http#RoundTripper",
       "note": "The documented transport contract preserves request fields except consuming/closing Body; callers wait until the response Body is closed before reuse. Request.WithContext is shallow while Request.Clone deep-copies headers but not Body. Mechanism, not a security or performance claim."
     },
