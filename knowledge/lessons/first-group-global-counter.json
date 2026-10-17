@@ -1,0 +1,14 @@
+{
+  "id": "first-group-global-counter",
+  "title": "First-group metadata may store a shared optimizer counter",
+  "applies_when": "An optimizer property setter returns after its first parameter group, and a proposed bug assumes every group must store an equal step key.",
+  "lesson": "Trace the property's getter and schedule consumers before demanding per-group key equality. TorchAO PruneOptimizer stores its shared num_steps on the first regularized group; initialization/checkpoint defaults use that location, and each group's sparsity ramp reads self.num_steps rather than its own group key. Multiple regularized groups alone therefore do not establish a desynchronized schedule. Seek an observable wrong consumer result before changing storage semantics or writing an all-keys-equal regression.",
+  "avoid_when": "Other optimizers can genuinely require per-group counters. A consumer that reads group['num_steps'], a documented per-group serialization contract, parameter-group mutation or changed code can invalidate this inference. Source and extracted-method behavior do not establish full TorchAO training, distributed checkpoint or numerical correctness. Do not automatically discard a new counterexample.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytorch/ao/blob/861156873fdc084c03be6e99512312a6e3cb0909/torchao/prototype/pat/optim/pruneopt.py",
+      "note": "Pinned source shows the first-group getter/setter/deleter, first-group checkpoint default and _effective_min_sparsity reading the shared self.num_steps. This refutes the key-inequality-implies-schedule-divergence inference, not every optimizer defect."
+    }
+  ],
+  "status": "counterexample"
+}

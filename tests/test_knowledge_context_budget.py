@@ -11,6 +11,24 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_first_group_counter_advice_keeps_shared_consumer_scope(self):
+        result = lesson_suggestions(
+            "PruneOptimizer num_steps parameter group counter schedule",
+            source_urls=[
+                "https://raw.githubusercontent.com/pytorch/ao/"
+                "b4dcda49cb54ed9bf14de14df61bac684ca7a787/"
+                "torchao/prototype/pat/optim/pruneopt.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "first-group-global-counter")
+        self.assertIn("shared num_steps", card["lesson"])
+        self.assertIn("observable wrong consumer result", card["lesson"])
+        self.assertIn("documented per-group", card["avoid_when"])
+        self.assertEqual(card["status"], "counterexample")
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_checkpoint_stats_advice_covers_lazy_routes_and_cache_identity(self):
         result = lesson_suggestions(
             "checkpoint image_mean image_std normalization disaggregated encoder"
