@@ -129,6 +129,31 @@ the invocation and leave frozen study arms unchanged. Different packets and
 settings cannot establish a causal efficiency or discovery-quality comparison.
 Accepted request syntax does not prove a gateway realized the selected effort.
 
+### Cache charge is not process memory or guaranteed spare capacity
+
+For a stopped/paused Linux worker, run the read-only `scout_linux_memory.py`
+diagnostic before changing budgets or restarting. Admission still uses the
+minimum of host `MemAvailable` and visible finite cgroup `max-current` values.
+That is deliberately conservative: file cache is charged, and kernel reclaim
+can allow an allocation larger than the raw difference. It is not a strict
+per-process allocation ceiling or proof that a Python process leaked.
+
+The same diagnostic now exposes host/cgroup PSI and `memory.oom.group` when
+available. Missing/malformed pressure stays `null`, not zero; these optional
+observations do not grant memory credit or change admission. Inactive file
+charge alone is not guaranteed reclaimable capacity. With group OOM enabled,
+an allocation failure can affect the whole cgroup, not just the test child.
+Do not turn one successful small allocation into high-concurrency permission,
+drop shared caches, alter limits or discount all inactive cache to make a queue
+run. See the [kernel memory-controller semantics](https://docs.kernel.org/admin-guide/cgroup-v2.html#memory)
+and [PSI interface](https://docs.kernel.org/accounting/psi.html).
+
+When another already authorized worker has genuine raw headroom, a fresh bounded
+public-only batch can continue discovery without moving the stopped worker's
+queue or credentials. Retain its actual PID/terminal result, call/token budget
+and private source/runtime identities. That is independent work, not recovery
+of the original queue or evidence of a discovery-policy improvement.
+
 ## Commit-exact source before native validation
 
 For a committed baseline/candidate, prefer raw Git objects over copying a dirty or

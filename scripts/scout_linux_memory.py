@@ -4,6 +4,7 @@ Read only; never reclaim caches or change limits. This is a racy admission
 observation, not an allocation guarantee or a diagnosis of process leaks.
 """
 from pathlib import Path, PurePosixPath
+import math
 import re
 
 MIB = 1024 * 1024
@@ -55,6 +56,31 @@ def _host_available_bytes(text):
     if len(entries) != 1 or len(entries[0]) != 3 or entries[0][2] != 'kB':
         raise ValueError('invalid host MemAvailable observation')
     return _count(entries[0][1]) * 1024
+
+
+def _pressure(text):
+    """Read the documented PSI shape for diagnostics, never for admission."""
+    if len(text) > 2048:
+        raise ValueError('oversized pressure observation')
+    result = {}
+    for line in text.splitlines():
+        fields = line.split()
+        if not fields or fields[0] not in ('some', 'full') or fields[0] in result:
+            raise ValueError('invalid pressure row')
+        pairs = [field.split('=', 1) for field in fields[1:]]
+        if any(len(pair) != 2 for pair in pairs) or len(dict(pairs)) != len(pairs):
+            raise ValueError('invalid pressure counters')
+        values = dict(pairs)
+        if set(values) != {'avg10', 'avg60', 'avg300', 'total'}:
+            raise ValueError('missing pressure counters')
+        row = {key: float(values[key]) for key in ('avg10', 'avg60', 'avg300')}
+        if any(not math.isfinite(value) or not 0 <= value <= 100 for value in row.values()):
+            raise ValueError('invalid pressure average')
+        row['total'] = _count(values['total'])
+        result[fields[0]] = row
+    if set(result) != {'some', 'full'}:
+        raise ValueError('missing pressure row')
+    return result
 
 
 def linux_available_memory_mb(read_text=None):
@@ -143,6 +169,7 @@ def linux_memory_diagnostics(read_text=None):
     result = {
         'admission_available_mb': available,
         'host_mem_available_mb': host_available_mb,
+        'host_memory_pressure': None,
         'status': 'OBSERVED' if available is not None else 'UNKNOWN',
         'cgroups': [],
         'boundary': 'Read-only, non-atomic diagnostics. Inactive file bytes are '
@@ -151,12 +178,17 @@ def linux_memory_diagnostics(read_text=None):
                     'MemAvailable is not a cgroup allocation allowance; cgroup '
                     'charged memory includes file cache, not just process RSS.',
     }
+    try:
+        result['host_memory_pressure'] = _pressure(read('/proc/pressure/memory'))
+    except (OSError, ValueError, KeyError):
+        pass  # Optional interface unavailable; raw admission is unchanged.
     for path, limit in captured.items():
         if not path.endswith('/memory.max'):
             continue
         node = str(PurePosixPath(path).parent)
         row = {'level': len(result['cgroups']), 'limit_mb': None,
                'charged_mb': None, 'raw_headroom_mb': None,
+               'memory_pressure': None, 'oom_group': None,
                'stat_mib': {}, 'events': {}, 'unavailable': []}
         try:
             current = captured.get(node + '/memory.current')
@@ -184,6 +216,17 @@ def linux_memory_diagnostics(read_text=None):
                                     for key in keys if key in values}
             except (OSError, ValueError):
                 row['unavailable'].append(filename)
+        try:
+            row['memory_pressure'] = _pressure(read(node + '/memory.pressure'))
+        except (OSError, ValueError, KeyError):
+            row['unavailable'].append('memory.pressure')
+        try:
+            group = _count(read(node + '/memory.oom.group'))
+            if group not in (0, 1):
+                raise ValueError('invalid group OOM setting')
+            row['oom_group'] = bool(group)
+        except (OSError, ValueError, KeyError):
+            row['unavailable'].append('memory.oom.group')
         result['cgroups'].append(row)
     try:
         if read('/proc/self/cgroup') != captured.get('/proc/self/cgroup'):

@@ -18,6 +18,48 @@ def fixture(member='/', mount_root='/', mount_point='/sys/fs/cgroup'):
 
 
 class LinuxMemoryTests(unittest.TestCase):
+    def test_pressure_and_group_oom_are_diagnostics_not_memory_credit(self):
+        files = fixture()
+        self.limit(files, '/sys/fs/cgroup', 16*MIB, 15*MIB)
+        psi = ('some avg10=0.12 avg60=0.34 avg300=1.20 total=123\n'
+               'full avg10=0.01 avg60=0.02 avg300=0.03 total=45\n')
+        files.update({'/proc/pressure/memory': psi,
+                      '/sys/fs/cgroup/memory.pressure': psi,
+                      '/sys/fs/cgroup/memory.oom.group': '1\n'})
+        def read(path):
+            if path not in files:
+                raise FileNotFoundError(path)
+            return files[path]
+        observed = linux_memory_diagnostics(read)
+        self.assertEqual(observed['host_memory_pressure']['some']['avg10'], 0.12)
+        self.assertEqual(observed['cgroups'][0]['memory_pressure']['full']['total'], 45)
+        self.assertTrue(observed['cgroups'][0]['oom_group'])
+        self.assertEqual(observed['admission_available_mb'], 1)
+        self.assertEqual(linux_available_memory_mb(read), 1)
+
+    def test_unavailable_or_malformed_pressure_never_masquerades_as_zero_pressure(self):
+        for text in (None, '', 'some avg10=nan avg60=0 avg300=0 total=0\n',
+                     'some avg10=0 avg60=0 avg300=0 total=0\n',
+                     'some avg10=0 avg10=0 avg300=0 total=0\n',
+                     'x' * 2049):
+            files = fixture()
+            self.limit(files, '/sys/fs/cgroup', 16*MIB, 15*MIB)
+            if text is not None:
+                files['/proc/pressure/memory'] = text
+                files['/sys/fs/cgroup/memory.pressure'] = text
+            files['/sys/fs/cgroup/memory.oom.group'] = '2'
+            def read(path):
+                if path not in files:
+                    raise FileNotFoundError(path)
+                return files[path]
+            observed = linux_memory_diagnostics(read)
+            self.assertIsNone(observed['host_memory_pressure'])
+            self.assertIsNone(observed['cgroups'][0]['memory_pressure'])
+            self.assertIsNone(observed['cgroups'][0]['oom_group'])
+            self.assertIn('memory.pressure', observed['cgroups'][0]['unavailable'])
+            self.assertIn('memory.oom.group', observed['cgroups'][0]['unavailable'])
+            self.assertEqual(observed['admission_available_mb'], 1)
+
     def test_diagnostics_separate_host_available_from_cache_charged_cgroup(self):
         files = fixture()
         self.limit(files, '/sys/fs/cgroup', 16*MIB, 15*MIB)
