@@ -767,6 +767,15 @@ The report deliberately leaves audited linked PR count null:
 the inbox does not have an audited lead-to-PR identity, so it cannot claim a PR
 conversion rate. Use this snapshot before widening a frontier or increasing
 model concurrency.
+For a creation-time cohort, `scout_funnel_audit.py --scout-db RUN/scout.sqlite
+--delivery-db RUN/delivery/delivery.sqlite --from EPOCH --before EPOCH` keeps
+undelivered candidates censored. Its default reported-token projection reads
+accepted result JSON; failed calls may instead have usage in final receipts.
+Optional `--receipts-root RUN` reads at most 256 such receipts, in creation/ID
+order, with a 256 KiB per-file bound and matching job/state/provider-charge
+checks. Missing, partial, unbound and over-budget records stay outside the known
+sum and are counted explicitly. This does not authenticate records, change
+verdicts, replay calls, establish billed cost or backfill the database.
 `--max-jobs N` is a bounded admission trial; zero continues on unseen leads. This
 is separately authorized paid model usage, not free work merely because slots
 are empty. On resume, explicitly archive the delivery STOP marker; keep the DB
