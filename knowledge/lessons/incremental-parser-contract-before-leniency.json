@@ -1,0 +1,30 @@
+{
+  "id": "incremental-parser-contract-before-leniency",
+  "title": "Resolve parser stage and protocol role before broadening leniency",
+  "applies_when": "An incremental protocol parser returns NEED_DATA, two framing helpers accept different delimiters, or an audit infers receiver obligations from a sender prohibition or a file-level comment.",
+  "lesson": "Trace the actual public caller, grammar stage and end-of-input path before proposing a permissiveness fix. In h11, header extraction accepts bare LF while the chunk-size reader uses a CRLF-only helper; these are different grammar stages, not automatically inconsistent contracts. A pending result before EOF is not proof of a hang: feed explicit EOF through Connection and inspect its error, with a valid-message control. Distinguish sender, recipient and intermediary obligations in the applicable protocol revision. The existing h11 #90 discussion explains why a sender's CL+TE prohibition alone does not prove that a recipient must reject the message. Parsing precedence, forwarding normalization and connection reuse are separate questions; test the particular obligation rather than declaring the whole behavior correct or defective.",
+  "avoid_when": "A comment or older issue does not override a newer applicable standard. RFC9112 allows rejection or TE-only processing but separately requires closing after responding to a request containing both CL and TE; correct body framing alone cannot settle that obligation. No deployment vulnerability, exploitability, novelty or complete conformance follows from a sans-I/O characterization. Do not expand chunk-body leniency merely to match header parsing: h11's published advisory documents a prior malformed-footer parser differential. Ordinary pytest success is not coverage, all-version CI or a measured improvement in Scout discovery, conversion or misses.",
+  "evidence": [
+    {
+      "url": "https://github.com/python-hyper/h11/blob/62c5068c971579d61fa1b55373390e12f25fd856/h11/_receivebuffer.py",
+      "note": "Pinned helpers implement distinct CRLF line extraction and permissive header-block extraction. File-level commentary alone is not a per-caller contract."
+    },
+    {
+      "url": "https://github.com/python-hyper/h11/blob/62c5068c971579d61fa1b55373390e12f25fd856/h11/_readers.py",
+      "note": "ChunkedReader uses maybe_extract_next_line for the chunk header, verifies chunk-footer CRLF and raises RemoteProtocolError on an incomplete chunked read at EOF. This establishes mechanisms, not all network-service behavior."
+    },
+    {
+      "url": "https://github.com/python-hyper/h11/issues/90#issuecomment-560855935",
+      "note": "The maintainer's existing RFC7230 discussion distinguishes sender restrictions from recipient framing and unresolved interoperability choices. This is prior public discussion, not a novel report or approval of a new patch."
+    },
+    {
+      "url": "https://www.rfc-editor.org/rfc/rfc9112.html#section-6.1",
+      "note": "The current standard separates recipient handling of CL+TE from the subsequent close requirement. Check the applicable role and lifecycle obligation independently; the older issue does not establish present-day conformance."
+    },
+    {
+      "url": "https://github.com/python-hyper/h11/security/advisories/GHSA-vqfr-h8mv-ghfj",
+      "note": "Published historical advisory describes malformed chunk-footer parsing and conditions involving a differently parsing proxy. It cautions against indiscriminate leniency; it is not evidence of a new vulnerability in current source."
+    }
+  ],
+  "status": "validated"
+}
