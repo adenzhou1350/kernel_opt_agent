@@ -321,6 +321,15 @@ Separate an evidence-backed stop, environment limitation, author-owned fix and
 reviewable new contribution. No test count or source-reader success establishes
 PR yield, recall or evidence-selection research benefit.
 
+For Scout answer validation, distinguish an oversized quote, an empty normalized
+quote, a URL not supplied in the packet and a genuine excerpt mismatch. The
+validator keeps the same 1..300-character limit and source-membership rules;
+fixed diagnostic messages do not echo rejected text or URLs. A long literal
+quotation can still be invalid without being invented. Do not trim it, promote
+the old answer, retry the call automatically or rewrite historical verdicts.
+An owner can separately inspect a useful context request and acquire reviewed
+source/native evidence; that is a new observation, not a repaired model answer.
+
 For a completed file-reporter capture, consume the returned
 `record["test_report"]["path"]` and verify its recorded SHA256 rather than guessing
 `pytest.xml` or another filename. For pytest JUnit the current runner writes

@@ -208,6 +208,47 @@ class ScoutTests(unittest.TestCase):
         ]
         self.assertEqual(scout.validate_result(value, source), value)
 
+    def test_quote_length_diagnostic_is_distinct_from_source_membership(self):
+        source = packet()
+        source["sources"][0]["text"] = "x" * 301
+        for decision in ("lead", "no_lead", "needs_context"):
+            value = result()
+            value.update(decision=decision, evidence=[{
+                "url": source["sources"][0]["url"], "quote": "x" * 301,
+            }])
+            original = json.loads(json.dumps(value))
+            with self.subTest(decision=decision), self.assertRaisesRegex(
+                ValueError, r"string of 1\.\.300 characters"
+            ):
+                scout.validate_result(value, source)
+            self.assertEqual(value, original)
+        value["evidence"][0]["quote"] = "x" * 300
+        self.assertEqual(scout.validate_result(value, source), value)
+
+    def test_evidence_diagnostics_do_not_echo_invalid_input(self):
+        source = packet()
+        for quote in (None, 0, [], ""):
+            value = result()
+            value["evidence"][0]["quote"] = quote
+            with self.subTest(quote=quote), self.assertRaisesRegex(
+                ValueError, r"string of 1\.\.300 characters"
+            ):
+                scout.validate_result(value, source)
+        for quote in ("   ", "12: \n13: "):
+            value = result()
+            value["evidence"][0]["quote"] = quote
+            with self.subTest(quote=quote), self.assertRaisesRegex(
+                ValueError, "contains no source text"
+            ):
+                scout.validate_result(value, source)
+        for url in (None, [], {"private": "data"}, "https://private.invalid/token"):
+            value = result()
+            value["evidence"][0]["url"] = url
+            with self.subTest(url=url), self.assertRaisesRegex(
+                ValueError, "^evidence URL is not a supplied source$"
+            ):
+                scout.validate_result(value, source)
+
     def test_atomic_claim_and_persistent_daily_cap(self):
         for i in range(8):
             self.add(str(i))

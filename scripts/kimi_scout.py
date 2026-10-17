@@ -622,15 +622,16 @@ def validate_result(result, packet):
         if not isinstance(ref, dict) or set(ref) != {"url", "quote"}:
             raise ValueError("invalid evidence shape")
         quote = ref["quote"]
-        if (
-            not isinstance(quote, str)
-            or not 1 <= len(quote) <= 300
-            or not normalized_excerpt(quote)
-            or ref["url"] not in sources
-            or not any(
-                normalized_excerpt(quote) in normalized_excerpt(excerpt)
-                for excerpt in sources[ref["url"]]
-            )
+        if not isinstance(quote, str) or not 1 <= len(quote) <= 300:
+            raise ValueError("evidence quote must be a string of 1..300 characters")
+        normalized = normalized_excerpt(quote)
+        if not normalized:
+            raise ValueError("evidence quote contains no source text")
+        if not isinstance(ref["url"], str) or ref["url"] not in sources:
+            raise ValueError("evidence URL is not a supplied source")
+        if not any(
+            normalized in normalized_excerpt(excerpt)
+            for excerpt in sources[ref["url"]]
         ):
             raise ValueError(
                 "evidence is not a supplied excerpt (whitespace normalized)"
