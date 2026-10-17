@@ -78,6 +78,20 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
         self.assertEqual(result["oversized_matches_omitted"], 0)
 
+    def test_exact_go_workspace_advice_preserves_resolution_boundary(self):
+        result = lesson_suggestions("Go proxy release Git go.work exact dependency exports")
+        card = next(
+            c for c in result["matches"]
+            if c["id"] == "separate-dependency-transport-from-native-tests"
+        )
+        self.assertIn("go.mod/go.sum unchanged", card["lesson"])
+        self.assertIn("resolved module directories", card["lesson"])
+        self.assertIn("not module-ZIP hashes or original single-module resolution", card["lesson"])
+        self.assertIn("permission, policy or authentication denials", card["avoid_when"])
+        self.assertTrue(any(e["url"].endswith("#workspaces") for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+
     def test_private_target_advice_checks_loaded_dependency_not_only_metadata(self):
         result = lesson_suggestions("pip --target .pth site.addsitedir distribution metadata")
         card = result["matches"][0]
