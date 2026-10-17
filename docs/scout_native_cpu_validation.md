@@ -293,6 +293,15 @@ Separate an evidence-backed stop, environment limitation, author-owned fix and
 reviewable new contribution. No test count or source-reader success establishes
 PR yield, recall or evidence-selection research benefit.
 
+For a completed file-reporter capture, consume the returned
+`record["test_report"]["path"]` and verify its recorded SHA256 rather than guessing
+`pytest.xml` or another filename. For pytest JUnit the current runner writes
+`junit.xml`; a task-local analyzer looking for the wrong name can fail after both
+real test runs completed. Preserve that analysis failure and use the existing
+bound reports in a separate analysis step, without rerunning tests, rewriting
+XML or replacing the original capture verdict. This is file-report routing,
+not a generic path field for every log-only format.
+
 New runner reports include `cpu_accounting` even for failing commands. Windows
 queries [cumulative user/kernel time](https://learn.microsoft.com/en-us/windows/win32/api/winnt/ns-winnt-jobobject_basic_accounting_information)
 for the private Job Object, including its trusted launcher. An `active_processes`
