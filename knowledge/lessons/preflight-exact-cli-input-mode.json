@@ -1,8 +1,8 @@
 {
   "id": "preflight-exact-cli-input-mode",
-  "title": "Preflight the exact CLI input mode, not only model availability",
+  "title": "Preflight exact CLI input and output modes, not only model availability",
   "applies_when": "A model or native-tool adapter passes a short --message health check but the real workload uses --messages-file -, piped JSON, a different output mode or a different host operating system.",
-  "lesson": "Run a synthetic completion through the actual planned invocation and input/output encoding before admitting real cases. An installed MiniMax CLI could answer --message on Windows yet fail --messages-file - locally because it read the POSIX /dev/stdin pathname. The upstream fix uses file descriptor 0; a task-private JSON file also avoids the old adapter path without changing a shared installation. Check the installed executable as well as current upstream before proposing a fix: an already repaired release/source mismatch is not a new contribution. Verify final-answer completion and numeric usage separately; successful transport or plain text alone does not qualify cost accounting. Preserve failed experiment arms and use unseen cases after changing the adapter, rather than replaying exposed cases to improve a comparison.",
+  "lesson": "Run a synthetic completion through the actual planned invocation and input/output encoding before admitting real cases. An installed MiniMax CLI could answer --message on Windows yet fail --messages-file - locally because it read the POSIX /dev/stdin pathname. The upstream fix uses file descriptor 0; a task-private JSON file also avoids the old adapter path without changing a shared installation. Check the installed executable as well as current upstream before proposing a fix: an already repaired release/source mismatch is not a new contribution. Verify final-answer completion and numeric usage separately; successful transport or plain text alone does not qualify cost accounting. In mmx-cli 1.0.18 and the observed upstream source, nonstreaming --quiet --output json strips the message envelope and usage; --quiet=false with JSON output retains them. A pending upstream fix makes the resolved format authoritative. Check whether a later installed release includes it instead of treating this workaround as permanent. Preserve failed experiment arms and use unseen cases after changing the adapter, rather than replaying exposed cases to improve a comparison.",
   "avoid_when": "Do not infer that every CLI failure is this Windows pathname issue, or that a model is weak because its local adapter failed. Check the exact installed version and stderr category without exposing credentials. A file-mode synthetic completion does not qualify stdin, streaming, all models, large prompts, native repository tests or a complete upstream suite. Matching output/call caps is not matching realized tokens or money. This advice has no measured PR-conversion or cost-saving claim.",
   "evidence": [
     {
@@ -12,6 +12,10 @@
     {
       "url": "https://nodejs.org/api/fs.html#fsreadfilesyncpath-options",
       "note": "Node's synchronous reader accepts an integer file descriptor. This explains the portable input mechanism, not a provider/model quality or workflow-effectiveness result."
+    },
+    {
+      "url": "https://github.com/MiniMax-AI/cli/pull/292",
+      "note": "Pending Ready PR for nonstreaming text JSON/quiet output, not an accepted or released change. Exact source tree Linux/Bun 1.4.3 comparison: unchanged production 7 passing controls/1 JSON regression failure; patched 8/8, full suite 613/613 plus TypeScript and ESLint pass. Mock HTTP fixtures only; no compiled-binary, patched Windows, live-provider or selector-efficacy claim."
     }
   ],
   "status": "validated"
