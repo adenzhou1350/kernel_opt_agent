@@ -56,6 +56,22 @@
     {
       "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/cacheutils.py",
       "note": "Pinned CachedFunction still omits scoped from key construction while PR498 already exists. Source affinity makes this prior report available to the next audit, not an automatic negative label, universal file exclusion or measured improvement in discovery yield."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/pull/495",
+      "note": "Existing author repair covers oversized Bits right shifts producing negative widths. Author-reported tests are not our qualification."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/mathutils.py",
+      "note": "The current __rshift__ subtracts width unchecked while PR495 already covers it. Read that repair; other Bits contracts remain separate."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/pull/548",
+      "note": "Existing author repair rejects nonempty unparseable duration text but preserves blank-input compatibility. Head not independently tested here."
+    },
+    {
+      "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/timeutils.py",
+      "note": "parse_timedelta can still return zero on invalid text while PR548 waits. Different repeated-unit behavior has separate PR583."
     }
   ],
   "status": "counterexample"
