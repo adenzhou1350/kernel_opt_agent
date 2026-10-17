@@ -1,0 +1,22 @@
+{
+  "id": "interpreter-conditioned-iterator-fastpath",
+  "title": "Condition iterator fast paths on interpreter and input size",
+  "applies_when": "Replacing Python iterator loops with filter, partial, chain or other C-backed composition in a library that supports both CPython and PyPy, or comparing interpreter releases.",
+  "lesson": "Inspect the supported interpreter matrix and prior implementation history before assuming less Python-level work is faster. More-itertools PR1334 replaces an interleave_longest loop with a composed filter. Its author reports larger-input CPython gains, PyPy regressions and extra empty-input setup cost, and explicitly discloses eager argument validation and the changed iterator type. Keep construction and consumption timing explicit; compare empty, tiny, equal and ragged inputs with fresh-process paired order. Verify ordinary output, object identity, source consumption and exception behavior separately from speed. A passing interpreter CI job establishes tested behavior, not performance portability. Preserve the existing author's work rather than reimplementing this proposal.",
+  "avoid_when": "The public PR's measurements are author-reported, not independently reproduced PyPy evidence. This does not reject all C-backed operations, every interpreter version or unrelated functions in the same file. A synthetic component portfolio does not establish production reachability, workload share, whole-application gain, accepted compatibility changes or a merged result. Do not extrapolate one interpreter's ratios to another or treat a return-type change as a defect without the actual API contract.",
+  "evidence": [
+    {
+      "url": "https://github.com/more-itertools/more-itertools/pull/1334",
+      "note": "The current proposal and discussion disclose different CPython/PyPy performance, empty-input overhead and iterator/validation behavior changes. It is existing author-owned open work, not our discovery or a universal performance result."
+    },
+    {
+      "url": "https://github.com/more-itertools/more-itertools/commit/bafe069b729fc6456a603bd3a87483e50c36c852",
+      "note": "Pinned candidate composes flatten, zip_longest and filter with an identity predicate. This source identifies the proposed mechanism, not its performance on a new runtime or workload."
+    },
+    {
+      "url": "https://github.com/more-itertools/more-itertools/blob/4aeb4338ae1407d8da9723e86da99efeb446f719/.github/workflows/python-app.yml",
+      "note": "The declared CI matrix includes several CPython releases and PyPy3.11. This supports inspecting runtime-specific tradeoffs rather than assuming the main CPython result covers all supported interpreters."
+    }
+  ],
+  "status": "counterexample"
+}
