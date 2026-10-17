@@ -152,7 +152,7 @@ def source_api_query(source_text):
 def fit_lesson_context(packet, limit, prefix=""):
     """Optional advice must never displace supplied primary source evidence."""
     suggestion = packet.get("lesson_suggestions", {})
-    if suggestion.get("status") == "NO_MATCH":
+    if not isinstance(suggestion, dict) or suggestion.get("status") == "NO_MATCH":
         packet.pop("lesson_suggestions", None)
         return
     size = len(

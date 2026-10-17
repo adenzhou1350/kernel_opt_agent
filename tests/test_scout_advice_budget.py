@@ -29,6 +29,40 @@ class AdviceBudgetTests(unittest.TestCase):
             "items": [{"reason": "已有对照", "reopen_when": "新证据"}, {"reason": "B"}],
         }
 
+    def test_malformed_optional_lessons_do_not_break_primary_source_fitting(self):
+        for value in (None, [], ["advice"], "advice", True, 12):
+            packet = {**copy.deepcopy(self.packet), "lesson_suggestions": value}
+            with self.subTest(value=value):
+                scout.fit_lesson_context(packet, 10000)
+                self.assertEqual(packet, self.packet)
+
+    def test_enqueue_ignores_malformed_optional_lessons_without_new_job_identity(self):
+        packet = dict(self.packet, name="public-source", repo="public/project")
+        packet["sources"][0]["url"] = "https://github.com/public/project/blob/" + "a" * 40 + "/src.py"
+        with tempfile.TemporaryDirectory() as temp:
+            scout.initialize(temp)
+            first = scout.enqueue(temp, copy.deepcopy(packet))
+            for value in (None, [], "advice", False, 0):
+                with self.subTest(value=value):
+                    current = scout.enqueue(temp, dict(copy.deepcopy(packet), lesson_suggestions=value))
+                    self.assertEqual(current, first)
+            with scout.connect(temp) as db:
+                rows = db.execute("SELECT packet FROM jobs").fetchall()
+            self.assertEqual(len(rows), 1)
+            self.assertNotIn("lesson_suggestions", json.loads(rows[0][0]))
+
+    def test_valid_optional_lessons_still_fit_or_drop_without_altering_source(self):
+        advice = {"status": "MATCH", "matches": [{"title": "Existing advice"}]}
+        packet = dict(copy.deepcopy(self.packet), lesson_suggestions=advice)
+        before = copy.deepcopy(packet)
+        scout.fit_lesson_context(packet, 10000)
+        self.assertEqual(packet, before)
+        scout.fit_lesson_context(packet, 1)
+        self.assertEqual(packet, self.packet)
+        packet["lesson_suggestions"] = {"status": "NO_MATCH"}
+        scout.fit_lesson_context(packet, 10000)
+        self.assertEqual(packet, self.packet)
+
     def test_full_advice_exact_byte_boundary_preserves_primary_fields(self):
         before = copy.deepcopy(self.packet)
         prefix = "系统\n"
