@@ -1290,6 +1290,25 @@ behavior rationale or maintainer clarification, with throttling/coalescing and
 disposal controls. Existing tests can themselves be wrong; neither this example
 nor a green baseline is a blanket no-bug verdict for negative caches.
 
+## Catch2 JUnit is not pytest or GoogleTest accounting
+
+Check the actual producer before choosing a parser. In
+[Catch2 v2.13.10's JUnit reporter](https://github.com/catchorg/Catch2/blob/v2.13.10/single_include/catch2/catch.hpp),
+`writeGroup` writes assertion totals into `tests` and `failures`. `writeSection`
+can emit section-shaped `testcase` records with multiple failure elements;
+record count is not generally test-case count. Do not relabel that report as
+`pytest-junit` or `gtest-xml`, rewrite its totals, or count assertions as tests.
+
+A native CLI11 comparison on the public parsing path produced four such records,
+37 assertions and 15 failed assertions over two failing cases on the old source.
+The same tests passed after the bounded NaN fix; the primary header-only CMake
+workflow separately passed 82 CTest targets. These are different accounting units,
+not interchangeable test counts. The existing pytest parser correctly rejects the
+Catch2 shape; a regression control preserves that refusal rather than adding an
+untested format adapter. Preserve the native report and process exit, and use
+the project's own runner/CTest identities for delivery. Other Catch2 versions,
+hidden/skipped tests and full discovery require their own evidence.
+
 ## Small owner-reviewed C++ translation units
 
 Do not substitute a Python arithmetic model for a native compiler pass or

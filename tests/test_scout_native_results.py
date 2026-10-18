@@ -108,6 +108,27 @@ class NativeResultsTests(unittest.TestCase):
             value["issues"],
         )
 
+    def test_catch2_assertion_totals_are_not_pytest_case_totals(self):
+        # Shape observed from Catch2 2.13.10's JUnit reporter: 37 assertions,
+        # four case-shaped records, and 15 failures spread over two records.
+        root = ET.Element("testsuites")
+        suite = ET.SubElement(root, "testsuite", name="ExtraValidatorsTest",
+                              tests="37", failures="15", errors="0")
+        for name, failures in (("BoundTests", 0), ("BoundRejectsNaN", 6),
+                               ("BoundFloatingTypesRejectNaN", 9), ("BoundPreservesClamping", 0)):
+            case = ET.SubElement(suite, "testcase", classname="ExtraValidatorsTest",
+                                 name=name, status="run")
+            for _ in range(failures):
+                ET.SubElement(case, "failure", type="CHECK")
+        value = self.junit(ET.tostring(root, encoding="unicode"), 15,
+                           expected_tests=("ExtraValidatorsTest::BoundRejectsNaN",))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertIn("non-pytest JUnit status attributes are unsupported", value["issues"])
+        self.assertIn("unsupported or contradictory JUnit case outcomes", value["issues"])
+        self.assertIn(
+            "JUnit case/summary cardinality mismatch "
+            "(testsuite.tests: declared 37, observed 4)", value["issues"])
+
     def test_junit_malformed_counter_is_not_echoed_into_diagnostics(self):
         root = ET.fromstring(junit(("test_case", None)))
         root[0].set("tests", "PRIVATE_COUNTER_TEXT" * 1000)
