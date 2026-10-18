@@ -1063,6 +1063,7 @@ class ScoutTests(unittest.TestCase):
         for original, miscopied in (
             ('warn("deprecated") ends with \\', 'warn("deprecated") ends with "'),
             ('中文 «quoted»\nsecond line', '中文 "quoted"\nsecond line'),
+            (r'pattern = r"\s*token"', r'pattern = r"\\s*token"'),
         ):
             source = packet()
             source["sources"][0]["text"] = original
@@ -1106,6 +1107,31 @@ class ScoutTests(unittest.TestCase):
         )
         self.assertTrue(raw["untrusted"])
         self.assertEqual(raw["text"], "{}")
+
+    def test_quote_invalid_hint_stays_failed_and_charged(self):
+        source = packet()
+        source["sources"][0]["text"] = r'pattern = r"\s*token"'
+        scout.enqueue(self.root, source)
+        job = scout.claim(self.root, 12, 200000, 2048)
+        value = result()
+        value["evidence"][0]["quote"] = r'pattern = r"\\s*token"'
+        text = json.dumps(value)
+        response = dict(ok=True, text=text, tools_advertised=0,
+                        tool_calls_executed=0, finish_reason="stop",
+                        usage={"total_tokens": 321})
+        with patch.object(scout.subprocess, "run", return_value=
+                          subprocess.CompletedProcess([], 0, json.dumps(response), "")):
+            receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+        self.assertEqual(receipt["state"], "FAILED")
+        self.assertEqual(receipt["failure_scope"], "answer")
+        self.assertEqual(receipt["charged_tokens_or_reservation"], 321)
+        self.assertIn("not a supplied excerpt", receipt["error"])
+        raw = json.loads((self.root / "results" / (job["id"] + ".answer.json")).read_text())
+        self.assertTrue(raw["untrusted"])
+        self.assertEqual(raw["text"], text)
+        with scout.connect(self.root) as db:
+            state = db.execute("SELECT state FROM jobs WHERE id=?", (job["id"],)).fetchone()[0]
+        self.assertEqual(state, "FAILED")
 
     def test_failed_call_preserves_usage_observation_separately_from_reservation(self):
         self.add()

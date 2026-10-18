@@ -172,6 +172,11 @@ multiplicity must retain its outcome. Identical optional skips remain unexecuted
 coverage. Don't filter reports, rewrite counters or waive unexplained changes to
 force a match. See [API and producer pitfalls](references/scout_native_cpu_worked_routes.md#complete-pytest-cohorts).
 
+The native runner still needs 1..64 exact expected-case anchors; `None` does
+not mean "all tests." Run the whole reviewed selection, then compare its complete
+report inventory with the wider-suite comparator. Anchors alone are not proof
+of full coverage; do not narrow the test command or raise limits to fit them.
+
 ## Keep the outcome useful
 
 Record supported caller, source/runtime, identical test bytes, commands, observed
@@ -180,6 +185,12 @@ and hash; don't guess filenames or rerun good captures for an analyzer typo.
 Source equality, green tests and manifests alone prove neither acceptance nor
 quality. Distinguish a new contribution, author-owned repair, technical block,
 negative result and inconclusive observation. Keep reopen conditions.
+
+A quote-invalid model answer remains failed and charged even if a separately
+reviewed hypothesis later reproduces natively. Preserve that manual follow-up
+and its cost separately; never rewrite the answer, loosen quote matching or
+reclassify the old row as a valid discovery. JSON decoding is not permission to
+change regex backslashes or other source characters.
 
 CPU accounting scopes differ by platform; setup/model/human costs are separate.
 No narrow test count, synthetic success or unpriced call establishes PR yield,
