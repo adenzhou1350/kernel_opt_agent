@@ -2,7 +2,7 @@
   "id": "closed-issue-subcase-coverage",
   "title": "Issue status does not establish fix coverage or novelty",
   "applies_when": "A source-audit lead resembles an open or closed issue, a merged fix to a sibling method, a multi-case report, or a prior no-op restriction whose return-value contract was not checked.",
-  "lesson": "Read the issue body, latest discussion and linked patch before deciding whether a finding is new or fixed. An open issue can already have a reporter-confirmed repair: Megatron #8179's comments point to #7582 and report that the original tied-weight reproducer passed. Preserve author ownership, not a competing fix based only on the initial body. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? AnyIO #1081 also reports negative receive_exactly, beyond the receive API in its title; merged #1191's max_bytes validation does not prove exact-read coverage. Return to that report rather than claiming fresh discovery. Similarly, a maintainer's prohibition on moving a stream position does not require an accepted no-op seek to return None: check the actual return contract and consumer separately. An existing repair or passing characterization test is not evidence that every remaining behavior was deliberately requested. Record scoped advice without suppressing the whole file or rewriting raw model answers.",
+  "lesson": "Read the issue body, latest discussion and linked patch before setup or deciding whether a finding is new or fixed. An open issue can already have a reporter-confirmed repair: Megatron #8179's comments point to #7582 and report that the original tied-weight reproducer passed. Preserve author ownership, not a competing fix based only on the initial body. Separate three questions: is the behavior reproducible now, was this exact case already reported, and did the accepted patch address it? A PR can explicitly leave a known streaming limitation out of scope: a new reproduction does not make that case novel or newly introduced. AnyIO #1081 also reports negative receive_exactly, beyond the receive API in its title; merged #1191's max_bytes validation does not prove exact-read coverage. Return to that report rather than claiming fresh discovery. Similarly, a maintainer's prohibition on moving a stream position does not require an accepted no-op seek to return None: check the actual return contract and consumer separately. An existing repair or passing characterization test is not evidence that every remaining behavior was deliberately requested. Record scoped advice without suppressing the whole file or rewriting raw model answers.",
   "avoid_when": "Reporter-confirmed repair is not our independent native qualification, proof of merge or all-case support. A current native failure does not prove novelty, intended behavior or maintainer acceptance. Do not copy a sibling API's positive-size constraint: zero-length exact reads can differ from bounded receive. Preserve streaming restrictions when repairing no-op returns; a synchronous BufferedReader reproduction does not prove async zip/tar compatibility or justify random access. These are scoped counterexamples, not a measured Scout conversion/miss-rate improvement or a universal rule to reopen closed issues.",
   "evidence": [
     {
@@ -35,27 +35,27 @@
     },
     {
       "url": "https://github.com/mahmoud/boltons/pull/523",
-      "note": "An existing author-owned repair already addresses OneToOne.update dropping the first pair of one-shot iterables. Independent Linux CPython3.12 checking of exact head e5f2c7b gives 50 focused passes; unchanged 4e5faa3 with identical author tests gives 43 passes and 7 failures, with all other outcomes unchanged. No competing repair is needed. This is focused native evidence, not installed tox, the complete interpreter/OS matrix or maintainer acceptance."
+      "note": "Author-owned OneToOne.update one-shot-iterator repair. Linux CPython3.12 head e5f2c7b: 50 focused passes; unchanged 4e5faa3 with identical tests: 43 passes/7 failures, other outcomes unchanged. Not full tox/OS coverage or maintainer acceptance; no competing repair."
     },
     {
       "url": "https://github.com/mahmoud/boltons/pull/498",
-      "note": "The prior open PR already reports CachedFunction ignoring scoped=True and provides its own reproduction/repair. The PR body and committed change description match that hypothesis; this entry does not independently qualify its head. Current main can retain a real bug while a matching repair waits upstream. Check current discussions before spending another discovery batch; a stale search-engine snapshot or an empty collected item list is not evidence of novelty."
+      "note": "Prior open PR reports and repairs CachedFunction ignoring scoped=True; its head is not independently qualified here. Current main can retain the bug while review waits. A stale search snapshot or empty collected list is not novelty evidence."
     },
     {
       "url": "https://github.com/mahmoud/boltons/pull/549",
-      "note": "An existing author-owned BarrelList slice-deletion repair explicitly covers clipped bounds, empty inputs and stepped/reverse deletion. Our current-base reproduction of out-of-range deletion does not make a new discovery. The author reports Windows validation; its head was inspected, not independently qualified here. Preserve this repair's ownership rather than open a competing PR."
+      "note": "Author-owned BarrelList repair covers clipped bounds, empty inputs and stepped/reverse deletion. Windows validation is author-reported; the head was inspected, not independently qualified here. A current-base failure is not our new discovery."
     },
     {
       "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/listutils.py",
-      "note": "Current-base del_slice can still raise IndexError for clipped bounds or an empty list while PR549 is already open. Read that existing repair before treating the reproducible failure as novel; do not suppress unrelated BarrelList methods or infer maintainer acceptance."
+      "note": "Current-base del_slice still raises IndexError on clipped/empty deletion while PR549 waits. Read that repair; unrelated BarrelList methods remain separate, and maintainer acceptance is unproven."
     },
     {
       "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/dictutils.py",
-      "note": "Pinned OneToOne.update still consumes a pair before materializing the remaining iterator, despite the already-open PR523. Reproduction and novelty are separate questions. Do not suppress the whole module: copy, serialization or other update subcases need their own contract, duplicate and native checks."
+      "note": "OneToOne.update consumes a pair before materializing the remaining iterator; PR523 already covers it. Copy, serialization and other update subcases need separate contract, duplicate and native checks, not a whole-module exclusion."
     },
     {
       "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/cacheutils.py",
-      "note": "Pinned CachedFunction still omits scoped from key construction while PR498 already exists. Source affinity makes this prior report available to the next audit, not an automatic negative label, universal file exclusion or measured improvement in discovery yield."
+      "note": "CachedFunction omits scoped from key construction while PR498 exists. Source affinity exposes prior work, not an automatic negative label, file exclusion or measured discovery improvement."
     },
     {
       "url": "https://github.com/mahmoud/boltons/pull/495",
@@ -72,6 +72,14 @@
     {
       "url": "https://github.com/mahmoud/boltons/blob/4e5faa3d7e4008d89e0d8bf1ea87b6d9a061a16d/boltons/timeutils.py",
       "note": "parse_timedelta can still return zero on invalid text while PR548 waits. Different repeated-unit behavior has separate PR583."
+    },
+    {
+      "url": "https://github.com/huggingface/huggingface_hub/pull/5150",
+      "note": "The merged PR body explicitly acknowledges raw ReadTimeout after the first streamed token and leaves it out of scope. This is a known streaming limitation, not proof it is desirable or permanently rejected. Do not announce a new regression or unsolicited competing repair."
+    },
+    {
+      "url": "https://github.com/huggingface/huggingface_hub/blob/bb2ef7579c3d2dc2eb49b16ccf15a070fe5b7023/src/huggingface_hub/inference/_client.py",
+      "note": "_inner_post catches httpx2 timeouts around response setup/nonstream reads but returns a lazy iterator for streams. Current source reproduces the already-declared gap; other inference paths still need independent review."
     }
   ],
   "status": "counterexample"

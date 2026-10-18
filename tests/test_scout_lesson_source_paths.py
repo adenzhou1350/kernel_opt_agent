@@ -369,6 +369,24 @@ class SourceLessonTests(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
         self.assertNotIn("qualified", result)
 
+    def test_known_stream_timeout_scope_is_not_renamed_as_new_regression(self):
+        result = lessons.lesson_suggestions(
+            "InferenceTimeoutError ReadTimeout streaming after first token",
+            source_urls=["https://raw.githubusercontent.com/huggingface/huggingface_hub/"
+                         "bb2ef7579c3d2dc2eb49b16ccf15a070fe5b7023/"
+                         "src/huggingface_hub/inference/_client.py"],
+        )
+        self.assertTrue(result["source_path_match"])
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "closed-issue-subcase-coverage")
+        reference = next(e for e in matched["evidence"] if e["url"].endswith("/pull/5150"))
+        self.assertIn("known streaming limitation", reference["note"])
+        self.assertIn("not proof it is desirable or permanently rejected", reference["note"])
+        self.assertIn("before setup", matched["lesson"])
+        self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_existing_seek_fix_does_not_hide_a_return_contract_subcase(self):
         url = (
             "https://raw.githubusercontent.com/fsspec/filesystem_spec/"
