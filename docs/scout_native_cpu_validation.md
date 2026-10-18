@@ -189,6 +189,16 @@ the invocation and leave frozen study arms unchanged. Different packets and
 settings cannot establish a causal efficiency or discovery-quality comparison.
 Accepted request syntax does not prove a gateway realized the selected effort.
 
+Keep JSON syntax and source accuracy separate too. A six-call synthetic quoting
+calibration on GLM-5.3 produced valid JSON for both ordinary and `json_object`
+requests, but both miscopied the same trailing backslash as a double quote.
+The existing source-membership validator rejected both; four exact quotations
+passed. No answer repair, retry or new default was warranted. The 2,003 reported
+tokens are diagnostic cost, not evidence of format-mode efficacy or PR yield.
+HTTP acceptance also does not prove the server realized constrained decoding.
+Preserve punctuation through validation; normalizing whitespace is not permission
+to normalize quote characters or manufacture source evidence.
+
 ### Cache charge is not process memory or guaranteed spare capacity
 
 For a stopped/paused Linux worker, run the read-only `scout_linux_memory.py`
@@ -279,6 +289,19 @@ The runtime exporter writes its snapshots as bytes to avoid that mismatch.
 For JIT/native tests, include changed headers in source identity and use a fresh
 task-private build cache unless dependency-aware invalidation is demonstrated.
 A fresh Python process alone does not establish a fresh compiled extension.
+
+For a partial Python export, inspect all top-level package/data directories and
+the target's package configuration before treating an import failure as a missing
+external dependency. Dateparser's own `dateparser_data/settings.py` is required
+by its ordinary import but is outside `dateparser/`; omitting it broke a private
+baseline despite matching every selected blob. Export the authentic sibling,
+not a stub. For unavailable small dependencies, fixed universal wheels can be
+acquired on an authorized connected host, checked against registry release
+hashes, then privately installed with `--no-index`; platform-specific wheels and
+dependency markers still need target-compatible selection. Retain failed setup
+and inherited-package limits, rather than claiming a frozen complete environment.
+Use collection output for parameterized test IDs: a decorated base method may
+not itself be a runnable node. Freeze the expanded cohort before running it.
 
 ### Pinned Scout source and lessons
 

@@ -1025,6 +1025,24 @@ class ScoutTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             scout.validate_result(value, source)
 
+    def test_valid_json_does_not_license_quote_character_changes(self):
+        for original, miscopied in (
+            ('warn("deprecated") ends with \\', 'warn("deprecated") ends with "'),
+            ('中文 «quoted»\nsecond line', '中文 "quoted"\nsecond line'),
+        ):
+            source = packet()
+            source["sources"][0]["text"] = original
+            for quote, accepted in ((original, True), (miscopied, False)):
+                value = result()
+                value["evidence"][0]["quote"] = quote
+                decoded = scout.parse_answer(json.dumps(value))
+                with self.subTest(quote=quote):
+                    if accepted:
+                        self.assertEqual(scout.validate_result(decoded, source), value)
+                    else:
+                        with self.assertRaisesRegex(ValueError, "not a supplied excerpt"):
+                            scout.validate_result(decoded, source)
+
     def test_automatic_feed_rejects_private_repository(self):
         with patch.object(scout, "fetch", return_value='{"private": true}'):
             with self.assertRaisesRegex(ValueError, "private"):
