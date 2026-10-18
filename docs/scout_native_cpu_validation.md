@@ -101,6 +101,24 @@ See [limits and dynamic-import gaps](references/scout_native_cpu_worked_routes.m
 
 Check [sandbox feasibility](references/scout_native_cpu_validation_notes.md#remote-sandbox-feasibility-before-model-execution) and the authorized environment. Never silently start local WSL or bypass application control. Narrow native tests are not full-package, serving or performance qualification.
 
+### Standard-library unittest observations
+
+For a reviewed suite loaded by standard unittest discovery or names, reuse
+`scout_unittest.py --report FRESH.json discover -s tests` (or literal test names)
+inside the existing authorized execution controls. It delegates to the actual
+unittest loader/runner, keeps the normal terminal log, and records start/stop,
+success/failure/error, skips, subtests and expected/unexpected outcomes without
+deduplicating repeated names. The native runtime exporter includes this helper.
+
+The JSON is an observation, **not another `scout_native_run --format`**, execution
+authority or a complete-discovery verdict. Preserve captured process exit and log
+alongside it; check source/import identity separately. Failfast/fixture failures
+can leave tests unexecuted. `tests_run` counts parent test executions, not subtest
+assertions; embedded doctest examples need separate accounting. A custom project
+loader/main can have different semantics: use its native entry point rather than
+silently replacing it with this helper. Existing reports are never overwritten;
+an abort/parse failure has no completed JSON observation.
+
 ### Bun native JUnit reports
 
 Use `--format bun-junit`; the runner owns the fresh reporter path. Expected IDs

@@ -21,7 +21,8 @@ from pathlib import Path
 import scout_native_results as native
 
 RUNTIME_FILES = ("scout_native_run.py", "scout_native_results.py", "qualification_source_bundle.py",
-                 "scout_native_windows.py", "scout_bun_junit.py", "scout_dependency_tree.py")
+                 "scout_native_windows.py", "scout_bun_junit.py", "scout_dependency_tree.py",
+                 "scout_unittest.py")
 
 
 def export_runtime(output):
