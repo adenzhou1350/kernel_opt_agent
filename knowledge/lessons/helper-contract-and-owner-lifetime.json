@@ -2,16 +2,16 @@
   "id": "helper-contract-and-owner-lifetime",
   "title": "Check the caller contract and owner lifetime before repairing a helper",
   "applies_when": "A validation, descriptor/global, identity/cache, field-loss or cleanup claim omits its callee, caller, owner or result assembly.",
-  "lesson": "Read the callee and real invocation before dependencies: validation may live inside the callee. Trace descriptors, globals, platform predicates, retained references, outer cleanup and ordered spreads. SDK cancellation may leave outer retries alive; abort failed uploads without cancelling callers or closing successful streams. Admission exceptions may allow cleanup before final validation. Test supported entries with normal controls. Missing invented APIs are feature deltas; check maintainer decisions. Use counterexamples to select evidence, not blanket rejection.",
-  "avoid_when": "Public helper defects need no internal caller. Retained references do not prevent mutation/concurrency bugs. Cleanup tests cover only reached paths; spreads only then-present properties. Never close caller-owned successful streams. Source examples are revision-bound, not general accuracy or hardware qualification.",
+  "lesson": "Read the callee and supported caller before dependencies; validation may be internal. Trace globals/descriptors, platform predicates, retained references, outer cleanup and ordered spreads. SDK cancellation may leave retries alive; abort failed uploads without cancelling callers or closing successful streams. Admission exceptions can permit cleanup before final validation. Test normal controls. Check lifetime/API contracts and maintainer decisions. Counterexamples guide evidence, not blanket rejection.",
+  "avoid_when": "Public helpers need no internal caller. Retained references do not prevent mutation/races. Cleanup covers reached paths; spreads then-present fields. Never close caller-owned success streams. Revision-bound examples do not qualify accuracy or hardware.",
   "evidence": [
     {
       "url": "https://github.com/pelletier/go-toml/blob/686c980c47581bf19b6119b60e9a59f2aed04170/decode.go#L276-L311",
-      "note": "parseLocalDate validates exact length/calendar ranges internally and returns no rest slice. Missing caller rest checks are not trailing-input acceptance. Acquire the callee; source evidence only."
+      "note": "parseLocalDate checks length/calendar ranges and returns no rest slice. Missing caller rest checks do not prove trailing-input acceptance; read the callee. Static evidence."
     },
     {
       "url": "https://github.com/pelletier/go-toml/pull/1066",
-      "note": "Maintainer held BinaryUnmarshaler API expansion; proposal closed after head-repository deletion, not merger. Unsupported behavior alone is not a bug or reason for a duplicate PR."
+      "note": "Maintainer held BinaryUnmarshaler expansion; closed after head-repo deletion, not merged. Unsupported behavior alone is not a bug or duplicate-PR reason."
     },
     {
       "url": "https://github.com/qiniu/go-sdk/blob/5f8f7f02881515c3d88ee76a6b29097ac3c2c473/internal/clientv2/interceptor_anti_hijacking.go",
@@ -103,7 +103,11 @@
     },
     {
       "url": "https://github.com/spf13/afero/blob/eb6a92826ea568e3f40ab91fcbda8d2b38b61d3e/mem/file.go",
-      "note": "SetUID/SetGID and FileInfo.Sys lock the same embedded FileData mutex. Missing outer MemMapFs.Chown locking is not unsynchronized UID/GID access. Separate setter locks do not promise an atomic pair; static evidence, not all-race proof."
+      "note": "SetUID/SetGID/FileInfo.Sys lock FileData's mutex. No outer Chown lock does not mean unlocked access; separate setters do not promise an atomic pair. Static, not all-race proof."
+    },
+    {
+      "url": "https://github.com/juicedata/juicefs/discussions/7690#discussioncomment-18936541",
+      "note": "Answer selected by myangitzh: NewVFS is one-per-process; multi-volume clients use pkg/fs.NewFileSystem. Repeat-constructor behavior is real, not a supported mount failure or shallow-reset mandate."
     }
   ],
   "status": "validated"

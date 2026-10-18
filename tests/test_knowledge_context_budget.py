@@ -12,6 +12,22 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_constructor_lifetime_answer_remains_available_as_advice(self):
+        result = lesson_suggestions("caller contract owner lifetime NewVFS constructor")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "helper-contract-and-owner-lifetime")
+        evidence = next(
+            item for item in card["evidence"]
+            if item["url"].endswith("/discussions/7690#discussioncomment-18936541")
+        )
+        self.assertIn("Answer selected by myangitzh", evidence["note"])
+        self.assertIn("pkg/fs.NewFileSystem", evidence["note"])
+        self.assertIn("behavior is real", evidence["note"])
+        self.assertIn("public helper", card["avoid_when"].casefold())
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_comparison_advice_and_example_keep_protocol_and_scope(self):
         result = lesson_suggestions(
             "Python comparison reflected inequality NotImplemented mapping",
