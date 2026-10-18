@@ -19,6 +19,7 @@ from scout_requested_definition import requested_function_window
 
 MAX_FILES = 8  # Existing supplied-source context selectors inspect eight sources.
 MAX_BLOB_BYTES = 100_000  # Match the existing delivery source read budget.
+MAX_RANGED_BLOB_BYTES = 1_000_000  # Explicit line-only selections; prompt cap unchanged.
 
 
 def _ranges(item, path, lines):
@@ -96,8 +97,18 @@ def build_packet(local_repo, spec, *, with_lessons=False):
         raise ValueError("selected source must be a regular Git file, not a symlink")
     blob_ids = {path: oid for path, _, oid in entries}
     sources = {}
+    # Large native sources may be read only for explicit line windows. Keep
+    # full-file/AST reads at their existing bound, including mixed packets.
+    limits = {
+        path: (MAX_RANGED_BLOB_BYTES if isinstance(item.get("ranges"), list)
+               and item["ranges"] and not item.get("definitions") else MAX_BLOB_BYTES)
+        for path, item in by_path.items()
+    }
     # Reap the batch reader even when this consumer rejects UTF-8 or a range.
-    with closing(bundle.iter_git_tree_blobs(local_repo, entries, max_blob_bytes=MAX_BLOB_BYTES)) as blobs:
+    with closing(bundle.iter_git_tree_blobs(
+        local_repo, entries, max_blob_bytes=max(limits.values()),
+        max_blob_bytes_by_path=limits,
+    )) as blobs:
         for path, _, raw in blobs:
             try:
                 text = raw.decode("utf-8")

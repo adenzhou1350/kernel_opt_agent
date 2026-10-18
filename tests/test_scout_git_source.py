@@ -92,6 +92,80 @@ class GitSourceTests(unittest.TestCase):
         self.assertTrue(scout.enqueue(queue, packet))
         self.assertFalse(packet["duplicate_search_complete"])
 
+    def test_explicit_c_window_reads_large_blob_without_expanding_prompt(self):
+        raw = b"/*" + b"x" * source.MAX_BLOB_BYTES + b"*/\nint answer(void) {\n    return 42;\n}\n"
+        (self.repo / "large.c").write_bytes(raw)
+        self.git("add", "large.c")
+        self.git("commit", "-qm", "large C fixture")
+        self.spec["commit"] = self.git("rev-parse", "HEAD")
+        (self.repo / "large.c").write_bytes(b"dirty checkout\r\n")
+        with patch.object(bundle.subprocess, "Popen", wraps=subprocess.Popen) as launch:
+            entries = self.packet([dict(path="large.c", ranges=[dict(start=2, end=4)]),
+                                   dict(path="main.py", definitions=["A.ready"])])["sources"]
+        self.assertEqual(sum("cat-file" in call.args[0] for call in launch.call_args_list), 1)
+        self.assertEqual(entries[0]["text"], "2: int answer(void) {\n3:     return 42;\n4: }")
+        self.assertEqual(entries[0]["full_file_sha256"], hashlib.sha256(raw).hexdigest())
+        self.assertEqual(entries[0]["supplied_ranges"], [[2, 4]])
+        self.assertTrue(entries[0]["truncated"])
+        self.assertLess(len(json.dumps(entries).encode()), scout.MAX_INPUT_BYTES)
+        self.assertIn("@property", entries[1]["text"])
+
+    def test_large_ranged_file_still_has_read_and_input_limits(self):
+        # Explicit selection cannot increase the prompt cap or read arbitrarily
+        # large files; no implicit shortening or full-file fallback.
+        with self.assertRaisesRegex(ValueError, "input budget"):
+            self.packet([dict(path="big.py", ranges=[dict(start=1, end=1)])])
+        raw = b"x\n" * (source.MAX_RANGED_BLOB_BYTES // 2 + 1)
+        (self.repo / "too_large.c").write_bytes(raw)
+        self.git("add", "too_large.c")
+        self.git("commit", "-qm", "oversize C fixture")
+        self.spec["commit"] = self.git("rev-parse", "HEAD")
+        with self.assertRaisesRegex(ValueError, "read budget"):
+            self.packet([dict(path="too_large.c", ranges=[dict(start=1, end=1)])])
+
+    def test_mixed_windows_do_not_raise_unranged_or_ast_read_budgets(self):
+        for selection in (dict(path="big.py"), dict(path="big.py", definitions=["A.ready"]),
+                          dict(path="big.py", definitions=["A.ready"], ranges=[dict(start=1, end=1)])):
+            with self.subTest(selection=selection), self.assertRaisesRegex(ValueError, "read budget"):
+                self.packet([dict(path="main.py", ranges=[dict(start=1, end=1)]), selection])
+
+    def test_per_path_budget_rejects_header_before_payload_and_reaps_reader(self):
+        import io
+
+        oid = "a" * 40
+
+        class Child:
+            stdout = io.BytesIO(f"{oid} blob 101\n".encode())
+            returncode = None
+
+            def poll(self):
+                return self.returncode
+
+            def kill(self):
+                self.returncode = -9
+
+            def wait(self):
+                return self.returncode
+
+        child = Child()
+        with patch.object(bundle.subprocess, "Popen", return_value=child), patch.object(
+            bundle, "read_exact", side_effect=AssertionError("must reject before payload")
+        ):
+            with self.assertRaisesRegex(ValueError, "read budget"):
+                list(bundle.iter_git_tree_blobs(self.repo, [("small", "100644", oid)],
+                     max_blob_bytes=1000, max_blob_bytes_by_path={"small": 100}))
+        self.assertEqual(child.poll(), -9)
+        self.assertTrue(child.stdout.closed)
+
+    def test_invalid_path_budgets_do_not_launch_git(self):
+        for limits in ([], {"missing": 1}, {"main.py": True}, {"main.py": 0},
+                       {"main.py": 1001}, {"main.py": "100"}):
+            with self.subTest(limits=limits), patch.object(
+                bundle.subprocess, "Popen", side_effect=AssertionError("must validate first")
+            ), self.assertRaisesRegex(ValueError, "path byte limits"):
+                list(bundle.iter_git_tree_blobs(self.repo, [("main.py", "100644", "a" * 40)],
+                     max_blob_bytes=1000, max_blob_bytes_by_path=limits))
+
     def test_unseen_blob_drift_is_not_a_new_paid_excerpt_but_visible_drift_is(self):
         files = [dict(path="main.py", definitions=["A.ready"])]
         first = self.packet(files)

@@ -139,17 +139,30 @@ def git_tree_entries(
 
 
 def iter_git_tree_blobs(
-    repo: Path, identities: list[tuple[str, str, str]], *, max_blob_bytes: int | None = None
+    repo: Path, identities: list[tuple[str, str, str]], *, max_blob_bytes: int | None = None,
+    max_blob_bytes_by_path: dict[str, int] | None = None,
 ) -> Iterator[tuple[str, int, bytes]]:
     """Read one raw blob at a time, without buffering all cat-file output.
 
     File-backed stdin avoids a write/read pipe deadlock for a large tree. File-
     backed stderr cannot fill a pipe while stdout is being consumed. Reap the
-    child even when a caller stops iteration or rejects a blob.
+    child even when a caller stops iteration or rejects a blob. Optional path
+    limits only narrow the global ceiling and are checked before payload reads.
     """
 
     if max_blob_bytes is not None and (type(max_blob_bytes) is not int or max_blob_bytes < 1):
         raise ValueError("max_blob_bytes must be a positive integer")
+    limits = {} if max_blob_bytes_by_path is None else max_blob_bytes_by_path
+    paths = {path for path, _, _ in identities}
+    if (not isinstance(limits, dict) or any(
+        not isinstance(path, str) or path not in paths or type(cap) is not int
+        or cap < 1 or (max_blob_bytes is not None and cap > max_blob_bytes)
+        for path, cap in limits.items()
+    )):
+        raise ValueError(
+            "path byte limits must be positive integers within the global ceiling "
+            "for selected files"
+        )
     with tempfile.TemporaryFile() as request, tempfile.TemporaryFile() as errors:
         for _, _, object_id in identities:
             request.write(object_id.encode("ascii") + b"\n")
@@ -178,7 +191,8 @@ def iter_git_tree_blobs(
                         raise ValueError("negative blob size")
                 except ValueError as error:
                     raise ValueError(f"invalid Git blob size for {path!r}") from error
-                if max_blob_bytes is not None and size > max_blob_bytes:
+                limit = limits.get(path, max_blob_bytes)
+                if limit is not None and size > limit:
                     raise ValueError(f"Git blob exceeds read budget: {path!r}")
                 data = read_exact(process.stdout, size)
                 if process.stdout.read(1) != b"\n":

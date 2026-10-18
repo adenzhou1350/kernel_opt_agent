@@ -103,9 +103,19 @@ Omitting both selects the complete file. Missing/ambiguous definitions reject
 the packet, rather than falling back to another body. The existing selector
 retains decorators; it does not resolve inheritance or prove reachability.
 
-The reader uses one `git cat-file --batch` for up to eight regular files, with
-the existing 100,000-byte per-file delivery read bound. It ignores checkout
-newline conversion and dirty files, retains raw blob/SHA256 identities and
+The reader uses one `git cat-file --batch` for up to eight regular files. Whole
+files and Python AST definition selections retain the 100,000-byte read bound.
+An explicit line-only selection can read a raw blob up to 1,000,000 bytes, so
+large C/C++ implementation files need not disappear from a small reviewed
+packet. Mixed packets keep the smaller per-path limits for other files; the
+batch reader checks each header before reading its payload. No automatic
+window, fallback, fetch or C parser is added. The blob is still read and decoded
+in full within that bound to verify identity and line ranges; this is not
+streaming a selected fragment or a measured memory optimization. The existing
+24,000-byte prompt limit, eight-file maximum and complete-card budget do not
+increase. Explicitly selecting too much text still rejects without truncation.
+The reader ignores checkout newline conversion and dirty files, retains raw
+blob/SHA256 identities and
 visible line ranges, and produces commit-pinned `raw.githubusercontent.com`
 URLs accepted by delivery source routing. Files are emitted in the selection's
 order. Over-budget packets reject without truncating evidence; `--lessons` is
