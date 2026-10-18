@@ -456,6 +456,25 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("not an out-of-allocation sanitizer", card["avoid_when"])
         self.assertEqual(result["oversized_matches_omitted"], 0)
 
+    def test_pytest_optional_return_advice_is_source_scoped_and_preserves_reports(self):
+        for path in ("tests/test_core.py", "tests/test_fanout.py"):
+            with self.subTest(path=path):
+                result = lesson_suggestions(
+                    "pytest rsync optional capability passed assertions",
+                    source_urls=[
+                        "https://raw.githubusercontent.com/grantjenks/python-diskcache/"
+                        "ebfa37cd99d7ef716ec452ad8af4b4276a8e2233/" + path
+                    ],
+                )
+                card = result["matches"][0]
+                self.assertEqual(card["id"], "pytest-collection-before-suite-claims")
+                self.assertIn("return normally", card["lesson"])
+                self.assertIn("reported passed, not skipped", card["lesson"])
+                self.assertIn("retain raw report counters", card["lesson"])
+                self.assertIn("conditional source mechanism", card["avoid_when"])
+                self.assertEqual(result["oversized_matches_omitted"], 0)
+                self.assertNotIn("qualified", result)
+
 
 if __name__ == "__main__":
     unittest.main()

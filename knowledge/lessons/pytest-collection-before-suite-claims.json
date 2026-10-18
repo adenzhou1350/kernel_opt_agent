@@ -1,9 +1,9 @@
 {
   "id": "pytest-collection-before-suite-claims",
-  "title": "Verify pytest collection includes the intended regression files",
-  "applies_when": "A Python repository adds tests under a different filename convention, or a green directory run is being used to qualify a change in a supposedly included module.",
-  "lesson": "Read the effective pytest configuration and actual collected case identities before interpreting a green suite. At the cited Voluptuous revision, python_files='tests.py' excludes test_dataclasses.py from the directory command used by tox, although that file passes when selected alone. Existing PR #555 explicitly acknowledges the omission and places its regressions in the collected file; do not rediscover its Optional repair. Require at least one intended case from each relevant test file, not only an unrelated passing sentinel or aggregate count. A directory-plus-file argument list is not itself collection proof: inspect the resulting report. If a deliberately expanded selection is needed, declare it separately, keep identical test bytes/configuration in both arms, and retain the original missing-case result.",
-  "avoid_when": "A missing case is not a failed assertion, evidence that the tests are broken, or permission to rewrite reports or silently relax required identities. A later expanded run does not retroactively qualify the earlier selection. Correct collection does not establish imported production identity, test quality, all optional dependencies, CI approval, maintainer acceptance, or measured Scout accuracy/cost improvement. Do not change a project's import mode or skip tests merely to get a green report.",
+  "title": "Verify pytest collection and assertion reachability before suite claims",
+  "applies_when": "A Python repository adds tests under a different filename convention, uses optional external capabilities, or a green directory run is being used to qualify a supposedly included behavior.",
+  "lesson": "Read effective pytest configuration and actual collected case identities before interpreting a green suite. At the cited Voluptuous revision, python_files='tests.py' excludes test_dataclasses.py from the directory command used by tox, although that file passes when selected alone. Existing PR #555 acknowledges the omission and places its regressions in the collected file; do not rediscover its Optional repair. Require an intended case from each relevant file, not just an unrelated sentinel or aggregate count. A directory-plus-file argument list is not collection proof: inspect the report. Declare deliberately expanded selections separately, keep identical tests/configuration in both arms, and retain missing-case results. Collection is still insufficient: DiskCache's two test_rsync functions return normally when the executable is absent, before any transfer assertions. Such nodes are reported passed, not skipped. Check the relevant worker capability or behavioral witness before claiming that route was exercised; retain raw report counters and state the unexecuted coverage separately.",
+  "avoid_when": "A missing case is not a failed assertion; neither is an early optional return. Neither permits rewriting reports or silently relaxing required identities. A later expanded run does not retroactively qualify an earlier selection. Correct collection does not establish production import identity, assertion reachability, optional dependencies, CI approval, maintainer acceptance, or measured Scout accuracy/cost improvement. Do not change import mode or skip tests just to get green. The rsync example is a conditional source mechanism, not a claim that every green node is suspect or that those external operations ran on another host.",
   "evidence": [
     {
       "url": "https://github.com/alecthomas/voluptuous/blob/44593ce7c330faf9418252c4b5448f4736144a7f/pyproject.toml",
@@ -20,6 +20,14 @@
     {
       "url": "https://docs.pytest.org/en/stable/example/pythoncollection.html#changing-naming-conventions",
       "note": "Official pytest documentation describes filename/class/function collection conventions and checking collected tests. Check the actual installed version and resulting identities."
+    },
+    {
+      "url": "https://github.com/grantjenks/python-diskcache/blob/ebfa37cd99d7ef716ec452ad8af4b4276a8e2233/tests/test_core.py",
+      "note": "test_rsync catches OSError from rsync --version and returns before transfer/assertions. A passed pytest node does not establish rsync coverage when the binary is absent; this source alone does not report any worker's installed capabilities."
+    },
+    {
+      "url": "https://github.com/grantjenks/python-diskcache/blob/ebfa37cd99d7ef716ec452ad8af4b4276a8e2233/tests/test_fanout.py",
+      "note": "The FanoutCache rsync test has the same ordinary-return optional capability path. Retain the producer's pass count but distinguish the unexecuted branch."
     }
   ],
   "status": "validated"
