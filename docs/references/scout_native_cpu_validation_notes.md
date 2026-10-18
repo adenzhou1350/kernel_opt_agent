@@ -1146,6 +1146,17 @@ version and hash on the actual worker: a historical cache path on another host
 is not a transferable installed environment. Avoid modifying shared Go installs
 or reusing someone else's writable build cache.
 
+With external dependencies, an existing package cache is not the complete
+module build list. [`go mod verify`](https://go.dev/ref/mod#go-mod-verify)
+checks that list and may need additional `go.mod` downloads for version
+selection even when the selected package can compile offline. Preserve an
+incomplete audit as incomplete; do not call it dependency verification PASS.
+Record the actual package tests, unchanged `go.mod`/`go.sum`, cache provenance
+and private-copy scope separately. If the intended claim requires whole-graph
+verification, obtain that evidence rather than substituting package tests.
+Conversely, do not turn an auxiliary graph audit into an unbounded dependency
+download or replace the real package with extracted/stubbed helpers.
+
 An owner check of this unchanged revision on Linux amd64 Go 1.26.9 completed
 ordinary tests and race tests with 710 passing test/subtest events per run and
 zero failed/skipped test events. Five helper packages reported no test files;
