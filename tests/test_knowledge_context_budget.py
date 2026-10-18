@@ -1,5 +1,6 @@
 """Small default lessons must remain available within Scout's existing budget."""
 
+import doctest
 import json
 import sys
 import unittest
@@ -11,6 +12,27 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_comparison_advice_and_example_keep_protocol_and_scope(self):
+        result = lesson_suggestions(
+            "Python comparison reflected inequality NotImplemented mapping",
+            source_urls=[
+                "https://raw.githubusercontent.com/grantjenks/python-diskcache/"
+                "ebfa37cd99d7ef716ec452ad8af4b4276a8e2233/diskcache/persistent.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "python-comparison-reflected-inequality")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("distinct truthy sentinels", card["lesson"])
+        self.assertIn("MutableMapping inherits Mapping.__eq__", card["lesson"])
+        self.assertIn("custom inequality semantics", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+        example = Path(__file__).resolve().parents[1] / "docs/references/scout_known_case_calibration.md"
+        failures, attempted = doctest.testfile(str(example), module_relative=False)
+        self.assertEqual(failures, 0)
+        self.assertGreaterEqual(attempted, 10)
+
     def test_go_windows_observation_advice_fits_without_qualification_claim(self):
         result = lesson_suggestions(
             "Go native Windows newline observation channel",

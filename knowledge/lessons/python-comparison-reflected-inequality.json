@@ -1,0 +1,22 @@
+{
+  "id": "python-comparison-reflected-inequality",
+  "title": "Preserve reflected inequality when repairing Python equality",
+  "applies_when": "A Python class defines equality and inequality, or inherits an explicit __ne__, and a proposed repair returns NotImplemented for unsupported operands. Mapping-like classes also need their actual base-class comparison implementation checked.",
+  "lesson": "Test the complete operator protocol, not just the initial exception or direct __eq__ result. Returning NotImplemented lets Python try the other operand's corresponding method. An explicit __ne__ implemented as not (self == other) instead redispatches equality and coerces its result; it can lose a peer's independent __ne__ even after __eq__ gains a correct guard. Where the intended contract is complementing this class's supported equality, call self.__eq__(other), return NotImplemented unchanged, and otherwise negate the result. Add a peer whose __eq__ and __ne__ return distinct truthy sentinels; exercise both operand orders through == and !=. Keep supported mapping/order comparisons as controls. MutableMapping inherits Mapping.__eq__; do not assume identity comparison merely because its immediate class body lacks __eq__. A model may recognize a real counterexample while giving an incomplete repair, so check the suggested mechanism independently before implementation or publication.",
+  "avoid_when": "Do not replace custom inequality semantics blindly, infer that all equality and inequality results must be booleans, or treat NotImplemented as False. The default object.__ne__ already handles NotImplemented, so a class without an explicit problematic override may not need a new method. A minimal protocol example is not a target package test; inspect the actual MRO, supported operands and caller contract. This mechanism does not establish improved model accuracy, PR conversion, population recall or performance.",
+  "evidence": [
+    {
+      "url": "https://docs.python.org/3.12/reference/datamodel.html#object.__ne__",
+      "note": "Python documents rich-comparison results, reflection, object.__ne__'s NotImplemented-preserving default and identity fallback. No default relationship is promised for arbitrary explicit overrides."
+    },
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.10/Lib/_collections_abc.py#L771-L774",
+      "note": "Mapping.__eq__ rejects non-Mapping operands with NotImplemented and otherwise compares item dictionaries. MutableMapping inherits Mapping; the absence of a new immediate definition is not the absence of a comparison implementation."
+    },
+    {
+      "url": "https://github.com/grantjenks/python-diskcache/blob/ebfa37cd99d7ef716ec452ad8af4b4276a8e2233/diskcache/persistent.py",
+      "note": "Pinned Index.__eq__ calls len(other) before establishing its mapping contract, and Index.__ne__ explicitly negates the equality operator. A guard-only subclass leaves that second method inherited. This is source evidence for a protocol counterexample, not a merged repair, new model discovery or full package qualification."
+    }
+  ],
+  "status": "counterexample"
+}

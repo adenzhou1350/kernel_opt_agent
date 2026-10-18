@@ -50,7 +50,10 @@ Use explicit attempt/token/time budgets and reviewed provider/effort settings.
 Record failed calls and actual usage; do not repair answers, retry failed rows
 or infer cost/quality from concurrency. Accepted parameters do not prove a
 gateway realized them. Distinguish format validity, exact source evidence and
-native correctness. See [effort and quote examples](references/scout_native_cpu_worked_routes.md#model-effort-before-fan-out).
+native correctness. A correct diagnosis may still suggest an incomplete repair;
+test inherited and reflected contracts as applicable. See the
+[known-case counterexample](references/scout_known_case_calibration.md) and
+[effort and quote examples](references/scout_native_cpu_worked_routes.md#model-effort-before-fan-out).
 
 ### Cache charge is not process memory or guaranteed spare capacity
 
