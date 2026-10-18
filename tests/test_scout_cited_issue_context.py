@@ -73,6 +73,17 @@ class CitationTests(unittest.TestCase):
         value = {"evidence": ANALYSIS["evidence"] + [source | {"quote": QUOTE}]}
         self.assertIsNone(cited_issue_number("a/b", [SOURCE, source], value))
 
+    def test_explicit_displayed_target_must_itself_be_exactly_quoted(self):
+        source = {"url": URL.replace("42", "43"), "text": QUOTE}
+        value = {"evidence": ANALYSIS["evidence"] + [source | {"quote": QUOTE}],
+                 "next_check": "Check #42 related PRs"}
+        self.assertEqual(cited_issue_number("a/b", [SOURCE, source], value), 42)
+        self.assertEqual(cited_issue_number("a/b", [SOURCE, source], value | {"next_check": "Check #43 related PRs"}), 43)
+        # Merely requesting a displayed issue is not enough: its own quote must
+        # pass verification, rather than borrowing another report's evidence.
+        value["evidence"] = ANALYSIS["evidence"]
+        self.assertIsNone(cited_issue_number("a/b", [SOURCE, source], value | {"next_check": "Check #43 related PRs"}))
+
     def test_budget_and_malformed_input_abstain(self):
         self.assertIsNone(cited_issue_number("a/b", [None], ANALYSIS))
         self.assertIsNone(cited_issue_number("a/b", [SOURCE], {"evidence": None}))
@@ -90,6 +101,62 @@ class CitationTests(unittest.TestCase):
 
 
 class FollowupTests(unittest.TestCase):
+    def test_focused_chain_checks_a_verified_related_issue_without_transferring_focus(self):
+        root_url = "https://github.com/a/b/issues/41"
+        root_source = {"url": root_url, "text": "Original report kernel.py boundary"}
+        cases = [
+            (ANALYSIS["evidence"], "Check #42 related PRs", 42),
+            ([{"url": URL, "quote": "invented quote that was never displayed"}], "Check #42 related PRs", 41),
+            ([{"url": URL.replace("42", "43"), "quote": QUOTE}], "Check #42 related PRs", 41),
+            ([{"url": URL.replace("a/b", "other/repo"), "quote": QUOTE}], "Check #42 related PRs", 41),
+            (ANALYSIS["evidence"] + [{"url": root_url, "quote": root_source["text"]}], "Check source", 41),
+            (ANALYSIS["evidence"] + [{"url": root_url, "quote": root_source["text"]}], "Check #42 related PRs", 42),
+            (ANALYSIS["evidence"], "Read #41 body", 41),
+        ]
+        for evidence, request, expected in cases:
+            with self.subTest(evidence=evidence, request=request), tempfile.TemporaryDirectory() as temporary:
+                root = Path(temporary)
+                scout.initialize(root)
+                config = root / "config.json"
+                spec = {"repo": "a/b", "source_prefixes": ["src/"], "question": "Check"}
+                config.write_text(json.dumps({"objective": "Evidence", "queue_target": 4, "repos": [spec]}))
+                context = Context()
+                producer = research.ResearchProducer(root, config, context=context)
+                primary = context.source("a/b", "a" * 40, "src/kernel.py")
+                producer.emit("focused-root", spec, [root_source, primary, SOURCE], "issue_triage", focus_issue=41)
+                analysis = {"title": "related kernel boundary", "next_check": request, "evidence": evidence}
+                with scout.connect(root) as db:
+                    row = db.execute("SELECT id FROM jobs").fetchone()
+                    db.execute("UPDATE jobs SET state='NEEDS_CONTEXT',result=?,finished=? WHERE id=?", (
+                        json.dumps({"analysis": analysis}), time.time(), row[0]))
+                related = {"sources": [{"url": "https://github.com/a/b/pull/81", "text": "Existing related work"}],
+                           "status": "PARTIAL_TIMELINE", "search_exhaustive": False}
+                with (patch.object(context, "issue_sources", return_value=[root_source]) as issues,
+                      patch.object(context, "issue_linked_pr_context", return_value=related) as timeline,
+                      patch.object(context, "issue_pr_context", create=True, return_value=related) as numeric,
+                      patch.object(context, "duplicate_sources") as titles):
+                    self.assertTrue(producer.followup(spec, {}))
+                issues.assert_called_once_with("a/b", 41)
+                if expected == 42:
+                    timeline.assert_called_once_with("a/b", 42)
+                    numeric.assert_not_called()
+                else:
+                    numeric.assert_called_once_with("a/b", 41)
+                    timeline.assert_not_called()
+                titles.assert_not_called()
+                with scout.connect(root) as db:
+                    child = json.loads(db.execute("SELECT packet FROM jobs ORDER BY created DESC LIMIT 1").fetchone()[0])
+                self.assertEqual(child["focus_issue"], 41)
+                self.assertEqual(child["research"]["root_job_id"], row[0])
+                self.assertEqual(child["research"]["parent_job_id"], row[0])
+                self.assertEqual(child["research"]["depth"], 1)
+                self.assertEqual(child["sources"][0], root_source)
+                self.assertIn(related["sources"][0], child["sources"])
+                self.assertFalse(child["issue_pr_lookup"]["search_exhaustive"])
+                if expected == 42:
+                    self.assertEqual(child["issue_pr_lookup"]["related_issue"], 42)
+                    self.assertFalse(child["issue_pr_lookup"]["candidate_focus_adopted"])
+
     def test_requested_related_body_replaces_other_lookups_without_adopting_focus(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

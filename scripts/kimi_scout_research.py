@@ -1869,21 +1869,22 @@ class ResearchProducer:
                     progress["pr_revision_context_error"] = type(exc).__name__
                 else:
                     progress.pop("pr_revision_context_error", None)
-            # An exactly quoted displayed issue supplies a bounded related-work
-            # query, not candidate focus or authority to fetch a model URL.
-            lookup_number = number or cited_issue_number(
+            # A verified displayed target gets the one related-work query,
+            # even when the chain started on another report. Keep its original
+            # focus/key/depth; never add a second lookup or fetch a model URL.
+            lookup_number = cited_issue_number(
                 spec["repo"], packet["sources"], analysis_value
-            )
+            ) or number
             related_prs = (
                 self.issue_pr_context(
-                    spec["repo"], lookup_number, prefer_timeline=not number
+                    spec["repo"], lookup_number, prefer_timeline=lookup_number != number
                 )
                 if (
                     body_number is None and requested_review is None
                     and lookup_number and not revisions
                 ) else None
             )
-            if related_prs is not None and not number:
+            if related_prs is not None and lookup_number != number:
                 related_prs = {
                     **related_prs, "related_issue": lookup_number,
                     "candidate_focus_adopted": False,

@@ -132,6 +132,17 @@ body-only requests retain their existing separate scope; partial comments
 and old deployed code can still miss the confirmation. No historical model
 answer is corrected or credit for avoided cost inferred from this routing test.
 
+An issue-focused chain can likewise move to a different displayed report.
+When `next_check` explicitly chooses that report and its own citation matches
+the supplied text, the same single related-work slot queries it without changing
+the original focus, chain key or depth cap. Multiple citations without an explicit
+verified target still abstain; invented, cross-repository or unquoted targets
+cannot redirect the lookup. The SGLang [#44789](https://github.com/sgl-project/sglang/issues/44789)
+follow-on already has [PR #44814](https://github.com/sgl-project/sglang/pull/44814),
+while the observed chain kept searching its original #38871 subject. Replaying
+the saved parent changes only the selected lookup, not its paid model result;
+this is neither a measured token saving nor a prospective discovery result.
+
 For an already selected Rust file, one explicit unqualified `definition(name)`
 can locate a unique `fn name(` or `fn name<` literal within the existing source
 window budget. `requested_rust_fn_literal` is a lexical location, including

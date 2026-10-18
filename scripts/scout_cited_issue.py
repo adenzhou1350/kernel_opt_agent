@@ -54,10 +54,12 @@ def related_issue_body(context, repo, number):
 
 
 def cited_issue_number(repo, sources, analysis):
-    """Return one unambiguous issue already displayed and exactly quoted.
+    """Return one displayed, exactly quoted related-work target.
 
+    An explicit next-check target disambiguates verified citations; without one,
+    multiple issues abstain. The requested issue must itself be exactly quoted.
     Inspect at most five citations and 25 bounded source excerpts. Malformed,
-    ambiguous, cross-repository, comment-only and invented references abstain.
+    cross-repository, comment-only and invented references abstain.
     A comment additionally requires its canonical parent issue to be displayed.
     The caller constructs its existing controller-owned API query from the number.
     """
@@ -100,4 +102,7 @@ def cited_issue_number(repo, sources, analysis):
             and any(quote in text for text in displayed.get(url, []))
         ):
             numbers.add(int(match[2]))
+    requested = requested_issue_number(repo, sources, analysis)
+    if requested is not None:
+        return requested if requested in numbers else None
     return numbers.pop() if len(numbers) == 1 else None
