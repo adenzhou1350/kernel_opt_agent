@@ -671,8 +671,13 @@ the changed source passed; unchanged production with the same added tests
 failed only the two snapshot-reuse assertions. The suite's randomized cache
 stress test produced different assertion totals, so those totals are not a
 matched case inventory. An unchanged five-case native Node witness supplied
-the separate strict old/new comparison. These are local observations, not
-upstream CI or discovery-policy effectiveness.
+the separate strict old/new comparison. A subsequent actual `npm test` capture
+also ran the project's pretest/build and generated coverage. The supplied
+`tap report json-summary text-summary` read those saved V8 files without a test
+rerun and reported 100% in all four standard coverage metrics for the four
+mapped source files. Keep the raw-file identities: reporter silence can mean
+the default hides complete coverage, not that coverage was absent. These are
+local observations, not upstream CI or discovery-policy effectiveness.
 
 Also distinguish virtual address reservation from resident memory. A 4 GiB
 `RLIMIT_AS` prevented the CLI's WASM report dependency from initializing,

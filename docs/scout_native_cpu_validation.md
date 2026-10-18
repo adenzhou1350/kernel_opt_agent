@@ -47,6 +47,14 @@ into a claim of authorship. This is that organization's policy, not a universal
 AI ban. Recheck current effective rules before publication. A successful native
 run changes technical evidence, not contributor eligibility or PR conversion.
 
+A short repository-local guide is not necessarily a waiver of an owner's
+explicit all-project guidance. For example, [isaacs' guide](https://github.com/isaacs/.github/blob/cfc3974c544c435869c2fd3483b303c919409d40/CONTRIBUTING.md)
+requires the human contributor to demonstrate deep understanding of AI-assisted
+changes, as well as coverage preservation. Read its companion AGENTS guidance
+before preparing public text/commits. A tested patch and generic permission to
+publish do not establish that understanding. This is a scoped policy check,
+not an inferred AI ban or a reason to crawl unrelated personal pages.
+
 For a pytest export nested under another repository, also read the
 [root/configuration note](references/scout_native_cpu_validation_notes.md#keep-test-process-temporary-paths-short-and-private)
 before freezing expected JUnit IDs. `cwd` and disabled plugin autoload do not stop
