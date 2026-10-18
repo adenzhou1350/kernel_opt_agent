@@ -156,6 +156,45 @@ class ObserverTests(unittest.TestCase):
             self.assertIn("captured-only", child.stderr)
             self.assertNotIn("must not execute", child.stdout + child.stderr)
 
+    def test_cli_named_case_loads_from_reviewed_working_directory(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "test_contract.py").write_text(
+                "import unittest\nclass Contract(unittest.TestCase):\n"
+                "    def test_ok(self): self.assertEqual(3 * 3, 9)\n", encoding="utf-8")
+            name = "test_contract.Contract.test_ok"
+            env = dict(os.environ, PYTHONPATH="", PYTHONDONTWRITEBYTECODE="1")
+            native = subprocess.run([sys.executable, "-B", "-m", "unittest", name],
+                                    cwd=root, env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(native.returncode, 0, native.stderr)
+            report = root / "observation.json"
+            child = subprocess.run([sys.executable, "-B", observer.__file__, "--report", str(report), name],
+                                   cwd=root, env=env, capture_output=True, text=True, timeout=10)
+            self.assertEqual(child.returncode, 0, child.stderr)
+            data = json.loads(report.read_bytes())
+            self.assertEqual(data["tests_run"], 1)
+            self.assertTrue(data["was_successful"])
+            self.assertEqual(data["events"], [{"action": action, "test": name}
+                                              for action in ("start", "success", "stop")])
+
+    def test_cli_does_not_restore_cwd_import_under_isolated_python(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            (root / "test_contract.py").write_text(
+                "raise RuntimeError('cwd module must not import')\n", encoding="utf-8")
+            native = subprocess.run([sys.executable, "-I", "-B", "-m", "unittest", "test_contract"],
+                                    cwd=root, capture_output=True, text=True, timeout=10)
+            report = root / "observation.json"
+            child = subprocess.run(
+                [sys.executable, "-I", "-B", observer.__file__, "--report", str(report), "test_contract"],
+                cwd=root, capture_output=True, text=True, timeout=10)
+            self.assertEqual(native.returncode, 1)
+            self.assertEqual(child.returncode, 1)
+            for result in (native, child):
+                self.assertIn("No module named 'test_contract'", result.stderr)
+                self.assertNotIn("cwd module must not import", result.stderr)
+            self.assertFalse(json.loads(report.read_bytes())["was_successful"])
+
 
 if __name__ == "__main__":
     unittest.main()

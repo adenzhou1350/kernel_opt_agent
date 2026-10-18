@@ -113,4 +113,9 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # A file entry point normally puts its tool directory at sys.path[0],
+    # whereas `python -m unittest` puts the caller's working directory there.
+    # Match module-mode name loading, but honor -I/-P/PYTHONSAFEPATH exclusions.
+    if not getattr(sys.flags, "safe_path", False):
+        sys.path[0] = str(Path.cwd())
     raise SystemExit(main())

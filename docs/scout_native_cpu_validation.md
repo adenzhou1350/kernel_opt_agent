@@ -109,6 +109,9 @@ inside the existing authorized execution controls. It delegates to the actual
 unittest loader/runner, keeps the normal terminal log, and records start/stop,
 success/failure/error, skips, subtests and expected/unexpected outcomes without
 deduplicating repeated names. The native runtime exporter includes this helper.
+Named-case CLI loading uses the reviewed working directory like
+`python -m unittest`, unless Python's `-I`/`-P`/`PYTHONSAFEPATH` excludes it.
+Those exclusions are honored, not bypassed to make a test import succeed.
 
 The JSON is an observation, **not another `scout_native_run --format`**, execution
 authority or a complete-discovery verdict. Preserve captured process exit and log
