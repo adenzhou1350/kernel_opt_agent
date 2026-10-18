@@ -153,6 +153,51 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(json.loads(destination.read_text()), {"state": "RUNNING"})
         self.assertFalse(list(self.root.glob(".status.json.*.tmp")))
 
+    def test_atomic_json_write_does_not_reuse_existing_thread_tempfile(self):
+        destination = self.root / 'status.json'
+        previous = self.root / f'.status.json.{os.getpid()}.{threading.get_ident()}.tmp'
+        previous.write_text('previous writer', encoding='utf-8')
+        scout.write_json(destination, {'state': 'RUNNING'})
+        self.assertEqual(json.loads(destination.read_text()), {'state': 'RUNNING'})
+        self.assertTrue(previous.is_file())
+        self.assertEqual(previous.read_text(), 'previous writer')
+        self.assertEqual(list(self.root.glob('.status.json.*.tmp')), [previous])
+
+    @unittest.skipUnless(sys.platform == 'win32', 'Native Windows file-sharing contract')
+    def test_atomic_json_write_avoids_a_read_locked_previous_tempfile(self):
+        import ctypes
+        from ctypes import wintypes
+
+        destination = self.root / 'status.json'
+        previous = self.root / f'.status.json.{os.getpid()}.{threading.get_ident()}.tmp'
+        previous.write_text('previous writer', encoding='utf-8')
+        kernel = ctypes.WinDLL('kernel32', use_last_error=True)
+        kernel.CreateFileW.argtypes = [
+            wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID,
+            wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE,
+        ]
+        kernel.CreateFileW.restype = wintypes.HANDLE
+        kernel.CloseHandle.argtypes = [wintypes.HANDLE]
+        kernel.CloseHandle.restype = wintypes.BOOL
+        # A lingering reader permits reads, but denies reopening for write/delete.
+        handle = kernel.CreateFileW(str(previous), 0x80000000, 1, None, 3, 0x80, None)
+        if handle == ctypes.c_void_p(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
+        self.addCleanup(kernel.CloseHandle, handle)
+        scout.write_json(destination, {'state': 'RUNNING'})
+        self.assertEqual(json.loads(destination.read_text()), {'state': 'RUNNING'})
+        self.assertEqual(previous.read_text(), 'previous writer')
+
+    def test_atomic_json_write_terminal_replace_failure_preserves_destination(self):
+        destination = self.root / 'status.json'
+        destination.write_text('{"state":"OLD"}', encoding='utf-8')
+        with patch.object(scout.os, 'replace', side_effect=PermissionError('still open')) as replace:
+            with patch.object(scout.time, 'sleep'), self.assertRaises(PermissionError):
+                scout.write_json(destination, {'state': 'NEW'})
+        self.assertEqual(replace.call_count, 5)
+        self.assertEqual(json.loads(destination.read_text()), {'state': 'OLD'})
+        self.assertFalse(list(self.root.glob('.status.json.*.tmp')))
+
     def test_content_dedup_across_moving_revision(self):
         a = scout.enqueue(self.root, packet())
         b = scout.enqueue(self.root, packet(revision="b" * 40))

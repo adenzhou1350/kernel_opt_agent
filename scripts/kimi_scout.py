@@ -18,6 +18,7 @@ import shutil
 import sqlite3
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
@@ -169,11 +170,13 @@ def dumps(value):
 
 def write_json(path, value):
     path = Path(path)
-    temporary = path.with_name(
-        f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp"
+    descriptor, name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=path.parent,
     )
+    temporary = Path(name)
     try:
-        temporary.write_text(dumps(value) + "\n", encoding="utf-8")
+        with os.fdopen(descriptor, 'w', encoding='utf-8') as stream:
+            stream.write(dumps(value) + "\n")
         for attempt in range(5):
             try:
                 os.replace(temporary, path)
