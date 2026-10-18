@@ -69,6 +69,43 @@ admissions. These are proposed controls, not an executed comparison or proof
 that our narrower research question is novel. The closed unavailable/negative
 cohorts remain unchanged; do not recycle exposed cases into a fresh test split.
 
+### Test volume is not evidence value (2026-10-18)
+
+[Rethinking the Value of Agent-Generated Tests](https://arxiv.org/html/2602.07900v2),
+sections 2, 5 and 6, studies six models' SWE-bench Verified trajectories and
+prompt interventions on four models using mini-SWE-agent. Changing how often
+agents write tests did not significantly change final outcomes in that setting;
+interaction costs did change. This does not establish that native verification
+is useless, or isolate which observation to acquire next. Section 6.2 already
+proposes feedback-adapted testing policies and matched-budget comparisons.
+Therefore neither adaptive testing nor measuring its cost is a new idea here.
+
+This changes our experimental priority: distinguish a useful observation from
+the decision to select it. A fixed, contract-relevant native check is the direct
+comparator for a learned selector; an arbitrary first test is not an adequate
+stand-in. Keep generated-test assumptions separate from independently supported
+API contracts. Compare unchanged source, the candidate, and relevant passing
+controls with the same witness before crediting a repair. Successful test
+execution alone does not establish an oracle, consumer reachability or PR value.
+These are design inferences, not measured selector gains or a new trial.
+
+For a complete-system comparison, [Agentless](https://arxiv.org/abs/2407.01489v2)
+provides localization, repair and validation without model-directed future
+actions; [SWE-Search](https://arxiv.org/abs/2410.20285v6) instead uses MCTS and
+iterative feedback. Our source-only prompts or three-action menu reproduce
+neither system. Pin and run the applicable original implementation, or label
+the adaptation and its differences; do not attach a published method name to
+a smaller passing baseline. Full-system comparisons and single-action ablations
+answer different questions and need separate accounting.
+
+The completed [two-slot diagnostic](scout_source_inception_pilot_v2_results.md)
+does not justify expanding selector complexity or repeating exposed cases.
+Improve native admission and executable contract coverage in ordinary delivery
+first. Reopen an efficacy trial only with fresh groups, comparable action
+capacity, independent outcome checks and measured total-cost components. The
+existing Scrouting discussion below separately cautions against attributing a
+verified handoff's benefit to routing.
+
 Consequently, a model hierarchy, proactive PR search, abstention, or collecting
 failed optimizations is not by itself our contribution. A remaining **unproven**
 question is whether choosing an executable next observation improves verified
