@@ -22,7 +22,7 @@ import scout_native_results as native
 
 RUNTIME_FILES = ("scout_native_run.py", "scout_native_results.py", "qualification_source_bundle.py",
                  "scout_native_windows.py", "scout_bun_junit.py", "scout_dependency_tree.py",
-                 "scout_unittest.py")
+                 "scout_unittest.py", "scout_catch2_xml.py")
 
 
 def export_runtime(output):
@@ -171,6 +171,11 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         arg.startswith(("--gtest_output", "--gtest_repeat")) for arg in command[1:]
     ):
         raise ValueError("the runner owns the fresh GoogleTest report; repeated runs overwrite XML")
+    if format == "catch2-v2-xml" and any(
+        arg == "--" or (arg.startswith("-") and not arg.startswith("--"))
+        or arg.startswith(("--reporter", "--out", "--success")) for arg in command[1:]
+    ):
+        raise ValueError("the runner owns Catch2 v2 XML/success/output options; use long forms for other options")
     before = source_identities(cwd, sources)
     # Validate accounting inputs before executing anything, including empty targets.
     native.summarize("", format=format, exit_code=0,
@@ -209,6 +214,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         command.append(f"--gtest_output=xml:{output / 'gtest.xml'}")
     elif format == "bun-junit":
         command.extend(['--reporter=junit', f"--reporter-outfile={output / 'bun.xml'}"])
+    elif format == "catch2-v2-xml":
+        command.extend(["--reporter", "xml", "--success", "--out", str(output / "catch2.xml")])
     started = time.monotonic()
     if native_windows:
         import scout_native_windows
@@ -238,9 +245,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if not issues:
         try:
             text = (output / "terminal.log").read_text(encoding="utf-8")
-            if format in {"pytest-junit", "vitest-json", "gtest-xml", "bun-junit"}:
+            if format in {"pytest-junit", "vitest-json", "gtest-xml", "bun-junit", "catch2-v2-xml"}:
                 report_name = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
-                               "gtest-xml": "gtest.xml", "bun-junit": "bun.xml"}[format]
+                               "gtest-xml": "gtest.xml", "bun-junit": "bun.xml",
+                               "catch2-v2-xml": "catch2.xml"}[format]
                 report_path = output / report_name
                 if report_path.is_symlink() or not report_path.is_file():
                     raise ValueError("missing or non-regular test report")

@@ -323,6 +323,47 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(result["test_report"], {"path": str(report), "sha256": runner.digest(report)})
         self.assertIn("native assertion diagnostics", (self.root / "output/terminal.log").read_text())
 
+    def test_catch2_capture_owns_xml_and_success_options(self):
+        from test_scout_catch2_xml import case, report
+        from xml.etree import ElementTree as ET
+
+        text = ET.tostring(report(case(assertions=(True, True))), encoding="unicode")
+        script = self.root / "fake_catch.py"
+        script.write_text("import sys; from pathlib import Path; "
+                          "assert sys.argv[-5:-1]==['--reporter','xml','--success','--out']; "
+                          "Path(sys.argv[-1]).write_text(" + repr(text) + ",encoding='utf-8'); "
+                          "print('retained native diagnostics')", encoding="utf-8")
+        result = self.execute("", command=[sys.executable, str(script)], format="catch2-v2-xml")
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        self.assertEqual(result["summary"]["passed"], 1)
+        self.assertEqual(result["summary"]["catch2_xml"]["assertions"]["passed"], 2)
+        path = self.root / "output/catch2.xml"
+        self.assertEqual(result["test_report"], {"path": str(path), "sha256": runner.digest(path)})
+        self.assertIn("retained native diagnostics", (self.root / "output/terminal.log").read_text())
+
+    def test_catch2_assertions_failed_is_a_test_failure_not_an_abnormal_exit(self):
+        from test_scout_catch2_xml import case, report
+        from xml.etree import ElementTree as ET
+
+        text = ET.tostring(report(case(assertions=(False, False))), encoding="unicode")
+        script = self.root / "fake_catch.py"
+        script.write_text("import sys; from pathlib import Path; "
+                          "Path(sys.argv[-1]).write_text(" + repr(text) + ",encoding='utf-8'); "
+                          "sys.exit(2)", encoding="utf-8")
+        result = self.execute("", command=[sys.executable, str(script)], format="catch2-v2-xml")
+        self.assertEqual(result["status"], "TESTS_FAILED")
+        self.assertEqual(result["summary"]["failed"], 1)
+        self.assertEqual(result["summary"]["catch2_xml"]["assertions"]["failed"], 2)
+
+    def test_catch2_report_success_short_clusters_and_separator_rejected_before_launch(self):
+        for flag in ("--reporter", "--reporter=junit", "--out=old.xml", "--out", "--success=false",
+                     "--success", "-rxml", "-oold.xml", "-s", "-srxml", "--"):
+            with self.subTest(flag=flag), patch.object(runner.subprocess, "Popen") as child:
+                with self.assertRaisesRegex(ValueError, "runner owns"):
+                    self.execute("", command=[sys.executable, flag], format="catch2-v2-xml")
+                child.assert_not_called()
+            self.assertFalse((self.root / "output").exists())
+
     def test_gtest_output_repeat_flags_and_environment_rejected_before_launch(self):
         from unittest.mock import patch
 
@@ -595,6 +636,9 @@ class WindowsProcessTests(unittest.TestCase):
     test_preexisting_junit_output_argument_rejected_before_launch = ProcessTests.test_preexisting_junit_output_argument_rejected_before_launch
     test_gtest_capture_owns_report_and_keeps_terminal_log = ProcessTests.test_gtest_capture_owns_report_and_keeps_terminal_log
     test_gtest_output_repeat_flags_and_environment_rejected_before_launch = ProcessTests.test_gtest_output_repeat_flags_and_environment_rejected_before_launch
+    test_catch2_capture_owns_xml_and_success_options = ProcessTests.test_catch2_capture_owns_xml_and_success_options
+    test_catch2_assertions_failed_is_a_test_failure_not_an_abnormal_exit = ProcessTests.test_catch2_assertions_failed_is_a_test_failure_not_an_abnormal_exit
+    test_catch2_report_success_short_clusters_and_separator_rejected_before_launch = ProcessTests.test_catch2_report_success_short_clusters_and_separator_rejected_before_launch
     test_vitest_capture_owns_json_and_keeps_terminal_log = ProcessTests.test_vitest_capture_owns_json_and_keeps_terminal_log
     test_failed_test_is_not_process_failure_only = ProcessTests.test_failed_test_is_not_process_failure_only
     test_cpu_accounting_survives_an_assertion_failure = ProcessTests.test_cpu_accounting_survives_an_assertion_failure

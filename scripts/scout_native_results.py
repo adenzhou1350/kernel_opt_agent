@@ -15,11 +15,14 @@ from xml.etree import ElementTree
 
 try:
     from .scout_bun_junit import summarize as summarize_bun_junit
+    from .scout_catch2_xml import summarize as summarize_catch2_xml
 except ImportError:
     from scout_bun_junit import summarize as summarize_bun_junit
+    from scout_catch2_xml import summarize as summarize_catch2_xml
 
 MAX_BYTES = 2 * 1024 * 1024
-FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json", "bun-junit")
+FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json", "bun-junit",
+           "catch2-v2-xml")
 RUST_SUMMARY = re.compile(
     r"test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
     r"(\d+) measured; (\d+) filtered out; finished in [0-9.]+s"
@@ -488,6 +491,7 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
     rust_cases = {}
     vitest = None
     bun_junit = None
+    catch2_xml = None
     inventory = {} if include_inventory else None
 
     def issue(message):
@@ -507,6 +511,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
         counts, seen, batches, terminal, vitest = _vitest(text, exit_code, expected_results, issue)
     elif format == "bun-junit":
         counts, seen, batches, terminal, bun_junit = summarize_bun_junit(text, exit_code, expected_results, issue)
+    elif format == "catch2-v2-xml":
+        counts, seen, batches, terminal, catch2_xml = summarize_catch2_xml(text, exit_code, expected_results, issue)
 
     for line in text.splitlines() if format in {"go-json", "rust-libtest"} else ():
         if format == "go-json":
@@ -622,6 +628,8 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
         result["vitest"] = vitest
     if bun_junit is not None:
         result["bun_junit"] = bun_junit
+    if catch2_xml is not None:
+        result["catch2_xml"] = catch2_xml
     if format == "gtest-xml":
         result["disabled"] = counts["disabled"]  # subset of skipped, not additive
     if inventory is not None:
