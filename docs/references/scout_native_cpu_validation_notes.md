@@ -59,6 +59,17 @@ temporary directories, disable journaling, or force all temporary work into RAM.
 
 ## Collection skips are not executed tests
 
+Also distinguish **uncollected files** from skips. At
+[Voluptuous 44593ce7](https://github.com/alecthomas/voluptuous/blob/44593ce7c330faf9418252c4b5448f4736144a7f/pyproject.toml),
+`python_files = "tests.py"` excludes `test_dataclasses.py` from the directory
+selection used by tox. The existing author's [PR #555](https://github.com/alecthomas/voluptuous/pull/555)
+acknowledges this and puts its regressions in the normally collected file.
+Require intended case identities from each affected file, not only a passing
+unrelated sentinel or a total. A directory-plus-file command is not collection
+proof; inspect its resulting inventory. A separately declared filename-pattern
+override can validate an expanded selection, but does not repair the original
+missing-case result or prove CI coverage. Preserve both commands and costs.
+
 Pytest can report a whole skipped module as a JUnit `testcase` with an empty
 `classname`, a module name, and `skipped message="collection skipped"`.
 The native result reader retains that exact form as an `@collection::...` skip

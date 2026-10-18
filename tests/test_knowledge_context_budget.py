@@ -424,6 +424,23 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
         self.assertEqual(result["oversized_matches_omitted"], 0)
 
+    def test_pytest_collection_advice_keeps_missing_cases_distinct_from_failures(self):
+        result = lesson_suggestions(
+            "pytest python_files test_dataclasses directory collection",
+            source_urls=[
+                "https://raw.githubusercontent.com/alecthomas/voluptuous/"
+                "44593ce7c330faf9418252c4b5448f4736144a7f/pyproject.toml"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "pytest-collection-before-suite-claims")
+        self.assertIn("actual collected case identities", card["lesson"])
+        self.assertIn("missing case is not a failed assertion", card["avoid_when"])
+        self.assertIn("Existing PR #555", card["lesson"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_native_guard_advice_keeps_safe_kernel_witness_scope(self):
         result = lesson_suggestions(
             "KDA padded key mask NaN gate guard",
