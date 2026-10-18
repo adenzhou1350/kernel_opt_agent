@@ -71,6 +71,14 @@ private HOME/caches and resource limits. No production queue/credentials or
 model-generated code need move or execute. A stopped process with pending jobs
 is not a drained batch. See [copyable commands](references/scout_native_cpu_worked_routes.md#finite-public-batch-without-a-task-specific-executor).
 
+When work remains pending, inspect `runtime.budget_admission` alongside the
+memory/commit/disk pause fields. `TOKEN_BUDGET` reports the rolling charge and
+next conservative reservation: UTF-8 input **bytes** + output-token allowance +
+2,048 overhead. That reservation is not measured provider usage or a price.
+`CALL_LIMIT` reports the rolling attempt cap. A null observation means this
+iteration did not reach the queue budget check; it does not mean budget passed.
+Do not increase caps or disable resource guards merely to make a batch drain.
+
 ## Commit-exact source before native validation
 
 `qualification_source_bundle.py --build` / `--verify` exports raw committed

@@ -507,26 +507,31 @@ def retry_locked(operation):
 
 def claim(
     root, max_jobs, token_budget, output_tokens, preferred_stages=(),
-    *, fair_repos=False
+    *, fair_repos=False, observation=None
 ):
-    if not fair_repos:
-        return retry_locked(
-            lambda: _claim_once(
-                root, max_jobs, token_budget, output_tokens, preferred_stages
-            )
-        )
+    options = {}
+    if fair_repos:
+        options["fair_repos"] = True
+    if observation is not None:
+        options["observation"] = observation
     return retry_locked(
         lambda: _claim_once(
             root, max_jobs, token_budget, output_tokens, preferred_stages,
-            fair_repos=fair_repos,
+            **options,
         )
     )
 
 
 def _claim_once(
     root, max_jobs, token_budget, output_tokens, preferred_stages,
-    *, fair_repos=False
+    *, fair_repos=False, observation=None
 ):
+    def observe(**fields):
+        if observation is not None:
+            observation.clear()
+            observation.update(fields)
+
+    observe(status="CHECKING")
     with connect(root) as db:
         db.execute("BEGIN IMMEDIATE")
         if fair_repos:
@@ -563,6 +568,7 @@ def _claim_once(
                 "SELECT * FROM jobs WHERE state='PENDING' ORDER BY created LIMIT 1"
             ).fetchone()
         if row is None:
+            observe(status="NO_PENDING_JOB")
             return None
         # Uncapped runs still record usage, but need no history scan per claim.
         if max_jobs or token_budget:
@@ -571,15 +577,21 @@ def _claim_once(
                 (time.time() - 86400,),
             ).fetchone()
             if max_jobs and recent[0] >= max_jobs:
+                observe(status="CALL_LIMIT", attempted_24h=recent[0], limit=max_jobs)
                 return None
         # Conservative byte-based input allowance; not a currency quotation.
         reserve = len((SYSTEM + row["packet"]).encode("utf-8")) + output_tokens + 2048
         if token_budget and recent[1] + reserve > token_budget:
+            observe(status="TOKEN_BUDGET", charged_or_reserved_24h=recent[1],
+                    next_reservation=reserve, limit=token_budget,
+                    input_bytes=reserve - output_tokens - 2048,
+                    output_token_allowance=output_tokens, overhead_allowance=2048)
             return None
         db.execute(
             "UPDATE jobs SET state='RUNNING',started=?,charge=? WHERE id=?",
             (time.time(), reserve, row["id"]),
         )
+        observe(status="ADMITTED", reservation=reserve)
         return dict(row, charge=reserve)
 
 
@@ -1007,6 +1019,7 @@ def run(args):
             "min_free_disk_mb": getattr(args, "min_free_disk_mb", 0),
             "daily_max_calls": args.max_jobs or None,
             "daily_token_budget": args.token_budget or None,
+            "budget_admission": None,
             "cooldown_until": cooldown_until or None,
             "next_feed_at": time.time() if args.feeds else None,
             "research_mode": bool(research_path),
@@ -1123,6 +1136,7 @@ def run(args):
                     commit_mb = available_commit_headroom_mb() if reserve or worker_memory else None
                     disk_reserve = getattr(args, "min_free_disk_mb", 0)
                     disk_free_mb = available_disk_mb(root) if disk_reserve else None
+                    budget_admission = None
                     while (
                         len(running) < (1 if error_cycles else args.concurrency)
                         and failures < 2
@@ -1141,6 +1155,7 @@ def run(args):
                             disk_free_mb is None or disk_free_mb < disk_reserve
                         ):
                             break
+                        budget_admission = {}
                         job = claim(
                             root,
                             args.max_jobs,
@@ -1150,6 +1165,7 @@ def run(args):
                             if getattr(args, "review_priority", False)
                             else (),
                             fair_repos=bool(research_path),
+                            observation=budget_admission,
                         )
                         if job is None:
                             break
@@ -1183,6 +1199,7 @@ def run(args):
                         )
                     publish(
                         active=len(running),
+                        budget_admission=budget_admission,
                         admission_limit=1 if error_cycles else args.concurrency,
                         recovery_probe=bool(error_cycles and not cooldown_until),
                         provider_error_cycles=error_cycles,

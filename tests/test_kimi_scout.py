@@ -299,6 +299,35 @@ class ScoutTests(unittest.TestCase):
         self.assertIsNone(scout.claim(self.root, 12, 100, 2048))
         self.assertEqual(scout.status(self.root)["jobs"][0]["state"], "PENDING")
 
+    def test_claim_observation_explains_reservation_without_source_or_new_claim(self):
+        self.add()
+        observation = {"stale": "value"}
+        self.assertIsNone(scout.claim(self.root, 12, 100, 2048, observation=observation))
+        self.assertEqual(observation["status"], "TOKEN_BUDGET")
+        self.assertEqual(observation["charged_or_reserved_24h"], 0)
+        self.assertEqual(observation["next_reservation"],
+                         observation["input_bytes"] + 2048 + 2048)
+        self.assertGreater(observation["next_reservation"], observation["limit"])
+        self.assertNotIn("stale", observation)
+        self.assertNotIn("return values", json.dumps(observation))
+        self.assertEqual(scout.status(self.root)["jobs"][0]["state"], "PENDING")
+        job = scout.claim(self.root, 0, 0, 2048, observation=observation)
+        self.assertEqual(observation, {"status": "ADMITTED", "reservation": job["charge"]})
+        self.assertIsNone(scout.claim(self.root, 0, 0, 2048, observation=observation))
+        self.assertEqual(observation, {"status": "NO_PENDING_JOB"})
+
+    def test_claim_observation_preserves_call_limit_and_fair_selection(self):
+        self.add("one")
+        self.add("two")
+        observation = {}
+        self.assertIsNotNone(scout.claim(self.root, 1, 0, 2048, fair_repos=True,
+                                        observation=observation))
+        self.assertIsNone(scout.claim(self.root, 1, 0, 2048, fair_repos=True,
+                                     observation=observation))
+        self.assertEqual(observation, {"status": "CALL_LIMIT", "attempted_24h": 1, "limit": 1})
+        self.assertEqual(sorted(j["state"] for j in scout.status(self.root)["jobs"]),
+                         ["PENDING", "RUNNING"])
+
     def test_explicit_zero_caps_allow_work_and_still_account(self):
         self.add()
         job = scout.claim(self.root, 0, 0, 4096)
@@ -408,6 +437,10 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(current["runtime"]["attempted_this_run"], 0)
         self.assertEqual(current["jobs"][0]["state"], "PENDING")
         self.assertIn("pending work not admitted", current["runtime"]["reason"])
+        admission = current["runtime"]["budget_admission"]
+        self.assertEqual(admission["status"], "TOKEN_BUDGET")
+        self.assertEqual(admission["limit"], 1024)
+        self.assertGreater(admission["charged_or_reserved_24h"] + admission["next_reservation"], 1024)
 
     def test_once_memory_stop_preserves_pending_job_and_explains_admission(self):
         self.add()
@@ -417,6 +450,7 @@ class ScoutTests(unittest.TestCase):
         execute.assert_not_called()
         self.assertEqual(current["jobs"][0]["state"], "PENDING")
         self.assertTrue(current["runtime"]["memory_paused"])
+        self.assertIsNone(current["runtime"]["budget_admission"])
         self.assertIn("pending work not admitted", current["runtime"]["reason"])
 
     def test_once_empty_queue_reports_actual_drain(self):
