@@ -462,8 +462,9 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
     test failure. Preserve observed assertions but classify the run inconclusive.
     Shell-normalized positive codes do not reliably identify a signal.
     Optional inventory retains pytest outcomes/skip details or per-name Go
-    outcome multiplicities, including parents and repeats. The default result
-    shape does not change.
+    outcome multiplicities, including parents and repeats. Ordinary results
+    keep their shape; a pytest report with only missing expected identities may
+    include bounded advisory examples, never automatic identity substitutions.
     """
     if format not in FORMATS:
         raise ValueError("unsupported native test format")
@@ -625,6 +626,17 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
             "log_sha256": hashlib.sha256(text.encode("utf-8")).hexdigest(),
             "boundary": "Observed log accounting only; not authenticity, test quality, "
                         "source/runtime identity, caller reachability, performance or PR qualification."}
+    if format == "pytest-junit" and missing and issues == ["expected test did not execute"]:
+        result["expected_identity_help"] = {
+            "syntax": "<classname>::<name> from the captured JUnit testcase attributes",
+            "observed_executed_examples": sorted(seen)[:8],
+            "observed_executed_identity_count": len(seen),
+            "caution": "Observed examples are not automatic replacements for declared tests. "
+                       "pytest CLI node IDs and JUnit identities can differ. Review the intended "
+                       "module, class and parameter selection before analyzing the same capture "
+                       "with corrected IDs; keep the original inconclusive report. Do not rerun "
+                       "an unchanged native command merely to repair analyzer arguments.",
+        }
     if vitest is not None:
         result["vitest"] = vitest
     if bun_junit is not None:

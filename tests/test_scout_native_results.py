@@ -152,6 +152,50 @@ class NativeResultsTests(unittest.TestCase):
                      junit(("test_case", None)).replace("tests.test_contract", "tests.other")):
             self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
 
+    def test_junit_node_id_diagnostic_never_substitutes_or_passes_missing_tests(self):
+        wrong_id = "tests/test_contract.py::test_case[value]"
+        text = junit(("test_case[value]", None))
+        value = self.junit(text, expected_tests=(wrong_id,))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual(value["issues"], ["expected test did not execute"])
+        self.assertEqual(value["missing_expected_tests"], [wrong_id])
+        self.assertEqual(value["expected_test_results"][wrong_id]["passed"], 0)
+        help_ = value["expected_identity_help"]
+        self.assertEqual(help_["observed_executed_examples"],
+                         ["tests.test_contract::test_case[value]"])
+        self.assertIn("not automatic replacements", help_["caution"])
+        corrected = self.junit(text, expected_tests=("tests.test_contract::test_case[value]",))
+        self.assertEqual(corrected["status"], "TESTS_PASSED")
+        self.assertNotIn("expected_identity_help", corrected)
+
+    def test_junit_missing_identity_examples_are_bounded_and_exclude_skips(self):
+        text = junit(*[(f"test_{i:02}", None) for i in range(12)],
+                     ("test_skipped", "skipped"))
+        value = self.junit(text, expected_tests=("tests.other::test_missing",))
+        help_ = value["expected_identity_help"]
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual(help_["observed_executed_identity_count"], 12)
+        self.assertEqual(help_["observed_executed_examples"],
+                         [f"tests.test_contract::test_{i:02}" for i in range(8)])
+
+    def test_junit_failed_case_with_wrong_identity_stays_inconclusive(self):
+        value = self.junit(junit(("test_case", "failure")), 1,
+                           expected_tests=("wrong.module::test_case",))
+        self.assertEqual((value["status"], value["failed"]), ("INCONCLUSIVE", 1))
+        self.assertEqual(value["missing_expected_tests"], ["wrong.module::test_case"])
+        self.assertEqual(value["expected_identity_help"]["observed_executed_examples"],
+                         ["tests.test_contract::test_case"])
+
+    def test_junit_identity_help_does_not_lend_validity_to_malformed_reports(self):
+        for text in (junit(("test_case", None)).replace('tests="1"', 'tests="2"'),
+                     junit(("test_case", None), ("test_case", None)),
+                     junit(("test_case", "error")),
+                     junit(("test_case", "skipped"))):
+            with self.subTest(text=text):
+                value = self.junit(text, expected_tests=("wrong.py::test_missing",))
+                self.assertEqual(value["status"], "INCONCLUSIVE")
+                self.assertNotIn("expected_identity_help", value)
+
     def test_junit_exit_consistency_and_pytest_abnormal_exit(self):
         for text, code in ((junit(("test_case", None)), 1),
                            (junit(("test_case", "failure")), 0),

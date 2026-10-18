@@ -186,6 +186,14 @@ The native runner still needs 1..64 exact expected-case anchors; `None` does
 not mean "all tests." Run the whole reviewed selection, then compare its complete
 report inventory with the wider-suite comparator. Anchors alone are not proof
 of full coverage; do not narrow the test command or raise limits to fit them.
+For pytest JUnit, anchors are the captured `<testcase>` attributes joined as
+`classname::name`, not necessarily CLI node IDs. For example,
+`tests/test_contract.py::test_case[value]` can be reported as
+`tests.test_contract::test_case[value]`. When this is the only accounting issue,
+`expected_identity_help` shows at most eight executed-name examples, without
+substitution or changing the inconclusive verdict. Review module/class/parameter
+identity, retain the original report and reanalyze the same XML with corrected
+arguments; this does not require rerunning successful native captures.
 Duplicate collection skips are another producer limitation: `--doctest-modules`
 may merge two `<skipped>` children into one module record while counting both
 events in the suite totals. Equal malformed records across both arms are still
