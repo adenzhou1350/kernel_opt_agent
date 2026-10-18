@@ -145,8 +145,17 @@ def build_packet(local_repo, spec, *, with_lessons=False):
             source_urls=[s["url"] for s in sources],
         )
     scout.fit_lesson_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
-    if len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8")) > scout.MAX_INPUT_BYTES:
-        raise ValueError("packet exceeds input budget; select narrower source windows")
+    input_bytes = len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
+    if input_bytes > scout.MAX_INPUT_BYTES:
+        source_sizes = ", ".join(
+            f"{path}={len(entry['text'].encode('utf-8'))}"
+            for path, entry in zip(by_path, sources)
+        )
+        raise ValueError(
+            f"packet exceeds input budget ({input_bytes} > {scout.MAX_INPUT_BYTES} "
+            f"UTF-8 bytes including system and serialized metadata; "
+            f"selected source text bytes: {source_sizes}); select narrower source windows"
+        )
     return packet
 
 

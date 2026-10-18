@@ -123,6 +123,28 @@ class GitSourceTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "read budget"):
             self.packet([dict(path="too_large.c", ranges=[dict(start=1, end=1)])])
 
+    def test_input_budget_error_reports_total_and_selected_utf8_text_sizes(self):
+        raw = '# é "quoted"\n'.encode('utf-8')
+        (self.repo / 'unicode.py').write_bytes(raw)
+        self.git('add', 'unicode.py')
+        self.git('commit', '-qm', 'unicode fixture')
+        self.spec['commit'] = self.git('rev-parse', 'HEAD')
+        files = [dict(path='unicode.py'), dict(path='main.py')]
+        packet = self.packet(files)
+        size = len((scout.SYSTEM + scout.dumps(packet)).encode('utf-8'))
+        with patch.object(scout, 'MAX_INPUT_BYTES', size - 1):
+            with self.assertRaises(ValueError) as caught:
+                self.packet(files)
+        message = str(caught.exception)
+        self.assertIn(f'{size} > {size - 1} UTF-8 bytes', message)
+        self.assertIn(f'unicode.py={len(raw)}', message)
+        self.assertIn(f'main.py={len(self.raw)}', message)
+        self.assertIn('including system and serialized metadata', message)
+        self.assertIn('selected source text bytes', message)
+        self.assertNotIn(str(self.repo), message)
+        self.assertNotIn('quoted', message)
+        self.assertFalse(list(self.root.rglob('*.sqlite*')))
+
     def test_mixed_windows_do_not_raise_unranged_or_ast_read_budgets(self):
         for selection in (dict(path="big.py"), dict(path="big.py", definitions=["A.ready"]),
                           dict(path="big.py", definitions=["A.ready"], ranges=[dict(start=1, end=1)])):

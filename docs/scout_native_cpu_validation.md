@@ -55,6 +55,12 @@ before preparing public text/commits. A tested patch and generic permission to
 publish do not establish that understanding. This is a scoped policy check,
 not an inferred AI ban or a reason to crawl unrelated personal pages.
 
+Follow linked policy pages too: [Pallets' AI policy](https://palletsprojects.com/contributing/llm-ai)
+explicitly tells new contributors not to use AI for contributions and includes
+community text/translation. A repository's brief setup guide is not a waiver.
+Do not spend discovery/setup budget on an ineligible publication route or
+disguise generated work as the human's own.
+
 For a pytest export nested under another repository, also read the
 [root/configuration note](references/scout_native_cpu_validation_notes.md#keep-test-process-temporary-paths-short-and-private)
 before freezing expected JUnit IDs. `cwd` and disabled plugin autoload do not stop
@@ -133,6 +139,11 @@ in full within that bound to verify identity and line ranges; this is not
 streaming a selected fragment or a measured memory optimization. The existing
 24,000-byte prompt limit, eight-file maximum and complete-card budget do not
 increase. Explicitly selecting too much text still rejects without truncation.
+That refusal reports the complete serialized input size and each selected
+source's UTF-8 text size. The latter excludes system/metadata and JSON escaping,
+so it is a diagnostic, not an additive token-cost estimate. Inspect those sizes
+before revising a selection; do not keep trimming away necessary caller context
+or repeatedly retry an unchanged oversized scope.
 The reader ignores checkout newline conversion and dirty files, retains raw
 blob/SHA256 identities and
 visible line ranges, and produces commit-pinned `raw.githubusercontent.com`

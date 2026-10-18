@@ -131,6 +131,12 @@ scope. Read its timestamped `repository_settings`, including `archived` and
 Missing metadata is unknown, not permission. The command observes public facts;
 it does not establish personal eligibility, CLA completion or publication authority.
 
+The visible GitHub contribution or PR page can also report collaborator-only
+PR creation. Treat that as a channel restriction, not an invitation to prepare
+an unsolicited competing patch or switch identities. Confirm an eligible
+contribution route before continuous discovery; public source availability and
+an earlier accepted review comment do not establish that permission today.
+
 An archived dependency can still justify an explicitly bounded reproduction or
 research comparison. Do not leave it in continuous PR discovery without a viable
 maintainer/fork channel. If archive status is found late, retain the original
