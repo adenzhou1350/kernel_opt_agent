@@ -177,6 +177,12 @@ For an offline Python test stack, inspect distribution files and requirements,
 not only package directories; smoke-test the reviewed stack once in the fresh
 target before both source arms. See [Python startup preflight](references/scout_native_cpu_worked_routes.md#offline-python-startup-before-both-source-arms).
 
+Where full wheels and pip fit the authorized worker, prefer the standard
+[offline wheelhouse startup example](../examples/native-python-wheelhouse/README.md)
+before writing another installed-directory exporter. Target offline resolution
+still must succeed; small-sandbox file limits and missing conditional artifacts
+are setup failures, not target bug verdicts or permission to weaken limits.
+
 ## Complete pytest cohorts
 
 Small `compare_regression` comparisons must declare the whole observed cohort.
