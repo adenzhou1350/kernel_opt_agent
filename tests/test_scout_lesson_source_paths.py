@@ -349,6 +349,26 @@ class SourceLessonTests(unittest.TestCase):
         self.assertEqual(result["matches"][0]["id"],
                          "serialization-policy-without-runtime-cache")
 
+    def test_serialized_exception_advice_keeps_transport_and_strategy_limits(self):
+        url = (
+            "https://raw.githubusercontent.com/nhairs/python-json-logger/"
+            "366c14f23ba3f8fb6c02804f4b2c9192cd948ac3/src/pythonjsonlogger/core.py"
+        )
+        result = lessons.lesson_suggestions(
+            "cached exception exc_text SocketHandler formatter options", source_urls=[url]
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        self.assertTrue(result["source_path_match"])
+        matched = result["matches"][0]
+        self.assertEqual(matched["id"], "serialized-fallback-option-parity")
+        self.assertEqual(matched["status"], "hypothesis")
+        self.assertIn("without opening a socket", matched["lesson"])
+        self.assertIn("untrusted pickle", matched["avoid_when"])
+        self.assertIn("broader evidence-choice strategy remains a hypothesis",
+                      matched["avoid_when"])
+        self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_existing_seek_fix_does_not_hide_a_return_contract_subcase(self):
         url = (
             "https://raw.githubusercontent.com/fsspec/filesystem_spec/"
