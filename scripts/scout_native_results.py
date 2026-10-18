@@ -229,6 +229,9 @@ def _junit(text, exit_code, expected_results, issue, inventory=None):
             qualified = f"@collection::{name}" if collection_skip else f"{classname}::{name}"
             if not (classname or collection_skip) or not name or len(qualified) > 512 or qualified in names:
                 issue("missing, overlong or duplicate JUnit case identity")
+            if not classname and not collection_skip:
+                issue("JUnit testcase has no classname; check pytest test paths "
+                      "relative to --rootdir and reporter configuration")
             if "status" in case.attrib:
                 issue("non-pytest JUnit status attributes are unsupported")
             names.add(qualified)

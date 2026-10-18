@@ -234,6 +234,28 @@ class NativeResultsTests(unittest.TestCase):
         self.assertEqual(missing["status"], "INCONCLUSIVE")
         self.assertEqual(missing["missing_expected_tests"], ["@collection::tests.test_optional"])
 
+    def test_junit_classless_cases_explain_layout_without_qualifying(self):
+        diagnostic = ("JUnit testcase has no classname; check pytest test paths "
+                      "relative to --rootdir and reporter configuration")
+        for attribute in ('classname=""', ''):
+            text = junit(("test_case", None)).replace(
+                'classname="tests.test_contract"', attribute)
+            value = self.junit(text)
+            self.assertEqual(value["status"], "INCONCLUSIVE")
+            self.assertIn("missing, overlong or duplicate JUnit case identity", value["issues"])
+            self.assertIn(diagnostic, value["issues"])
+            self.assertEqual(value["missing_expected_tests"], ["tests.test_contract::test_case"])
+            self.assertNotIn("expected_identity_help", value)
+
+        duplicate = self.junit(junit(("test_case", None), ("test_case", None)))
+        self.assertNotIn(diagnostic, duplicate["issues"])
+        root = ET.fromstring(junit(("test_case", None), ("test_optional", "skipped")))
+        root[0][1].set("classname", "")
+        root[0][1][0].set("message", "collection skipped")
+        collection = self.junit(ET.tostring(root, encoding="unicode"))
+        self.assertEqual(collection["status"], "TESTS_PASSED")
+        self.assertNotIn(diagnostic, collection["issues"])
+
     def test_collection_skip_does_not_relax_other_identity_checks(self):
         for name, message, outcome in (
             ("tests.test_optional", "ordinary skip", "skipped"),

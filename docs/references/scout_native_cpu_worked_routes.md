@@ -90,6 +90,15 @@ ancestor configuration discovery. Use the target's reviewed configuration with
 `-c` when appropriate; `--rootdir` alone is not configuration or import isolation.
 Do not rerun an otherwise valid capture just to fix an expected-name typo.
 
+When collecting an exported pytest file, choose a reviewed `--rootdir` that
+contains that file. A test collected outside it can produce an empty JUnit
+`classname`; the strict reader rejects that identity and points to test paths
+and reporter configuration. Do not invent a module name, rewrite the XML or
+waive the refusal. Preserve the native observation with this accounting limit.
+If an owner-reviewed wrapper calls `pytest.main()`, forward the runner's appended
+report arguments (for example, `sys.argv[1:]`); ignoring them can execute tests
+without writing the report. Check this before another native invocation.
+
 For an owner-prepared Python excerpt, reuse
 `scout_requested_definition.requested_function_window(lines, "definition(Class.method)")`
 against the full pinned file instead of slicing from `FunctionDef.lineno`.
