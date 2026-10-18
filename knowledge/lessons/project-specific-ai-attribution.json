@@ -1,0 +1,22 @@
+{
+  "id": "project-specific-ai-attribution",
+  "title": "AI disclosure and Co-authored-by attribution are project-specific",
+  "applies_when": "Preparing AI-assisted commits, PR descriptions or review comments across projects, especially when copying an attribution trailer or treating a publish confirmation as human authorship.",
+  "lesson": "Do not globally append or remove model Co-authored-by trailers. Read the destination's current effective contribution and AI rules, including an organization's linked policy. At the cited revisions, pytest appreciates optional AI co-author credit, whereas marshmallow-code explicitly rejects PRs carrying LLM co-author tags. Both still require a responsible human who understands the change; neither attribution choice substitutes for that understanding. Keep AI disclosure, commit credit, actual human review, contribution eligibility and permission to click Publish separate. Redirect unattended contribution work when the project forbids it; do not manufacture a human-review certificate or silently change authorship to obtain acceptance.",
+  "avoid_when": "These are revision-scoped examples, not universal rules for pytest plugins, unrelated organizations or future policies. Removing a model trailer does not establish copyright ownership, legal authorization or human understanding. A generic publish approval, green native tests or a PR draft cannot establish those facts. This is policy-routing guidance, not legal advice, a ban on all private research or measured evidence of better PR conversion.",
+  "evidence": [
+    {
+      "url": "https://github.com/pytest-dev/pytest/blob/420cf37a3fc8c03c9a4769c2635a03773d27be10/CONTRIBUTING.rst#ai-llm-assisted-contributions-policy",
+      "note": "The cited guide requires meaningful human review, understanding and accountability; purely agentic contributions are not accepted. Model Co-authored-by attribution is appreciated but explicitly optional, not a substitute for that human work."
+    },
+    {
+      "url": "https://github.com/marshmallow-code/.github/blob/c95e0c1a38c521a4fd3819f6156b41a52fc32ec6/AI_POLICY.md",
+      "note": "The effective organization policy prohibits unsupervised agentic tools and LLM co-author tags, while allowing responsible human-owned AI-assisted development. It also disallows generated review comments and requires accountable fact-checking of summaries; removing a trailer alone does not satisfy the policy."
+    },
+    {
+      "url": "https://github.com/marshmallow-code/marshmallow/blob/d08471b17880c62b789971ada638707a11d3f8d4/README.rst",
+      "note": "The target README explicitly links the organization's contribution guide. That guide links the AI policy; looking only for a target-local CONTRIBUTING file would miss the effective rule. This is documented routing evidence, not a measured token-saving result."
+    }
+  ],
+  "status": "validated"
+}

@@ -431,6 +431,19 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("authorized", result)
 
+    def test_ai_credit_advice_does_not_replace_human_ownership(self):
+        result = scout_lesson_context.lesson_suggestions(
+            "AI Co-authored-by attribution pytest marshmallow trailers"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "project-specific-ai-attribution")
+        self.assertIn("optional AI co-author credit", card["lesson"])
+        self.assertIn("rejects PRs carrying LLM co-author tags", card["lesson"])
+        self.assertIn("does not establish copyright ownership", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()),
+                             scout_lesson_context.MAX_CARD_BYTES)
+
     def test_linked_dask_rules_keep_drafts_distinct_from_human_ready_review(self):
         result = scout_lesson_context.lesson_suggestions(
             "Dask linked contribution policy human prose and review",
