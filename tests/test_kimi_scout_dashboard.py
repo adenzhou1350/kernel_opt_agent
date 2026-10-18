@@ -49,6 +49,10 @@ class DashboardTests(unittest.TestCase):
     def artifact(self, suffix, value):
         scout.write_json(self.root / "results" / f"{self.job_id}.{suffix}.json", value)
 
+    @staticmethod
+    def payload(snapshot):
+        return {key: value for key, value in snapshot.items() if key != "snapshot"}
+
     def test_read_only_database(self):
         before = (self.root / "scout.sqlite").read_bytes()
         self.assertEqual(self.inbox.state()["summary"]["total_jobs"], 1)
@@ -63,7 +67,9 @@ class DashboardTests(unittest.TestCase):
         with patch.object(self.inbox, "state", wraps=self.inbox.state) as state:
             first = self.inbox.cached_state()
             second = self.inbox.cached_state()
-        self.assertEqual(first, second)
+        self.assertEqual(self.payload(first), self.payload(second))
+        self.assertFalse(first["snapshot"]["stale"])
+        self.assertFalse(second["snapshot"]["stale"])
         self.assertIsNot(first, self.inbox._snapshot)
         self.assertEqual(first["jobs"], self.inbox._snapshot["jobs"])
         self.assertEqual(state.call_count, 1)
@@ -82,29 +88,149 @@ class DashboardTests(unittest.TestCase):
         with patch.object(self.inbox, "state", side_effect=slow_state) as state:
             try:
                 before = time.monotonic()
-                self.assertEqual(self.inbox.cached_state(), first)
+                response = self.inbox.cached_state()
+                self.assertEqual(self.payload(response), self.payload(first))
+                self.assertTrue(response["snapshot"]["refreshing"])
                 self.assertLess(time.monotonic() - before, 0.5)
                 self.assertTrue(started.wait(1))
-                self.assertEqual(self.inbox.cached_state(), first)
+                self.assertEqual(self.payload(self.inbox.cached_state()), self.payload(first))
                 self.assertEqual(state.call_count, 1)
             finally:
                 release.set()
             deadline = time.monotonic() + 2
             while self.inbox._snapshot_refreshing and time.monotonic() < deadline:
                 time.sleep(0.01)
-        self.assertEqual(self.inbox.cached_state(), {
+        self.assertEqual(self.payload(self.inbox.cached_state()), {
             "generation": 2, "stop_control": {"present": False, "reason": None}})
 
     def test_failed_refresh_keeps_last_good_snapshot(self):
         first = self.inbox.cached_state()
         self.inbox._snapshot_at = time.monotonic() - 31
         with patch.object(self.inbox, "state", side_effect=OSError):
-            self.assertEqual(self.inbox.cached_state(), first)
+            self.assertEqual(self.payload(self.inbox.cached_state()), self.payload(first))
             deadline = time.monotonic() + 2
             while self.inbox._snapshot_refreshing and time.monotonic() < deadline:
                 time.sleep(0.01)
             self.assertFalse(self.inbox._snapshot_refreshing)
-            self.assertEqual(self.inbox.cached_state(), first)
+            response = self.inbox.cached_state()
+            self.assertEqual(self.payload(response), self.payload(first))
+            self.assertTrue(response["snapshot"]["stale"])
+            self.assertTrue(response["snapshot"]["refresh_failed"])
+
+    def test_failed_refresh_does_not_reset_snapshot_evidence_age(self):
+        scout.write_json(self.root / "runtime.json", {
+            "pid": 123, "state": "RUNNING", "heartbeat_at": 999, "active": 1,
+        })
+        with (
+            patch.object(dashboard.time, "monotonic", return_value=100),
+            patch.object(dashboard.time, "time", return_value=1000),
+            patch.object(dashboard, "process_alive", return_value=True),
+        ):
+            first = self.inbox.cached_state()
+        with (
+            patch.object(self.inbox, "state", side_effect=OSError),
+            patch.object(dashboard.time, "monotonic", return_value=200),
+        ):
+            self.inbox._refresh_snapshot()
+        with (
+            patch.object(dashboard.time, "monotonic", return_value=201),
+            patch.object(dashboard.time, "time", return_value=1101),
+            patch.object(self.inbox, "state") as retry,
+        ):
+            old = self.inbox.cached_state()
+        self.assertEqual(self.payload(old), self.payload(first))
+        self.assertEqual(old["now"], 1000)
+        self.assertIn("snapshot", old)
+        self.assertEqual(old["snapshot"], {
+            "served_at": 1101, "age_seconds": 101.0, "stale": True,
+            "refreshing": False, "refresh_failed": True,
+        })
+        retry.assert_not_called()  # Failed refresh still throttles retry storms.
+        with (
+            patch.object(self.inbox, "state", return_value={"now": 1131, "runtime": {"alive": False}}),
+            patch.object(dashboard.time, "monotonic", return_value=231),
+        ):
+            self.inbox._refresh_snapshot()
+        with patch.object(dashboard.time, "monotonic", return_value=232):
+            fresh = self.inbox.cached_state()
+        self.assertEqual(fresh["now"], 1131)
+        self.assertFalse(fresh["snapshot"]["stale"])
+        self.assertFalse(fresh["snapshot"]["refresh_failed"])
+        self.assertEqual(fresh["snapshot"]["age_seconds"], 1.0)
+
+    def test_slow_successful_refresh_keeps_observation_start_age(self):
+        clock = [100]
+
+        def slow_state():
+            clock[0] += 40
+            return {"now": 1000, "runtime": {"alive": True}}
+
+        with (
+            patch.object(dashboard.time, "monotonic", side_effect=lambda: clock[0]),
+            patch.object(self.inbox, "state", side_effect=slow_state),
+        ):
+            first = self.inbox.cached_state()
+            clock[0] = 200
+            self.inbox._refresh_snapshot()
+            response = self.inbox.cached_state()
+        for value in (first, response):
+            self.assertIn("snapshot", value)
+            self.assertTrue(value["snapshot"]["stale"])
+            self.assertFalse(value["snapshot"]["refresh_failed"])
+            self.assertEqual(value["snapshot"]["age_seconds"], 40.0)
+
+    @unittest.skipUnless(shutil.which("node"), "Node needed for offline DOM checks")
+    def test_stale_snapshot_does_not_render_live_workers_or_delivery(self):
+        page = (SCRIPTS / "kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        script = page.split("<script>", 1)[1].split("</script>", 1)[0]
+        renderer = script.split("  function renderHistory() {", 1)[0]
+        harness = """
+const elements = new Map();
+function element() {
+  return {children:[], firstElementChild:{},
+    append(...v) {this.children.push(...v);},
+    replaceChildren(...v) {this.children=v;}, addEventListener() {},
+    set innerHTML(v) {throw Error('Unsafe HTML rendering');}};
+}
+global.document={createElement:element,getElementById(id) {
+  if(!elements.has(id)) elements.set(id,element()); return elements.get(id);
+}};
+"""
+        exercise = """
+  function renderHistory() {}
+  state={now:1000, runtime:{alive:true,state:'RUNNING',heartbeat_at:999,active:1,concurrency:2},
+    summary:{counts:{RUNNING:1}},jobs:[{id:'a',name:'saved running task',state:'RUNNING'}],
+    delivery:{alive:true,heartbeat_fresh:true,heartbeat_at:999,state:'RUNNING',active:2,concurrency:3}};
+  const result=[];
+  for(const snapshot of [
+    {served_at:1000,age_seconds:0,stale:false},
+    {served_at:1600,age_seconds:600,stale:true,refresh_failed:true},
+    {served_at:1001,age_seconds:0,stale:false},
+  ]) {
+    state.snapshot=snapshot; renderOverview();
+    result.push({total:$('totalCapacity').textContent,flow:$('flowStatus').textContent,
+      label:$('runtimeLabel').textContent,delivery:$('deliveryCapacity').textContent,
+      worker:$('workers').children[0].children[1].textContent,
+      warning:$('warnings').textContent,refresh:$('refreshTime').textContent});
+  }
+  process.stdout.write(JSON.stringify(result));
+})();
+"""
+        result = subprocess.run([shutil.which("node"), "-"], input=harness + renderer + exercise,
+                                capture_output=True, text=True, encoding="utf-8", timeout=10, check=True)
+        fresh, stale, recovered = json.loads(result.stdout)
+        self.assertEqual(fresh["total"], "3 / 5")
+        self.assertEqual(fresh["worker"], "saved running task")
+        self.assertEqual(stale["total"], "— / 5")
+        self.assertEqual(stale["worker"], "等待快照更新")
+        self.assertEqual(stale["delivery"], "— / 3")
+        self.assertIn("快照已过期", stale["label"])
+        self.assertIn("快照已过期", stale["flow"])
+        self.assertIn("刷新失败", stale["warning"])
+        self.assertIn("数据采样", stale["refresh"])
+        self.assertIn("已过期", stale["refresh"])
+        self.assertEqual(recovered["total"], "3 / 5")
+        self.assertEqual(recovered["worker"], "saved running task")
 
     @unittest.skipUnless(
         shutil.which("node"), "Node is needed for the offline DOM test"
@@ -946,6 +1072,10 @@ process.stdout.write(JSON.stringify({phases:observations,http}));
                 self.assertEqual(state["delivery"]["state"], "STOPPED")
                 self.assertFalse(state["delivery"]["alive"])
                 self.assertEqual(state["delivery"]["execution_concurrency"], 2)
+                self.assertFalse(state["snapshot"]["stale"])
+                self.assertFalse(state["snapshot"]["refresh_failed"])
+                self.assertGreaterEqual(state["snapshot"]["served_at"], state["now"])
+                self.assertGreaterEqual(state["snapshot"]["age_seconds"], 0)
                 self.assertNotIn("never", json.dumps(state))
             with urlopen(base + "/api/state?research=provider.json", timeout=3) as response:
                 self.assertNotIn("never", response.read().decode("utf-8"))

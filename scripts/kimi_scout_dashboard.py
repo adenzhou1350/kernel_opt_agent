@@ -272,9 +272,12 @@ class Inbox:
         self._snapshot_lock = threading.Lock()
         self._snapshot = None
         self._snapshot_at = 0.0
+        self._snapshot_success_at = 0.0
         self._snapshot_refreshing = False
+        self._snapshot_refresh_failed = False
 
     def _refresh_snapshot(self):
+        observed_at = time.monotonic()
         try:
             snapshot = self.state()
         except Exception:
@@ -283,11 +286,16 @@ class Inbox:
             with self._snapshot_lock:
                 self._snapshot_at = time.monotonic()
                 self._snapshot_refreshing = False
+                self._snapshot_refresh_failed = True
             return
         with self._snapshot_lock:
             self._snapshot = snapshot
             self._snapshot_at = time.monotonic()
+            # state() reads liveness before its historical SQL projection. A
+            # slow successful refresh must not reset that observation's age.
+            self._snapshot_success_at = observed_at
             self._snapshot_refreshing = False
+            self._snapshot_refresh_failed = False
 
     def cached_state(self, max_age=30):
         """Serve the last snapshot while one background historical refresh runs."""
@@ -296,6 +304,7 @@ class Inbox:
             if self._snapshot is None:
                 self._snapshot = self.state()
                 self._snapshot_at = time.monotonic()
+                self._snapshot_success_at = now
             elif now - self._snapshot_at >= max_age and not self._snapshot_refreshing:
                 self._snapshot_refreshing = True
                 threading.Thread(
@@ -304,9 +313,19 @@ class Inbox:
                     daemon=True,
                 ).start()
             snapshot = self._snapshot
+            # Retry throttling and evidence age are different clocks. A failed
+            # refresh must not make old liveness/resource observations fresh.
+            age = max(0.0, time.monotonic() - self._snapshot_success_at)
+            observation = {
+                "served_at": time.time(),
+                "age_seconds": round(age, 3),
+                "stale": age >= max_age or self._snapshot_refresh_failed,
+                "refreshing": self._snapshot_refreshing,
+                "refresh_failed": self._snapshot_refresh_failed,
+            }
         # Read STOP without waiting for a historical SQLite refresh, and without
         # mutating a snapshot held by another viewer.
-        return dict(snapshot, stop_control=stop_control(self.root))
+        return dict(snapshot, stop_control=stop_control(self.root), snapshot=observation)
 
     def rows(self, job_id=None, limit=None):
         # Do not call scout.connect(): its WAL setup/transactions are for writers.
