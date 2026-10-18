@@ -122,6 +122,16 @@ loader/main can have different semantics: use its native entry point rather than
 silently replacing it with this helper. Existing reports are never overwritten;
 an abort/parse failure has no completed JSON observation.
 
+External replay: on [python-json-pointer 86b82bf](https://github.com/stefankoegl/python-json-pointer/tree/86b82bf7a0b342e1c7b3aaf4c437dce264740579),
+the helper ran the unchanged `load_tests` hook, CLI subprocess fixtures and full
+suite on isolated Linux Python 3.12: 48 unittest methods plus five DocTestCase
+containers passed. These are not 53 assertions or 53 doctest examples. Six bounded
+public-API property methods also passed (135 subtest events retained); no new
+qualified bug resulted. Windows preparation stopped at a denied atomic directory
+rename before tests, so the Linux replay is not cross-platform qualification.
+This checks an actual third-party route, not only a synthetic reporter fixture;
+it does not establish discovery recall, model-selection benefit or PR yield.
+
 ### Bun native JUnit reports
 
 Use `--format bun-junit`; the runner owns the fresh reporter path. Expected IDs
