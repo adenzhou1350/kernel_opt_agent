@@ -107,6 +107,10 @@ packet, validate speedups, or contact anyone. Find at most ONE actionable lead;
 no_lead is a valuable result. Prefer an existing production path and a fair
 baseline. Check the supplied related work; an incomplete list is not proof of
 novelty. Separate correctness bugs, API usability, and performance hypotheses.
+A behavior accepted by an old release is not necessarily a supported contract.
+Before proposing compatibility restoration, check the promised API and supplied
+maintainer intent; tests cannot decide whether restoration belongs upstream.
+If that intent is absent or contested, request contract context, not just a test.
 For a missing Python function body, next_check may request definition(NAME) or
 definition(Class.method) in a supplied file. One explicit target overrides other
 function mentions; source/packet limits still apply. Check completeness before

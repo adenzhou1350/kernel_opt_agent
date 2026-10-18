@@ -75,6 +75,14 @@ def result(before=1, fixed=0, *, count=2, output="", cleanup=True):
 
 
 class DeliveryTests(unittest.TestCase):
+    def test_prompts_distinguish_behavior_delta_from_supported_contract(self):
+        self.assertIn("Old-release acceptance alone", delivery.PROMPT)
+        self.assertIn("not upstream acceptance", delivery.PROMPT)
+        self.assertIn("request context rather than inventing", delivery.PROMPT)
+        self.assertIn("supplied maintainer intent", delivery.PROMPT)
+        self.assertIn("not necessarily a supported contract", delivery.scout.SYSTEM)
+        self.assertIn("request contract context, not just a test", delivery.scout.SYSTEM)
+
     def test_cpu_prompt_checks_supported_dtype_and_singleton_contract(self):
         self.assertIn(
             "broadcasting may change promotion and output dtype", delivery.PROMPT

@@ -55,6 +55,9 @@ reproduction, result and reason for changing direction once.
   depend on the actual change, applicable tests and the claims in the PR. A kernel
   timing is not whole-model performance. Do not claim human review or signoff that
   the human has not provided. Treat maintainer CI/review waits as delivery states.
+  Old-release acceptance is not a compatibility promise: read current maintainer
+  intent before restoring behavior. Stop a restricted contribution scope; never
+  route around an organization block through another account or contact channel.
 
 The default loop does not require `new-run`, `advance`, a supervisor document,
 resource-model closure, a SASS audit or a limit certificate. Reuse specialist tools

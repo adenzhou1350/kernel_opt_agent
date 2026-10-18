@@ -10,6 +10,20 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class CompatibilityReferenceLessonTests(unittest.TestCase):
+    def test_old_release_restoration_requires_current_api_intent(self):
+        result = lesson_suggestions(
+            "Pluggy class-valued hookspec compatibility restoration old-release acceptance"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "version-pinned-compatibility-contract")
+        self.assertIn("directed the fix downstream", card["lesson"])
+        self.assertIn("cannot decide API intent", card["lesson"])
+        self.assertIn("shared upstream defect", card["avoid_when"])
+        self.assertTrue(any("/issues/794#" in e["url"] for e in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_shim_query_keeps_reference_and_counterconditions(self):
         result = lesson_suggestions(
             "hf_parameter_utils get_parameter_device get_parameter_dtype buffer fallback compatibility"

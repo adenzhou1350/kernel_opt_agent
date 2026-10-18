@@ -1,8 +1,8 @@
 {
   "id": "version-pinned-compatibility-contract",
   "title": "Compare compatibility shims with the supported reference API and version",
-  "applies_when": "A compatibility shim or backport is compared with a similarly named API, or a regression assumes buffer fallback, exception behavior or another contract from an unverified reference version; examples include TensorRT-LLM hf_parameter_utils getters and Zipp Path.relative_to.",
-  "lesson": "First identify which upstream API is actually promised, then resolve its supported revision before designing the expected result. A Path-like interface is not a promise to duplicate every pathlib.Path behavior: Zipp names zipfile.Path as its backport reference. Its relative_to and the native CPython 3.14.3 zipfile.Path both return a string and allow parent traversal; a two-case native comparison agrees for child and nonchild paths. This refutes a mismatch premise, not all possible defects. Likewise, TensorRT-LLM's parameter-only getters match Transformers 5.5.4 ModuleUtilsMixin device/dtype properties, including StopIteration for buffer-only modules. A test demanding buffer fallback therefore does not establish the claimed upstream mismatch. Check both the boundary and a normal control against unchanged reference code; label AST-extracted getter checks as component evidence, not whole-package qualification. If broader fallback is independently required by a supported caller or documented API, propose that behavior change on its own merits.",
+  "applies_when": "A compatibility shim or backport is compared with a similarly named API, or compatibility restoration assumes old-release acceptance is a supported promise; examples include TensorRT-LLM hf_parameter_utils getters, Zipp Path.relative_to and Pluggy class-valued hookspecs.",
+  "lesson": "First identify which upstream API is actually promised, then resolve its supported revision and current maintainer intent before designing the expected result. A Path-like interface is not a promise to duplicate every pathlib.Path behavior: Zipp names zipfile.Path as its backport reference. Its relative_to and the native CPython 3.14.3 zipfile.Path both return a string and allow parent traversal; a two-case native comparison agrees for child and nonchild paths. This refutes a mismatch premise, not all possible defects. Likewise, TensorRT-LLM's parameter-only getters match Transformers 5.5.4 ModuleUtilsMixin device/dtype properties, including StopIteration for buffer-only modules. A test demanding buffer fallback therefore does not establish the claimed upstream mismatch. Pluggy #794 is a different counterexample: old-version acceptance and a real downstream failure were reproduced, but maintainers explicitly rejected class-valued hookspec restoration as an unintended use and directed the fix downstream. More passing restoration tests cannot decide API intent. Read the latest issue/PR disposition before implementing or publishing; stop the rejected premise rather than equating a behavior delta with an upstream defect. Check both the boundary and a normal control against unchanged reference code; label AST-extracted getter checks as component evidence, not whole-package qualification. If broader behavior is independently required by a supported contract, propose that change on its own merits.",
   "avoid_when": "Matching the pinned reference does not prove either implementation meets every caller's needs. A shared upstream defect can still warrant a change. Other dependency versions, overridden properties, quantized module representations and actual model paths need separate evidence. Do not reject a real public API defect solely because internal callers omit the boundary, or claim measured PR-conversion gains from this source counterexample.",
   "evidence": [
     {
@@ -24,6 +24,14 @@
     {
       "url": "https://github.com/jaraco/zipp/blob/8f98e1b5a6203557bf70ed3e84969543d4360c76/zipp/__init__.py",
       "note": "Path.relative_to delegates to posixpath.relpath. An independent native Windows CPython3.14.3 two-case check against its installed zipfile.Path confirms string return and identical child/nonchild behavior. This is scoped local reference evidence; the remote CPython tagged source was not acquired, and no full compatibility, model-quality or PR-conversion benefit is claimed."
+    },
+    {
+      "url": "https://github.com/pytest-dev/pluggy/issues/794#issuecomment-6230934280",
+      "note": "Maintainer closes the issue as not planned: class-valued hookspec acceptance was unintended, restoration is rejected even with deprecation, and the entry-point-loading fix belongs downstream. This is API-intent evidence, not a claim that all regressions or undocumented callers are invalid."
+    },
+    {
+      "url": "https://github.com/pytest-dev/pluggy/pull/795#event-33507969432",
+      "note": "The restoration PR was closed despite native regression/control validation. Retain this as an unsuccessful contribution outcome, not as evidence that passing tests establish upstream acceptance or improved discovery yield."
     }
   ],
   "status": "counterexample"

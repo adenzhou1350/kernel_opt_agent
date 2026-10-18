@@ -65,6 +65,13 @@ retain missing/non-discriminating historical draws without replacement.
 - Test the supported upper-level caller and ordinary controls. A direct internal
   call, mocked successful response or synthetic invalid state may miss the
   actual contract. Distinguish test-method outcomes from failing subtest events.
+- For compatibility restoration, first read the promised API and latest issue/PR
+  disposition. Old-release success and new-release failure establish a behavior
+  change, not that upstream owes restoration. A real consumer may depend on an
+  accidental behavior; a downstream migration can be the appropriate fix.
+  Preserve maintainer rejection as an outcome rather than purchasing more tests
+  for the same rejected premise. A contribution block stops that scope; do not
+  work around it through another identity or contact channel.
 
 ## Before spending on a comparison
 

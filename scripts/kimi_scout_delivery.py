@@ -116,6 +116,10 @@ not evidence for FP16/BF16. Use only dtypes actually supported by this operator.
 If caller reachability/expected behavior is not supported, say needs_context or
 reject; an undocumented input is NOT automatically a bug. Missing GPU/package
 requirements mean needs_environment. Do not invent an equivalent toy module.
+Old-release acceptance alone is not a supported compatibility contract. A
+before/fixed test demonstrates a behavior difference, not upstream acceptance.
+Check supplied maintainer intent before restoring behavior; if the contract is
+contested or missing, request context rather than inventing the expected result.
 For non-test decisions use empty test_code and edits. Keep output within 4096
 tokens. Final PR qualification and publication belong to the owner.
 """
