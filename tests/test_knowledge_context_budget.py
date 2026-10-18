@@ -12,6 +12,20 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_dependency_transport_advice_retains_target_marker_caveat(self):
+        result = lesson_suggestions(
+            "Requires-Dist target markers pure-Python dependency transport 3.14 3.12"
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "separate-dependency-transport-from-native-tests")
+        self.assertIn("Re-evaluate target Requires-Dist markers", card["lesson"])
+        self.assertIn("3.14 need not be complete on 3.12", card["lesson"])
+        self.assertTrue(any(item["url"].endswith("#environment-markers")
+                            for item in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_reuse_configuration_advice_keeps_snapshot_and_reuse_controls(self):
         for revision in (
             "09f70d66b58962636c6a0adb8e5487d453ece859",

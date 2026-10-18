@@ -533,6 +533,16 @@ Review all selected files and target Python/OS requirement markers, metadata and
 licenses. This inventory is not dependency resolution, a content verification or
 proof that extensions match the target ABI. Missing metadata means unknown.
 
+Pure-Python artifacts do not make the source host's resolved dependency set
+portable. [pytest-asyncio 1.2.0](https://github.com/pytest-dev/pytest-asyncio/blob/v1.2.0/pyproject.toml)
+requires `typing-extensions>=4.12` only for Python below 3.13: an installation
+resolved on 3.14 can omit it and fail plugin loading on 3.12 before any target
+test. Re-evaluate `Requires-Dist` for the actual deployment environment, retain
+the additional distribution's exact provenance/content, and preflight the
+registered plugins there. Do not alter project imports or suppress tests to
+compensate. This is a dependency-completeness condition, not an ABI guarantee or
+a measured discovery benefit.
+
 Before paying for both source arms, check actual import paths and run a tiny
 fixture/parameterized startup test in a fresh authorized target. Retain bootstrap
 failures separately from target assertion failures. An existing reviewed
