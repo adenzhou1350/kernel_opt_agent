@@ -216,6 +216,29 @@ class NativeResultsTests(unittest.TestCase):
         self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"],
                          "INCONCLUSIVE")
 
+    def test_repeated_collection_skips_do_not_become_one_accepted_case(self):
+        # Native pytest with --doctest-modules can collect a skipped module
+        # twice, merge both skip children, yet count both collection events.
+        root = ET.fromstring(junit(("test_case", None), ("sample", "skipped")))
+        case = root[0][1]
+        case.set("classname", "")
+        case[0].set("message", "collection skipped")
+        ET.SubElement(case, "skipped", message="collection skipped")
+        root[0].set("tests", "3")
+        root[0].set("skipped", "2")
+        value = self.junit(ET.tostring(root, encoding="unicode"))
+        self.assertEqual(value["status"], "INCONCLUSIVE")
+        self.assertEqual(value["executed"], 1)
+        self.assertIn("unsupported or contradictory JUnit case outcomes", value["issues"])
+        self.assertIn(
+            "JUnit case/summary cardinality mismatch "
+            "(testsuite.tests: declared 3, observed 2)", value["issues"])
+        # Rewriting counters cannot make the unsupported record acceptable.
+        root[0].set("tests", "2")
+        root[0].set("skipped", "1")
+        self.assertEqual(self.junit(ET.tostring(root, encoding="unicode"))["status"],
+                         "INCONCLUSIVE")
+
     def test_junit_non_pytest_notrun_status_cannot_be_counted_as_pass(self):
         root = ET.fromstring(junit(("test_case", None)))
         root[0][0].set("status", "notrun")

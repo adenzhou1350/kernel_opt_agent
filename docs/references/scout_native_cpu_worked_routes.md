@@ -536,6 +536,38 @@ The existing upstream discussion
 subtests sharing their parent's JUnit reporter. Check today's producer rather
 than treating that history as an exemption for arbitrary count mismatches.
 
+### Repeated doctest collection skips
+
+A separate producer observation occurs when a module skips at import time:
+
+```python
+# sample.py
+import pytest
+pytest.skip("optional component unavailable", allow_module_level=True)
+```
+
+```python
+# test_control.py
+def test_control():
+    assert 2 + 2 == 4
+```
+
+In a fresh reviewed directory with an explicit empty `pytest.ini`, compare
+`python -m pytest -c pytest.ini sample.py test_control.py --junitxml=ordinary.xml`
+against the same command plus `--doctest-modules` and a fresh `doctest.xml` path.
+Use the actual authorized native runner and private output paths; this example
+does not grant execution authority or require installing another pytest.
+
+On Windows pytest 9.0.3, the ordinary invocation produced two case nodes and
+declared two tests. The doctest invocation exited zero but emitted two case nodes
+and declared three tests: one classless module record had two collection-skip
+children. A Linux pytest 9.1.1 full-suite capture also contained this shape.
+These are producer observations, not an exhaustive version matrix or an accepted
+upstream bug diagnosis. The parser retains `INCONCLUSIVE`; neither equal reports
+nor corrected-looking counters justify collapsing events into executed cases.
+Preserve the original XML and command exits. Do not remove doctests, optional
+modules or long parameter IDs solely to force structured acceptance.
+
 ## Keep the outcome useful
 
 Use identical test bytes and matched inputs for both arms, passing ordinary

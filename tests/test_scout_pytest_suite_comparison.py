@@ -60,6 +60,20 @@ class PytestSuiteComparisonTests(unittest.TestCase):
         after = after.replace("<skipped />", "<skipped><extra /></skipped>")
         self.assertEqual(self.compare(after=after)["status"], "INCONCLUSIVE")
 
+    def test_identically_merged_collection_events_cannot_qualify_a_fix(self):
+        def merged_collection(xml):
+            suite = ET.fromstring(xml)
+            suite.set("tests", "4")
+            suite.set("skipped", "2")
+            case = ET.SubElement(suite, "testcase", name="sample")
+            for _ in range(2):
+                ET.SubElement(case, "skipped", message="collection skipped")
+            return ET.tostring(suite, encoding="unicode")
+
+        before = merged_collection(report(("regression", "failure"), ("control", None)))
+        after = merged_collection(report(("regression", None), ("control", None)))
+        self.assertEqual(self.compare(before, after)["status"], "INCONCLUSIVE")
+
     def test_missing_or_extra_case_is_not_a_matched_suite(self):
         for after in (report(("regression", None), ("control", None)),
                       report(("regression", None), ("control", None), ("optional", "skipped"), ("extra", None))):

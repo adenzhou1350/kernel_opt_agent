@@ -96,6 +96,16 @@ an unfamiliar staging layout. Do not bypass path safety with `--unsafe-paths`.
 Inspect the target's config and collect parameterized IDs before freezing exact
 expected cases. For pytest, use its reviewed `-c` where ancestor config could
 interfere; `--rootdir` and disabled plugins are not import/config isolation.
+When disabling plugin autoload, explicitly register the target's required
+plugins once; package installation/import is not plugin activation. Use the
+reviewed distribution's entry points and `--trace-config`, not guessed names.
+For example, Hypothesis 6.168.3 declares
+`hypothesispytest = _hypothesis_pytestplugin`; with autoload disabled,
+`-p _hypothesis_pytestplugin` retains its parametrized-test integration. Missing
+that integration can produce an unrelated `differing_executors` health-check
+failure. Do not suppress checks in target tests to compensate for a missing
+plugin. See [pytest's explicit-loading guidance](https://docs.pytest.org/en/stable/how-to/plugins.html#disabling-plugins-from-autoloading)
+and [Hypothesis's parametrization issue](https://github.com/HypothesisWorks/hypothesis/issues/3733).
 Retain failed preparation and stop dependent steps on nonzero exit.
 See [commands and transport/import pitfalls](references/scout_native_cpu_worked_routes.md#commit-exact-source-before-native-validation).
 
@@ -176,6 +186,11 @@ The native runner still needs 1..64 exact expected-case anchors; `None` does
 not mean "all tests." Run the whole reviewed selection, then compare its complete
 report inventory with the wider-suite comparator. Anchors alone are not proof
 of full coverage; do not narrow the test command or raise limits to fit them.
+Duplicate collection skips are another producer limitation: `--doctest-modules`
+may merge two `<skipped>` children into one module record while counting both
+events in the suite totals. Equal malformed records across both arms are still
+inconclusive, even when the candidate command exits zero. See the
+[minimal characterization](references/scout_native_cpu_worked_routes.md#repeated-doctest-collection-skips).
 
 ## Keep the outcome useful
 
