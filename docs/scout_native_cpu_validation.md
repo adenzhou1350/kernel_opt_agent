@@ -365,6 +365,21 @@ full-package portability or a security sandbox.
 
 ### Dependency reuse: content is not isolation
 
+Before starting a cold install, inspect the exact required runtime, package
+manager, lockfile and any surviving **task-owned** installation. A cache directory
+alone proves neither complete artifacts nor usable resolution metadata. A
+bounded same-lock offline attempt can answer that question; preserve its failure
+and do not repeatedly retry an unchanged store. For
+[pnpm](https://pnpm.io/cli/install#--offline), offline installation fails when
+required packages are unavailable, and a workspace install normally includes
+all workspace projects. A small owner test can therefore incur broad setup cost.
+Do not silently filter the workspace, relax versions/integrity/release-age rules,
+or substitute another project's installation to make setup pass. Resume reviewed
+task-private partial acquisition when appropriate, keeping cancelled and failed
+attempts separate. `--ignore-scripts` also leaves lifecycle work unexecuted;
+verify the actual imports/native requirements of the selected test rather than
+equating a successful install with a fully qualified package.
+
 Account for preparation and postchecks as well as test time. A reviewed Linux
 Bun replay exposed a practical bottleneck: native test/typecheck/lint commands
 took about 34 seconds, but the outer 280-second job expired during final checks
