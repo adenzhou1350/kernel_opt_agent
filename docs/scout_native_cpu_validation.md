@@ -38,6 +38,27 @@ an empty policy: under existing authority, read the repository's visible
 Contributing tab and linked organization files, or retain the uncertainty.
 Do not add another classifier, mandatory schema or automatic publication gate.
 
+The community profile is not a complete guide index. If a maintainer or an
+already reviewed document points to a specific repository guide, request that
+literal path with the same reader, for example:
+
+```sh
+python scripts/scout_contribution_policy.py --repo jfhbrook/pyee --document-path DEVELOPMENT.md --output fresh-policy.json
+```
+
+At most four explicit paths are read, pinned to the verified default-branch
+commit and subject to the existing file/type/hash/32-KiB checks. Successful
+profile duplicates are not fetched again. Default calls add no requests; there
+is no filename guessing or link crawler. Invalid paths stop before network;
+missing or failed reads stay `UNKNOWN`, and profile denial is not routed around.
+The text is evidence to review, not an instruction to execute publishing tasks
+or an automatic permission decision. Pyee's
+[3116911 guide](https://github.com/jfhbrook/pyee/blob/3116911e09cadcc1e0c85631fbab8aebefc1b772/DEVELOPMENT.md)
+requires bot-emoji prefixes on AI-assisted commits/changelog entries and reviewer
+disclosure. This permits disclosed assistance; it is neither a blanket ban nor
+a rule to transfer to other projects. Native API transport may remain unavailable
+even though the reader's offline tests pass.
+
 For example, [aio-libs' organization guide](https://github.com/aio-libs/.github/blob/df5def2d78949a4ff7150de6fbd5aa27eb45b090/CONTRIBUTING.md)
 permits AI-assisted code but requires human review and human-authored community
 communication, explicitly including PR descriptions and changelogs. Permission

@@ -19,6 +19,7 @@ import kimi_scout as scout
 
 API = "https://api.github.com/repos/"
 DOCUMENT_LIMIT = 32768
+MAX_REQUESTED_DOCUMENTS = 4
 CAUTION = (
     "Read these documents and any linked rules/AGENTS.md before selecting a "
     "contribution scope. This is bounded discovery, not permission to publish or "
@@ -63,8 +64,16 @@ def repository_settings(repo, info):
     }
 
 
-def collect(repo, *, github_auth=False, fetch=None):
+def collect(repo, *, github_auth=False, fetch=None, document_paths=()):
     repo = repository(repo)
+    if not isinstance(document_paths, (list, tuple)) or len(document_paths) > MAX_REQUESTED_DOCUMENTS:
+        raise ValueError("request at most four literal repository document paths")
+    for path in document_paths:
+        if (not isinstance(path, str) or not 1 <= len(path) <= 512
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+                or any(ord(char) < 32 or char in "\\:%?#" for char in path)):
+            raise ValueError("invalid literal repository document path")
+    document_paths = list(dict.fromkeys(document_paths))
     read = fetch or scout.fetch
     metadata = {}
     commits = {}
@@ -179,6 +188,18 @@ def collect(repo, *, github_auth=False, fetch=None):
             result["documents"].append({"kind": kind, **document(item)})
         except (OSError, ValueError, KeyError, binascii.Error) as exc:
             result["errors"].append({"scope": kind, "error": type(exc).__name__})
+    for path in document_paths:
+        if any(d["repo"].casefold() == repo.casefold() and d["path"] == path
+               for d in result["documents"]):
+            continue
+        try:
+            branch = info.get("default_branch")
+            if not isinstance(branch, str) or not branch:
+                raise ValueError("missing default branch for requested document")
+            item = {"html_url": f"https://github.com/{repo}/blob/{branch}/{path}"}
+            result["documents"].append({"kind": "requested", **document(item)})
+        except (OSError, ValueError, KeyError, binascii.Error) as exc:
+            result["errors"].append({"scope": "requested:" + path, "error": type(exc).__name__})
     if not result["errors"]:
         result["status"] = (
             "DOCUMENTS_REQUIRE_REVIEW"
@@ -192,6 +213,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", required=True)
     parser.add_argument("--github-auth", action="store_true")
+    parser.add_argument("--document-path", action="append", default=[],
+                        help="explicit repository-relative guide, up to four; no link crawling")
     parser.add_argument(
         "--output",
         type=Path,
@@ -200,7 +223,11 @@ def main():
     args = parser.parse_args()
     if args.output and args.output.exists():
         parser.error("output already exists; choose a fresh evidence file")
-    result = collect(args.repo, github_auth=args.github_auth)
+    try:
+        result = collect(args.repo, github_auth=args.github_auth,
+                         document_paths=args.document_path)
+    except ValueError as exc:
+        parser.error(str(exc))
     text = json.dumps(result, ensure_ascii=False, indent=2)
     if args.output:
         with args.output.open("x", encoding="utf-8") as stream:

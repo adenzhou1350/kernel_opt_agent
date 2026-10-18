@@ -2,13 +2,16 @@
 
 import base64
 import copy
+import io
 import hashlib
 import json
 import sys
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import datetime
 from pathlib import Path
 from urllib.error import HTTPError
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import scout_contribution_policy as policy
@@ -71,8 +74,105 @@ class PolicyTests(unittest.TestCase):
             raise result
         return json.dumps(result)
 
-    def collect(self):
-        return policy.collect("example/project", fetch=self.fetch)
+    def collect(self, **kwargs):
+        return policy.collect("example/project", fetch=self.fetch, **kwargs)
+
+    def requested_document(self, path="DEVELOPMENT.md", text="Mark AI-assisted commits explicitly."):
+        content = self.add_document("unused", "example/project", path, text)
+        del self.responses["example/project/community/profile"]["files"]["unused"]
+        return content
+
+    def test_explicit_development_guide_is_pinned_without_classifying_permission(self):
+        self.requested_document()
+        result = self.collect(document_paths=["DEVELOPMENT.md"])
+        self.assertEqual(result["status"], "DOCUMENTS_REQUIRE_REVIEW")
+        doc, = result["documents"]
+        self.assertEqual(doc["kind"], "requested")
+        self.assertEqual(doc["path"], "DEVELOPMENT.md")
+        self.assertFalse(doc["inherited"])
+        self.assertIn("/blob/" + "a" * 40 + "/DEVELOPMENT.md", doc["url"])
+        self.assertIn("AI-assisted commits", doc["text"])
+        self.assertNotIn("allowed", result)
+        self.assertNotIn("authorized", result)
+
+    def test_requested_and_profile_guides_share_one_commit_and_skip_duplicates(self):
+        self.add_document(repo="example/project")
+        self.requested_document()
+        result = self.collect(document_paths=["CONTRIBUTING.md", "DEVELOPMENT.md", "DEVELOPMENT.md"])
+        self.assertEqual([d["path"] for d in result["documents"]], ["CONTRIBUTING.md", "DEVELOPMENT.md"])
+        self.assertEqual(self.calls.count("example/project/commits/main"), 1)
+        self.assertEqual(sum("contents/DEVELOPMENT.md" in call for call in self.calls), 1)
+        self.assertEqual(sum("contents/CONTRIBUTING.md" in call for call in self.calls), 1)
+
+    def test_requested_nested_path_uses_verified_default_branch(self):
+        self.add_repo("example/project", "docs/default")
+        self.requested_document("docs/DEVELOPMENT.md")
+        result = self.collect(document_paths=["docs/DEVELOPMENT.md"])
+        self.assertEqual(result["status"], "DOCUMENTS_REQUIRE_REVIEW")
+        self.assertIn("example/project/commits/docs%2Fdefault", self.calls)
+        self.assertEqual(result["documents"][0]["path"], "docs/DEVELOPMENT.md")
+
+    def test_requested_path_validation_and_budget_precede_all_fetches(self):
+        invalid = [None, "DEVELOPMENT.md", ["x"] * 5, [4], [""], ["../secret"],
+                   ["/DEVELOPMENT.md"], ["docs//guide"], ["docs/./guide"],
+                   ["C:\\secret"], ["https://other/guide"], ["docs/%2e%2e/guide"],
+                   ["guide?ref=other"], ["guide#section"], ["guide\n"], ["x" * 513]]
+        for paths in invalid:
+            with self.subTest(paths=paths), self.assertRaises(ValueError):
+                self.collect(document_paths=paths)
+        self.assertEqual(self.calls, [])
+
+    def test_four_requested_documents_are_bounded_and_default_scan_is_unchanged(self):
+        paths = ["docs/guide%d.md" % index for index in range(4)]
+        for path in paths:
+            self.requested_document(path)
+        result = self.collect(document_paths=paths)
+        self.assertEqual([d["path"] for d in result["documents"]], paths)
+        self.assertEqual(len(self.calls), 7)  # Metadata, profile, one commit, four contents.
+
+    def test_requested_missing_or_bad_content_stays_unknown_with_good_documents(self):
+        for bad in (HTTPError("https://api.github.com/", 404, "missing", {}, None),
+                    {"type": "symlink"}, {"sha": "0" * 40}):
+            with self.subTest(bad=bad):
+                self.setUp()
+                self.add_document("readme", "example/project", "README.md")
+                content = self.requested_document()
+                key = "example/project/contents/DEVELOPMENT.md?ref=" + "a" * 40
+                if isinstance(bad, Exception):
+                    self.responses[key] = bad
+                else:
+                    content.update(bad)
+                result = self.collect(document_paths=["DEVELOPMENT.md"])
+                self.assertEqual(result["status"], "UNKNOWN")
+                self.assertEqual([d["path"] for d in result["documents"]], ["README.md"])
+                self.assertEqual(result["errors"][0]["scope"], "requested:DEVELOPMENT.md")
+
+    def test_requested_document_does_not_route_around_profile_denial(self):
+        self.requested_document()
+        self.responses["example/project/community/profile"] = HTTPError(
+            "https://api.github.com/", 403, "limited", {}, None)
+        result = self.collect(document_paths=["DEVELOPMENT.md"])
+        self.assertEqual(result["status"], "UNKNOWN")
+        self.assertEqual(self.calls, ["example/project", "example/project/community/profile"])
+
+    def test_cli_passes_only_explicit_document_paths(self):
+        result = {"status": "DOCUMENTS_REQUIRE_REVIEW", "errors": []}
+        argv = ["policy", "--repo", "example/project", "--document-path", "DEVELOPMENT.md"]
+        with mock.patch.object(sys, "argv", argv), mock.patch.object(policy, "collect", return_value=result) as collect:
+            output = io.StringIO()
+            with redirect_stdout(output):
+                self.assertEqual(policy.main(), 0)
+        collect.assert_called_once_with("example/project", github_auth=False,
+                                        document_paths=["DEVELOPMENT.md"])
+        self.assertEqual(json.loads(output.getvalue()), result)
+
+    def test_cli_invalid_requested_path_stops_without_network(self):
+        argv = ["policy", "--repo", "example/project", "--document-path", "../secret"]
+        with mock.patch.object(sys, "argv", argv), mock.patch.object(policy.scout, "fetch") as fetch:
+            with redirect_stderr(io.StringIO()), self.assertRaises(SystemExit) as error:
+                policy.main()
+        self.assertEqual(error.exception.code, 2)
+        fetch.assert_not_called()
 
     def test_inherited_policy_uses_actual_owner_repository_not_wrong_contents_url(self):
         self.add_document(text="AI-generated contributions are not accepted.")
@@ -317,6 +417,19 @@ class PolicyTests(unittest.TestCase):
         card = result["matches"][0]
         self.assertEqual(card["id"], "inherited-contribution-policy-before-intake")
         self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+
+    def test_named_guide_advice_keeps_disclosure_distinct_from_a_ban(self):
+        result = scout_lesson_context.lesson_suggestions(
+            "Pyee DEVELOPMENT.md AI contribution disclosure",
+            source_urls=["https://raw.githubusercontent.com/jfhbrook/pyee/"
+                         "3116911e09cadcc1e0c85631fbab8aebefc1b772/DEVELOPMENT.md"],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "inherited-contribution-policy-before-intake")
+        self.assertIn("reviewer disclosure, not a ban", card["lesson"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("authorized", result)
 
 
 if __name__ == "__main__":
