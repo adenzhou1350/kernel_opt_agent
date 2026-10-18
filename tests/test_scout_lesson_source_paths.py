@@ -366,6 +366,11 @@ class SourceLessonTests(unittest.TestCase):
         self.assertIn("untrusted pickle", matched["avoid_when"])
         self.assertIn("broader evidence-choice strategy remains a hypothesis",
                       matched["avoid_when"])
+        self.assertIn("issue #89 already reports", matched["lesson"])
+        self.assertIn("real production use-case", matched["lesson"])
+        self.assertIn("not a competing submission", matched["avoid_when"])
+        self.assertTrue(any(e["url"].endswith("#issuecomment-6245309123")
+                            for e in matched["evidence"]))
         self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
         self.assertNotIn("qualified", result)
 
