@@ -1,0 +1,22 @@
+{
+  "id": "semantic-boundary-changes-alter-scan-cost",
+  "title": "A corrected semantic boundary can make a repeated scan quadratic",
+  "applies_when": "A helper is called once per rendered message or item, and a correctness fix changes which item ends its backward scan; examples include DeepSeek V4.1 tool-result turn boundaries and long agent loops.",
+  "lesson": "Recheck the caller's total work after changing an early-exit condition, not just the helper's output. DeepSeek V4.1 tool-result-only user messages must not start a new user turn. Before that correction, repeated last-user searches stopped near the end; afterward they can cross the entire ongoing tool loop for every rendered message. First require byte-identical prompts under the corrected reference, then use increasing conversation sizes and a separate call-count probe to distinguish a complexity change from timing noise. If the boundary is invariant during one encode call, compute its index once and pass it to each render. Do not use the old, semantically incorrect prompt as the performance-equivalence control.",
+  "avoid_when": "An index can change during rendering, across independently rendered contexts, or between requests; do not introduce a global or stale cache. Per-message direct callers may still need a fallback calculation. Constant helper-call count does not prove the entire encoder is linear. A source-unit long-loop improvement does not establish API, tokenizer-ID, model accuracy, production prevalence or end-to-end serving speedup. Existing open fixes are author-owned work, not a reason to publish another competing PR.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/739d1573cfd782e9586a7487d0e689d9d987306e/vllm/tokenizers/deepseek_v41_encoding.py",
+      "note": "PR62199's pinned Python encoder corrects tool-result turn detection while render_message still finds the last user separately for each message. Source mechanism; the PR is not a merged or performance-qualified release."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/9b0ba8ae7846f9cc27c31ef2ab24f546f1244189/vllm/tokenizers/deepseek_v41_encoding.py",
+      "note": "PR62196's pinned alternative preserves the corrected turn boundary and computes last_user_idx in encode_messages, passing it to render_message with a fallback for direct callers. This supports the scoped invariant-hoisting mechanism, not a whole-model speedup."
+    },
+    {
+      "url": "https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash-1017/blob/1bae0e1088993b9b82de08f59de5be5a34e42170/encoding/encoding.py",
+      "note": "Pinned official reference defines the tool-result turn semantics and prompt output. Reference agreement alone does not imply efficient rendering or full vLLM serving compatibility."
+    }
+  ],
+  "status": "validated"
+}
