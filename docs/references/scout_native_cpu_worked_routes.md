@@ -482,6 +482,39 @@ untrusted generated code or conflicting users. Do not change the runner's source
 symlink rejection or treat the reader as execution authority. No automatic
 dependency linking, queue policy or sandbox protection is added by this tool.
 
+#### Offline Python startup before both source arms
+
+Use the intended interpreter's standard-library
+[distribution metadata](https://docs.python.org/3.12/library/importlib.metadata.html#distribution-files)
+before hand-selecting directories from a reviewed task-owned installation:
+
+```python
+from importlib.metadata import distribution
+
+dist = distribution("pytest")
+print(dist.version, dist.requires)
+if dist.files is None:
+    raise RuntimeError("Installation file inventory unavailable")
+print([str(path) for path in dist.files if len(path.parts) == 1])
+```
+
+Distribution and import-package names are not one-to-one. In the inspected
+pytest 9.1.1 installation, the inventory includes the top-level `py.py` shim and
+requirements include Pygments; copying only `pytest/` and `_pytest/` is incomplete.
+Review all selected files and target Python/OS requirement markers, metadata and
+licenses. This inventory is not dependency resolution, a content verification or
+proof that extensions match the target ABI. Missing metadata means unknown.
+
+Before paying for both source arms, check actual import paths and run a tiny
+fixture/parameterized startup test in a fresh authorized target. Retain bootstrap
+failures separately from target assertion failures. An existing reviewed
+pure-Python stack was reused offline on Linux Python 3.12: 472 files, 1,703,777
+compressed bytes and 6,287,037 expanded bytes; all three startup cases passed.
+This is framework feasibility, not project qualification or measured savings.
+No new packager or mandatory workflow is needed. Where transport has per-file
+limits, use reviewed chunks with archive/member hashes and bounded expansion into
+private ephemeral storage; do not raise quotas to force a transfer through.
+
 ## Complete pytest cohorts
 
 For a small all-executed selection, keep using `compare_regression`: its declared
