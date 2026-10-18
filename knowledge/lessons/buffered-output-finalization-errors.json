@@ -1,0 +1,22 @@
+{
+  "id": "buffered-output-finalization-errors",
+  "title": "Separate successful buffered writes from final output delivery",
+  "applies_when": "A program buffers output and reports success before deferred Flush or Close has delivered it, especially when small outputs succeed but larger outputs report a write error.",
+  "lesson": "Trace the public entry through finalization and inspect how cleanup errors affect its returned status. A successful buffer Write does not prove delivery. Pair a directly failing writer with the same writer behind a small buffer, plus normal output and explicit flush controls. For a reviewed Linux CLI, /dev/full can expose ENOSPC without filling a disk; compare a short redirected write with one exceeding the buffer and inspect both exit status and stderr. GoAWK's pinned executeAll defers closeAll, which discards output-stream Close and output Flush errors. That source mechanism warrants a caller-level probe, not an automatic fatal-error patch.",
+  "avoid_when": "Finalization policy may intentionally differ from explicit flush: GoAWK's current fflush test requires nonfatal diagnostics. Preserve prior interpreter errors, cancellation, child exit-status semantics and cleanup of all owned streams when proposing changes; do not close caller-owned streams to force a diagnostic. /dev/full is a Linux-specific control, not a portable dependency or GNU AWK oracle. Source evidence and selected reproductions do not establish maintainer intent, a qualified repair, full CI or improved Scout yield.",
+  "evidence": [
+    {
+      "url": "https://github.com/benhoyt/goawk/blob/5b11959fbe5fc9a74adf451f33f508c1393abab7/interp/interp.go#L641-L679",
+      "note": "executeAll defers closeAll across normal and error returns. Source evidence for the finalization path, not an accepted change in its API contract."
+    },
+    {
+      "url": "https://github.com/benhoyt/goawk/blob/5b11959fbe5fc9a74adf451f33f508c1393abab7/interp/io.go#L897-L912",
+      "note": "closeAll discards stream-close and flusher errors. Explicit flushAll/flushWriter elsewhere log failures and return a boolean, which must not be conflated with final execution failure."
+    },
+    {
+      "url": "https://github.com/benhoyt/goawk/issues/208",
+      "note": "The accepted earlier fix ensures explicit flushing continues after a failed stream; it does not establish a final-close exit-status policy."
+    }
+  ],
+  "status": "validated"
+}
