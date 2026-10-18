@@ -1040,6 +1040,32 @@ not a failed candidate or a passing backend. Retain the exact source and useful
 cache; retry only when transport/cache/environment evidence changes. This also
 keeps a new Scout pass from repeatedly rediscovering the same body-only result.
 
+### Separate the evaluated function, input guard and execution route
+
+At Future AGI [dev 90e948a](https://github.com/future-agi/future-agi/tree/90e948a5fa72a61e3e428e965a3d3e31ba765717),
+the `semantic_list_contains` YAML function counts an empty phrase as a substring
+match. A standalone reproduction is not yet a production failure:
+the [shared validator](https://github.com/future-agi/future-agi/blob/90e948a5fa72a61e3e428e965a3d3e31ba765717/futureagi/model_hub/utils/eval_input_validation.py)
+rejects all-empty lists. Mixed empty/nonempty lists pass unchanged, so investigate
+that narrower case instead of repeatedly testing the blocked input.
+
+An isolated Linux replay then used the actual
+[Falcon `/execute` route and subprocess fallback](https://github.com/future-agi/future-agi/blob/90e948a5fa72a61e3e428e965a3d3e31ba765717/futureagi/code-executor/server.py),
+not a reimplemented launcher: 8 input-rejection controls and 9 HTTP executions
+per arm; unchanged code fails the two mixed-list representations, a one-line
+in-memory filtering proposal passes all 17 methods. The ordinary numeric,
+boolean, partial/all-match and synthetic semantic controls are retained.
+
+Reuse the raw-Git source bundler and CPU sandbox checkpoint/restore. A reviewed
+official pure-Python Falcon 4.3.1 wheel can be zip-imported privately without
+network installation or executable shared libraries. The embedding fixture
+listens only inside the sandbox's network-none namespace on a port already
+allowed by the unmodified executor; do not weaken egress or reuse host services.
+This qualifies that fallback route, not Cython/nsjail variants, actual embedding
+models, Django/database seeding, the whole EvaluationRunner or upstream CI.
+Keep required full-stack and human contribution checks separate. This exposed
+case illustrates evidence routing, not a prospective benefit/recall estimate.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the
