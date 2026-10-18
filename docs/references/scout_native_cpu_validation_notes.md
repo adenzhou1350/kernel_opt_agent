@@ -1125,6 +1125,27 @@ authorized, retain bounded CPU/time/process and memory protection appropriate to
 that worker; sampled RSS and cooperative runtime heap limits are not hard cgroup
 quotas. Do not change assertions or turn off race instrumentation to get PASS.
 
+For another dependency-free Go target, [GoAWK's module](https://github.com/benhoyt/goawk/blob/5b11959fbe5fc9a74adf451f33f508c1393abab7/go.mod)
+declares Go 1.20 without third-party requirements. Its [CI](https://github.com/benhoyt/goawk/blob/5b11959fbe5fc9a74adf451f33f508c1393abab7/.github/workflows/tests.yml)
+also uses GNU AWK as a differential oracle; a Go compiler alone is not complete
+environment qualification. On a worker without GNU AWK, four original reusable
+interpreter API tests were run unchanged with ordinary and race captures:
+
+```sh
+"$reviewed_go" test -race -json -count=1 -timeout=90s ./interp \
+  -run '^(TestNewExecute|TestResetRand|TestGetArrayValue|TestExecuteContextNoError)$'
+```
+
+Use the same private/offline-module environment above. The original
+`TestStreamDoubleClose` additionally covers four file/command subtests without
+the differential oracle; its five pass events include the parent, not five
+independent bugs. Retain this restricted coverage rather than substituting
+another awk binary under the name `gawk` or claiming the whole package passed.
+[Execute's contract](https://github.com/benhoyt/goawk/blob/5b11959fbe5fc9a74adf451f33f508c1393abab7/interp/newexecute.go)
+deliberately preserves variables and random state; I/O reset does not promise a
+fresh interpreter or general concurrency safety. Read caller/configuration
+semantics before treating a state difference as a defect.
+
 The native result reader accepts at most 64 expected identities. A full-suite log
 is useful for package accounting, but is not a complete small selection merely
 because the expected cases occur in it. `compare_regression` rejects extra cases.

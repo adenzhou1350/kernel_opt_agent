@@ -345,6 +345,8 @@ encoding fix for every executable.
   [Bun JUnit](#bun-native-junit-reports).
 - Go: [standard-library-only comparison](references/scout_native_cpu_validation_notes.md#standard-library-only-go-comparison-baseline),
   [small retry library](references/scout_native_cpu_validation_notes.md#a-small-dependency-free-retry-library).
+  The comparison route also covers GoAWK API checks without claiming its missing
+  GNU AWK differential oracle is available.
 - C++: [small native translation units](references/scout_native_cpu_validation_notes.md#small-owner-reviewed-c-translation-units),
   [Torch-dependent units](references/scout_native_cpu_validation_notes.md#torch-dependent-cpu-translation-units),
   [Mooncake private dependencies](references/scout_native_cpu_validation_notes.md#mooncake-store-private-c-dependencies-before-model-generated-tests).
