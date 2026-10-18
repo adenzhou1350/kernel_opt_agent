@@ -27,7 +27,7 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("inner-before-outer", card["lesson"])
         self.assertIn("missing key", card["lesson"])
         self.assertIn("not permission to strip arbitrary wrappers", card["avoid_when"])
-        self.assertIn("not merged or official CI", card["avoid_when"])
+        self.assertIn("CI on another head", card["avoid_when"])
         self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
