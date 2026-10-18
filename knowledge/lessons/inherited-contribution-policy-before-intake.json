@@ -1,8 +1,8 @@
 {
   "id": "inherited-contribution-policy-before-intake",
   "title": "Check inherited contribution policy before research intake",
-  "applies_when": "Adding a public repository to an automated contribution scout, especially when a clone contains no CONTRIBUTING file, rules live in README/PR/agent instructions, AI/human-review rules depend on contributor status, or a technically valid fix may not be publishable.",
-  "lesson": "Check eligibility before expensive discovery and publication. GitHub can inherit the owner's .github rules, absent from the target clone: resolve the public html_url, pin and read them and linked guides/README rules. Pyee requires bot-emoji commit/changelog prefixes and reviewer disclosure, not a ban. Pallets' observed guide rejects AI-generated PRs/issues regardless of quality, including cleaning up or reusing them; do not assume an older trusted-contributor exception. Separate correctness, eligibility and interaction permission. Metadata exposes archived/disabled state and PR creation policy: has_pull_requests=true does not override collaborators_only. Public forks are not upstream PRs; interaction limits and per-user quotas also apply. Preserve private evidence, respect existing authors and redirect effort rather than bypass restrictions.",
+  "applies_when": "Adding a repository to a contribution scout: rules may live outside CONTRIBUTING, AI/human-review rules depend on contributor status, or a technically valid fix may not be publishable.",
+  "lesson": "Check eligibility before expensive discovery and publication. GitHub can inherit the owner's .github rules, absent from the target clone: resolve the public html_url, pin and read them and linked guides/README rules. Pyee requires bot-emoji commit/changelog prefixes and reviewer disclosure, not a ban. Pallets' observed guide rejects AI-generated PRs/issues regardless of quality, including cleaning up or reusing them; do not assume an older trusted-contributor exception. Separate correctness, eligibility and interaction permission. Metadata exposes archived/disabled state and PR creation policy: has_pull_requests=true does not override collaborators_only. Public forks are not upstream PRs; interaction limits and per-user quotas also apply. Community profiles miss workflow-based guards: review observed workflow paths and their pinned actions, without executing them. A guard may use cross-repository activity or agent-prefixed branches; check exemptions and maintainer intent, never disguise provenance to evade it. Preserve private evidence, respect existing authors and redirect effort rather than bypass restrictions.",
   "avoid_when": "Missing documents/settings or failed reads are not permission. A minimal reproduction may not satisfy a demand for actual affected production code; never manufacture that witness. Standalone exploratory packets do not automatically inherit the repository question: retain it alongside the specific task, but do not retrofit frozen experiment arms. Timestamped settings and a permissive all value do not establish eligibility, available quota or written-policy compliance. A previous denial warrants investigation, not a permanent universal ban. Policies/limits change; do not transfer organization rules elsewhere, classify eligibility from keywords, or equate disclosure/human-review requirements with research bans. Internal tests and generic publish approval do not provide genuine human authorship. PR restrictions and bug-report eligibility are separate; inspect the actual issue policy. This lesson establishes no PR-yield or cost improvement.",
   "evidence": [
     {
@@ -50,16 +50,12 @@
       "note": "GitHub separately supports disabling PRs and restricting their creation to collaborators; enabled features and written contribution guides are not a complete access decision."
     },
     {
-      "url": "https://github.com/sindresorhus/p-queue/issues/255",
-      "note": "A release-reproduced concurrency bug has a tested public fork but no upstream PR because creation is collaborators-only. It was submitted through the independently permitted issue channel, not counted as a PR conversion."
+      "url": "https://github.com/scrapy/w3lib/blob/9ded4ea3137a6db9dc04e32d3186f61007f3cb4d/.github/workflows/close-unattended-prs.yml",
+      "note": "Observed 2026-10-19: an opened-PR and scheduled workflow invokes a pinned unattended-pr guard with trusted-user/organization exemptions. Community-profile documents alone miss this rule."
     },
     {
-      "url": "https://github.com/tidwall/sjson/compare/master...AdamMagued:sjson:fix-issue-85?expand=1",
-      "note": "Observed on 2026-10-13: the upstream comparison explicitly says its owner disabled opening pull requests. This is a timestamped contribution constraint, not a code-quality verdict; do not infer policy merely from an absent navigation tab."
-    },
-    {
-      "url": "https://github.com/tidwall/sjson/issues/85",
-      "note": "An existing report links another author's UTF-8/in-place repair in their fork. Independent reproduction or test-fixture feedback can support that work, but cannot be counted as a novel discovery, our PR, or an upstream merge. Check this route before spending on a competing implementation."
+      "url": "https://github.com/scrapy/unattended-pr-guard/blob/2ea7eff575dd0912d03cf3e3ae7acf65052c6445/README.md",
+      "note": "The configured action documents cross-repository activity, comment style and agent-prefixed branches as closure signals, plus exemptions and maintainer overrides. Delivery risk is not code quality or a universal ban; no account verdict, accuracy or cost benefit is established. Do not rename or conceal AI provenance to evade the rule."
     },
     {
       "url": "https://github.com/MoonshotAI/kimi-code/blob/f28c51c01f025bba9f0d0f58f6309e7517a8cd02/CONTRIBUTING.md",

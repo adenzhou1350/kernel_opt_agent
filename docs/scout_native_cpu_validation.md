@@ -35,6 +35,21 @@ An empty search is not novelty proof. Human review/authorship requirements vary
 by destination; tested code does not waive them. See
 [policy examples and source-routing limits](references/scout_native_cpu_worked_routes.md#inherited-rules-before-setup).
 
+Written guides and enabled PR settings are not the whole contribution surface.
+Inspect the target's workflow filenames for contribution guards before publishing.
+For an observed literal path, reuse `--document-path .github/workflows/close-unattended-prs.yml`;
+this pins the YAML without executing it or following its `uses:` references.
+Read a referenced action at the **configured revision**, not just its current README.
+For example, [w3lib's pinned guard workflow](https://github.com/scrapy/w3lib/blob/9ded4ea3137a6db9dc04e32d3186f61007f3cb4d/.github/workflows/close-unattended-prs.yml)
+uses [an action](https://github.com/scrapy/unattended-pr-guard/blob/2ea7eff575dd0912d03cf3e3ae7acf65052c6445/README.md)
+that can close PRs from cross-repository activity or agent-prefixed branches,
+with documented exemptions and maintainer intervention. This is a timestamped
+delivery constraint, not a native correctness verdict, a universal AI ban or a
+guaranteed prediction for an account. Preserve the candidate while resolving the
+actual maintainer-supported route; do not rename branches, disguise authorship,
+switch accounts or change prose to evade a guard. No exhaustive workflow scan or
+automatic eligibility classifier is added by this route.
+
 ### Local pinned packet
 
 `scout_git_source.py --repo LOCAL_REPO --spec selection.json --output FRESH.json`

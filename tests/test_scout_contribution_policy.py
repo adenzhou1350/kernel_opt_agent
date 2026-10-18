@@ -112,6 +112,26 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("example/project/commits/docs%2Fdefault", self.calls)
         self.assertEqual(result["documents"][0]["path"], "docs/DEVELOPMENT.md")
 
+    def test_explicit_guard_workflow_is_evidence_not_action_execution_or_eligibility(self):
+        path = ".github/workflows/close-unattended-prs.yml"
+        text = ("on: pull_request_target\njobs:\n  guard:\n    steps:\n"
+                "      - uses: other-owner/guard@" + "b" * 40 + "\n")
+        self.requested_document(path, text)
+        result = self.collect(document_paths=[path])
+        self.assertEqual(result["status"], "DOCUMENTS_REQUIRE_REVIEW")
+        doc, = result["documents"]
+        self.assertEqual((doc["kind"], doc["path"], doc["text"]),
+                         ("requested", path, text))
+        self.assertEqual(doc["sha256"], hashlib.sha256(text.encode()).hexdigest())
+        self.assertEqual(doc["commit"], "a" * 40)
+        self.assertFalse(doc["inherited"])
+        self.assertEqual(self.calls, ["example/project", "example/project/community/profile",
+                                     "example/project/commits/main",
+                                     "example/project/contents/" + path + "?ref=" + "a" * 40])
+        self.assertIn("do not index workflow-based contribution guards", result["caution"])
+        self.assertNotIn("allowed", result)
+        self.assertNotIn("guard_verdict", result)
+
     def test_requested_path_validation_and_budget_precede_all_fetches(self):
         invalid = [None, "DEVELOPMENT.md", ["x"] * 5, [4], [""], ["../secret"],
                    ["/DEVELOPMENT.md"], ["docs//guide"], ["docs/./guide"],
@@ -459,6 +479,23 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("not a blanket research ban", linked["note"])
         self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
         self.assertNotIn("authorized", result)
+
+    def test_workflow_guard_advice_is_complete_without_automatic_account_verdict(self):
+        result = scout_lesson_context.lesson_suggestions(
+            "workflow unattended contribution guard",
+            source_urls=["https://github.com/scrapy/w3lib/blob/"
+                         "9ded4ea3137a6db9dc04e32d3186f61007f3cb4d/"
+                         ".github/workflows/close-unattended-prs.yml"],
+        )
+        self.assertTrue(result.get("source_path_match"))
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "inherited-contribution-policy-before-intake")
+        guard = next(e for e in card["evidence"] if "unattended-pr-guard/blob/" in e["url"])
+        self.assertIn("exemptions and maintainer overrides", guard["note"])
+        self.assertIn("Do not rename or conceal AI provenance", guard["note"])
+        self.assertIn("no account verdict", guard["note"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+        self.assertNotIn("guard_verdict", result)
 
 
 if __name__ == "__main__":

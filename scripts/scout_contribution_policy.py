@@ -30,6 +30,9 @@ CAUTION = (
     " Repository settings are a timestamped observation, not an authorization:"
     " enabled PRs can still be collaborators-only. Missing/unknown fields are null,"
     " not unrestricted. Interaction-limit and per-user PR-cap endpoints are not read."
+    " Community profiles do not index workflow-based contribution guards. Review"
+    " relevant literal workflow paths with --document-path and their pinned actions"
+    " separately; this reader neither executes actions nor classifies their verdicts."
 )
 
 
@@ -214,7 +217,7 @@ def main():
     parser.add_argument("--repo", required=True)
     parser.add_argument("--github-auth", action="store_true")
     parser.add_argument("--document-path", action="append", default=[],
-                        help="explicit repository-relative guide, up to four; no link crawling")
+                        help="explicit repository-relative guide or workflow, up to four; no link crawling")
     parser.add_argument(
         "--output",
         type=Path,
