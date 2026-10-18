@@ -1082,6 +1082,17 @@ installed. A reachable worker with ample storage is not automatically a verifier
 Do not install a privileged daemon, mount a host socket into generated tests or
 fall back to running untrusted code directly as the SSH user.
 
+Check per-file limits as well as free space when an owned SQLite fixture fails.
+In the CPU sandbox, `SQLITE_IOERR_WRITE` (778) coincided with a WAL reaching the
+unchanged 1 MiB `RLIMIT_FSIZE`; the rollback/connection close then removed that
+WAL, so a later directory listing missed the evidence. Observe before cleanup
+rather than inferring corruption from the final small database. The starvation
+fixture now keeps 1,501 excluded rows but omits their unused full source packets.
+Fresh-fixture mutation controls still reject applying the global 1,500-row limit
+before each of the foreign/handled/depth filters. Do not lower row cardinality,
+disable journaling, relax isolation limits or suppress the failure to obtain a
+pass. This improves that fixture's feasibility, not live-database performance.
+
 If evaluating a namespace-based alternative, probe the actual namespaces the
 backend requires. An observed worker allowed `unshare --user --map-root-user
 --net true` but rejected the mount namespace with `cannot change root filesystem
