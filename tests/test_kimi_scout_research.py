@@ -733,9 +733,14 @@ class ResearchTests(unittest.TestCase):
                 self.producer.issue(self.spec, {})
                 original = self.jobs()[0]
                 self.finish(original)
-                template = json.loads(original["packet"])
-                template.pop("focus_issue", None)
-                template["research"] = {"depth": 2 if kind == "depth_two" else 0}
+                # These noise rows are excluded before source inspection. Keep
+                # their filtering fields, not 1,501 copies of a full evidence
+                # packet. The count must still exceed the global query limit.
+                template = {
+                    "repo": self.spec["repo"],
+                    "sources": [],
+                    "research": {"depth": 2 if kind == "depth_two" else 0},
+                }
                 if kind == "foreign":
                     template["repo"] = "other/repo"
                 with scout.connect(self.root) as db:
