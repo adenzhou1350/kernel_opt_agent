@@ -12,6 +12,31 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_reuse_configuration_advice_keeps_snapshot_and_reuse_controls(self):
+        for revision in (
+            "09f70d66b58962636c6a0adb8e5487d453ece859",
+            "6b542a65405186573fd8439895ecbcee0ec647a5",
+        ):
+            with self.subTest(revision=revision):
+                result = lesson_suggestions(
+                    "mutable env dictionary cached worker configuration reuse",
+                    source_urls=[
+                        "https://raw.githubusercontent.com/joblib/loky/"
+                        f"{revision}/loky/reusable_executor.py"
+                    ],
+                )
+                card = result["matches"][0]
+                self.assertEqual(card["id"], "snapshot-before-reuse-comparison")
+                self.assertTrue(result["source_path_match"])
+                self.assertIn("same dictionary", card["lesson"])
+                self.assertIn("equal-content", card["lesson"])
+                self.assertIn("worker PID", card["lesson"])
+                self.assertIn("forced reuse", card["avoid_when"])
+                self.assertIn("not a deep-copy recipe", card["avoid_when"])
+                self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+                self.assertEqual(result["oversized_matches_omitted"], 0)
+                self.assertNotIn("qualified", result)
+
     def test_annotation_qualifier_advice_preserves_metadata_and_contract_limits(self):
         result = lesson_suggestions(
             "TypedDict Annotated qualifier nesting required keys metadata",

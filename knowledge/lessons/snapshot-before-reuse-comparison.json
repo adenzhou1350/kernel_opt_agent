@@ -1,0 +1,22 @@
+{
+  "id": "snapshot-before-reuse-comparison",
+  "title": "Snapshot mutable configuration before caching a reuse comparison",
+  "applies_when": "A reusable worker, connection or compiled-resource factory stores caller-owned mutable configuration and compares a later request with that stored configuration to decide automatic reuse.",
+  "lesson": "Equality cannot detect a change if both the old and new configurations alias the same dictionary. Trace the stored argument and the worker's realized state across two completed public calls, not only the comparison expression. Retain a private snapshot at the configuration boundary, before caching it for later comparison. For loky's documented string-to-string env mapping, an outer dictionary copy suffices. Test changing the same dictionary and passing a replacement dictionary, and keep an equal-content configuration control that checks both executor identity and worker PID. Observe the environment in a real worker; matching metadata alone does not prove the worker was refreshed. Shut down completed test workers normally instead of requiring an unnecessary force-termination dependency.",
+  "avoid_when": "This is not a deep-copy recipe for arbitrary reducers, payloads, handles or nested mutable configuration. Read the specific ownership contract; intentional live views and forced reuse can have different semantics. The loky repair concerns automatic reuse and does not redesign direct ProcessPoolExecutor behavior, other mutable kwargs, concurrent input mutation or process cleanup. Focused cross-platform tests are not the full stress suite, joblib integration, free-threaded Python, macOS, upstream CI or performance qualification. An open PR is not maintainer acceptance, and advice retrieval is not measured discovery benefit.",
+  "evidence": [
+    {
+      "url": "https://github.com/joblib/loky/blob/09f70d66b58962636c6a0adb8e5487d453ece859/loky/reusable_executor.py",
+      "note": "Pinned original stores env inside executor_kwargs and compares the subsequent kwargs for reuse=auto. The caller dictionary is not snapshotted, so in-place updates also alter the saved comparison value. This is the source mechanism; the link alone is not an executed test."
+    },
+    {
+      "url": "https://github.com/joblib/loky/pull/677",
+      "note": "Open proposed two-production-line fix at 6b542a65405186573fd8439895ecbcee0ec647a5. Contributor Windows/Python3.14 selection: seven focused passes. Identical Linux/Python3.12 three-case cohort: original two passes/one failure, candidate three passes, no skips/errors. An earlier Linux force-shutdown attempt timed out and is retained as failed; the fresh graceful-shutdown pair exited normally. Not official CI, full-suite or performance evidence."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/loky/blob/6b542a65405186573fd8439895ecbcee0ec647a5/tests/test_reusable_executor.py",
+      "note": "Exact proposed public-worker regressions compare in-place and replacement env updates and verify that equal maps keep both executor and PID. Each submitted future completes before graceful shutdown. Test source is not independent execution or universal mutation coverage."
+    }
+  ],
+  "status": "validated"
+}
