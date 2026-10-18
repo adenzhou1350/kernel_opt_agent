@@ -11,6 +11,22 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_go_windows_observation_advice_fits_without_qualification_claim(self):
+        result = lesson_suggestions(
+            "Go native Windows newline observation channel",
+            source_urls=[
+                "https://raw.githubusercontent.com/benhoyt/goawk/"
+                "5b11959fbe5fc9a74adf451f33f508c1393abab7/interp/interp_test.go"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "go-native-platform-witness")
+        self.assertIn("observation channel", card["lesson"])
+        self.assertIn("do not skip Windows", card["lesson"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_barrel_delete_prior_repair_is_available_without_native_head_claim(self):
         result = lesson_suggestions(
             "BarrelList del_slice clipped bounds empty deletion",

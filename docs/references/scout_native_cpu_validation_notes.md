@@ -1208,6 +1208,15 @@ does not make compilation a runtime witness, replace fixtures, verify source,
 or qualify Windows race/other Go versions. Reviewed commands still need local
 physical and commit headroom; do not reroute an application-control denial.
 
+Check the test's observation channel as well as the producer. In
+[GoAWK's CSV multi-read test](https://github.com/benhoyt/goawk/blob/5b11959fbe5fc9a74adf451f33f508c1393abab7/interp/interp_test.go),
+Windows output is normalized again before comparison. A bare CR immediately
+before an embedded LF can disappear in that test channel even when the parser
+preserved the correct value. Inspect the raw value through a native callback or
+emit an exact predicate/count that the printer cannot transform. Preserve the
+failed cross-platform run and normal newline controls; don't skip the case,
+waive its expectation or change production just to satisfy rendered stdout.
+
 For a dependency-bearing Go package, first make a small bounded request for an
 actually needed module's version metadata on the intended worker. Local Git
 access or an installed compiler does not prove that its module proxy or checksum
