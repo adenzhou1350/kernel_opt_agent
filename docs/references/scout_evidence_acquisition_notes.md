@@ -693,6 +693,10 @@ positions, **not** original file line numbers. At most two spans, eight rows and
 1,400 characters per span are allowed. A valid span does not verify the reason,
 producer/consumer contract, execution or candidate quality; independent semantic
 adjudication remains required. This interface is not enabled in live Scout.
+Duplicate JSON keys at any output-object level are rejected, including identical
+repeats: contradictory decisions or citation coordinates must not be silently
+resolved by keeping the last value. This is input disambiguation, not a repair
+of prior model answers or evidence of better discovery quality.
 
 ```text
 python -B -m unittest tests.test_scout_review_citations

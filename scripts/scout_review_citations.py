@@ -78,8 +78,14 @@ def resolve_review(text, displayed):
     def fail(error):
         return {"valid": False, "error": error}
 
+    def unique_fields(items):
+        value = dict(items)
+        if len(value) != len(items):
+            raise ValueError("duplicate JSON field")
+        return value
+
     try:
-        value = json.loads(text)
+        value = json.loads(text, object_pairs_hook=unique_fields)
     except (TypeError, ValueError):
         return fail("INVALID_JSON")
     if not isinstance(value, dict) or set(value) != {

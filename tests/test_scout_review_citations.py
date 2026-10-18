@@ -73,6 +73,38 @@ class ReviewCitationTests(unittest.TestCase):
         self.review["citations"][0]["quote"] = "invented"
         self.assertEqual(self.resolve()["error"], "INVALID_CITATION")
 
+    def test_duplicate_output_fields_are_not_last_value_wins(self):
+        raw = json.dumps(self.review)
+        for field, conflicting_value in (
+            ("decision", '"STOP_REFUTED"'),
+            ("reason", '"A contradictory explanation."'),
+            ("citations", "[]"),
+        ):
+            with self.subTest(field=field):
+                ambiguous = raw[:-1] + f',"{field}":{conflicting_value}' + "}"
+                self.assertEqual(
+                    resolve_review(ambiguous, self.view),
+                    {"valid": False, "error": "INVALID_JSON"},
+                )
+
+    def test_duplicate_nested_citation_fields_are_rejected(self):
+        raw = json.dumps(self.review)
+        for field, value in (
+            ("evidence_id", '"s0"'),
+            ("first_row", "2"),
+            ("last_row", "1"),
+        ):
+            with self.subTest(field=field):
+                # Identical duplicates are ambiguous too; do not silently keep
+                # a value based on producer key order, even inside a citation.
+                ambiguous = raw.replace(
+                    '"citations": [{', f'"citations": [{{"{field}":{value},', 1
+                )
+                self.assertEqual(
+                    resolve_review(ambiguous, self.view),
+                    {"valid": False, "error": "INVALID_JSON"},
+                )
+
     def test_blank_oversize_and_duplicate_citations_fail(self):
         for text in ("   ", "x" * 1401):
             view = citation_view([{"url": "a", "text": text}])
