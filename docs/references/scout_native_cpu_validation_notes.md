@@ -639,6 +639,31 @@ different connection, migration or failing supported flow can overturn that
 counterevidence. No autonomous delivery profile or PR promotion is enabled by
 this recipe; arbitrary model-generated code still requires secretless isolation.
 
+### Installer API tests are not a configured CLI upgrade
+
+When a repair changes installation or dependency resolution, importing the
+installed module through an internal installer test does not prove the shipped
+CLI or replacement of an existing configured installation. If that boundary
+matters, pin the public stable release's version, tarball and integrity, let its
+actual CLI create a small installation in private state, and use the candidate's
+documented CLI to replace and load it. Keep the source-built candidate distinct
+from the released package. Read the structured runtime verdict and resulting
+install record; command exit alone is not runtime-loading proof. An inspector
+can exit zero while reporting `status: error`; even an `imported: true` flag or
+an empty missing-dependency list need not mean module initialization succeeded.
+Do not fabricate old database rows to stand in for a stable-version installation.
+
+Review the wrapper's build/publication contract before reserving test ports.
+OpenClaw's [runtime publication owner](https://github.com/openclaw/openclaw/blob/b46ec6167975f57fa33cc298e78c8338ae59746e/src/cli/update-cli/update-command-service-publication.ts)
+requires the affected Gateway's port to be free before changing runtime artifacts.
+A task-owned bound, non-listening socket can prevent connections to an operator
+Gateway during an offline CLI test, but is **not a free port** for this build
+check. Build through the official entry point with a genuinely free private port
+first, then reserve it for the installation commands if appropriate. Preserve
+the refusal; do not disable the guard, fake build stamps, or stop an operator
+service. This is a fixture-ordering precondition, not proof of a product defect,
+successful upgrade, full package qualification or better Scout conversion.
+
 ### Tap CLI setup is separate from a direct test-module run
 
 With Tap 21.7.4, directly running a TypeScript test with Node can reach real
