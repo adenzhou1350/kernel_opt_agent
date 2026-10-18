@@ -171,5 +171,65 @@ r.serve(c,None,sys.stdin.buffer,sys.stdout)
             self.assertEqual(db.execute("SELECT sum(charge) FROM jobs").fetchone()[0], 17)
 
 
+class RemoteResourceTests(unittest.TestCase):
+    """The real shared reader sees a synthetic proc/cgroup tree; no allocations."""
+
+    def probe(self, *, parent_headroom=256, host_mb=8192, disk_mb=2048, changes=None):
+        mib = 1024 ** 2
+        observations = {
+            "/proc/meminfo": f"MemAvailable: {host_mb * 1024} kB\n",
+            "/proc/self/cgroup": "0::/team/job\n",
+            "/proc/self/mountinfo": "36 25 0:32 / /sys/fs/cgroup rw - cgroup2 cgroup rw\n",
+            "/sys/fs/cgroup/memory.max": "max",
+            "/sys/fs/cgroup/team/memory.max": str(4096 * mib),
+            "/sys/fs/cgroup/team/memory.current": str((4096 - parent_headroom) * mib),
+            "/sys/fs/cgroup/team/job/memory.max": "max",
+        }
+        observations.update(changes or {})
+
+        def read(path, *args, **kwargs):
+            name = str(path).replace("\\", "/")
+            if name not in observations:
+                raise FileNotFoundError(name)
+            value = observations[name]
+            if isinstance(value, Exception):
+                raise value
+            return value
+
+        with patch.object(Path, "read_text", autospec=True, side_effect=read), \
+                patch.object(Path, "exists", autospec=True,
+                             side_effect=lambda p: str(p).replace("\\", "/") in observations), \
+                patch.object(remote.shutil, "disk_usage", return_value=SimpleNamespace(free=disk_mb * mib)):
+            return remote.resource_ready(Path("/private/scout"))
+
+    def test_low_ancestor_headroom_is_not_unlimited_root_capacity(self):
+        self.assertFalse(self.probe(parent_headroom=256))
+
+    def test_unlimited_child_with_sufficient_ancestor_headroom(self):
+        self.assertTrue(self.probe(parent_headroom=2048))
+
+    def test_host_and_disk_keep_the_one_gib_floor(self):
+        for host_mb, disk_mb, expected in ((1024, 1024, True), (1023, 2048, False), (2048, 1023, False)):
+            with self.subTest(host_mb=host_mb, disk_mb=disk_mb):
+                self.assertEqual(self.probe(parent_headroom=2048, host_mb=host_mb,
+                                            disk_mb=disk_mb), expected)
+
+    def test_finite_child_limit_is_checked_too(self):
+        self.assertFalse(self.probe(parent_headroom=2048, changes={
+            "/sys/fs/cgroup/team/job/memory.max": str(1024 ** 3),
+            "/sys/fs/cgroup/team/job/memory.current": str(800 * 1024 ** 2),
+        }))
+
+    def test_unreadable_or_malformed_membership_remains_unknown(self):
+        for value in (PermissionError("not readable"), "malformed\n", "5:memory:/team/job\n"):
+            with self.subTest(value=value):
+                self.assertFalse(self.probe(parent_headroom=2048, changes={"/proc/self/cgroup": value}))
+
+    def test_malformed_ancestor_current_does_not_admit(self):
+        self.assertFalse(self.probe(parent_headroom=2048, changes={
+            "/sys/fs/cgroup/team/memory.current": "unknown",
+        }))
+
+
 if __name__ == "__main__":
     unittest.main()

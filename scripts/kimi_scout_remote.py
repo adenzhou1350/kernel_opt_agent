@@ -20,6 +20,7 @@ import threading
 import time
 
 from kimi_scout_resident import BackendPool, MAX_FRAME_BYTES, MAX_REQUESTS, load_backend
+from scout_linux_memory import linux_available_memory_mb
 
 
 def ssh_command(path):
@@ -85,14 +86,9 @@ class RemotePool(BackendPool):
 
 def resource_ready(root):
     """CPU-only headroom, including finite container limits, before each call."""
-    mem = dict(line.split(":", 1) for line in Path("/proc/meminfo").read_text().splitlines())
-    available = int(mem["MemAvailable"].split()[0]) * 1024
-    cg = Path("/sys/fs/cgroup")
-    if (cg / "memory.max").exists():
-        limit = (cg / "memory.max").read_text().strip()
-        if limit != "max":
-            available = min(available, int(limit) - int((cg / "memory.current").read_text()))
-    return available >= 1024 ** 3 and shutil.disk_usage(root).free >= 1024 ** 3
+    available_mb = linux_available_memory_mb()
+    return (available_mb is not None and available_mb >= 1024
+            and shutil.disk_usage(root).free >= 1024 ** 3)
 
 
 def serve(config_file, root, source, output, *, exit_on_eof=os._exit):
