@@ -12,6 +12,21 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_merged_pyee_source_retrieves_the_scoped_callback_lesson(self):
+        result = lesson_suggestions(
+            "review public source",
+            source_urls=[
+                "https://raw.githubusercontent.com/jfhbrook/pyee/"
+                "283ce8a76fc5b35636d7dfe2ae0eaacd1eadc20a/pyee/trio.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "coroutine-callback-thread-hints")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("not a prospective budget-matched trial", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertNotIn("qualified", result)
+
     def test_constructor_lifetime_answer_remains_available_as_advice(self):
         result = lesson_suggestions("caller contract owner lifetime NewVFS constructor")
         card = result["matches"][0]
@@ -217,7 +232,11 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("only when", card["lesson"])
         self.assertIn("not when it starts", card["lesson"])
         self.assertIn("normally before work starts", card["lesson"])
-        self.assertIn("needs maintainer review", card["lesson"])
+        self.assertIn("adapter-specific", card["lesson"])
+        self.assertIn("maintainer-preferred regression", card["lesson"])
+        self.assertIn("without another cancellation thread", card["lesson"])
+        self.assertIn("Merged as 633965bad02a857574b3dbad03d1ef9f35e9caa4", card["evidence"][2]["note"])
+        self.assertIn("not proof that next-evidence selection", card["avoid_when"])
         self.assertIn("asyncio.Future", card["avoid_when"])
         self.assertIn("full pre-commit", card["avoid_when"])
         self.assertIn("Retrospective", card["evidence"][2]["note"])

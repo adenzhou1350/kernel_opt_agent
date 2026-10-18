@@ -3,7 +3,7 @@
   "title": "Separate callback execution placement from awaiting results and thread hints",
   "applies_when": "A callback dispatcher accepts synchronous and asynchronous handlers, thread-selection flags or once wrappers. Trace registration, wrapping and delivery together; a synchronous wrapper can return either a coroutine or a normal no-op result.",
   "lesson": "Test public registration with both thread flags, plain and partial-wrapped coroutine functions, synchronous thread-identity controls and duplicate pending once deliveries. APScheduler offloaded coroutine callbacks under is_async=False, contrary to its contract: asyncio left the result unawaited and Trio rejected the call. Classify coroutine functions before offloading there. Separately, pyee's Trio runner unconditionally awaited results: successful synchronous handlers and skipped once wrappers returned None and produced spurious errors. Check the awaitable result after calling there; iscoroutinefunction alone would miss the synchronous once wrapper. These are distinct placement and result-consumption decisions. Compare unchanged production source with the repair and retain genuine handler-error controls.",
-  "avoid_when": "Follow the API's documented execution contract rather than universally overriding thread hints or awaiting arbitrary results. APScheduler evidence covers coroutine functions and functools.partial wrappers, not every async callable object, custom awaitable or future-returning synchronous function. The pyee probe covers synchronous returns and coroutine/once paths, not all awaitable implementations. Do not infer complete external-broker, SQLite, supported-Python or thread-safety qualification. Submitted PRs are not maintainer acceptance, a performance gain or measured Scout conversion; these owner-led investigations were not a prospective budget-matched trial.",
+  "avoid_when": "Follow the API's documented execution contract rather than universally overriding thread hints or awaiting arbitrary results. APScheduler evidence covers coroutine functions and functools.partial wrappers, not every async callable object, custom awaitable or future-returning synchronous function. The pyee probe covers synchronous returns and coroutine/once paths, not all awaitable implementations. Do not infer complete external-broker, SQLite, supported-Python or thread-safety qualification. Pyee's merge establishes acceptance of that particular change, not general approval of this advice, a performance gain or measured Scout conversion; these owner-led investigations were not a prospective budget-matched trial.",
   "evidence": [
     {
       "url": "https://github.com/agronholm/apscheduler/blob/a660860d841c5426ec3b7ed2d4ada8fe168710f1/src/apscheduler/abc.py#L145-L147",
@@ -15,7 +15,11 @@
     },
     {
       "url": "https://github.com/jfhbrook/pyee/pull/217",
-      "note": "Conditional result-awaiting repair. Four new Windows Trio regressions fail on unchanged source; complete patched Windows suite passes 48 tests. Linux standalone probe changes from 3/5 failures to 5/5 passes, not a full Linux pytest run. Includes sync error-handler and duplicate pending once controls."
+      "note": "Merged as 283ce8a76fc5b35636d7dfe2ae0eaacd1eadc20a; the maintainer reports release in 15.0.0 at issuecomment-6243493907. The merged Trio runner retains the result isawaitable guard. Historical owner tests: four new Windows Trio regressions fail before; patched suite passes 48 tests; Linux standalone probe changes from 3/5 failures to 5/5 passes, not full Linux pytest. Those counts are not a fresh merged-head rerun. Includes sync error-handler and duplicate pending once controls."
+    },
+    {
+      "url": "https://github.com/jfhbrook/pyee/blob/283ce8a76fc5b35636d7dfe2ae0eaacd1eadc20a/pyee/trio.py",
+      "note": "Merged production source calls f first, then guards await with isawaitable(result), while retaining exception-to-error dispatch. This same production blob also occurs at the v15.0.0 tag target; source identity is not a fresh native execution or a transferable execution-placement rule."
     }
   ],
   "status": "validated"

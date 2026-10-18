@@ -90,6 +90,36 @@ def test_ready_policy_gate_waits_for_maintainer_authorization(tmp_path: Path) ->
     assert decision["recommended_action"] == "WAIT_FOR_MAINTAINER_CI_AUTHORIZATION"
 
 
+def test_approval_expiry_is_a_maintainer_gate(tmp_path: Path) -> None:
+    path = write_snapshot(
+        tmp_path,
+        snapshot(
+            [check("DCO / required", "FAILURE",
+                   "This workflow run required approval but was not approved before it expired.")],
+            draft=False,
+        ),
+    )
+    decision = route(validate_snapshot(path, ROOT / "schemas"), path)
+    assert decision["github_ci_stage"] == "POLICY_GATE"
+    assert decision["candidate_test_failure"] is False
+    assert decision["recommended_action"] == "WAIT_FOR_MAINTAINER_CI_AUTHORIZATION"
+    assert decision["external_action_owner"] == "MAINTAINER"
+    assert "NO_CI_RERUN" in decision["claim_boundary"]
+
+
+def test_ambiguous_expiry_does_not_infer_missing_authorization() -> None:
+    assert classify_check(check("opaque", "FAILURE", "Approval expired")) == "UNKNOWN_FAILURE"
+
+
+def test_candidate_error_still_beats_approval_expiry() -> None:
+    value = check(
+        "unit", "FAILURE",
+        "This workflow run required approval but was not approved before it expired.",
+        "AssertionError: candidate result differs",
+    )
+    assert classify_check(value) == "CANDIDATE_FAILURE"
+
+
 def test_candidate_failure_has_precedence_over_policy_gate(tmp_path: Path) -> None:
     path = write_snapshot(
         tmp_path,

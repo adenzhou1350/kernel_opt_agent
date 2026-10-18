@@ -23,6 +23,7 @@ POLICY_GATE_MARKERS = (
     "require run-ci-extra label",
     "maintainer authorization required",
     "workflow approval required",
+    "this workflow run required approval but was not approved before it expired",
 )
 CANDIDATE_FAILURE_MARKERS = (
     "assertionerror",
