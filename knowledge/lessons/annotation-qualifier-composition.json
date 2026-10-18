@@ -1,0 +1,30 @@
+{
+  "id": "annotation-qualifier-composition",
+  "title": "Test annotation qualifier composition without losing value checks or metadata",
+  "applies_when": "A Python runtime checker or schema introspector handles TypedDict Required, NotRequired, ReadOnly and Annotated through an origin/argument dispatch loop; individual wrappers work but supported nesting may fall into an unknown-type path.",
+  "lesson": "Test documented wrapper compositions, not just each wrapper independently. PEP 655 permits Annotated outside or inside Required/NotRequired. Compare both orders using a valid value, wrong value and missing key; absence is not a nullable value. Include total/non-total dictionaries and concrete/string annotations with the supported typing provider. If normalization must cross Annotated to find a qualifier, retain its metadata for actual custom-checker callbacks in inner-before-outer order, including duplicates; stripping all metadata can repair the built-in check while breaking extensions. In the cited Typeguard revision, outer Annotated hides the qualifier from check_typed_dict; the later dispatch unwraps only Annotated and silently leaves the underlying value unchecked. A metadata callback is a necessary control for the proposed normalization, not a performance test.",
+  "avoid_when": "This is not permission to strip arbitrary wrappers or reorder custom constraints. Required and NotRequired together are an invalid contract, not another supported permutation. ReadOnly concerns mutation typing; checking its value type does not enforce runtime immutability. Provider/interpreter features differ, and static typing alone does not promise every library's runtime API. Type aliases, forward-reference scopes, inherited or generic dictionaries need their own qualification. The cited repair is locally tested but not merged or official CI; this is not evidence that knowledge retrieval improves discovery or PR conversion.",
+  "evidence": [
+    {
+      "url": "https://peps.python.org/pep-0655/#interaction-with-annotated",
+      "note": "Defines both Annotated nesting orders with Required/NotRequired as valid; its specification separately rejects combining Required and NotRequired. This establishes a contract to test, not that every runtime checker implements it."
+    },
+    {
+      "url": "https://peps.python.org/pep-0593/#syntax",
+      "note": "Annotated preserves metadata order, flattens nested metadata from the innermost annotation and does not remove duplicates. Unknown metadata does not erase the underlying type."
+    },
+    {
+      "url": "https://github.com/agronholm/typeguard/blob/cb8cee7a17af49498ad2465bbbdf8bfa8bf41a53/src/typeguard/_checkers.py#L287-L308",
+      "note": "Pinned qualifier loop handles Required/NotRequired/ReadOnly but stops at Annotated. Inspect the subsequent check_type_internal dispatch as well; the source mechanism is not a complete package or platform verdict."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/typeguard/blob/5af3327404b55537c1748c321f2fcf48f62910e8/tests/test_checkers.py#L455-L518",
+      "note": "Public candidate regression/control matrix includes both nesting orders, requiredness, string annotations and real checker-lookup metadata callbacks. Candidate source is not upstream acceptance; native run logs remain separate."
+    },
+    {
+      "url": "https://github.com/agronholm/typeguard/pull/607",
+      "note": "Submitted Ready bugfix reports native original/fixed comparisons, metadata controls and the unchanged baseline mypy failure. Publication is not merge, full CI acceptance or evidence of learned-selector efficacy."
+    }
+  ],
+  "status": "validated"
+}

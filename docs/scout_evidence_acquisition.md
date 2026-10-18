@@ -146,6 +146,13 @@ The [research findings](references/scout_evidence_acquisition_notes.md#research-
 include unresolved novelty/utility requirements and negative comparisons.
 Nothing here authorizes a learned selector in production or a paper claim.
 
+The separately frozen [source-inception v2 results](references/scout_source_inception_pilot_v2_results.md)
+are terminal: two convenience slots, 20 attempts, 26,823 reported tokens,
+12 valid abstentions and no new discovery/PR. An owner audit found one existing
+Humanize defect missed by every arm; valid abstention is not a correct no-bug
+verdict. This does not fill the frame-incomplete v1 pilot or authorize additional
+slots with v2's unused token allowance.
+
 A [two-repair Python/Go comparison](../examples/scout-evidence-native-facts/README.md)
 extends that countercheck with matched native regression/control tests and fresh
 public-call observations. Fixed native evidence and M3-selected evidence both
