@@ -78,6 +78,12 @@ bytes with optional literal `--path` subsets. Extraction requires a fresh root;
 include the archive prefix in the import path. Missing partial-clone objects are
 not silently fetched. A subset/hash match is not dependency completeness.
 
+For a proposed diff, a zero `git apply --check` exit alone is insufficient:
+[Git ignores paths outside the current repository subdirectory](https://git-scm.com/docs/git-apply#_description).
+Use the intended root or a reviewed `--directory` prefix, inspect verbose
+checked/skipped paths, and include a bad-context rejection control when testing
+an unfamiliar staging layout. Do not bypass path safety with `--unsafe-paths`.
+
 Inspect the target's config and collect parameterized IDs before freezing exact
 expected cases. For pytest, use its reviewed `-c` where ancestor config could
 interfere; `--rootdir` and disabled plugins are not import/config isolation.

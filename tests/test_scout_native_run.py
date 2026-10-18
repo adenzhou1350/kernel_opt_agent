@@ -10,7 +10,7 @@ import tempfile
 import time
 import unittest
 from unittest.mock import patch
-from contextlib import redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -18,6 +18,23 @@ import scout_native_run as runner
 
 PASS = "running 1 test\ntest contract ... ok\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s"
 JUNIT_PASS = '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase classname="tests.test_contract" name="test_case"/></testsuite>'
+
+
+class CLIHelpTests(unittest.TestCase):
+    def test_help_explains_required_source_and_test_identity_without_launch(self):
+        output = io.StringIO()
+        with patch.object(runner.subprocess, "Popen") as child:
+            with redirect_stdout(output), self.assertRaises(SystemExit) as stopped:
+                runner.main(["--help"])
+        self.assertEqual(stopped.exception.code, 0)
+        child.assert_not_called()
+        help_text = " ".join(output.getvalue().split())
+        self.assertIn("--source RELATIVE_PATH=SHA256", help_text)
+        self.assertIn("paths relative to --cwd", help_text)
+        self.assertIn("--expect-test TEST_ID", help_text)
+        self.assertIn("pytest: CLASSNAME::NAME", help_text)
+        self.assertGreaterEqual(help_text.count("required for execution"), 5)
+        self.assertIn("--env NAME=VALUE", help_text)
 
 
 class RuntimeExportTests(unittest.TestCase):

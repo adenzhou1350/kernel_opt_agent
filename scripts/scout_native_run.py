@@ -367,13 +367,16 @@ def main(argv=None):
                         help="copy the stdlib-only CPU tools into a fresh directory; do not execute")
     parser.add_argument("--native-windows", action="store_true",
                         help="explicitly allow native Windows CPU capture using a private Job Object")
-    parser.add_argument("--cwd", type=Path)
-    parser.add_argument("--output", type=Path)
-    parser.add_argument("--format", choices=native.FORMATS)
+    parser.add_argument("--cwd", type=Path, help="test checkout; required for execution")
+    parser.add_argument("--output", type=Path, help="fresh capture directory; required for execution")
+    parser.add_argument("--format", choices=native.FORMATS, help="native report format; required for execution")
     parser.add_argument("--package")
-    parser.add_argument("--expect-test", action="append")
-    parser.add_argument("--source", action="append")
-    parser.add_argument("--env", action="append", default=[])
+    parser.add_argument("--expect-test", action="append", metavar="TEST_ID",
+                        help="required for execution; repeat for each exact expected ID (pytest: CLASSNAME::NAME)")
+    parser.add_argument("--source", action="append", metavar="RELATIVE_PATH=SHA256",
+                        help="required for execution; repeat for reviewed raw file hashes, paths relative to --cwd")
+    parser.add_argument("--env", action="append", default=[], metavar="NAME=VALUE",
+                        help="reviewed child environment value; repeat for additional values")
     parser.add_argument("--timeout", type=float, default=120)
     parser.add_argument("command", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv)

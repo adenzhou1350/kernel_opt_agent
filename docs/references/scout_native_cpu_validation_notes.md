@@ -1066,6 +1066,14 @@ models, Django/database seeding, the whole EvaluationRunner or upstream CI.
 Keep required full-stack and human contribution checks separate. This exposed
 case illustrates evidence routing, not a prospective benefit/recall estimate.
 
+The same revision's
+[seeder](https://github.com/future-agi/future-agi/blob/90e948a5fa72a61e3e428e965a3d3e31ba765717/futureagi/model_hub/management/commands/seed_system_evals.py)
+can return before reading YAML when its indefinite version cache is current.
+A body-only fix therefore does not establish delivery to existing templates:
+account for the documented version bump or an approved reseeding route and test
+that update separately. Do not claim database/cache qualification from an AST
+constant check or the component tests above.
+
 ## Remote sandbox feasibility before model execution
 
 Before moving automated delivery to a shared Linux worker, check that the
