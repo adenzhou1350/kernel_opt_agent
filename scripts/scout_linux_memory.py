@@ -148,6 +148,8 @@ def linux_memory_diagnostics(read_text=None):
     Capture the paths/counters used by the real admission reader, then inspect
     optional statistics at those same visible levels. No writes, allocations,
     process control, hidden-ancestor inference or admission-policy change.
+    The cache-adjusted estimate follows Kubernetes' inactive_file working-set
+    convention, not a promise that those pages can be reclaimed on demand.
     """
     read = read_text or _read_text
     captured = {}
@@ -188,8 +190,10 @@ def linux_memory_diagnostics(read_text=None):
         node = str(PurePosixPath(path).parent)
         row = {'level': len(result['cgroups']), 'limit_mb': None,
                'charged_mb': None, 'raw_headroom_mb': None,
+               'cache_adjusted_headroom_estimate_mb': None,
                'memory_pressure': None, 'oom_group': None,
                'stat_mib': {}, 'events': {}, 'unavailable': []}
+        bound = charged = None
         try:
             current = captured.get(node + '/memory.current')
             if limit not in (None, 'max') and limit.strip() != 'max':
@@ -214,6 +218,14 @@ def linux_memory_diagnostics(read_text=None):
                     raise ValueError('duplicate statistics')
                 row[destination] = {key: _count(values[key]) // divisor
                                     for key in keys if key in values}
+                if (filename == 'memory.stat' and bound is not None
+                        and {'file', 'inactive_file'} <= values.keys()):
+                    file_bytes = _count(values['file'])
+                    inactive_bytes = _count(values['inactive_file'])
+                    if 0 <= inactive_bytes <= file_bytes <= charged:
+                        row['cache_adjusted_headroom_estimate_mb'] = max(
+                            0, bound - charged + inactive_bytes,
+                        ) // MIB
             except (OSError, ValueError):
                 row['unavailable'].append(filename)
         try:

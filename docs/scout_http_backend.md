@@ -66,6 +66,13 @@ not write cgroups, clear cache, restart a controller or credit cache as capacity
 Missing optional statistics remain unavailable; membership changes are marked
 stale. The observation is non-atomic and does not prove the process is leaking.
 
+Each bounded cgroup also reports `cache_adjusted_headroom_estimate_mb` when its
+file counters are consistent: `max(0, limit - current + inactive_file)` in MiB.
+This follows [Kubernetes' working-set convention](https://kubernetes.io/docs/concepts/scheduling-eviction/node-pressure-eviction/#memory-signals),
+not a tested allocation allowance. Missing/inconsistent counters leave it null.
+Keep it separate from `admission_available_mb`; it does not alter admission,
+authorize cache eviction, or justify restoring a stopped high-concurrency run.
+
 Distinguish this raw charge reserve from physical RAM exhaustion:
 [Docker's Linux CLI](https://docs.docker.com/reference/cli/docker/container/stats/)
 subtracts inactive-file cache for its usage display, whereas this admission probe

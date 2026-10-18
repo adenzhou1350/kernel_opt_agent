@@ -75,8 +75,44 @@ class LinuxMemoryTests(unittest.TestCase):
         self.assertEqual(result['admission_available_mb'], 1)
         self.assertEqual(result['cgroups'][0]['charged_mb'], 15)
         self.assertEqual(result['cgroups'][0]['stat_mib']['inactive_file'], 12)
+        self.assertEqual(result['cgroups'][0]['cache_adjusted_headroom_estimate_mb'], 13)
         self.assertIn('not just process RSS', result['boundary'])
         self.assertEqual(linux_available_memory_mb(read), 1)
+
+    def test_cache_estimate_requires_consistent_counters_and_never_changes_admission(self):
+        for stat, expected in (
+            ('file 0\ninactive_file 0\n', 1),
+            (f'file {13*MIB}\ninactive_file {12*MIB}\n', 13),
+            (f'file {13*MIB}\n', None),
+            (f'file {13*MIB}\ninactive_file {14*MIB}\n', None),
+            (f'file {16*MIB}\ninactive_file {12*MIB}\n', None),
+            ('file 1\ninactive_file -1\n', None),
+        ):
+            with self.subTest(stat=stat):
+                files = fixture()
+                self.limit(files, '/sys/fs/cgroup', 16*MIB, 15*MIB)
+                files['/sys/fs/cgroup/memory.stat'] = stat
+                def read(path):
+                    if path not in files:
+                        raise FileNotFoundError(path)
+                    return files[path]
+                observed = linux_memory_diagnostics(read)
+                self.assertEqual(
+                    observed['cgroups'][0]['cache_adjusted_headroom_estimate_mb'], expected,
+                )
+                self.assertEqual(observed['admission_available_mb'], 1)
+
+    def test_cache_estimate_keeps_over_limit_charge_in_the_calculation(self):
+        files = fixture()
+        self.limit(files, '/sys/fs/cgroup', 16*MIB, 18*MIB)
+        files['/sys/fs/cgroup/memory.stat'] = f'file {4*MIB}\ninactive_file {2*MIB}\n'
+        def read(path):
+            if path not in files:
+                raise FileNotFoundError(path)
+            return files[path]
+        observed = linux_memory_diagnostics(read)
+        self.assertEqual(observed['cgroups'][0]['cache_adjusted_headroom_estimate_mb'], 0)
+        self.assertEqual(observed['admission_available_mb'], 0)
 
     def test_valid_host_observation_does_not_override_unknown_cgroup_admission(self):
         files = fixture()
