@@ -1186,8 +1186,17 @@ class ResearchProducer:
             return created
         return False
 
-    def issue_pr_context(self, repo, number):
-        lookup = getattr(self.context, "issue_pr_context", None)
+    def issue_pr_context(self, repo, number, *, prefer_timeline=False):
+        # A source hypothesis can cite a report whose tested fix predates it.
+        # Searching only PR bodies for the issue number misses confirmations in
+        # that report's comments. Reuse one bounded timeline lookup instead,
+        # without adopting issue focus or following links mentioned in comments.
+        lookup = (
+            getattr(self.context, "issue_linked_pr_context", None)
+            if prefer_timeline else None
+        )
+        if not callable(lookup):
+            lookup = getattr(self.context, "issue_pr_context", None)
         if not callable(lookup):
             return {"sources": [], "status": "UNAVAILABLE", "search_exhaustive": False}
         try:
@@ -1866,7 +1875,9 @@ class ResearchProducer:
                 spec["repo"], packet["sources"], analysis_value
             )
             related_prs = (
-                self.issue_pr_context(spec["repo"], lookup_number)
+                self.issue_pr_context(
+                    spec["repo"], lookup_number, prefer_timeline=not number
+                )
                 if (
                     body_number is None and requested_review is None
                     and lookup_number and not revisions

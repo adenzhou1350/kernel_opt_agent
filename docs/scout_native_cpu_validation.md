@@ -76,6 +76,17 @@ use the repository's visible all-state issue/PR search under existing authority,
 or keep duplicate coverage unknown. Finding an author's repair redirects work
 to scoped independent verification, not a competing PR or a credited discovery.
 
+For a source follow-up that exactly cites an already displayed issue, the
+related-work slot now uses the existing bounded issue timeline rather than
+searching only PR bodies for its number. A fix can predate the report and be
+confirmed only in comments, as in [Megatron #8179](https://github.com/NVIDIA/Megatron-LM/issues/8179#issuecomment-6163575360).
+The lookup retains at most three sources from the first 50 events, with no
+recursive link fetch or added numeric search. It does not adopt issue focus,
+infer acceptance, or establish coverage when empty/unavailable. Explicit
+body-only requests retain their existing separate scope; partial comments
+and old deployed code can still miss the confirmation. No historical model
+answer is corrected or credit for avoided cost inferred from this routing test.
+
 For an already selected Rust file, one explicit unqualified `definition(name)`
 can locate a unique `fn name(` or `fn name<` literal within the existing source
 window budget. `requested_rust_fn_literal` is a lexical location, including

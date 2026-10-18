@@ -150,7 +150,7 @@ class FollowupTests(unittest.TestCase):
         )
         self.assertNotIn("untrusted transport", json.dumps(result))
 
-    def test_cited_related_query_does_not_adopt_issue_focus_or_refresh_issue_body(self):
+    def test_cited_issue_retains_fix_confirmation_without_adopting_focus(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             scout.initialize(root)
@@ -193,20 +193,24 @@ class FollowupTests(unittest.TestCase):
                 )
             related = {
                 "sources": [
-                    {"url": "https://github.com/a/b/pull/81", "text": "Fixes #42"}
+                    {"url": URL + "#issuecomment-51",
+                     "text": "Tested the earlier PR #81 with the original reproducer; it works.",
+                     "relationship": "issue_timeline_comment", "is_pr": False}
                 ],
-                "status": "PARTIAL_SEARCH",
+                "status": "PARTIAL_TIMELINE",
                 "search_exhaustive": False,
             }
             with (
                 patch.object(
-                    context, "issue_pr_context", create=True, return_value=related
+                    context, "issue_linked_pr_context", return_value=related
                 ) as lookup,
+                patch.object(context, "issue_pr_context", create=True) as numeric_search,
                 patch.object(context, "issue_sources") as issues,
                 patch.object(context, "duplicate_sources") as titles,
             ):
                 self.assertTrue(producer.followup(spec, {}))
             lookup.assert_called_once_with("a/b", 42)
+            numeric_search.assert_not_called()
             issues.assert_not_called()
             titles.assert_not_called()
             with scout.connect(root) as db:
@@ -220,6 +224,39 @@ class FollowupTests(unittest.TestCase):
             self.assertFalse(child["issue_pr_lookup"]["candidate_focus_adopted"])
             self.assertEqual(child["sources"][0], primary)
             self.assertIn(related["sources"][0], child["sources"])
+
+    def test_timeline_error_is_unknown_and_does_not_add_a_numeric_search(self):
+        producer = object.__new__(research.ResearchProducer)
+        producer.context = Context()
+        with (
+            patch.object(producer.context, "issue_linked_pr_context",
+                         side_effect=OSError("private transport details")) as timeline,
+            patch.object(producer.context, "issue_pr_context", create=True) as numeric,
+        ):
+            result = producer.issue_pr_context("a/b", 42, prefer_timeline=True)
+        timeline.assert_called_once_with("a/b", 42)
+        numeric.assert_not_called()
+        self.assertEqual(result, {"sources": [], "status": "ERROR",
+                                 "error": "OSError", "search_exhaustive": False})
+
+    def test_empty_timeline_is_partial_not_a_reason_for_an_extra_search(self):
+        producer = object.__new__(research.ResearchProducer)
+        producer.context = Context()
+        with patch.object(producer.context, "issue_pr_context", create=True) as numeric:
+            result = producer.issue_pr_context("a/b", 42, prefer_timeline=True)
+        numeric.assert_not_called()
+        self.assertEqual(result["sources"], [])
+        self.assertEqual(result["status"], "PARTIAL_TIMELINE")
+        self.assertFalse(result["search_exhaustive"])
+
+    def test_legacy_context_without_timeline_retains_existing_lookup(self):
+        from unittest.mock import Mock
+        producer = object.__new__(research.ResearchProducer)
+        producer.context = Mock(spec=["issue_pr_context"])
+        expected = {"sources": [], "status": "PARTIAL_SEARCH", "search_exhaustive": False}
+        producer.context.issue_pr_context.return_value = expected
+        self.assertEqual(producer.issue_pr_context("a/b", 42, prefer_timeline=True), expected)
+        producer.context.issue_pr_context.assert_called_once_with("a/b", 42)
 
 
 if __name__ == "__main__":

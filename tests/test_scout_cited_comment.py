@@ -73,15 +73,17 @@ class CitationTests(unittest.TestCase):
                            (json.dumps({"analysis": ANALYSIS | {"title": "Header validation context", "next_check": "src/kernel.py"}}), time.time(), row[0]))
             related = {"url": "https://github.com/a/b/pull/81", "text": "Fixes #42"}
             with (
-                patch.object(context, "issue_pr_context", create=True, return_value={
-                    "sources": [related], "status": "PARTIAL_SEARCH",
+                patch.object(context, "issue_linked_pr_context", return_value={
+                    "sources": [related], "status": "PARTIAL_TIMELINE",
                     "search_exhaustive": False,
                 }) as lookup,
+                patch.object(context, "issue_pr_context", create=True) as numeric,
                 patch.object(context, "duplicate_sources") as titles,
                 patch.object(context, "issue_sources") as refresh,
             ):
                 self.assertTrue(producer.followup(spec, {}))
             lookup.assert_called_once_with("a/b", 42)
+            numeric.assert_not_called()
             titles.assert_not_called()
             refresh.assert_not_called()
             with scout.connect(root) as db:
