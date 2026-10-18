@@ -431,6 +431,22 @@ class PolicyTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("authorized", result)
 
+    def test_linked_dask_rules_keep_drafts_distinct_from_human_ready_review(self):
+        result = scout_lesson_context.lesson_suggestions(
+            "Dask linked contribution policy human prose and review",
+            source_urls=["https://raw.githubusercontent.com/dask/partd/"
+                         "e832b655606342dc742ec1c564b07abf1ad58383/CONTRIBUTING.md"],
+        )
+        self.assertTrue(result.get("source_path_match"))
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "inherited-contribution-policy-before-intake")
+        linked = next(e for e in card["evidence"] if "docs.dask.org" in e["url"])
+        self.assertIn("human-authored", linked["note"])
+        self.assertIn("labelled unsupervised Draft", linked["note"])
+        self.assertIn("not a blanket research ban", linked["note"])
+        self.assertLessEqual(len(json.dumps(card, ensure_ascii=False).encode()), 8192)
+        self.assertNotIn("authorized", result)
+
 
 if __name__ == "__main__":
     unittest.main()
