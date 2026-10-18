@@ -155,7 +155,7 @@ class TimelineTests(unittest.TestCase):
         self.assertEqual(self.lookup(), result)
         self.assertEqual([url for url, _ in self.calls], [API, TIMELINE])
 
-    def test_comments_share_existing_cap_and_never_displace_related_work(self):
+    def test_comments_share_existing_cap_and_reserve_one_observed_comment(self):
         self.events = [comment_event(n) for n in range(50, 55)] + [event(), issue_event()]
         result = self.lookup()
         self.assertEqual(len(result['sources']), 3)
@@ -163,7 +163,48 @@ class TimelineTests(unittest.TestCase):
         self.clear_cache()
         self.events += [event(9)]
         self.assertEqual([s['relationship'] for s in self.lookup()['sources']],
-                         ['issue_timeline_cross_reference'] * 3)
+                         ['issue_timeline_cross_reference'] * 2 + ['issue_timeline_comment'])
+
+    def test_full_reference_budget_retains_latest_valid_comment_cold_and_warm(self):
+        rejected = comment_event(52, 'This behavior is not a supported API; do not restore it.')
+        forged = comment_event(53, 'This should not replace the real comment.')
+        forged['html_url'] = 'https://github.com/other/project/issues/42#issuecomment-53'
+        self.events = [comment_event(51), issue_event(20)] + [event(n) for n in (7, 8, 9)] + [rejected, forged]
+        result = self.lookup()
+        self.assertEqual([s['url'] for s in result['sources']], [
+            f'https://github.com/{REPO}/pull/7',
+            f'https://github.com/{REPO}/pull/8',
+            rejected['html_url'],
+        ])
+        self.assertIn('do not restore it.', result['sources'][-1]['text'])
+        self.assertFalse(result['search_exhaustive'])
+        self.assertEqual(result['events_observed'], len(self.events))
+        self.assertTrue(all(len(s['text']) <= 1800 for s in result['sources']))
+        self.assertEqual(self.lookup(), result)
+        self.assertEqual([url for url, _ in self.calls], [API, TIMELINE])
+
+    def test_invalid_comments_do_not_reserve_a_source_slot(self):
+        invalid = comment_event()
+        invalid['url'] = f'{API}/issues/comments/999'
+        self.events = [event(n) for n in (7, 8, 9)] + [invalid]
+        result = self.lookup()
+        self.assertEqual([s['url'] for s in result['sources']], [
+            f'https://github.com/{REPO}/pull/{n}' for n in (7, 8, 9)
+        ])
+        self.assertEqual(self.lookup(), result)
+        self.assertEqual([url for url, _ in self.calls], [API, TIMELINE])
+
+    def test_v3_reference_only_cache_cannot_hide_observed_comment(self):
+        cache = self.context._cache_path('issue-linked-pr', [REPO, 42])
+        ctx.scout.write_json(cache, dict(version=3, at=1000,
+            events=[event(n) for n in (7, 8, 9)], events_observed=4))
+        self.events = [event(n) for n in (7, 8, 9)] + [comment_event(52, 'Please stop this restoration.')]
+        with patch('scout_issue_timeline.time.time', return_value=1001):
+            result = self.lookup()
+            self.assertEqual(self.lookup(), result)
+        self.assertEqual(result['sources'][-1]['relationship'], 'issue_timeline_comment')
+        self.assertIn('Please stop this restoration.', result['sources'][-1]['text'])
+        self.assertEqual(sum(url == TIMELINE for url, _ in self.calls), 1)
 
     def test_comment_tail_and_partial_flag_survive_compact_cache(self):
         body = 'Reproduction start\n' + 'x' * 10000 + '\nI can submit a PR with the tests.'

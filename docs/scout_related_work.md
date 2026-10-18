@@ -24,9 +24,12 @@ re-fetching the report/comments. Follow-ups reuse that cache. The packet keeps
 the lookup scope/status, including unavailable or empty partial observations;
 no issue is automatically rejected because a PR was cross-referenced.
 
-The same already-fetched page now retains related **issues** when there is room
-after PRs. Three PRs still take all three slots; an earlier issue cannot displace
-a later PR. Each excerpt is at most 1,800 characters. `is_pr` and the separate
+The same already-fetched page retains related **issues** when there is room
+after PRs. If a valid same-report comment is present, one of the three slots is
+reserved for the latest observed comment; the other two prefer PRs over issues.
+Without a valid comment, three PRs can still take all three slots. An earlier
+issue cannot displace a later PR. Each excerpt is at most 1,800 characters.
+`is_pr` and the separate
 observed issue/PR state fields keep report kinds distinct. A related roadmap or
 closed issue is neither a PR nor maintainer approval. Original `focus_issue` and
 candidate-chain ownership do not move to the related report.
@@ -35,11 +38,14 @@ The cache format is versioned because older compact caches discarded non-PR
 events. A legacy record is refreshed once through the same bounded endpoint;
 subsequent initial/follow-up reads share the new cache. No linked reports,
 report-body links, other repositories or later pages are followed. Literal
-comments embedded in this very timeline response fill only unused slots, latest
-observed first; they never displace the selected PR/issue references. They share
+comments embedded in this very timeline response use the reserved slot and then
+any remaining slots, latest observed first. This intentionally omits a third
+related-work body when necessary, rather than erasing every observed objection
+or contributor offer. It is a text-budget tradeoff, not an authority ranking or
+a claim that the selected commenter is a maintainer. They share
 the same three-source and 1,800-character limits. Both ends of a long comment
 survive explicit clipping, so a final offer to submit is not silently dropped.
-The compact cache preserves those excerpts and their partial flags; older v2
+The compact cache preserves those excerpts and their partial flags; older v2/v3
 records refresh once. No separate comment GET is added by this lookup. A full
 issue read may already fetch its existing last-comment sample; matching URLs
 are not appended twice.
@@ -79,7 +85,8 @@ and asked for coordination instead of opening a competing PR or starting a full
 compiler build. This known case motivates retaining already-fetched comments;
 offline tests establish delivery, budget, identity and cache behavior only.
 Untrusted comment text is neither an instruction nor automatic ownership,
-acceptance, fix coverage or novelty evidence. Three references can still fill
-all slots, and first-page sampling can miss a later decision. Inspect the full
+acceptance, fix coverage or novelty evidence. First-page sampling can miss a
+later decision, and the latest observed comment may not address API intent.
+Inspect the full
 discussion before expensive work when that missing evidence matters. Do not
 count this retrospective case as a prospective selector win or PR conversion.

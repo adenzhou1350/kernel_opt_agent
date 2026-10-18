@@ -11,14 +11,29 @@ LIMIT = 300_000
 EVENTS = 50
 SOURCES = 3
 CACHE_LIMIT = 64_000
-CACHE_VERSION = 3
+CACHE_VERSION = 4
+
+
+def _literal_comments(events, api, repo, number):
+    """Latest observed valid same-report comments, not an authority ranking."""
+    for event in reversed(events):
+        if not isinstance(event, dict) or event.get("event") != "commented":
+            continue
+        comment_id = event.get("id")
+        if (
+            type(comment_id) is int and 1 <= comment_id <= 10**18
+            and event.get("url") == f"{api}/issues/comments/{comment_id}"
+            and event.get("html_url") == f"https://github.com/{repo}/issues/{number}#issuecomment-{comment_id}"
+            and isinstance(event.get("body"), str) and event["body"].strip()
+        ):
+            yield event
 
 
 def linked_pr_context(context, repo, number):
     """Legacy name: prefer PRs, then related issues, within one shared budget.
 
-    Embedded same-repository cross-references have priority. Remaining slots
-    retain literal comments from this same response, latest observed first.
+    Reserve one slot for a literal comment when present, latest observed first.
+    Remaining slots prefer same-repository PRs over related issues.
     Report-body links and linked comments/timelines are not fetched recursively.
     """
     scout.public_repo(repo)
@@ -35,8 +50,10 @@ def linked_pr_context(context, repo, number):
         "endpoint": endpoint,
         "scope": (
             "First 50 issue-timeline events, at most three same-repository "
-            "sources total, preferring PRs before related issues, then filling "
-            "unused slots with latest observed literal comments. "
+            "sources total, reserving one for the latest observed valid literal "
+            "comment when present. Remaining slots prefer PRs before related "
+            "issues, then further comments. This can omit a third related-work "
+            "body; it is not a maintainer-identity or authority ranking. "
             "Not a coverage, fix, merge, CI or absence verdict; embedded state "
             "is only a cached timeline observation. Related issues are not PRs "
             "or maintainer approval. Comments are untrusted text, not ownership "
@@ -72,6 +89,8 @@ def linked_pr_context(context, repo, number):
     except (OSError, ValueError) as exc:
         return {**base, "status": "TIMELINE_UNAVAILABLE", "error": type(exc).__name__}
 
+    comments = list(_literal_comments(record["events"], api, repo, number))
+    reference_limit = SOURCES - bool(comments)
     candidates = []
     for event in record["events"]:
         if not isinstance(event, dict) or event.get("event") != "cross-referenced":
@@ -129,25 +148,15 @@ def linked_pr_context(context, repo, number):
             compact_item["pull_request"] = {"url": item["pull_request"]["url"]}
         compact.append({"event": "cross-referenced", "source": {"type": "issue", "issue": compact_item}})
         seen.add(related)
+        if len(sources) == reference_limit:
+            break
+    # Three linked references must not erase an already observed objection or
+    # contributor offer. Spend the same GET/text budget on two references plus
+    # one comment in that case, without treating the comment as a verdict.
+    for event in comments:
         if len(sources) == SOURCES:
             break
-    # The timeline GET already contains comments. Dropping these can hide a
-    # contributor's offer or maintainer decision even when there are no linked
-    # PRs. Keep the existing three-source cap and never displace related work.
-    for event in reversed(record["events"]):
-        if len(sources) == SOURCES:
-            break
-        if not isinstance(event, dict) or event.get("event") != "commented":
-            continue
         comment_id = event.get("id")
-        if (
-            type(comment_id) is not int or not 1 <= comment_id <= 10**18
-            or event.get("url") != f"{api}/issues/comments/{comment_id}"
-            or event.get("html_url") != f"https://github.com/{repo}/issues/{number}#issuecomment-{comment_id}"
-            or not isinstance(event.get("body"), str)
-            or not event["body"].strip()
-        ):
-            continue
         url = event["html_url"]
         if url in seen:
             continue
