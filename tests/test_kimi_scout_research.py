@@ -1139,6 +1139,75 @@ class ResearchTests(unittest.TestCase):
         self.assertNotIn("ANCHOR", delivered["text"])
         self.assertFalse(delivered["exact_hint_matched"])
 
+    def test_changes_only_in_budget_omitted_tail_do_not_create_paid_tasks(self):
+        prefix = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/"
+
+        def sources(tail, leading="x"):
+            return [
+                {"url": prefix + "src/kernel.py", "text": leading * 14000 + tail},
+                {"url": prefix + "tests/test_kernel.py", "text": "y" * 10000},
+            ]
+
+        self.assertTrue(self.producer.emit(
+            "first-hidden-tail", self.spec, sources("UNSEEN_TAIL_A"), "source_audit"
+        ))
+        first = json.loads(self.jobs()[0]["packet"])
+        self.assertTrue(first["sources"][0]["truncated"])
+        self.assertNotIn("UNSEEN_TAIL_A", first["sources"][0]["text"])
+        self.assertFalse(self.producer.emit(
+            "changed-hidden-tail", self.spec, sources("UNSEEN_TAIL_B"), "source_audit"
+        ))
+        self.assertEqual(len(self.jobs()), 1)
+        self.assertEqual(self.producer.state["discovery_created"], 1)
+        self.assertTrue(self.producer.seen("changed-hidden-tail"))
+        self.assertTrue(self.producer.emit(
+            "changed-visible-code", self.spec,
+            sources("UNSEEN_TAIL_B", leading="z"), "source_audit"
+        ))
+        self.assertEqual(len(self.jobs()), 2)
+        self.assertEqual(self.producer.state["discovery_created"], 2)
+
+    def test_trimmed_report_lifecycle_changes_still_create_new_evidence(self):
+        def sources(tail, state):
+            return [
+                {"url": f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py",
+                 "text": "x" * 14000 + tail},
+                {"url": "https://github.com/a/b/pull/3", "text": "y" * 10000,
+                 "observed_report_kind": "pull_request", "observed_report_state": state},
+            ]
+
+        self.assertTrue(self.producer.emit(
+            "open-report", self.spec, sources("UNSEEN_TAIL_A", "open"), "issue_triage"
+        ))
+        self.assertFalse(self.producer.emit(
+            "open-hidden-tail", self.spec, sources("UNSEEN_TAIL_B", "open"), "issue_triage"
+        ))
+        self.assertTrue(self.producer.emit(
+            "closed-report", self.spec, sources("UNSEEN_TAIL_B", "closed"), "issue_triage"
+        ))
+        self.assertEqual(len(self.jobs()), 2)
+
+    def test_parallel_trimmed_evidence_deduplicates_before_queue_admission(self):
+        self.producer.config["queue_target"] = 8
+        barrier = threading.Barrier(8)
+
+        def submit(index):
+            barrier.wait(timeout=3)
+            return self.producer.emit(
+                f"hidden-tail-{index}", self.spec, [
+                    {"url": f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py",
+                     "text": "x" * 14000 + f"UNSEEN_TAIL_{index}"},
+                    {"url": f"https://raw.githubusercontent.com/a/b/{self.context.revision}/tests/test_kernel.py",
+                     "text": "y" * 10000},
+                ], "source_audit",
+            )
+
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            made = list(pool.map(submit, range(8)))
+        self.assertEqual(sum(made), 1)
+        self.assertEqual(len(self.jobs()), 1)
+        self.assertEqual(self.producer.state["discovery_created"], 1)
+
     def test_oversize_evidence_trimmed_with_explicit_flag(self):
         self.producer.emit(
             "large",

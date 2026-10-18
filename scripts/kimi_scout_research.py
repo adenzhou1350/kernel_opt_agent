@@ -763,6 +763,13 @@ def evidence_identity(source):
     return re.sub(r"/[0-9a-f]{40}/", "/REV/", source["url"]), text
 
 
+def evidence_fingerprint(repo, stage, sources):
+    return hashlib.sha256(scout.dumps({
+        "repo": repo, "stage": stage,
+        "sources": sorted(evidence_identity(source) for source in sources),
+    }).encode()).hexdigest()
+
+
 def retrieval_identity(source):
     # This controller metadata only prevents budget trimming from looking like
     # fresh retrieval. Quotes remain limited to the delivered text.
@@ -929,15 +936,7 @@ class ResearchProducer:
         sources = distinct_sources(sources)
         # Timestamp-only updates and changes outside the delivered source window
         # are not fresh evidence. Do not let job names/blob identities defeat dedup.
-        fingerprint = hashlib.sha256(
-            scout.dumps(
-                {
-                    "repo": spec["repo"],
-                    "stage": stage,
-                    "sources": sorted(evidence_identity(s) for s in sources),
-                }
-            ).encode()
-        ).hexdigest()
+        fingerprint = evidence_fingerprint(spec["repo"], stage, sources)
         evidence_key = "evidence:" + fingerprint
         if self.seen(evidence_key):
             self.remember(key)
@@ -1052,7 +1051,13 @@ class ResearchProducer:
         )
         if not packet["sources"] or self.stopped():
             return False
-        # Queue admission, job insertion and both dedup keys commit together.
+        # Different retrieved tails can disappear under the prompt budget. Keep
+        # both identities: unchanged retrieval stays deduplicated, and invisible
+        # changes alone must not queue another review of the same delivered text.
+        delivered_key = "evidence:" + evidence_fingerprint(
+            spec["repo"], stage, packet["sources"]
+        )
+        # Queue admission, job insertion and all dedup aliases commit together.
         # Different repository fetches never hold this lock across network I/O.
         with self.lock:
             with scout.connect(self.root) as db:
@@ -1064,11 +1069,14 @@ class ResearchProducer:
                     ).fetchone()
                 ):
                     return False
-                if db.execute(
-                    "SELECT 1 FROM research_seen WHERE key=?", (evidence_key,)
-                ).fetchone():
-                    db.execute(
-                        "INSERT OR IGNORE INTO research_seen VALUES (?,NULL)", (key,)
+                prior = db.execute(
+                    "SELECT job FROM research_seen WHERE key IN (?,?) LIMIT 1",
+                    (evidence_key, delivered_key),
+                ).fetchone()
+                if prior is not None:
+                    db.executemany(
+                        "INSERT OR IGNORE INTO research_seen VALUES (?,?)",
+                        ((identity, prior[0]) for identity in {key, evidence_key, delivered_key}),
                     )
                     return False
                 queued = db.execute(
@@ -1080,7 +1088,7 @@ class ResearchProducer:
                 shadow.record(db, job, packet, scout.dumps(packet))
                 db.executemany(
                     "INSERT OR IGNORE INTO research_seen VALUES (?,?)",
-                    ((key, job), (evidence_key, job)),
+                    ((identity, job) for identity in {key, evidence_key, delivered_key}),
                 )
             self.state["followups_created" if parent else "discovery_created"] += 1
         return True

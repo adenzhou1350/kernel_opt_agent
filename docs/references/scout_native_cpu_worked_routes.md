@@ -202,6 +202,14 @@ still matter. This neither proves omitted bodies are equivalent nor updates
 historical job IDs/packets; obtain missing current context when it can change a
 decision, rather than treating excerpt dedup as a whole-file no-bug verdict.
 
+Research enqueue also checks the evidence actually retained after budget fitting,
+alongside the original retrieval identity. Two retrieved tails that are both
+omitted cannot create two review tasks merely through different names/pretrim
+hashes. These aliases commit atomically before queue admission; visible changes,
+stages and observed issue/PR lifecycle changes remain distinct. This prevents a
+synthetic duplicate enqueue, not a measured historical token saving or recall
+guarantee. Previously queued packets are not removed or rewritten.
+
 The supplied public repository name is a caller declaration, **not verified
 public provenance**: local Git availability does not prove the commit is
 published there, the clone is current, the source is safe to share, or a repair
