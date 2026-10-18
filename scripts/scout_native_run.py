@@ -273,6 +273,7 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
                           "the executed binary corresponds to source, full dependency identity, "
                           "test quality, isolation, performance or PR readiness."}
     if native_windows:
+        result["windows_launcher_python"] = captured["launcher_python"]
         result["windows_job_cleanup_verified"] = captured["windows_job_cleanup_verified"]
     (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result

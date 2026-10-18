@@ -1149,10 +1149,47 @@ semantics before treating a state difference as a defect.
 The native result reader accepts at most 64 expected identities. A full-suite log
 is useful for package accounting, but is not a complete small selection merely
 because the expected cases occur in it. `compare_regression` rejects extra cases.
-Run a fresh focused baseline/candidate selection when that is the required check;
-do not filter away test events or synthesize package terminals. Go parent/subtest
-events are identities, not distinct bugs. This checks captured outcomes, not the
-truth of the assertions or prospective discovery quality.
+For a larger skip-free Go package selection, `compare_go_suite_regression` can
+retain the complete per-name outcome/multiplicity inventory while requiring only
+the declared regressions and passing controls to be listed. Include failing
+ancestors in the declaration; every other case must match and pass. Replaced,
+added or missing names, repeat-count drift, undeclared failure changes and any
+skip reject the matched pattern. This does not raise the 64-name declaration or
+2 MiB log budget, waive skips, or compare multiple packages implicitly.
+Otherwise run a fresh focused baseline/candidate selection. Do not filter away
+test events or synthesize package terminals. Go parent/subtest events are
+identities, not distinct bugs. This checks captured outcomes, not the truth of
+the assertions or prospective discovery quality.
+
+## Keep Windows ownership launchers outside venv trampolines
+
+Use the real base interpreter for the trusted `-I -S -B` Job Object launcher,
+not a virtual-environment wrapper. The target command, venv, dependencies and
+captured tool hash remain unchanged; `windows_launcher_python` records the
+separate launcher path. Do not replace the target with base Python merely to
+make its tests pass.
+
+An observed uv 0.11.26 / CPython 3.12 venv controller falsely reported PASS
+while an ordinary background child remained alive. Changing only the trusted
+launcher to the same base interpreter made the redirected-child, natural-exit
+and timeout controls pass with the original venv targets. The full Windows
+capture selection then passed, including abrupt controller termination and
+unrelated-process preservation. This is an observed lifecycle repair, not a
+security sandbox or proof about every wrapper/version.
+
+The pinned [uv trampoline](https://github.com/astral-sh/uv/blob/396ef7ce44e343095f3a5a5e8bc4b0b670ed0f5b/crates/uv-trampoline/src/bounce.rs)
+starts Python before assigning its own job; its [job helper](https://github.com/astral-sh/uv/blob/396ef7ce44e343095f3a5a5e8bc4b0b670ed0f5b/crates/uv-windows/src/job.rs)
+uses silent breakaway. These explain a competing ownership boundary, not a
+complete reconstruction of every scheduling race. Microsoft documents
+[nested-job inheritance](https://learn.microsoft.com/en-us/windows/win32/procthread/nested-jobs).
+Recheck descendant cleanup with the actual controller/target environment when
+changing Windows Python distributions. An empty private job alone is not proof
+that a mislaunched descendant belonged to it.
+
+Run these tests through discovery (`python -B -m unittest discover -s tests -p
+test_scout_native_run.py`): sibling fixture imports expect that test root.
+Preserve earlier import failures separately from lifecycle failures; changing
+the invocation does not establish that a production capture bug was fixed.
 
 For a separately cross-built Windows test executable, the existing native
 Windows runner can consume the official converter's JSON stream:

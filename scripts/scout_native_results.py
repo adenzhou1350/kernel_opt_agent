@@ -458,13 +458,14 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
     A negative subprocess return code denotes signal termination, not a normal
     test failure. Preserve observed assertions but classify the run inconclusive.
     Shell-normalized positive codes do not reliably identify a signal.
-    Optional pytest-only inventory retains case outcomes and raw skip details;
-    the default result shape does not change.
+    Optional inventory retains pytest outcomes/skip details or per-name Go
+    outcome multiplicities, including parents and repeats. The default result
+    shape does not change.
     """
     if format not in FORMATS:
         raise ValueError("unsupported native test format")
-    if type(include_inventory) is not bool or (include_inventory and format != "pytest-junit"):
-        raise ValueError("case inventory is supported only for pytest JUnit")
+    if type(include_inventory) is not bool or (include_inventory and format not in {"pytest-junit", "go-json"}):
+        raise ValueError("case inventory is supported only for pytest JUnit and Go JSON")
     if type(exit_code) is not int:
         raise ValueError("exit code must be an observed integer")
     if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_BYTES:
@@ -546,6 +547,9 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
                     active.remove(name)
                     outcome = {"pass": "passed", "fail": "failed", "skip": "skipped"}[action]
                     counts[outcome] += 1
+                    if inventory is not None:
+                        case = inventory.setdefault(name, {"passed": 0, "failed": 0, "skipped": 0})
+                        case[outcome] += 1
                     if name in expected_results:
                         expected_results[name][outcome] += 1
                     if action != "skip":
@@ -678,6 +682,53 @@ def compare_pytest_suite_regression(baseline_text, candidate_text, *, baseline_e
             "regressions": list(regressions), "controls": list(controls),
             "boundary": "Complete captured pytest inventory only; stable skips are not executed "
                         "coverage. Not source/runtime identity, authenticity, test quality or PR readiness."}
+
+
+def compare_go_suite_regression(baseline_text, candidate_text, *, baseline_exit,
+                                candidate_exit, regressions, controls, package):
+    """Compare a complete skip-free Go package selection without listing every control.
+
+    Declare changed cases and passing controls before execution. Include failing
+    ancestors explicitly: Go reports a failed subtest and its failed parent as
+    separate events, not separate defects. All other names and multiplicities
+    must match and pass in both arms. Optional skips remain unsupported here;
+    use a separately justified comparison instead of treating them as coverage.
+    """
+    if any(not isinstance(group, (list, tuple)) or not group for group in (regressions, controls)):
+        raise ValueError("declare regressions and passing controls")
+    names = list(regressions) + list(controls)
+    if any(not isinstance(name, str) or not name for name in names) or len(set(names)) != len(names):
+        raise ValueError("declarations must be distinct nonempty test names")
+    before, after = [summarize(text, format="go-json", exit_code=code,
+                               expected_tests=names, package=package, include_inventory=True)
+                     for text, code in ((baseline_text, baseline_exit), (candidate_text, candidate_exit))]
+    issues = []
+    if before["issues"] or after["issues"]:
+        issues.append("incomplete or contradictory arm accounting")
+    else:
+        old, new = before["case_inventory"], after["case_inventory"]
+        if old.keys() != new.keys():
+            issues.append("complete Go case inventories differ")
+        if before["skipped"] or after["skipped"]:
+            issues.append("Go suite comparison requires zero skipped cases")
+        for name in old.keys() & new.keys():
+            if name in regressions:
+                repeats = old[name]["failed"]
+                expected_old = {"passed": 0, "failed": repeats, "skipped": 0}
+                expected_new = {"passed": repeats, "failed": 0, "skipped": 0}
+                if not repeats or old[name] != expected_old or new[name] != expected_new:
+                    issues.append(f"declared matched regression pattern not observed: {name}")
+            elif old[name] != new[name] or not old[name]["passed"] or old[name]["failed"] or old[name]["skipped"]:
+                issues.append(f"undeclared case outcome or multiplicity changed: {name}")
+        if after["failed"]:
+            issues.append("candidate suite contains failures")
+    return {"status": "INCONCLUSIVE" if before["issues"] or after["issues"]
+            else "PATTERN_NOT_OBSERVED" if issues else "MATCHED_SUITE_REGRESSION_OBSERVED",
+            "issues": sorted(set(issues))[:16], "baseline": before, "candidate": after,
+            "regressions": list(regressions), "controls": list(controls),
+            "boundary": "Complete captured Go package inventory and multiplicities only; "
+                        "parents are not independent defects. Not authenticity, source/runtime "
+                        "identity, test quality, execution authority or PR readiness."}
 
 
 def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,

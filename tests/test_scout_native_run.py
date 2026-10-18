@@ -674,6 +674,25 @@ class WindowsProcessTests(unittest.TestCase):
         self.assertEqual(result["exit_code"], 7)
         self.assertEqual(result["status"], "INCONCLUSIVE")
 
+    def test_base_launcher_preserves_reviewed_venv_target(self):
+        import scout_native_windows
+        original = subprocess.Popen
+        observed = []
+
+        def launch(command, *args, **kwargs):
+            if len(command) > 4 and command[1:4] == ["-I", "-S", "-B"] and command[4] == scout_native_windows.__file__:
+                observed.append(list(command))
+            return original(command, *args, **kwargs)
+
+        with patch.object(subprocess, "Popen", side_effect=launch):
+            result = self.execute("print(" + repr(PASS) + ")")
+        self.assertEqual(result["status"], "TESTS_PASSED", result)
+        expected = str(Path(getattr(sys, "_base_executable", None) or sys.executable).resolve())
+        self.assertEqual(len(observed), 1)
+        self.assertEqual(observed[0][0], expected)
+        self.assertEqual(result["windows_launcher_python"], expected)
+        self.assertEqual(result["command"][0], sys.executable)
+
     def test_missing_and_oversized_junit_are_not_passes(self):
         large = ("import sys; from pathlib import Path; "
                  "Path(sys.argv[-1].split('=',1)[1]).write_text('x' * (2*1024*1024+1))")

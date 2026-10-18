@@ -449,5 +449,64 @@ class RegressionComparisonTests(unittest.TestCase):
                 self.compare(**options)
 
 
+class GoSuiteRegressionTests(unittest.TestCase):
+    def compare(self, before=None, after=None, **options):
+        values = dict(baseline_exit=1, candidate_exit=0, package=PACKAGE,
+                      regressions=["TestRegression"], controls=["TestControl"])
+        values.update(options)
+        return native.compare_go_suite_regression(
+            before if before is not None else go_log(
+                go_test("TestRegression", "fail"), go_test("TestControl"), terminal="fail"),
+            after if after is not None else go_log(go_test("TestRegression"), go_test("TestControl")),
+            **values)
+
+    def test_complete_large_inventory_without_expanding_required_names(self):
+        controls = [go_test(f"TestOther/{i}") for i in range(100)]
+        before = go_log(go_test("TestRegression", "fail"), go_test("TestControl"), *controls, terminal="fail")
+        after = go_log(go_test("TestRegression"), go_test("TestControl"), *controls)
+        result = self.compare(before, after)
+        self.assertEqual(result["status"], "MATCHED_SUITE_REGRESSION_OBSERVED")
+        self.assertEqual(len(result["candidate"]["case_inventory"]), 102)
+        default = native.summarize(after, format="go-json", exit_code=0, package=PACKAGE,
+                                   expected_tests=["TestControl"])
+        self.assertNotIn("case_inventory", default)
+
+    def test_same_totals_cannot_hide_replaced_added_or_missing_cases(self):
+        before = go_log(go_test("TestRegression", "fail"), go_test("TestControl"),
+                        go_test("TestOther"), terminal="fail")
+        for extra in ([], [go_test("TestReplacement")], [go_test("TestOther"), go_test("TestNew")]):
+            with self.subTest(extra=extra):
+                after = go_log(go_test("TestRegression"), go_test("TestControl"), *extra)
+                self.assertEqual(self.compare(before, after)["status"], "PATTERN_NOT_OBSERVED")
+
+    def test_parent_failures_and_repeats_must_be_declared_and_matched(self):
+        before = go_log(go_test("TestRegression/child", "fail"),
+                        go_test("TestRegression", "fail"), go_test("TestControl"), terminal="fail")
+        after = go_log(go_test("TestRegression/child"), go_test("TestRegression"), go_test("TestControl"))
+        self.assertEqual(self.compare(before, after)["status"], "PATTERN_NOT_OBSERVED")
+        self.assertEqual(self.compare(before, after, regressions=["TestRegression", "TestRegression/child"])["status"],
+                         "MATCHED_SUITE_REGRESSION_OBSERVED")
+        before = go_log(go_test("TestRegression", "fail"), go_test("TestRegression", "fail"),
+                        go_test("TestControl"), terminal="fail")
+        after = go_log(go_test("TestRegression"), go_test("TestRegression"), go_test("TestControl"))
+        self.assertEqual(self.compare(before, after)["status"], "MATCHED_SUITE_REGRESSION_OBSERVED")
+        self.assertEqual(self.compare(before)["status"], "PATTERN_NOT_OBSERVED")
+
+    def test_skips_and_undeclared_failures_are_not_waived(self):
+        for terminal in ("skip", "fail"):
+            before = go_log(go_test("TestRegression", "fail"), go_test("TestControl"),
+                            go_test("TestOther", terminal), terminal="fail")
+            after = go_log(go_test("TestRegression"), go_test("TestControl"), go_test("TestOther"))
+            self.assertEqual(self.compare(before, after)["status"], "PATTERN_NOT_OBSERVED")
+
+    def test_bad_declarations_and_incomplete_evidence_do_not_pass(self):
+        self.assertEqual(self.compare(after=event("start"))["status"], "INCONCLUSIVE")
+        self.assertEqual(self.compare(candidate_exit=-9)["status"], "INCONCLUSIVE")
+        for values in ({"regressions": []}, {"controls": []}, {"controls": ["TestRegression"]},
+                       {"regressions": [False]}, {"controls": "TestControl"}):
+            with self.subTest(values=values), self.assertRaises(ValueError):
+                self.compare(**values)
+
+
 if __name__ == "__main__":
     unittest.main()

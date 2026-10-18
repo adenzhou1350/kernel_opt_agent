@@ -1,8 +1,10 @@
 """Opt-in Windows capture for reviewed commands, not a security sandbox.
 
-A trusted isolated Python launcher joins a private Job Object before starting
-target code. Ordinary CreateProcess descendants inherit that job. WMI/service
-launches are outside this contract. No platform-policy fallback is attempted.
+A trusted isolated base Python launcher joins a private Job Object before
+starting target code. Avoid venv trampolines around that ownership boundary;
+the reviewed target command and its venv are unchanged. Ordinary CreateProcess
+descendants inherit that job. WMI/service launches are outside this contract.
+No platform-policy fallback is attempted.
 """
 
 from __future__ import annotations
@@ -161,7 +163,13 @@ def capture(*, command, cwd, output, environment, timeout, max_bytes, log):
     nonce = uuid.uuid4().hex
     status_path = output / "windows-launch-status.json"
     config_path = output / "windows-launch.json"
+    launcher_python = None
     try:
+        # A venv executable may itself start Python and assign a competing job
+        # after Python begins running. Join our job from the real interpreter,
+        # not through that asynchronous wrapper. -I -S needs no venv packages.
+        base_python = getattr(sys, "_base_executable", None) or sys.executable
+        launcher_python = str(Path(base_python).resolve(strict=True))
         job = api.create()
         config = {"job": job, "nonce": nonce, "command": command, "status": str(status_path)}
         with config_path.open("x", encoding="utf-8") as stream:
@@ -173,7 +181,7 @@ def capture(*, command, cwd, output, environment, timeout, max_bytes, log):
             api.checked("SetHandleInformation", job, 1, 1)
             try:
                 process = subprocess.Popen(
-                    [sys.executable, "-I", "-S", "-B", str(Path(__file__).resolve()), str(config_path)],
+                    [launcher_python, "-I", "-S", "-B", str(Path(__file__).resolve()), str(config_path)],
                     cwd=cwd, env=environment, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT, close_fds=True, startupinfo=startup,
                 )
@@ -267,6 +275,7 @@ def capture(*, command, cwd, output, environment, timeout, max_bytes, log):
             "post_exit_group_wait_seconds": wait_seconds,
             "post_exit_group_cleanup_required": cleanup_required,
             "cpu_accounting": cpu,
+            "launcher_python": launcher_python,
             "windows_job_cleanup_verified": cleanup_verified}
 
 
