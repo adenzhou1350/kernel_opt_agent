@@ -1,9 +1,9 @@
 {
   "id": "module-export-versus-package-entry",
   "title": "Distinguish module exports from supported package entry points",
-  "applies_when": "A JavaScript or TypeScript helper is declared export function and a candidate assumes that package users can call it, especially in a native-binding package with explicit package.json exports.",
-  "lesson": "Trace the published entry's re-exports and the package export map before building a native runtime to reproduce an isolated helper defect. A module-level export alone does not establish a supported package API. In LanceDB ca275b6, arrow.ts declares several incorrectly copied type guards, but index.ts re-exports only selected Arrow helpers and the package export map does not expose the Arrow submodule. Treat the guard discrepancy as a source defect with unproven user reachability, not automatically as a user-facing regression. Check internal callers separately; if neither a supported entry nor a real caller reaches it, defer a bugfix PR pending maintainer interest or new caller evidence.",
-  "avoid_when": "Do not reject genuinely public helpers merely because no internal caller exists. An export map does not prove that all aliases, generated bundles, older releases or consumer environments hide a module. This case is source-level inspection of one revision, not native package execution or proof of no possible use. A direct internal-module test alone would not qualify the public API allegation.",
+  "applies_when": "A JavaScript or TypeScript helper is declared export function, or an implementation accepts a broad argument union, and a candidate assumes package users have that same API; especially native-binding packages with explicit exports or abstract public overloads.",
+  "lesson": "Trace the published entry's re-exports and the package export map before building a native runtime to reproduce an isolated helper defect. A module-level export alone does not establish a supported package API. In LanceDB ca275b6, arrow.ts declares several incorrectly copied type guards, but index.ts re-exports only selected Arrow helpers and the package export map does not expose the Arrow submodule. Check public overloads too: Table.update accepts wrapped values/valuesSql with inline where, or legacy bare SQL updates with a second options argument. LocalTable's implementation union does not make the mixed wrapped-values-plus-second-options call a supported typed API. Check documented JavaScript behavior and actual callers separately. Defer a user-facing bugfix claim if supported reachability is still unproved.",
+  "avoid_when": "Do not reject genuinely public helpers merely because no internal caller exists. Export maps do not cover every alias, generated bundle, older release or consumer environment. Type rejection does not prove a JavaScript call is unsupported, harmless or unreachable; inspect documented JS use before choosing a type-only or runtime repair. A partially unresolved TypeScript program is not a passing package type check. These pinned source mechanisms are not native database qualification, proof of no possible use or a reason to silently ignore a supported data-integrity failure.",
   "evidence": [
     {
       "url": "https://github.com/lancedb/lancedb/blob/ca275b6d0ecc0b72cb13978ff227200727f6334c/nodejs/lancedb/arrow.ts#L224-L255",
@@ -16,6 +16,10 @@
     {
       "url": "https://github.com/lancedb/lancedb/blob/ca275b6d0ecc0b72cb13978ff227200727f6334c/nodejs/package.json",
       "note": "The exports map exposes the main entry and three embedding entries, not an Arrow subpath. Source manifest evidence, not an installed-package resolution test."
+    },
+    {
+      "url": "https://github.com/lancedb/lancedb/blob/ca275b6d0ecc0b72cb13978ff227200727f6334c/nodejs/lancedb/table.ts#L285-L347",
+      "note": "The three public abstract update overloads separate inline values/valuesSql options from the two-argument legacy SQL form. The wider concrete implementation at lines1123-1180 ignores second options in wrapped branches, but that alone does not prove a supported public-call regression."
     }
   ],
   "status": "validated"
