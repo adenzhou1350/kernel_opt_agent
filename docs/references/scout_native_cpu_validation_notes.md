@@ -639,6 +639,49 @@ different connection, migration or failing supported flow can overturn that
 counterevidence. No autonomous delivery profile or PR promotion is enabled by
 this recipe; arbitrary model-generated code still requires secretless isolation.
 
+### Tap CLI setup is separate from a direct test-module run
+
+With Tap 21.7.4, directly running a TypeScript test with Node can reach real
+assertions without exercising the CLI's plugin setup, discovery or coverage.
+Keep that narrower evidence; a Windows symlink-permission failure is not a
+reason to enable Developer Mode, elevate, patch `fs`, or start local WSL.
+An authorized native Linux worker can provide the missing CLI observation.
+
+For an offline worker, prepare dependencies using the target OS/CPU and retain
+the resolved versions/integrities. An npm-distributed Node runtime has registry
+provenance; verifying its SRI does **not** verify the official vendor archive or
+release signature. Do not describe those distributions interchangeably.
+Clock 3.3.10 accepts core 4.5.8 in this Tap environment; newer Clock releases
+can require a different core. Inspect peer requirements rather than force an
+incompatible install.
+
+In `@tapjs/run` 4.5.8, plugin version selection calls `pacote.packument(name)`
+without forwarding the offline configuration. An installed plugin and an
+`npm_config_offline` setting alone did not prevent a registry request. With an
+already reviewed fixed plugin set, the supplied
+`@tapjs/test/generate-tap-test-class` executable can build that same set without
+version discovery. Load `@tapjs/core` before reading `defaultPlugins` from
+`@tapjs/test`, retain the configured nondefault plugins, and then run the actual
+Tap CLI. The generator writes into its private dependency/plugin tree; do not
+reuse it as a read-only command or modify a shared installation. This is an
+explicit setup alternative, not a claim that `npm test` or coverage ran.
+
+A Linux LRU replay reached all 29 discovered test files with this route:
+the changed source passed; unchanged production with the same added tests
+failed only the two snapshot-reuse assertions. The suite's randomized cache
+stress test produced different assertion totals, so those totals are not a
+matched case inventory. An unchanged five-case native Node witness supplied
+the separate strict old/new comparison. These are local observations, not
+upstream CI or discovery-policy effectiveness.
+
+Also distinguish virtual address reservation from resident memory. A 4 GiB
+`RLIMIT_AS` prevented the CLI's WASM report dependency from initializing,
+although the host had ample available memory. A separately captured run with
+16 GiB virtual address space, a 1 GiB Node old-heap limit and two test workers
+reached the tests. These are scoped settings, not universal safe capacities
+or a process-tree physical-memory cap. Retain the failed run and check actual
+worker headroom before choosing limits.
+
 ## HTTPX example
 
 The [official contribution guide](https://www.python-httpx.org/contributing/)
