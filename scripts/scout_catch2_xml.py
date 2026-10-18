@@ -14,6 +14,7 @@ from xml.etree import ElementTree as ET
 def summarize(text, exit_code, expected_results, issue):
     counts = dict(passed=0, failed=0, skipped=0, errors=0)
     metadata = {"producer_scope": "Catch2 v2 XML; native replay on 2.13.10",
+                "accounting_complete": False,
                 "reported_assertions": None, "reported_test_cases": None}
 
     def require(condition, message):
@@ -181,6 +182,7 @@ def summarize(text, exit_code, expected_results, issue):
             if name in expected_results:
                 expected_results[name][outcome] += 1
         metadata["assertions"] = {"passed": total_passed, "failed": total_failed}
+        metadata["accounting_complete"] = True
         return counts, seen, len(groups), "fail" if failed_cases else "pass", metadata
     except (ValueError, ET.ParseError, RecursionError) as error:
         issue(str(error) if isinstance(error, ValueError) and not isinstance(error, ET.ParseError)

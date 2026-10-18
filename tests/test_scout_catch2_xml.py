@@ -47,6 +47,7 @@ class Catch2XMLTests(unittest.TestCase):
         result = self.summarize(report(case(assertions=(True, True, True))))
         self.assertEqual((result["status"], result["passed"], result["executed"]), ("TESTS_PASSED", 1, 1))
         self.assertEqual(result["catch2_xml"]["assertions"], {"passed": 3, "failed": 0})
+        self.assertTrue(result["catch2_xml"]["accounting_complete"])
 
     def test_failed_assertion_count_drives_v2_exit_but_not_failed_cases(self):
         result = self.summarize(report(case(assertions=(False, False, True))), 2)
@@ -108,6 +109,7 @@ class Catch2XMLTests(unittest.TestCase):
         result = self.summarize(report(case("first", (False,))), 1, ("first", "second"))
         self.assertEqual(result["status"], "INCONCLUSIVE")
         self.assertEqual(result["executed"], 1)
+        self.assertTrue(result["catch2_xml"]["accounting_complete"])
         self.assertEqual(result["missing_expected_tests"], ["second"])
 
     def test_duplicate_or_missing_identity_and_location_reject(self):
@@ -134,12 +136,19 @@ class Catch2XMLTests(unittest.TestCase):
         result = self.summarize(root)
         self.assertEqual(result["status"], "INCONCLUSIVE")
         self.assertEqual(result["catch2_xml"]["reported_assertions"]["expectedFailures"], 1)
+        self.assertFalse(result["catch2_xml"]["accounting_complete"])
+        self.assertIsNone(result["executed"])
+        self.assertIsNone(result["failed"])
+        self.assertNotIn("expected test did not execute", result["issues"])
 
     def test_unexpected_exception_fatal_and_benchmark_are_not_regressions(self):
         for tag in ("Exception", "FatalErrorCondition", "BenchmarkResults"):
             root = report(case(assertions=(False,)))
             ET.SubElement(root.find("Group/TestCase/Expression"), tag)
-            self.assertEqual(self.summarize(root, 1)["status"], "INCONCLUSIVE")
+            result = self.summarize(root, 1)
+            self.assertEqual(result["status"], "INCONCLUSIVE")
+            self.assertIsNone(result["executed"])
+            self.assertFalse(result["catch2_xml"]["accounting_complete"])
 
     def test_terminal_missing_duplicate_or_moved_before_cases_rejects(self):
         for path in ("OverallResults", "OverallResultsCases", "Group/OverallResults",

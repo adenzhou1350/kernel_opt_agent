@@ -599,15 +599,16 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
                 batches += 1
                 rust_running, rust_cases = None, {}
                 terminal = "fail" if failed or terminal == "fail" else "pass"
-    if not batches or active or rust_running is not None:
+    unknown_catch2_accounting = catch2_xml is not None and not catch2_xml["accounting_complete"]
+    if not unknown_catch2_accounting and (not batches or active or rust_running is not None):
         issue("missing or incomplete test terminal")
     missing = sorted(set(expected_tests) - seen)
-    if missing:
+    if missing and not unknown_catch2_accounting:
         issue("expected test did not execute")
     executed = counts["passed"] + counts["failed"]
-    if not executed:
+    if not executed and not unknown_catch2_accounting:
         issue("no non-skipped tests executed")
-    if bool(exit_code) != (terminal == "fail"):
+    if not unknown_catch2_accounting and bool(exit_code) != (terminal == "fail"):
         issue("process exit and test terminal disagree")
     if format == "go-json" and counts["failed"] and terminal == "pass":
         issue("package passed despite reported test failures")
@@ -630,6 +631,10 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
         result["bun_junit"] = bun_junit
     if catch2_xml is not None:
         result["catch2_xml"] = catch2_xml
+        if unknown_catch2_accounting:
+            # Unsupported report semantics are unknown, not evidence that the
+            # native process executed zero cases or encountered zero failures.
+            result.update({key: None for key in (*counts, "executed", "batches")})
     if format == "gtest-xml":
         result["disabled"] = counts["disabled"]  # subset of skipped, not additive
     if inventory is not None:

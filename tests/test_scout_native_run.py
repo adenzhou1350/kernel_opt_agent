@@ -355,6 +355,24 @@ class ProcessTests(unittest.TestCase):
         self.assertEqual(result["summary"]["failed"], 1)
         self.assertEqual(result["summary"]["catch2_xml"]["assertions"]["failed"], 2)
 
+    def test_catch2_unknown_outcomes_are_not_zero_execution(self):
+        from test_scout_catch2_xml import case, report
+        from xml.etree import ElementTree as ET
+
+        root = report(case(assertions=(False,)))
+        ET.SubElement(root.find("Group/TestCase/Expression"), "Exception")
+        text = ET.tostring(root, encoding="unicode")
+        script = self.root / "fake_catch.py"
+        script.write_text("import sys; from pathlib import Path; "
+                          "Path(sys.argv[-1]).write_text(" + repr(text) + ",encoding='utf-8'); "
+                          "sys.exit(1)", encoding="utf-8")
+        result = self.execute("", command=[sys.executable, str(script)], format="catch2-v2-xml")
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertIsNone(result["summary"]["executed"])
+        self.assertIsNone(result["summary"]["failed"])
+        self.assertFalse(result["summary"]["catch2_xml"]["accounting_complete"])
+        self.assertEqual(result["summary"]["catch2_xml"]["reported_test_cases"]["failures"], 1)
+
     def test_catch2_report_success_short_clusters_and_separator_rejected_before_launch(self):
         for flag in ("--reporter", "--reporter=junit", "--out=old.xml", "--out", "--success=false",
                      "--success", "-rxml", "-oold.xml", "-s", "-srxml", "--"):
@@ -638,6 +656,7 @@ class WindowsProcessTests(unittest.TestCase):
     test_gtest_output_repeat_flags_and_environment_rejected_before_launch = ProcessTests.test_gtest_output_repeat_flags_and_environment_rejected_before_launch
     test_catch2_capture_owns_xml_and_success_options = ProcessTests.test_catch2_capture_owns_xml_and_success_options
     test_catch2_assertions_failed_is_a_test_failure_not_an_abnormal_exit = ProcessTests.test_catch2_assertions_failed_is_a_test_failure_not_an_abnormal_exit
+    test_catch2_unknown_outcomes_are_not_zero_execution = ProcessTests.test_catch2_unknown_outcomes_are_not_zero_execution
     test_catch2_report_success_short_clusters_and_separator_rejected_before_launch = ProcessTests.test_catch2_report_success_short_clusters_and_separator_rejected_before_launch
     test_vitest_capture_owns_json_and_keeps_terminal_log = ProcessTests.test_vitest_capture_owns_json_and_keeps_terminal_log
     test_failed_test_is_not_process_failure_only = ProcessTests.test_failed_test_is_not_process_failure_only

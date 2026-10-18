@@ -1304,10 +1304,33 @@ A native CLI11 comparison on the public parsing path produced four such records,
 The same tests passed after the bounded NaN fix; the primary header-only CMake
 workflow separately passed 82 CTest targets. These are different accounting units,
 not interchangeable test counts. The existing pytest parser correctly rejects the
-Catch2 shape; a regression control preserves that refusal rather than adding an
-untested format adapter. Preserve the native report and process exit, and use
-the project's own runner/CTest identities for delivery. Other Catch2 versions,
-hidden/skipped tests and full discovery require their own evidence.
+Catch2 JUnit shape; a regression control preserves that refusal.
+
+For an independently reviewed v2 producer, use the existing native runner with
+`--format catch2-v2-xml`. It owns the fresh native XML report path and adds
+`--reporter xml --success --out FRESH`. Do not supply those options yourself;
+use long forms for other options, without a `--` separator. The runner refuses
+short-option clusters rather than guessing where reporter/output arguments end.
+Expected IDs are literal emitted `TestCase` names. Duplicate names reject, not
+deduplicate. Section executions are assertion evidence, not extra test cases.
+The parser reconciles section/group/run assertions, group/run cases, case verdicts
+and v2's failed-assertion exit count (capped at 255). Reconcile the full selected
+cohort with `compare_regression` before treating a red/green pair as matched.
+
+Native replay on Catch2 2.13.10 captured the actual CLI11 four-case red/green pair
+and an abort control. The same runner also captured reviewed C++ reporting
+controls: nested sections gave one case/five assertions; explicit `FAIL` was a
+normal failed case; unexpected exceptions and `[!mayfail]` remained inconclusive.
+The abort report accounted for two executed cases but could not satisfy the four
+declared cases. These are tool qualifications, not additional community findings.
+
+V3, expected-failure, unexpected-exception/fatal and benchmark semantics are not
+qualified by this entrance. For unsupported/malformed reports, classified counts
+are `null` and `catch2_xml.accounting_complete=false`; preserved declared counters
+are not a qualified verdict. A rejected report is not proof of zero execution.
+Do not change the suite or waive coverage to force acceptance: retain the native
+report and use an appropriate independently reviewed route. Binary/version/source
+identity, hidden/skipped tests, full discovery and upstream CI remain separate.
 
 ## Small owner-reviewed C++ translation units
 
