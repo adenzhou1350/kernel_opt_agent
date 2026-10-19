@@ -821,6 +821,86 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
                         "production correctness, performance, PR readiness or execution authority."}
 
 
+def compare_captured_regression(baseline_capture, candidate_capture,
+                               baseline_text, candidate_text, *, format,
+                               regressions, controls, common_sources, package=None):
+    """Retain capture failures when comparing a predeclared native selection.
+
+    Supply saved scout_native_run records and their complete reporter text.
+    common_sources names the reviewed test/fixture paths that must have identical
+    captured bytes in both arms. Production paths may differ intentionally.
+    Records are observations, not trusted attestations: this does not prove
+    actual import/binary provenance, dependency parity or the test's contract.
+    """
+    if (not isinstance(common_sources, (list, tuple)) or not common_sources
+            or any(not isinstance(path, str) or not path for path in common_sources)
+            or len(set(common_sources)) != len(common_sources)):
+        raise ValueError("declare distinct common test/fixture source paths")
+    issues, tools, sources = [], [], []
+
+    def sha(value):
+        return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+    for label, capture, text in (("baseline", baseline_capture, baseline_text),
+                                 ("candidate", candidate_capture, candidate_text)):
+        if not isinstance(capture, dict) or type(capture.get("exit_code")) is not int:
+            issues.append(f"{label}: missing capture or integer exit code")
+            continue
+        if (capture.get("status") not in {"TESTS_PASSED", "TESTS_FAILED"}
+                or capture.get("issues") != []):
+            issues.append(f"{label}: capture is not conclusive")
+        summary = capture.get("summary")
+        if not isinstance(summary, dict) or summary.get("format") != format:
+            issues.append(f"{label}: missing or different captured report format")
+        backend = capture.get("process_backend")
+        if (capture.get("post_exit_group_cleanup_required") is not False
+                or backend not in {"posix-process-group", "windows-job"}
+                or (backend == "windows-job"
+                    and capture.get("windows_job_cleanup_verified") is not True)):
+            issues.append(f"{label}: owned-process cleanup is not verified")
+        before = capture.get("source_before")
+        if (not isinstance(before, dict) or not 1 <= len(before) <= 64
+                or any(not isinstance(path, str) or not path or not sha(value)
+                       for path, value in before.items())
+                or capture.get("source_after") != before):
+            issues.append(f"{label}: selected sources are missing or changed")
+        sources.append(before if isinstance(before, dict) else {})
+        tool = capture.get("tool_sha256")
+        if not sha(tool):
+            issues.append(f"{label}: missing captured executable digest")
+        tools.append(tool)
+        report = capture.get("test_report")
+        recorded = capture.get("terminal_log_sha256")
+        # File reporters must not silently fall back to an unrelated stdout log.
+        if format in {"pytest-junit", "vitest-json", "gtest-xml", "bun-junit", "catch2-v2-xml"}:
+            recorded = report.get("sha256") if isinstance(report, dict) else None
+        if (not isinstance(text, str) or not sha(recorded)
+                or hashlib.sha256(text.encode("utf-8")).hexdigest() != recorded):
+            issues.append(f"{label}: reporter text does not match captured digest")
+    if len(sources) == 2:
+        if any(path not in sources[0] or path not in sources[1]
+               or sources[0][path] != sources[1][path] for path in common_sources):
+            issues.append("declared common test/fixture bytes differ or are missing")
+        if tools[0] != tools[1]:
+            issues.append("captured test executable bytes differ")
+    if issues:
+        return {"status": "INCONCLUSIVE", "issues": issues,
+                "boundary": "Saved capture accounting failed; reporter-only success cannot override it."}
+    result = compare_regression(
+        baseline_text, candidate_text, format=format,
+        baseline_exit=baseline_capture["exit_code"], candidate_exit=candidate_capture["exit_code"],
+        regressions=regressions, controls=controls, package=package)
+    for label, capture in (("baseline", baseline_capture), ("candidate", candidate_capture)):
+        if capture["status"] != result[label]["status"]:
+            result["status"] = "INCONCLUSIVE"
+            result["issues"].append(f"{label}: capture and reparsed reporter disagree")
+    result["boundary"] = (
+        "Saved capture/reporter accounting and declared common-file equality only; "
+        "not authenticity, actual imports/binary provenance, full environment parity, "
+        "production correctness, performance or PR readiness.")
+    return result
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--log", type=Path, required=True)

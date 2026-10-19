@@ -1,5 +1,7 @@
 """Offline accounting controls; never invoke native tools or model code."""
 
+import copy
+import hashlib
 import json
 import subprocess
 import sys
@@ -616,6 +618,150 @@ class GoSuiteRegressionTests(unittest.TestCase):
                        {"regressions": [False]}, {"controls": "TestControl"}):
             with self.subTest(values=values), self.assertRaises(ValueError):
                 self.compare(**values)
+
+
+class CapturedRegressionTests(unittest.TestCase):
+    regressions = ["tests.test_contract::test_case"]
+    controls = ["tests.test_contract::test_control"]
+
+    def capture(self, text, code, *, format="pytest-junit", package=None):
+        names = (["TestRegression", "TestControl"] if format == "go-json"
+                 else self.regressions + self.controls)
+        summary = native.summarize(text, format=format, exit_code=code,
+                                   expected_tests=names,
+                                   package=package)
+        digest = hashlib.sha256(text.encode()).hexdigest()
+        source = {"tests/test_contract.py": "1" * 64, "subject.py": "2" * 64}
+        return dict(status=summary["status"], issues=[], exit_code=code,
+                    summary=summary, process_backend="posix-process-group",
+                    post_exit_group_cleanup_required=False, source_before=source,
+                    source_after=dict(source), tool_sha256="3" * 64,
+                    terminal_log_sha256=digest, test_report={"sha256": digest})
+
+    def fixture(self):
+        before = junit(("test_case", "failure"), ("test_control", None))
+        after = junit(("test_case", None), ("test_control", None))
+        return self.capture(before, 1), self.capture(after, 0), before, after
+
+    def compare(self, values, **kwargs):
+        return native.compare_captured_regression(
+            *values, format="pytest-junit", regressions=self.regressions,
+            controls=self.controls, common_sources=["tests/test_contract.py"], **kwargs)
+
+    def test_clean_pair_and_changed_production_bytes_are_allowed(self):
+        values = self.fixture()
+        values[1]["source_before"]["subject.py"] = "4" * 64
+        values[1]["source_after"]["subject.py"] = "4" * 64
+        original = copy.deepcopy(values)
+        self.assertEqual(self.compare(values)["status"], "MATCHED_REGRESSION_OBSERVED")
+        self.assertEqual(values, original)
+
+    def test_report_only_match_cannot_override_cleanup_failure(self):
+        values = self.fixture()
+        self.assertEqual(native.compare_regression(
+            values[2], values[3], format="pytest-junit", baseline_exit=1, candidate_exit=0,
+            regressions=self.regressions, controls=self.controls)["status"],
+            "MATCHED_REGRESSION_OBSERVED")
+        for arm in (0, 1):
+            changed = copy.deepcopy(values)
+            changed[arm].update(status="INCONCLUSIVE", summary=None,
+                                issues=["owned process group remains after command exit"],
+                                post_exit_group_cleanup_required=True)
+            self.assertEqual(self.compare(changed)["status"], "INCONCLUSIVE")
+
+    def test_missing_capture_fields_and_falsey_values_are_not_success(self):
+        for key in ("status", "issues", "exit_code", "summary", "process_backend",
+                    "post_exit_group_cleanup_required", "source_before", "source_after",
+                    "tool_sha256", "test_report"):
+            changed = list(self.fixture())
+            changed[1].pop(key)
+            with self.subTest(key=key):
+                self.assertEqual(self.compare(changed)["status"], "INCONCLUSIVE")
+        for key, value in (("exit_code", False), ("post_exit_group_cleanup_required", 0),
+                           ("issues", None), ("source_before", {}), ("tool_sha256", "bad")):
+            changed = list(self.fixture())
+            changed[1][key] = value
+            with self.subTest(key=key, value=value):
+                self.assertEqual(self.compare(changed)["status"], "INCONCLUSIVE")
+
+    def test_changed_or_missing_common_file_and_source_drift_fail(self):
+        values = self.fixture()
+        for field in ("source_before", "source_after"):
+            values[1][field]["tests/test_contract.py"] = "4" * 64
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+        values = self.fixture()
+        values[1]["source_after"]["subject.py"] = "4" * 64
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+        values = self.fixture()
+        values[1]["source_before"].pop("tests/test_contract.py")
+        values[1]["source_after"].pop("tests/test_contract.py")
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+
+    def test_report_digest_tool_or_format_drift_fail(self):
+        for key, value in (("test_report", {"sha256": "4" * 64}),
+                           ("tool_sha256", "4" * 64),
+                           ("summary", {"format": "go-json"})):
+            values = list(self.fixture())
+            values[1][key] = value
+            with self.subTest(key=key):
+                self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+        values = list(self.fixture())
+        values[3] += "\n"
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+
+    def test_top_level_status_cannot_contradict_reparsed_report(self):
+        values = self.fixture()
+        values[0]["status"] = "TESTS_PASSED"
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+
+    def test_report_newlines_are_part_of_the_captured_bytes(self):
+        values = list(self.fixture())
+        values[3] = values[3].replace("><", ">\r\n<")
+        values[1] = self.capture(values[3], 0)
+        self.assertEqual(self.compare(values)["status"], "MATCHED_REGRESSION_OBSERVED")
+        values[3] = values[3].replace("\r\n", "\n")
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+
+    def test_windows_requires_explicit_job_cleanup_confirmation(self):
+        values = self.fixture()
+        for record in values[:2]:
+            record["process_backend"] = "windows-job"
+        self.assertEqual(self.compare(values)["status"], "INCONCLUSIVE")
+        for record in values[:2]:
+            record["windows_job_cleanup_verified"] = True
+        self.assertEqual(self.compare(values)["status"], "MATCHED_REGRESSION_OBSERVED")
+
+    def test_plain_log_reporter_uses_terminal_digest_not_test_report(self):
+        before = go_log(go_test("TestRegression", "fail"), go_test("TestControl"), terminal="fail")
+        after = go_log(go_test("TestRegression"), go_test("TestControl"))
+        captures = [self.capture(text, code, format="go-json", package=PACKAGE)
+                    for text, code in ((before, 1), (after, 0))]
+        for record in captures:
+            record["test_report"] = None
+
+        def compare():
+            return native.compare_captured_regression(
+                *captures, before, after, format="go-json", package=PACKAGE,
+                regressions=["TestRegression"], controls=["TestControl"],
+                common_sources=["tests/test_contract.py"])
+
+        self.assertEqual(compare()["status"], "MATCHED_REGRESSION_OBSERVED")
+        captures[1]["terminal_log_sha256"] = "4" * 64
+        captures[1]["test_report"] = {"sha256": hashlib.sha256(after.encode()).hexdigest()}
+        self.assertEqual(compare()["status"], "INCONCLUSIVE")
+
+    def test_new_comparison_does_not_relax_complete_selection(self):
+        values = list(self.fixture())
+        values[3] = junit(("test_case", None), ("test_control", None), ("test_extra", None))
+        values[1] = self.capture(values[3], 0)
+        self.assertEqual(self.compare(values)["status"], "PATTERN_NOT_OBSERVED")
+
+    def test_common_files_require_explicit_distinct_names(self):
+        for names in ([], "tests/test_contract.py", ["a", "a"], [False]):
+            with self.subTest(names=names), self.assertRaises(ValueError):
+                native.compare_captured_regression(
+                    *self.fixture(), format="pytest-junit", regressions=self.regressions,
+                    controls=self.controls, common_sources=names)
 
 
 if __name__ == "__main__":

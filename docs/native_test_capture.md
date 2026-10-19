@@ -114,6 +114,36 @@ named regressions fail only on baseline, controls pass on both, and repeat count
 match. Extra/unaccounted cases, changed cardinality, missing or skipped controls
 do not qualify. This is captured-log discrimination, not a semantic oracle.
 
+When using `scout_native_run` captures, prefer `compare_captured_regression`
+instead of dropping the capture records and comparing only reporter text:
+
+```python
+comparison = compare_captured_regression(
+    baseline_record, candidate_record, baseline_report, candidate_report,
+    format="pytest-junit",
+    regressions=["tests.test_contract::test_regression"],
+    controls=["tests.test_contract::test_control"],
+    common_sources=["tests/test_contract.py"],
+)
+```
+
+Load the records from each capture's `result.json`, and the complete UTF-8
+reporter text (`junit.xml` for pytest, `terminal.log` for Go/Rust/Node). Read
+report text with `path.read_bytes().decode("utf-8")`, preserving CRLF bytes;
+newline-normalizing text reads cannot establish the original report digest. Declare
+common test/fixture paths before execution; their captured hashes must match in
+both arms. The test executable bytes must also match. A changed production file
+is allowed, but source drift during either capture is not. A timeout, remaining
+owned process, missing cleanup confirmation, or mismatched reporter digest keeps
+the comparison inconclusive even if its JUnit looks red/green. This is an optional
+library entrance; the existing reporter-only API and CLI are unchanged.
+
+Saved records and logs are not trusted attestations. This check does not infer
+that all test dependencies were declared, that the package imported the intended
+source, that environments/commands are equivalent, or that assertions represent
+the public contract. Review those separately; do not report a matched capture
+as automatic PR readiness or evidence-selector efficacy.
+
 `wall_seconds` includes invocation setup/identity checks; `command_wall_seconds`
 includes child startup, compilation and pipe closure. Neither is active GPU time,
 native kernel latency, or total research cost. Also retain discovery, failed setup,
