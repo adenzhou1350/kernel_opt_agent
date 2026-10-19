@@ -310,6 +310,10 @@ See [limits and dynamic-import gaps](references/scout_native_cpu_worked_routes.m
   CPU configuration disables CUDA graphs: assertions that a partition wrapper
   became active can fail before the alleged cleanup bug is reached. Do not
   bypass platform selection or label those failures as a CUDA reproduction.
+  The normal [CPU configuration route](https://github.com/vllm-project/vllm/blob/e68efc685ab1e6f1eda004ced7157e3ca411da2f/vllm/platforms/cpu.py)
+  also switches `VLLM_COMPILE` to `DYNAMO_TRACE_ONCE`; a manually constructed
+  `VllmBackend` failure alone therefore does not establish a normal CPU-serving
+  failure. Verify the platform-adjusted mode before funding a repair.
   For direct backend tests, preserve its configuration lifecycle: the documented
   [`post_init_cudagraph_sizes`](https://github.com/vllm-project/vllm/blob/e68efc685ab1e6f1eda004ced7157e3ca411da2f/vllm/config/compilation.py)
   also initializes `compile_sizes`; importing the backend is not engine setup.

@@ -1,0 +1,22 @@
+{
+  "id": "speculative-prefetch-error-is-not-cache-state",
+  "title": "Do not retain failed speculative futures as shared cache state",
+  "applies_when": "A cache harvests a completed background read by calling Future.result before detaching the shared future, or a speculative read error prevents later cached or foreground reads.",
+  "lesson": "A failed completed Future keeps raising the same exception. If result() raises before shared bookkeeping is cleared, every later read can replay that old failure without retrying the backend. Trace the real buffered-file caller and both completed and pending joins. For a speculative-prefetch contract, detach the selected future under the existing lock before observing its result, harvest outside the lock, and cache only successful bytes. A discarded speculative error must leave the demanded block uncached so the ordinary foreground fetch can retry and propagate a persistent error. Test completed/pending and transient/persistent failures with events, a cached read after failure, successful-prefetch reuse and ordinary close. Check existing author-owned repairs before implementing the same fix.",
+  "avoid_when": "Do not swallow required-operation failures or apply this policy to every Future/asyncio task. Foreground errors, cancellation, ownership and close races need their own contracts. Event-controlled cases and a serial memory-backed or synthetic range source do not qualify cloud transports, arbitrary concurrent readers, downstream packages, performance or universal recovery. An open peer PR is not a merged repair; a new current-main repro should support its owner rather than become competing work.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/caching.py#L983-L1038",
+      "note": "BackgroundBlockCache's done-future branch observes result before clearing the shared fields, whereas the pending required-block branch first detaches them. This is the pinned stale-exception mechanism, not a cloud failure measurement."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2284",
+      "note": "Existing peer repair at 30e8dfdc8a9f772a09f4399074d74a6dd24483de detaches selected futures and discards failed speculative results while preserving foreground errors. Do not open a duplicate PR."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2284#issuecomment-6279357082",
+      "note": "Independent replay of the same stable patch-id over current941e6f9 on Windows CPython3.14: five regressions fail before and pass after, two controls pass in both arms; wider cache selection 363 pass/20 skip with one socket-related teardown warning. Not Linux, cloud, full-project/downstream, performance or upstream-acceptance proof."
+    }
+  ],
+  "status": "validated"
+}
