@@ -2,6 +2,7 @@
 
 import ast
 import sys
+import typing
 import unittest
 from pathlib import Path
 
@@ -131,14 +132,30 @@ class DefinitionImportsTests(unittest.TestCase):
 
     def test_native_future_annotation_does_not_import_at_definition(self):
         name = "__scout_uninstalled_annotation_probe_9dc58b"
-        with self.assertRaisesRegex(ModuleNotFoundError, name):
-            exec(f"def f(x: __import__({name!r})): pass", {})
+        plain = compile(
+            f"def f(x: __import__({name!r})): pass", "<plain-annotations>",
+            "exec", dont_inherit=True,
+        )
+        if sys.version_info >= (3, 14):
+            namespace = {}
+            exec(plain, namespace)
+            # PEP 649 defers this import until annotations are evaluated.
+            with self.assertRaisesRegex(ModuleNotFoundError, name):
+                _ = namespace["f"].__annotations__
+        else:
+            with self.assertRaisesRegex(ModuleNotFoundError, name):
+                exec(plain, {})
         namespace = {}
         exec(
-            f"from __future__ import annotations\ndef f(x: __import__({name!r})): pass",
+            compile(
+                f"from __future__ import annotations\ndef f(x: __import__({name!r})): pass",
+                "<future-annotations>", "exec", dont_inherit=True,
+            ),
             namespace,
         )
         self.assertIn(name, namespace["f"].__annotations__["x"])
+        with self.assertRaisesRegex(ModuleNotFoundError, name):
+            typing.get_type_hints(namespace["f"])
 
 
 if __name__ == "__main__":

@@ -357,6 +357,12 @@ def select_leads(
 
 
 def _import_notes(tree, path, allow_dependencies=False, package_root=None):
+    """Conservative dependency hints for the Python 3.12 native profiles.
+
+    Non-future annotations use pre-3.14 eager evaluation here, regardless of
+    the controller's interpreter. These notes are not a Python 3.14 import
+    trace; introspection can still evaluate otherwise deferred annotations.
+    """
     notes = []
     dependencies = set()
     required = set()

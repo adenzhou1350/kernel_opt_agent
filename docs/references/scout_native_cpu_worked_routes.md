@@ -118,6 +118,16 @@ letting a multi-target request fall back to unrelated same-basename files.
 This is evidence routing within the existing budget, not native correctness or
 measured model/PR benefit. Cold test selection remains a separate unresolved case.
 
+Keep the controller and target Python versions distinct. The dependency notes
+use conservative pre-3.14 annotation timing for the pinned Python 3.12 native
+profiles; they must not become host-version-dependent just because Windows runs
+3.14. [Python 3.14 defers ordinary annotations](https://docs.python.org/3.14/whatsnew/3.14.html#pep-649-pep-749-deferred-evaluation-of-annotations),
+while `from __future__ import annotations` still stores strings. Native timing
+controls must test their actual runtime: definition may succeed while reading
+`__annotations__` or resolving hints triggers the missing import. String/deferred
+annotations are not an import sandbox. Do not waive a native failure or claim
+profile compatibility merely because an AST hint or another interpreter passed.
+
 For a terminal lead, inspect the dashboard's **related-work sample** beside its
 analysis: it shows the current/prior title when recoverable and the recorded
 search queries, without extra requests. A final hypothesis can change after the
