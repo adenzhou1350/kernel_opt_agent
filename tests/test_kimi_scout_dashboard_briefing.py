@@ -9,6 +9,67 @@ import unittest
 
 @unittest.skipUnless(shutil.which("node"), "Node needed for offline DOM checks")
 class BriefingTests(unittest.TestCase):
+    def test_provider_recovery_is_not_hidden_by_an_empty_queue(self):
+        page = (Path(__file__).resolve().parents[1] / "scripts/kimi_scout_dashboard.html").read_text(encoding="utf-8")
+        renderer = page.split("<script>", 1)[1].split("  function renderHistory() {", 1)[0]
+        harness = """
+const elements = new Map();
+function element() { return {children:[],firstElementChild:{},
+  append(...v) {this.children.push(...v);},
+  replaceChildren(...v) {this.children=v;},addEventListener() {},
+  set innerHTML(v) {throw Error('Unsafe HTML rendering');}}; }
+global.document = {createElement:element,getElementById(id) {
+  if (!elements.has(id)) elements.set(id,element());return elements.get(id);
+}};
+"""
+        exercise = """
+  function renderHistory() {}
+  const rows = [
+    {provider_error_cycles:1,recovery_probe:true,admission_limit:1},
+    {provider_error_cycles:1,recovery_probe:false,admission_limit:1},
+    {provider_error_cycles:0,recovery_probe:false},
+    {provider_error_cycles:1,state:'COOLDOWN',cooldown_until:1100},
+    {provider_error_cycles:1,stale:true},
+    {provider_error_cycles:1,alive:false},
+    {},
+    {provider_error_cycles:'1'},
+    {provider_error_cycles:1,heartbeat_at:1},
+  ].map(value => {
+    state={now:1000,summary:{counts:{}},jobs:[],research:{phase:'WAITING_FOR_NEW_EVIDENCE'},
+      runtime:{alive:true,state:'RUNNING',concurrency:4,heartbeat_at:999,...value},
+      snapshot:{stale:value.stale === true,served_at:1000}};
+    renderOverview();
+    return {label:$('runtimeLabel').textContent,flow:$('flowStatus').textContent,
+      badge:$('runtimeBadge').className,dot:$('runtimeBadge').firstElementChild.className,
+      meta:$('runtimeMeta').textContent};
+  });
+  process.stdout.write(JSON.stringify(rows));
+})();
+"""
+        result = subprocess.run([shutil.which("node"), "-"], input=harness + renderer + exercise,
+                                capture_output=True, text=True, encoding="utf-8", timeout=10, check=True)
+        rows = json.loads(result.stdout)
+        for row in rows[:2]:
+            self.assertEqual(row["label"], "服务恢复待确认")
+            self.assertIn("上次服务调用失败", row["flow"])
+            self.assertIn("准入上限 1", row["meta"])
+            self.assertEqual(row["badge"], "badge cooldown")
+            self.assertEqual(row["dot"], "dot")
+        self.assertEqual(rows[2]["label"], "运行中 · 等待新材料")
+        self.assertIn("等待新材料", rows[2]["flow"])
+        self.assertEqual(rows[2]["badge"], "badge running")
+        self.assertEqual(rows[2]["dot"], "dot live")
+        self.assertIn("服务退避中", rows[3]["flow"])
+        self.assertIn("快照已过期", rows[4]["label"])
+        self.assertIn("保存快照已过期", rows[4]["flow"])
+        self.assertEqual(rows[5]["label"], "守护进程未运行")
+        self.assertIn("离线", rows[5]["flow"])
+        for row in rows[6:8]:
+            self.assertEqual(row["label"], "运行中 · 等待新材料")
+            self.assertNotIn("服务调用失败", row["flow"])
+        self.assertIn("心跳待确认", rows[8]["flow"])
+        self.assertNotEqual(rows[8]["label"], "服务恢复待确认")
+
     def test_refill_details_render_wait_reasons_and_clear_legacy_state(self):
         page = (Path(__file__).resolve().parents[1] / "scripts/kimi_scout_dashboard.html").read_text(encoding="utf-8")
         script = page.split("<script>", 1)[1].split("</script>", 1)[0]

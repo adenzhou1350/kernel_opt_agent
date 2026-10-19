@@ -312,11 +312,15 @@
   // response receipt from the last successful historical/liveness observation.
   const snapshotFresh = () => state.snapshot == null || state.snapshot.stale === false;
   const observationTime = () => state.snapshot?.served_at ?? state.now;
+  const runtimeHeartbeatFresh = runtime => {
+    const age = Number(observationTime()) - Number(runtime.heartbeat_at);
+    return typeof runtime.heartbeat_at === "number" && age >= 0 && age <= 180;
+  };
+  const providerRecoveryPending = runtime => runtime.state === "RUNNING" && Number.isInteger(runtime.provider_error_cycles) && runtime.provider_error_cycles > 0;
   function renderBriefing() {
     const activity = state.activity || {}, runtime = state.runtime || {}, research = state.research || {};
     const counts = state.summary?.counts || {}, limit = Math.max(1, Math.min(100, Number(runtime.concurrency) || 4));
-    const heartbeatAge = Number(observationTime()) - Number(runtime.heartbeat_at);
-    const heartbeatFresh = typeof runtime.heartbeat_at === "number" && heartbeatAge >= 0 && heartbeatAge <= 180;
+    const heartbeatFresh = runtimeHeartbeatFresh(runtime);
     const live = snapshotFresh() && runtime.alive === true && heartbeatFresh && !["STOPPED", "OFFLINE"].includes(runtime.state);
     const occupied = live ? Math.max(0, Number(runtime.active ?? counts.RUNNING) || 0) : 0;
     const delivery = state.delivery && typeof state.delivery === "object" && !Array.isArray(state.delivery) ? state.delivery : null;
@@ -342,6 +346,7 @@
     else if (!heartbeatFresh) flow = "心跳待确认 · 不把保存状态当作实时运行";
     else if (runtime.state === "COOLDOWN") flow = "服务退避中 · 冷却至 " + time(runtime.cooldown_until);
     else if (runtime.state !== "RUNNING") flow = "进程状态：" + (labels[runtime.state] || runtime.state || "未知");
+    else if (providerRecoveryPending(runtime)) flow = "上次服务调用失败 · 恢复尚未确认；空队列不代表服务已恢复";
     else if (!counts.PENDING && research.phase === "REFILLING") flow = "正在补充源码材料 · 暂无排队任务，空槽不代表模型限流";
     else if (!occupied && !counts.PENDING) flow = "等待新材料 · 进程仍在线";
     if (state.stop_control?.present === true) {
@@ -479,13 +484,15 @@
     text("tokenCoverage", "已知用量 " + number(summary.usage_known_jobs || 0) + " 个任务");
     const isAlive = runtime.alive === true;
     const runtimeState = isAlive ? runtime.state : "STOPPED";
-    $("runtimeBadge").className = "badge " + (!snapshotFresh() ? "" : runtimeState === "COOLDOWN" ? "cooldown" : isAlive ? "running" : "");
-    text("runtimeLabel", !snapshotFresh() ? "快照已过期，运行状态待确认" : isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
-    $("runtimeBadge").firstElementChild.className = "dot" + (snapshotFresh() && isAlive && runtimeState === "RUNNING" ? " live" : "");
+    const recoveryPending = isAlive && runtimeHeartbeatFresh(runtime) && providerRecoveryPending(runtime);
+    $("runtimeBadge").className = "badge " + (!snapshotFresh() ? "" : runtimeState === "COOLDOWN" || recoveryPending ? "cooldown" : isAlive ? "running" : "");
+    text("runtimeLabel", !snapshotFresh() ? "快照已过期，运行状态待确认" : recoveryPending ? "服务恢复待确认" : isAlive ? (runtimeState === "RUNNING" ? (count("RUNNING") || count("PENDING") ? "进程运行中" : "运行中 · 等待新材料") : labels[runtimeState] || runtimeState || "运行中") : "守护进程未运行");
+    $("runtimeBadge").firstElementChild.className = "dot" + (snapshotFresh() && isAlive && runtimeState === "RUNNING" && !recoveryPending ? " live" : "");
     const runtimeParts = ["搜索 / 反证并发上限 " + (runtime.concurrency ?? "—"), "心跳 " + time(runtime.heartbeat_at)];
     if (runtime.queue_policy === "review_weighted") runtimeParts.push("调度偏好：发现 3 / 复核 3 / 复现计划 2，空位借用");
     if (runtime.pid) runtimeParts.unshift("PID " + runtime.pid);
     if (runtimeState === "COOLDOWN") runtimeParts.push("冷却至 " + time(runtime.cooldown_until));
+    if (recoveryPending) runtimeParts.push("最近服务恢复待确认 · 准入上限 " + number(runtime.admission_limit));
     const collectionTime = state.research?.updated_at || state.feed?.at;
     if (collectionTime) runtimeParts.push("采集 " + time(collectionTime));
     text("runtimeMeta", runtimeParts.join(" · "));
