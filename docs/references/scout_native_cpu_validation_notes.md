@@ -1,5 +1,30 @@
 # Native CPU validation reference
 
+## Native finalization is part of the captured outcome
+
+A missing report plus a native crash in cleanup is not a passing test body or
+automatically a failure in the candidate algorithm. Preserve the first capture,
+then isolate acquisition, processing and finalization with small healthy controls
+in fresh, owned child processes. Check the same selected implementation and
+runtime; a different decoder or an ignored cleanup error is not an equivalent
+control. Keep core-dump size bounded before deliberately reproducing a crash.
+
+For Python/native bindings, a live object or weak reference does not establish
+that destruction is running with the correct interpreter thread state. On
+[GIL-enabled CPython 3.12](https://docs.python.org/3.12/c-api/init.html#thread-state-and-the-global-interpreter-lock),
+Python-object operations require the GIL, including reference-count operations;
+I/O wrappers may release it. Inspect the actual destructor and binding, not only
+the Python caller. This is an investigation route, not proof of a particular
+library defect or a rule for every free-threaded runtime.
+
+If a separately verified, public cleanup path changes a diagnostic harness,
+record that change and repeat the same assertions and controls in **both** arms
+under fresh output paths. Do not overwrite the old crash, drop finalization,
+retroactively accept unreported assertions or call this a production dependency
+fix. Report the target behavior, harness boundary and remaining platform gaps
+separately. Include failed setup and owner/native investigation in cost accounting;
+reported model tokens alone are not total research cost or an efficacy result.
+
 ## Keep test-process temporary paths short and private
 
 Python multiprocessing's forkserver can create an AF_UNIX listener beneath the
