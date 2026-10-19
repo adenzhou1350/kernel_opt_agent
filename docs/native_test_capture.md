@@ -47,6 +47,11 @@ unreadable or truncated observations are not proof of exit; zombies remain
 visible diagnostics, not a PASS exception. Observation failures cannot prevent
 owned-group cleanup, and do not relax the existing inconclusive verdict.
 
+For version-scoped import-time build helpers, see
+[the Humming CPU metadata lesson](../knowledge/lessons/cpu-import-can-launch-background-builds.json).
+Its task-local opt-out is not a GPU/benchmark default or a reason to ignore live
+children. Preserve the same assertions and import identities when changing it.
+
 For C++ GoogleTest 1.17, use `--format gtest-xml` with emitted
 `classname::name` identities (including parameter suffixes). The runner appends
 `--gtest_output=xml:FRESH_OUTPUT/gtest.xml`, retains stdout separately, and rejects

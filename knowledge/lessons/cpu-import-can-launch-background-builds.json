@@ -1,0 +1,22 @@
+{
+  "id": "cpu-import-can-launch-background-builds",
+  "title": "CPU metadata imports can launch Humming background build helpers",
+  "applies_when": "A reviewed CPU-only vLLM metadata or constructor test imports humming-kernels0.1.17, finishes its assertions, but an execution wrapper still observes live descendants; or a no-build assumption relies only on CUDA_VISIBLE_DEVICES being empty.",
+  "lesson": "Inspect the dependency's import path and the owned child lifecycle before changing the candidate or relaxing cleanup. In the pinned Humming version, importing nvrtc and ops.utils starts Python helpers that check or build native artifacts. Their stdout/stderr are discarded. A daemon wait thread is not a guarantee that they finish before the importing process exits. For metadata-only tests that do not invoke Humming kernels, set HUMMING_DISABLE_PARALLEL_BUILD=1 in that task's environment before import, then recheck the same test IDs, assertions, imported source and cleanup. This avoids those import-time helpers; it does not disable explicit on-demand initialization. Trace the actual callsite rather than guessing an unrelated Torch compiler-pool setting. Preserve failed/negative runs and distinguish test PASS from clean execution completion.",
+  "avoid_when": "Do not apply this as a global GPU, kernel-compilation, serving or benchmark default. Tests that need these artifacts must still validate their initialization and budget cold setup. The flag is not a sandbox, complete compiler prohibition, proof of no other subprocesses, or portable startup/throughput improvement. Precompiled artifacts may satisfy a helper without compiling; a helper launch alone does not prove a compiler ran. Do not whitelist child names or treat a passing JUnit report as sufficient when owned processes remain. Verify the installed version and source rather than assuming future releases behave identically.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/humming/blob/2bd327b17c2a0197336b4720cb02707b56c87ad8/humming/utils/nvrtc.py",
+      "note": "v0.1.17 calls build_nvrtc_compile_binary_in_bg at import. HUMMING_DISABLE_PARALLEL_BUILD=1 suppresses that launch; direct may_build initialization and its precompiled/source-build choices remain separate."
+    },
+    {
+      "url": "https://github.com/vllm-project/humming/blob/2bd327b17c2a0197336b4720cb02707b56c87ad8/humming/ops/utils.py",
+      "note": "The analogous import-time launcher helper has the same opt-out. init_humming_launcher independently handles verified precompiled artifacts or a native build. This supports the scoped mechanism, not a published performance claim."
+    },
+    {
+      "url": "https://github.com/vllm-project/humming/blob/2bd327b17c2a0197336b4720cb02707b56c87ad8/humming/utils/jit.py",
+      "note": "popen_and_reap launches a subprocess and starts a daemon reaper thread. This differs from synchronously waiting before returning from import; it does not establish every reported zombie or process-lifetime defect."
+    }
+  ],
+  "status": "validated"
+}
