@@ -25,6 +25,7 @@ from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint
 from scout_requested_definition import (
+    cached_definition_pair_requests,
     cached_definition_tail_request,
     cached_qualified_definition_path,
     requested_code_search_symbols,
@@ -1649,6 +1650,15 @@ class ResearchProducer:
             )
             if references:
                 test_request = None
+            definition_pair = []
+            if not (references or contracts or continuation or definition_request):
+                definition_pair = cached_definition_pair_requests(
+                    packet, snapshot, analysis_value, cached_source,
+                )
+                if any(request["path"] not in paths for request in definition_pair):
+                    definition_pair = []
+                if definition_pair:
+                    test_request = None
             imports = []
             if (
                 spec.get("followup_import_context", False)
@@ -1657,6 +1667,7 @@ class ResearchProducer:
                 and not contracts
                 and not continuation
                 and definition_request is None
+                and not definition_pair
             ):
                 # Explicit missing definitions precede another reproduction plan.
                 # Keep the existing two-read ceiling, not another model/source tier.
@@ -1686,6 +1697,7 @@ class ResearchProducer:
                 and not contracts
                 and not continuation
                 and definition_request is None
+                and not definition_pair
             ):
                 # Missing definitions or a qualified request's literal owner can
                 # be in another module. This remains a lexical path hint, not
@@ -1741,7 +1753,7 @@ class ResearchProducer:
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]
             if not (
-                references or code_requests or continuation or imports
+                references or code_requests or continuation or imports or definition_pair
                 or contracts or definition_request
             ):
                 cached_target = cached_qualified_definition_path(
@@ -1760,6 +1772,7 @@ class ResearchProducer:
             lexical_requests = (
                 references
                 or code_requests
+                or definition_pair
                 or [{"path": path} for path in paths[:lexical_budget]]
             )
             if continuation and lexical_requests:
@@ -1784,6 +1797,9 @@ class ResearchProducer:
                 read_request = {
                     key: value for key, value in request.items() if key != "reference_scan"
                 }
+                request_hints = read_request.pop(
+                    "request_hints", analysis_value.get("next_check", "")[:2000]
+                )
                 try:
                     sources.append(
                         self.context.source(
@@ -1791,7 +1807,7 @@ class ResearchProducer:
                             snapshot["commit"],
                             **read_request,
                             hints=hints,
-                            request_hints=analysis_value.get("next_check", "")[:2000],
+                            request_hints=request_hints,
                         )
                     )
                 except ValueError as exc:

@@ -108,6 +108,16 @@ in the supplied evidence. Preserve original ranges and mark missing context;
 selection is syntax-only, not runtime dispatch proof. Keep any malformed packet
 and its cost, and recheck the actual package before crediting a model's repair.
 
+Two explicit `definition(Class.first)` / `definition(Class.second)` requests can
+replace the two ordinary follow-up reads when both uniquely resolve in one
+already-observed, current-pin Python cache whose Git blob matches the snapshot.
+The bounded cache check does not fetch missing bodies; mixed owners, references,
+duplicates, ambiguous declarations and ineligible paths keep the old fallback.
+Each read retains its own definition hint and completeness metadata, rather than
+letting a multi-target request fall back to unrelated same-basename files.
+This is evidence routing within the existing budget, not native correctness or
+measured model/PR benefit. Cold test selection remains a separate unresolved case.
+
 For a terminal lead, inspect the dashboard's **related-work sample** beside its
 analysis: it shows the current/prior title when recoverable and the recorded
 search queries, without extra requests. A final hypothesis can change after the

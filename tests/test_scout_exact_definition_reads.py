@@ -4,6 +4,7 @@ Offline producer/real AST-selector checks; no provider, network or execution.
 """
 
 import json
+import hashlib
 import sys
 import tempfile
 import time
@@ -37,6 +38,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
         definition_metadata=True,
         ranked_paths=None,
         observed_text="current_leaves = self._session_leaves[session_id]",
+        raw=RAW,
     ):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -58,27 +60,30 @@ class ExactDefinitionReadTests(unittest.TestCase):
                 )
             )
             ctx = Context()
-            ctx.cached_source_text = lambda *args: RAW
+            ctx.cached_source_text = lambda *args: raw
             calls = []
 
             def snapshot(*args, **kwargs):
                 return {
                     "commit": ctx.revision,
                     "files": [PATH, OTHER, "tests/test_context.py"],
-                    "blobs": {PATH: "b" * 40, OTHER: "c" * 40},
+                    "blobs": {PATH: hashlib.sha1(b"blob " + str(len(raw.encode())).encode() + b"\0" + raw.encode()).hexdigest(), OTHER: "c" * 40},
                 }
 
             def source(repo, commit, path, **kwargs):
                 calls.append(path)
-                text = RAW if path == PATH else "unrelated fallback source"
+                text = raw if path == PATH else "unrelated fallback source"
                 result = {
                     "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
                     "text": text,
                 }
                 target = requested_function_window(
-                    RAW.splitlines(), kwargs.get("request_hints")
+                    raw.splitlines(), kwargs.get("request_hints")
                 )
                 if path == PATH and target is not None:
+                    result["text"] = "\n".join(
+                        raw.splitlines()[target["start_line"] - 1:target["end_line"]]
+                    )
                     result.update(
                         requested_definition=target if definition_metadata else None,
                         requested_definition_complete=complete,
@@ -214,6 +219,27 @@ class ExactDefinitionReadTests(unittest.TestCase):
             "definition(TreeComponent.__init__) definition(other)"
         )
         self.assertEqual(calls, [PATH, OTHER])
+
+    def test_two_cached_owner_definitions_replace_two_unrelated_slots(self):
+        raw = RAW + "    def clear(self):\n        self._session_leaves.clear()\n"
+        calls, packet, _ = self.run_followup(
+            "definition(TreeComponent.__init__) definition(TreeComponent.clear)",
+            raw=raw,
+            test_request={"path": "tests/test_context.py", "max_lines": 80},
+        )
+        self.assertEqual(calls, [PATH, PATH])
+        definitions = [s["requested_definition"]["name"] for s in packet["sources"]
+                       if s.get("requested_definition")]
+        self.assertEqual(definitions, ["__init__", "clear"])
+        self.assertNotIn("unrelated fallback source", scout.dumps(packet))
+
+    def test_pair_does_not_admit_an_ineligible_cached_path(self):
+        calls, _, _ = self.run_followup(
+            "definition(TreeComponent.__init__) definition(TreeComponent.clear)",
+            raw=RAW + "    def clear(self):\n        pass\n",
+            ranked_paths=[OTHER],
+        )
+        self.assertEqual(calls, [OTHER])
 
     def test_repeated_explicit_markers_keep_the_existing_fallback(self):
         calls, _, _ = self.run_followup(

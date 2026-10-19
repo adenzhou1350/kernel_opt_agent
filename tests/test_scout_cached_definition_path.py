@@ -5,7 +5,11 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
-from scout_requested_definition import cached_definition_tail_request, cached_qualified_definition_path
+from scout_requested_definition import (
+    cached_definition_pair_requests,
+    cached_definition_tail_request,
+    cached_qualified_definition_path,
+)
 
 
 class CachedDefinitionTailTests(unittest.TestCase):
@@ -154,6 +158,102 @@ class CachedDefinitionPathTests(unittest.TestCase):
         self.packet['sources']=[self.packet['sources'][0]]*8+[self.packet['sources'][1]]
         self.assertIsNone(self.select())
         self.assertEqual(len(self.calls),1)
+
+
+class CachedDefinitionPairTests(unittest.TestCase):
+    def setUp(self):
+        self.path = "src/session/server.py"
+        self.pin = "a" * 40
+        self.raw = (
+            "class ServerRole:\n"
+            "    def resolve(self):\n        return self.pending\n"
+            "    def finalize(self):\n        self.pending.clear()\n"
+        )
+        body = self.raw.encode()
+        blob = hashlib.sha1(b"blob " + str(len(body)).encode() + b"\0" + body).hexdigest()
+        self.snapshot = dict(commit=self.pin, files=[self.path], blobs={self.path: blob})
+        self.packet = dict(repo="a/b", sources=[dict(
+            url=f"https://raw.githubusercontent.com/a/b/{self.pin}/{self.path}",
+        )])
+        self.analysis = dict(next_check="definition(ServerRole.resolve) and definition(ServerRole.finalize)")
+        self.calls = []
+
+    def read(self, *identity):
+        self.calls.append(identity)
+        return self.raw
+
+    def select(self):
+        return cached_definition_pair_requests(self.packet, self.snapshot, self.analysis, self.read)
+
+    def test_two_same_owner_methods_reuse_one_verified_cache_read(self):
+        requests = self.select()
+        self.assertEqual(requests, [
+            dict(path=self.path, max_lines=80, request_hints="definition(ServerRole.resolve)"),
+            dict(path=self.path, max_lines=80, request_hints="definition(ServerRole.finalize)"),
+        ])
+        self.assertEqual(self.calls, [("a/b", self.pin, self.path)])
+
+    def test_invalid_mixed_repeated_and_extra_requests_leave_fallback(self):
+        for request in (
+            "definition(ServerRole.resolve)",
+            "definition(ServerRole.resolve) definition(ServerRole.resolve)",
+            "definition(ServerRole.resolve) definition(OtherRole.finalize)",
+            "definition(ServerRole.resolve) definition(finalize)",
+            "definition(ServerRole.resolve) references(ServerRole.finalize)",
+            "definition(ServerRole.resolve) definition(ServerRole.finalize) references(extra)",
+            "definition(ServerRole.resolve) definition(ServerRole.finalize",
+        ):
+            with self.subTest(request=request):
+                self.analysis["next_check"] = request
+                self.calls.clear()
+                self.assertEqual(self.select(), [])
+                self.assertEqual(self.calls, [])
+
+    def test_cold_corrupt_oversized_or_missing_snapshot_evidence_abstains(self):
+        original = self.raw
+        for raw in (None, original + "# changed\n", "x" * 1_000_001):
+            self.raw = raw
+            self.assertEqual(self.select(), [])
+        self.raw = original
+        self.snapshot["blobs"] = {}
+        self.assertEqual(self.select(), [])
+
+    def test_other_pin_missing_method_or_duplicate_owner_does_not_guess(self):
+        self.packet["sources"][0]["url"] = self.packet["sources"][0]["url"].replace(self.pin, "b" * 40)
+        self.assertEqual(self.select(), [])
+        self.packet["sources"][0]["url"] = self.packet["sources"][0]["url"].replace("b" * 40, self.pin)
+        for raw in (self.raw.replace("def finalize", "def unrelated"), self.raw * 2):
+            body = raw.encode()
+            self.snapshot["blobs"][self.path] = hashlib.sha1(
+                b"blob " + str(len(body)).encode() + b"\0" + body
+            ).hexdigest()
+            self.raw = raw
+            self.assertEqual(self.select(), [])
+
+    def test_eight_observed_sources_bound_all_cache_access(self):
+        self.packet["sources"] = self.packet["sources"] * 9
+        self.assertEqual(len(self.select()), 2)
+        self.assertEqual(len(self.calls), 1)
+
+    def test_ninth_distinct_source_is_not_used_or_fetched(self):
+        paths = [f"src/other{i}.py" for i in range(8)]
+        self.snapshot["files"] += paths
+        self.packet["sources"] = [dict(
+            url=f"https://raw.githubusercontent.com/a/b/{self.pin}/{p}"
+        ) for p in paths] + self.packet["sources"]
+        self.assertEqual(self.select(), [])
+        self.assertEqual(len(self.calls), 8)
+        self.assertNotIn(self.path, [call[2] for call in self.calls])
+
+    def test_two_same_named_owner_files_are_ambiguous(self):
+        other = "src/other/server.py"
+        self.snapshot["files"].append(other)
+        self.snapshot["blobs"][other] = self.snapshot["blobs"][self.path]
+        self.packet["sources"].append(dict(
+            url=f"https://raw.githubusercontent.com/a/b/{self.pin}/{other}"
+        ))
+        self.assertEqual(self.select(), [])
+        self.assertEqual(len(self.calls), 2)
 
 
 if __name__ == '__main__':

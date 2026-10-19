@@ -124,6 +124,66 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
     return matches[0] if len(matches) == 1 else None
 
 
+def cached_definition_pair_requests(packet, snapshot, analysis, cached_source):
+    """Two explicit methods of one cached owner replace two ordinary reads.
+
+    Require unique declarations in the same observed, Git-blob-verified file.
+    No cache fill, receiver resolution, new source slot or completeness claim.
+    Mixed, repeated, malformed or unavailable targets retain the old fallback.
+    """
+    request = analysis.get("next_check") if isinstance(analysis, dict) else None
+    if not isinstance(request, str) or not callable(cached_source):
+        return []
+    request = request[:2000]
+    markers = list(re.finditer(r"(?<!\w)(definition|references)[ \t]*\(", request))
+    if len(markers) != 2 or any(marker[1] != "definition" for marker in markers):
+        return []
+    targets = []
+    for marker in markers:
+        match = re.match(
+            r"[ \t]*([A-Z][A-Za-z0-9_]{3,127})"
+            r"\.([A-Za-z_][A-Za-z0-9_]{0,127})[ \t]*\)",
+            request[marker.end():],
+        )
+        if match is None:
+            return []
+        targets.append((match[1], match[2]))
+    if targets[0][0] != targets[1][0] or targets[0] == targets[1]:
+        return []
+    cache = {}
+
+    def verified(repo, commit, path):
+        if path not in cache:
+            cache[path] = None
+            raw = cached_source(repo, commit, path)
+            if not isinstance(raw, str):
+                return None
+            body = raw.encode("utf-8")
+            if len(body) > 1_000_000 or "\x00" in raw:
+                return None
+            blob = hashlib.sha1(b"blob " + str(len(body)).encode() + b"\0" + body).hexdigest()
+            if blob == snapshot.get("blobs", {}).get(path):
+                cache[path] = raw
+        return cache[path]
+
+    paths = []
+    for owner, method in targets:
+        # Keep other prose/path restrictions, but give the old unique-target
+        # resolver only this marker. The reader receives that exact target too.
+        one = re.sub(r"(?<!\w)definition[ \t]*\([^)]*\)", "", request)
+        one = f"definition({owner}.{method}) " + one
+        paths.append(cached_qualified_definition_path(
+            packet, snapshot, {"next_check": one}, verified,
+        ))
+    if paths[0] is None or paths[0] != paths[1]:
+        return []
+    return [
+        {"path": paths[0], "max_lines": 80,
+         "request_hints": f"definition({owner}.{method})"}
+        for owner, method in targets
+    ]
+
+
 def cached_definition_tail_request(packet, snapshot, analysis, cached_source):
     """Continue one explicitly re-requested, incomplete Python declaration.
 
