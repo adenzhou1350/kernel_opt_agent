@@ -392,6 +392,31 @@ class SourceLessonTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_nixl_close_advice_requires_caller_and_native_timeout_evidence(self):
+        revision = "2cea893821861c1007b3c7f1da44f9774bb0c18c"
+        for path in (
+            "vllm/v1/kv_offload/tiering/p2p/data/nixl.py",
+            "vllm/v1/kv_offload/tiering/p2p/manager.py",
+        ):
+            with self.subTest(path=path):
+                result = lessons.lesson_suggestions(
+                    "NIXL close timeout in-flight DMA shutdown drain",
+                    source_urls=[
+                        f"https://raw.githubusercontent.com/vllm-project/vllm/"
+                        f"{revision}/{path}"
+                    ],
+                )
+                self.assertTrue(result["source_path_match"])
+                matched = result["matches"][0]
+                self.assertEqual(matched["id"], "dma-teardown-failure-retention")
+                self.assertIn("up to three seconds", matched["lesson"])
+                self.assertIn("surviving buffer lifetime", matched["lesson"])
+                self.assertIn("Mocked NIXL unit tests cannot establish", matched["avoid_when"])
+                self.assertIn("neither timeout safety nor a defect", matched["avoid_when"])
+                self.assertLessEqual(len(json.dumps(matched).encode()), lessons.MAX_CARD_BYTES)
+                self.assertEqual(result["oversized_matches_omitted"], 0)
+                self.assertNotIn("qualified", result)
+
     def test_existing_seek_fix_does_not_hide_a_return_contract_subcase(self):
         url = (
             "https://raw.githubusercontent.com/fsspec/filesystem_spec/"

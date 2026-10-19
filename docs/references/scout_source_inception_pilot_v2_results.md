@@ -313,3 +313,29 @@ No Oko/Jev/model service was called or rescored in this check. The next research
 decision remains to qualify a native-capable sequential comparison and total
 cost before enrolling a fresh prospective cohort; these known controls must not
 be relabeled as held-out discoveries or evidence of paper-ready novelty.
+
+### Cold-cache companion-selection feasibility: negative development result
+
+A later real Scout packet at vLLM `2cea893821861c1007b3c7f1da44f9774bb0c18c`
+paired `kv_offload/tiering/p2p/data/nixl.py` with an unrelated EC-connector NIXL
+test. The basename selector missed the differently named P2P data-transport
+test. A cache-only direct-import prototype passed 199 affected Windows checks,
+but replaying the original packet's observed cache did **not** improve selection:
+all seven component test bodies were absent; the prototype made eight bounded
+cache lookups and returned the same unrelated test. No cache was warmed, source
+fetched or model called for this replay. Warm synthetic cases are not evidence
+that the cold production packet improves. The prototype was not deployed.
+
+The corresponding close hypothesis also needed caller evidence, not a stronger
+ranking score: the manager already wait-cancels and polls for up to three seconds
+before a deliberate forced timeout teardown. That rebuts an absent-drain premise
+without establishing timeout DMA safety. The private native environment lacked
+NIXL and accessible IB device nodes, so the 56 passing mocked upstream transport
+tests cannot settle native quiescence or justify a repair. Keep the lead
+inconclusive pending the exact transport/version and a supported surviving-buffer
+path; neither an indefinite wait nor a mock that assumes cancellation is proof.
+
+This is a known development case, not a new prospective cohort or a measured
+recall/PR-conversion result. Before further selector work, check whether its
+required evidence is actually available at decision time; any cold-source
+acquisition must retain and account for the existing companion-read budget.
