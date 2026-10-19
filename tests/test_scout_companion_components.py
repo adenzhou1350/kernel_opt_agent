@@ -103,6 +103,48 @@ class CompanionComponentsTests(unittest.TestCase):
                 companion_source_paths(source, candidates), ([files[-1]], None)
             )
 
+    def test_generic_moe_module_prefers_component_over_rust_renderer_basename(self):
+        source = "vllm/model_executor/layers/fused_moe/utils.py"
+        related = "tests/kernels/moe/utils.py"
+        files = ["rust/src/chat/src/renderer/test_utils.rs",
+                 "vllm/model_executor/layers/quantization/utils/marlin_utils_test.py",
+                 "tests/distributed/test_utils.py",
+                 "tests/model_executor/test_utils.py", related]
+        for candidates in (files, list(reversed(files))):
+            self.assertEqual(companion_source_paths(source, candidates), ([related], None))
+
+    def test_generic_component_test_can_beat_exact_unrelated_name(self):
+        source = "src/package/attention/helpers.py"
+        related = "tests/attention/test_helpers_layout.py"
+        unrelated = "rust/src/chat/test_helpers.rs"
+        self.assertEqual(companion_source_paths(source, [unrelated, related]), ([related], None))
+
+    def test_same_component_cross_language_binding_is_not_banned(self):
+        source = "native/moe/utils.cpp"
+        binding_test = "native/moe/tests/test_utils.py"
+        distant = "tests/test_utils.cpp"
+        self.assertEqual(companion_source_paths(source, [distant, binding_test]),
+                         ([binding_test], None))
+
+    def test_generic_language_affinity_groups_related_source_suffixes(self):
+        for source, related, unrelated in (
+            ("src/utils.cpp", "tests/utils_test.cu", "tests/test_utils.py"),
+            ("src/helpers.ts", "tests/helpers_syntax.test.jsx", "tests/test_helpers.rs"),
+        ):
+            with self.subTest(source=source):
+                self.assertEqual(companion_source_paths(source, [unrelated, related]),
+                                 ([related], None))
+
+    def test_generic_foreign_language_only_candidate_remains_an_unproven_hint(self):
+        source, candidate = "src/utils.cpp", "tests/test_utils.py"
+        self.assertEqual(companion_source_paths(source, [candidate]), ([candidate], None))
+
+    def test_nongeneric_module_keeps_existing_exact_name_precedence(self):
+        source = "native/engine/routing.py"
+        exact = "tests/test_routing.rs"
+        partial = "native/engine/tests/test_routing_lifecycle.py"
+        self.assertEqual(companion_source_paths(source, [partial, exact]), ([exact], None))
+
 
 if __name__ == "__main__":
     unittest.main()

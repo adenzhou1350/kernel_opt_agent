@@ -12,6 +12,22 @@ components. A source audit still reads at most one companion test, or none; it
 does not add fetches, models, code execution, dependencies, or dispatch roles.
 The optional experimental-feature policy lookup remains unchanged.
 
+Generic basenames (`util`, `utils`, `helper`, `helpers`, `common`) need more than
+an exact filename match. Their ranking now prefers the source parent's component
+terms, shared/mirrored directories, then the source language family before the
+exact name. C/C++/CUDA suffixes share a family, as do JS/TS variants. Component
+locality can still select a Python binding test for C++ code; a foreign-language
+candidate remains eligible when it is the only observed hint. Specific module
+names retain their existing ordering.
+
+A replay against vLLM `dde9aca41cd3ccceb1ffa902933b6678a09c83ce`'s 8,144 pinned
+paths previously paired Python `fused_moe/utils.py` with Rust chat-renderer
+`test_utils.rs`. The new ordering selects `tests/kernels/moe/utils.py` instead.
+An intermediate implementation still chose a quantization helper because of its
+shared prefix; the full-inventory replay exposed that error before deployment.
+This is retrospective path-selection evidence: a utility file is not necessarily
+an executable test, and neither its name nor its selection proves coverage.
+
 These are lexical hints, **not** a semantic relevance classifier. Separate test
 trees, distinct workspace roots, integration tests within a component, and
 root-level files retain the existing fallback. Explicit caller/follow-up searches
@@ -26,8 +42,8 @@ python -B -m unittest tests.test_scout_companion_components tests.test_kimi_scou
 
 The regressions cover sibling false matches, genuine local tests, input-order
 independence, mirrored layouts, generic tests, partial-name ranking, and actual
-producer read counts/packet construction with fake source responses. The current
-unmodified baseline fails two of the ten focused checks: false companion
+producer read counts/packet construction with fake source responses. The earlier
+sibling-component baseline failed two of ten focused checks: false companion
 selection and the resulting extra producer read. These establish selection
 behavior, not PR yield or improved model accuracy. No community-code, GPU, or
 whole-workload performance claim is made.

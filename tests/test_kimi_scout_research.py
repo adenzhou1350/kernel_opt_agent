@@ -1816,6 +1816,26 @@ class ResearchTests(unittest.TestCase):
         )
         self.assertEqual([call[2] for call in self.context.calls], [source, related])
 
+    def test_generic_moe_audit_and_followup_keep_one_same_component_read(self):
+        source = "vllm/model_executor/layers/fused_moe/utils.py"
+        related = "tests/kernels/moe/utils.py"
+        paths = [source, "rust/src/chat/src/renderer/test_utils.rs",
+                 "vllm/model_executor/layers/quantization/utils/marlin_utils_test.py",
+                 "tests/model_executor/test_utils.py", related]
+        snapshot = dict(commit=self.context.revision, files=paths,
+                        blobs={source: self.context.blob})
+        spec = {**self.spec, "source_prefixes": ["vllm/model_executor/layers/fused_moe/"]}
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual([call[2] for call in self.context.calls], [source, related])
+        self.assertEqual([s["url"].split(self.context.revision + "/")[1]
+                          for s in packet["sources"]], [source, related])
+        request = research.followup_test_request(
+            packet, snapshot, {"next_check": "Inspect existing MoE input coverage"})
+        self.assertEqual(request["path"], related)
+        self.assertEqual(request["max_lines"], 80)
+
     def test_companion_test_prefers_its_component_not_alphabetical_monorepo_match(self):
         path = "transfer-engine/src/config.cpp"
         files = [

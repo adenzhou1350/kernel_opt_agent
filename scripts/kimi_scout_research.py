@@ -180,6 +180,17 @@ def companion_source_hints(source, stem):
 def companion_source_paths(path, files):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    generic = stem in {"util", "utils", "helper", "helpers", "common"}
+    suffix = "." + path.rsplit(".", 1)[-1]
+    family = next((group for group in (
+        (".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cu", ".cuh"),
+        (".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"),
+    ) if suffix in group), (suffix,))
+    parent = path.split("/")[-2] if "/" in path else ""
+    component_terms = set(re.findall(r"[a-z0-9]{3,}", parent.lower())) - {
+        "src", "lib", "include", "python", "test", "tests",
+        "util", "utils", "helper", "helpers", "common",
+    }
     # A substring is not a module hint: output.py must not consume a diffusion
     # outputs generator, nor port.ts an import test. Underscores, hyphens and
     # path separators still delimit conventional module/test names. This is
@@ -257,6 +268,15 @@ def companion_source_paths(path, files):
                     if left != right:
                         break
                     python_mirrored += 1
+        if generic:
+            # A generic basename in another component is weak evidence, even
+            # when it is an exact test_utils match. Keep cross-language binding
+            # tests eligible; component locality takes precedence over language.
+            component = len(component_terms.intersection(
+                re.findall(r"[a-z0-9]{3,}", candidate.rsplit("/", 1)[0].lower())
+            ))
+            return (-component, -common, -python_mirrored, -mirrored,
+                    not candidate.endswith(family), not exact, candidate)
         return not exact, -common, -python_mirrored, -mirrored, candidate
 
     tests = sorted(
