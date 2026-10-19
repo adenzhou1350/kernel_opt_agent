@@ -3,7 +3,9 @@ import json
 import sys
 import tempfile
 import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from threading import Thread
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -17,6 +19,97 @@ def answer(**kwargs):
 
 
 class BackendTests(unittest.TestCase):
+    def test_live_local_http_controls_survive_success_and_failure_without_retries(self):
+        from tests.test_kimi_scout import scout, packet, result
+
+        requests = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                size = int(self.headers["Content-Length"])
+                body = json.loads(self.rfile.read(size))
+                requests.append(body)
+                denied = body["model"] == "denied"
+                payload = (b"private provider failure" if denied else json.dumps(dict(
+                    choices=[dict(message=dict(content=json.dumps(result())), finish_reason="stop")],
+                    usage=dict(prompt_tokens=23, completion_tokens=41),
+                    configured_reasoning_effort="provider-must-not-control-this",
+                )).encode())
+                self.send_response(503 if denied else 200)
+                self.send_header("Content-Type", "text/plain" if denied else "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                scout.initialize(root)
+                path = root / "provider.json"
+                for model, effort in (("m", None), ("m", "low"), ("m", "high"),
+                                      ("m", "max"), ("denied", "low")):
+                    with self.subTest(model=model, effort=effort):
+                        config = dict(endpoint=f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+                            model=model, alias="local-test", allow_http=True)
+                        if effort is not None:
+                            config["reasoning_effort"] = effort
+                        path.write_text(json.dumps(config))
+                        pool = backend.BackendPool(path)
+                        scout.enqueue(root, packet(f"{model}-{effort}"))
+                        job = scout.claim(root, 0, 0, 4096)
+                        before = len(requests)
+                        receipt = scout.execute(root, job, sys.executable, 10, 4096, pool)
+                        self.assertEqual(len(requests), before + 1)
+                        if effort is None:
+                            self.assertNotIn("reasoning_effort", requests[-1])
+                        else:
+                            self.assertEqual(requests[-1]["reasoning_effort"], effort)
+                        self.assertEqual(receipt["backend_request_controls"], dict(
+                            provider_type="openai_http", configured_reasoning_effort=effort))
+                        stored = json.loads((root / "results" / f"{job['id']}.json").read_text())
+                        self.assertEqual(stored["backend_request_controls"], receipt["backend_request_controls"])
+                        self.assertNotIn("private provider failure", json.dumps(stored))
+                        self.assertNotIn("provider-must-not-control-this", json.dumps(stored))
+                        if model == "denied":
+                            self.assertEqual(receipt["state"], "FAILED")
+                            self.assertEqual(receipt["provider_http_status"], 503)
+                            self.assertEqual(receipt["charge_basis"], "reservation")
+                        else:
+                            self.assertEqual(receipt["state"], "REVIEW")
+                            self.assertEqual(receipt["charged_tokens_or_reservation"], 64)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
+            self.assertFalse(thread.is_alive())
+
+    def test_absent_or_invalid_controls_are_unknown_not_inferred(self):
+        from tests.test_kimi_scout import scout, packet, result
+
+        for metadata in ({}, dict(provider_type="kimi", configured_reasoning_effort="low"),
+                         dict(provider_type="openai_http"),
+                         dict(provider_type="openai_http", configured_reasoning_effort=[]),
+                         dict(provider_type="openai_http", configured_reasoning_effort="private")):
+            with self.subTest(metadata=metadata), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                scout.initialize(root)
+                scout.enqueue(root, packet("controls"))
+                job = scout.claim(root, 0, 0, 4096)
+                response = dict(ok=True, text=json.dumps(result()), finish_reason="stop",
+                    usage=dict(total_tokens=64), tools_advertised=0, tool_calls_executed=0,
+                    **metadata)
+                pool = SimpleNamespace(run=lambda *args: SimpleNamespace(
+                    returncode=0, stdout=json.dumps(response)))
+                receipt = scout.execute(root, job, sys.executable, 10, 4096, pool)
+                self.assertEqual(receipt["state"], "REVIEW")
+                self.assertNotIn("backend_request_controls", receipt)
+
     def test_existing_queue_validator_and_accounting_still_apply(self):
         from tests.test_kimi_scout import scout, packet, result
         with tempfile.TemporaryDirectory() as directory:
@@ -42,6 +135,8 @@ class BackendTests(unittest.TestCase):
                 self.assertEqual(receipt["state"], "REVIEW" if valid else "FAILED")
                 self.assertEqual(receipt["charged_tokens_or_reservation"], 800)
                 self.assertEqual(receipt["charge_basis"], "provider_report")
+                self.assertEqual(receipt["backend_request_controls"], dict(
+                    provider_type="openai_http", configured_reasoning_effort=None))
                 if valid:
                     self.assertEqual(receipt["result"]["model"], "glm")
                     self.assertFalse(receipt["result"]["qualified"])

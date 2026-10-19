@@ -188,7 +188,8 @@ class BackendPool:
             if payload.get("http_status") in {401, 403}:
                 payload["error_type"] = ("AuthenticationError" if payload["http_status"] == 401
                                          else "PermissionDeniedError")
-        payload.update(model_alias=self.config["alias"], provider_type="openai_http")
+        payload.update(model_alias=self.config["alias"], provider_type="openai_http",
+            configured_reasoning_effort=self.config.get("reasoning_effort"))
         return SimpleNamespace(returncode=0 if payload["ok"] else 1,
             stdout=json.dumps(payload), stderr="")
 

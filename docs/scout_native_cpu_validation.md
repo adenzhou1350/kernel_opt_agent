@@ -72,6 +72,15 @@ test inherited and reflected contracts as applicable. See the
 [known-case counterexample](references/scout_known_case_calibration.md) and
 [effort and quote examples](references/scout_native_cpu_worked_routes.md#model-effort-before-fan-out).
 
+HTTP receipts preserve `backend_request_controls.configured_reasoning_effort`
+on success and failure without copying the endpoint or credentials. Explicit
+`null` means that controller omitted the setting; a missing field in an older
+or different backend is unknown, not an inferred default. This records the
+loaded configuration, not proof the request reached the provider or the gateway
+realized it. A visible answer rejected for an invalid quote remains `FAILED`;
+do not trim/repair it into acceptance or overwrite a terminal row during a
+separately budgeted development calibration. Keep frozen study arms unchanged.
+
 ### Cache charge is not process memory or guaranteed spare capacity
 
 Use `scout_linux_memory.py` before restarting a stopped worker. Host free memory,

@@ -700,6 +700,7 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     answer_budget_exhausted = False
     failure_phase = None
     provider_http_status = None
+    backend_request_controls = None
     try:
         work.mkdir(exist_ok=False)
         write_json(root / "results" / f"{job['id']}.request.json", request)
@@ -724,6 +725,15 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
             check=False,
         )
         response = json.loads(proc.stdout)
+        # Record only the controller's finite setting, not arbitrary response
+        # metadata, endpoint/credentials or a claim about realized reasoning.
+        if (response.get("provider_type") == "openai_http"
+                and "configured_reasoning_effort" in response
+                and response["configured_reasoning_effort"] in (None, "low", "high", "max")):
+            backend_request_controls = {
+                "provider_type": "openai_http",
+                "configured_reasoning_effort": response["configured_reasoning_effort"],
+            }
         token_accounting = {
             "reported_usage": usage_counters(response.get("usage")),
             "interrupted_usage_observation": usage_counters(response.get("observed_usage")),
@@ -849,6 +859,8 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
     }
     if state == "FAILED" and not backend_completed and failure_phase:
         receipt["failure_phase"] = failure_phase
+    if backend_request_controls is not None:
+        receipt["backend_request_controls"] = backend_request_controls
     if state == "FAILED" and not backend_completed and provider_http_status is not None:
         receipt["provider_http_status"] = provider_http_status
     write_json(root / "results" / f"{job['id']}.json", receipt)
