@@ -37,6 +37,18 @@ build or upstream CI. Supporting an existing repair can close a concrete
 verification gap without another competing PR. Neither this known-case check nor
 advice retrieval establishes better discovery yield or a new contribution count.
 
+When a repair adds recovery, retries or fallback work, revisit the admission
+bound as well as the output oracle. A maximum-target check can be sufficient for
+the old loop but no longer cover a new tail scan. Count real side effects with
+tiny inputs; keep healthy sparse, exhausted-budget, disabled-limit and allowed
+recovery controls. If exhaustion can arise only during extra work, check before
+that work according to the supported error contract; do not silently drop output
+or reject all healthy requests to make the safety test pass. A clean patch apply
+and two individually passing suites do not establish safe composition. Keep the
+first violating run and compare the repaired composition on identical test bytes.
+An overlay of an unmerged API is an integration experiment, not current-main
+qualification or permission to copy another author's pending work into a new PR.
+
 ## Keep test-process temporary paths short and private
 
 Python multiprocessing's forkserver can create an AF_UNIX listener beneath the
