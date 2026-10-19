@@ -192,10 +192,10 @@ def companion_source_hints(source, stem):
     return " ".join([*names, stem])[:2000]
 
 
-def companion_source_paths(path, files):
+def companion_source_paths(path, files, *, changed_paths=()):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-    generic = stem in {"util", "utils", "helper", "helpers", "common"}
+    generic = stem in {"util", "utils", "helper", "helpers", "common", "model"}
     suffix = "." + path.rsplit(".", 1)[-1]
     family = next((group for group in (
         (".c", ".h", ".cpp", ".cc", ".cxx", ".hpp", ".cu", ".cuh"),
@@ -211,6 +211,29 @@ def companion_source_paths(path, files):
     # path separators still delimit conventional module/test names. This is
     # only lexical admission, not evidence that the selected test covers it.
     module_name = re.compile(r"(?<![A-Za-z0-9])" + re.escape(stem) + r"(?![A-Za-z0-9])")
+    # model.py is often tested under its feature/package name. Do not use the
+    # import root or generic model/src directories as that feature identity.
+    model_features = []
+    if stem == "model":
+        for part in sorted(set(path.split("/")[1:-1]) - {
+            "src", "lib", "include", "python", "model", "models", "test", "tests",
+        }):
+            model_features.append(re.compile(
+                r"(?<![A-Za-z0-9])" + re.escape(part) + r"(?![A-Za-z0-9])"
+            ))
+    changed = set(changed_paths)
+
+    def feature_matches(candidate):
+        return sum(bool(feature.search(candidate)) for feature in model_features)
+
+    def module_match(candidate):
+        # model_executor is not a model.py test. Directory associations must
+        # name the whole component; conventional test_model names stay valid.
+        return (
+            module_name.search(candidate.rsplit("/", 1)[-1])
+            or stem in candidate.split("/")[:-1]
+            or feature_matches(candidate)
+        )
 
     def sibling_source_component(candidate):
         # A matching basename is not a component link. Compare only paths in
@@ -290,6 +313,8 @@ def companion_source_paths(path, files):
             component = len(component_terms.intersection(
                 re.findall(r"[a-z0-9]{3,}", candidate.rsplit("/", 1)[0].lower())
             ))
+            if model_features:
+                component = feature_matches(candidate)
             return (-component, -common, -python_mirrored, -mirrored,
                     not candidate.endswith(family), not exact, candidate)
         return not exact, -common, -python_mirrored, -mirrored, candidate
@@ -300,11 +325,14 @@ def companion_source_paths(path, files):
             for p in files
             if p != path
             and "test" in p
-            and module_name.search(p)
+            and module_match(p)
             and p.endswith(SOURCE_SUFFIXES)
             and not sibling_source_component(p)
         ),
-        key=locality,
+        # A newly added/changed test is stronger context for a changed source
+        # than an alphabetical tie. Still require a module/component match;
+        # being in the same commit alone is not evidence of relevance.
+        key=lambda candidate: (candidate not in changed, locality(candidate)),
     )
     parts = path.split("/")
     readme = None
@@ -1353,6 +1381,7 @@ class ResearchProducer:
             ):
                 progress["source_cursor"] = 0
             changed = []
+            changed_tests = []
             previous = progress.get("priority_reference_commit") or progress.get(
                 "last_sweep_commit"
             )
@@ -1363,10 +1392,16 @@ class ResearchProducer:
             ):
                 old = self.context.snapshot(spec["repo"], previous)
                 _, changed = changed_first_paths(paths, snapshot["blobs"], old["blobs"])
+                changed_tests = sorted(
+                    path for path in snapshot["files"]
+                    if "test" in path and path.endswith(SOURCE_SUFFIXES)
+                    and snapshot["blobs"].get(path) != old["blobs"].get(path)
+                )[:512]
             priority = {
                 "commit": snapshot["commit"],
                 "scope": scope,
                 "paths": changed,
+                "test_paths": changed_tests,
                 "base_commit": previous,
                 "policy": SOURCE_ORDER_POLICY,
             }
@@ -1452,7 +1487,10 @@ class ResearchProducer:
             if self.stopped():
                 return False
             stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-            tests, readme = companion_source_paths(path, snapshot["files"])
+            tests, readme = companion_source_paths(
+                path, snapshot["files"],
+                changed_paths=priority.get("test_paths", ()) if path in prioritized_set else (),
+            )
             if tests:
                 try:
                     sources.append(

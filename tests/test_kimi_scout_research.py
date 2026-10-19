@@ -1836,6 +1836,112 @@ class ResearchTests(unittest.TestCase):
                     research.companion_source_paths(source, files), ([related], None)
                 )
 
+    def test_generic_model_uses_observed_feature_test_not_module_ancestor(self):
+        source = "vllm/models/deepseek_v41/nvidia/model.py"
+        related = "tests/models/test_deepseek_v41_pipeline.py"
+        unrelated = (
+            "vllm/model_executor/layers/quantization/utils/marlin_utils_test.py"
+        )
+        vendor_only = "tests/models/kimi_k3/test_nvidia_kda_direct_return.py"
+        generic = "tests/models/test_model.py"
+        files = [unrelated, generic, vendor_only, related]
+        for paths in (files, list(reversed(files))):
+            with self.subTest(paths=paths):
+                self.assertEqual(
+                    research.companion_source_paths(
+                        source, paths, changed_paths=[related, unrelated]
+                    ),
+                    ([related], None),
+                )
+        # An underscore-delimited ancestor is not a test of model.py. Do not
+        # invent the real feature test when the snapshot does not contain it.
+        self.assertEqual(
+            research.companion_source_paths(source, [unrelated]), ([], None)
+        )
+        # A commit-level preference cannot fabricate or admit unrelated tests.
+        self.assertEqual(
+            research.companion_source_paths(
+                source, [unrelated], changed_paths=[unrelated, related]
+            ),
+            ([], None),
+        )
+
+    def test_generic_model_feature_match_has_exact_identifier_boundaries(self):
+        source = "package/models/feature_x/backend/model.py"
+        related = "tests/models/test_feature_x_pipeline.py"
+        wrong = "tests/models/test_feature_xyz_pipeline.py"
+        self.assertEqual(
+            research.companion_source_paths(source, [wrong]), ([], None)
+        )
+        self.assertEqual(
+            research.companion_source_paths(source, [wrong, related]), ([related], None)
+        )
+        # Keep actual module test directories, but not prefix/suffix matches
+        # in an unrelated ancestor (e.g. model_executor or router_extra).
+        self.assertEqual(
+            research.companion_source_paths(
+                "src/router.ts", ["tests/router/router-spec.ts"]
+            ),
+            (["tests/router/router-spec.ts"], None),
+        )
+        self.assertEqual(
+            research.companion_source_paths(
+                "src/router.ts", ["tests/router_extra/unrelated_test.ts"]
+            ),
+            ([], None),
+        )
+
+    def test_source_audit_reads_one_observed_model_feature_test(self):
+        source = "vllm/models/deepseek_v41/nvidia/model.py"
+        related = "tests/models/test_deepseek_v41_pipeline.py"
+        unrelated = "vllm/model_executor/utils/marlin_utils_test.py"
+        snapshot = dict(commit=self.context.revision,
+                        files=[source, unrelated, related],
+                        blobs={source: self.context.blob})
+        spec = {**self.spec, "source_prefixes": [source]}
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual([call[2] for call in self.context.calls], [source, related])
+        self.assertEqual(
+            [s["url"].split(self.context.revision + "/")[1]
+             for s in packet["sources"]],
+            [source, related],
+        )
+
+    def test_changed_source_keeps_new_component_test_priority_after_save(self):
+        source = "package/models/feature_x/backend/model.py"
+        related = "tests/models/test_feature_x_pipeline.py"
+        older = "tests/models/test_feature_x_aaa.py"
+        unrelated = "tests/models/test_another_feature.py"
+        old_commit, new_commit = "a" * 40, "d" * 40
+        old_blobs = {source: "b" * 40, older: "c" * 40}
+        new_blobs = {**old_blobs, source: "e" * 40,
+                     related: "f" * 40, unrelated: "9" * 40}
+
+        class VersionedContext(Context):
+            def snapshot(self, repo, ref="main"):
+                old = ref == old_commit
+                blobs = old_blobs if old else new_blobs
+                return dict(commit=old_commit if old else new_commit,
+                            files=list(blobs), blobs=blobs)
+
+        self.context = VersionedContext()
+        self.context.revision = new_commit
+        self.producer.context = self.context
+        spec = {**self.spec, "source_prefixes": [source]}
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+        progress.update(commit=new_commit, last_sweep_commit=old_commit)
+        self.assertTrue(self.producer.source_audit(spec, progress))
+        self.assertEqual([call[2] for call in self.context.calls], [source, related])
+        self.assertEqual(progress["source_priority"]["test_paths"], [unrelated, related])
+        self.producer.save()
+        resumed = research.ResearchProducer(self.root, self.config, context=self.context)
+        self.assertEqual(
+            resumed.state["repos"]["a/b"]["source_priority"]["test_paths"],
+            [unrelated, related],
+        )
+
     def test_companion_python_package_qualified_tests_keep_component_ranking(self):
         source = "src/package/generation/utils.py"
         related = "tests/generation/test_utils.py"

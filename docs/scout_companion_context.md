@@ -36,6 +36,19 @@ automatic pairing; request it explicitly when source/import/caller evidence
 supports the link. Remaining matches must still be inspected before counting
 native coverage or running them.
 
+For a changed source, the producer also preserves a bounded list of test paths
+whose blobs changed between the same two snapshots. Among otherwise eligible
+companions, these precede older tests; an unrelated changed test is not admitted
+just because it shares the commit. `model.py` can use observed feature-directory
+names as hints, while `model_executor` in an ancestor no longer counts as a
+`model.py` test. At vLLM `8a1c02efca9bb0660f70b404e1ac4cb0629144ae`, this selects
+the newly added `tests/models/test_deepseek_v41_pipeline.py`, which explicitly
+imports the audited module, instead of an unrelated Marlin utility test.
+Parent-name and frequency-only proposals selected other models/backends in the
+full tree and were rejected. This is a known-case scheduling check, not a native
+vLLM result or evidence of higher PR yield. One companion read, source windows,
+seen keys and model budgets are unchanged; old packets are not replayed.
+
 ```text
 python -B -m unittest tests.test_scout_companion_components tests.test_kimi_scout_research
 ```
