@@ -17,6 +17,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Run a reviewed native command? | `scout_native_run.py --help`; [runtime/export/cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
 | Capture owner-reviewed GPU pytest without another process wrapper? | [Optional shared-GPU guard](#optional-owner-reviewed-gpu-capture) |
 | Compare regressions and controls? | `scout_native_results.compare_regression`; [wider pytest/Go cohorts](#complete-pytest-cohorts) |
+| Check byte-range caching through its real caller? | [Buffered-file versus BytesIO oracle](../examples/native-file-cache/README.md); bounded serial memory backend, not network/performance qualification |
 | Check backend integer rounding before a full compiler build? | [Reviewed CuTeDSL scalar/MLIR witness](../examples/native-cutedsl-truncdiv/README.md); not vector, compiler or GPU qualification |
 | Test a model/backend without migrating production? | [Finite public batch](#finite-public-batch-without-a-task-specific-executor) |
 | Reuse task-private dependencies? | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
