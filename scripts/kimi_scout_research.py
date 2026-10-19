@@ -1004,6 +1004,10 @@ class ResearchProducer:
         fit_publication_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
         # Keep every supplied URL and source type but shrink explicitly, within the existing cap.
         fit_lesson_context(packet, scout.MAX_INPUT_BYTES, scout.SYSTEM)
+        prior_evidence = {
+            retrieval_identity(source)
+            for source in parent.get("sources", [])
+        } if parent else set()
         while (
             len((scout.SYSTEM + scout.dumps(packet)).encode("utf-8"))
             > scout.MAX_INPUT_BYTES
@@ -1015,14 +1019,15 @@ class ResearchProducer:
                 for s in packet["sources"]
                 if s.get("search_exhaustive") is False and len(s["text"]) >= 300
             ]
+            partial = [
+                s for s in packet["sources"]
+                if not s.get("requested_definition_complete") and len(s["text"]) >= 300
+            ]
+            # Do not spend a follow-up retrieving a missing branch and then cut
+            # it off while retaining the parent's already-reviewed excerpt.
+            inherited = [s for s in partial if retrieval_identity(s) in prior_evidence]
             longest = max(
-                peripheral
-                or [
-                    s
-                    for s in packet["sources"]
-                    if not s.get("requested_definition_complete")
-                    and len(s["text"]) >= 300
-                ]
+                peripheral or inherited or partial
                 or packet["sources"],
                 key=lambda x: len(x["text"].encode("utf-8")),
             )
@@ -1942,6 +1947,7 @@ class ResearchProducer:
                     "depth": depth,
                     "analysis": analysis,
                     "title": analysis_value.get("title"),
+                    "sources": packet["sources"],
                 },
                 issue_pr_lookup=(
                     {k: v for k, v in related_prs.items() if k != "sources"}

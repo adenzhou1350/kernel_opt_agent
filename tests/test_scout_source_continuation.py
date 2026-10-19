@@ -506,5 +506,86 @@ class TestCompanionContinuation(unittest.TestCase):
                             if source.get("start_line") in (179, 418)))
 
 
+class FollowupEvidenceBudgetTests(unittest.TestCase):
+    def source(self, name, count, *, complete=False):
+        return {
+            "url": f"https://raw.githubusercontent.com/a/b/{'a' * 40}/src/{name}.py",
+            "text": "\n".join(f"{i}: {'boundary_' * 3}" for i in range(1, count + 1)),
+            "start_line": 1, "end_line": count, "total_lines": count + 100,
+            "truncated": not complete,
+            "requested_definition_complete": complete,
+        }
+
+    def emit(self, sources, prior, budget=None):
+        from unittest.mock import patch
+        import kimi_scout_research as research
+
+        # Nothing is fetched, and admission occurs only in this temporary queue.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            scout.initialize(root)
+            spec = dict(repo="a/b", source_prefixes=["src/"], question="Check missing branch")
+            config = root / "config.json"
+            config.write_text(json.dumps(dict(objective="Context test", queue_target=4,
+                                             repos=[spec])), encoding="utf8")
+            producer = ResearchProducer(root, config, context=object())
+            producer.lessons = []
+            with (
+                patch.object(research, "lesson_suggestions", return_value=[]),
+                patch.object(research, "publication_context", return_value=[]),
+                patch.object(research, "owner_deferral_context", return_value=[]),
+                patch.object(scout, "MAX_INPUT_BYTES", budget or scout.MAX_INPUT_BYTES),
+            ):
+                self.assertTrue(producer.emit(
+                    "followup", spec, json.loads(json.dumps(sources)), "source_followup",
+                    parent=dict(id="parent", root="parent", depth=0,
+                                analysis="Read the missing branch", sources=prior),
+                ))
+            with scout.connect(root) as db:
+                packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+        if budget:
+            self.assertLessEqual(len((scout.SYSTEM + scout.dumps(packet)).encode()), budget)
+        self.assertNotIn("sources", packet["research"])
+        return packet
+
+    def fitted(self, sources, prior, excess):
+        full = self.emit(sources, prior)
+        budget = len((scout.SYSTEM + scout.dumps(full)).encode()) - excess
+        return self.emit(sources, prior, budget)
+
+    def test_old_partial_yields_before_larger_fresh_tail(self):
+        old, fresh = self.source("old", 40), self.source("tail", 80)
+        # The parent's excerpt was itself trimmed before admission. Its original
+        # retrieval identity must continue matching during repeated shrinks.
+        old["_scout_pretrim_sha256"] = "b" * 64
+        packet = self.fitted([old, fresh], [old], 400)
+        supplied_old, supplied_fresh = packet["sources"]
+        self.assertLess(len(supplied_old["text"]), len(old["text"]))
+        self.assertEqual(supplied_fresh, fresh)
+        self.assertEqual(supplied_old["_scout_pretrim_sha256"], "b" * 64)
+        self.assertEqual(supplied_old["end_line"], len(supplied_old["text"].splitlines()))
+
+    def test_fresh_source_still_shrinks_when_old_evidence_is_not_enough(self):
+        old, fresh = self.source("old", 40), self.source("tail", 80)
+        packet = self.fitted([old, fresh], [old], 1700)
+        self.assertLess(len(packet["sources"][0]["text"]), 300)
+        self.assertLess(len(packet["sources"][1]["text"]), len(fresh["text"]))
+        self.assertFalse(packet["sources"][1]["requested_definition_complete"])
+
+    def test_complete_parent_body_keeps_existing_protection(self):
+        old, fresh = self.source("old", 40, complete=True), self.source("tail", 80)
+        packet = self.fitted([old, fresh], [old], 400)
+        self.assertEqual(packet["sources"][0], old)
+        self.assertLess(len(packet["sources"][1]["text"]), len(fresh["text"]))
+
+    def test_peripheral_search_still_yields_before_inherited_code(self):
+        old, fresh, search = (self.source("old", 40), self.source("tail", 80),
+                              self.source("related", 40))
+        search["search_exhaustive"] = False
+        packet = self.fitted([old, fresh, search], [old], 300)
+        self.assertEqual(packet["sources"][:2], [old, fresh])
+        self.assertLess(len(packet["sources"][2]["text"]), len(search["text"]))
+
+
 if __name__ == "__main__":
     unittest.main()

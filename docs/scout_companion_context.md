@@ -62,6 +62,13 @@ an ordinary lexical read, not a third source slot or a complete-body assertion.
 The frozen prospective pilot retains its original acquisition rules; this
 production change does not retroactively change its arms or scores.
 
+When a follow-up exceeds the existing prompt cap, peripheral search snippets
+still shrink first, followed by incomplete excerpts inherited from its parent,
+before fresh partial evidence. Complete requested bodies keep their existing
+protection. Fresh evidence can still shrink if necessary; neither completeness
+nor correctness is inferred from its priority. Check the actual admitted packet,
+not just the source reader's untrimmed output, when assessing evidence delivery.
+
 ## Declarative implementations are opt-in evidence text
 
 Some repositories store implementations inside YAML, not Python files. An
