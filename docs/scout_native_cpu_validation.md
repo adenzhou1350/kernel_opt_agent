@@ -124,6 +124,15 @@ to force admission. A canary in the current isolated GPU sandbox failed this
 fixed-path telemetry invocation before starting its pytest child. That image uses
 its own external monitor; this companion is not qualified for it without a
 separately reviewed telemetry integration.
+
+A subsequent authorized native B300 canary exercised the committed helper with
+two reviewed 128-element float32 CUDA tests: both passed, with ordinal/UUID
+verification, three admission snapshots, running samples, and postflight under
+one cooperating lock. The device was shared, not empty. This establishes that
+small native capture path only, not sandbox compatibility, arbitrary-code
+isolation, vLLM/model qualification or performance. Keep the failed sandbox
+attempt separately; a native-worker pass does not repair that image's telemetry.
+
 The reviewed child still must prove its visible CUDA ordinal/UUID mapping,
 bound tensor sizes and any cooperative Torch allocator cap, and isolate its
 dependencies and caches. This helper injects no Torch harness or memory quota.
