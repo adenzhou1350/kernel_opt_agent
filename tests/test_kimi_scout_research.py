@@ -812,6 +812,59 @@ class ResearchTests(unittest.TestCase):
             ["src/kernel.py", "src/utils.py"],
         )
 
+    def test_explicit_requirements_precede_incidental_environment_template(self):
+        paths = ["vllm/collect_env.py", "requirements/cpu.txt", "src/error.rs"]
+        hints = (
+            "CPU wheel cannot be installed. Output of python collect_env.py: N/A. "
+            "`requirements/cpu.txt` sets a transitive URL dependency; resolver error."
+        )
+        self.assertEqual(
+            research.relevant_paths({"files": paths}, hints),
+            ["requirements/cpu.txt", "vllm/collect_env.py", "src/error.rs"],
+        )
+        self.assertEqual(
+            research.source_paths({"files": paths}, {"source_prefixes": ["requirements/"]}),
+            [],  # This is context acquisition, not a wider automatic audit.
+        )
+
+    def test_text_context_requires_literal_complete_observed_path(self):
+        for path in ("requirements/cpu.txt", "pyproject.toml", "setup.cfg", "tox.ini",
+                     "package.json", ".github/workflows/cpu.yml", "config/build.yaml",
+                     "docs/install.md", "docs/build.rst"):
+            with self.subTest(path=path):
+                snap = {"files": [path]}
+                self.assertEqual(research.relevant_paths(snap, f"inspect `{path}`"), [path])
+                self.assertEqual(research.relevant_paths(snap, path.upper()), [path])
+                self.assertEqual(research.relevant_paths(snap, "dependency error build install"), [])
+                self.assertEqual(research.relevant_paths(snap, "prefix/" + path), [])
+                self.assertEqual(research.relevant_paths(snap, path + ".bak"), [])
+                self.assertEqual(research.relevant_paths(snap, path, exclude=[path]), [])
+        self.assertEqual(research.relevant_paths({"files": []}, "requirements/cpu.txt"), [])
+        self.assertEqual(
+            research.relevant_paths({"files": ["requirements/cpu.txt"]}, "read cpu.txt"), []
+        )
+        self.assertEqual(
+            research.relevant_paths({"files": ["weights.bin"]}, "weights.bin"), []
+        )
+
+    def test_issue_acquires_named_text_config_with_existing_single_read_budget(self):
+        report = {
+            "number": 51, "title": "wheel dependency error", "updated_at": "first",
+            "body": "python collect_env.py: N/A. Inspect requirements/cpu.txt URL pin.",
+            "html_url": "https://github.com/a/b/issues/51",
+        }
+        snap = dict(commit=self.context.revision,
+                    files=["src/collect_env.py", "requirements/cpu.txt"])
+        with (
+            patch.object(self.context, "issue_page", return_value=[report]),
+            patch.object(self.context, "snapshot", return_value=snap),
+        ):
+            self.assertTrue(self.producer.issue(self.spec, {}))
+        self.assertEqual([call[2] for call in self.context.calls], ["requirements/cpu.txt"])
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(len(packet["sources"]), 2)
+        self.assertTrue(packet["sources"][1]["url"].endswith("/requirements/cpu.txt"))
+
     def test_same_file_kernel_definition_request_is_bounded_to_observed_path(self):
         url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
         packet = {

@@ -44,6 +44,21 @@ class ContinuationTests(unittest.TestCase):
                     {"path": "src/worker.ts", "start": 341, "max_lines": 120},
                 )
 
+    def test_previously_supplied_text_context_keeps_same_pin_window_constraints(self):
+        path = "requirements/cpu.txt"
+        source = {**self.packet["sources"][0],
+                  "url": f"https://raw.githubusercontent.com/a/b/{self.sha}/{path}"}
+        packet = {**self.packet, "sources": [source]}
+        snap = {**self.snapshot, "files": [path]}
+        hint = {"next_check": "Read after line 360 for the next requirement"}
+        self.assertEqual(
+            continuation_request(packet, snap, hint),
+            {"path": path, "start": 341, "max_lines": 120},
+        )
+        self.assertIsNone(continuation_request(packet, {**snap, "commit": "c" * 40}, hint))
+        self.assertIsNone(continuation_request(packet, {**snap, "files": []}, hint))
+        self.assertIsNone(continuation_request(packet, snap, {"next_check": "Read after line 400"}))
+
     def test_same_file_opposite_windows_can_anchor_one_missing_gap(self):
         source = self.packet["sources"][0]
         packet = {**self.packet, "sources": [

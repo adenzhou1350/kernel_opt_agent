@@ -1,5 +1,16 @@
 # Native CPU validation reference
 
+## Acquire the actual install contract
+
+An install failure's issue template may name `collect_env.py` even when the bug
+report explicitly identifies a requirements file. Scout now admits literally
+named, observed text config/doc paths for issue/follow-up context, without adding
+them to the automatic source-audit suffixes or increasing the read budget. This
+addresses a source-selection gap seen in [vLLM #62322](https://github.com/vllm-project/vllm/issues/62322),
+not its packaging fix. Read the real dependency metadata and the actual installer
+entry point: a direct local wheel control need not exercise index resolution.
+Source routing alone establishes neither a bug nor measured token/PR savings.
+
 ## Native finalization is part of the captured outcome
 
 A missing report plus a native crash in cleanup is not a passing test body or

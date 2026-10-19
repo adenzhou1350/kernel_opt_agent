@@ -89,6 +89,20 @@ def source_path(path, spec=None):
     )
 
 
+def explicit_text_path(path, hints):
+    """Allow a literal observed config/doc path, not a new audit suffix.
+
+    Requirements and build metadata can be the implementation evidence for an
+    install report. Mere words such as "error" must not select arbitrary JSON
+    or prose files. The caller still enforces snapshot membership and the raw
+    reader's text/read limits; nothing here parses or executes fetched content.
+    """
+    return path.endswith((".txt", ".toml", ".cfg", ".ini", ".json", ".yaml", ".yml", ".md", ".rst")) and re.search(
+        rf"(?<![a-z0-9_./-]){re.escape(path.lower())}(?![a-z0-9_./-])",
+        hints[:16000].lower(),
+    ) is not None
+
+
 class QueueFull(Exception):
     """Defer a fetched packet without advancing its evidence cursor."""
 
@@ -610,7 +624,7 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
         )
         if (
             path in snapshot.get("files", [])
-            and source_path(path, spec)
+            and (source_path(path, spec) or explicit_text_path(path, path))
             and source.get("truncated") is True
             and all(type(value) is int for value in (start, end, total))
             and 1 <= start <= end <= total
@@ -685,7 +699,9 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
     ranked = []
     for path in snapshot["files"]:
-        if path in exclude or not source_path(path, spec):
+        if path in exclude or not (
+            source_path(path, spec) or explicit_text_path(path, hints)
+        ):
             continue
         name = path.rsplit("/", 1)[-1].lower()
         stem = name.rsplit(".", 1)[0]
