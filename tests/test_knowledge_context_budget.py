@@ -507,6 +507,32 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertIn("supported caller", card["lesson"])
         self.assertIn("External or dynamic callers", card["avoid_when"])
 
+    def test_reload_scale_advice_distinguishes_restore_and_derived_tensors(self):
+        result = lesson_suggestions(
+            "NVFP4 weight reload kernel config block scale storage identity",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "a608b6e6e05f4b309f77981f010e93c2caa1c677/"
+                "vllm/model_executor/layers/quantization/online/nvfp4.py"
+            ],
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "backend-state-mutation-contract")
+        self.assertLessEqual(
+            len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        self.assertIn("final owner restore step", card["lesson"])
+        self.assertIn("omitted-restore control", card["lesson"])
+        self.assertIn("derived reciprocals", card["lesson"])
+        self.assertIn("complete loader", card["avoid_when"])
+        self.assertIn("not a supported reload failure", card["avoid_when"])
+        self.assertTrue(
+            any("layerwise.py#L395-L446" in e["url"] for e in card["evidence"])
+        )
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_native_guard_advice_distinguishes_storage_and_logical_region(self):
         result = lesson_suggestions(
             "torch.as_strided raw capacity out of bounds storage view validation"

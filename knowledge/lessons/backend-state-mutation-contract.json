@@ -1,9 +1,9 @@
 {
   "id": "backend-state-mutation-contract",
   "title": "Check backend state mutation before adding a missing return assignment",
-  "applies_when": "A recurrent or decoding cache update returns output only on one backend but output and state on another, suggesting a stale conv_state or a missing tuple assignment.",
-  "lesson": "Resolve the actual imported backend and dependency version, then inspect its mutation contract and the caller's state alias. An output-only helper can update caller-owned state in place; a tuple-returning alternative need not have the same interface. Check wrapper and native mutation declarations, not just variable names. Use state values and storage identity before and after successive updates, with an independent output/state oracle, to distinguish a real lost update from an interface difference. Inspect intervening clone, cast or contiguous operations that could replace storage before copying this conclusion to another caller.",
-  "avoid_when": "A functional backend may deliberately return new state, and an in-place contract can still be broken by a particular kernel, version, layout or cache mode. A CPU reference's copy_ or scatter_ and a custom_op mutation annotation do not prove native CUDA execution or full-model cache correctness. The cited sources do not validate every supported dependency version, circular-buffer mode or accelerator. Reopen with a concrete supported mutation failure or numerical cache discrepancy, rather than treating this lesson as a blanket no-bug verdict.",
+  "applies_when": "A recurrent or decoding cache update returns output only on one backend but output and state on another, suggesting stale state or a missing tuple assignment; or weight reload replaces registered parameters while a kernel config retains their prior tensor references.",
+  "lesson": "Resolve the actual imported backend and dependency version, then inspect its mutation contract and the caller's state alias. An output-only helper can update caller-owned state in place; a tuple-returning alternative need not have the same interface. Check wrapper and native mutation declarations, not just variable names. Use state values and storage identity before and after successive updates, with an independent output/state oracle, to distinguish a real lost update from an interface difference. Inspect intervening clone, cast or contiguous operations that could replace storage. For reload, follow the final owner restore step: vLLM copies newly processed values back into the original registered storage and reinstalls those parameters, updating direct cached aliases despite temporary replacement. Compare two reloads with a deliberately omitted-restore control. Classify direct tensor references separately from derived reciprocals or views; shared ownership does not automatically update separately allocated computations.",
+  "avoid_when": "A functional backend may deliberately return new state, and an in-place contract can still be broken by a particular kernel, version, layout or cache mode. A CPU reference's copy_ or scatter_ and a custom_op mutation annotation do not prove native CUDA execution or full-model cache correctness. Native small-CPU-tensor checks of the real NVFP4 config factory and restore helper cover registered storage identity and values only: they do not execute quantization/repacking, _setup_kernel, the complete loader, sleep/wake, captured graphs, real expert kernels or model accuracy. Online per-token NVFP4 installs neutral activation scales; changing those manually is a derived-tensor ownership control, not a supported reload failure. The cited sources do not validate every supported dependency version, circular-buffer mode or accelerator. Reopen with a concrete supported mutation failure or numerical cache discrepancy, rather than treating this lesson as a blanket no-bug verdict.",
   "evidence": [
     {
       "url": "https://github.com/fla-org/flash-linear-attention/blob/1b79e8382965f71a6660c48d2f4d28a2e1a5cee4/fla/layers/log_linear_mamba2.py#L502-L519",
@@ -16,6 +16,18 @@
     {
       "url": "https://github.com/Dao-AILab/causal-conv1d/blob/cd81f0413cad2fc1e6f17e785ac39f59aae690cd/causal_conv1d/cpp_functions.py#L71-L90",
       "note": "This later native wrapper explicitly declares conv_state in custom_op mutates_args and passes that tensor to the native update. The declaration supports the intended alias contract but cannot establish that every runtime obeys it."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/a608b6e6e05f4b309f77981f010e93c2caa1c677/vllm/model_executor/model_loader/reload/layerwise.py#L395-L446",
+      "note": "After quantization processing, the layerwise loader copies values into original kernel tensors, then reinstalls them. Native CPU component checks with real registered Parameters and two successive replacements preserve direct block/global-scale references and values; omitting restoration leaves those references old. Not a full-loader or GPU test."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/a608b6e6e05f4b309f77981f010e93c2caa1c677/vllm/model_executor/layers/fused_moe/oracle/nvfp4.py#L526-L607",
+      "note": "TRTLLM/EMULATION config construction retains block-scale tensor references; the default branch separately computes reciprocal activation global scales. Tested native CPU factories, not backend execution. Direct and derived tensors have different reload ownership."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/a608b6e6e05f4b309f77981f010e93c2caa1c677/vllm/model_executor/layers/quantization/online/nvfp4.py#L140-L151",
+      "note": "This online per-token method installs ones as both activation global scales. A synthetic change to those values does not demonstrate its supported production behavior."
     }
   ],
   "status": "validated"
