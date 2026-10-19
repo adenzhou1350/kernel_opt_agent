@@ -279,6 +279,11 @@ See [limits and dynamic-import gaps](references/scout_native_cpu_worked_routes.m
 
 ## Package and language routes
 
+- HTTP proxies: [real-HTTP boundary reproduction](../examples/native-http-proxy/README.md)
+  uses the ordinary vLLM example lifespan/HTTPX pools against synthetic loopback
+  P/D services, with original upstream status and healthy JSON/SSE controls.
+  It independently reproduces an author-owned public report; it is not a fix,
+  GPU/RDMA test, automatic delivery profile or fresh discovery/study result.
 - Python: [HTTPcore fixtures](references/scout_native_cpu_validation_notes.md#httpcore-plugins-and-behavior-matched-test-context), [Humanize translations](references/scout_native_cpu_validation_notes.md#humanize-core-baseline-with-translation-gaps-retained), [CPU transport logic versus RDMA proof](references/scout_native_cpu_worked_routes.md#cpu-transport-logic-before-rdma-qualification).
 - JS/TS: [Windows restrictions](references/scout_native_cpu_validation_notes.md#windows-native-typescript-checks-without-bypassing-runtime-requirements), [lifecycle tests](references/scout_native_cpu_validation_notes.md#typescript-lifecycle-checks-without-a-monorepo-rebuild), [Vitest](references/scout_native_cpu_validation_notes.md#vitest-json-is-a-separate-native-format), [Bun](#bun-native-junit-reports).
 - Go: [standard-library comparison](references/scout_native_cpu_validation_notes.md#standard-library-only-go-comparison-baseline).
