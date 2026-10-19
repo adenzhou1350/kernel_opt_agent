@@ -25,6 +25,18 @@ fix. Report the target behavior, harness boundary and remaining platform gaps
 separately. Include failed setup and owner/native investigation in cost accounting;
 reported model tokens alone are not total research cost or an efficacy result.
 
+Before implementing an adjacent lifetime workaround, inspect current upstream
+ownership. A shared file or symptom does not make a cleanup repair and a recovery
+algorithm repair duplicates. In [vLLM #62505](https://github.com/vllm-project/vllm/pull/62505),
+an existing author already retained the stream and closed captures on exceptions.
+An [independent component check](https://github.com/vllm-project/vllm/pull/62505#issuecomment-6272456653)
+compared the same five added cases and two existing corrupted-video regressions:
+baseline four passes/three cleanup failures versus seven passes for the patch.
+Those complete target modules ran in a reused package, not a full current-main
+build or upstream CI. Supporting an existing repair can close a concrete
+verification gap without another competing PR. Neither this known-case check nor
+advice retrieval establishes better discovery yield or a new contribution count.
+
 ## Keep test-process temporary paths short and private
 
 Python multiprocessing's forkserver can create an AF_UNIX listener beneath the
