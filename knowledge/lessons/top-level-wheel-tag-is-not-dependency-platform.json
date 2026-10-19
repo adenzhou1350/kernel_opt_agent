@@ -1,0 +1,22 @@
+{
+  "id": "top-level-wheel-tag-is-not-dependency-platform",
+  "title": "A top-level manylinux wheel tag does not set every dependency's glibc floor",
+  "applies_when": "Resolving a Linux binary dependency closure from another operating system, especially when a framework wheel's manylinux tag is used as the target and the resolver reports no usable dependency wheels.",
+  "lesson": "Query the actual target interpreter, architecture and libc before choosing a foreign-platform resolver target. A framework wheel tagged manylinux_2_28 can depend on a package whose available compatible wheels require glibc2.31. Using2.28 as the entire environment target can therefore reject a closure that is compatible with an actual2.35 host. Distinguish transport errors, version conflicts and wheel-tag incompatibility from the exact resolver explanation. Re-run resolution for the real host rather than changing framework requirements or enabling arbitrary source builds. Preserve the original failure. For example, inspect llguidance1.7.6's cp39-abi3 x86_64 wheel and the pinned vLLM requirement independently; do not infer the dependency ABI from vLLM's filename.",
+  "avoid_when": "If the intended deployment really uses glibc2.28, raising the resolver target is not a fix: it changes the deployment contract. Review an older compatible dependency, a supported source build or a newer isolated runtime instead. manylinux does not certify CUDA/driver compatibility, Python package version compatibility, successful native imports or model correctness. A successful foreign-platform lock and official file hashes are acquisition evidence, not installed-runtime qualification. Do not copy incompatible shared-machine native libraries to make imports appear to work.",
+  "evidence": [
+    {
+      "url": "https://peps.python.org/pep-0600/",
+      "note": "Defines a manylinux tag's glibc/architecture compatibility promise for that wheel. External dependencies such as CUDA are explicitly outside this PEP's scope; it does not promise one common floor for a package's entire dependency graph."
+    },
+    {
+      "url": "https://pypi.org/pypi/llguidance/1.7.6/json",
+      "note": "Versioned official file metadata lists llguidance-1.7.6-cp39-abi3-manylinux_2_31_x86_64.whl. Its separate cp314-cp314t manylinux2.17 artifact is not a CPython3.12 replacement. This documents the scoped wheel-selection example, not all releases or platforms."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/ff01a6b14f329ccd4162fce309913542e2abcd5b/requirements/common.txt",
+      "note": "Pinned framework source requires llguidance>=1.7.0,<1.8.0 on x86_64 and other listed architectures. Resolve the concrete version and target tags; this source alone does not establish a working installed closure."
+    }
+  ],
+  "status": "validated"
+}
