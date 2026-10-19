@@ -1,0 +1,22 @@
+{
+  "id": "sparse-checkpoint-residency",
+  "title": "Separate sparse checkpoint residency from dense prefix coverage",
+  "applies_when": "Designing cache events, routing or offload lookup for hybrid attention/recurrent models whose state snapshots exist only at selected token boundaries.",
+  "lesson": "Trace the exact checkpoint key through registration, lookup and slot reuse before changing a placeholder event into a self-describing prefix. A recurrent state at boundary N need not permit resuming at any smaller boundary. Group classification identifies the kind of cache, not which checkpoints are resident. Test an earlier-prefix miss, an exact-boundary hit, fallback to a separately retained earlier checkpoint, and removal after overwriting a state slot. Distinguish wire hash interval, valid token extent, physical page geometry and transfer chunk size; they need not be equal. In the cited vLLM partial-entry path, a 16-token Mamba page with a 4-token hash interval emits one checkpoint hash and block_size=4. The parent hash is a chain reference, not proof that another Mamba state is resident there. Reuse full-attention metadata only after verifying these consumer semantics; do not advertise every intermediate hash as a recurrent resume point.",
+  "avoid_when": "A dense checkpoint policy or a consumer that explicitly reconstructs missing states can support different coverage. The cited component test registers entries directly: it does not establish scheduler production of those entries, CPU offload transfer, router integration, whole-model accuracy, saved bytes or performance. A live local cache event and an offload-tier event can have different lifecycle/ownership contracts. Do not remove an intentional unsupported-shape guard solely to make richer events appear, duplicate an existing classification PR, or infer all-prefix reuse from a page-size or hash-chain match.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/aa3564ceefbd605f1d28238fa0fbbb964201c6b8/vllm/v1/core/single_type_kv_cache_manager.py#L1466-L1542",
+      "note": "Mamba lookup searches candidate checkpoint hashes from right to left, inserts null earlier state positions and returns the boundary of an actually resident state. A later state does not synthesize earlier checkpoints."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/aa3564ceefbd605f1d28238fa0fbbb964201c6b8/vllm/v1/core/block_pool.py#L449-L588",
+      "note": "Partial-entry registration uses the prefix-chain hash at the exact boundary, removes prior slot keys when replacing contents, and emits a single boundary hash with the final hash interval's tokens and size. Parent-chain and state-residency semantics are distinct."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/issues/62510#issuecomment-6274425171",
+      "note": "Independent AI-assisted native CPU component check: six cases passed on pinned core sources in a reused package, covering absent earlier checkpoints, exact/fallback hits, event extent and overwritten-slot invalidation. CUDA remained hidden/uninitialized; no full conftest, serving, router, offload-transfer or performance qualification."
+    }
+  ],
+  "status": "validated"
+}
