@@ -1,0 +1,26 @@
+{
+  "id": "file-size-limits-include-posix-shared-memory",
+  "title": "File-size limits also constrain POSIX shared-memory allocation",
+  "applies_when": "A Linux Python multiprocessing or distributed-framework test fails with EFBIG/File too large during SharedMemory construction or os.ftruncate, especially under an owner-imposed RLIMIT_FSIZE or inherited ulimit -f.",
+  "lesson": "Check the child's actual soft/hard RLIMIT_FSIZE and the required shared-memory segment size before blaming model code or paying for another GPU run. CPython's POSIX SharedMemory creation sizes its backing object with ftruncate; ample RAM or free /dev/shm space does not make an undersized file limit compatible. Include queue metadata in the calculation. Reproduce the mechanism cheaply in a separate CPU child with a segment below and above the limit, retain cleanup diagnostics, and then select a reviewed compatible environment or scoped allowance. Bound captured logs separately: a process-wide per-file size limit is neither a log-only limit nor a total disk/RSS/VRAM quota.",
+  "avoid_when": "This is a Linux POSIX allocation mechanism, not a Windows named-memory claim. EFBIG alone does not prove RLIMIT_FSIZE is responsible; trace the failing syscall and distinguish ENOSPC, permissions and mapping/registration failures. Do not remove sandbox limits, raise host-wide settings, or weaken unrelated GPU guards to force a pass. A successful allocation does not establish leak-free cleanup, distributed/model correctness or performance; preserve resource-tracker diagnostics independently.",
+  "evidence": [
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.10/Lib/multiprocessing/shared_memory.py#L109-L123",
+      "note": "The POSIX constructor calls os.ftruncate before mmap and resource-tracker registration, and unlinks on OSError. This supports inspecting allocation separately from later cleanup; it is not evidence that all versions have warning-free failure cleanup."
+    },
+    {
+      "url": "https://docs.python.org/3.12/library/resource.html#resource.RLIMIT_FSIZE",
+      "note": "Documents RLIMIT_FSIZE as a process file-size bound and soft/hard limit semantics, not a log-only or aggregate storage budget."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/fc47cc8fff8282b7fa2b257468b8595f91a1a741/vllm/distributed/parallel_state.py#L563-L567",
+      "note": "This revision creates a model-parallel message queue with 4 MiB chunks and six slots. Its shared-memory allocation therefore exceeds 24 MiB once per-slot reader metadata is included; a 16 MiB per-file cap is incompatible before model execution."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/fc47cc8fff8282b7fa2b257468b8595f91a1a741/vllm/distributed/device_communicators/shm_broadcast.py#L324-L339",
+      "note": "ShmRingBuffer computes (max_chunk_bytes + metadata_size) * max_chunks and supplies that size to SharedMemory after checking free shared-memory space. Free-space and per-file-limit admission are separate conditions."
+    }
+  ],
+  "status": "validated"
+}
