@@ -215,6 +215,17 @@ original author's test claims are not independent native validation.
 
 ## Owner-only intake across languages
 
+Owner-only visibility does not waive an explicit repository withdrawal. Pass
+reviewed exclusions through `select_leads(..., exclude_repos=[...])` on every
+intake route, including a task-local reader after migration. Exclusion is applied
+before the scan limit; filtering a returned page afterward can hide eligible
+leads behind withdrawn history. The selector does not infer policy from model
+prose or advisory notes. Keep the owner decision separately, recheck applicable
+upstream rules before reopening, and preserve the original rows: a policy stop
+is not a no-bug verdict. A live read-only intake once re-exposed three withdrawn
+rows when its caller omitted this existing parameter; correcting that caller
+did not require deleting history or changing the research model's answers.
+
 Owner intake exposes `source_selection` separately from its visibility `commit`:
 `RESOLVED_CITATION` identifies one supplied immutable implementation citation;
 `LEGACY_FIRST_SOURCE` retains older records without evidence; `UNRESOLVED`

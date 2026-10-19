@@ -253,6 +253,20 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in rows], ["rust"])
         self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
 
+    def test_owner_repository_withdrawal_precedes_history_scan(self):
+        self.add("withdrawn", packet(repo="withdrawn/project"), finished=30)
+        self.add("eligible", finished=10)
+        before = (self.root / "scout.sqlite").read_bytes()
+        for mode in ({"owner_review": True}, {"owner_language": "python"}):
+            with self.subTest(mode=mode):
+                rows = delivery.select_leads(
+                    self.root, limit=1, scan_limit=1,
+                    exclude_repos=["withdrawn/project"], **mode,
+                )
+                self.assertEqual([row["id"] for row in rows], ["eligible"])
+                self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
+        self.assertEqual(before, (self.root / "scout.sqlite").read_bytes())
+
     def test_invalid_immutable_url_does_not_consume_scan_limit(self):
         for index, url in enumerate((RAW + "?download=1", RAW.replace("/src/", "/../"),
                                      RAW.replace(REPO, "other/project"), RAW.replace(COMMIT, "main"))):
