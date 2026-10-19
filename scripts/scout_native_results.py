@@ -10,6 +10,7 @@ import argparse
 import hashlib
 import json
 import re
+import sys
 from pathlib import Path
 from xml.etree import ElementTree
 
@@ -23,6 +24,9 @@ except ImportError:
 MAX_BYTES = 2 * 1024 * 1024
 FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json", "bun-junit",
            "catch2-v2-xml")
+REPORT_FILES = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
+                "gtest-xml": "gtest.xml", "bun-junit": "bun.xml",
+                "catch2-v2-xml": "catch2.xml"}
 RUST_SUMMARY = re.compile(
     r"test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
     r"(\d+) measured; (\d+) filtered out; finished in [0-9.]+s"
@@ -872,7 +876,7 @@ def compare_captured_regression(baseline_capture, candidate_capture,
         report = capture.get("test_report")
         recorded = capture.get("terminal_log_sha256")
         # File reporters must not silently fall back to an unrelated stdout log.
-        if format in {"pytest-junit", "vitest-json", "gtest-xml", "bun-junit", "catch2-v2-xml"}:
+        if format in REPORT_FILES:
             recorded = report.get("sha256") if isinstance(report, dict) else None
         if (not isinstance(text, str) or not sha(recorded)
                 or hashlib.sha256(text.encode("utf-8")).hexdigest() != recorded):
@@ -901,14 +905,72 @@ def compare_captured_regression(baseline_capture, candidate_capture,
     return result
 
 
-def main():
-    parser = argparse.ArgumentParser(description=__doc__)
+def compare_saved_regression(baseline_directory, candidate_directory, *, format,
+                             regressions, controls, common_sources, package=None):
+    """Compare existing native capture directories without executing target code.
+
+    Read bounded raw UTF-8 bytes, retaining CRLF for recorded-digest checks.
+    File reporters use the native runner's fixed local filename, not stdout or
+    an old absolute path embedded in copied metadata. The ordinary captured
+    comparison still decides accounting validity; this adds no attestation.
+    """
+    if format not in FORMATS:
+        raise ValueError("unsupported native format")
+
+    def read(directory, name):
+        path = Path(directory) / name
+        if path.is_symlink() or not path.is_file():
+            raise ValueError(f"missing or non-regular saved native input: {path}")
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_BYTES + 1)
+        if len(raw) > MAX_BYTES:
+            raise ValueError(f"saved native input exceeds 2 MiB: {path}")
+        return raw.decode("utf-8")
+
+    captures, texts = [], []
+    for directory in (baseline_directory, candidate_directory):
+        captures.append(json.loads(read(directory, "result.json")))
+        texts.append(read(directory, REPORT_FILES.get(format, "terminal.log")))
+    return compare_captured_regression(
+        *captures, *texts, format=format, regressions=regressions,
+        controls=controls, common_sources=common_sources, package=package)
+
+
+def compare_saved_main(argv):
+    parser = argparse.ArgumentParser(description=compare_saved_regression.__doc__)
+    parser.add_argument("--baseline", type=Path, required=True)
+    parser.add_argument("--candidate", type=Path, required=True)
+    parser.add_argument("--format", choices=FORMATS, required=True)
+    parser.add_argument("--package")
+    parser.add_argument("--regression", action="append", required=True)
+    parser.add_argument("--control", action="append", required=True)
+    parser.add_argument("--common-source", action="append", required=True)
+    args = parser.parse_args(argv)
+    try:
+        result = compare_saved_regression(
+            args.baseline, args.candidate, format=args.format,
+            regressions=args.regression, controls=args.control,
+            common_sources=args.common_source, package=args.package)
+    except (OSError, ValueError, UnicodeError) as error:
+        parser.error(str(error))
+    print(json.dumps(result, ensure_ascii=False))
+    return {"MATCHED_REGRESSION_OBSERVED": 0, "PATTERN_NOT_OBSERVED": 1,
+            "INCONCLUSIVE": 2}[result["status"]]
+
+
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == "compare-saved":
+        return compare_saved_main(argv[1:])
+    parser = argparse.ArgumentParser(
+        description=__doc__,
+        epilog="Use compare-saved --help to compare two retained native capture directories.")
     parser.add_argument("--log", type=Path, required=True)
     parser.add_argument("--format", choices=FORMATS, required=True)
     parser.add_argument("--exit-code", type=int, required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     with args.log.open("rb") as stream:
         raw = stream.read(MAX_BYTES + 1)
     if len(raw) > MAX_BYTES:

@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 from xml.etree import ElementTree as ET
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
@@ -620,7 +621,7 @@ class GoSuiteRegressionTests(unittest.TestCase):
                 self.compare(**values)
 
 
-class CapturedRegressionTests(unittest.TestCase):
+class CaptureFixtures:
     regressions = ["tests.test_contract::test_case"]
     controls = ["tests.test_contract::test_control"]
 
@@ -643,6 +644,8 @@ class CapturedRegressionTests(unittest.TestCase):
         after = junit(("test_case", None), ("test_control", None))
         return self.capture(before, 1), self.capture(after, 0), before, after
 
+
+class CapturedRegressionTests(CaptureFixtures, unittest.TestCase):
     def compare(self, values, **kwargs):
         return native.compare_captured_regression(
             *values, format="pytest-junit", regressions=self.regressions,
@@ -762,6 +765,144 @@ class CapturedRegressionTests(unittest.TestCase):
                 native.compare_captured_regression(
                     *self.fixture(), format="pytest-junit", regressions=self.regressions,
                     controls=self.controls, common_sources=names)
+
+
+class SavedCaptureTests(CaptureFixtures, unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.before, self.after = self.root / "before", self.root / "after"
+        self.before.mkdir()
+        self.after.mkdir()
+
+    def save(self, values=None, *, format="pytest-junit"):
+        values = self.fixture() if values is None else values
+        for directory, record, text in zip((self.before, self.after), values[:2], values[2:]):
+            (directory / "result.json").write_bytes(json.dumps(record).encode())
+            (directory / native.REPORT_FILES.get(format, "terminal.log")).write_bytes(text.encode())
+        return values
+
+    def compare(self, **options):
+        return native.compare_saved_regression(
+            self.before, self.after, format="pytest-junit", regressions=self.regressions,
+            controls=self.controls, common_sources=["tests/test_contract.py"], **options)
+
+    def test_crlf_is_read_verbatim_without_target_execution_or_writes(self):
+        values = list(self.fixture())
+        values[2:] = [text.replace("><", ">\r\n<") for text in values[2:]]
+        values[:2] = [self.capture(text, code) for text, code in zip(values[2:], (1, 0))]
+        values[0]["test_report"]["path"] = "/unavailable/remote/before/junit.xml"
+        values[1]["test_report"]["path"] = r"C:\unavailable\after\junit.xml"
+        self.save(values)
+        snapshots = {str(p): p.read_bytes() for p in self.root.glob("*/*")}
+        with patch.object(subprocess, "Popen") as target:
+            result = self.compare()
+        target.assert_not_called()
+        self.assertEqual(result["status"], "MATCHED_REGRESSION_OBSERVED")
+        self.assertEqual(snapshots, {str(p): p.read_bytes() for p in self.root.glob("*/*")})
+
+    def test_modified_report_does_not_fall_back_to_matching_stdout(self):
+        values = self.save()
+        (self.after / "terminal.log").write_bytes(values[3].encode())
+        (self.after / "junit.xml").write_bytes((values[3] + "\n").encode())
+        result = self.compare()
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertIn("candidate: reporter text does not match captured digest", result["issues"])
+
+    def test_file_reporter_must_exist_even_with_valid_stdout(self):
+        values = self.save()
+        (self.after / "terminal.log").write_bytes(values[3].encode())
+        (self.after / "junit.xml").unlink()
+        with self.assertRaisesRegex(ValueError, "missing or non-regular"):
+            self.compare()
+
+    def test_metadata_and_reports_are_bounded_utf8_regular_files(self):
+        self.save()
+        for name in ("result.json", "junit.xml"):
+            path = self.after / name
+            original = path.read_bytes()
+            with self.subTest(name=name, kind="size"):
+                path.write_bytes(b"x" * (native.MAX_BYTES + 1))
+                with self.assertRaisesRegex(ValueError, "exceeds 2 MiB"):
+                    self.compare()
+            with self.subTest(name=name, kind="encoding"):
+                path.write_bytes(b"\xff")
+                with self.assertRaises(UnicodeError):
+                    self.compare()
+            path.write_bytes(original)
+
+    def test_invalid_or_nonobject_capture_metadata_cannot_pass(self):
+        self.save()
+        (self.after / "result.json").write_bytes(b"{")
+        with self.assertRaises(json.JSONDecodeError):
+            self.compare()
+        (self.after / "result.json").write_bytes(b"null")
+        self.assertEqual(self.compare()["status"], "INCONCLUSIVE")
+
+    def test_capture_cleanup_failure_is_preserved(self):
+        values = list(self.fixture())
+        values[1]["status"] = "INCONCLUSIVE"
+        values[1]["post_exit_group_cleanup_required"] = True
+        values[1]["issues"] = ["owned process group remains"]
+        self.save(values)
+        self.assertEqual(self.compare()["status"], "INCONCLUSIVE")
+
+    def test_undeclared_extra_case_is_not_discarded(self):
+        values = list(self.fixture())
+        values[3] = junit(("test_case", None), ("test_control", None), ("test_extra", None))
+        values[1] = self.capture(values[3], 0)
+        self.save(values)
+        self.assertEqual(self.compare()["status"], "PATTERN_NOT_OBSERVED")
+
+    def test_go_uses_terminal_log_and_target_package(self):
+        before = go_log(go_test("TestRegression", "fail"), go_test("TestControl"), terminal="fail")
+        after = go_log(go_test("TestRegression"), go_test("TestControl"))
+        captures = [self.capture(text, code, format="go-json", package=PACKAGE)
+                    for text, code in ((before, 1), (after, 0))]
+        for record in captures:
+            record["test_report"] = None
+        self.save([*captures, before, after], format="go-json")
+        result = native.compare_saved_regression(
+            self.before, self.after, format="go-json", package=PACKAGE,
+            regressions=["TestRegression"], controls=["TestControl"],
+            common_sources=["tests/test_contract.py"])
+        self.assertEqual(result["status"], "MATCHED_REGRESSION_OBSERVED")
+
+    def test_symlink_report_is_rejected(self):
+        self.save()
+        link = self.after / "junit.xml"
+        original = link.read_bytes()
+        target = self.after / "other.xml"
+        target.write_bytes(original)
+        link.unlink()
+        try:
+            link.symlink_to(target)
+        except OSError as error:
+            self.skipTest(f"symlink creation unavailable: {error}")
+        with self.assertRaisesRegex(ValueError, "missing or non-regular"):
+            self.compare()
+
+    def test_cli_exits_distinguish_match_nonmatch_and_inconclusive(self):
+        self.save()
+        command = [sys.executable, "-B", native.__file__, "compare-saved",
+                   "--baseline", str(self.before), "--candidate", str(self.after),
+                   "--format", "pytest-junit", "--regression", self.regressions[0],
+                   "--control", self.controls[0], "--common-source", "tests/test_contract.py"]
+
+        def check(code, status):
+            result = subprocess.run(command, capture_output=True, timeout=10, check=False)
+            self.assertEqual(result.returncode, code, result.stderr.decode())
+            self.assertEqual(json.loads(result.stdout)["status"], status)
+
+        check(0, "MATCHED_REGRESSION_OBSERVED")
+        values = list(self.fixture())
+        values[2] = values[3]
+        values[0] = self.capture(values[2], 0)
+        self.save(values)
+        check(1, "PATTERN_NOT_OBSERVED")
+        (self.after / "junit.xml").write_bytes(b"changed")
+        check(2, "INCONCLUSIVE")
 
 
 if __name__ == "__main__":

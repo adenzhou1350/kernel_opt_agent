@@ -17,6 +17,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Run a reviewed native command? | `scout_native_run.py --help`; [runtime/export/cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
 | Capture owner-reviewed GPU pytest without another process wrapper? | [Optional shared-GPU guard](#optional-owner-reviewed-gpu-capture) |
 | Compare regressions and controls? | `scout_native_results.compare_regression`; [wider pytest/Go cohorts](#complete-pytest-cohorts) |
+| Reanalyze two retained native captures without rerunning tests? | [`compare-saved`](#compare-saved-captures-without-target-execution) |
 | Check byte-range caching through its real caller? | [Buffered-file versus BytesIO oracle](../examples/native-file-cache/README.md); bounded serial memory backend, not network/performance qualification |
 | Check backend integer rounding before a full compiler build? | [Reviewed CuTeDSL scalar/MLIR witness](../examples/native-cutedsl-truncdiv/README.md); not vector, compiler or GPU qualification |
 | Test a model/backend without migrating production? | [Finite public batch](#finite-public-batch-without-a-task-specific-executor) |
@@ -418,6 +419,37 @@ inconclusive, even when the candidate command exits zero. See the
 [minimal characterization](references/scout_native_cpu_worked_routes.md#repeated-doctest-collection-skips).
 
 ## Keep the outcome useful
+
+### Compare saved captures without target execution
+
+For a small predeclared complete selection, pass the two existing native capture
+directories rather than writing another report loader:
+
+```sh
+python -B scripts/scout_native_results.py compare-saved \
+  --baseline /saved/before --candidate /saved/after --format pytest-junit \
+  --regression tests.test_contract::test_regression \
+  --control tests.test_contract::test_control \
+  --common-source tests/test_contract.py
+```
+
+Repeat the case/common-file flags as needed; identities and source keys must be
+reviewed from the saved captures, not guessed from command-line node names. The
+library equivalent is `compare_saved_regression`. It reads `result.json` and the
+native runner's format-specific file (`junit.xml` for pytest, `terminal.log` for
+Go/Rust/Node), with bounded raw UTF-8 reads. It preserves CRLF for digest checks,
+does not follow obsolete absolute report paths in copied metadata, and never
+falls back from a missing/changed file reporter to matching stdout.
+
+The existing captured comparison retains source/test/executable digests, report
+cardinality and cleanup failures. Exit 0 means `MATCHED_REGRESSION_OBSERVED`,
+1 means `PATTERN_NOT_OBSERVED`, and 2 means inconclusive or invalid/missing input.
+This command executes no target, repairs no report and changes no queue. A match
+is captured accounting, not authenticity, meaningful assertions, production
+reachability, complete environment parity, performance or PR qualification.
+For wider cohorts, use the existing suite comparators rather than silently
+ignoring extra cases to make this small-selection check pass. Export the native
+runtime as a complete set so the capture/report filenames stay synchronized.
 
 Record supported caller, source/runtime, identical test bytes, commands, observed
 exits/skips/warnings, cleanup and costs once. Consume the returned report path

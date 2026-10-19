@@ -302,11 +302,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if not issues:
         try:
             text = (output / "terminal.log").read_text(encoding="utf-8")
-            if format in {"pytest-junit", "vitest-json", "gtest-xml", "bun-junit", "catch2-v2-xml"}:
-                report_name = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
-                               "gtest-xml": "gtest.xml", "bun-junit": "bun.xml",
-                               "catch2-v2-xml": "catch2.xml"}[format]
-                report_path = output / report_name
+            if format in native.REPORT_FILES:
+                report_path = output / native.REPORT_FILES[format]
                 if report_path.is_symlink() or not report_path.is_file():
                     raise ValueError("missing or non-regular test report")
                 with report_path.open("rb") as stream:
