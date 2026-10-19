@@ -266,3 +266,50 @@ protocol. Its existence further rules out treating sequential context selection
 alone as our contribution. Qualify that existing control and native-witness
 availability before a new prospective comparison; do not turn this baseline
 maintenance PR into evidence that Scout improves discovery yield or cost.
+
+### Scripted read-budget invariant and existing agent controls
+
+Qualifying the existing sequential control exposed a separate defect in pinned
+`07014c9`: its scripted policy charges a token-limited read but scores the first
+20,000 characters of the original text. A native counterexample keeps grep hits,
+actual read observations and charged budgets identical while changing only an
+unobserved suffix; the old final selection changes. Both the per-file limit and
+remaining-total limit fail this invariant. A visible-suffix positive control
+continues to change selection when the larger budget actually exposes it.
+
+[ARB PR #4](https://github.com/eyuansu62/agent-retrieval-bench/pull/4), head
+`c44bb2b18d769df0deca950e589fb29f0982a1d7`, reuses the existing `token_prefix`
+boundary for scoring and preserves the character ceiling and ranking weights.
+All 14 tests in the contributed file pass on Windows/Python 3.14 and offline
+Linux/Python 3.12; the original module fails the two hidden-suffix subcases.
+The Linux comparison also includes two private diagnostic controls (16 methods
+total), not 16 upstream test methods. Containers were removed and sessions
+released. These focused checks do not qualify the full suite or maintainer CI.
+
+At 16 calls, eight grep calls, 8,000 total read tokens and 1,200 tokens per file,
+paired original/fixed scripted runs evaluate all 101 released trace2code cases
+without skips. Every non-latency detail field, trace, final selection and
+aggregate metric is unchanged. Both have final-file F1 0.099670 and final-any-gold
+rate 0.198020. Preserve this null result: the synthetic witness establishes a
+real budget-boundary defect, not measured accuracy or discovery improvement on
+this population. Grep/path candidate information and file-exposure metrics have
+other semantics; this fix is not a certificate that all information access or
+useful-span/native-witness credit is matched across arms.
+
+Related implementations already cover much of the proposed layering:
+
+- [Oko's ARB report](https://github.com/eyuansu62/agent-retrieval-bench/issues/1)
+  combines keyword candidate retrieval with a Jev reranker. Its reported scores
+  are author measurements, not independently replicated here.
+- [Oko's public experiment protocol](https://github.com/bartlomein/oko/blob/main/scripts/benchmark-public/README.md)
+  already separates setup/query cost and uses paired agent/edit validation.
+  Classifier-assisted retrieval and matched agent evaluation are not novelty
+  merely because Scout adopts them.
+- [The CodeNib adapter discussion](https://github.com/eyuansu62/agent-retrieval-bench/issues/2)
+  distinguishes released-corpus access from full-source indexing and proposes
+  matched agent budgets. Its adapter smoke is not a full quality result.
+
+No Oko/Jev/model service was called or rescored in this check. The next research
+decision remains to qualify a native-capable sequential comparison and total
+cost before enrolling a fresh prospective cohort; these known controls must not
+be relabeled as held-out discoveries or evidence of paper-ready novelty.

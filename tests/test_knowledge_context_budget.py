@@ -680,6 +680,29 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_budgeted_reader_advice_preserves_hidden_suffix_and_null_controls(self):
+        result = lesson_suggestions(
+            "budgeted read token prefix hidden suffix scoring",
+            source_urls=[
+                "https://raw.githubusercontent.com/eyuansu62/agent-retrieval-bench/"
+                "07014c986f3deadb1548c62b32c0ffbe6a81465d/"
+                "src/agent_retrieval_bench/closed_tool_eval.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "validate-evaluation-metric-invariants")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("all permitted observations constant", card["lesson"])
+        self.assertIn("visible-suffix positive control", card["lesson"])
+        self.assertTrue(any(
+            row["url"] == "https://github.com/eyuansu62/agent-retrieval-bench/pull/4"
+            and "no measured accuracy" in row["note"]
+            for row in card["evidence"]
+        ))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
 
 if __name__ == "__main__":
     unittest.main()
