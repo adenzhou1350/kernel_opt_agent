@@ -1,5 +1,6 @@
 """Offline real producer integration and cache-only acquisition boundaries."""
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -331,6 +332,60 @@ class ImportFollowupTests(unittest.TestCase):
         self.assertIn("async def aclose(self)", source["text"])
         self.assertTrue(source["requested_definition_complete"])
         self.assertEqual(source["requested_definition"]["name"], "aclose")
+
+    def test_unchanged_primary_blob_crosses_revision_without_relabeling_packet(self):
+        self.spec["followup_import_context"] = True
+        current = "b" * 40
+        primary, target = "src/pkg/read.py", "src/pkg/helper.py"
+        raw = "from .helper import helper\n"
+        body = raw.encode()
+        snapshot = {
+            "commit": current,
+            "files": ["src/pkg/__init__.py", primary, target],
+            "blobs": {primary: hashlib.sha1(
+                b"blob " + str(len(body)).encode() + b"\0" + body
+            ).hexdigest()},
+        }
+        self.context.snapshot.return_value = snapshot
+        context = PublicContext(self.root / "revision-context")
+        context.snapshot = Mock(return_value=snapshot)
+        for revision, path, text in (
+            (COMMIT, primary, raw),
+            (current, primary, raw),
+            (current, target, "\n" * 160 + "def helper():\n    return 42\n"),
+        ):
+            scout.write_json(context._cache_path("raw", ["o/r", revision, path]), {
+                "url": f"https://raw.githubusercontent.com/o/r/{revision}/{path}",
+                "text": text,
+            })
+        self.context.cached_source_text.side_effect = context.cached_source_text
+        self.context.source.side_effect = context.source
+        old_url = f"https://raw.githubusercontent.com/o/r/{COMMIT}/{primary}"
+        with scout.connect(self.root) as db:
+            packet = json.loads(db.execute("SELECT packet FROM jobs").fetchone()[0])
+            packet["sources"] = [{"url": old_url, "text": "1: from .helper import helper"}]
+            db.execute("UPDATE jobs SET packet=?", (scout.dumps(packet),))
+        self.finish("needs_context")
+        with scout.connect(self.root) as db:
+            result = json.loads(db.execute("SELECT result FROM jobs").fetchone()[0])
+            result["analysis"]["next_check"] = "definition(helper)"
+            db.execute("UPDATE jobs SET result=?", (scout.dumps(result),))
+        with patch.object(scout, "fetch", side_effect=AssertionError("network")):
+            self.assertTrue(self.producer.followup(self.spec, {}))
+        self.assertLessEqual(len(self.paths()), 2)
+        self.assertIn(target, self.paths())
+        self.context.cached_source_text.assert_called_with("o/r", COMMIT, primary)
+        for call in self.context.source.call_args_list:
+            self.assertEqual(call.args[1], current)
+        with scout.connect(self.root) as db:
+            emitted = json.loads(db.execute(
+                "SELECT packet FROM jobs WHERE state='PENDING'"
+            ).fetchone()[0])
+        self.assertEqual(emitted["sources"][0]["url"], old_url)
+        source = next(s for s in emitted["sources"] if s["url"].endswith("/" + target))
+        self.assertIn("def helper():", source["text"])
+        self.assertIn("return 42", source["text"])
+        self.assertTrue(source["requested_definition_complete"])
 
 
 if __name__ == "__main__":

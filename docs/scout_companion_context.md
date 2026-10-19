@@ -78,6 +78,14 @@ an ordinary lexical read, not a third source slot or a complete-body assertion.
 The frozen prospective pilot retains its original acquisition rules; this
 production change does not retroactively change its arms or scores.
 
+The opt-in import-context route can likewise inspect an older cached primary
+file when its exact UTF-8 Git blob equals the current snapshot's blob. Missing,
+changed, oversized or binary text still abstains. Imports remain syntax hints,
+not installed-package resolution. Only current-tree targets are requested at the
+current revision within the existing two-read budget; the inherited source URL
+and text retain their original revision. This avoids losing a valid import hint
+solely because an unrelated commit advanced main. It is not model-yield evidence.
+
 When a follow-up exceeds the existing prompt cap, peripheral search snippets
 still shrink first, followed by incomplete excerpts inherited from its parent,
 before fresh partial evidence. Complete requested bodies keep their existing

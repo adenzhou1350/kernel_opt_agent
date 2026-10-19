@@ -1,5 +1,6 @@
 """Offline import-context hints: no network, provider, source execution or GPU."""
 
+import hashlib
 import sys
 import unittest
 from pathlib import Path
@@ -12,6 +13,88 @@ COMMIT = "a" * 40
 
 
 class ImportContextTests(unittest.TestCase):
+    def blob_reuse_request(self, raw, *, path="pkg/read.py", target="pkg/helper.py",
+                           files=None, blob=None, cached=None):
+        old = "b" * 40
+        packet = {"repo": "o/r", "sources": [{
+            "url": f"https://raw.githubusercontent.com/o/r/{old}/{path}",
+            "text": "prior partial excerpt",
+        }]}
+        body = raw.encode("utf-8")
+        identity = hashlib.sha1(b"blob " + str(len(body)).encode() + b"\0" + body).hexdigest()
+        snapshot = {"commit": COMMIT, "files": files or [path, target],
+                    "blobs": {path: identity if blob is None else blob}}
+        reader = Mock(return_value=raw if cached is None else cached)
+        result = import_requests(packet, snapshot, {"next_check": "definition(helper)"}, reader)
+        return result, reader, packet, snapshot
+
+    def test_identical_old_python_blob_can_supply_current_import_hint(self):
+        result, cache, packet, _ = self.blob_reuse_request(
+            "# UTF-8 雪\nfrom .helper import helper\n"
+        )
+        self.assertEqual(result, [{"path": "pkg/helper.py", "hints": "helper", "max_lines": 80}])
+        cache.assert_called_once_with("o/r", "b" * 40, "pkg/read.py")
+        self.assertIn("/" + "b" * 40 + "/", packet["sources"][0]["url"])
+        self.assertEqual(packet["sources"][0]["text"], "prior partial excerpt")
+
+    def test_identical_old_ts_blob_retains_existing_js_target_rewrite(self):
+        result, cache, _, _ = self.blob_reuse_request(
+            "import {helper} from './helper.js';\n", path="src/read.ts", target="src/helper.ts"
+        )
+        self.assertEqual(result, [{"path": "src/helper.ts", "hints": "helper", "max_lines": 80}])
+        cache.assert_called_once_with("o/r", "b" * 40, "src/read.ts")
+
+    def test_changed_or_tampered_old_blob_is_not_an_import_basis(self):
+        for blob, cached in (("c" * 40, None), (None, "from .other import helper\n")):
+            with self.subTest(blob=blob, tampered=cached is not None):
+                result, cache, _, _ = self.blob_reuse_request(
+                    "from .helper import helper\n", blob=blob, cached=cached
+                )
+                self.assertEqual(result, [])
+                cache.assert_called_once_with("o/r", "b" * 40, "pkg/read.py")
+
+    def test_unbound_old_revision_still_abstains_without_cache_lookup(self):
+        for blobs in ({}, {"pkg/read.py": None}, {"pkg/read.py": "not-a-blob"}):
+            with self.subTest(blobs=blobs):
+                _, _, packet, snapshot = self.blob_reuse_request("from .helper import helper\n")
+                snapshot["blobs"] = blobs
+                reader = Mock(side_effect=AssertionError("unbound old source must not be read"))
+                self.assertEqual(import_requests(packet,snapshot,{"next_check":"definition(helper)"},reader), [])
+                reader.assert_not_called()
+
+    def test_blob_identity_does_not_restore_removed_import_target(self):
+        result, _, _, _ = self.blob_reuse_request(
+            "from .helper import helper\n", files=["pkg/read.py"]
+        )
+        self.assertEqual(result, [])
+
+    def test_old_blob_cache_limits_remain_enforced(self):
+        for raw in ("from .helper import helper\n", "\x00from .helper import helper\n",
+                    "# 雪" * 32769 + "\nfrom .helper import helper\n"):
+            with self.subTest(binary="\x00" in raw, bytes=len(raw.encode())):
+                _, _, packet, snapshot = self.blob_reuse_request(raw)
+                reader = Mock(return_value=None if raw.startswith("from") else raw)
+                self.assertEqual(import_requests(packet,snapshot,{"next_check":"helper"},reader), [])
+                reader.assert_called_once_with("o/r", "b" * 40, "pkg/read.py")
+
+    def test_cached_old_source_is_not_executed(self):
+        result, _, _, _ = self.blob_reuse_request(
+            "from .helper import helper\nraise RuntimeError('do not execute source')\n"
+        )
+        self.assertEqual(result, [{"path":"pkg/helper.py","hints":"helper","max_lines":80}])
+
+    def test_current_supplied_source_wins_over_matching_old_source(self):
+        _, _, packet, snapshot = self.blob_reuse_request("from .helper import helper\n")
+        packet["sources"].append({
+            "url": f"https://raw.githubusercontent.com/o/r/{COMMIT}/pkg/read.py",
+            "text": "new window",
+        })
+        reader = Mock(return_value="from .current import helper\n")
+        snapshot["files"].append("pkg/current.py")
+        result = import_requests(packet,snapshot,{"next_check":"definition(helper)"},reader)
+        self.assertEqual(result, [{"path":"pkg/current.py","hints":"helper","max_lines":80}])
+        reader.assert_called_once_with("o/r", COMMIT, "pkg/read.py")
+
     def test_explicit_supplied_module_after_issue_can_supply_import_hint(self):
         path = "pkg/wrapper.py"
         packet = {"repo": "o/r", "sources": [

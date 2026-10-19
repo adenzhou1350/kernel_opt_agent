@@ -6,6 +6,7 @@ Unsupported syntax/resolution leaves ordinary context acquisition unchanged.
 """
 
 import ast
+import hashlib
 import re
 from urllib.parse import unquote, urlsplit
 
@@ -264,14 +265,17 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
 
     Same-file free functions, named aliases and .js -> .ts are hints only.
     An explicitly named already-supplied module may replace the primary source;
-    ambiguous basenames or revision drift abstain. Reports are not code modules.
+    ambiguous basenames or unverified revision drift abstain. An older cached
+    primary may supply syntax only when its UTF-8 Git blob equals this tree's
+    blob. Returned paths are still acquired at the current snapshot; old packet
+    text and URLs are never relabeled. Reports are not code modules.
     Local JS function declarations are lexical, not a complete language parser.
     Python named relative and observed same-package absolute imports supply
     module hints, not proof of local-name or installed-package resolution.
     A complete module already supplied is not requested
     again; a simple cached package lazy export may point one step further.
     Ambiguous declarations/tree members,
-    absent cache, revision drift, bare package imports and wildcard imports abstain.
+    absent cache, changed blobs, bare package imports and wildcard imports abstain.
     The callback must be a read-only cache lookup, not another acquisition step.
     """
     if type(limit) is not int or not 1 <= limit <= 2:
@@ -305,23 +309,33 @@ def import_requests(packet, snapshot, analysis, cached_source, *, limit=2):
     selected = observed[named[0]] if named else sources[0]
     selected = prefer_supplied_snapshot_source(sources, selected, repo, commit)
     url = urlsplit(selected.get("url", ""))
-    prefix = f"/{repo}/{commit}/"
+    match = re.fullmatch(rf"/{re.escape(repo)}/([a-f0-9]{{40}})/(.+)", url.path)
     if (
         not repo
         or url.scheme != "https"
         or url.netloc != "raw.githubusercontent.com"
         or url.query
         or url.fragment
-        or not url.path.startswith(prefix)
+        or match is None
     ):
         return []
-    path = unquote(url.path[len(prefix) :])
+    revision, path = match[1], unquote(match[2])
     files = set(snapshot.get("files", []))
     if path not in files or any(p in {"", ".", ".."} for p in path.split("/")):
         return []
-    raw = cached_source(repo, commit, path)
+    blob = snapshot.get("blobs", {}).get(path)
+    if revision != commit and (
+        not isinstance(blob, str) or not re.fullmatch(r"[a-f0-9]{40}", blob)
+    ):
+        return []
+    raw = cached_source(repo, revision, path)
     if not isinstance(raw, str) or len(raw.encode("utf-8")) > 131072 or "\x00" in raw:
         return []
+    if revision != commit:
+        body = raw.encode("utf-8")
+        identity = hashlib.sha1(b"blob " + str(len(body)).encode() + b"\0" + body).hexdigest()
+        if identity != blob:
+            return []
     if path.endswith(".go"):
         return go_import_requests(path, raw, files, sources, repo, commit, hints,
                                   cached_source, limit=limit)
