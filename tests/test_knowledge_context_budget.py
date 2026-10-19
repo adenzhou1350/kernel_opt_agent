@@ -400,6 +400,27 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_int8_advice_keeps_ideal_bound_failure_separate_from_diagnostic(self):
+        result = lesson_suggestions(
+            "online INT8 scale division rounding nearest-grid precision",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "dde9aca41cd3ccceb1ffa902933b6678a09c83ce/"
+                "vllm/model_executor/layers/quantization/online/int8.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "precision-reference-contract")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("Preserve a failed ideal-bound check", card["lesson"])
+        self.assertIn("agreement is diagnostic", card["lesson"])
+        self.assertTrue(any(
+            "not an accepted half-grid contract" in item["note"]
+            for item in card["evidence"]
+        ))
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_mode_advice_preserves_the_warmup_transition_and_limits(self):
         result = lesson_suggestions(
             "training no-grad inference-mode warmup checkpoint policy memory budget"
