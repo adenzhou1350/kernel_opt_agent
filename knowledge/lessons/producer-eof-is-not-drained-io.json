@@ -1,0 +1,22 @@
+{
+  "id": "producer-eof-is-not-drained-io",
+  "title": "Producer EOF is not proof that owned I/O has drained",
+  "applies_when": "A queue/prefetch lifecycle uses the same stopped or EOF flag to mean no more work will be scheduled and to decide whether close should join outstanding tasks. Check the supported owning caller and its actual close contract.",
+  "lesson": "Trace the state transition, not just the flag name. Fsspec's adaptive producer sets is_stopped after enqueuing the last range, while that range's fetch may still be pending. Its close guard then skipped the existing producer teardown, leaving pending I/O and queued tasks after default close returned. Keep scheduling completion, task completion and resource release distinct. Reuse the existing idempotent drain for an existing producer; retain its lock, timeout and non-cancelling task policy. Build an event-gated witness through the real buffered-file caller, and pair EOF with a not-yet-EOF control. A registered async regression can give teardown a loop turn while the fetch gate stays closed, then release it in finally and join all owned tasks; do not use arbitrary sleeps to infer when I/O completed. Verify normal reads, repeated close, timeout and concurrent-read guards too.",
+  "avoid_when": "Do not infer a defect from a stopped flag without a still-owned task and an applicable close postcondition. Explicit fire-and-forget close and documented finite timeouts need their own outcome expectations; do not replace them with indefinite waits, cancel borrowed work or swallow foreground errors. Local event-controlled memory backends do not prove a live-network leak, arbitrary concurrency safety, full downstream/CI coverage or performance. These known cases are not prospective selector-efficiency evidence.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/prefetcher.py",
+      "note": "Pinned producer marks is_stopped when current_offset reaches size; stop() separately joins active fetch tasks and clears queued items. _async_close skipped that drain for a producer already marked stopped. This is a source mechanism, not a network-service measurement."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/caching.py",
+      "note": "AdaptiveReadaheadCache delegates real AbstractBufferedFile reads and owned close to BackgroundPrefetcher. A direct internal helper failure alone would not establish this supported caller path."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2340",
+      "note": "AI-assisted proposed repair at b450b99: same registered EOF/non-EOF tests give baseline 1 failure/1 passing control and candidate 2 passes on native Windows3.14.3 and Linux3.12.3. Complete prefetcher/cache/mapping selections pass329 each, no skips; applicable hooks pass. Initial missing-fixture/plugin preparation failures are retained separately. Not full-project/cloud/downstream CI, performance or upstream acceptance."
+    }
+  ],
+  "status": "validated"
+}
