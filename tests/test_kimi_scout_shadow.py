@@ -1,10 +1,12 @@
 """Advisory shadow records only queue-time evidence; no model or network calls."""
 
+import hashlib
 import json
 from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
@@ -44,6 +46,75 @@ def packet(extension=".ts", with_test=True):
 
 
 class ShadowTests(unittest.TestCase):
+    def test_native_language_sources_and_companion_tests_are_recognized(self):
+        for extension, test_path in (
+            (".go", "src/thing_test.go"),
+            (".rs", "tests/thing.rs"),
+            (".c", "tests/test_thing.c"),
+            (".cc", "tests/thing_test.cc"),
+            (".cxx", "tests/thing_test.cxx"),
+        ):
+            with self.subTest(extension=extension):
+                item = packet(extension, with_test=False)
+                self.assertEqual(shadow.source_facts(item), (COMMIT, extension, False))
+                self.assertEqual(shadow.suggest(item),
+                    ("FIND_REPOSITORY_NATIVE_TEST", "PINNED_NONPYTHON_SOURCE_NO_TEST"))
+                item["sources"].append({
+                    "url": f"https://raw.githubusercontent.com/owner/repo/{COMMIT}/{test_path}",
+                    "text": "registered native test",
+                })
+                self.assertEqual(shadow.source_facts(item), (COMMIT, extension, True))
+                self.assertEqual(shadow.suggest(item),
+                    ("CHECK_TEST_AND_DOWNSTREAM_CONTRACT", "TEST_SOURCE_IN_PACKET"))
+                for unrelated in (
+                    item["sources"][1]["url"].replace("owner/repo", "other/repo"),
+                    item["sources"][1]["url"].replace(COMMIT, "b" * 40),
+                ):
+                    item["sources"][1]["url"] = unrelated
+                    self.assertEqual(shadow.source_facts(item), (COMMIT, extension, False))
+
+    def test_source_extension_facts_cover_the_existing_discovery_frontier(self):
+        import kimi_scout_research as research
+        self.assertEqual(set(shadow.SOURCE_EXTENSIONS), set(research.SOURCE_SUFFIXES))
+        for extension in (".yaml", ".toml", ".txt"):
+            with self.subTest(extension=extension):
+                self.assertEqual(shadow.source_facts(packet(extension)), (None, None, False))
+
+    def test_policy_upgrade_preserves_old_records_and_versions_new_admissions(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            scout.initialize(root)
+            old = packet(".go", with_test=False)
+            with scout.connect(root) as db:
+                shadow.initialize(db)
+                old_id = scout.enqueue(root, old, db=db)
+                # Exact v1 semantics for an unsupported Go suffix, not a fresh
+                # v2 decision mislabeled as historical evidence.
+                with (
+                    patch.object(shadow, "POLICY_VERSION", "predecision-native-test-baseline-v1"),
+                    patch.object(shadow, "source_facts", return_value=(None, None, False)),
+                ):
+                    shadow.record(db, old_id, old, scout.dumps(old))
+                before = dict(db.execute("SELECT * FROM research_action_shadow WHERE job_id=?",
+                                          (old_id,)).fetchone())
+                shadow.record(db, old_id, old, scout.dumps(old))
+                after = dict(db.execute("SELECT * FROM research_action_shadow WHERE job_id=?",
+                                         (old_id,)).fetchone())
+                self.assertEqual(after, before)
+                self.assertEqual(after["suggested_action"], "VERIFY_PINNED_SOURCE")
+                fresh = dict(old, name="new-admission")
+                fresh_id = scout.enqueue(root, fresh, db=db)
+                shadow.record(db, fresh_id, fresh, scout.dumps(fresh))
+                row = db.execute("SELECT * FROM research_action_shadow WHERE job_id=?",
+                                 (fresh_id,)).fetchone()
+                self.assertEqual(row["policy_version"], "predecision-native-test-baseline-v2")
+                self.assertEqual(row["source_extension"], ".go")
+                self.assertEqual(row["suggested_action"], "FIND_REPOSITORY_NATIVE_TEST")
+                self.assertEqual(row["packet_sha256"],
+                    hashlib.sha256(scout.dumps(fresh).encode()).hexdigest())
+                self.assertEqual([row[0] for row in db.execute("SELECT state FROM jobs")],
+                                 ["PENDING", "PENDING"])
+
     def test_source_test_contract_suggested_without_rejection(self):
         item = packet()
         self.assertEqual(shadow.source_facts(item), (COMMIT, ".ts", True))

@@ -2,6 +2,8 @@
 
 This records a cheap deterministic suggestion in the same transaction as queue
 admission. It never reads a model result, rejects a lead, or dispatches work.
+The v2 source facts cover the existing Go/Rust/C discovery suffixes. Previously
+recorded v1 rows and frozen experiment readers must not be recomputed in place.
 """
 
 from __future__ import annotations
@@ -17,9 +19,9 @@ import time
 from urllib.parse import urlsplit
 
 
-POLICY_VERSION = "predecision-native-test-baseline-v1"
+POLICY_VERSION = "predecision-native-test-baseline-v2"
 SOURCE_EXTENSIONS = (
-    ".py", ".cu", ".cuh", ".cpp", ".h", ".hpp",
+    ".py", ".go", ".rs", ".cu", ".cuh", ".cpp", ".cc", ".c", ".cxx", ".h", ".hpp",
     ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
 )
 PINNED_SOURCE = re.compile(
