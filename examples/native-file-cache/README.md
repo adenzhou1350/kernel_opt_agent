@@ -4,11 +4,14 @@ When a cache lead concerns byte boundaries, exercise the actual buffered-file
 caller before changing its internals. This small standard-library test imports
 the real fsspec package from an explicitly supplied, reviewed source root and
 uses a real `MemoryFileSystem`. It compares seek/read/readinto results and file
-positions with `io.BytesIO`; only the backend boundary is instrumented to reject
-empty or out-of-file fetches. No cache algorithm is copied or replaced.
+positions with `io.BytesIO`. The original block-cache checks also reject empty
+or out-of-file backend fetches; other cache policies retain their own backend
+range contracts. No cache algorithm is copied or replaced.
 
 ```sh
 python -B examples/native-file-cache/check.py --source /path/to/reviewed/filesystem_spec
+# Add serial none/bytes (trimmed and untrimmed)/readahead/first/all/mmap checks:
+python -B examples/native-file-cache/check.py --source /path/to/reviewed/filesystem_spec --suite all
 ```
 
 Use a fresh process, existing execution limits, and the project's supported
@@ -36,3 +39,20 @@ arbitrary thread schedules, performance, full upstream-suite coverage, a univers
 no-bug result, discovery recall, or evidence-selector research efficacy. Backend
 request counts may depend on background scheduling; they are not speed metrics.
 Recheck changed cache/lifecycle contracts rather than weakening the oracle.
+
+The extended `--suite all` audit at
+[941e6f9](https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/caching.py)
+passed nine test methods, 624 size/block/capacity/configuration combinations,
+42,432 read checks and 39,936 position checks on both Windows/Python3.14.3 and
+offline Linux/Python3.12.10. Both imported the same raw-Git `caching.py` bytes;
+the example checks the selected cache class and nonempty mmap disposal too.
+`--suite simple` selects only the seven added configurations. These passes found
+no new defect; they are not a reason to submit a production change. KnownParts
+zero-fill semantics and adaptive/async paths are not covered.
+
+For the Linux replay, an initial package-wide archive included an unrelated
+large upstream test cassette and hit the sandbox's file-size limit before any
+oracle test ran. A fresh raw-Git bundle containing only package Python files
+passed under the unchanged limits. Keep extraction and execution in the same
+container when using an ephemeral directory; do not claim upstream pytest
+coverage from that production-only export.
