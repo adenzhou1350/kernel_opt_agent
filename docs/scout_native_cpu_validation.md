@@ -107,6 +107,29 @@ realized it. A visible answer rejected for an invalid quote remains `FAILED`;
 do not trim/repair it into acceptance or overwrite a terminal row during a
 separately budgeted development calibration. Keep frozen study arms unchanged.
 
+### Installed code is not an enabled acquisition route
+
+Verify both the running controller's source and its loaded repository settings.
+For example, `followup_code_search` defaults to **false**: deploying a new hint
+reader does not enable its opt-in GitHub search. Enable it explicitly only for
+the reviewed scope, and retain search errors and physical-read costs. The current
+controller loads its research configuration at startup; changing a file alone
+does not establish activation. Use the existing owned drain/start path, preserve
+queue/seen/backoff state, and verify actual new packets or retained configuration.
+Never reset cursors or replay terminal rows merely to demonstrate a new route.
+An enabled flag is not proof a later request used it or improved discovery.
+
+Before adding a repository, prefer a narrow source area whose real package tests
+can already run. At fsspec `941e6f910a1d4683f31a56a9adf78dccb50ecdcf`, the unchanged
+[`test_caches.py`](https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/tests/test_caches.py)
+and [`test_mapping.py`](https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/tests/test_mapping.py)
+cohort passed 266 cases on native Windows CPython 3.14, with no errors/skips.
+The existing native runner verified working source hashes, actual import paths
+and owned Job Object cleanup. Raw Git and checkout bytes were checked separately.
+This supports ordinary discovery in those two modules, not new bugs, Linux or
+all-version coverage, automatic execution authority or evidence-selector benefit.
+A new queue on another host is not recovery of a lost frozen research cohort.
+
 ### Cache charge is not process memory or guaranteed spare capacity
 
 Use `scout_linux_memory.py` before restarting a stopped worker. Host free memory,
