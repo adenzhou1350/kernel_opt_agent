@@ -28,6 +28,14 @@
     {
       "url": "https://github.com/vllm-project/vllm/blob/a608b6e6e05f4b309f77981f010e93c2caa1c677/vllm/models/deepseek_v41/amd/mono_decode.py#L60-L103",
       "note": "The mono integration documents and caches one runner per TP rank, passes its device into DSV41MonoLayer and uses rank-local collective peer memory. TP is not evidence that a supported call changes the current device inside that process. Pinned-source countercondition only; no native AMD execution or blanket no-bug verdict."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/bde4d001130e5112d984ba99f0546e22c09e1a89/vllm/multimodal/video_decoders/pynvvideocodec.py#L273-L284",
+      "note": "The stream helper changes the device before saving previous_stream. That saved stream therefore belongs to the target device; resetting it alone does not establish restoration of the caller device. Inspect the actual decoder-slot producer and both device streams on normal/error exit, not an arbitrary fake backend. Source mechanism only; no codec, model or general backend qualification is asserted here."
+    },
+    {
+      "url": "https://docs.pytorch.org/docs/2.14/generated/torch.cuda.StreamContext.html",
+      "note": "Torch provides its own CUDA stream-selection context. Prefer checking the installed implementation's entry/exit behavior before maintaining a separate device/stream restoration stack. This API reference does not establish that every codec, dependency version or graph-capture use is compatible."
     }
   ],
   "status": "validated"

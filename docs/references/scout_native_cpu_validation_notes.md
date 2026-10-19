@@ -1507,6 +1507,13 @@ qualification, and disabling unused NUMA setup is not a topology test.
 Use an unprivileged task directory whose ancestors are traversable. A private
 child under a root-only parent remains inaccessible after changing the child's
 owner. Disable unrelated uv configuration discovery. A task-owned uv cache
+may be readable while a copied package directory retains root-only mode0700.
+Check the complete source path and report-directory permissions as the actual
+test UID, not only the outer task directory. An inaccessible PYTHONPATH entry
+can fall through to an installed package. Assert the imported module path before
+executing target tests, retain that setup failure, and repair only a fresh owned
+copy. A correct source hash does not establish that the child can import it.
+A task-owned uv cache
 normally contains relative links to its own archive objects; validate their
 resolved confinement rather than rejecting every symlink or following foreign
 targets. Completed owned artifacts can be reused offline. `--no-deps` is not a
