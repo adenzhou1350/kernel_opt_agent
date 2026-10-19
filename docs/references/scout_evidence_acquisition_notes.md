@@ -22,6 +22,32 @@ for fresh shadow experiments. It does not replace the live Scout fetcher, decide
 candidate quality, launch code, or write files. A caller supplies already
 sanitized public targets and enforces its cohort repository/revision constraints.
 
+## Caller evidence before runtime preparation (exposed development case)
+
+An existing DeepSeek V4.1 WO-A lead repeated the `dispatch(tokens=0)` division
+concern through three paid source-audit/follow-up stages. All three retained
+unknown production reachability and requested external references; their packets
+still lacked the actual output-projection caller. The complete pinned
+[`dsv41_o_proj` wrapper](https://github.com/vllm-project/vllm/blob/5fd62688ffe995c0c11c8708fe51dbff53235b74/vllm/models/deepseek_v41/nvidia/ops/o_proj.py)
+requires `1 <= o.shape[0]` before fusion. The kernel's
+[`get_warmup_keys`](https://github.com/vllm-project/vllm/blob/5fd62688ffe995c0c11c8708fe51dbff53235b74/vllm/models/deepseek_v41/nvidia/ops/fused_wo_a.py)
+also enumerates from one. Both raw blobs are unchanged from the original
+81f7c695 lead revision. This supports deferring that reachability premise without
+building CUDA or changing the deliberately excluded internal input; it does not
+prove the complete kernel correct or rule out a different caller.
+
+The live controller's external code-search branch was eligible only for
+`needs_context`, whereas these three analyses were labelled `lead` despite
+requesting missing references. Same-file lexical references do not establish an
+external consumer. This identifies a bounded acquisition failure to test, not
+evidence to automatically relabel every lead, search all callers, relax source
+budgets or promote a new policy from one known case. The owner used the existing
+raw-Git packet helper for complete definitions and recorded a deferred decision
+with explicit reopening conditions; original model results were not rewritten.
+No new model/native call, prospective enrollment, measured saving or PR claim
+was made by this source check. Future comparisons must charge all three prior
+calls and the caller acquisition, not count the helper exception as a finding.
+
 ## Research boundary (2026-10-11)
 
 Evidence selection is a hypothesis, not established novelty. Primary work
