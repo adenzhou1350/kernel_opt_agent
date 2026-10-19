@@ -163,3 +163,52 @@ results.** Keep simple existing behavior while improving a specific demonstrated
 source/native bottleneck. Any future function-aware or contract-boundary study
 needs a fresh prospective cohort and comparable evidence/action capacity; it
 must retain this completed null/negative result instead of silently replacing it.
+
+## Subsequent prior-art and metric check, 2026-10-19
+
+This is preparation for a different comparison, not another v2 case or a
+reinterpretation of its results.
+
+- [Agent Retrieval Bench](https://arxiv.org/html/2607.24882v1) already evaluates
+  workflow-dependent next-context retrieval, abstention and budgeted exposure.
+  Its file-level scores explicitly do not establish useful-span localization or
+  test-passing repair. Reuse its public lexical/BM25/RepoMap controls rather than
+  treating next-file selection as new.
+- [SWE-Explore](https://arxiv.org/abs/2606.07297) already evaluates ranked code
+  regions under line budgets and connects exploration with downstream repair.
+  Moving from files to spans alone is therefore not a sufficient novelty claim.
+- [CAM-DF](https://arxiv.org/html/2607.27083v1) studies cost-aware stopping over
+  ranked tool prefixes before execution. Its stated setting does not adapt the
+  prefix after receiving tool outputs; that distinction is not evidence that an
+  output-adaptive alternative would outperform it.
+- [SWE-Next](https://arxiv.org/html/2603.20691v1) combines executable base/fixed
+  comparisons with reusable repository/time environment profiles. Environment
+  reuse and strict improvement checks are also established prior work, not new
+  contributions merely because Scout implements them.
+
+Local feasibility check: official ARB code at
+[`07014c9`](https://github.com/eyuansu62/agent-retrieval-bench/tree/07014c986f3deadb1548c62b32c0ffbe6a81465d)
+passed its three BCY-curve and one context-cost test methods on native Windows.
+No full dataset or published leaderboard was rerun. A deliberately known-source
+boundary probe used the real pinned vLLM `reload/layerwise.py`: a header plus one
+content token earns file-exposure credit while leaving the requested restore
+definition at line 417 unseen. The 16-content-token sensitivity does not give
+credit. This reproduces documented metric semantics, not an ARB defect, a
+benchmark sample, a new metric or a downstream performance result.
+
+The remaining research question is conditional: can output-adaptive acquisition
+reach a **baseline-discriminating, controls-preserving native witness**, or a
+supported rejection, at lower total cost without increasing audited misses?
+Our recent owner-reviewed counterexamples motivate that question but cannot
+answer it prospectively. Do not replace file exposure with another unvalidated
+proxy and declare success.
+
+A fresh comparison must retain the existing null result; predeclare admissions
+before outcomes; give rule, direct-model and layered-model arms comparable
+actions and budgets; separate setup from per-case execution; and audit missed
+defects independently of arm labels. An actual sequential tool-use baseline is
+needed, not a renamed two-ID selector. Available provider names are not a
+verified cheap/strong ordering. Existing-method implementation, pricing,
+sampling realization, native-action availability and blinded assessment still
+need qualification. Do not open a replacement cohort until those choices are
+executable; the present check makes no efficacy or paper-ready claim.
