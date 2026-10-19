@@ -259,6 +259,29 @@ the invocation and leave frozen study arms unchanged. Different packets and
 settings cannot establish a causal efficiency or discovery-quality comparison.
 Accepted request syntax does not prove a gateway realized the selected effort.
 
+One known-case application check on the
+[vLLM stream helper](https://github.com/vllm-project/vllm/blob/aa3564ceefbd605f1d28238fa0fbbb964201c6b8/vllm/multimodal/video_decoders/pynvvideocodec.py#L260-L284)
+illustrates why these gates stay separate. With effort omitted, 4,096- and
+8,192-completion-token allowances both ended at `length` without a complete
+answer. A separately declared one-call `low` configuration, with the same packet
+and the original 4,096 allowance, returned a schema/source-quotation-accepted
+diagnosis using 1,918 reported total tokens in 5.104 client seconds. All three
+attempts remain charged: 16,784 reported tokens, excluding preparation, owner and
+native costs. This single realization is neither a causal/general quality result
+nor evidence of the gateway's internal reasoning policy; the reasoning counter
+was absent. It does not change frozen study arms or justify a production switch.
+
+The completed answer still suggested an incomplete repair: restore the caller's
+device **before** setting the saved stream. That stream was saved after switching
+to the target device, so selecting it can switch away from the caller again.
+An owner-reviewed literal implementation of that order, in the complete imported
+vLLM module on Torch 2.14/two CUDA devices, passed the same-device control but
+failed both normal and exceptional cross-device exits (1 pass / 2 failures).
+This used the existing unchanged tests, not another run of the already passing
+repair. Keep `REVIEW`/valid diagnosis separate from repair correctness; do not
+promote a native-failing suggestion, rewrite its model answer or count a known
+development case as prospective discovery or paper evidence.
+
 Keep JSON syntax and source accuracy separate too. A six-call synthetic quoting
 calibration on GLM-5.3 produced valid JSON for both ordinary and `json_object`
 requests, but both miscopied the same trailing backslash as a double quote.
