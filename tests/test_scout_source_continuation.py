@@ -222,9 +222,9 @@ class ContinuationTests(unittest.TestCase):
             continuation_request(self.packet, self.snapshot, {"next_check": "before line 241"})
         )
 
-    def run_followup(self, hint):
+    def run_followup(self, hint, *, cached_raw=None):
         calls = []
-        snapshot = {**self.snapshot, "blobs": {"src/worker.ts": "b" * 40}}
+        snapshot = dict(self.snapshot)
 
         class Context:
             def snapshot(self, repo, ref="main"):
@@ -239,6 +239,9 @@ class ContinuationTests(unittest.TestCase):
 
             def duplicate_sources(self, repo, title):
                 return []
+
+            def cached_source_text(self, repo, commit, path):
+                return cached_raw
 
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -260,7 +263,8 @@ class ContinuationTests(unittest.TestCase):
                 encoding="utf-8",
             )
             producer = ResearchProducer(root, config, context=Context())
-            source = {**self.packet["sources"][0], "text": "360: await worker.run();"}
+            source = {**self.packet["sources"][0],
+                      "text": self.packet["sources"][0].get("text", "360: await worker.run();")}
             producer.emit("worker", spec, [source], "source_audit")
             with scout.connect(root) as db:
                 db.execute(
@@ -294,6 +298,28 @@ class ContinuationTests(unittest.TestCase):
                          [("src/worker.ts", 341, 120), ("src/worker.ts", 418, 120)])
         for start in (341, 418):
             self.assertTrue(any(s["text"].startswith(f"{start}:") for s in fragments))
+
+    def test_incomplete_definition_cross_revision_reaches_unread_tail_in_producer(self):
+        import hashlib
+
+        raw = "def select_backend():\n" + "    # implementation\n" * 150 + "    return 'selected'\n"
+        data = raw.encode()
+        blob = hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+        # An unrelated repository revision changed, but this file's raw Git
+        # identity is unchanged. The earlier read stopped at line65.
+        path = "src/worker.py"
+        self.snapshot.update(files=[path], blobs={path: blob})
+        for revision in (self.sha, 'c'*40):
+            with self.subTest(revision=revision):
+                self.packet['sources'] = [dict(
+                    url=f"https://raw.githubusercontent.com/a/b/{revision}/{path}",
+                    start_line=1, end_line=65, total_lines=152, truncated=True,
+                    requested_definition=dict(name='select_backend', start_line=1, end_line=152),
+                    requested_definition_complete=False,
+                    text='\n'.join(f'{i+1}: {line}' for i,line in enumerate(raw.splitlines()[:65])),
+                )]
+                calls, _ = self.run_followup('definition(select_backend) lines 65-152', cached_raw=raw)
+                self.assertEqual([(p, k['start'], k['max_lines']) for p,k in calls], [(path,66,87)])
 
     def test_head_followup_uses_same_two_read_budget(self):
         calls, fragments = self.run_followup("Read lines 100-240 for preceding validation")

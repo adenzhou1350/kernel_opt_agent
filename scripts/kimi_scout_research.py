@@ -24,7 +24,11 @@ from scout_cited_issue import cited_issue_number, related_issue_body, requested_
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint
-from scout_requested_definition import cached_qualified_definition_path, requested_code_search_symbols
+from scout_requested_definition import (
+    cached_definition_tail_request,
+    cached_qualified_definition_path,
+    requested_code_search_symbols,
+)
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
 from scout_symbol_references import reference_requests
@@ -1591,12 +1595,16 @@ class ResearchProducer:
                 topic_hints=sources[0]["text"].split("\n", 1)[0] if number and sources else "",
                 spec=spec,
             )
-            continuation = continuation_request(packet, snapshot, analysis_value, spec=spec)
+            cached_source = getattr(self.context, "cached_source_text", None)
+            continuation = cached_definition_tail_request(
+                packet, snapshot, analysis_value, cached_source
+            )
+            if continuation is None:
+                continuation = continuation_request(packet, snapshot, analysis_value, spec=spec)
             if continuation:
                 paths = [continuation["path"]] + [
                     path for path in paths if path != continuation["path"]
                 ]
-            cached_source = getattr(self.context, "cached_source_text", None)
             references = []
             if (
                 callable(cached_source)

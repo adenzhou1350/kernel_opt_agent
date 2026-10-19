@@ -51,6 +51,17 @@ routing, not native target-project qualification or improved PR yield.
 python -B -m unittest tests.test_scout_source_continuation
 ```
 
+An explicit re-request of a Python definition already marked incomplete can
+continue at its next unread line instead of repeating the declaration prefix.
+The owner/source reader must still have that exact file in its bounded raw
+cache. The cached text's Git blob must equal the selected snapshot's blob;
+only then may an unrelated repository revision change retain the line anchor.
+Changed/missing content, ambiguous definitions/files, explicit head requests
+and ranges outside the declaration retain the existing fallback. This consumes
+an ordinary lexical read, not a third source slot or a complete-body assertion.
+The frozen prospective pilot retains its original acquisition rules; this
+production change does not retroactively change its arms or scores.
+
 ## Declarative implementations are opt-in evidence text
 
 Some repositories store implementations inside YAML, not Python files. An

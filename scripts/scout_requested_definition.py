@@ -5,6 +5,7 @@ Ambiguous/missing declarations fall back to existing context selection. C++/Rust
 locations are explicitly lexical, not parsed definitions or complete bodies.
 """
 import ast
+import hashlib
 import io
 import re
 import tokenize
@@ -121,6 +122,76 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
         if target is not None:
             matches.append(path)
     return matches[0] if len(matches) == 1 else None
+
+
+def cached_definition_tail_request(packet, snapshot, analysis, cached_source):
+    """Continue one explicitly re-requested, incomplete Python declaration.
+
+    Only existing raw caches may establish the old window's identity. Its Git
+    blob must equal the current tree's blob, including across revision changes.
+    Read the next unread line, not the same declaration prefix. No network,
+    body execution, extra source slot or completeness/reachability claim.
+    """
+    request = analysis.get("next_check") if isinstance(analysis, dict) else None
+    if not isinstance(request, str) or not callable(cached_source):
+        return None
+    request = request[:2000]
+    markers = re.findall(r"(?<!\w)(definition|references)[ \t]*\(", request)
+    if markers != ["definition"] or re.search(r"\bbefore\s+line\b|之前|以前", request, re.IGNORECASE):
+        return None
+    repo = packet.get("repo")
+    if (not isinstance(repo, str) or not isinstance(snapshot.get("commit"), str)
+            or not re.fullmatch(r"[0-9a-f]{40}", snapshot["commit"])):
+        return None
+    matches, cached = {}, {}
+    for source in packet.get("sources", [])[:8]:
+        if (not isinstance(source, dict) or source.get("requested_definition_complete") is not False
+                or source.get("truncated") is not True):
+            continue
+        try:
+            url = urlsplit(source.get("url", ""))
+            match = re.fullmatch(rf"/{re.escape(repo)}/([0-9a-f]{{40}})/(.+)", url.path)
+            if (url.scheme != "https" or url.netloc != "raw.githubusercontent.com"
+                    or url.query or url.fragment or match is None):
+                continue
+            revision, path = match[1], unquote(match[2])
+            literal_paths = re.findall(r"(?<![\w/])(?:[\w.-]+/)*[\w.-]+\.py(?![\w/])", request)
+            if any(p not in {path, path.rsplit("/", 1)[-1]} for p in literal_paths):
+                continue
+            blob = snapshot.get("blobs", {}).get(path)
+            if (path not in snapshot.get("files", []) or not path.endswith(".py")
+                    or not isinstance(blob, str) or not re.fullmatch(r"[0-9a-f]{40}", blob)):
+                continue
+            key = (revision, path)
+            if key not in cached:
+                cached[key] = cached_source(repo, revision, path)
+            raw = cached[key]
+            if not isinstance(raw, str) or len(raw.encode("utf-8")) > 1_000_000:
+                continue
+            data = raw.encode("utf-8")
+            if hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest() != blob:
+                continue
+            lines = raw.splitlines()
+            target = requested_function_window(lines, request)
+            start, end, total = (source.get(k) for k in ("start_line", "end_line", "total_lines"))
+            if (target is None or target != source.get("requested_definition")
+                    or any(type(v) is not int for v in (start, end, total))
+                    or not target["start_line"] <= start <= end < target["end_line"] <= total
+                    or total != len(lines)):
+                continue
+            ranges = re.findall(r"(?:\blines?\s+|(?<!\d))(\d{1,7})\s*[-–—]\s*(\d{1,7})(?:\b|行)", request)
+            if any(not target['start_line'] <= int(first) <= int(last) <= target['end_line']
+                   or int(last) <= end for first, last in ranges):
+                continue
+            # Two fragments of this same declaration are one target. Start
+            # after the furthest observed line; never claim the gap was read.
+            candidate = {"path": path, "start": end + 1,
+                         "max_lines": min(120, target["end_line"] - end)}
+            if path not in matches or candidate["start"] > matches[path]["start"]:
+                matches[path] = candidate
+        except (OSError, ValueError, TypeError, RecursionError):
+            continue
+    return next(iter(matches.values())) if len(matches) == 1 else None
 
 
 def requested_rust_fn_anchor(raw, request):
