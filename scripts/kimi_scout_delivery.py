@@ -29,7 +29,7 @@ from kimi_scout_delivery_source import (
     SourceEvidenceRequired, UnsupportedEnvironment, load_source,
     normalize_excluded_repos, select_leads,
 )
-from kimi_scout_verify import valid_test_summary
+from kimi_scout_verify import PROFILES, valid_test_summary
 from scout_publication_context import (
     owner_deferral_context, publication_context, publication_summary,
     restore_publication_context,
@@ -995,6 +995,58 @@ class Delivery:
             raise RuntimeError("tool-free model completion failed")
         return scout.parse_answer(answer["text"])
 
+    def check_runtime(self, work, profile):
+        """Reject missing execution prerequisites before a paid generation call."""
+        if not local_wsl_authorized(self.args):
+            raise UnsupportedEnvironment(
+                "local WSL requires explicit task authorization"
+            )
+        env = scout.runtime_storage_env(self.args.root)
+        command = [
+            "/usr/bin/python3",
+            "-I",
+            "-B",
+            linux_path(SCRIPT_ROOT / "kimi_scout_verify.py"),
+            "--check-runtime",
+            "--profile",
+            profile,
+        ]
+        if os.name == "nt":
+            command = [
+                "wsl.exe",
+                "-d",
+                self.args.wsl,
+                "--exec",
+                "/usr/bin/env",
+                "TMPDIR=" + linux_path(Path(env["TMPDIR"])),
+                "XDG_CACHE_HOME=" + linux_path(Path(env["XDG_CACHE_HOME"])),
+                *command,
+            ]
+        try:
+            completed = subprocess.run(
+                command, capture_output=True, timeout=15, check=False, env=env
+            )
+            observed = json.loads(completed.stdout)
+            available = (
+                completed.returncode == 0
+                and isinstance(observed, dict)
+                and observed.get("available") is True
+                and observed.get("profile") == profile
+                and observed.get("image") == PROFILES[profile][0]
+            )
+        except (OSError, ValueError, subprocess.SubprocessError):
+            observed = {
+                "profile": profile,
+                "available": False,
+                "error": "runtime inspection unavailable",
+            }
+            available = False
+        scout.write_json(work / "runtime-preflight.json", observed)
+        if not available:
+            raise UnsupportedEnvironment(
+                "CPU verifier or pinned cached image unavailable; no model call made"
+            )
+
     def sandbox(self, work, version, profile, module_path=None, source_commit=None):
         with self.cpu:
             if self.stopped():
@@ -1104,6 +1156,7 @@ class Delivery:
             )
             if gpu_only:
                 return self.prepare_gpu(job, work, context, original)
+            self.check_runtime(work, profile)
             prompt = PROMPT + "\nPUBLIC DATA:\n" + scout.dumps(context)
             value = self.model(job, "generate", prompt)
             if (

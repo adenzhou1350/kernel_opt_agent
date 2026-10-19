@@ -23,6 +23,16 @@ sequence, phase gate or method whitelist. Case history is in the
 | Reuse task-private dependencies? | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Setup/collection failed before assertions? | [Platform/package routes](#package-and-language-routes); retain failure, not a bug verdict |
 
+Before paid CPU reproduction generation, the delivery worker queries the selected
+fixed Docker image with `kimi_scout_verify.py --check-runtime --profile PROFILE`.
+This is a five-second read-only image inspection: no pull, target execution or
+package installation. Failure is an environment blocker, not a no-bug result.
+The worker saves `runtime-preflight.json`; an unavailable daemon, permissions,
+missing image or incompatible verifier can all reject this check. A successful
+lookup proves neither imports nor relevance of the eventual target test. Actual
+isolated execution and cleanup checks still apply. GPU review-only proposals
+do not require a CPU runtime and gain no execution authority from this check.
+
 ### Inherited rules before setup
 
 Read current repository and inherited organization rules plus explicitly linked

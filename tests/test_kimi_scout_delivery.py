@@ -332,9 +332,11 @@ class DeliveryTests(unittest.TestCase):
             patch.object(delivery, "load_source", return_value=source),
             patch.object(self.worker, "model", return_value=proposal()) as model,
             patch.object(self.worker, "sandbox") as sandbox,
+            patch.object(self.worker, "check_runtime") as runtime,
         ):
             self.assertEqual(self.worker.execute(job), "GPU_REVIEW_REQUIRED")
         sandbox.assert_not_called()
+        runtime.assert_not_called()
         self.assertEqual(model.call_count, 1)
         work = self.worker.root / "jobs" / job["id"]
         saved = json.loads((work / "gpu-proposal.json").read_text())
@@ -342,6 +344,77 @@ class DeliveryTests(unittest.TestCase):
         self.assertFalse(saved["qualified"])
         self.assertTrue((work / "gpu-test.py").is_file())
         self.assertFalse((work / "approval.json").exists())
+
+    def test_runtime_failure_blocks_before_paid_generation(self):
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        with (
+            patch.object(
+                delivery,
+                "load_source",
+                return_value={
+                    "source": SOURCE,
+                    "path": "public.py",
+                    "url": "https://public.invalid",
+                    "dependency_modules": [],
+                },
+            ),
+            patch.object(
+                self.worker,
+                "check_runtime",
+                side_effect=delivery.UnsupportedEnvironment(
+                    "pinned CPU image unavailable"
+                ),
+            ),
+            patch.object(self.worker, "model") as model,
+            patch.object(self.worker, "sandbox") as sandbox,
+        ):
+            self.assertEqual(self.worker.execute(job), "ENVIRONMENT_BLOCKED")
+        model.assert_not_called()
+        sandbox.assert_not_called()
+        with delivery.database(self.worker.root) as db:
+            row = db.execute("SELECT state,reported_tokens FROM delivery").fetchone()
+        self.assertEqual(tuple(row), ("ENVIRONMENT_BLOCKED", 0))
+
+    def test_runtime_inspection_is_bounded_and_requires_exact_profile_image(self):
+        work = self.worker.root / "jobs" / "runtime"
+        work.mkdir()
+        self.args.allow_local_wsl = True  # Mocked subprocess, never starts WSL.
+        expected = {
+            "profile": "stdlib",
+            "image": delivery.PROFILES["stdlib"][0],
+            "available": True,
+        }
+        for response, success in (
+            (expected, True),
+            ({**expected, "image": "other"}, False),
+            ({**expected, "available": "true"}, False),
+            ([], False),
+        ):
+            with patch.object(
+                delivery.subprocess,
+                "run",
+                return_value=SimpleNamespace(
+                    returncode=0, stdout=json.dumps(response).encode()
+                ),
+            ) as execute:
+                if success:
+                    self.worker.check_runtime(work, "stdlib")
+                else:
+                    with self.assertRaises(delivery.UnsupportedEnvironment):
+                        self.worker.check_runtime(work, "stdlib")
+            self.assertIn("--check-runtime", execute.call_args.args[0])
+            self.assertNotIn("--baseline", execute.call_args.args[0])
+            self.assertEqual(execute.call_args.kwargs["timeout"], 15)
+        with (
+            patch.object(delivery, "local_wsl_authorized", return_value=False),
+            patch.object(delivery.subprocess, "run") as execute,
+            patch.object(delivery.scout, "runtime_storage_env") as storage,
+        ):
+            with self.assertRaises(delivery.UnsupportedEnvironment):
+                self.worker.check_runtime(work, "stdlib")
+        execute.assert_not_called()
+        storage.assert_not_called()
 
     def test_unresolved_source_stops_before_fetch_model_and_sandbox(self):
         raw = "https://raw.githubusercontent.com/public/project/" + "a" * 40 + "/check.py"
@@ -561,6 +634,7 @@ class DeliveryTests(unittest.TestCase):
             patch.object(delivery, "load_source", return_value=source),
             patch.object(self.worker, "model", side_effect=answers) as model,
             patch.object(self.worker, "sandbox", side_effect=outputs) as sandbox,
+            patch.object(self.worker, "check_runtime"),
         ):
             state = self.worker.execute(job)
         with delivery.database(self.worker.root) as db:

@@ -49,6 +49,52 @@ class Process:
 
 
 class VerifyTests(unittest.TestCase):
+    def test_runtime_inspection_never_pulls_or_starts_target_code(self):
+        for response in (verify.IMAGE.encode() + b"\n", b"sha256:other", b""):
+            with (
+                patch.object(verify.sys, "platform", "linux"),
+                patch.object(
+                    verify.subprocess,
+                    "run",
+                    return_value=type(
+                        "Done", (), {"stdout": response, "returncode": 0}
+                    )(),
+                ) as run,
+            ):
+                result = verify.check_runtime()
+            self.assertEqual(
+                result["available"], response.strip() == verify.IMAGE.encode()
+            )
+            self.assertEqual(
+                run.call_args.args[0],
+                verify.DOCKER
+                + ["image", "inspect", "--format", "{{.Id}}", verify.IMAGE],
+            )
+            self.assertEqual(run.call_args.kwargs["timeout"], 5)
+        for error in (FileNotFoundError(), subprocess.TimeoutExpired("inspect", 5)):
+            with (
+                patch.object(verify.sys, "platform", "linux"),
+                patch.object(verify.subprocess, "run", side_effect=error),
+            ):
+                self.assertFalse(verify.check_runtime()["available"])
+
+    def test_runtime_cli_has_no_target_inputs_or_execution(self):
+        with (
+            patch.object(
+                verify, "check_runtime", return_value={"available": False}
+            ) as check,
+            patch.object(verify, "verify") as execute,
+            patch("sys.stdout", new_callable=io.StringIO),
+        ):
+            self.assertEqual(
+                verify.main(["--check-runtime", "--profile", "torch-cpu"]), 1
+            )
+        check.assert_called_once_with("torch-cpu")
+        execute.assert_not_called()
+        with patch("sys.stderr", new_callable=io.StringIO):
+            with self.assertRaises(SystemExit):
+                verify.main(["--check-runtime", "--baseline", "unread.py"])
+
     def test_only_executed_assertion_discrimination_reaches_review(self):
         import kimi_scout_delivery as delivery
 

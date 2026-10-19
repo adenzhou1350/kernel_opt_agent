@@ -113,6 +113,33 @@ def read_input(value):
     return content
 
 
+def check_runtime(profile="stdlib"):
+    """Inspect a cached image only; do not pull, start a test, or qualify imports."""
+    if sys.platform != "linux" or profile not in PROFILES:
+        raise ValueError("runtime inspection needs Linux and a pinned CPU profile")
+    image = PROFILES[profile][0]
+    try:
+        observed = subprocess.run(
+            DOCKER + ["image", "inspect", "--format", "{{.Id}}", image],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            env=ENV,
+            timeout=5,
+            check=False,
+        )
+        available = (
+            observed.returncode == 0 and observed.stdout.strip() == image.encode()
+        )
+    except (OSError, subprocess.SubprocessError):
+        available = False
+    return {
+        "profile": profile,
+        "image": image,
+        "available": available,
+        "claim_scope": "CACHED_IMAGE_METADATA_ONLY_NOT_TEST_QUALIFICATION",
+    }
+
+
 def command(
     subject, test, name, *, profile="stdlib", module_path=None, baseline_sha256=None
 ):
@@ -352,14 +379,38 @@ def verify(
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--baseline", type=Path, required=True)
-    parser.add_argument("--candidate", type=Path, required=True)
-    parser.add_argument("--test", type=Path, required=True)
+    parser.add_argument("--baseline", type=Path)
+    parser.add_argument("--candidate", type=Path)
+    parser.add_argument("--test", type=Path)
+    parser.add_argument(
+        "--check-runtime",
+        action="store_true",
+        help="inspect the cached CPU image; no pull or target execution",
+    )
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--profile", choices=tuple(PROFILES), default="stdlib")
     parser.add_argument("--module-path")
     parser.add_argument("--source-commit")
     args = parser.parse_args(argv)
+    if args.check_runtime:
+        if any(
+            (
+                args.baseline,
+                args.candidate,
+                args.test,
+                args.module_path,
+                args.source_commit,
+            )
+        ):
+            parser.error("runtime inspection takes no target inputs")
+        try:
+            result = check_runtime(args.profile)
+        except ValueError:
+            result = {"profile": args.profile, "available": False}
+        print(json.dumps(result))
+        return int(not result["available"])
+    if not all((args.baseline, args.candidate, args.test)):
+        parser.error("verification requires --baseline, --candidate and --test")
     try:
         options = {"timeout": args.timeout, "profile": args.profile}
         if args.module_path is not None or args.source_commit is not None:
