@@ -1,0 +1,22 @@
+{
+  "id": "rendered-media-order-must-bind-sidechannels",
+  "title": "Bind media data and UUIDs to surviving rendered order, not original message order",
+  "applies_when": "A multimodal prompt encoder merges, sorts or drops messages while a separate parser collects images and cache UUIDs in input order; DeepSeek V4.1 tool-result ordering and discarded developer images are concrete examples.",
+  "lesson": "Treat prompt text, media payloads and media UUIDs as one correspondence invariant. Assign image indices before preprocessing, carry them through message/block transforms, then collect only surviving indices in final rendering order and apply that selection to both data and UUID lists. Matching placeholder counts alone misses swaps; checking text alone misses extra or misbound images. Test reversed tool-result order, complete image removal, and a dropped image preceding a retained image. Exercise sync and async parsing with distinguishable image contents and UUIDs, and check that caller-owned inputs were not changed. Use the actual parser/tracker where feasible; model-metadata fixtures do not constitute real processor or serving validation.",
+  "avoid_when": "Do not apply a source-image permutation to expanded crops, embeddings, video frames or another modality without proving their indexing contract. Deduplication, cache hits and duplicated references may require a different correspondence representation. Tests of two paths sharing one rendering helper can miss a common error, so include independent payload/UUID expectations. Existing merged or open repairs remain their authors' work; independent verification is not a new discovery or reason for a competing PR. Component agreement does not prove correct model outputs or whole-server compatibility.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/3c8245b73dbcc1d29ed3450db4909a6d02eec5f1/vllm/renderers/deepseek_v4.py",
+      "note": "Merged PR60792 applies one rendered image-order selection to both media data and UUIDs, removing the image entry when no images survive. Source mechanism, not our contribution or full-model qualification."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/3c8245b73dbcc1d29ed3450db4909a6d02eec5f1/vllm/tokenizers/deepseek_v41_encoding.py",
+      "note": "Source indices accompany merged user/tool blocks and are gathered during final rendering after message preprocessing, rather than inferred solely from original input order."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/3c8245b73dbcc1d29ed3450db4909a6d02eec5f1/tests/tokenizers_/test_deepseek_v41.py",
+      "note": "The public upstream tests distinguish image pixels and UUIDs in reordered tool results and exercise developer-image removal through both sync and async paths. Their fixture replaces model metadata/processor lookup; it does not load a real vision model."
+    }
+  ],
+  "status": "validated"
+}
