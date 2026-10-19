@@ -1,0 +1,26 @@
+{
+  "id": "dummy-weights-preserve-model-topology",
+  "title": "Dummy weight loading does not validate a shrunken model topology",
+  "applies_when": "Avoiding a large checkpoint by using dummy weights and reducing a model's layers, experts, hidden dimensions or caches to reproduce a serving initialization bug.",
+  "lesson": "Treat weight acquisition, configuration acceptance and executable topology as separate questions. vLLM's DummyModelLoader skips weight download and initializes parameters, but still builds the real model. Preserve relationships between compression ratios, KV/index source layers, attention head groups, quantization and the selected backend before spending GPU time. In DeepSeek V4.1, declaring a pure sliding-window layer as an index source reaches an indexer division by compress_ratio=0. A CPU ModelConfig/EngineArgs check does not execute that constructor. Establish a positive-control engine startup before interpreting a baseline/candidate contrast; if it fails before the target code, classify the derived fixture as invalid and retain the failure. Prefer unchanged official CPU tokenizer/parser/processor tests for questions they actually answer, and reserve a model engine test for the remaining integration behavior.",
+  "avoid_when": "Do not repair production code just to admit a synthetic invalid topology, skip an assertion to make the model start, or treat a failed positive control as evidence against the candidate. A valid tiny model can still select a different kernel or execution path. Dummy-weight/eager generation does not establish official-weight accuracy, production graph behavior or performance. CPU tests, imports and configuration acceptance cannot replace end-to-end validation required by the target repository. Keep acquisition, initialization and test costs separate; this lesson does not claim measured Scout yield or cost improvement.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/ff01a6b14f329ccd4162fce309913542e2abcd5b/vllm/model_executor/model_loader/dummy_loader.py",
+      "note": "download_model is empty while load_weights initializes model parameters. This avoids checkpoint transport, not model construction or its invariants."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/ff01a6b14f329ccd4162fce309913542e2abcd5b/vllm/models/deepseek_v41/attention.py",
+      "note": "Layer membership independently determines whether an indexer is built. DeepseekV4Indexer derives its lengths by dividing by compress_ratio. Setting a zero-compression layer as an index source is therefore not an executable miniature of the original topology. This mechanism does not establish an unsupported-input production defect."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/ff01a6b14f329ccd4162fce309913542e2abcd5b/vllm/models/deepseek_v41/nvidia/model.py",
+      "note": "Attention backend selection depends on device/topology; layer construction precedes NgramHashState. A failure there does not exercise a tokenizer-revision repair in that later constructor."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/ff01a6b14f329ccd4162fce309913542e2abcd5b/tests/tokenizers_/test_deepseek_v41.py",
+      "note": "The official Python suite exercises prompt rendering and request parameter behavior without a weight checkpoint. This is component coverage, not HTTP serving or model-output evaluation."
+    }
+  ],
+  "status": "validated"
+}
