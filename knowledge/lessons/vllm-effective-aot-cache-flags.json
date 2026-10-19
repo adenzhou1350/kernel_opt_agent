@@ -1,0 +1,22 @@
+{
+  "id": "vllm-effective-aot-cache-flags",
+  "title": "Check effective vLLM AOT routing when isolating compilation caches",
+  "applies_when": "A vLLM compiler reproduction disables compilation caching to obtain a fresh run, or passes use_aot_compile=True and intends to validate the normal AOT/mega-artifact path.",
+  "lesson": "In the inspected vLLM revision, VLLM_DISABLE_COMPILE_CACHE=1 changes the default VLLM_USE_AOT_COMPILE to false; this also changes the default VLLM_USE_MEGA_AOT_ARTIFACT to false. Passing VllmBackend(use_aot_compile=True) alone does not override those environment defaults. Check the effective environment flags and selected adapter, and observe backend.use_mega_artifact before claiming AOT coverage. If cold isolation is the objective, a fresh task-private cache directory can preserve the intended cache/AOT configuration. Distinguish successful graph execution, actual AOT selection, artifact generation/serialization and warm-cache reload: success at one does not establish the others.",
+  "avoid_when": "Explicit VLLM_USE_AOT_COMPILE or VLLM_USE_MEGA_AOT_ARTIFACT overrides can change these defaults; disabling caching does not unconditionally prohibit AOT. Other vLLM/Torch revisions or backends may route differently. A non-AOT test can be a useful deliberate diagnostic, but cannot be relabeled as default AOT, serving-model, accelerator, performance or complete-cache qualification. Do not alter shared cache settings or remove isolation to force a pass.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/852989f580820849113d67d13fd8053e279d0444/vllm/envs.py#L372-L394",
+      "note": "Pinned use_aot_compile and use_mega_aot_artifact functions show the cache-disable-dependent defaults and the separate explicit environment overrides. This supports the configuration mechanism, not a universal failure claim."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/852989f580820849113d67d13fd8053e279d0444/vllm/compilation/backends.py#L872-L891",
+      "note": "VllmBackend combines the constructor's use_aot_compile with the effective mega-artifact flag; the constructor argument alone is insufficient. Read the actual selected version rather than inferring execution from the requested argument."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/852989f580820849113d67d13fd8053e279d0444/vllm/compilation/compiler_interface.py#L344-L352",
+      "note": "The standalone adapter enables Torch's aot parameter only when both its requested flag and effective VLLM_USE_MEGA_AOT_ARTIFACT are true. This is route-selection evidence, not proof an artifact was successfully saved or reloaded."
+    }
+  ],
+  "status": "validated"
+}
