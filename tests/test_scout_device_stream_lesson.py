@@ -29,6 +29,31 @@ class DeviceStreamLessonTests(unittest.TestCase):
         )
         self.assertNotIn("qualified", result)
 
+    def test_rank_local_mono_query_keeps_affinity_countercondition(self):
+        result = lesson_suggestions(
+            "mono runner torch.cuda.current_stream TP multi device"
+        )
+        self.assertEqual(result["status"], "ADVISORY_MATCH")
+        card = next(
+            card
+            for card in result["matches"]
+            if card["id"] == "cache-effective-device-identity"
+        )
+        self.assertLessEqual(
+            len(json.dumps(card, ensure_ascii=False).encode()), MAX_CARD_BYTES
+        )
+        self.assertIn("supported caller", card["lesson"])
+        self.assertIn("TP across processes alone", card["avoid_when"])
+        self.assertIn("native allocations", card["avoid_when"])
+        evidence = {row["url"]: row["note"] for row in card["evidence"]}
+        self.assertTrue(any("gpu_worker.py#L445-L501" in url for url in evidence))
+        mono = next(
+            note for url, note in evidence.items() if "mono_decode.py#L60-L103" in url
+        )
+        self.assertIn("no native AMD execution", mono)
+        self.assertIn("no-bug verdict", mono)
+        self.assertNotIn("qualified", result)
+
 
 if __name__ == "__main__":
     unittest.main()
