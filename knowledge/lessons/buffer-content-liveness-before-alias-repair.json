@@ -1,0 +1,22 @@
+{
+  "id": "buffer-content-liveness-before-alias-repair",
+  "title": "Trace buffer content liveness before treating storage aliases as corruption",
+  "applies_when": "Intermediate tensor views share scratch storage and a proposed repair allocates distinct buffers without tracing their producers and later consumers.",
+  "lesson": "Separate Python object lifetime from the interval during which its current contents are needed. Read the planner and complete apply path; list producer, last consumer and next overwrite for each scratch buffer. A two-workspace ping-pong pipeline intentionally aliases nonadjacent intermediates while keeping each operation's live input and output distinct. In pinned vLLM Humming, reversed required_buffers alternate workspaces, and the indexed, grouped and batched apply methods sequence input processing, w13, activation/input processing and w2 before optional reduction or unpermute. An offset-zero view or multiple retained tensor objects alone does not establish corruption. Require a reachable old-content consumer after overwrite, or a stream-order violation, before designing a repair.",
+  "avoid_when": "Static call order is not proof of asynchronous kernel ordering, external backend behavior, numerical correctness or race freedom. Inspect actual streams/events, returned input aliases, bypassed processing, externally supplied outputs, batched paths and supported layouts; a real later reader can invalidate reuse. Do not reject a concrete numerical witness because a comment describes intended liveness. This source-bound counterexample to an alias-only allegation is not native Humming/GPU qualification or a claim that all scratch reuse is safe.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/8c60cf07b3df3b289c310fbd45a382a10709d9ab/vllm/model_executor/layers/fused_moe/experts/fused_humming_moe.py#L454-L633",
+      "note": "The planner documents distinct neighboring workspaces, computes their maximum capacity and alternates reversed required_buffers. This supports intentional nonadjacent storage reuse, not runtime correctness."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/8c60cf07b3df3b289c310fbd45a382a10709d9ab/vllm/model_executor/layers/fused_moe/experts/fused_humming_moe.py#L184-L249",
+      "note": "process_input can return an already scaled input or request processing into quanted_input; activation disallows the prequantized bypass. Trace the realized result, not only a requested destination."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/8c60cf07b3df3b289c310fbd45a382a10709d9ab/vllm/model_executor/layers/fused_moe/experts/fused_humming_moe.py#L792-L1153",
+      "note": "Complete indexed, grouped and batched consumers expose the ordered producer/use chain and externally supplied outputs. No external Humming execution or stream/numerical result is claimed."
+    }
+  ],
+  "status": "counterexample"
+}
