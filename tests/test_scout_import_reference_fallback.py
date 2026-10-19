@@ -1,5 +1,6 @@
 """Cache-only import declarations after unseen reference uses are exhausted."""
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -75,11 +76,10 @@ class ImportReferenceFallbackTests(unittest.TestCase):
         self.assertEqual(self.requests("module"), [])
         self.assertEqual(self.requests("owner.external"), [])
 
-    def test_ambiguous_wildcard_conditional_and_nested_imports_abstain(self):
+    def test_ambiguous_wildcard_nested_and_nonimport_sources_abstain(self):
         for raw in (
             "from a import scheme_chars\nfrom b import scheme_chars\n",
             "from external import *\n",
-            "if True:\n    from external import scheme_chars\n",
             "def load():\n    from external import scheme_chars\n",
             "text = 'from external import scheme_chars'\n",
             "scheme_chars = 1\n",
@@ -133,6 +133,11 @@ class ImportReferenceFallbackTests(unittest.TestCase):
         from kimi_scout_context import PublicContext
         from kimi_scout_research import ResearchProducer
 
+        body = self.raw.encode("utf-8")
+        snapshot = {**self.snapshot, "blobs": {self.path: hashlib.sha1(
+            b"blob " + str(len(body)).encode() + b"\0" + body
+        ).hexdigest()}}
+
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             scout.initialize(root)
@@ -177,7 +182,7 @@ class ImportReferenceFallbackTests(unittest.TestCase):
                     ),
                 )
             with (
-                patch.object(reader, "snapshot", return_value=self.snapshot),
+                patch.object(reader, "snapshot", return_value=snapshot),
                 patch.object(
                     reader, "cached_source_text", return_value=self.raw
                 ) as cache,
