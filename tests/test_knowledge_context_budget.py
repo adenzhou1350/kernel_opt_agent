@@ -12,6 +12,26 @@ from scout_lesson_context import MAX_CARD_BYTES, lesson_suggestions
 
 
 class DefaultKnowledgeBudgetTests(unittest.TestCase):
+    def test_packed_cache_advice_separates_base_and_stride_contracts(self):
+        result = lesson_suggestions(
+            "MXFP8 packed cache stride alignment",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "852989f580820849113d67d13fd8053e279d0444/"
+                "vllm/models/deepseek_v4/nvidia/ops/dequant_gather_k_cutedsl.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "runtime-address-vector-alignment")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("base-pointer alignment", card["lesson"])
+        self.assertIn("relaxing only the stride", card["lesson"])
+        self.assertIn("do not also weaken the base", card["lesson"])
+        self.assertIn("not merged", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_dependency_transport_advice_retains_target_marker_caveat(self):
         result = lesson_suggestions(
             "Requires-Dist target markers pure-Python dependency transport 3.14 3.12"
