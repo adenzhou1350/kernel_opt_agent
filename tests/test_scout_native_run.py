@@ -199,6 +199,68 @@ class InputTests(unittest.TestCase):
             child.assert_not_called()
 
 
+class OwnedGroupObservationTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.proc = Path(temporary.name)
+
+    def stat(self, pid, *, group=123, session=123, state="S", name="python", ppid=1):
+        directory = self.proc / str(pid)
+        directory.mkdir()
+        fields = [state, str(ppid), str(group), str(session)] + ["0"] * 15 + ["98765"]
+        (directory / "stat").write_text(f"{pid} ({name}) " + " ".join(fields))
+
+    def test_records_only_owned_group_and_session_without_args_or_environment(self):
+        self.stat(21, name="worker ) name")
+        self.stat(22, state="Z")
+        self.stat(23, group=999)
+        self.stat(24, session=999)
+        # Never read these files, even for a selected member.
+        (self.proc / "21/cmdline").write_text("PRIVATE_COMMAND_TOKEN")
+        (self.proc / "21/environ").write_text("PRIVATE_ENV_TOKEN")
+        value = runner.observe_owned_group(123, proc_root=self.proc)
+        self.assertTrue(value["available"])
+        self.assertEqual([item["pid"] for item in value["members"]], [21, 22])
+        self.assertEqual(value["members"][0]["name"], "worker ) name")
+        self.assertEqual(value["members"][1]["state"], "Z")
+        self.assertEqual(value["members"][0]["start_ticks"], 98765)
+        self.assertNotIn("PRIVATE_", json.dumps(value))
+        self.assertNotIn("cleanup_ok", value)
+
+    def test_missing_or_malformed_stats_are_unknown_not_proof_of_exit(self):
+        (self.proc / "21").mkdir()
+        (self.proc / "22").mkdir()
+        (self.proc / "22/stat").write_text("malformed")
+        (self.proc / "23").mkdir()
+        (self.proc / "23/stat").write_bytes(b"x" * 4097)
+        (self.proc / "self").mkdir()
+        value = runner.observe_owned_group(123, proc_root=self.proc)
+        self.assertEqual(value["scanned"], 3)
+        self.assertEqual(value["unreadable"], 3)
+        self.assertEqual(value["members"], [])
+        missing = runner.observe_owned_group(123, proc_root=self.proc / "absent")
+        self.assertFalse(missing["available"])
+        self.assertEqual(missing["error"], "FileNotFoundError")
+
+    def test_scan_and_member_budgets_report_truncation(self):
+        for pid in (21, 22, 23):
+            self.stat(pid)
+        value = runner.observe_owned_group(123, proc_root=self.proc, scan_limit=2, member_limit=1)
+        self.assertEqual(value["scanned"], 2)
+        self.assertEqual(len(value["members"]), 1)
+        self.assertTrue(value["scan_truncated"])
+        self.assertTrue(value["members_truncated"])
+
+    def test_invalid_bounds_do_not_read_proc(self):
+        for group, kwargs in ((True, {}), (0, {}), (-1, {}),
+                              (123, {"scan_limit": 0}), (123, {"member_limit": 33})):
+            with self.subTest(group=group, kwargs=kwargs), patch.object(runner.os, "scandir") as read:
+                with self.assertRaises(ValueError):
+                    runner.observe_owned_group(group, proc_root=self.proc, **kwargs)
+                read.assert_not_called()
+
+
 @unittest.skipUnless(os.name == "posix", "run on the authorized POSIX worker")
 class ProcessTests(unittest.TestCase):
     def setUp(self):
@@ -560,6 +622,11 @@ class ProcessTests(unittest.TestCase):
                     self.assertEqual(result["status"], "INCONCLUSIVE")
                     self.assertIsNone(result["summary"])
                     self.assertTrue(result["post_exit_group_cleanup_required"])
+                    observation = result["post_exit_group_observation"]
+                    if sys.platform.startswith("linux"):
+                        self.assertTrue(observation["available"])
+                        self.assertIn(int((self.root / "child.pid").read_text()),
+                                      [member["pid"] for member in observation["members"]])
                     self.assert_child_stopped(int((self.root / "child.pid").read_text()))
                 finally:
                     # Preserve safe teardown even when replayed against the old runner.
@@ -591,6 +658,21 @@ class ProcessTests(unittest.TestCase):
         self.assertFalse(result["post_exit_group_cleanup_required"])
         self.assertGreater(result["post_exit_group_wait_seconds"], 0.01)
         stop.assert_not_called()
+        self.assert_child_stopped(int((self.root / "child.pid").read_text()))
+
+    def test_failed_diagnostic_cannot_prevent_owned_group_cleanup(self):
+        code = (
+            "import subprocess,sys; from pathlib import Path; "
+            "p=subprocess.Popen([sys.executable,'-c','import time; time.sleep(30)'],"
+            "stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL); "
+            "Path('child.pid').write_text(str(p.pid)); print(" + repr(PASS) + ")"
+        )
+        with patch.object(runner, "observe_owned_group", side_effect=RuntimeError("PRIVATE_DETAIL")):
+            result = self.execute(code)
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertTrue(result["post_exit_group_cleanup_required"])
+        self.assertEqual(result["post_exit_group_observation"]["error"], "RuntimeError")
+        self.assertNotIn("PRIVATE_DETAIL", json.dumps(result))
         self.assert_child_stopped(int((self.root / "child.pid").read_text()))
 
     def test_natural_group_wait_never_extends_the_command_deadline(self):

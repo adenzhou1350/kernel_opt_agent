@@ -111,6 +111,52 @@ def wait_for_group_exit(pgid, deadline):
         time.sleep(min(0.01, remaining))
 
 
+def observe_owned_group(pgid, *, proc_root=Path("/proc"), scan_limit=8192, member_limit=32):
+    """Bounded Linux diagnostics only; never establish that cleanup succeeded."""
+    if (type(pgid) is not int or pgid <= 0
+            or type(scan_limit) is not int or not 1 <= scan_limit <= 8192
+            or type(member_limit) is not int or not 1 <= member_limit <= 32):
+        raise ValueError("invalid owned-group observation bounds")
+    result = {"source": "linux_proc_stat", "available": False, "members": [],
+              "scanned": 0, "unreadable": 0, "scan_truncated": False,
+              "members_truncated": False}
+    try:
+        with os.scandir(proc_root) as entries:
+            result["available"] = True
+            for entry in entries:
+                if not entry.name.isascii() or not entry.name.isdigit():
+                    continue
+                if result["scanned"] >= scan_limit:
+                    result["scan_truncated"] = True
+                    break
+                result["scanned"] += 1
+                try:
+                    with (Path(entry.path) / "stat").open("rb") as stream:
+                        raw = stream.read(4097)
+                    if len(raw) > 4096:
+                        raise ValueError("overlong process stat")
+                    prefix, suffix = raw.decode("utf-8", errors="replace").rsplit(")", 1)
+                    pid, name = prefix.split(" (", 1)
+                    fields = suffix.split()
+                    if int(pid) != int(entry.name) or len(fields) < 20:
+                        raise ValueError("malformed process stat")
+                    ppid, group, session, start_ticks = map(int, (fields[1], fields[2], fields[3], fields[19]))
+                    if group != pgid or session != pgid:
+                        continue
+                    if len(result["members"]) >= member_limit:
+                        result["members_truncated"] = True
+                        continue
+                    result["members"].append({"pid": int(pid), "ppid": ppid,
+                        "pgrp": group, "session": session, "state": fields[0],
+                        "start_ticks": start_ticks, "name": name[:64]})
+                except (OSError, ValueError, IndexError):
+                    result["unreadable"] += 1
+    except OSError as error:
+        result["error"] = type(error).__name__
+    result["members"].sort(key=lambda member: member["pid"])
+    return result
+
+
 def reaped_child_cpu():
     """Process-wide POSIX counters, not a complete owned-process-tree meter."""
     try:
@@ -270,6 +316,7 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
               "command_wall_seconds": command_wall_seconds, "cwd": str(cwd),
               "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
               "post_exit_group_cleanup_required": post_exit_group_cleanup_required,
+              "post_exit_group_observation": captured.get("post_exit_group_observation"),
               "process_backend": "windows-job" if native_windows else "posix-process-group",
               "cpu_accounting": captured["cpu_accounting"],
               "command": list(command), "tool_path": str(executable), "tool_sha256": tool_hash,
@@ -292,6 +339,7 @@ def capture_posix(*, command, cwd, output, environment, timeout, started):
     reason, written = None, 0
     cpu_before = reaped_child_cpu()
     post_exit_group_wait_seconds, post_exit_group_cleanup_required = 0.0, False
+    post_exit_group_observation = None
     # Keep output off RAM; cap both the file and the later parser input.
     with (output / "terminal.log").open("xb") as log:
         process = subprocess.Popen(command, cwd=cwd, env={**os.environ, **environment},
@@ -343,11 +391,19 @@ def capture_posix(*, command, cwd, output, environment, timeout, started):
                 if not group_gone:
                     post_exit_group_cleanup_required = True
                     reason = reason or "owned process group remains after command exit"
-                    stop_group(process)
+                    try:
+                        post_exit_group_observation = observe_owned_group(process.pid)
+                    except Exception as error:
+                        post_exit_group_observation = {
+                            "source": "linux_proc_stat", "available": False,
+                            "error": type(error).__name__}
+                    finally:
+                        stop_group(process)
             process.stdout.close()
     return {"reason": reason, "exit_code": process.returncode,
             "cpu_accounting": reaped_child_cpu_delta(cpu_before, reaped_child_cpu()),
             "post_exit_group_wait_seconds": post_exit_group_wait_seconds,
+            "post_exit_group_observation": post_exit_group_observation,
             "post_exit_group_cleanup_required": post_exit_group_cleanup_required}
 
 

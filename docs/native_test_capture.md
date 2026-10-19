@@ -29,8 +29,23 @@ worker. It checks reviewed source hashes before/after, records executable and lo
 digests, caps output at 2 MiB, and owns a fresh pytest report path. A timeout, source
 change, malformed/missing report, or surviving owned process group invalidates a
 verdict. It stops only the group it created. The CPU CLI hides CUDA devices but is
-not security isolation. It refuses Windows execution; it never starts local WSL.
+not security isolation. Native Windows execution requires the explicit
+`--native-windows` private Job Object route; it never starts local WSL.
 Saved-log parsing remains usable on Windows.
+
+Device masking is not a framework-backend selector. For example, the pinned
+[vLLM CUDA platform probe](https://github.com/vllm-project/vllm/blob/ff01a6b14f329ccd4162fce309913542e2abcd5b/vllm/platforms/__init__.py)
+uses physical NVML device count, so GPU-marked tests can still be selected when
+CUDA has no visible devices. Review and select actual CPU cases explicitly;
+do not override the platform object to make GPU tests appear qualified.
+
+When an owned POSIX group survives the existing wait, `post_exit_group_observation`
+records bounded Linux `/proc/PID/stat` diagnostics **before** cleanup: at most
+8,192 entries scanned and 32 matching group/session members, including their
+states and start ticks, but no command-line arguments or environment. Missing,
+unreadable or truncated observations are not proof of exit; zombies remain
+visible diagnostics, not a PASS exception. Observation failures cannot prevent
+owned-group cleanup, and do not relax the existing inconclusive verdict.
 
 For C++ GoogleTest 1.17, use `--format gtest-xml` with emitted
 `classname::name` identities (including parameter suffixes). The runner appends
