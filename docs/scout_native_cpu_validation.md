@@ -302,6 +302,21 @@ See [limits and dynamic-import gaps](references/scout_native_cpu_worked_routes.m
 
 ## Package and language routes
 
+- vLLM compilation: an official commit-specific CPU wheel can restore complete
+  module/native-extension imports without borrowing a mismatched GPU runtime.
+  Check the actual wheel's commit, Python/ABI/glibc, dependency resolution and
+  CPU library paths first; latest main may have no published wheel. An unchanged
+  source blob supports only that component's transfer, not a latest-main build.
+  CPU configuration disables CUDA graphs: assertions that a partition wrapper
+  became active can fail before the alleged cleanup bug is reached. Do not
+  bypass platform selection or label those failures as a CUDA reproduction.
+  For direct backend tests, preserve its configuration lifecycle: the documented
+  [`post_init_cudagraph_sizes`](https://github.com/vllm-project/vllm/blob/e68efc685ab1e6f1eda004ced7157e3ca411da2f/vllm/config/compilation.py)
+  also initializes `compile_sizes`; importing the backend is not engine setup.
+  Keep an unsupported-pass failure separate from an explicit public CPU override
+  used in a component diagnostic. Never silently disable passes to claim default
+  serving qualification. Use a same-backend healthy control and the full paired
+  inventory before attributing a repair; retain failed preparation and costs.
 - HTTP proxies: [real-HTTP boundary reproduction](../examples/native-http-proxy/README.md)
   uses the ordinary vLLM example lifespan/HTTPX pools against synthetic loopback
   P/D services, with original upstream status and healthy JSON/SSE controls.
