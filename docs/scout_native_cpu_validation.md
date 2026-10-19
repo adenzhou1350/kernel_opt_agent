@@ -123,6 +123,22 @@ result = run_native(
 )
 ```
 
+For a reviewed distributed test, use `gpu_uuids=[uuid0, uuid1]` instead of
+`gpu_uuid`. The owner-only library accepts at most eight distinct full UUIDs,
+preserves that list's CUDA ordinal order, and acquires every cooperating lock in
+a common sorted order before sampling or launching. Contention releases partial
+acquisitions without launching. Each selected device keeps its own reserve,
+admission/running/postflight evidence; any lost reserve or failed observation
+makes the whole command inconclusive. Per-device samples are not atomic across
+the set. The three-file CLI remains single-device/non-distributed, and the
+native CLI/export stays CPU-only. Review all ranks, local communication,
+tensor bounds, dependencies and cleanup; no extra device authority is inferred.
+
+An owner-reviewed two-B300 component pair exercised this path with real vLLM
+NCCL groups and a Triton replay-padding kernel, including a peer with no masked
+rows. That proves the tested capture/communication path, not eight-device,
+arbitrary-code isolation, complete PCP batch preparation or whole-model serving.
+
 Review and transfer both companion and native-runtime source explicitly; no
 model, Scout delivery worker or exported CPU tool gains GPU authority here.
 This route requires a working `/usr/bin/nvidia-smi`, including compute-process

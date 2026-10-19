@@ -230,6 +230,81 @@ class ProcessTests(unittest.TestCase):
 
 
 class NativeGuardTests(unittest.TestCase):
+    def test_device_set_keeps_mapping_order_but_locks_in_global_order(self):
+        import scout_native_run
+        from contextlib import contextmanager
+        other = "GPU-00000000-0000-0000-0000-000000000000"
+        active, entered = [], []
+        @contextmanager
+        def lock(_, uuid):
+            entered.append(uuid)
+            active.append(uuid)
+            try:
+                yield
+            finally:
+                active.remove(uuid)
+        def capture(**options):
+            self.assertEqual(active, [other, GPU])
+            self.assertEqual(options["_gpu_uuid"], GPU + "," + other)
+            guard = options["_execution_guard"]
+            def sample(uuid):
+                return {**self.sample(), "uuid": uuid}
+            with (mock.patch.object(verify, "snapshot", side_effect=sample),
+                  mock.patch.object(verify.time, "sleep")):
+                self.assertIsNone(guard("admission"))
+                self.assertIsNone(guard("postflight"))
+            self.assertEqual(list(guard.evidence["devices"]), [GPU, other])
+            for observation in guard.evidence["devices"].values():
+                self.assertEqual(len(observation["preflight"]), 3)
+                self.assertIsNotNone(observation["postflight"])
+            return {"status": "TESTS_PASSED"}
+        with (mock.patch.object(sys, "platform", "linux"),
+              mock.patch.object(verify, "gpu_lock", side_effect=lock),
+              mock.patch.object(scout_native_run, "run", side_effect=capture)):
+            verify.run_native(gpu_uuids=[GPU, other], format="pytest-junit")
+        self.assertEqual(entered, [other, GPU])
+        self.assertEqual(active, [])
+
+    def test_partial_set_contention_releases_locks_without_probe_or_launch(self):
+        import scout_native_run
+        from contextlib import contextmanager
+        other = "GPU-ffffffff-ffff-ffff-ffff-ffffffffffff"
+        active = []
+        @contextmanager
+        def lock(_, uuid):
+            if uuid == other:
+                raise BlockingIOError("busy")
+            active.append(uuid)
+            try:
+                yield
+            finally:
+                active.remove(uuid)
+        with (mock.patch.object(sys, "platform", "linux"),
+              mock.patch.object(verify, "gpu_lock", side_effect=lock),
+              mock.patch.object(verify, "snapshot") as probe,
+              mock.patch.object(scout_native_run, "run") as run):
+            for devices in ([], [GPU, GPU.upper()], [GPU]*9,
+                            [GPU, "0"], [None], "not-a-device-list"):
+                with self.subTest(devices=devices), self.assertRaises(ValueError):
+                    verify.run_native(gpu_uuids=devices, format="pytest-junit")
+            with self.assertRaises(ValueError):
+                verify.run_native(gpu_uuid=GPU, gpu_uuids=[other], format="pytest-junit")
+            with self.assertRaises(BlockingIOError):
+                verify.run_native(gpu_uuids=[other, GPU], format="pytest-junit")
+            self.assertEqual(active, [])
+            probe.assert_not_called()
+            run.assert_not_called()
+
+    def test_group_guard_rejects_one_device_but_observes_all_postflights(self):
+        other = "GPU-00000000-0000-0000-0000-000000000000"
+        guard = verify.NativeGpuGroupGuard([GPU, other], 6144)
+        def sample(uuid):
+            return {**self.sample(), "uuid": uuid,
+                    "memory_mib": 32000 if uuid == other else 0}
+        with mock.patch.object(verify, "snapshot", side_effect=sample):
+            self.assertIsNotNone(guard("postflight"))
+        self.assertTrue(all(g.evidence["postflight"] is not None for g in guard.guards))
+
     def sample(self):
         return dict(uuid=GPU, index=0, total_mib=32768, memory_mib=1024,
                     utilization=0, processes=[[GPU, "123", "existing-user-task"]])

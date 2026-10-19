@@ -755,6 +755,24 @@ class GuardedProcessTests(unittest.TestCase):
     execute_junit = ProcessTests.execute_junit
     write_junit = ProcessTests.write_junit
 
+    def test_ordered_full_uuid_set_is_bounded_and_not_ordinals_or_duplicates(self):
+        first = "GPU-00000000-0000-0000-0000-000000000000"
+        second = "GPU-ffffffff-ffff-ffff-ffff-ffffffffffff"
+        def guard(phase):
+            return None
+        guard.evidence = {}
+        for visible in (first + ",0", first + "," + first, first + ", " + second,
+                        ",".join([first]*9), first + ","):
+            with self.subTest(visible=visible), self.assertRaises(ValueError):
+                self.execute_junit("raise RuntimeError('must not run')",
+                    _gpu_uuid=visible, _execution_guard=guard)
+            self.assertFalse((self.root / "output").exists())
+        visible = second + "," + first
+        code = self.write_junit(JUNIT_PASS) + (
+            "import os; assert os.environ['CUDA_VISIBLE_DEVICES']==" + repr(visible))
+        result = self.execute_junit(code, _gpu_uuid=visible, _execution_guard=guard)
+        self.assertEqual(result["status"], "TESTS_PASSED")
+
     def guarded(self, code, guard, **arguments):
         guard.evidence = {"control_test": True}
         return self.execute_junit(code, _gpu_uuid="GPU-00000000-0000-0000-0000-000000000000",

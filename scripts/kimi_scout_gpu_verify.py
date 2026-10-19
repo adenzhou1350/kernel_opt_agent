@@ -3,7 +3,9 @@
 
 This is NOT a sandbox for arbitrary/unreviewed Kimi code. There is no Docker,
 unshare, network isolation, or automatic delivery hook. The owner must review
-all three files, including imports, resource use and absence of distributed work.
+all three files, including imports, resource use and absence of distributed work
+for the three-file CLI. The optional native companion may use an explicitly
+reviewed finite device set; it remains owner-only, not a model execution tool.
 Run with the intended existing Torch/Triton interpreter. --reviewed-sha256 names
 a JSON file containing exactly {"baseline": SHA256, "candidate": SHA256,
 "test": SHA256}. Hashes bind the reviewed bytes, not their safety or correctness.
@@ -24,7 +26,7 @@ import sys
 import tempfile
 import threading
 import time
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 
 MAX_FILE = 262_144
@@ -247,9 +249,22 @@ class NativeGpuGuard:
             raise
 
 
-def run_native(*, gpu_uuid, lock_dir="/workspace/kernel-opt/direct-gpu-locks",
+class NativeGpuGroupGuard:
+    """Keep each selected device's bounded evidence and fail on any lost reserve."""
+
+    def __init__(self, devices, min_free_mib):
+        self.guards = [NativeGpuGuard(uuid, min_free_mib) for uuid in devices]
+        self.evidence = {"devices": {g.uuid: g.evidence for g in self.guards},
+                         "boundary": "Per-device sampled checks, not atomic telemetry or isolation."}
+
+    def __call__(self, phase):
+        failures = [guard(phase) for guard in self.guards]
+        return next((reason for reason in failures if reason is not None), None)
+
+
+def run_native(*, gpu_uuid=None, gpu_uuids=None, lock_dir="/workspace/kernel-opt/direct-gpu-locks",
                min_free_mib=MIN_HEADROOM_MIB, **arguments):
-    """Owner-only pytest capture of reviewed code with one cooperating GPU lock.
+    """Owner-only pytest capture with cooperating locks for every reviewed GPU.
 
     The caller must review imports/resources, isolate source/env/caches, verify
     the actual visible CUDA UUID and set any cooperative allocator cap in the
@@ -260,11 +275,26 @@ def run_native(*, gpu_uuid, lock_dir="/workspace/kernel-opt/direct-gpu-locks",
         raise ValueError("native GPU capture requires Linux and pytest-junit")
     if any(key in arguments for key in ("_gpu_uuid", "_execution_guard")):
         raise ValueError("the companion owns UUID selection and the execution guard")
+    if gpu_uuids is None:
+        devices = [gpu_uuid]
+    elif gpu_uuid is not None or not isinstance(gpu_uuids, (list, tuple)):
+        raise ValueError("use one UUID or an explicit ordered device list")
+    else:
+        devices = list(gpu_uuids)
+    if (not 1 <= len(devices) <= 8
+            or any(not isinstance(uuid, str) or not re.fullmatch(UUID_RE, uuid) for uuid in devices)
+            or len({uuid.lower() for uuid in devices}) != len(devices)):
+        raise ValueError("native capture requires 1..8 distinct full GPU UUIDs")
     import scout_native_run
 
-    guard = NativeGpuGuard(gpu_uuid, min_free_mib)
-    with gpu_lock(lock_dir, gpu_uuid):
-        return scout_native_run.run(**arguments, _gpu_uuid=gpu_uuid,
+    guard = (NativeGpuGuard(devices[0], min_free_mib) if len(devices) == 1
+             else NativeGpuGroupGuard(devices, min_free_mib))
+    with ExitStack() as locks:
+        # One global order avoids opposing multi-device acquisitions. Keep the
+        # caller's order separately for CUDA ordinal mapping.
+        for uuid in sorted(devices, key=str.lower):
+            locks.enter_context(gpu_lock(lock_dir, uuid))
+        return scout_native_run.run(**arguments, _gpu_uuid=",".join(devices),
                                     _execution_guard=guard)
 
 

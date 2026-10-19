@@ -248,10 +248,13 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     # Only the owner-reviewed GPU companion uses this library hook. The CLI
     # remains CPU-only; device admission/locking is the companion's responsibility.
     visible = "" if _gpu_uuid is None else _gpu_uuid
-    if _gpu_uuid is not None and (format != "pytest-junit" or not isinstance(visible, str)
-                                 or not re.fullmatch(
-                                     r"GPU-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", visible)):
-        raise ValueError("GPU library hook requires pytest and a full GPU UUID")
+    devices = visible.split(",") if isinstance(visible, str) else []
+    if _gpu_uuid is not None and (format != "pytest-junit" or not 1 <= len(devices) <= 8
+            or len({item.lower() for item in devices}) != len(devices)
+            or any(not re.fullmatch(
+                r"GPU-[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", item)
+                for item in devices)):
+        raise ValueError("GPU library hook requires pytest and 1..8 distinct full GPU UUIDs")
     if environment.get("CUDA_VISIBLE_DEVICES", visible) != visible:
         raise ValueError("this entrance is CPU-only; use a separately reviewed GPU runner")
     environment["CUDA_VISIBLE_DEVICES"] = visible
