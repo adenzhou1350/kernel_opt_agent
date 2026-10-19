@@ -159,3 +159,51 @@ annotation/caller failure on its required dependency version. This is a scoped
 negative result, not proof every custom processor or older version works. The
 executable example documents a language mechanism; it does not reproduce the
 complete target environment, measure Scout benefit, or establish a paper result.
+
+## Separate model calibration: requested definitions are not a complete witness
+
+This later, owner-selected development case concerns repeated polling in
+[pinned vLLM ServerRole](https://github.com/vllm-project/vllm/blob/2cea893821861c1007b3c7f1da44f9774bb0c18c/vllm/v1/kv_offload/tiering/p2p/session/server.py).
+The fixed question was whether repeated `serve_external_requests()` calls,
+without another `LookupMsg`, cumulatively allocate lookup objects or synthetic
+contexts. The owner already knew a bounded native negative result; neither
+model input received that result, repair, new tests or indexed lesson.
+
+Both arms retained the identical primary excerpt, lines 481–550. The original
+follow-up added unrelated API-server and Rust-test excerpts. The other arm
+replaced only those two reads with complete `_resolve_pending_lookups` and
+`_finalize_lookup` definitions, obtained by the current cached-definition reader.
+It did not supply the complete message-ingestion or allocation methods.
+
+The existing Scout CLI made two stateless GLM-5.3 calls, low effort requested,
+concurrency two, one attempt per arm, no retries, 120-second request limits,
+8,192 output tokens each and an 80,000-token combined reservation ceiling.
+These are equal ceilings, not equal input lengths or realized cost.
+
+| Arm | Input | Output | Reported total | Result | Job wall (s) |
+| --- | ---: | ---: | ---: | --- | ---: |
+| Original follow-up | 4,856 | 782 | 5,638 | Needs context | 8.033 |
+| Same primary + requested definitions | 3,324 | 1,291 | 4,615 | Needs context | 12.182 |
+
+Both responses passed the existing JSON/source-quote checks, not native
+qualification. Both requested the complete `serve_external_requests` and
+`_process_inbound_lookup` definitions before deciding. The targeted arm described
+the supplied polling/finalization path more directly but did not reach a terminal
+source verdict. Total: two calls, 10,253 reported tokens, zero new discoveries or
+PRs. Cached-token counts, realized reasoning effort and prices were not reported;
+preparation, native acquisition and owner assessment are outside the job walls.
+
+The independently retained native check used the actual pinned session component
+with upstream fake transport/parent helpers: ten existing upstream cases plus
+four private diagnostics passed. Repeated polling retained the same lookup and
+ID counter, followed by one completion on hit, miss, timeout or finish. This is
+not RDMA, real serving, the full suite or a general leak-free proof. Its result
+was withheld from both calls and is not an independent assessor's label.
+
+Decision: preserve this null terminal-verdict contrast; do not add another prompt
+or replace labels to make the preferred arm win. Correctly fulfilling two
+definition requests is not the same as obtaining the complete caller/allocation
+witness. A future sequential comparison must account for subsequent reads and
+native checks through a stopping decision, rather than score excerpt relevance
+as verified bug rejection. One known case does not establish a better policy,
+cheaper research, higher PR yield or paper novelty.
