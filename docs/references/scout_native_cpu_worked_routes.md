@@ -408,6 +408,34 @@ dependencies. Before remote execution, inspect
 and the authorized environment; do not silently start local WSL or bypass an
 execution-policy denial. Process capture is not a security sandbox.
 
+### CPU transport logic before RDMA qualification
+
+The upstream [NIXL transport unit file](https://github.com/vllm-project/vllm/blob/4bd75e952a9f423742223c97c8cc9fc6db362950/tests/v1/kv_offload/tiering/p2p/test_data_transport.py)
+can exercise Python submission, polling, cancellation, registration and cleanup
+logic without an RDMA device. It explicitly supplies a mocked NIXL agent; that
+boundary is part of the test, not a transport emulator or native NIXL proof.
+
+A native Linux/Python 3.12, Torch 2.14/NumPy environment ran the complete file:
+56 items passed, no skips/errors or missing predefined IDs, 10.02 seconds
+including capture startup. The existing `scout_native_run.run` handled JUnit,
+source checks and cleanup with CUDA hidden and uninitialized. A fresh private
+package copy received all 50 current `vllm/v1/kv_offload` Python files, the current
+NIXL utility and the unchanged test (52 files, 633,283 bytes); raw Git-blob and
+SHA256 identities were verified first. Source checks also bound the three copied
+package parent initializers before/after (55 files total). Remaining package
+code and installed dependencies were reused, not silently called current-main.
+No source stubs, extraction of target methods, install or native build were used.
+
+This was a file-scoped invocation with explicit empty pytest config and plugin
+autoload disabled, not the full project's conftest/CI environment. It establishes
+that specific CPU test capacity only. A proposed lifecycle repair still needs a
+discriminating original/fixed test with ordinary controls and real callers.
+Mocked handle states cannot prove when an actual DMA stops writing or whether
+buffers are safe to reuse; NIXL/RDMA failure, GPU correctness and throughput need
+their own compatible environment and observations. Do not demand scarce hardware
+for an exclusively Python control, or advertise a simulated pass as hardware
+qualification. This setup check is not a new defect, PR or agent-policy result.
+
 ### Bun native JUnit reports
 
 Use `--format bun-junit` with a reviewed `bun test` command. The runner supplies
