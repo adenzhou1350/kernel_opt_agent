@@ -95,6 +95,21 @@ def valid_test_summary(summary, count):
     )
 
 
+def parse_test_output(output):
+    """Parse the shared untrusted unittest markers, never an authenticity proof."""
+    counts = re.findall(r"(?m)^" + MARKER + r"([0-9]+)\r?$", output)
+    summaries = re.findall(r"(?m)^" + SUMMARY_MARKER + r"([^\r\n]*)\r?$", output)
+    count = summary = None
+    try:
+        if len(counts) == 1:
+            count = int(counts[0])
+        if len(summaries) == 1:
+            summary = json.loads(summaries[0])
+    except (ValueError, RecursionError):
+        pass
+    return count, summary if valid_test_summary(summary, count) else None
+
+
 def read_input(value):
     path = Path(value).absolute()
     if path.suffix != ".py" or any(c in str(path) for c in ",\n\r\x00"):
@@ -270,17 +285,8 @@ def run_case(
             if reader:
                 reader.join(timeout=2)
     output = captured.decode("utf-8", errors="replace")
-    counts = re.findall(r"(?m)^" + MARKER + r"([0-9]+)\r?$", output)
-    summaries = re.findall(r"(?m)^" + SUMMARY_MARKER + r"([^\r\n]*)\r?$", output)
-    count = summary = None
-    try:
-        if len(counts) == 1:
-            count = int(counts[0])
-        if len(summaries) == 1:
-            summary = json.loads(summaries[0])
-    except (ValueError, RecursionError):
-        pass
-    summary_valid = valid_test_summary(summary, count)
+    count, summary = parse_test_output(output)
+    summary_valid = summary is not None
     return {
         "profile": profile,
         "claim_scope": httpx_cpu.CLAIM_SCOPE

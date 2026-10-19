@@ -884,8 +884,10 @@ def merged_owner_audits(root):
 
 
 class Delivery:
-    def __init__(self, args):
+    def __init__(self, args, *, cpu_verifier=None):
         self.args = args
+        # Owner-selected installed client only; model proposals cannot set this.
+        self.cpu_verifier = cpu_verifier
         self.root = args.root.resolve() / "delivery"
         self.halt = threading.Event()
         self.cpu = threading.BoundedSemaphore(args.execution_concurrency)
@@ -957,17 +959,21 @@ class Delivery:
         scout.write_json(work / f"{phase}.request.json", request)
         if self.stopped():
             raise RuntimeError("delivery stopped before model call")
+        command = [
+            str(self.args.kimi_python),
+            "-I",
+            "-B",
+            "-X",
+            "utf8",
+            str(SCRIPT_ROOT / "kimi_scout_backend.py"),
+            "--progress-file",
+            str(work / f"{phase}.live.json"),
+        ]
+        config = getattr(self.args, "backend_config_file", None)
+        if config is not None:
+            command += ["--config-file", str(config)]
         completed = subprocess.run(
-            [
-                str(self.args.kimi_python),
-                "-I",
-                "-B",
-                "-X",
-                "utf8",
-                str(SCRIPT_ROOT / "kimi_scout_backend.py"),
-                "--progress-file",
-                str(work / f"{phase}.live.json"),
-            ],
+            command,
             input=scout.dumps(request).encode(),
             capture_output=True,
             timeout=140,
@@ -997,6 +1003,15 @@ class Delivery:
 
     def check_runtime(self, work, profile):
         """Reject missing execution prerequisites before a paid generation call."""
+        if self.cpu_verifier is not None:
+            try:
+                observed = self.cpu_verifier.check_runtime(profile)
+            except (OSError, ValueError, RuntimeError):
+                observed = {"available": False, "profile": profile}
+            scout.write_json(work / "runtime-preflight.json", observed)
+            if observed.get("available") is not True:
+                raise UnsupportedEnvironment("owner-selected CPU runtime unavailable")
+            return
         if not local_wsl_authorized(self.args):
             raise UnsupportedEnvironment(
                 "local WSL requires explicit task authorization"
@@ -1054,6 +1069,27 @@ class Delivery:
                     "inconclusive": True,
                     "error": "delivery stopped before CPU execution",
                 }
+            if self.cpu_verifier is not None:
+                try:
+                    result = self.cpu_verifier.verify(
+                        work / "baseline.py",
+                        work / f"candidate-{version}.py",
+                        work / f"test-{version}.py",
+                        profile=profile,
+                        timeout=30,
+                        module_path=module_path,
+                        source_commit=source_commit,
+                        journal=work / f"sandbox-{version}.jsonl",
+                    )
+                except Exception:
+                    self.halt.set()
+                    raise RuntimeError(
+                        "CPU sandbox outcome uncertain; inspect journal/history before retry"
+                    ) from None
+                scout.write_json(work / f"execution-{version}.json", result)
+                if result.get("inconclusive") is not False:
+                    self.halt.set()
+                return result
             if not local_wsl_authorized(self.args):
                 self.halt.set()
                 return {
@@ -1608,6 +1644,11 @@ def main():
         help="explicitly withdraw a repository from intake and queued claims; repeatable, history retained",
     )
     parser.add_argument("--kimi-python", type=Path)
+    parser.add_argument(
+        "--backend-config-file",
+        type=Path,
+        help="owner-private Kimi configuration passed only to the completion process",
+    )
     parser.add_argument(
         "--mark-pr-job", help="owner-verified candidate to link to a published PR"
     )

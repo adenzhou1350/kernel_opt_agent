@@ -207,3 +207,28 @@ witness. A future sequential comparison must account for subsequent reads and
 native checks through a stopping decision, rather than score excerpt relevance
 as verified bug rejection. One known case does not establish a better policy,
 cheaper research, higher PR yield or paper novelty.
+
+## Installed CPU delivery canary: generated tests are not an oracle
+
+A separate exposed engineering canary used the already-owned ARB
+[`token_prefix` repair](https://github.com/eyuansu62/agent-retrieval-bench/pull/4),
+not a new discovery or trial enrollment. The input was an explicit function
+projection with stdlib scaffolding, not the complete package. A reviewed
+baseline/fix pair first discriminated under the installed CPU sandbox using
+three import-adapted existing test methods; all containers were removed.
+
+One tool-free Kimi completion then produced a patch and four tests: 930 input,
+951 output, 1,881 reported total tokens; prices and cache usage were unknown.
+Its own tests produced two baseline failures and one candidate failure. One
+control incorrectly required stripping trailing spaces from a whole-text return.
+The failed proposal/outputs were retained, without a second call or a repaired
+oracle. The one-attempt wrapper recorded terminal FAILED after refusing repair;
+the provider and sandbox executions themselves completed successfully.
+
+Separately running the existing owner controls on the preserved generated patch
+found a different regression: passing an arbitrarily large Python integer into
+`islice` raised `ValueError`, although the original returned the short text.
+The owner knew this case and is not an independent assessor. This demonstrates
+the tested generation/execution/accounting path and a concrete reason to retain
+controls beyond model-written tests, not a measured false-accept rate, cheaper
+research, higher PR conversion, fresh paper result or full-package qualification.

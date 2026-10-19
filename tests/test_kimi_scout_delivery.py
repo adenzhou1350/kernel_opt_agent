@@ -10,7 +10,7 @@ import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout_delivery as delivery
@@ -375,6 +375,79 @@ class DeliveryTests(unittest.TestCase):
         with delivery.database(self.worker.root) as db:
             row = db.execute("SELECT state,reported_tokens FROM delivery").fetchone()
         self.assertEqual(tuple(row), ("ENVIRONMENT_BLOCKED", 0))
+
+    def test_owner_cpu_adapter_uses_existing_delivery_without_local_wsl(self):
+        backend = SimpleNamespace(
+            check_runtime=Mock(return_value={"available": True}),
+            verify=Mock(return_value=result()),
+        )
+        self.worker = delivery.Delivery(self.args, cpu_verifier=backend)
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        with (
+            patch.object(
+                delivery,
+                "load_source",
+                return_value={
+                    "source": SOURCE,
+                    "path": "public.py",
+                    "url": "https://public.invalid",
+                    "sha256": hashlib.sha256(SOURCE.encode()).hexdigest(),
+                    "dependency_modules": [],
+                },
+            ),
+            patch.object(self.worker, "model", return_value=proposal()) as model,
+            patch.object(delivery, "local_wsl_authorized", return_value=False),
+            patch.object(delivery.subprocess, "run") as process,
+        ):
+            self.assertEqual(self.worker.execute(job), delivery.OWNER_STATE)
+        process.assert_not_called()
+        self.assertEqual(model.call_count, 1)
+        backend.check_runtime.assert_called_once_with("stdlib")
+        self.assertEqual(backend.verify.call_args.kwargs["timeout"], 30)
+        self.assertFalse(self.worker.halt.is_set())
+
+    def test_owner_cpu_transport_uncertainty_stops_following_calls(self):
+        backend = SimpleNamespace(verify=Mock(side_effect=RuntimeError("uncertain")))
+        self.worker = delivery.Delivery(self.args, cpu_verifier=backend)
+        with self.assertRaises(RuntimeError):
+            self.worker.sandbox(self.worker.root, 1, "stdlib")
+        self.assertTrue(self.worker.halt.is_set())
+        self.worker.sandbox(self.worker.root, 2, "stdlib")
+        self.assertEqual(backend.verify.call_count, 1)
+
+    def test_private_backend_config_is_not_model_context(self):
+        delivery.stage(self.worker.root, [lead()])
+        job = delivery.claim(self.worker.root)
+        work = self.worker.root / "jobs" / job["id"]
+        work.mkdir()
+        # The controller forwards a path without reading/copying the secret.
+        self.args.backend_config_file = self.inbox / "private-config-not-read.toml"
+        answer = {
+            "ok": True,
+            "tools_advertised": 0,
+            "tool_calls_executed": 0,
+            "usage": {"total_tokens": 12},
+            "text": '{"decision":"reject"}',
+        }
+        with patch.object(
+            delivery.subprocess,
+            "run",
+            return_value=SimpleNamespace(
+                returncode=0, stdout=json.dumps(answer).encode()
+            ),
+        ) as execute:
+            self.assertEqual(
+                self.worker.model(job, "generate", "public source"),
+                {"decision": "reject"},
+            )
+        argv = execute.call_args.args[0]
+        self.assertEqual(
+            argv[-2:], ["--config-file", str(self.args.backend_config_file)]
+        )
+        request = (work / "generate.request.json").read_text()
+        self.assertNotIn("config", request)
+        self.assertIn("public source", request)
 
     def test_runtime_inspection_is_bounded_and_requires_exact_profile_image(self):
         work = self.worker.root / "jobs" / "runtime"

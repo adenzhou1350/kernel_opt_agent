@@ -131,6 +131,42 @@ next conservative reservation: UTF-8 input **bytes** + output-token allowance +
 iteration did not reach the queue budget check; it does not mean budget passed.
 Do not increase caps or disable resource guards merely to make a batch drain.
 
+## Optional installed CPU sandbox adapter
+
+For an already reviewed `agent-sandbox` installation, an owner can inject its
+existing `call(action, arguments)` client into the delivery library:
+
+```python
+from kimi_scout_delivery import Delivery
+from scout_sandbox_verify import SandboxCPU
+
+worker = Delivery(args, cpu_verifier=SandboxCPU(owner_client.call, image=cpu_image_sha256))
+```
+
+The owner supplies the exact CPU image and transport; neither comes from model
+output. This library opt-in does not grant credentials, Docker access, GPU use,
+installation or arbitrary host commands to the model. The ordinary CLI keeps
+its existing direct-Docker route. For a private Kimi configuration, use
+`--backend-config-file PATH` (or the same args field); only the completion
+subprocess receives that path, not the model prompt.
+
+This adapter supports **stdlib only**, not Torch, HTTPX or complete target
+packages. It checks the installed CPU image, runs each arm in a fresh restricted
+container, restores the pre-execution file checkpoint for the candidate, and
+checks broker isolation, input hashes, termination, persistence and cleanup.
+Both arms reuse the verifier's unittest harness and summary parser. A fresh
+`sandbox-N.jsonl` journal reserves dispatch and records session/run handles before
+side effects. On transport or infrastructure uncertainty, stop and inspect that
+same session's history/evidence; do not overwrite the journal, replay the call
+or continue with the candidate. Sessions without a conclusive cleanup remain
+available for inspection until the installed broker's bounded expiry.
+
+Broker evidence binds uploaded files and execution controls, not the truth of
+untrusted stdout. A before-fail/after-pass screen still needs assertion review,
+actual repository/package tests, prior-art checks and applicable contribution
+rules before publication. This route does not change the default verification
+scope or qualify a dependency-heavy lead by extracting an easier function.
+
 ## Optional owner-reviewed GPU capture
 
 The CLI and `--export-runtime` remain CPU-only. On an authorized Linux NVIDIA
