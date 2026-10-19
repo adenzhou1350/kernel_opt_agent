@@ -52,6 +52,21 @@ actual maintainer-supported route; do not rename branches, disguise authorship,
 switch accounts or change prose to evade a guard. No exhaustive workflow scan or
 automatic eligibility classifier is added by this route.
 
+### Withdrawn scope must also cover queued work
+
+On an authorized delivery host, repeat `kimi_scout_delivery.py --exclude-repo
+OWNER/REPO` for explicitly withdrawn repositories. This filters new intake,
+pending-work capacity and atomic claims, including work queued before the flag
+was set. GitHub repository identity is case-insensitive. It does not terminate
+an already running call or delete/relabel historical evidence as no-bug.
+
+Keep this explicit scope with the worker's launch configuration across migration;
+copying source jobs alone can re-admit a previously parked candidate. Restore
+owner dispositions through the existing owner-intake/park operations, rather
+than changing completed source verdicts. Exclusion is an owner decision, not an
+automatic interpretation of policy text or proof that a repository has no bugs.
+Removing the flag needs a separately justified scope decision, not a queue stall.
+
 ### Local pinned packet
 
 `scout_git_source.py --repo LOCAL_REPO --spec selection.json --output FRESH.json`

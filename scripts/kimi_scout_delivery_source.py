@@ -81,6 +81,11 @@ def _repo(value):
     return value
 
 
+def normalize_excluded_repos(values):
+    """Explicit owner scope only; GitHub repository identities ignore case."""
+    return tuple(sorted({_repo(value).casefold() for value in values}))
+
+
 def _raw_sources(packet, repo):
     """Yield only exact immutable packet URLs; never turn model prose into URLs."""
     for source in packet.get("sources", []):
@@ -221,7 +226,7 @@ def select_leads(
         OWNER_LANGUAGE_SUFFIXES[owner_language] if owner_language is not None else
         (".go", ".rs") if native_cpu else (".py",)
     )
-    excluded_repos = tuple(sorted({_repo(repo) for repo in exclude_repos}))
+    excluded_repos = normalize_excluded_repos(exclude_repos)
     if type(limit) is not int or not 0 <= limit <= 10_000:
         raise ValueError("limit must be an integer between 0 and 10000")
     if source_ids is not None:
@@ -270,7 +275,7 @@ def select_leads(
             if source_ids is not None else ""
         )
         repo_filter = (
-            "AND json_extract(packet,'$.repo') NOT IN ("
+            "AND lower(json_extract(packet,'$.repo')) NOT IN ("
             + ",".join("?" for _ in excluded_repos) + ")"
             if excluded_repos else ""
         )

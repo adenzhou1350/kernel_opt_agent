@@ -254,7 +254,7 @@ class SelectionTests(unittest.TestCase):
         self.assertEqual(rows[0]["verification_route"], "OWNER_REVIEW_ONLY")
 
     def test_owner_repository_withdrawal_precedes_history_scan(self):
-        self.add("withdrawn", packet(repo="withdrawn/project"), finished=30)
+        self.add("withdrawn", packet(repo="Withdrawn/Project"), finished=30)
         self.add("eligible", finished=10)
         before = (self.root / "scout.sqlite").read_bytes()
         for mode in ({"owner_review": True}, {"owner_language": "python"}):

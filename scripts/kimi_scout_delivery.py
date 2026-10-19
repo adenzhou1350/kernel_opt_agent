@@ -25,7 +25,10 @@ from pathlib import Path
 
 import kimi_scout as scout
 import scout_httpx_cpu as httpx_cpu
-from kimi_scout_delivery_source import SourceEvidenceRequired, UnsupportedEnvironment, load_source, select_leads
+from kimi_scout_delivery_source import (
+    SourceEvidenceRequired, UnsupportedEnvironment, load_source,
+    normalize_excluded_repos, select_leads,
+)
 from kimi_scout_verify import valid_test_summary
 from scout_publication_context import (
     owner_deferral_context, publication_context, publication_summary,
@@ -229,11 +232,17 @@ def stage(root, leads, limit=32, *, owner_review=False):
     return made
 
 
-def claim(root):
+def claim(root, *, exclude_repos=()):
+    excluded = normalize_excluded_repos(exclude_repos)
+    scope = (
+        " AND lower(repo) NOT IN (" + ",".join("?" for _ in excluded) + ")"
+        if excluded else ""
+    )
     with database(root) as db:
         db.execute("BEGIN IMMEDIATE")
         row = db.execute(
-            "SELECT * FROM delivery WHERE state='PENDING' ORDER BY updated_at,id LIMIT 1"
+            "SELECT * FROM delivery WHERE state='PENDING'" + scope
+            + " ORDER BY updated_at,id LIMIT 1", excluded,
         ).fetchone()
         if row:
             db.execute(
@@ -898,9 +907,14 @@ class Delivery:
         now = time.time()
         if now < self.next_refill and self.refill_exhausted:
             return 0
+        excluded = normalize_excluded_repos(getattr(self.args, "exclude_repo", ()))
+        scope = (
+            " AND lower(repo) NOT IN (" + ",".join("?" for _ in excluded) + ")"
+            if excluded else ""
+        )
         with database(self.root) as db:
             pending = db.execute(
-                "SELECT count(*) FROM delivery WHERE state='PENDING'"
+                "SELECT count(*) FROM delivery WHERE state='PENDING'" + scope, excluded,
             ).fetchone()[0]
             admitted = db.execute(
                 "SELECT source_job_id,dedup_key FROM delivery"
@@ -916,6 +930,7 @@ class Delivery:
             scan_limit=self.scan_limit,
             exclude_source_ids={row[0] for row in admitted},
             exclude_keys={row[1] for row in admitted},
+            exclude_repos=excluded,
         )
         made = stage(self.root, leads, limit=capacity)
         # If a page contained only duplicate canonical keys, widen the next
@@ -1490,7 +1505,9 @@ class Delivery:
                     ):
                         if self.halt.is_set() or (self.root / "STOP").exists():
                             break
-                        job = claim(self.root)
+                        job = claim(
+                            self.root, exclude_repos=getattr(self.args, "exclude_repo", ())
+                        )
                         if job is None:
                             break
                         running.add(pool.submit(self.execute, job))
@@ -1533,6 +1550,10 @@ def local_wsl_authorized(args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, required=True, help="existing scout inbox")
+    parser.add_argument(
+        "--exclude-repo", action="append", default=[], metavar="OWNER/REPO",
+        help="explicitly withdraw a repository from intake and queued claims; repeatable, history retained",
+    )
     parser.add_argument("--kimi-python", type=Path)
     parser.add_argument(
         "--mark-pr-job", help="owner-verified candidate to link to a published PR"
@@ -1601,6 +1622,10 @@ def main():
         "--max-jobs", type=int, default=0, help="0 continues on new unseen leads"
     )
     args = parser.parse_args()
+    try:
+        args.exclude_repo = normalize_excluded_repos(args.exclude_repo)
+    except ValueError as error:
+        parser.error(str(error))
     if not (
         0 <= args.min_free_memory_mb <= 1_048_576
         and 0 <= args.worker_memory_mb <= 1_048_576

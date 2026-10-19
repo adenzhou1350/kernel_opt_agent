@@ -117,6 +117,47 @@ class DeliveryTests(unittest.TestCase):
         self.assertEqual(len(ids), 8)
         self.assertEqual(len(set(ids)), 8)
 
+    def test_claim_excludes_withdrawn_repository_without_rewriting_history(self):
+        withdrawn, allowed = lead(1), lead(2)
+        withdrawn["repo"] = "Withdrawn/Project"
+        delivery.stage(self.worker.root, [withdrawn, allowed])
+        job = delivery.claim(self.worker.root, exclude_repos=["withdrawn/project"])
+        self.assertEqual(job["source_job_id"], "2")
+        self.assertIsNone(delivery.claim(
+            self.worker.root, exclude_repos=["WITHDRAWN/PROJECT"]
+        ))
+        with delivery.database(self.worker.root) as db:
+            row = db.execute(
+                "SELECT state,reason,payload FROM delivery WHERE source_job_id='1'"
+            ).fetchone()
+        self.assertEqual((row["state"], row["reason"]), ("PENDING", ""))
+        self.assertEqual(json.loads(row["payload"]), withdrawn)
+
+    def test_excluded_pending_rows_do_not_fill_the_active_refill_capacity(self):
+        held = [dict(lead(i), repo="withdrawn/project") for i in range(8)]
+        delivery.stage(self.worker.root, held)
+        self.args.exclude_repo = ["WITHDRAWN/PROJECT"]
+        with patch.object(delivery, "select_leads", return_value=[lead(9)]) as select:
+            self.assertEqual(self.worker.refill(active=0), 1)
+        self.assertEqual(select.call_args.kwargs["exclude_repos"], ("withdrawn/project",))
+        self.assertEqual(delivery.claim(
+            self.worker.root, exclude_repos=self.args.exclude_repo
+        )["source_job_id"], "9")
+
+    def test_worker_does_not_execute_previously_queued_excluded_work(self):
+        self.args.exclude_repo = ["withdrawn/project"]
+        self.args.max_jobs = 0
+        delivery.stage(self.worker.root, [dict(lead(1), repo="withdrawn/project")])
+        with (
+            patch.object(self.worker, "refill", return_value=0),
+            patch.object(self.worker, "execute") as execute,
+            patch.object(self.worker.halt, "wait", side_effect=lambda _: self.worker.halt.set()),
+        ):
+            self.worker.run()
+        execute.assert_not_called()
+        with delivery.database(self.worker.root) as db:
+            self.assertEqual(db.execute("SELECT state FROM delivery").fetchone()[0], "PENDING")
+
     def test_memory_admission_reserves_inflight_headroom_and_handles_unknown(self):
         self.args.min_free_memory_mb = 2048
         self.args.worker_memory_mb = 256
