@@ -266,8 +266,8 @@ def audit(scout_db: Path, delivery_db: Path, start: float, end: float,
             "receipt_recovery": recovery,
             "claim_boundary": (
                 "Reported tokens are not billed cost; charge may include reservation "
-                "when usage is unavailable. Default known usage reads accepted-result "
-                "JSON only: failed calls can have final usage in separate receipts. "
+                "when usage is unavailable. Default known usage reads SQLite result "
+                "metadata only: older failed calls can have final usage only in receipts. "
                 "Optional bounded receipt recovery checks job/state/charge bindings, "
                 "not authenticity; missing projection usage is not proof that the "
                 "provider reported none. Neither path changes verdicts or replays work. "

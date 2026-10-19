@@ -1153,6 +1153,44 @@ class ScoutTests(unittest.TestCase):
         self.assertTrue(raw["untrusted"])
         self.assertEqual(raw["text"], "{}")
 
+    def test_failed_answers_preserve_reported_usage_in_database_without_analysis(self):
+        from kimi_scout_funnel import inspect as inspect_funnel
+
+        for index, text in enumerate(("{'decision': 'lead'}", "{}")):
+            with self.subTest(text=text):
+                self.add(str(index))
+                job = scout.claim(self.root, 12, 200000, 2048)
+                response = {
+                    "ok": True, "text": text, "tools_advertised": 0,
+                    "tool_calls_executed": 0, "finish_reason": "stop",
+                    "usage": {"total_tokens": 321, "input_tokens": 300,
+                              "output_tokens": 21, "headers": "PRIVATE"},
+                }
+                with patch.object(
+                    scout.subprocess, "run", return_value=subprocess.CompletedProcess(
+                        [], 0, json.dumps(response), ""
+                    )
+                ) as backend:
+                    receipt = scout.execute(self.root, job, sys.executable, 30, 2048)
+                self.assertEqual(backend.call_count, 1)
+                self.assertEqual(receipt["state"], "FAILED")
+                self.assertEqual(receipt["failure_scope"], "answer")
+                with scout.connect(self.root) as db:
+                    row = db.execute("SELECT state,result FROM jobs WHERE id=?", (job["id"],)).fetchone()
+                stored = json.loads(row["result"])
+                self.assertEqual(row["state"], "FAILED")
+                self.assertIsInstance(stored, dict)
+                self.assertEqual(stored["usage"]["total_tokens"], 321)
+                self.assertNotIn("analysis", stored)
+                self.assertFalse(stored["qualified"])
+                self.assertNotIn("PRIVATE", json.dumps(stored))
+                # All-history SQL readers must not depend on the dashboard's
+                # 500-row answer-artifact fallback to count this failed call.
+                (self.root / "results" / f"{job['id']}.answer.json").unlink()
+                report = inspect_funnel(self.root)
+                self.assertEqual(report["research"]["reported_tokens"], 321 * (index + 1))
+                self.assertEqual(report["research"]["jobs_with_reported_usage"], index + 1)
+
     def test_quote_invalid_hint_stays_failed_and_charged(self):
         source = packet()
         source["sources"][0]["text"] = r'pattern = r"\s*token"'
@@ -1200,6 +1238,10 @@ class ScoutTests(unittest.TestCase):
         self.assertNotIn("PRIVATE", json.dumps(receipt))
         saved = json.loads((self.root / "results" / f"{job['id']}.json").read_text())
         self.assertEqual(saved["token_accounting"], receipt["token_accounting"])
+        with scout.connect(self.root) as db:
+            stored = json.loads(db.execute("SELECT result FROM jobs WHERE id=?", (job["id"],)).fetchone()[0])
+        self.assertIsNone(stored["usage"])
+        self.assertEqual(stored["token_accounting"], receipt["token_accounting"])
 
     def test_failed_answer_with_reported_zero_is_not_a_token_reservation(self):
         self.add()
@@ -1215,6 +1257,9 @@ class ScoutTests(unittest.TestCase):
         self.assertEqual(receipt["charge_basis"], "provider_report")
         self.assertEqual(receipt["token_accounting"]["reported_usage"]["total_tokens"], 0)
         self.assertIsNone(receipt["token_accounting"]["interrupted_usage_observation"])
+        with scout.connect(self.root) as db:
+            stored = json.loads(db.execute("SELECT result FROM jobs WHERE id=?", (job["id"],)).fetchone()[0])
+        self.assertEqual(stored["usage"]["total_tokens"], 0)
 
     def test_output_budget_exhaustion_is_failed_answer_not_provider_outage(self):
         response = dict(ok=False, error="incomplete_response", finish_reason="length",

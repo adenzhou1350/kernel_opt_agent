@@ -464,6 +464,14 @@ and its cost separately; never rewrite the answer, loosen quote matching or
 reclassify the old row as a valid discovery. JSON decoding is not permission to
 change regex backslashes or other source characters.
 
+New failed calls retain sanitized final provider usage in SQLite without an
+accepted analysis; failure verdicts and receipt result contracts stay unchanged.
+The lifetime funnel reports unknown-usage and terminal-unknown counts explicitly.
+For older rows, reuse `scout_funnel_audit.py --receipts-root` with its selected
+database/time-window arguments and bounded read-only receipt recovery. Do not
+backfill old verdicts, count a reservation/partial observation as final usage, or
+call reported token counters billed cost.
+
 CPU accounting scopes differ by platform; setup/model/human costs are separate.
 No narrow test count, synthetic success or unpriced call establishes PR yield,
 recall, total-cost superiority or research benefit. See

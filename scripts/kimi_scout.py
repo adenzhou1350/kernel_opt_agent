@@ -865,11 +865,21 @@ def execute(root, job, python, timeout, output_tokens, backend_pool=None):
         receipt["provider_http_status"] = provider_http_status
     write_json(root / "results" / f"{job['id']}.json", receipt)
 
+    # Preserve the receipt's failed-result contract. SQLite additionally needs
+    # sanitized accounting so all-history readers do not lose failed-call costs
+    # outside the visible answer-artifact tail. No unvalidated analysis, partial
+    # usage promoted to final usage, or changed failure/retry decision.
+    database_result = result if state != "FAILED" else {
+        "usage": token_accounting["reported_usage"],
+        "token_accounting": token_accounting,
+        "qualified": False,
+    }
+
     def persist_receipt():
         with connect(root) as db:
             db.execute(
                 "UPDATE jobs SET state=?,finished=?,charge=?,result=?,error=? WHERE id=?",
-                (state, time.time(), charge, dumps(result), error, job["id"]),
+                (state, time.time(), charge, dumps(database_result), error, job["id"]),
             )
 
     retry_locked(persist_receipt)

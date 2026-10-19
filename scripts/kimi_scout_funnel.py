@@ -41,6 +41,7 @@ def inspect(root: Path) -> dict:
     reviews: list[tuple[str, str]] = []
     reported_tokens = 0
     jobs_with_reported_usage = 0
+    terminal_jobs_without_reported_usage = 0
 
     with closing(_readonly(root / "scout.sqlite")) as connection:
         for job_id, state, repo, stage, parent, tokens in connection.execute(
@@ -62,6 +63,8 @@ def inspect(root: Path) -> dict:
                 reported_tokens += tokens
                 repositories[repo]["reported_tokens"] += tokens
                 jobs_with_reported_usage += 1
+            elif state not in {"PENDING", "RUNNING"}:
+                terminal_jobs_without_reported_usage += 1
 
     for job_id, repo in reviews:
         if job_id not in parents:
@@ -120,6 +123,15 @@ def inspect(root: Path) -> dict:
             "review_leaves": sum(row["review_leaves"] for row in repositories.values()),
             "reported_tokens": reported_tokens,
             "jobs_with_reported_usage": jobs_with_reported_usage,
+            "jobs_without_reported_usage": sum(states.values()) - jobs_with_reported_usage,
+            "terminal_jobs_without_reported_usage": terminal_jobs_without_reported_usage,
+            "accounting_boundary": (
+                "SQLite-recorded final provider counters only, including failed "
+                "answers when recorded. Unknown, reserved and interrupted partial "
+                "usage are not zero or measured cost. Older failed-call counters "
+                "may remain only in receipts; use scout_funnel_audit.py with "
+                "--receipts-root for bounded read-only recovery."
+            ),
         },
         "delivery": {
             "jobs": sum(delivery_states.values()),

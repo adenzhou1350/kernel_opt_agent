@@ -71,6 +71,8 @@ class FunnelTest(unittest.TestCase):
             self.assertEqual(report["research"]["jobs"], 4)
             self.assertEqual(report["research"]["review_leaves"], 1)
             self.assertEqual(report["research"]["reported_tokens"], 31)
+            self.assertEqual(report["research"]["jobs_without_reported_usage"], 1)
+            self.assertEqual(report["research"]["terminal_jobs_without_reported_usage"], 0)
             self.assertEqual(
                 report["delivery"]["environment_blockers"],
                 {
@@ -95,6 +97,25 @@ class FunnelTest(unittest.TestCase):
                     "CREATE TABLE jobs (id TEXT,state TEXT,packet TEXT,result TEXT)"
                 )
             self.assertEqual(inspect(root)["delivery"]["jobs"], 0)
+
+    def test_unknown_failed_usage_is_not_reported_zero_or_a_reservation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with closing(sqlite3.connect(root / "scout.sqlite")) as connection:
+                connection.execute("CREATE TABLE jobs (id TEXT,state TEXT,packet TEXT,result TEXT)")
+                connection.executemany("INSERT INTO jobs VALUES (?,?,?,?)", [
+                    ("known-zero", "FAILED", "{}", '{"usage":{"total_tokens":0}}'),
+                    ("legacy-unknown", "FAILED", "{}", "null"),
+                    ("partial", "FAILED", "{}", '{"usage":null,"token_accounting":{"interrupted_usage_observation":{"total_tokens":110}}}'),
+                    ("queued", "PENDING", "{}", "null"),
+                ])
+                connection.commit()
+            report = inspect(root)["research"]
+            self.assertEqual(report["reported_tokens"], 0)
+            self.assertEqual(report["jobs_with_reported_usage"], 1)
+            self.assertEqual(report["jobs_without_reported_usage"], 3)
+            self.assertEqual(report["terminal_jobs_without_reported_usage"], 2)
+            self.assertIn("not zero", report["accounting_boundary"])
 
     def test_recorded_publications_and_tokens_do_not_imply_conversion(self):
         with tempfile.TemporaryDirectory() as directory:
