@@ -36,6 +36,14 @@
     {
       "url": "https://github.com/NVIDIA/TransformerEngine/blob/9d9bd9e5c4764633c252fdad905d8f60b6d95098/transformer_engine/common/ep/ep_backend.cpp#L165-L242",
       "note": "validate_config rejects num_experts % ep_size != 0; initialize calls it before inst.init. The inspected ep_bootstrap -> PyTorch extension ep_initialize -> nvte_ep_initialize -> EPBackend::initialize chain precedes Python's local-expert floor division. This refutes that chain's silent-truncation premise, not runtime/CUDA/NCCL correctness."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/bde4d001130e5112d984ba99f0546e22c09e1a89/vllm/models/deepseek_v41/nvidia/ops/o_proj.py",
+      "note": "dsv41_o_proj dispatches the fused WO-A kernel only for 1 <= token count <= its limit; zero takes the fallback. This exact caller guard also exists at the original lead's 81f7c695 pin. An internal dispatch(0) division alone therefore does not prove a reachable production failure. Source-only scope, not model/GPU qualification or every caller."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/bde4d001130e5112d984ba99f0546e22c09e1a89/vllm/models/deepseek_v41/nvidia/ops/fused_wo_a.py",
+      "note": "The same kernel's register_warmup uses WarmupIntRange(1, max_tokens + 1). Keep this positive-token warmup contract with its public caller guard before reproducing a hypothetical zero-token path. Reopen with a distinct supported bypass rather than treating the whole implementation as safe."
     }
   ],
   "status": "counterexample"
