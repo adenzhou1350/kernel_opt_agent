@@ -188,12 +188,18 @@ def reaped_child_cpu_delta(before, after):
 
 
 def run(*, cwd, output, command, sources, format, expected_tests, package=None,
-        timeout=120, environment=None, _gpu_uuid=None, native_windows=False):
+        timeout=120, environment=None, _gpu_uuid=None, native_windows=False,
+        _execution_guard=None):
     invocation_started = time.monotonic()
     if os.name != "posix" and not (os.name == "nt" and native_windows):
         raise ValueError("execute on an authorized POSIX worker; do not start local WSL")
     if native_windows and (os.name != "nt" or _gpu_uuid is not None):
         raise ValueError("--native-windows requires native Windows and CPU-only execution")
+    if _execution_guard is not None and (
+        _gpu_uuid is None or not callable(_execution_guard)
+        or not isinstance(getattr(_execution_guard, "evidence", None), dict)
+    ):
+        raise ValueError("execution guard requires the owner GPU hook and a bounded evidence dict")
     if not 0 < timeout <= 3600:
         raise ValueError("timeout must be within 0..3600 seconds")
     cwd = Path(cwd).resolve(strict=True)
@@ -270,8 +276,10 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
                 command=command, cwd=cwd, output=output, environment={**os.environ, **environment},
                 timeout=timeout, max_bytes=native.MAX_BYTES, log=log)
     else:
+        guard_options = {} if _execution_guard is None else {"guard": _execution_guard}
         captured = capture_posix(command=command, cwd=cwd, output=output,
-                                 environment=environment, timeout=timeout, started=started)
+                                 environment=environment, timeout=timeout, started=started,
+                                 **guard_options)
     reason, returncode = captured["reason"], captured["exit_code"]
     post_exit_group_wait_seconds = captured["post_exit_group_wait_seconds"]
     post_exit_group_cleanup_required = captured["post_exit_group_cleanup_required"]
@@ -331,17 +339,43 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     if native_windows:
         result["windows_launcher_python"] = captured["launcher_python"]
         result["windows_job_cleanup_verified"] = captured["windows_job_cleanup_verified"]
+    if _execution_guard is not None:
+        result["execution_guard"] = _execution_guard.evidence
     (output / "result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     return result
 
 
-def capture_posix(*, command, cwd, output, environment, timeout, started):
+def check_execution_guard(guard, phase):
+    """Trusted owner hook: None continues; any error stops only our command."""
+    if guard is None:
+        return None
+    try:
+        reason = guard(phase)
+    except Exception as error:
+        return f"execution guard {phase} failed ({type(error).__name__})"
+    if reason is None:
+        return None
+    if not isinstance(reason, str) or not reason.strip():
+        return f"execution guard {phase} returned an invalid decision"
+    return f"execution guard {phase}: {reason[:256]}"
+
+
+def capture_posix(*, command, cwd, output, environment, timeout, started, guard=None):
     reason, written = None, 0
     cpu_before = reaped_child_cpu()
     post_exit_group_wait_seconds, post_exit_group_cleanup_required = 0.0, False
     post_exit_group_observation = None
     # Keep output off RAM; cap both the file and the later parser input.
     with (output / "terminal.log").open("xb") as log:
+        reason = check_execution_guard(guard, "admission")
+        if not reason and time.monotonic() - started >= timeout:
+            reason = "wall timeout before command launch"
+        if reason:
+            return {"reason": reason, "exit_code": None,
+                    "cpu_accounting": reaped_child_cpu_delta(cpu_before, reaped_child_cpu()),
+                    "post_exit_group_wait_seconds": 0.0,
+                    "post_exit_group_observation": None,
+                    "post_exit_group_cleanup_required": False}
         process = subprocess.Popen(command, cwd=cwd, env={**os.environ, **environment},
                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                    start_new_session=True)
@@ -352,6 +386,9 @@ def capture_posix(*, command, cwd, output, environment, timeout, started):
                     remaining = timeout - (time.monotonic() - started)
                     if remaining <= 0:
                         reason = "wall timeout (including compilation and pipe closure)"
+                        break
+                    reason = check_execution_guard(guard, "running")
+                    if reason:
                         break
                     for key, _ in selector.select(min(0.1, remaining)):
                         chunk = os.read(key.fd, 65536)
@@ -370,6 +407,18 @@ def capture_posix(*, command, cwd, output, environment, timeout, started):
                 stop_group(process)
             else:
                 try:
+                    # A child can close both output FDs and keep allocating.
+                    # Keep monitoring until it exits, not only until pipe EOF.
+                    if guard is not None:
+                        while process.poll() is None:
+                            remaining = timeout - (time.monotonic() - started)
+                            if remaining <= 0:
+                                raise subprocess.TimeoutExpired(command, timeout)
+                            reason = check_execution_guard(guard, "running")
+                            if reason:
+                                stop_group(process)
+                                break
+                            time.sleep(min(0.1, remaining))
                     process.wait(timeout=max(0.01, timeout - (time.monotonic() - started)))
                 except subprocess.TimeoutExpired:
                     reason = "wall timeout after output closure"
@@ -400,6 +449,8 @@ def capture_posix(*, command, cwd, output, environment, timeout, started):
                     finally:
                         stop_group(process)
             process.stdout.close()
+    postflight_reason = check_execution_guard(guard, "postflight")
+    reason = reason or postflight_reason
     return {"reason": reason, "exit_code": process.returncode,
             "cpu_accounting": reaped_child_cpu_delta(cpu_before, reaped_child_cpu()),
             "post_exit_group_wait_seconds": post_exit_group_wait_seconds,

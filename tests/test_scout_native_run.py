@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
@@ -169,6 +170,20 @@ class InputTests(unittest.TestCase):
         self.assertEqual(runner.assignments(["source=name.rs=" + self.sha]), [("source=name.rs", self.sha)])
         with self.assertRaises(ValueError):
             runner.assignments(["broken"])
+
+    def test_guard_errors_and_invalid_decisions_are_bounded_and_fail_closed(self):
+        for value in (False, True, {}, "", "   "):
+            with self.subTest(value=value):
+                self.assertIn("invalid decision", runner.check_execution_guard(lambda _: value, "running"))
+        self.assertIsNone(runner.check_execution_guard(None, "running"))
+        self.assertIsNone(runner.check_execution_guard(lambda _: None, "running"))
+        self.assertLess(len(runner.check_execution_guard(lambda _: "x" * 10000, "running")), 320)
+        with patch.object(runner, "source_identities") as sources:
+            def fail(_):
+                raise OSError("PRIVATE_ERROR_DETAIL")
+            self.assertEqual(runner.check_execution_guard(fail, "running"),
+                             "execution guard running failed (OSError)")
+            sources.assert_not_called()
 
     def test_cpu_deltas_keep_failed_work_and_unknown_counters_distinct(self):
         observed = runner.reaped_child_cpu_delta((1.25, 0.5), (2.0, 0.75))
@@ -726,11 +741,114 @@ class ProcessTests(unittest.TestCase):
     def test_prelaunch_mismatch_gpu_and_environment_rejected(self):
         for overrides in ({"sources": [("source.rs", "0" * 64)]}, {"environment": {"CUDA_VISIBLE_DEVICES": "0"}},
                           {"environment": {"BAD=KEY": "value"}}, {"command": ["python3"]},
-                          {"expected_tests": []}, {"timeout": 0}, {"_gpu_uuid": "0"},
+                          {"expected_tests": []}, {"timeout": 0}, {"_execution_guard": object()}, {"_gpu_uuid": "0"},
                           {"_gpu_uuid": "GPU-00000000-0000-0000-0000-000000000000"}):
             with self.subTest(overrides=overrides), self.assertRaises(ValueError):
                 self.execute("print('should not run')", **overrides)
             self.assertFalse((self.root / "output").exists())
+
+
+@unittest.skipUnless(os.name == "posix", "real POSIX control flow; no GPU code")
+class GuardedProcessTests(unittest.TestCase):
+    setUp = ProcessTests.setUp
+    execute = ProcessTests.execute
+    execute_junit = ProcessTests.execute_junit
+    write_junit = ProcessTests.write_junit
+
+    def guarded(self, code, guard, **arguments):
+        guard.evidence = {"control_test": True}
+        return self.execute_junit(code, _gpu_uuid="GPU-00000000-0000-0000-0000-000000000000",
+                                  _execution_guard=guard, **arguments)
+
+    def test_rejected_admission_never_starts_a_child(self):
+        def guard(phase):
+            return "reserve unavailable" if phase == "admission" else None
+        with patch.object(runner.subprocess, "Popen") as child:
+            result = self.guarded("raise RuntimeError('must not execute')", guard)
+        child.assert_not_called()
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertIsNone(result["exit_code"])
+        self.assertIsNone(result["summary"])
+        self.assertEqual((self.root / "output/terminal.log").read_bytes(), b"")
+        self.assertEqual(json.loads((self.root / "output/result.json").read_text()), result)
+
+    def test_admission_time_is_included_in_the_launch_deadline(self):
+        def guard(phase):
+            if phase == "admission":
+                time.sleep(.03)
+        with patch.object(runner.subprocess, "Popen") as child:
+            result = self.guarded("raise RuntimeError('must not execute')", guard, timeout=.01)
+        child.assert_not_called()
+        self.assertIn("before command launch", result["issues"][0])
+
+    def test_running_guard_stops_only_owned_child_even_after_a_valid_report(self):
+        other = subprocess.Popen([sys.executable, "-I", "-S", "-c", "import time; time.sleep(30)"],
+                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        try:
+            phases = []
+            marker = self.root / "ready"
+            def guard(phase):
+                phases.append(phase)
+                if phase == "running" and marker.exists():
+                    raise OSError("PRIVATE_TELEMETRY_ERROR")
+            code = self.write_junit(JUNIT_PASS) + (
+                "import os,time; Path('ready').write_text(str(os.getpid())); time.sleep(30)")
+            result = self.guarded(code, guard, timeout=3)
+            self.assertEqual(result["status"], "INCONCLUSIVE")
+            self.assertIsNone(result["summary"])
+            self.assertIn("guard running failed (OSError)", result["issues"][0])
+            self.assertNotIn("PRIVATE", str(result))
+            self.assertIn("postflight", phases)
+            self.assertNotEqual(result["exit_code"], 0)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(int(marker.read_text()), 0)
+            self.assertIsNone(other.poll())
+        finally:
+            other.terminate()
+            other.wait(timeout=5)
+
+    def test_pipe_eof_does_not_disable_running_guard(self):
+        pipe_closed = []
+        original = runner.selectors.DefaultSelector
+        @contextmanager
+        def observed_selector():
+            with original() as selector:
+                yield selector
+            pipe_closed.append(True)
+        def guard(phase):
+            if phase == "running" and pipe_closed:
+                return "reserve lost after output closure"
+        code = self.write_junit(JUNIT_PASS) + "import os,time; os.close(1); os.close(2); time.sleep(30)"
+        with patch.object(runner.selectors, "DefaultSelector", observed_selector):
+            result = self.guarded(code, guard, timeout=3)
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertIn("reserve lost after output closure", result["issues"][0])
+        self.assertIsNone(result["summary"])
+
+    def test_postflight_failure_overrides_exit_zero_and_junit_pass(self):
+        def guard(phase):
+            return "postflight telemetry missing" if phase == "postflight" else None
+        result = self.guarded(self.write_junit(JUNIT_PASS), guard)
+        self.assertEqual(result["exit_code"], 0)
+        self.assertEqual(result["status"], "INCONCLUSIVE")
+        self.assertIsNone(result["summary"])
+        self.assertIn("guard postflight", result["issues"][0])
+        self.assertTrue((self.root / "output/junit.xml").exists())
+
+    def test_guarded_pass_keeps_exact_selected_uuid_and_observations(self):
+        phases = []
+        def guard(phase):
+            phases.append(phase)
+            guard.evidence[phase] = True
+        code = self.write_junit(JUNIT_PASS) + (
+            "import os; assert os.environ['CUDA_VISIBLE_DEVICES']=='GPU-00000000-0000-0000-0000-000000000000'")
+        result = self.guarded(code, guard)
+        self.assertEqual(result["status"], "TESTS_PASSED")
+        self.assertEqual(phases[0], "admission")
+        self.assertEqual(phases[-1], "postflight")
+        self.assertIn("running", phases)
+        self.assertTrue(result["execution_guard"]["postflight"])
+        self.assertEqual(json.loads((self.root / "output/result.json").read_text()), result)
 
 
 @unittest.skipUnless(os.name == "nt", "native Windows Job Object controls")

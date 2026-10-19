@@ -229,6 +229,124 @@ class ProcessTests(unittest.TestCase):
             verify.run_arm(b"reviewed source\n", b"reviewed test\n", GPU)
 
 
+class NativeGuardTests(unittest.TestCase):
+    def sample(self):
+        return dict(uuid=GPU, index=0, total_mib=32768, memory_mib=1024,
+                    utilization=0, processes=[[GPU, "123", "existing-user-task"]])
+
+    def test_three_admission_samples_record_shared_processes_and_throttle_running(self):
+        value = self.sample()
+        guard = verify.NativeGpuGuard(GPU)
+        with (mock.patch.object(verify, "snapshot", return_value=value) as probe,
+              mock.patch.object(verify.time, "sleep") as sleep,
+              mock.patch.object(verify.time, "monotonic", return_value=100)):
+            self.assertIsNone(guard("admission"))
+            self.assertEqual(sleep.call_count, 2)
+            self.assertEqual(len(guard.evidence["preflight"]), 3)
+            self.assertEqual(guard.evidence["preflight"][0]["processes"], value["processes"])
+            for _ in range(100):
+                self.assertIsNone(guard("running"))
+            self.assertEqual(probe.call_count, 3)
+            self.assertIsNone(guard("postflight"))  # Must not reuse a throttled sample.
+            self.assertEqual(probe.call_count, 4)
+        self.assertEqual(guard.evidence["minimum_free_mib"], 31744)
+
+    def test_own_gpu_utilization_is_not_a_running_or_postflight_stop(self):
+        guard = verify.NativeGpuGuard(GPU)
+        busy = self.sample()
+        busy["utilization"] = 100
+        busy["processes"][0][2] = "x" * 10000
+        busy["processes"] *= 100
+        with (mock.patch.object(verify, "snapshot", return_value=busy),
+              mock.patch.object(verify.time, "monotonic", side_effect=range(1000))):
+            for _ in range(100):
+                self.assertIsNone(guard("running"))
+            self.assertIsNone(guard("postflight"))
+        self.assertEqual(guard.evidence["running_samples"], 100)
+        self.assertNotIn("running_history", guard.evidence)
+        self.assertEqual(len(guard.evidence["latest_running"]["processes"]), 64)
+        self.assertTrue(guard.evidence["latest_running"]["processes_truncated"])
+        self.assertTrue(guard.evidence["latest_running"]["process_names_truncated"])
+        self.assertEqual(len(guard.evidence["latest_running"]["processes"][0][2]), 256)
+        self.assertEqual(guard.evidence["maximum_utilization"], 100)
+
+    def test_busy_admission_and_lost_reserve_return_a_stop_reason(self):
+        for phase, changes in (("admission", {"utilization": 81}),
+                               ("running", {"memory_mib": 32768}),
+                               ("postflight", {"memory_mib": 32768})):
+            value = self.sample()
+            value.update(changes)
+            guard = verify.NativeGpuGuard(GPU)
+            with self.subTest(phase=phase), mock.patch.object(verify, "snapshot", return_value=value):
+                self.assertIsInstance(guard(phase), str)
+                self.assertEqual(guard.evidence["failure"]["phase"], phase)
+
+    def test_invalid_identity_telemetry_or_weaker_reserve_cannot_be_accepted(self):
+        for field, value in (("uuid", "GPU-other"), ("total_mib", 0),
+                             ("memory_mib", -1), ("memory_mib", 32769),
+                             ("utilization", 101), ("total_mib", True)):
+            sample = self.sample()
+            sample[field] = value
+            guard = verify.NativeGpuGuard(GPU)
+            with self.subTest(field=field, value=value), mock.patch.object(verify, "snapshot", return_value=sample):
+                with self.assertRaises(ValueError):
+                    guard("postflight")
+            self.assertEqual(guard.evidence["failure"]["error"], "ValueError")
+        for reserve in (0, 6143, True, 8192.0):
+            with self.subTest(reserve=reserve), self.assertRaises(ValueError):
+                verify.NativeGpuGuard(GPU, reserve)
+        guard = verify.NativeGpuGuard(GPU)
+        with mock.patch.object(verify, "snapshot", side_effect=OSError("private detail")):
+            with self.assertRaises(OSError):
+                guard("admission")
+        self.assertNotIn("private detail", json.dumps(guard.evidence))
+
+    def test_native_wrapper_keeps_one_lock_through_postflight_and_cannot_override_guard(self):
+        import scout_native_run
+        active = []
+        from contextlib import contextmanager
+        @contextmanager
+        def lock(*_):
+            active.append(True)
+            try:
+                yield
+            finally:
+                active.pop()
+        def capture(**options):
+            self.assertEqual(active, [True])
+            self.assertEqual(options["_gpu_uuid"], GPU)
+            self.assertIsInstance(options["_execution_guard"], verify.NativeGpuGuard)
+            with mock.patch.object(verify, "snapshot", return_value=self.sample()):
+                self.assertIsNone(options["_execution_guard"]("postflight"))
+            self.assertEqual(active, [True])
+            return {"status": "INCONCLUSIVE"}
+        with (mock.patch.object(sys, "platform", "linux"),
+              mock.patch.object(verify, "gpu_lock", side_effect=lock) as locking,
+              mock.patch.object(scout_native_run, "run", side_effect=capture) as run):
+            self.assertEqual(verify.run_native(gpu_uuid=GPU, format="pytest-junit"),
+                             {"status": "INCONCLUSIVE"})
+            locking.assert_called_once()
+            self.assertEqual(active, [])
+            for arguments in ({"_gpu_uuid": GPU}, {"_execution_guard": object()},
+                              {"format": "go-json"}, {"min_free_mib": 1}):
+                options = dict(gpu_uuid=GPU, format="pytest-junit")
+                options.update(arguments)
+                with self.subTest(arguments=arguments), self.assertRaises(ValueError):
+                    verify.run_native(**options)
+            self.assertEqual(run.call_count, 1)
+
+    def test_contended_native_lock_does_not_probe_or_launch(self):
+        import scout_native_run
+        with (mock.patch.object(sys, "platform", "linux"),
+              mock.patch.object(verify, "gpu_lock", side_effect=BlockingIOError("busy")),
+              mock.patch.object(verify, "snapshot") as probe,
+              mock.patch.object(scout_native_run, "run") as run):
+            with self.assertRaises(BlockingIOError):
+                verify.run_native(gpu_uuid=GPU, format="pytest-junit")
+            probe.assert_not_called()
+            run.assert_not_called()
+
+
 class HarnessTests(unittest.TestCase):
     def fake_torch(self, uuid=GPU, count=1):
         cuda = types.SimpleNamespace(

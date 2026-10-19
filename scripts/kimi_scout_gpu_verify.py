@@ -177,6 +177,97 @@ def idle_samples(gpu_uuid):
     return samples
 
 
+class NativeGpuGuard:
+    """Sample shared-device headroom; not isolation or a hardware memory quota."""
+
+    def __init__(self, gpu_uuid, min_free_mib=MIN_HEADROOM_MIB):
+        if not isinstance(gpu_uuid, str) or not re.fullmatch(UUID_RE, gpu_uuid):
+            raise ValueError("native GPU capture requires a full GPU UUID")
+        if type(min_free_mib) is not int or min_free_mib < MIN_HEADROOM_MIB:
+            raise ValueError("headroom must be an integer at least 6144 MiB")
+        self.uuid = gpu_uuid
+        self.min_free_mib = min_free_mib
+        self.next_sample = 0.0
+        self.evidence = {
+            "preflight": [], "running_samples": 0, "latest_running": None,
+            "postflight": None, "minimum_free_mib": None, "maximum_utilization": None,
+            "required_free_mib": min_free_mib, "failure": None,
+            "boundary": "Sampled NVML queries, potentially incomplete in containers; sharing allowed. "
+                        "No CUDA ordinal mapping, workload cap, isolation or hardware quota is established.",
+        }
+
+    def observe(self, phase):
+        sample = snapshot(self.uuid)
+        total, used, utilization = (sample[key] for key in ("total_mib", "memory_mib", "utilization"))
+        if (sample["uuid"].lower() != self.uuid.lower()
+                or any(type(value) is not int for value in (total, used, utilization))
+                or not 0 <= used <= total or total <= 0 or not 0 <= utilization <= 100):
+            raise ValueError("invalid GPU identity or counters")
+        sample = dict(sample, observed_at=time.time(),
+                      processes=[[row[0], row[1], row[2][:256]] for row in sample["processes"][:64]],
+                      processes_truncated=len(sample["processes"]) > 64,
+                      process_names_truncated=any(len(row[2]) > 256 for row in sample["processes"][:64]))
+        if phase == "admission":
+            self.evidence["preflight"].append(sample)
+        elif phase == "running":
+            self.evidence["running_samples"] += 1
+            self.evidence["latest_running"] = sample
+        else:
+            self.evidence["postflight"] = sample
+        free = total - used
+        previous = self.evidence["minimum_free_mib"]
+        self.evidence["minimum_free_mib"] = free if previous is None else min(previous, free)
+        previous = self.evidence["maximum_utilization"]
+        self.evidence["maximum_utilization"] = utilization if previous is None else max(previous, utilization)
+        if free < self.min_free_mib:
+            return "selected GPU lost required free-memory reserve"
+        if phase == "admission" and utilization > MAX_UTILIZATION:
+            return "selected GPU is too busy for admission"
+        return None
+
+    def __call__(self, phase):
+        try:
+            if phase not in {"admission", "running", "postflight"}:
+                raise ValueError("unknown guard phase")
+            if phase == "admission" and self.evidence["preflight"]:
+                raise ValueError("admission must not be reused")
+            if phase == "running" and time.monotonic() < self.next_sample:
+                return None
+            for index in range(3 if phase == "admission" else 1):
+                if index:
+                    time.sleep(1)
+                reason = self.observe(phase)
+                if reason:
+                    self.evidence["failure"] = self.evidence["failure"] or {"phase": phase, "reason": reason}
+                    return reason
+            self.next_sample = time.monotonic() + 1
+            return None
+        except Exception as error:
+            self.evidence["failure"] = self.evidence["failure"] or {"phase": phase, "error": type(error).__name__}
+            raise
+
+
+def run_native(*, gpu_uuid, lock_dir="/workspace/kernel-opt/direct-gpu-locks",
+               min_free_mib=MIN_HEADROOM_MIB, **arguments):
+    """Owner-only pytest capture of reviewed code with one cooperating GPU lock.
+
+    The caller must review imports/resources, isolate source/env/caches, verify
+    the actual visible CUDA UUID and set any cooperative allocator cap in the
+    reviewed child. No source safety, environment identity or quota is inferred.
+    Unlike the three-file CLI screen, this does not inject a Torch harness.
+    """
+    if sys.platform != "linux" or arguments.get("format") != "pytest-junit":
+        raise ValueError("native GPU capture requires Linux and pytest-junit")
+    if any(key in arguments for key in ("_gpu_uuid", "_execution_guard")):
+        raise ValueError("the companion owns UUID selection and the execution guard")
+    import scout_native_run
+
+    guard = NativeGpuGuard(gpu_uuid, min_free_mib)
+    with gpu_lock(lock_dir, gpu_uuid):
+        return scout_native_run.run(**arguments, _gpu_uuid=gpu_uuid,
+                                    _execution_guard=guard)
+
+
 def group_exists(pgid):
     try:
         os.killpg(pgid, 0)

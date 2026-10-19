@@ -15,6 +15,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Prepare a reviewed local-source model packet? | [Pinned packet](#local-pinned-packet) |
 | Transfer exact committed bytes? | [Source bundle](#commit-exact-source-before-native-validation) |
 | Run a reviewed native command? | `scout_native_run.py --help`; [runtime/export/cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
+| Capture owner-reviewed GPU pytest without another process wrapper? | [Optional shared-GPU guard](#optional-owner-reviewed-gpu-capture) |
 | Compare regressions and controls? | `scout_native_results.compare_regression`; [wider pytest/Go cohorts](#complete-pytest-cohorts) |
 | Check backend integer rounding before a full compiler build? | [Reviewed CuTeDSL scalar/MLIR witness](../examples/native-cutedsl-truncdiv/README.md); not vector, compiler or GPU qualification |
 | Test a model/backend without migrating production? | [Finite public batch](#finite-public-batch-without-a-task-specific-executor) |
@@ -94,6 +95,50 @@ next conservative reservation: UTF-8 input **bytes** + output-token allowance +
 `CALL_LIMIT` reports the rolling attempt cap. A null observation means this
 iteration did not reach the queue budget check; it does not mean budget passed.
 Do not increase caps or disable resource guards merely to make a batch drain.
+
+## Optional owner-reviewed GPU capture
+
+The CLI and `--export-runtime` remain CPU-only. On an authorized Linux NVIDIA
+worker, the existing `kimi_scout_gpu_verify.run_native(...)` library companion
+reuses native pytest/JUnit capture plus its cooperating UUID lock:
+
+```python
+from kimi_scout_gpu_verify import run_native
+
+result = run_native(
+    gpu_uuid=reviewed_full_uuid, lock_dir=shared_lock_directory,
+    min_free_mib=16384, cwd=private_checkout, output=fresh_output,
+    command=reviewed_pytest_argv, sources=reviewed_path_sha256_pairs,
+    format="pytest-junit", expected_tests=exact_collected_ids, timeout=180,
+    environment=private_environment,
+)
+```
+
+Review and transfer both companion and native-runtime source explicitly; no
+model, Scout delivery worker or exported CPU tool gains GPU authority here.
+This route requires a working `/usr/bin/nvidia-smi`, including compute-process
+queries. Torch/CUDA availability alone is insufficient. A missing telemetry
+executable rejects admission before launching the test child; do not substitute
+Torch allocator counters for device/process telemetry or alter a shared driver
+to force admission. A canary in the current isolated GPU sandbox failed this
+fixed-path telemetry invocation before starting its pytest child. That image uses
+its own external monitor; this companion is not qualified for it without a
+separately reviewed telemetry integration.
+The reviewed child still must prove its visible CUDA ordinal/UUID mapping,
+bound tensor sizes and any cooperative Torch allocator cap, and isolate its
+dependencies and caches. This helper injects no Torch harness or memory quota.
+
+Admission records three fresh device/process/load snapshots, allowing sharing
+with adequate headroom. Execution samples about once per second, **including
+after output EOF**, then queries postflight under the same lock. The reserve
+cannot be weaker than 6144 MiB. High utilization blocks admission, not one's own
+running kernels. Telemetry failure or reserve loss makes even an exit-zero/JUnit
+pass `INCONCLUSIVE`; cleanup signals only the owned process group. Bounded
+`execution_guard` evidence in `result.json` keeps preflight, latest running,
+postflight, extrema and count, not an ever-growing sample list. NVML process
+visibility can be incomplete, and sampled checks are not isolation or a hard
+VRAM/wall-time quota. Native CPU-accounting deltas include the guard's reaped
+telemetry subprocesses; they are not isolated workload/GPU-busy measurements.
 
 ## Commit-exact source before native validation
 
