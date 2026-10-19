@@ -91,6 +91,24 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertEqual(result["oversized_matches_omitted"], 0)
         self.assertNotIn("qualified", result)
 
+    def test_annotation_resolution_advice_distinguishes_container_from_fields(self):
+        result = lesson_suggestions(
+            "get_type_hints nested kwargs forward reference",
+            source_urls=[
+                "https://raw.githubusercontent.com/vllm-project/vllm/"
+                "81f7c69577433b938ee16539020792dae37c7d0c/"
+                "vllm/transformers_utils/processor.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "annotation-qualifier-composition")
+        self.assertTrue(result["source_path_match"])
+        self.assertIn("not recursive inspection", card["avoid_when"])
+        self.assertIn("real supported caller", card["avoid_when"])
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
     def test_merged_pyee_source_retrieves_the_scoped_callback_lesson(self):
         result = lesson_suggestions(
             "review public source",

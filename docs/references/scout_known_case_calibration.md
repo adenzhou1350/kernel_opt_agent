@@ -102,3 +102,60 @@ Private captures preserve inputs, original outputs and native run identities;
 the language example is reproducible but these model responses are not a
 public benchmark dataset. No population recall, causal model superiority,
 cost-optimality, PR-yield gain, strong-model comparison or paper claim is supported.
+
+## Separate no-model control: nested annotation scope
+
+This later development check is not another arm or successful repair of the
+two-call diagnostic above. A Scout lead inferred that an unresolved inner image
+annotation would make an outer kwargs-container `get_type_hints()` call fail.
+The [pinned vLLM implementation](https://github.com/vllm-project/vllm/blob/81f7c69577433b938ee16539020792dae37c7d0c/vllm/transformers_utils/processor.py#L323-L354)
+instead resolves the outer class-valued annotations, then reads inner field
+names without evaluating them. The two levels need separate controls.
+
+This standard-library example is independent of Transformers and vLLM:
+
+    >>> from typing import TypedDict, get_type_hints
+    >>> class ImageOptions(TypedDict):
+    ...     interpolation: 'NotImportedImageType'
+    >>> class ProcessorOptions(TypedDict):
+    ...     images_kwargs: ImageOptions
+    >>> get_type_hints(ProcessorOptions)['images_kwargs'] is ImageOptions
+    True
+    >>> try:
+    ...     get_type_hints(ImageOptions)
+    ... except NameError:
+    ...     print('inner field still unresolved')
+    inner field still unresolved
+    >>> class UnresolvedProcessorOptions(TypedDict):
+    ...     images_kwargs: 'NotImportedKwargsClass'
+    >>> try:
+    ...     get_type_hints(UnresolvedProcessorOptions)
+    ... except NameError:
+    ...     print('outer annotation unresolved')
+    outer annotation unresolved
+
+[CPython's versioned implementation](https://github.com/python/cpython/blob/v3.12.13/Lib/typing.py#L406-L443)
+supports the distinction; generic argument resolution is not arbitrary recursive
+inspection of every referenced class.
+
+In the existing native Linux/Python 3.12.13, Torch 2.14 CPU environment, the
+complete pinned processor module was imported under a private audit name with
+the existing package dependencies, not reduced to extracted functions. Ten
+checks passed against Transformers 5.19.0: the base class, seven actual Qwen/GLM
+kwargs classes, unresolved-inner control and synthetic unresolved-outer control.
+No model construction/download or CUDA initialization was involved. The seven
+real classes retained the expected dynamic keys; the inner unresolved control
+did too. Only the synthetic outer control produced the four-key fallback.
+
+The first diagnostic run retained nine passes and one test failure because it
+over-specified which unresolved name would fail first: inherited
+`PILImageResampling` preceded the synthetic field. A fresh version corrected that
+test expectation, not production code. A static inventory found 118 kwargs
+classes in 159 installed processor files; it is not a runtime qualification of
+all those classes. Original test/log/hash evidence remains separate.
+
+Decision: do not publish the speculative fix without a supported actual outer
+annotation/caller failure on its required dependency version. This is a scoped
+negative result, not proof every custom processor or older version works. The
+executable example documents a language mechanism; it does not reproduce the
+complete target environment, measure Scout benefit, or establish a paper result.

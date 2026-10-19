@@ -1,9 +1,9 @@
 {
   "id": "annotation-qualifier-composition",
   "title": "Test annotation qualifier composition without losing value checks or metadata",
-  "applies_when": "A Python runtime checker or schema introspector handles TypedDict Required, NotRequired, ReadOnly and Annotated through an origin/argument dispatch loop; individual wrappers work but supported nesting may fall into an unknown-type path.",
+  "applies_when": "A Python runtime checker or schema introspector handles TypedDict qualifiers, Annotated or forward-reference resolution; distinguish wrapper composition from the resolution of a class-valued outer annotation.",
   "lesson": "Test documented wrapper compositions, not just each wrapper independently. PEP 655 permits Annotated outside or inside Required/NotRequired. Compare both orders using a valid value, wrong value and missing key; absence is not a nullable value. Include total/non-total dictionaries and concrete/string annotations with the supported typing provider. If normalization must cross Annotated to find a qualifier, retain its metadata for actual custom-checker callbacks in inner-before-outer order, including duplicates; stripping all metadata can repair the built-in check while breaking extensions. In the cited Typeguard revision, outer Annotated hides the qualifier from check_typed_dict; the later dispatch unwraps only Annotated and silently leaves the underlying value unchecked. A metadata callback is a necessary control for the proposed normalization, not a performance test.",
-  "avoid_when": "This is not permission to strip arbitrary wrappers or reorder custom constraints. Required and NotRequired together are an invalid contract, not another supported permutation. ReadOnly concerns mutation typing; checking its value type does not enforce runtime immutability. Provider/interpreter features differ, and static typing alone does not promise every library's runtime API. Type aliases, forward-reference scopes, inherited or generic dictionaries need their own qualification. The cited local tests and public PR do not establish upstream merge or CI on another head; this is not evidence that knowledge retrieval improves discovery or PR conversion.",
+  "avoid_when": "This is not permission to strip arbitrary wrappers or reorder custom constraints. Required and NotRequired together are an invalid contract, not another supported permutation. ReadOnly concerns mutation typing; checking its value type does not enforce runtime immutability. Provider/interpreter features differ, and static typing alone does not promise every library's runtime API. Type aliases, forward-reference scopes, inherited or generic dictionaries need their own qualification. Do not infer an outer get_type_hints failure from an unresolved field inside a nested TypedDict class: a concrete class-valued annotation is not recursive inspection of that class's fields. Probe both levels and a real supported caller. Generic arguments and unresolved outer annotations are different controls; do not replace all resolution with raw strings. The cited local tests and public PR do not establish upstream merge or CI on another head; this is not evidence that knowledge retrieval improves discovery or PR conversion.",
   "evidence": [
     {
       "url": "https://peps.python.org/pep-0655/#interaction-with-annotated",
@@ -24,6 +24,14 @@
     {
       "url": "https://github.com/agronholm/typeguard/pull/607",
       "note": "Submitted Ready bugfix reports native original/fixed comparisons, metadata controls and the unchanged baseline mypy failure. Publication is not merge, full CI acceptance or evidence of learned-selector efficacy."
+    },
+    {
+      "url": "https://github.com/python/cpython/blob/v3.12.13/Lib/typing.py#L406-L443",
+      "note": "_eval_type resolves ForwardRef and generic/union arguments; an ordinary class is returned without recursively reading that class's annotations. This distinguishes class indirection from nested wrapper normalization."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/81f7c69577433b938ee16539020792dae37c7d0c/vllm/transformers_utils/processor.py#L323-L354",
+      "note": "Pinned get_processor_kwargs_keys resolves outer container annotations but reads inner fields raw. The inner PILImageResampling comment alone does not establish an outer failure. Exact class/version/caller evidence is still required before changing this behavior."
     }
   ],
   "status": "validated"
