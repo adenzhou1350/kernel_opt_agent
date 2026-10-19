@@ -35,8 +35,12 @@ also enumerates from one. Both raw blobs are unchanged from the original
 81f7c695 lead revision. This supports deferring that reachability premise without
 building CUDA or changing the deliberately excluded internal input; it does not
 prove the complete kernel correct or rule out a different caller.
+The three retained receipts report 20,656 total tokens; acquisition/preparation
+and owner review are outside that token sum, and cache usage/prices are unknown.
+That is historical expenditure, not a measured saving from the routing change.
 
-The live controller's external code-search branch was eligible only for
+At the time of this observation, the live controller's external code-search
+branch was eligible only for
 `needs_context`, whereas these three analyses were labelled `lead` despite
 requesting missing references. Same-file lexical references do not establish an
 external consumer. This identifies a bounded acquisition failure to test, not
@@ -665,6 +669,27 @@ execution or novelty is inferred. This does not increase the two-source-read
 ceiling, but the discovery API request is an additional cost. Query results are
 cached for the existing 15-minute snapshot TTL, keyed by repository, target
 commit and literal, with tree membership rechecked on reuse.
+
+An unvalidated `lead` is also eligible when it explicitly requests only one/two
+`references(...)` targets. The label is not evidence completeness; free prose,
+malformed targets or a lead's definition-only request do not enable this route.
+The existing opt-in, earlier cached evidence routes and one-query/two-read caps
+remain. If two explicit references name a unique cached module-level class and
+its direct `INSTANCE = Class(...)` binding, the single query prefers that
+requested instance literal. Ambiguous/rebound/missing/drifted input abstains and
+keeps the first literal. This is a lexical search hint, not receiver resolution
+or permission to invent a third target.
+
+A real read-only GitHub check for the exposed WO-A case queried that instance
+once and returned the output-projection caller; its fixed-81f7c695 window
+contained the positive-token guard and full raw bytes matched local Git. Local
+HTTP stand-ins separately exercised the real client against 200 and 403 with no
+credentials, including query/read limits and no retry of forbidden search.
+These prove the tested routing/wire path, not improved model decisions, recall,
+total research cost, PR conversion or fresh prospective efficacy. The
+[REST search contract](https://docs.github.com/en/rest/search/search#search-code)
+still does not pin the index to our chosen commit; returned paths must pass the
+existing immutable-source checks before becoming evidence.
 
 The definition fallback covers a missing callee reached through an object rather
 than a direct named import. Qualified receiver expressions, URLs and search-query

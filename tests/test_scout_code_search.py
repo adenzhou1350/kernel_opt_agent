@@ -1,19 +1,25 @@
-"""Offline indexed-path discovery and pinned consumer tests; no network/model."""
+"""Indexed-path discovery controls; no external network, credentials or model."""
 
 import json
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 from urllib.parse import parse_qs, urlsplit
+import urllib.request
+import urllib.error
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
 import kimi_scout_context as context
 import kimi_scout_research as research
-from scout_requested_definition import requested_code_search_symbols
+from scout_requested_definition import (
+    cached_reference_binding_symbol, requested_code_search_symbols,
+)
 
 REPO = "owner/project"
 COMMIT = "a" * 40
@@ -30,12 +36,68 @@ def item(path, repo=REPO, private=False):
 
 
 class CodeSearchTests(unittest.TestCase):
+    def test_explicit_instance_binding_is_a_hint_not_an_invented_target(self):
+        path = "src/engine.py"
+        packet = {
+            "repo": REPO,
+            "sources": [
+                {"url": f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{path}"}
+            ],
+        }
+        snapshot = {"commit": COMMIT, "files": [path]}
+        analysis = {
+            "next_check": "references(EngineFactory) references(_SHARED_ENGINE)"
+        }
+        raw = "class EngineFactory:\n    pass\n_SHARED_ENGINE = EngineFactory()\n"
+        self.assertEqual(
+            cached_reference_binding_symbol(packet, snapshot, analysis, lambda *a: raw),
+            "_SHARED_ENGINE",
+        )
+        for extra in (
+            "_SHARED_ENGINE = None\n",
+            "EngineFactory = other\n",
+            "from elsewhere import _SHARED_ENGINE\n",
+            "def EngineFactory(): pass\n",
+        ):
+            self.assertIsNone(
+                cached_reference_binding_symbol(
+                    packet, snapshot, analysis, lambda *a: raw + extra
+                )
+            )
+        for changed in ({**snapshot, "commit": "b" * 40}, {**snapshot, "files": []}):
+            self.assertIsNone(
+                cached_reference_binding_symbol(
+                    packet, changed, analysis, lambda *a: raw
+                )
+            )
+        self.assertIsNone(
+            cached_reference_binding_symbol(
+                packet,
+                snapshot,
+                {"next_check": "definition(EngineFactory) references(_SHARED_ENGINE)"},
+                lambda *a: raw,
+            )
+        )
+        for invalid in ("class Broken(:", None, "x" * 100001):
+            self.assertIsNone(
+                cached_reference_binding_symbol(
+                    packet, snapshot, analysis, lambda *a: invalid
+                )
+            )
+
     def test_search_keys_keep_unqualified_targets_and_fold_one_qualified_owner(self):
         cases = {
-            'references(build_cache) definition(load_cache)': ['build_cache', 'load_cache'],
-            'definition ( AgentRegistry.register )': ['AgentRegistry'],
-            'definition(AgentRegistry.register) definition(AgentRegistry.resolve)': ['AgentRegistry'],
-            'definition(AgentRegistry.register) definition(AgentRegistry.register)': ['AgentRegistry'],
+            "references(build_cache) definition(load_cache)": [
+                "build_cache",
+                "load_cache",
+            ],
+            "definition ( AgentRegistry.register )": ["AgentRegistry"],
+            "definition(AgentRegistry.register) definition(AgentRegistry.resolve)": [
+                "AgentRegistry"
+            ],
+            "definition(AgentRegistry.register) definition(AgentRegistry.register)": [
+                "AgentRegistry"
+            ],
         }
         for request, expected in cases.items():
             with self.subTest(request=request):
@@ -185,6 +247,7 @@ class FollowupCodeSearchTests(unittest.TestCase):
         search_error=False,
         observed_source=False,
         request_text=None,
+        decision="needs_context",
     ):
         raw = "// filler\n" * 120 + f"void {SYMBOL}() {{}}\n"
         raw += "// filler\n" * 100 + "void LowerToLDGPredicated() {}\n"
@@ -288,15 +351,16 @@ class FollowupCodeSearchTests(unittest.TestCase):
                 producer.emit("old", spec, original, "issue_triage")
                 with scout.connect(root) as db:
                     db.execute(
-                        "UPDATE jobs SET state='NEEDS_CONTEXT',finished=?,result=?",
+                        "UPDATE jobs SET state=?,finished=?,result=?",
                         (
+                            "REVIEW" if decision == "lead" else "NEEDS_CONTEXT",
                             time.time(),
                             scout.dumps(
                                 {
                                     "analysis": {
                                         "title": "Missing predicate implementation",
                                         "hypothesis": "Unverified predicate contract",
-                                        "decision": "needs_context",
+                                        "decision": decision,
                                         "next_check": request_text
                                         or f"Inspect references({SYMBOL}) and references(LowerToLDGPredicated)",
                                         "evidence": [],
@@ -314,6 +378,19 @@ class FollowupCodeSearchTests(unittest.TestCase):
                     ]
             followups = [p for p in rows if "untrusted_prior_analysis" in p]
             return reader.searches, reader.reads, followups, progress
+
+    def test_explicit_reference_request_is_honored_for_unvalidated_lead(self):
+        searches, reads, packets, progress = self.run_followup(decision="lead")
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(progress["code_search_requests"], 1)
+        self.assertLessEqual(len(reads), 2)
+        self.assertTrue(any("code_search_hint" in s for p in packets for s in p["sources"]))
+
+    def test_lead_label_alone_does_not_enable_definition_or_prose_search(self):
+        for request in (f"definition({SYMBOL})", f"Inspect caller of {SYMBOL}"):
+            with self.subTest(request=request):
+                searches, _, _, _ = self.run_followup(decision="lead", request_text=request)
+                self.assertEqual(searches, [])
 
     def test_emitted_packet_contains_only_pinned_literal_windows_two_read_cap(self):
         searches, reads, packets, _ = self.run_followup()
@@ -426,6 +503,183 @@ class FollowupCodeSearchTests(unittest.TestCase):
         self.assertEqual(reads, [])
         self.assertEqual(packets, [])
         self.assertEqual(progress["code_search_error"], "OSError")
+
+
+class LoopbackReferenceTests(unittest.TestCase):
+    def test_real_client_reaches_pinned_caller_with_one_query_and_no_credentials(self):
+        self.run_wire_case(200)
+
+    def test_real_client_retains_forbidden_search_without_retry_or_absence_claim(self):
+        self.run_wire_case(403)
+
+    def run_wire_case(self, search_status):
+        primary, caller = "src/engine.py", "src/project.py"
+        raw = "class EngineFactory:\n    pass\n_SHARED_ENGINE = EngineFactory()\n"
+        consumer = (
+            "from .engine import _SHARED_ENGINE\n"
+            "def project(batch):\n    if 1 <= batch:\n        return _SHARED_ENGINE(batch)\n"
+        )
+        requests = []
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append((self.path, dict(self.headers)))
+                path = urlsplit(self.path).path
+                code = 200
+                if path == f"/api/repos/{REPO}":
+                    body = json.dumps(
+                        {"full_name": REPO, "private": False, "visibility": "public"}
+                    )
+                elif path == "/api/search/code":
+                    code = search_status
+                    body = (
+                        json.dumps(
+                            {
+                                "items": [item(caller), item(primary)],
+                                "total_count": 2,
+                                "incomplete_results": False,
+                            }
+                        )
+                        if code == 200
+                        else '{"message":"Forbidden"}'
+                    )
+                elif path == f"/raw/{REPO}/{COMMIT}/{primary}":
+                    body = raw
+                elif path == f"/raw/{REPO}/{COMMIT}/{caller}":
+                    body = consumer
+                else:
+                    code, body = 501, "unmodeled endpoint"
+                payload = body.encode()
+                self.send_response(code)
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        real_build = urllib.request.build_opener
+
+        class RouteHTTPS(urllib.request.HTTPSHandler):
+            def https_open(self, request):
+                url = urlsplit(request.full_url)
+                prefix = {
+                    "api.github.com": "/api",
+                    "raw.githubusercontent.com": "/raw",
+                }[url.netloc]
+                target = f"http://127.0.0.1:{server.server_port}{prefix}{url.path}"
+                if url.query:
+                    target += "?" + url.query
+                try:
+                    return self.parent.open(
+                        urllib.request.Request(target, headers=dict(request.headers))
+                    )
+                except urllib.error.HTTPError as error:
+                    # This test transport nested another opener; close its error
+                    # response while preserving the real 403 exception to Scout.
+                    error.close()
+                    raise
+
+        class Reader(context.PublicContext):
+            def snapshot(self, repo, ref="main"):
+                return {
+                    "commit": COMMIT,
+                    "files": [primary, caller],
+                    "blobs": {primary: "b" * 40, caller: "c" * 40},
+                }
+
+            def duplicate_sources(self, *args):
+                return []
+
+        try:
+            with (
+                tempfile.TemporaryDirectory() as directory,
+                patch.object(
+                    urllib.request,
+                    "build_opener",
+                    side_effect=lambda *h: real_build(
+                        urllib.request.ProxyHandler({}), RouteHTTPS(), *h
+                    ),
+                ),
+            ):
+                root = Path(directory)
+                scout.initialize(root)
+                config = root / "config.json"
+                config.write_text(
+                    json.dumps(
+                        {
+                            "objective": "Loopback contract",
+                            "queue_target": 4,
+                            "repos": [
+                                {
+                                    "repo": REPO,
+                                    "source_prefixes": ["src/"],
+                                    "followup_code_search": True,
+                                    "question": "Read caller",
+                                }
+                            ],
+                        }
+                    )
+                )
+                reader = Reader(root)
+                # Same already-acquired primary cache in both routing versions.
+                source = reader.source(REPO, COMMIT, primary)
+                producer = research.ResearchProducer(root, config, context=reader)
+                spec = producer.config["repos"][0]
+                producer.emit("known-component", spec, [source], "source_audit")
+                with scout.connect(root) as db:
+                    db.execute(
+                        "UPDATE jobs SET state='REVIEW',finished=?,result=?",
+                        (
+                            time.time(),
+                            scout.dumps(
+                                {
+                                    "analysis": {
+                                        "title": "Internal boundary needs caller",
+                                        "decision": "lead",
+                                        "next_check": "references(EngineFactory) references(_SHARED_ENGINE)",
+                                        "hypothesis": "Zero input may be unreachable",
+                                        "evidence": [],
+                                    }
+                                }
+                            ),
+                        ),
+                    )
+                progress = {}
+                producer.followup(spec, progress)
+                with scout.connect(root) as db:
+                    packets = [
+                        json.loads(r[0]) for r in db.execute("SELECT packet FROM jobs")
+                    ]
+                searches = [p for p, _ in requests if p.startswith("/api/search/code?")]
+                self.assertEqual(len(searches), 1)
+                self.assertEqual(
+                    parse_qs(urlsplit(searches[0]).query)["q"],
+                    [f'repo:{REPO} in:file "_SHARED_ENGINE"'],
+                )
+                self.assertEqual(progress["code_search_requests"], 1)
+                self.assertFalse(any("Authorization" in h for _, h in requests))
+                evidence = [
+                    s for p in packets for s in p["sources"] if "code_search_hint" in s
+                ]
+                if search_status == 200:
+                    chosen = [s for s in evidence if s["url"].endswith(caller)]
+                    self.assertTrue(chosen)
+                    self.assertIn("if 1 <= batch", chosen[0]["text"])
+                    self.assertTrue(all(f"/{COMMIT}/" in s["url"] for s in evidence))
+                    self.assertLessEqual(
+                        sum(p.startswith("/raw/") for p, _ in requests), 3
+                    )
+                else:
+                    self.assertEqual(progress["code_search_error"], "HTTPError")
+                    self.assertEqual(evidence, [])
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=3)
 
 
 if __name__ == "__main__":

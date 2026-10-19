@@ -28,6 +28,7 @@ from scout_requested_definition import (
     cached_definition_pair_requests,
     cached_definition_tail_request,
     cached_qualified_definition_path,
+    cached_reference_binding_symbol,
     requested_code_search_symbols,
 )
 from scout_generated_context import contract_requests
@@ -1745,10 +1746,20 @@ class ResearchProducer:
             code_lookup = getattr(self.context, "code_search_paths", None)
             request_text = analysis_value.get("next_check", "")
             symbols = requested_code_search_symbols(request_text)
+            explicit_references = bool(symbols) and all(
+                kind == "references"
+                for kind in re.findall(
+                    r"(?<!\w)(definition|references)[ \t]*\(", request_text[:2000]
+                )
+            )
             if (
                 spec.get("followup_code_search", False)
                 and callable(code_lookup)
-                and analysis_value.get("decision") == "needs_context"
+                and (
+                    analysis_value.get("decision") == "needs_context"
+                    or analysis_value.get("decision") == "lead"
+                    and explicit_references
+                )
                 and 1 <= len(symbols) <= 2
                 and not references
                 and not imports
@@ -1757,6 +1768,12 @@ class ResearchProducer:
                 and definition_request is None
                 and not definition_pair
             ):
+                search_symbol = (
+                    cached_reference_binding_symbol(
+                        packet, snapshot, analysis_value, cached_source
+                    )
+                    or symbols[0]
+                )
                 # Missing definitions or a qualified request's literal owner can
                 # be in another module. This remains a lexical path hint, not
                 # a resolved receiver or call graph. Keep the same one-query cap.
@@ -1774,7 +1791,10 @@ class ResearchProducer:
                             if path in snapshot["files"]:
                                 supplied_paths.append(path)
                     found = code_lookup(
-                        spec["repo"], snapshot, symbols[0], deprioritize=supplied_paths
+                        spec["repo"],
+                        snapshot,
+                        search_symbol,
+                        deprioritize=supplied_paths,
                     )
                 except (ValueError, OSError) as exc:
                     progress["code_search_error"] = type(exc).__name__
@@ -1786,7 +1806,7 @@ class ResearchProducer:
                         if path in snapshot["files"] and path.endswith(SOURCE_SUFFIXES)
                     ]
                     code_requests = [
-                        {"path": path, "max_lines": 80, "exact_hint": symbols[0]}
+                        {"path": path, "max_lines": 80, "exact_hint": search_symbol}
                         for path in found
                     ]
                     if len(found) == 1 and len(symbols) == 2:
@@ -1794,7 +1814,9 @@ class ResearchProducer:
                             {
                                 "path": found[0],
                                 "max_lines": 80,
-                                "exact_hint": symbols[1],
+                                "exact_hint": next(
+                                    s for s in symbols if s != search_symbol
+                                ),
                             }
                         )
                     if code_requests:

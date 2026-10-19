@@ -73,6 +73,109 @@ def requested_code_search_symbols(request):
     return list(dict.fromkeys(names))
 
 
+def cached_reference_binding_symbol(packet, snapshot, analysis, cached_source):
+    """Prefer an explicitly requested class-instance binding as a search literal.
+
+    Two unqualified references must name a unique cached module-level class and
+    its single direct ``INSTANCE = Class(...)`` assignment. This is syntax, not
+    a resolved receiver/call graph. No fetch, invented target or extra query.
+    Rebinding, ambiguity, missing/drifted cache or mixed requests abstain.
+    """
+    request = analysis.get("next_check", "")
+    symbols = requested_code_search_symbols(request)
+    if (
+        not callable(cached_source)
+        or len(symbols) != 2
+        or re.findall(r"(?<!\w)(definition|references)[ \t]*\(", request[:2000])
+        != ["references", "references"]
+    ):
+        return None
+    repo, commit = packet.get("repo"), snapshot.get("commit")
+    if (
+        not isinstance(repo, str)
+        or not isinstance(commit, str)
+        or not re.fullmatch(r"[0-9a-f]{40}", commit)
+    ):
+        return None
+    prefix = f"/{repo}/{commit}/"
+    paths, matches = set(), []
+    for source in packet.get("sources", [])[:8]:
+        if not isinstance(source, dict) or not isinstance(source.get("url"), str):
+            continue
+        url = urlsplit(source["url"])
+        if (
+            url.scheme != "https"
+            or url.netloc != "raw.githubusercontent.com"
+            or url.query
+            or url.fragment
+            or not url.path.startswith(prefix)
+        ):
+            continue
+        path = unquote(url.path[len(prefix) :])
+        if (
+            path in paths
+            or path not in snapshot.get("files", [])
+            or not path.endswith(".py")
+        ):
+            continue
+        paths.add(path)
+        try:
+            raw = cached_source(repo, commit, path)
+            if not isinstance(raw, str) or len(raw.encode("utf8")) > 100_000:
+                continue
+            tree = ast.parse(raw)
+        except (OSError, ValueError, SyntaxError, RecursionError):
+            continue
+        nodes = list(ast.walk(tree))
+        classes = [n.name for n in tree.body if isinstance(n, ast.ClassDef)]
+        imported = [
+            a.asname or a.name.split(".")[0]
+            for n in nodes
+            if isinstance(n, (ast.Import, ast.ImportFrom))
+            for a in n.names
+        ]
+        if "*" in imported:
+            continue
+        for node in tree.body:
+            if not (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(node.value, ast.Call)
+                and isinstance(node.value.func, ast.Name)
+            ):
+                continue
+            binding, owner = node.targets[0].id, node.value.func.id
+            if {binding, owner} != set(symbols) or classes.count(owner) != 1:
+                continue
+            stores = [
+                n.id
+                for n in nodes
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store)
+            ]
+            if (
+                stores.count(binding) != 1
+                or owner in stores
+                or binding in imported
+                or owner in imported
+                or sum(
+                    isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                    and n.name == owner
+                    for n in nodes
+                )
+                != 1
+                or any(isinstance(n, ast.arg) and n.arg in symbols for n in nodes)
+                or any(
+                    isinstance(n, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+                    and n.name == binding
+                    for n in nodes
+                )
+            ):
+                continue
+            matches.append((path, binding))
+    return matches[0][1] if len(matches) == 1 else None
+
+
 def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
     """Locate one explicit Class.method declaration in <=8 already-cached files.
 
