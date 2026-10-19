@@ -1,5 +1,6 @@
 """Offline filename hints, not symbol resolution or bug classification."""
 import json
+import re
 import sys
 import tempfile
 import time
@@ -72,6 +73,50 @@ class CompoundPathTests(unittest.TestCase):
         paths = ["b/sessionTitle.ts", "a/sessionTitle.ts"]
         self.assertEqual(self.select(paths, "session title"), sorted(paths))
         self.assertEqual(self.select(paths, "x" * 16000 + " session title"), [])
+
+    def test_qualified_class_can_name_a_package_role_module(self):
+        target = "src/nixl/connector.py"
+        incidental = "csrc/core/registration.h"
+        hints = "NIXL KV registration through `NixlConnector` is descriptor-heavy"
+        self.assertEqual(self.select([incidental, target], hints), [target, incidental])
+        for name in ("src/oauth/client.ts", "src/nixl/manager.rs"):
+            cls = "OAuthClient" if name.endswith(".ts") else "NixlManager"
+            with self.subTest(path=name):
+                self.assertEqual(self.select([name], cls), [name])
+
+    def test_package_role_hint_requires_a_complete_qualified_type(self):
+        from scout_compound_paths import qualified_class_path_hint
+
+        target = "src/nixl/connector.py"
+        for hints in ("nixl", "connector", "nixl connector", "NixlConnectorFactory",
+                      "OtherNixlConnector", "nixlconnector", "x" * 16000 + " NixlConnector"):
+            with self.subTest(hints=hints[:40]):
+                names = {symbol.lower() for symbol in re.findall(
+                    r"\b[A-Z][A-Za-z0-9]{5,127}\b", hints[:16000])}
+                self.assertFalse(qualified_class_path_hint(target, names))
+                # Existing plain-filename keyword matching is not removed.
+                expected = [target] if hints in ("connector", "nixl connector") else []
+                self.assertEqual(self.select([target], hints), expected)
+
+    def test_package_role_does_not_broaden_source_or_generic_path_admission(self):
+        for path, hints in (("tests/nixl/connector.py", "NixlConnector"),
+                            ("vendor/nixl/connector.py", "NixlConnector"),
+                            ("src/generated/nixl/connector.py", "NixlConnector"),
+                            ("src/data/manager.py", "DataManager"),
+                            ("src/nixl/utils.py", "NixlUtils"),
+                            ("src/nixl/connector.unknown", "NixlConnector")):
+            with self.subTest(path=path):
+                self.assertEqual(self.select([path], hints), [])
+        self.assertEqual(self.select([], "NixlConnector src/nixl/connector.py"), [])
+        self.assertEqual(self.select(["src/nixl/connector.py"], "NixlConnector",
+                                     exclude=["src/nixl/connector.py"]), [])
+
+    def test_literal_filename_and_priority_precede_qualified_package_hint(self):
+        target, literal = "src/nixl/connector.py", "src/attention.py"
+        self.assertEqual(self.select([target, literal], "NixlConnector attention.py"),
+                         [literal, target])
+        self.assertEqual(self.select([target, literal], "NixlConnector src/attention.py",
+                                     priority_hints=target), [target, literal])
 
     def test_report_subject_precedes_incidental_multitoken_steps(self):
         target = "src/sessionTitleService.ts"

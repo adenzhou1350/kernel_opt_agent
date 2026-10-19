@@ -23,7 +23,7 @@ from scout_duplicate_query import source_duplicate_title
 from scout_cited_issue import cited_issue_number, related_issue_body, requested_issue_number
 from scout_audit_context import contextual_audit_header, contextual_audit_owners
 from scout_discussion_context import discussion_sources
-from scout_compound_paths import compound_path_hint
+from scout_compound_paths import compound_path_hint, qualified_class_path_hint
 from scout_requested_definition import (
     cached_definition_pair_requests,
     cached_definition_tail_request,
@@ -670,9 +670,11 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
     # flashinfer_mla_sparse.py module. Keep CamelCase prefix hints weaker than
     # literal paths/filenames, and require a complete component boundary.
     class_prefixes = set()
+    class_names = set()
     for symbol in re.findall(r"\b[A-Z][A-Za-z0-9]{5,127}\b", hints):
         if not any(char.islower() for char in symbol):
             continue
+        class_names.add(symbol.lower())
         class_prefixes.update(
             symbol[:end].lower()
             for end in range(10, len(symbol) + 1)
@@ -703,6 +705,8 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
         compact = stem.replace("_", "")
         if "_" in stem and len(compact) >= 10 and compact in class_prefixes:
             score += 20 + min(len(compact), 20)
+        if qualified_class_path_hint(path, class_names):
+            score += 30  # Full package/type identity hint, still below a filename.
         if score:
             # Explicit next-evidence filenames precede incidental report/log
             # mentions. Prose and partial/foreign paths keep the old ranking.

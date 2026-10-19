@@ -10,6 +10,34 @@ _ROLES = frozenset({
     "controller", "factory", "config", "common", "utils", "build", "index", "main",
     "test", "tests", "spec",
 })
+_PACKAGE_ROLES = frozenset({
+    "connector", "backend", "manager", "controller", "provider", "handler",
+    "client", "service", "factory",
+})
+_GENERIC_PACKAGE = _ROLES | frozenset({
+    "src", "lib", "data", "core", "base", "code", "types", "local", "global",
+    "native", "python", "rust",
+})
+
+
+def qualified_class_path_hint(path, class_names):
+    """Match a full observed type name to an immediate package/role filename.
+
+    For example, NixlConnector may name nixl/connector.py after a module split.
+    This is a lexical hint, not a resolved definition. The caller supplies full
+    case-folded CamelCase names, not prefixes or ordinary prose keywords.
+    """
+    parts = path.split("/")
+    if len(parts) < 2 or _NONPRODUCTION.intersection(p.lower() for p in parts[:-1]):
+        return False
+    role = parts[-1].rsplit(".", 1)[0].lower()
+    parent = parts[-2].lower()
+    if role not in _PACKAGE_ROLES or not re.fullmatch(r"[a-z][a-z0-9_-]{3,63}", parent):
+        return False
+    words = re.split(r"[_-]+", parent)
+    if any(not word or word in _GENERIC_PACKAGE for word in words):
+        return False
+    return "".join(words) + role in class_names
 
 
 def compound_path_hint(path, hints):

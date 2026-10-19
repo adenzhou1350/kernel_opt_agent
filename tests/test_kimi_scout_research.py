@@ -1267,6 +1267,25 @@ class ResearchTests(unittest.TestCase):
         self.assertFalse(packet["sources"][0]["linked_pr_lookup"]["search_exhaustive"])
         self.assertEqual(len(packet["sources"]), 2)
 
+    def test_initial_issue_uses_named_package_module_without_extra_source_reads(self):
+        target, unrelated = "src/nixl/connector.py", "csrc/core/registration.h"
+        snapshot = {"commit": self.context.revision, "files": [unrelated, target]}
+        report = {"number": 42, "title": "NIXL transfer registration",
+                  "body": "Transfer uses `NixlConnector`.", "updated_at": "first",
+                  "html_url": "https://github.com/a/b/issues/42"}
+        with (patch.object(self.context, "snapshot", return_value=snapshot),
+              patch.object(self.context, "issue_page", return_value=[report])):
+            self.assertTrue(self.producer.issue(self.spec, {}))
+            self.assertFalse(self.producer.issue(self.spec, {}))
+        self.assertEqual(self.context.calls, [("a/b", self.context.revision, target, None)])
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual(len(packet["sources"]), 2)
+        self.assertEqual(packet["sources"][1]["url"],
+                         f"https://raw.githubusercontent.com/a/b/{self.context.revision}/{target}")
+        self.assertNotIn("code_search_hint", scout.dumps(packet))
+        self.assertLessEqual(len((scout.SYSTEM + scout.dumps(packet)).encode()),
+                             scout.MAX_INPUT_BYTES)
+
     def test_initial_issue_retains_literal_timeline_comment_without_ownership_verdict(self):
         comment = dict(url='https://github.com/a/b/issues/42#issuecomment-51',
                        text='Literal issue-timeline comment\nI can submit a tested fix; assign it to me.',
