@@ -98,6 +98,18 @@ the adaptation and its differences; do not attach a published method name to
 a smaller passing baseline. Full-system comparisons and single-action ablations
 answer different questions and need separate accounting.
 
+[Agent Retrieval Bench](https://arxiv.org/abs/2607.24882) already evaluates
+workflow-conditioned file retrieval, selective abstention, logged acquisition
+and retrieval-seed interventions. Its closed-tool runner explicitly forbids
+test execution and repairs. It is a useful localization comparator, not an
+oracle for independently reproduced defects or repair success. Finding a more
+relevant file, or adding a next-read policy, is not a new contribution by itself.
+[LogDx](https://github.com/eyuansu62/LogDx) also compares reduced-log evidence in
+single-shot and agent-loop diagnosis, including context-provider and diagnoser
+costs. Its results are author-reported, not our replication. A new utility study
+must distinguish its outcome, available executable observations and total-cost
+accounting from both systems; do not rename a small source menu as either method.
+
 The completed [two-slot diagnostic](scout_source_inception_pilot_v2_results.md)
 does not justify expanding selector complexity or repeating exposed cases.
 Improve native admission and executable contract coverage in ordinary delivery
