@@ -141,6 +141,10 @@ arbitrary-code isolation, complete PCP batch preparation or whole-model serving.
 
 Review and transfer both companion and native-runtime source explicitly; no
 model, Scout delivery worker or exported CPU tool gains GPU authority here.
+The companion checks that the loaded capture accepts its UUID and execution
+guard keywords before acquiring locks. An older export must be replaced in a
+fresh task-private directory with matching reviewed tools, not used without the
+guard. Signature compatibility alone does not prove that a wrapper enforces it.
 This route requires a working `/usr/bin/nvidia-smi`, including compute-process
 queries. Torch/CUDA availability alone is insufficient. A missing telemetry
 executable rejects admission before launching the test child; do not substitute

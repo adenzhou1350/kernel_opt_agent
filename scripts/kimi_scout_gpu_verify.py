@@ -16,6 +16,7 @@ from __future__ import annotations
 import argparse
 import csv
 import hashlib
+import inspect
 import json
 import os
 import re
@@ -286,6 +287,16 @@ def run_native(*, gpu_uuid=None, gpu_uuids=None, lock_dir="/workspace/kernel-opt
             or len({uuid.lower() for uuid in devices}) != len(devices)):
         raise ValueError("native capture requires 1..8 distinct full GPU UUIDs")
     import scout_native_run
+
+    try:
+        inspect.signature(scout_native_run.run).bind_partial(
+            _gpu_uuid=",".join(devices), _execution_guard=None
+        )
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "native GPU companion requires a matching scout_native_run runtime "
+            "accepting _gpu_uuid and _execution_guard; export and deploy both together"
+        ) from error
 
     guard = (NativeGpuGuard(devices[0], min_free_mib) if len(devices) == 1
              else NativeGpuGroupGuard(devices, min_free_mib))

@@ -230,6 +230,38 @@ class ProcessTests(unittest.TestCase):
 
 
 class NativeGuardTests(unittest.TestCase):
+    def test_old_native_runtime_rejected_before_guard_lock_or_launch(self):
+        import scout_native_run
+
+        def legacy_capture(*, format, _gpu_uuid=None):
+            self.fail("incompatible native runtime must not execute")
+
+        with (mock.patch.object(sys, "platform", "linux"),
+              mock.patch.object(scout_native_run, "run", new=legacy_capture),
+              mock.patch.object(verify, "NativeGpuGuard") as guard,
+              mock.patch.object(verify, "gpu_lock") as locking,
+              mock.patch.object(verify, "snapshot") as probe):
+            with self.assertRaisesRegex(ValueError, "export and deploy both together"):
+                verify.run_native(gpu_uuid=GPU, format="pytest-junit")
+            guard.assert_not_called()
+            locking.assert_not_called()
+            probe.assert_not_called()
+
+    def test_matching_native_keyword_contract_is_forwarded(self):
+        import scout_native_run
+
+        def capture(*, format, _gpu_uuid, _execution_guard):
+            self.assertEqual(format, "pytest-junit")
+            self.assertEqual(_gpu_uuid, GPU)
+            self.assertIsInstance(_execution_guard, verify.NativeGpuGuard)
+            return {"status": "CONTRACT_ONLY_NOT_EXECUTED"}
+
+        with (mock.patch.object(sys, "platform", "linux"),
+              mock.patch.object(scout_native_run, "run", new=capture),
+              mock.patch.object(verify, "gpu_lock", return_value=nullcontext())):
+            self.assertEqual(verify.run_native(gpu_uuid=GPU, format="pytest-junit"),
+                             {"status": "CONTRACT_ONLY_NOT_EXECUTED"})
+
     def test_device_set_keeps_mapping_order_but_locks_in_global_order(self):
         import scout_native_run
         from contextlib import contextmanager
