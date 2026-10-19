@@ -1463,6 +1463,11 @@ changing shared packages or launching local WSL. Use an authorized Linux worker
 for Linux-only system calls. Windows text-mode writes can translate LF into CRLF;
 verify staged bytes against the original source digest before any execution.
 
+For a dependency-free header example, the
+[range-index fallback witness](../../examples/native-buffer-range-index/README.md)
+checks the real predicate and both record orders before alleging a transport
+failure. It preserves the originating answer-validation failure separately.
+
 For a registered compiler pass, a probe may need mechanical factory/registry
 renaming so both baseline and candidate can be loaded without collisions.
 Document exactly those changes, leave the actual pass logic intact, and run
