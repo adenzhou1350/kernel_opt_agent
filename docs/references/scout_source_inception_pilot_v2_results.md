@@ -212,3 +212,57 @@ verified cheap/strong ordering. Existing-method implementation, pricing,
 sampling realization, native-action availability and blinded assessment still
 need qualification. Do not open a replacement cohort until those choices are
 executable; the present check makes no efficacy or paper-ready claim.
+
+## External baseline replication and repair, 2026-10-19
+
+The published `v2_trace2code` release was acquired at dataset revision
+`5901e1ee3aff048290db72edf9c63bc498b79ea3`, with its published checksum checked
+against the 39,295,446-byte archive (SHA256
+`19b252e8cfff42107fedc74005dbb6972f2970af33651ce0c1571546819e41c4`).
+Extraction checked paths, regular-file types and expansion bounds first. The
+release contains 101 samples from seven repositories and 98 corpus snapshots;
+56 samples are Gin and 26 Click. It is not a vLLM/GPU discovery population.
+
+Unmodified toolkit `07014c9` was run on the complete subset with `all_files`,
+no keep-list filtering and default parameters on native Windows/Python 3.14.
+All three controls evaluated 101 rows without skips:
+
+| Control | Recall@20 | MRR |
+| --- | ---: | ---: |
+| Lexical | 0.696370 | 0.207453 |
+| BM25 | 0.493399 | 0.163848 |
+| RepoMap, process hash seed 0 | 0.836634 | 0.270631 |
+| RepoMap, process hash seed 1 | 0.836634 | 0.274988 |
+
+Lexical agrees with the published subset table to four decimal places. RepoMap
+does not reproduce one stable ranking: 94 of its 101 detail rows differ between
+the two seeds. A separate capped-symbol witness also produces different graphs.
+The cause is set-dependent tie selection before the reference cap, plus
+normalized-name overwrites and unordered traversal. A final score/path sort
+does not undo those upstream differences.
+
+The proposed repair is [ARB PR #3](https://github.com/eyuansu62/agent-retrieval-bench/pull/3),
+head `dda9cc25b665581270423d7e5f3b337db6c1cf55`. Its matched-count-priority
+control and hash-seed regression pass; the original fails the regression on
+Windows and Linux. The related Windows groups pass 23 tests. An independent
+offline Linux CPU sandbox passes 22 with one missing-Git skip. Both sandbox
+containers were removed and sessions released. Full Windows discovery retains
+14 pre-existing failures and 11 skips; original-source comparison reproduces
+those failures plus the three failing regression seed subcases. This is not a
+claim of a clean full Linux suite or maintainer CI.
+
+The first narrow fix stabilized rankings and aggregate metrics, but left one
+snapshot's edge counts/scores seed-dependent. That intermediate result is kept,
+not promoted. With the complete proposed fix, the two 101-row detail files are
+byte-identical (SHA256
+`36836759d454f13909b6495d4d16f506b777097f9fbd263ada526c71847e1c9a`),
+with Recall@20 0.846535 and MRR 0.272324. Those changed values are not an accuracy
+improvement claim or an exact reconstruction of the author's historical run.
+All original and intermediate outputs remain local. No paid model calls, GPU
+use, embedding downloads or changes to the completed v2 study were involved.
+
+ARB also ships an output-interleaved `list_dir`/`grep`/`read_file`/`submit`
+protocol. Its existence further rules out treating sequential context selection
+alone as our contribution. Qualify that existing control and native-witness
+availability before a new prospective comparison; do not turn this baseline
+maintenance PR into evidence that Scout improves discovery yield or cost.

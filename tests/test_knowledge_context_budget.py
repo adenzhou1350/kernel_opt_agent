@@ -659,5 +659,27 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
                 self.assertNotIn("qualified", result)
 
 
+    def test_retrieval_control_advice_keeps_pre_cap_and_efficacy_boundaries(self):
+        result = lesson_suggestions(
+            "RepoMap hash seed tied Counter graph reference cap",
+            source_urls=[
+                "https://raw.githubusercontent.com/eyuansu62/agent-retrieval-bench/"
+                "07014c986f3deadb1548c62b32c0ffbe6a81465d/"
+                "src/agent_retrieval_bench/repomap_eval.py"
+            ],
+        )
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "validate-evaluation-metric-invariants")
+        self.assertIn("before a graph/reference cap", card["lesson"])
+        self.assertIn("per-case outputs", card["lesson"])
+        self.assertTrue(any(
+            row["url"] == "https://github.com/eyuansu62/agent-retrieval-bench/pull/3"
+            and "not improved retrieval accuracy" in row["note"]
+            for row in card["evidence"]
+        ))
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
+
 if __name__ == "__main__":
     unittest.main()
