@@ -83,3 +83,13 @@ answer distinguished the control from the boundary failure. That separate run
 does not turn this deterministic example into a provider integration test or
 demonstrate action-selection effectiveness; no private connection settings or
 raw provider traces are included here.
+
+A subsequent [native function-calling component check](../../docs/references/scout_source_inception_pilot_v2_results.md#native-function-calling-path-qualified-component-2026-10-20)
+used the unchanged installed `LitellmModel` instead of the text adapter. It
+qualified tool-call IDs and native feedback on this same known fixture, while
+retaining dependency, controller-configuration and malformed-command failures.
+It required an explicit optional MCP dependency closure; it did not modify this
+no-model example, make Scout depend on LiteLLM, or establish a matched discovery
+benchmark. The source/dependency/command and accounting differences matter;
+do not compare its five responses with the earlier three-response text check
+as an effectiveness or cost result.

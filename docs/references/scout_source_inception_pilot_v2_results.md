@@ -445,3 +445,70 @@ better evidence selection. The observed order happens to match the earlier
 fixed sequence. It is still the same known synthetic fixture, not a new
 prospective case, an equal-budget comparison, a cost advantage or an efficacy
 result. The no-model public example and live Scout were not changed.
+
+### Native function-calling path: qualified component, 2026-10-20
+
+A later known-fixture check used the unchanged installed `DefaultAgent`,
+`LitellmModel`, native tool-call parser and tool-observation formatter at the
+same upstream commit, rather than the Scout text adapter. A raw-Git source
+bundle installed mini-SWE-agent 2.4.6 in a fresh private Python 3.12.3 environment.
+Its hash-locked base closure had 82 compatible packages, including LiteLLM
+1.106.0 and OpenAI 2.54.0. A deny-network import check passed, but the first
+actual query failed before transport: providing ordinary function tools caused
+LiteLLM to import an MCP module absent from the base closure. Import success
+and `pip check` were insufficient execution qualification.
+
+One fresh environment added the declared `litellm[mcp]==1.106.0` extra, producing
+96 compatible packages including MCP 2.3.0. All prior package versions stayed
+fixed; all 59 installed upstream Python files matched the pinned raw blobs.
+This is an explicitly expanded dependency closure, not a claim that the base
+installation worked or that all optional extras/upstream tests passed. The two
+SDK materializations took 75.92 and 91.78 seconds respectively; their captures
+and original sources remain separate.
+
+Two further developmental failures were retained, not relabeled as passes:
+
+- The controller set global `model_fallbacks=[]`, mistakenly treating an empty
+  list as disabled. The SDK's `is not None` branch recursively entered its
+  fallback path. No provider connection was observed. Changing this controller
+  setting to `None` avoided that branch; this was not a mini-SWE-agent repair.
+- The next query returned a real native `bash` call, but its command damaged
+  nested shell quotes. The literal whitelist rejected it before execution. This
+  response reported 695 tokens. No controller silently repaired its command.
+
+The final check used quote-free literal helper commands with the same six
+available operations: read subject/checks, run both tests or either focused
+test, and submit. No order was prescribed. It chose subject, checks, passing
+control, failing boundary, then submission: five returned native tool-call
+responses and five sandbox invocations, with exits `[0, 0, 0, 1, 0]`. Independent
+inspection matched each parsed command to its unmodified function arguments and
+each of the four tool observations to its originating tool-call ID and actual
+broker output. The visible final answer correctly distinguished the assertion
+failure from infrastructure failure. All containers were removed and the
+session released. There was no GPU, local WSL, host-shell fallback or live Scout
+mutation. The environment adapter remains explicit, not upstream Docker.
+
+The successful run reported 4,519 prompt plus 1,349 completion tokens (5,868
+total), including 3,264 reported cached prompt tokens. Including the rejected
+native response gives **6,563 reported development tokens**, not a price or a
+matched computation measure. The successful process interval was 28.46 seconds,
+including its imports and sandbox preparation but excluding prior source/SDK/
+driver work, failed attempts, owner effort and final release. Upstream retry
+attempts were configured to one and SDK retries to zero; the retained responses
+are not a wire-level audit proving every possible internal HTTP attempt.
+Monetary prices and complete development cost remain unknown.
+
+The hard agent limit was five queries, while task text and an outer launch note
+retained an older six-query declaration. The run finished within five, but this
+developmental mismatch is preserved and must not be presented as a sealed,
+budget-matched experiment. Provider-default reasoning also differs from the
+earlier text adapter; neither token nor latency differences establish superiority.
+
+This removes the specific uncertainty about native function-call parsing and
+feedback consumption. It does **not** qualify arbitrary generated shell actions,
+prove a general sequential baseline is matched, add a prospective discovery,
+change the v2 null result, or establish recall, PR conversion, cost savings or
+paper novelty. Before a fresh cohort, action capacity, consistent budgets,
+target dependencies, complete cost and arm-blinded miss auditing still need
+qualification. Keep this SDK optional; no LiteLLM dependency was added to the
+standard-library Scout runtime.
