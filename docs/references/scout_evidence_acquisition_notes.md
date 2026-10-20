@@ -1643,3 +1643,32 @@ prospective comparison, native PTO codegen qualification or measured PR yield.
 ```text
 python -B -m unittest tests.test_scout_cpp_qualified_hint tests.test_scout_native_reference_anchor tests.test_scout_requested_definition tests.test_kimi_scout_context
 ```
+
+## Weak basename ties are not backend identity
+
+The cached packet for vLLM
+[issue62626](https://github.com/vllm-project/vllm/issues/62626) described FA3 CUDA
+Graph replay, but equal lexical scores selected `csrc/cpu/sgl-kernels/flash_attn.h`
+before `vllm/v1/attention/backends/flash_attn.py` by alphabetical order. A replay
+of the actual 8,176-path snapshot at `fce64bc5` preserves the complete candidate
+set and moves the latter first using only explicit, unopposed GPU/CUDA/ROCm
+versus CPU words. This is a final tiebreaker for weak scores, not a hardware
+detector or semantic relevance model. Mixed/absent device terms, stronger lexical
+matches, explicit filenames and priority/deprioritization keep their ordering;
+no path is excluded and no new source read or model call is added.
+
+This owner-exposed development case establishes ranking, not that the new source
+window reaches the combine kernel, improves model findings, saves paid tokens
+or produces a PR. The original model response was rejected for an unsupported
+evidence quote; retain that failure rather than relaxing the quotation check or
+replaying the old job. Windows producer/hint tests first retained two SQLite
+open errors; all 165 passed with a fresh shorter task-owned temporary path.
+That environment change is not proof of a specific Windows failure cause.
+An offline Linux CPU checkpoint-forked comparison also retained all three failing
+device subcases in the original six-method regression group; the repair passed
+those six methods plus 159 producer/hint tests. Both containers were removed and
+sessions released. These are routing checks, not vLLM kernel tests.
+
+```text
+python -B -m unittest tests.test_scout_source_backend_ties tests.test_scout_compound_paths tests.test_kimi_scout_research
+```

@@ -785,6 +785,9 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
     hints = hints.lower()
     priority_hints = priority_hints[:2000].lower()
     words = set(re.findall(r"[a-z][a-z0-9_]{3,}", hints))
+    devices = set(re.findall(r"\b(?:cpu|gpu|cuda|rocm)\b", hints))
+    gpu_only = bool(devices & {"gpu", "cuda", "rocm"}) and "cpu" not in devices
+    cpu_only = "cpu" in devices and not devices & {"gpu", "cuda", "rocm"}
     ranked = []
     for path in snapshot["files"]:
         if path in exclude or not (
@@ -820,8 +823,17 @@ def relevant_paths(snapshot, hints, exclude=(), priority_hints="", deprioritize=
                     r"(?![a-z0-9_./-])", priority_hints,
                 )
             )
-            ranked.append((not requested, path in deprioritize, -score, path))
-    return [path for _, _, _, path in sorted(ranked)]
+            # A weak shared basename is not a backend identity. Break equal
+            # lexical scores using explicit, unopposed CPU/GPU report terms
+            # before alphabetical order. Never exclude a path or override an
+            # explicit filename, next-evidence request or stronger source hint.
+            directories = set(path.lower().split("/")[:-1])
+            device_mismatch = score < 50 and (
+                (gpu_only and "cpu" in directories)
+                or (cpu_only and bool(directories & {"cuda", "rocm"}))
+            )
+            ranked.append((not requested, path in deprioritize, -score, device_mismatch, path))
+    return [path for _, _, _, _, path in sorted(ranked)]
 
 
 def same_file_kernel_definition(packet, snapshot):
