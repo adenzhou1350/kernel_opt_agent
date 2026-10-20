@@ -1,0 +1,22 @@
+{
+  "id": "discarded-prefill-sampling-rng-state",
+  "title": "Preserve backend RNG state for discarded prefill samples",
+  "applies_when": "A seeded inference sampler consumes random draws for unfinished prompt chunks or other outputs that the scheduler subsequently discards, especially when a CPU backend inherits GPU bookkeeping.",
+  "lesson": "A discarded output must not silently advance the accepted request's seeded sequence. Trace both the sampling draw and its rollback through the actual backend. CPU torch.Generator does not support the device-offset rewind used by this GPU model-runner path. Snapshot the affected CPU generators before sampling and restore their opaque state afterward; simply skipping the unsupported offset call can keep generation alive but change token IDs with the chunk size. Compare multiple seeded prompts, including one that fits in a single chunk, across unchunked and at least two chunk budgets, then make an ordinary follow-up request. Check actual module/backend identity and preserve both the crashing baseline and a healthy-but-wrong skip-only control. Do not equate absence of an exception with reproducibility.",
+  "avoid_when": "This witness uses a tiny random Llama, direct token input, Linux CPU/Torch2.14 and exact parent/author runner-module overlays on an official e68 CPU distribution. It is not a full PR build, trained-model accuracy/convergence, HTTP health, speculative decoding, CUDA/MPS, model-parallel or all-platform validation. Do not replace a supported device offset path with full-state copies universally: synchronization, state format and sampling contracts differ. MRV2 uses different randomness and is not qualified by an MRV1 witness. An owner-selected public known bug is not a prospective discovery or evidence-selection efficacy result.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/issues/62687",
+      "note": "Public CPU failure report: a seeded request split by chunked prefill reaches CPU Generator.get_offset and kills the worker. Unseeded or unchunked controls work. Reported original platform is macOS/Torch2.13, not the independently checked Linux environment."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/bdd9361152502528398f80d07703b08a00255514/vllm/v1/worker/gpu_model_runner.py",
+      "note": "Author repair snapshots only discarded requests' CPU generator states before the real sampler/rejection sampler, restores afterward, and retains offset rewind for other devices. Source mechanism; it does not establish GPU performance or all sampler-mode correctness."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/tree/feature/community-optimization-lake/examples/native-cpu-seeded-prefill",
+      "note": "Scoped native fixture and conditions: parent chunk16 fails; author module unchunked/chunk16/chunk32 produces matching three-seed token IDs and healthy follow-ups. A controlled skip-only parent variant generates successfully but changes seeded tokens. Branch link is mutable: resolve its commit and recheck source/environment before reuse. No competing PR, model accuracy, speedup, complete upstream build/CI or prospective-selector claim."
+    }
+  ],
+  "status": "validated"
+}
