@@ -655,6 +655,36 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
     next_check = analysis.get("next_check", "")
     if not isinstance(next_check, str):
         return None
+    repo, commit = packet.get("repo"), snapshot.get("commit")
+    if not isinstance(repo, str) or not isinstance(commit, str):
+        return None
+    prefix = f"https://raw.githubusercontent.com/{repo}/{commit}/"
+    observed_paths = {
+        urllib.parse.unquote(source["url"][len(prefix):])
+        for source in packet.get("sources", [])[:8]
+        if isinstance(source.get("url"), str) and source["url"].startswith(prefix)
+    }.intersection(snapshot.get("files", []))
+    # Accept file:line-line as well as prose, but bind it to an observed file.
+    # A basename must be unique among supplied same-pin files, not necessarily
+    # the whole repository. A different file's numbers must not move a window.
+    qualified_path = None
+    qualified_ranges = []
+    for name, first, last in re.findall(
+        r"(?<![A-Za-z0-9_./:\\-])"
+        r"([A-Za-z0-9_][A-Za-z0-9_./-]*\.[A-Za-z0-9_]+):[ \t]*"
+        r"(\d{1,7})\s*[-–—]\s*(\d{1,7})\b",
+        next_check[:2000],
+    ):
+        candidates = [
+            path for path in observed_paths
+            if (path == name if "/" in name else path.rsplit("/", 1)[-1] == name)
+        ]
+        if len(candidates) != 1:
+            return None
+        if qualified_path is not None and candidates[0] != qualified_path:
+            return None
+        qualified_path = candidates[0]
+        qualified_ranges.append((int(first), int(last)))
     boundaries = set()
     for expression in (
         r"\bafter\s+line\s+(\d{1,7})\b",
@@ -675,7 +705,7 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
             int(value)
             for value in re.findall(expression, next_check[:2000], re.IGNORECASE)
         )
-    ranges = []
+    ranges = list(qualified_ranges)
     for expression in (
         r"\blines?\s+(\d{1,7})\s*[-–—]\s*(\d{1,7})\b",
         r"(?<!\d)(\d{1,7})\s*[-–—]\s*(\d{1,7})\s*行",
@@ -697,16 +727,14 @@ def continuation_request(packet, snapshot, analysis, *, spec=None):
         or not (boundaries or head_boundaries or ranges)
     ):
         return None
-    repo, commit = packet.get("repo"), snapshot.get("commit")
-    if not isinstance(repo, str) or not isinstance(commit, str):
-        return None
-    prefix = f"https://raw.githubusercontent.com/{repo}/{commit}/"
     matches = []
     for source in packet.get("sources", [])[:8]:
         url = source.get("url", "")
         if not isinstance(url, str) or not url.startswith(prefix):
             continue
         path = urllib.parse.unquote(url[len(prefix) :])
+        if qualified_path is not None and path != qualified_path:
+            continue
         start, end, total = (
             source.get(key) for key in ("start_line", "end_line", "total_lines")
         )
@@ -1939,11 +1967,16 @@ class ResearchProducer:
 
             if (
                 test_request and continuation
-                and test_request["path"] == continuation["path"]
+                and (
+                    test_request["path"] == continuation["path"]
+                    or "tail_start" in continuation or "head_start" in continuation
+                )
             ):
                 # The continuation already supplies this test within the ordinary
                 # read budget. Removing its path here would attach that file's
                 # line offsets to the next, unrelated lexical source instead.
+                # A requested second fragment also precedes an implicit companion
+                # test; it replaces that read, never adds a third source slot.
                 test_request = None
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]

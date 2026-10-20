@@ -44,6 +44,78 @@ class ContinuationTests(unittest.TestCase):
                     {"path": "src/worker.ts", "start": 341, "max_lines": 120},
                 )
 
+    def test_file_qualified_range_selects_only_the_named_observed_file(self):
+        source = self.packet["sources"][0]
+        other = {**source, "url": source["url"].replace("worker.ts", "other.ts")}
+        packet = {**self.packet, "sources": [source, other]}
+        snapshot = {**self.snapshot, "files": ["src/worker.ts", "src/other.ts"]}
+        for hint in ("Read worker.ts:360-537", "查看 src/worker.ts:360–537",
+                     "worker.ts:360-537 plus references(resolve_in_place)"):
+            with self.subTest(hint=hint):
+                self.assertEqual(
+                    continuation_request(packet, snapshot, {"next_check": hint}),
+                    {"path": "src/worker.ts", "start": 341,
+                     "max_lines": 120, "tail_start": 418},
+                )
+        self.assertEqual(
+            continuation_request(packet, snapshot, {"next_check": "worker.ts:100-240"}),
+            {"path": "src/worker.ts", "start": 141,
+             "max_lines": 120, "head_start": 100},
+        )
+
+    def test_file_qualified_ranges_reject_unknown_ambiguous_or_unanchored_targets(self):
+        for hint in ("missing.ts:360-537", "other/worker.ts:360-537",
+                     "worker.ts:362-537", "worker.ts:360-538",
+                     "worker.ts:0-537", "worker.ts:360-359",
+                     "worker.ts:360-537 and lines 400-500",
+                     "worker.ts:360-537 and other.ts:360-537"):
+            with self.subTest(hint=hint):
+                self.assertIsNone(continuation_request(
+                    self.packet, self.snapshot, {"next_check": hint},
+                ))
+        ambiguous = {**self.snapshot, "files": ["src/worker.ts", "other/worker.ts"]}
+        # The other tree member was not supplied: "this file" is unambiguous.
+        self.assertIsNotNone(continuation_request(
+            self.packet, ambiguous, {"next_check": "worker.ts:360-537"},
+        ))
+        source = self.packet["sources"][0]
+        packet = {**self.packet, "sources": [source, {
+            **source, "url": source["url"].replace("src/worker.ts", "other/worker.ts"),
+        }]}
+        self.assertIsNone(continuation_request(
+            packet, ambiguous, {"next_check": "worker.ts:360-537"},
+        ))
+        self.assertIsNotNone(continuation_request(
+            packet, ambiguous, {"next_check": "src/worker.ts:360-537"},
+        ))
+        self.assertIsNone(continuation_request(
+            self.packet, {**self.snapshot, "commit": "c" * 40},
+            {"next_check": "worker.ts:360-537"},
+        ))
+
+    def test_file_qualified_continuation_precedes_references_without_extra_reads(self):
+        calls, fragments = self.run_followup(
+            "worker.ts:360-537 plus references(resolve_in_place)",
+            cached_raw="fn resolve_in_place() {}\n" * 537,
+        )
+        self.assertEqual([(p, k["start"], k["max_lines"]) for p, k in calls],
+                         [("src/worker.ts", 341, 120), ("src/worker.ts", 418, 120)])
+        self.assertTrue(any(s["text"].startswith("341:") for s in fragments))
+        self.assertTrue(any(s["text"].startswith("418:") for s in fragments))
+
+    def test_requested_long_continuation_precedes_implicit_companion_test(self):
+        self.snapshot["files"].append("src/tests/test_worker.ts")
+        calls, _ = self.run_followup("worker.ts:360-537")
+        self.assertEqual([(p, k.get("start"), k["max_lines"]) for p, k in calls],
+                         [("src/worker.ts", 341, 120), ("src/worker.ts", 418, 120)])
+
+    def test_short_qualified_continuation_keeps_companion_slot(self):
+        self.snapshot["files"].append("src/tests/test_worker.ts")
+        calls, _ = self.run_followup("worker.ts:360-400")
+        self.assertEqual([(p, k.get("start"), k["max_lines"]) for p, k in calls],
+                         [("src/worker.ts", 341, 120),
+                          ("src/tests/test_worker.ts", None, 80)])
+
     def test_previously_supplied_text_context_keeps_same_pin_window_constraints(self):
         path = "requirements/cpu.txt"
         source = {**self.packet["sources"][0],
@@ -249,7 +321,7 @@ class ContinuationTests(unittest.TestCase):
                 calls.append((path, kwargs))
                 return {
                     "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
-                    "text": f"{kwargs['start']}: observed distinct fragment",
+                    "text": f"{kwargs.get('start', 1)}: observed distinct fragment",
                 }
 
             def duplicate_sources(self, repo, title):

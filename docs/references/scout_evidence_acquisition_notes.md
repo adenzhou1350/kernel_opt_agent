@@ -1672,3 +1672,29 @@ sessions released. These are routing checks, not vLLM kernel tests.
 ```text
 python -B -m unittest tests.test_scout_source_backend_ties tests.test_scout_compound_paths tests.test_kimi_scout_research
 ```
+
+## File-qualified continuation must not become a reference read
+
+A retained vLLM Rust request named `output.rs:360-671` plus
+`references(resolve_in_place)` after reading lines 241–360 of
+[`output.rs` at b8e9001](https://github.com/vllm-project/vllm/blob/b8e9001bf9568c801985889deff34d3b9fe6d0b0/rust/src/engine-core-client/src/protocol/output.rs).
+The prose-only range parser ignored the colon notation; the cached reference
+hint delivered lines 183–262 instead. An offline producer/real-reader replay
+with the same packet, raw bytes and saved index hint reproduces that miss.
+
+The continuation parser now accepts `file:line-line` only for a uniquely named
+supplied same-pin tree member. Two supplied files with the same basename remain
+ambiguous; an unseen same-named tree member does not change which observed file
+the request names. Existing boundary, range, revision and two-read limits still
+apply. A requested second fragment takes the slot of an implicit companion test,
+not an extra source read; short continuations keep that companion slot.
+
+The matched replay delivers 341–460 and 552–671, with zero model or network calls.
+These remain separate partial windows: 461–551 is not supplied and no complete
+definition, native correctness, bug discovery, saved paid tokens or PR benefit
+is established. Historical model responses and charges remain unchanged. This
+owner-exposed diagnostic is not a new held-out or prospective trial result.
+
+```text
+python -B -m unittest tests.test_scout_source_continuation tests.test_scout_exact_definition_reads tests.test_scout_native_reference_anchor tests.test_scout_requested_definition tests.test_kimi_scout_context tests.test_kimi_scout_research
+```
