@@ -13,6 +13,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | May this contribution be submitted? | [Effective contribution rules](#inherited-rules-before-setup) |
 | What source does the lead actually reach? | `kimi_scout_delivery_source.select_leads`; [intake](references/scout_native_cpu_validation_notes.md#owner-only-intake-across-languages) |
 | Prepare a reviewed local-source model packet? | [Pinned packet](#local-pinned-packet) |
+| Were particular code lines in one saved request? | [Request-content diagnostic](#request-content-diagnostic); not semantic recall |
 | Transfer exact committed bytes? | [Source bundle](#commit-exact-source-before-native-validation) |
 | Run a reviewed native command? | `scout_native_run.py --help`; [runtime/export/cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
 | Capture owner-reviewed GPU pytest without another process wrapper? | [Optional shared-GPU guard](#optional-owner-reviewed-gpu-capture) |
@@ -87,6 +88,34 @@ ambiguous definitions and oversized packets reject rather than truncate.
 Keep necessary callers/context; do not trim repeatedly just to force acceptance.
 The public repository name is a declaration, not verified public provenance.
 See [selection format and bounds](references/scout_native_cpu_worked_routes.md#local-pinned-packet).
+
+### Request-content diagnostic
+
+Before calling a known defect a model miss, check the actual saved request:
+
+```sh
+python scripts/scout_source_exposure.py --packet exact-job-packet.json --request JOB.request.json --expected reviewed-source-packet.json
+```
+
+Export the **exact original packet string**, not a reformatted JSON copy, and
+the existing saved request. The expected packet contains exactly one reviewed
+immutable raw-source URL and numbered lines, obtainable with the existing
+`scout_git_source.py` selection route. Review its public provenance separately.
+No source/model/network call, queue write or target execution occurs here.
+
+The diagnostic matches the complete saved prompt to that packet, then compares
+numbered text at the exact repository/revision/path. Metadata claiming a larger
+window does not supply missing text; conflicting source lines stay inconsistent.
+Missing/mismatched request files remain unknown, not zero exposure. Different
+windows in the **same** packet can jointly supply lines, but do not union jobs
+to claim one request contained both sides of a cross-function defect.
+
+This only establishes saved request content relative to the reviewed expectation,
+not provider receipt/attention, source reachability, defect detection or semantic
+recall. A known fix or explicit duplicate exclusion in the question invalidates
+using that request as an unbiased discovery test, even with complete coverage.
+Keep historical diagnostics outside frozen prospective enrollment and do not
+replace unavailable study cases with owner-selected known bugs.
 
 ### Model effort before fan-out
 
