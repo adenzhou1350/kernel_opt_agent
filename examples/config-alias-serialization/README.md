@@ -67,5 +67,46 @@ pickling; blindly removing registration or creating unpicklable dynamic classes
 is not qualified. A repaired candidate still needs its own target-package
 validation and current duplicate-work checks before a vLLM contribution.
 
+## Rejected repair: stable metadata is not alias-preserving persistence
+
+One private, one-module prototype replaced the helper with
+`CONFIG_MAPPING.register(model_type, config_class, exist_ok=True)` and removed
+both writes to `config_class.model_type`. On the same fixed CPU distribution,
+its 15 selected checks passed: mixed-alias stability, repeated aliases, native
+class metadata/identity, ordinary and fresh-interpreter pickle, and the existing
+`hf_overrides` check. That was **not** a sufficient repair contract.
+
+A separate seven-check save/reload comparison passed on the original package
+but failed six checks on that prototype. Five aliases became canonical types
+after `save_pretrained()` followed by `get_config()`. In particular, `kimi_k2`
+became `deepseek_v3`; the installed `get_tool_call_id_type` helper then selected
+`random` instead of `kimi_k2` using a minimal model-config-shaped wrapper.
+`RefinedWeb` aliases also reloaded as `FalconConfig`, not `RWConfig`.
+The prototype was rejected, not submitted as a vLLM repair.
+
+For a future repair, test this additional local-config-only path as well:
+
+```python
+from types import SimpleNamespace
+from vllm.renderers.chat_utils.tool_call import get_tool_call_id_type
+from vllm.transformers_utils.config import get_config
+
+before = get_config(local_kimi_config_dir, trust_remote_code=False)
+before.save_pretrained(fresh_saved_dir)
+after = get_config(fresh_saved_dir, trust_remote_code=False)
+assert after.model_type == before.model_type
+def select(config):
+    return get_tool_call_id_type(SimpleNamespace(
+        hf_config=config, hf_text_config=config, hf_overrides=None))
+assert select(after) == select(before) == "kimi_k2"
+```
+
+Here `local_kimi_config_dir` contains only a synthetic `config.json` with
+`model_type="kimi_k2"`; `fresh_saved_dir` is task-private. This is a dispatch
+helper check, not an engine run or evidence of a model-output incident.
+Preserving canonical class metadata and passing pickle must not replace the
+existing alias/persistence contract. These checks used the fixed CPU wheel,
+not current-main, ModelScope, full CI or a new prospective research sample.
+
 This is an exposed operational candidate and reusable reproduction, not a new
 prospective research sample or evidence of Scout efficacy/PR conversion.
