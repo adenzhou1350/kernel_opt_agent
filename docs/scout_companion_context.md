@@ -61,6 +61,30 @@ selection and the resulting extra producer read. These establish selection
 behavior, not PR yield or improved model accuracy. No community-code, GPU, or
 whole-workload performance claim is made.
 
+## Python companion windows reuse observed owners
+
+Pairing the right test file is not enough: a generic `core` or `prefetcher`
+filename hint can select its imports rather than tests for the visible code.
+For ordinary Python modules, reuse the existing, pinned window's first four
+lexical owner entries. Non-dunder terminal names and conventional `test_` names
+feed the existing bounded hint selector; no source body is parsed or fetched
+again for this step. Package-initializer and other-language behavior is unchanged.
+Without owner metadata or a matching name, ordinary hint fallback remains.
+
+A cached four-window GCSFS/fsspec replay moved companion excerpts away from
+the first70 lines without another network/model call. For example, a
+`PrefetchConsumer` window selected tests containing direct `consume` and
+`_advance` boundary calls. This is retrospective location evidence only:
+the selected70 lines can still be partial, a generic name can match unrelated
+code, and an earlier exact test-name match can favor one owner over another.
+Selection does not prove coverage, test execution, improved model accuracy,
+new discoveries or higher PR yield. Inspect actual admitted packet contents;
+do not requeue previously reviewed windows merely because this hint changed.
+
+```text
+python -B -m unittest tests.test_kimi_scout_research tests.test_kimi_scout_context
+```
+
 ## Continuation and companion requests must keep the same file identity
 
 A supplied test window can be both an explicit continuation target and the

@@ -172,10 +172,11 @@ def refill_health(active_since, ready_at, outcomes, now):
 
 
 def companion_source_hints(source, stem):
-    """Prefer visible JS/TS declarations or Python package owners to a filename.
+    """Prefer observed declarations/owners to a generic companion filename.
 
     Bounded lexical hints, not parsing or export/binding/reachability evidence.
-    Python package entries use their observed owners rather than __init__.
+    Python package entries use their observed owners rather than __init__;
+    ordinary Python modules also suggest conventional test-name counterparts.
     """
     path = source.get("url", "").split("?", 1)[0]
     if path.endswith("/__init__.py"):
@@ -188,6 +189,18 @@ def companion_source_hints(source, stem):
                     and name not in names):
                 names.append(name)
         return " ".join([*names, package])[:2000]
+    if path.endswith(".py"):
+        names = []
+        for owner in source.get("python_definition_context", {}).get("definitions", [])[:4]:
+            name = owner.get("qualified_name", "").rsplit(".", 1)[-1]
+            if (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name)
+                    and not (name.startswith("__") and name.endswith("__"))):
+                # Conventional test names are retrieval hints, not evidence
+                # that such a test exists, reaches the owner or passes.
+                for hint in (name, "test_" + name.lstrip("_")):
+                    if hint not in names:
+                        names.append(hint)
+        return " ".join([*names, stem])[:2000]
     if not path.endswith((".ts", ".tsx", ".js", ".jsx")):
         return stem
     names = []

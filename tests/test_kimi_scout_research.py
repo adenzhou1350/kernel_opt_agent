@@ -1980,6 +1980,30 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(research.companion_source_hints(
             {"url": "https://example.org/pkg/router.py"}, "router"), "router")
 
+    def test_python_companion_hints_reuse_bounded_observed_owners(self):
+        source = {
+            "url": "https://raw.githubusercontent.com/a/b/" + "a" * 40 + "/pkg/core.py",
+            "python_definition_context": {"definitions": [
+                {"qualified_name": "Router.__init__"},
+                {"qualified_name": "Router._get_bounds"},
+                {"qualified_name": "Router._get_bounds"},
+                {"qualified_name": "Router.accept_tokens"},
+                {"qualified_name": "Unseen.fifth_owner"},
+            ]},
+        }
+        self.assertEqual(research.companion_source_hints(source, "core"),
+                         "_get_bounds test_get_bounds accept_tokens test_accept_tokens core")
+
+    def test_python_companion_hints_do_not_invent_owner_from_excerpt(self):
+        source = {
+            "url": "https://example.org/pkg/core.py",
+            "text": "1: # def guessed_owner(): pass\n2: return value",
+            "python_definition_context": {"definitions": [
+                {"qualified_name": "unsafe/name"}, {"qualified_name": "__exit__"},
+            ]},
+        }
+        self.assertEqual(research.companion_source_hints(source, "core"), "core")
+
     def test_package_entry_hints_use_visible_nondunder_owner_not_init(self):
         source = {
             "url": "https://raw.githubusercontent.com/a/b/" + "a" * 40 + "/pkg/router/__init__.py",

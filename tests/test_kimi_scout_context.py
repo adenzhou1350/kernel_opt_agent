@@ -95,6 +95,45 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(self.calls, calls)
         self.assertIn((url, context.RAW_LIMIT, False), calls)
 
+    def test_python_owner_companion_hint_selects_test_beyond_module_import(self):
+        from kimi_scout_research import companion_source_hints
+
+        path = "tests/test_core.py"
+        url = f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{path}"
+        self.tree["tree"].append({"path": path, "type": "blob", "mode": "100644", "sha": BLOB})
+        self.routes[url] = "\n".join([
+            "from pkg.core import Router", *["# setup context"] * 100,
+            "def test_get_bounds():", "    assert Router()._get_bounds() == (0, 1)",
+            *["# other context"] * 100,
+        ])
+        ordinary = self.context.source(REPO, COMMIT, path, hints="core", max_lines=70)
+        self.assertEqual(ordinary["start_line"], 1)
+        before = list(self.calls)
+        hints = companion_source_hints({
+            "url": RAW.replace("kernel.py", "core.py"),
+            "python_definition_context": {"definitions": [
+                {"qualified_name": "Router._get_bounds"},
+            ]},
+        }, "core")
+        selected = self.context.source(REPO, COMMIT, path, hints=hints, max_lines=70)
+        self.assertIn("def test_get_bounds():", selected["text"])
+        self.assertGreater(selected["start_line"], 1)
+        self.assertEqual(selected["end_line"] - selected["start_line"] + 1, 70)
+        self.assertEqual(self.calls, before)
+
+    def test_python_companion_without_matching_test_keeps_existing_fallback(self):
+        from kimi_scout_research import companion_source_hints
+
+        before = self.context.source(REPO, COMMIT, "src/kernel.py", hints="core", max_lines=70)
+        hints = companion_source_hints({
+            "url": RAW.replace("kernel.py", "core.py"),
+            "python_definition_context": {"definitions": [
+                {"qualified_name": "Router._uncovered"},
+            ]},
+        }, "core")
+        after = self.context.source(REPO, COMMIT, "src/kernel.py", hints=hints, max_lines=70)
+        self.assertEqual(before, after)
+
     def test_observed_channel_settings_reuse_public_metadata_without_fetch(self):
         self.metadata.update(
             has_pull_requests=True, pull_request_creation_policy="collaborators_only",
