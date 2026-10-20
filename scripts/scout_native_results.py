@@ -231,8 +231,11 @@ def _junit(text, exit_code, expected_results, issue, inventory=None):
                 and re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*", name)
             )
             qualified = f"@collection::{name}" if collection_skip else f"{classname}::{name}"
-            if not (classname or collection_skip) or not name or len(qualified) > 512 or qualified in names:
-                issue("missing, overlong or duplicate JUnit case identity")
+            # Real pytest parameter IDs can contain large input literals. Keep
+            # the full identity: the entire XML already has the 2 MiB bound.
+            # Truncating/hashing names here could hide collisions or cohort drift.
+            if not (classname or collection_skip) or not name or qualified in names:
+                issue("missing or duplicate JUnit case identity")
             if not classname and not collection_skip:
                 issue("JUnit testcase has no classname; check pytest test paths "
                       "relative to --rootdir and reporter configuration")
@@ -483,8 +486,11 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
         raise ValueError("log exceeds 2 MiB")
     if not isinstance(expected_tests, (list, tuple)) or not 1 <= len(expected_tests) <= 64:
         raise ValueError("supply 1..64 exact expected test names")
-    if any(not isinstance(name, str) or not name or len(name) > 512 for name in expected_tests):
+    if any(not isinstance(name, str) or not name for name in expected_tests):
         raise ValueError("invalid expected test name")
+    if (sum(map(len, expected_tests)) > 64 * 512 if format == "pytest-junit"
+            else any(len(name) > 512 for name in expected_tests)):
+        raise ValueError("expected test names exceed character budget")
     if format == "go-json" and (not isinstance(package, str) or not package or len(package) > 512):
         raise ValueError("Go requires an exact expected package")
     issues, seen, active = [], set(), set()
@@ -636,9 +642,10 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
     if format == "pytest-junit" and missing and issues == ["expected test did not execute"]:
         result["expected_identity_help"] = {
             "syntax": "<classname>::<name> from the captured JUnit testcase attributes",
-            "observed_executed_examples": sorted(seen)[:8],
+            "observed_executed_examples": [name for name in sorted(seen) if len(name) <= 512][:8],
             "observed_executed_identity_count": len(seen),
-            "caution": "Observed examples are not automatic replacements for declared tests. "
+            "caution": "Examples omit identities longer than 512 characters; full names remain in report/inventory. "
+                       "Observed examples are not automatic replacements for declared tests. "
                        "pytest CLI node IDs and JUnit identities can differ. Review the intended "
                        "module, class and parameter selection before analyzing the same capture "
                        "with corrected IDs; keep the original inconclusive report. Do not rerun "

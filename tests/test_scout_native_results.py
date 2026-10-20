@@ -223,6 +223,46 @@ class NativeResultsTests(unittest.TestCase):
                      valid.replace('name="test_case"', 'name=""')):
             self.assertEqual(self.junit(text)["status"], "INCONCLUSIVE")
 
+    def test_junit_preserves_long_parameter_identities_and_their_distinct_suffixes(self):
+        names = ['test_nested['+'x'*4049+suffix+']' for suffix in ('A', 'B')]
+        text = junit(('test_case', None), *((name, None) for name in names))
+        value = native.summarize(text, format='pytest-junit', exit_code=0,
+            expected_tests=['tests.test_contract::'+name for name in names], include_inventory=True)
+        self.assertEqual((value['status'], value['passed']), ('TESTS_PASSED', 3))
+        self.assertEqual(set(value['case_inventory']),
+                         {'tests.test_contract::'+name for name in ['test_case', *names]})
+        duplicate = junit(('test_case', None), (names[0], None), (names[0], None))
+        self.assertEqual(self.junit(duplicate)['status'], 'INCONCLUSIVE')
+
+    def test_long_pytest_declarations_share_the_existing_total_name_budget(self):
+        for names in (['x'*(64*512+1)], ['x'*513]*64):
+            with self.assertRaises(ValueError):
+                self.junit(junit(('test_case', None)), expected_tests=names)
+        with self.assertRaises(ValueError):
+            self.go(go_log(go_test()), expected_tests=['x'*513])
+
+    def test_long_pytest_diagnostic_examples_do_not_truncate_into_false_identities(self):
+        name = 'test_nested['+'x'*4049+']'
+        value = self.junit(junit(('test_case',None),(name,None)),
+                           expected_tests=['tests.test_contract::missing'])
+        self.assertEqual(value['status'], 'INCONCLUSIVE')
+        help_ = value['expected_identity_help']
+        self.assertEqual(help_['observed_executed_identity_count'], 2)
+        self.assertEqual(help_['observed_executed_examples'], ['tests.test_contract::test_case'])
+
+    def test_suite_comparison_keeps_long_undeclared_case_changes_visible(self):
+        name = 'test_nested['+'x'*4049+']'
+        before = junit(('test_regression','failure'),('test_control',None),(name,None))
+        after = junit(('test_regression',None),('test_control',None),(name,None))
+        arguments=dict(baseline_exit=1,candidate_exit=0,
+                       regressions=['tests.test_contract::test_regression'],
+                       controls=['tests.test_contract::test_control'])
+        value=native.compare_pytest_suite_regression(before,after,**arguments)
+        self.assertEqual(value['status'],'MATCHED_SUITE_REGRESSION_OBSERVED')
+        changed=after.replace(name,name+'different')
+        self.assertEqual(native.compare_pytest_suite_regression(before,changed,**arguments)['status'],
+                         'PATTERN_NOT_OBSERVED')
+
     def test_pytest_collection_skip_is_retained_but_never_executed(self):
         root = ET.fromstring(junit(("test_case", None), ("tests.test_optional", "skipped")))
         collection = root[0][1]
@@ -245,7 +285,7 @@ class NativeResultsTests(unittest.TestCase):
                 'classname="tests.test_contract"', attribute)
             value = self.junit(text)
             self.assertEqual(value["status"], "INCONCLUSIVE")
-            self.assertIn("missing, overlong or duplicate JUnit case identity", value["issues"])
+            self.assertIn("missing or duplicate JUnit case identity", value["issues"])
             self.assertIn(diagnostic, value["issues"])
             self.assertEqual(value["missing_expected_tests"], ["tests.test_contract::test_case"])
             self.assertNotIn("expected_identity_help", value)

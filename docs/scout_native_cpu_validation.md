@@ -513,6 +513,22 @@ For pytest JUnit, anchors are the captured `<testcase>` attributes joined as
 substitution or changing the inconclusive verdict. Review module/class/parameter
 identity, retain the original report and reanalyze the same XML with corrected
 arguments; this does not require rerunning successful native captures.
+Pytest parameter IDs can contain the tested input itself. A real TOMLKit suite
+produced a 4,065-character qualified identity for a deeply nested input. Preserve
+the full literal identity, including distinguishing suffixes; do not shorten,
+hash, rename or drop such cases. The parser bounds the entire XML at 2 MiB and
+retains missing/duplicate-name, outcome and cardinality checks. Pytest expected
+anchors share the existing 64 × 512-character total allowance across at most 64
+names, rather than imposing 512 characters on each. Other formats keep their
+individual limits. Advisory examples omit long identities rather than present
+misleading truncated names; full inventories still contain them.
+
+The unchanged 1,203-case TOMLKit report was reanalyzed after this accounting
+repair; no target tests were rerun or filtered. Original inconclusive capture
+and wrapper failure remain historical. This supports the observed native-test
+route, not an autonomous investigation, locked Poetry/official CI, a new defect
+or a prospective evidence-selection result.
+
 Duplicate collection skips are another producer limitation: `--doctest-modules`
 may merge two `<skipped>` children into one module record while counting both
 events in the suite totals. Equal malformed records across both arms are still
