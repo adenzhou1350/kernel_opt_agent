@@ -30,7 +30,7 @@ SUFFIXES = NATIVE_SUFFIXES + (
     ".ts",
 )
 REQUEST = re.compile(
-    r"\breferences\(([A-Za-z_][A-Za-z0-9_]{0,127}"
+    r"(?<![A-Za-z0-9_])references\(([A-Za-z_][A-Za-z0-9_]{0,127}"
     r"(?:\.[A-Za-z_][A-Za-z0-9_]{0,127}){0,4})\)"
 )
 PYTHON_CACHE_LIMIT = 1_000_000
@@ -345,7 +345,7 @@ def definition_only_reference_path(packet, snapshot, analysis, cached_source):
     """
     request = analysis.get("next_check", "")
     if (not callable(cached_source) or not isinstance(request, str)
-            or len(re.findall(r"(?<!\w)(?:definition|references)[ \t]*\(", request[:2000])) != 1):
+            or len(re.findall(r"(?<![A-Za-z0-9_])(?:definition|references)[ \t]*\(", request[:2000])) != 1):
         return None
     selected = _reference_source(packet, snapshot, analysis, cached_source)
     if not selected:

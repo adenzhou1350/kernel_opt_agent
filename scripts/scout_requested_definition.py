@@ -3,6 +3,8 @@
 Syntax-only, never imported/executed code or production-reachability proof.
 Ambiguous/missing declarations fall back to existing context selection. C++/Rust
 locations are explicitly lexical, not parsed definitions or complete bodies.
+Request marker names are ASCII DSL tokens: adjacent Unicode prose is allowed,
+but an ASCII identifier prefix must not turn xdefinition(...) into a request.
 """
 import ast
 import hashlib
@@ -50,7 +52,7 @@ def requested_code_search_symbols(request):
     if not isinstance(request, str):
         return []
     request = request[:2000]
-    markers = list(re.finditer(r"(?<!\w)(definition|references)[ \t]*\(", request))
+    markers = list(re.finditer(r"(?<![A-Za-z0-9_])(definition|references)[ \t]*\(", request))
     if not 1 <= len(markers) <= 2:
         return []
     names, owners = [], []
@@ -86,7 +88,7 @@ def cached_reference_binding_symbol(packet, snapshot, analysis, cached_source):
     if (
         not callable(cached_source)
         or len(symbols) != 2
-        or re.findall(r"(?<!\w)(definition|references)[ \t]*\(", request[:2000])
+        or re.findall(r"(?<![A-Za-z0-9_])(definition|references)[ \t]*\(", request[:2000])
         != ["references", "references"]
     ):
         return None
@@ -186,10 +188,10 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
     if not isinstance(request, str) or not callable(cached_source):
         return None
     request = request[:2000]
-    if len(re.findall(r"(?<!\w)definition[ \t]*\(", request)) != 1:
+    if len(re.findall(r"(?<![A-Za-z0-9_])definition[ \t]*\(", request)) != 1:
         return None
     if not re.search(
-        r"(?<!\w)definition[ \t]*\([ \t]*[A-Za-z_]\w{0,127}"
+        r"(?<![A-Za-z0-9_])definition[ \t]*\([ \t]*[A-Za-z_]\w{0,127}"
         r"\.[A-Za-z_]\w{0,127}[ \t]*\)", request
     ):
         return None
@@ -238,7 +240,7 @@ def cached_definition_pair_requests(packet, snapshot, analysis, cached_source):
     if not isinstance(request, str) or not callable(cached_source):
         return []
     request = request[:2000]
-    markers = list(re.finditer(r"(?<!\w)(definition|references)[ \t]*\(", request))
+    markers = list(re.finditer(r"(?<![A-Za-z0-9_])(definition|references)[ \t]*\(", request))
     if len(markers) != 2 or any(marker[1] != "definition" for marker in markers):
         return []
     targets = []
@@ -273,7 +275,7 @@ def cached_definition_pair_requests(packet, snapshot, analysis, cached_source):
     for owner, method in targets:
         # Keep other prose/path restrictions, but give the old unique-target
         # resolver only this marker. The reader receives that exact target too.
-        one = re.sub(r"(?<!\w)definition[ \t]*\([^)]*\)", "", request)
+        one = re.sub(r"(?<![A-Za-z0-9_])definition[ \t]*\([^)]*\)", "", request)
         one = f"definition({owner}.{method}) " + one
         paths.append(cached_qualified_definition_path(
             packet, snapshot, {"next_check": one}, verified,
@@ -299,7 +301,7 @@ def cached_definition_tail_request(packet, snapshot, analysis, cached_source):
     if not isinstance(request, str) or not callable(cached_source):
         return None
     request = request[:2000]
-    markers = re.findall(r"(?<!\w)(definition|references)[ \t]*\(", request)
+    markers = re.findall(r"(?<![A-Za-z0-9_])(definition|references)[ \t]*\(", request)
     if markers != ["definition"] or re.search(r"\bbefore\s+line\b|之前|以前", request, re.IGNORECASE):
         return None
     repo = packet.get("repo")
@@ -366,7 +368,7 @@ def requested_rust_fn_anchor(raw, request):
     if not isinstance(raw, str) or len(raw) > 1_000_000 or not isinstance(request, str):
         return None
     request = request[:2000]
-    markers = list(re.finditer(r"(?<!\w)definition[ \t]*\(", request))
+    markers = list(re.finditer(r"(?<![A-Za-z0-9_])definition[ \t]*\(", request))
     if len(markers) != 1:
         return None
     match = re.match(
@@ -402,7 +404,7 @@ def requested_native_literal_anchor(raw, request):
     if not isinstance(raw, str) or len(raw) > 1_000_000 or not isinstance(request, str):
         return None
     request = request[:2000]
-    markers = list(re.finditer(r"(?<!\w)definition[ \t]*\(", request))
+    markers = list(re.finditer(r"(?<![A-Za-z0-9_])definition[ \t]*\(", request))
     if len(markers) != 1:
         return None
     match = re.match(
@@ -439,7 +441,7 @@ def absent_requested_identifiers(raw, request):
     if not isinstance(raw, str) or not isinstance(request, str):
         return []
     request = request[:2000]
-    markers = list(re.finditer(r"(?<!\w)(?:definition|references)[ \t]*\(", request))
+    markers = list(re.finditer(r"(?<![A-Za-z0-9_])(?:definition|references)[ \t]*\(", request))
     names = []
     for marker in markers:
         match = re.match(
@@ -468,7 +470,7 @@ def requested_definition_inventory(lines, request, symbol):
     ):
         return None
     if not isinstance(request, str) or not re.search(
-        rf"(?<!\w)definition[ \t]*\([ \t]*{re.escape(symbol)}[ \t]*\)",
+        rf"(?<![A-Za-z0-9_])definition[ \t]*\([ \t]*{re.escape(symbol)}[ \t]*\)",
         request[:2000],
     ):
         return None
@@ -521,7 +523,7 @@ def requested_function_window(lines, request):
     # Explicit syntax chooses the evidence target, not other API names in the
     # explanation. Reject malformed/multiple targets rather than silently
     # selecting a different function mentioned in prose.
-    markers = list(re.finditer(r"(?<!\w)definition[ \t]*\(", request))
+    markers = list(re.finditer(r"(?<![A-Za-z0-9_])definition[ \t]*\(", request))
     explicit = set()
     for marker in markers:
         match = re.match(

@@ -651,3 +651,12 @@ CPU accounting scopes differ by platform; setup/model/human costs are separate.
 No narrow test count, synthetic success or unpriced call establishes PR yield,
 recall, total-cost superiority or research benefit. See
 [report/accounting details](references/scout_native_cpu_worked_routes.md#keep-the-outcome-useful).
+
+Explicit `definition(...)` / `references(...)` requests can directly follow
+Unicode prose, such as `请求definition(Owner.method)`. Their marker boundary is
+ASCII-identifier-based, not Python regex `\w`: otherwise the leading Chinese
+text hides the request and can send a qualified-method query to a same-named
+method in another backend. ASCII prefixes such as `mydefinition(...)` remain
+ineligible. Target syntax, immutable tree/cache constraints, ambiguity checks,
+line/text limits and the existing source-read budget remain unchanged. This
+recognizes an acquisition request, not runtime binding or defect evidence.

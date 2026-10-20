@@ -1899,7 +1899,7 @@ class ResearchProducer:
             # suppressing reference/import/code-search routes within the budget.
             explicit_request = analysis_value.get("next_check", "")
             has_explicit_target = isinstance(explicit_request, str) and re.search(
-                r"(?<!\w)(?:definition|references)[ \t]*\(",
+                r"(?<![A-Za-z0-9_])(?:definition|references)[ \t]*\(",
                 explicit_request[:2000],
             )
             definition_request = (
@@ -2032,7 +2032,7 @@ class ResearchProducer:
             explicit_references = bool(symbols) and all(
                 kind == "references"
                 for kind in re.findall(
-                    r"(?<!\w)(definition|references)[ \t]*\(", request_text[:2000]
+                    r"(?<![A-Za-z0-9_])(definition|references)[ \t]*\(", request_text[:2000]
                 )
             )
             reference_declaration = (
@@ -2197,7 +2197,7 @@ class ResearchProducer:
                         and not (references or code_requests or continuation or imports)
                         and definition_request is None
                         and len(re.findall(
-                            r"(?<!\w)definition[ \t]*\(", request_text[:2000]
+                            r"(?<![A-Za-z0-9_])definition[ \t]*\(", request_text[:2000]
                         )) == 1
                         and sources[-1].get("requested_definition_complete") is True
                         and isinstance(sources[-1].get("requested_definition"), dict)
@@ -2220,7 +2220,7 @@ class ResearchProducer:
                 read_request = dict(request)
                 go_import_hint = read_request.pop("go_import_hint", None)
                 if request in imports and re.search(
-                    r"(?<!\w)definition[ \t]*\(", request_text[:2000]
+                    r"(?<![A-Za-z0-9_])definition[ \t]*\(", request_text[:2000]
                 ):
                     # Keep an explicit method target across the import hop;
                     # the source reader still rejects ambiguous/missing bodies.

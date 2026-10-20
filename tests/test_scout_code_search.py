@@ -87,6 +87,10 @@ class CodeSearchTests(unittest.TestCase):
 
     def test_search_keys_keep_unqualified_targets_and_fold_one_qualified_owner(self):
         cases = {
+            "请求definition(AgentRegistry.register)": ["AgentRegistry"],
+            "请求references(build_cache)；然后definition(load_cache)": ["build_cache", "load_cache"],
+            "mydefinition(AgentRegistry.register)": [],
+            "_references(build_cache)": [],
             "references(build_cache) definition(load_cache)": [
                 "build_cache",
                 "load_cache",

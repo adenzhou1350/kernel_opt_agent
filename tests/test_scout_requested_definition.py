@@ -76,6 +76,17 @@ class RequestedDefinitionTests(unittest.TestCase):
                                            "definition(B.same); compare A.same")
         self.assertEqual(result["start_line"], 4)
 
+    def test_unicode_prose_does_not_hide_the_explicit_marker(self):
+        for prefix in ("请求", "请查看", "確認", "Check "):
+            with self.subTest(prefix=prefix):
+                result = requested_function_window(self.raw.splitlines(),
+                    prefix + "definition(_check_gate)；比较 Executor._sync")
+                self.assertEqual(result["name"], "_check_gate")
+
+    def test_unicode_prose_keeps_malformed_marker_abstention(self):
+        self.assertIsNone(requested_function_window(self.raw.splitlines(),
+            "请求definition(missing, other)；检查 Executor._sync"))
+
     def test_invalid_or_multiple_explicit_targets_do_not_fall_back_to_prose(self):
         for request in (
             "definition(missing); inspect _check_gate",

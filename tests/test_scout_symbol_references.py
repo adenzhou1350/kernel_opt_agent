@@ -56,6 +56,11 @@ class ReferenceTests(unittest.TestCase):
         self.assertEqual([r["max_lines"] for r in result], [80, 80])
         self.cache.assert_called_once_with(REPO, COMMIT, PATH)
 
+    def test_unicode_prose_accepts_reference_marker_not_ascii_identifier_suffix(self):
+        self.assertEqual(self.requests("请求references(target)"), self.requests("references(target)"))
+        self.assertEqual(self.requests("myreferences(target)"), [])
+        self.assertEqual(self.requests("_references(target)"), [])
+
     def test_nearby_hits_need_only_one_window(self):
         self.raw = "\n" * 100 + "void f(){ target(); target(); }\n"
         self.assertEqual(len(self.requests()), 1)

@@ -212,6 +212,16 @@ class ExactDefinitionReadTests(unittest.TestCase):
         self.assertTrue(packet["sources"][-1]["requested_definition_complete"])
         self.assertNotIn("unrelated fallback source", scout.dumps(packet))
 
+    def test_unicode_prose_keeps_cached_owner_ahead_of_lexical_backend(self):
+        calls, packet, progress = self.run_followup(
+            request="请求definition(TreeComponent.__init__)，再检查调用者",
+            ranked_paths=[OTHER, PATH], code_search=True,
+        )
+        self.assertEqual(calls, [PATH])
+        self.assertNotIn("code_search_requests", progress)
+        self.assertTrue(packet["sources"][-1]["requested_definition_complete"])
+        self.assertNotIn("unrelated fallback source", scout.dumps(packet))
+
     def test_literal_unqualified_definition_file_precedes_global_symbol_search(self):
         for filename in (PATH, "context.py"):
             with self.subTest(filename=filename):
@@ -258,6 +268,9 @@ class ExactDefinitionReadTests(unittest.TestCase):
     def test_reference_request_with_explicit_filename_keeps_that_read_first(self):
         calls, _, progress = self.run_followup(
             request="Read context.py and references(TreeComponent)", code_search=True,
+            # Include an actual use: declaration-only files intentionally hand
+            # a references request to the existing cross-file search route.
+            raw=RAW + "\ncomponent = TreeComponent()\n",
         )
         self.assertEqual(calls[0], PATH)
         self.assertLessEqual(len(calls), 2)
