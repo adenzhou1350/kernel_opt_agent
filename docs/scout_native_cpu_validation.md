@@ -24,6 +24,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Test a model/backend without migrating production? | [Finite public batch](#finite-public-batch-without-a-task-specific-executor) |
 | Reuse task-private dependencies? | [Content versus isolation](#dependency-reuse-content-is-not-isolation) |
 | Setup/collection failed before assertions? | [Platform/package routes](#package-and-language-routes); retain failure, not a bug verdict |
+| Check an existing sequential loop's native-feedback mechanics? | [No-model agent/sandbox canary](../examples/native-agent-loop/README.md); custom environment and known fixture, not efficacy or real-provider qualification |
 
 Before paid CPU reproduction generation, the delivery worker queries the selected
 fixed Docker image with `kimi_scout_verify.py --check-runtime --profile PROFILE`.

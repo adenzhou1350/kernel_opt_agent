@@ -1,0 +1,18 @@
+{
+  "id": "task-pid-quota-is-not-user-nproc",
+  "title": "A task PID budget is not a shared user's RLIMIT_NPROC",
+  "applies_when": "A Linux native-test or agent subprocess must spawn child commands under a small task budget, especially when it shares a real user ID with other workers and fork or clone fails with EAGAIN before target assertions run.",
+  "lesson": "Check the accounting domain before transferring a resource limit. RLIMIT_NPROC counts existing processes and threads for the real user ID, not just the current test tree; a newly imposed limit can already be below that shared user's usage. Limits are inherited across fork and preserved across exec. A per-task budget needs an actual task-specific mechanism, such as a cgroup pids.max limit, with its hierarchy and current usage checked. Preserve process-creation failures as environment evidence rather than a target-code failure or no-bug result. Do not silently remove the limit and call execution equally isolated; qualify a fresh bounded route and retain the failed attempt.",
+  "avoid_when": "EAGAIN alone does not identify RLIMIT_NPROC; cgroup, system and other admission limits can also prevent task creation. RLIMIT_NPROC is not enforced for real UID 0 or the documented privileged capabilities. A PID cgroup counts kernel tasks/threads, includes descendants and obeys ancestor limits; it is not memory, CPU, filesystem, network, GPU or kernel-exploit isolation. A successful fixed shell primitive is not qualification for arbitrary generated commands or a repository's native test suite.",
+  "evidence": [
+    {
+      "url": "https://man7.org/linux/man-pages/man2/getrlimit.2.html",
+      "note": "Linux manual documents RLIMIT_NPROC's real-UID/thread accounting, EAGAIN, privilege exceptions and inheritance. This supports the limit mechanism, not a measured discovery or performance result."
+    },
+    {
+      "url": "https://docs.kernel.org/admin-guide/cgroup-v2.html#pid",
+      "note": "Kernel documentation specifies the PID controller, pids.max/current, descendant accounting and hierarchical fork/clone enforcement. A task-specific cgroup must actually be established and inspected; merely naming a budget provides no isolation."
+    }
+  ],
+  "status": "validated"
+}

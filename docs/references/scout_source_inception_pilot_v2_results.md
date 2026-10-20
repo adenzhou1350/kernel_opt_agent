@@ -339,3 +339,62 @@ This is a known development case, not a new prospective cohort or a measured
 recall/PR-conversion result. Before further selector work, check whether its
 required evidence is actually available at decision time; any cold-source
 acquisition must retain and account for the existing companion-read budget.
+
+### Native-capable sequential control: bounded component preparation, 2026-10-20
+
+ARB's released closed-tool protocol intentionally excludes native tests. Adding
+a test command would change that action space, not reproduce its unmodified
+baseline. The next preparation therefore examined the actual
+[mini-SWE-agent loop and environment protocol](https://github.com/SWE-agent/mini-swe-agent/tree/04d809ceab9df28f9adaed044884180159172930/src/minisweagent)
+at `04d809c`. Its environment interface permits an explicit execution adapter;
+its published local and Docker environments do not become sandboxed simply
+because the controller limits model steps.
+
+An initial task-private Linux local-driver canary failed when its finite test
+model exhausted its scripted outputs. No target assertions or per-action trace
+were retained, so do not invent a direct traceback diagnosis from that run.
+Separate fixed shell controls then established an infrastructure mechanism:
+setting `RLIMIT_NPROC=64` on the parent before its child launch produced EAGAIN
+under a shared real UID; the same primitive without that new per-UID limit
+succeeded. Setting it only inside an already-created child did not reproduce the
+parent-spawn failure and was not an adequate control. This explains a possible
+failure path, not an observed verdict for each lost action. The original attempt
+remains terminal; its budget was not silently relaxed and rerun.
+
+The [public component canary](../../examples/native-agent-loop/README.md) instead
+keeps the unchanged upstream `DefaultAgent` and deterministic test model on the
+trusted controller, with an explicitly custom `Environment` forwarding only
+reviewed fixed commands to the existing CPU sandbox. This avoids installing
+controller dependencies in its minimal image or replacing per-task cgroup
+isolation with a shared-UID limit. It is not an unmodified LocalEnvironment or
+DockerEnvironment comparison: each command starts a fresh container and only
+regular workspace files persist.
+
+The public canary completed five sandbox invocations / four scripted queries.
+It observed one known synthetic control pass and one intentional boundary
+failure, checked that the failure reached the next query, submitted through the
+real loop, checked a one-query stop, and classified an owned timeout as
+infrastructure rather than a target result. Broker records confirm offline,
+nonroot, read-only-root execution with 512 MiB and 64-task cgroups, all five
+container removals and session release. Raw module hashes and trajectories were
+retained; selected source files remained unchanged. A private sandbox canary and
+a public run before renaming the intentionally failing fixture outside ordinary
+test discovery are separate development work, not additional study slots. The
+final renamed example was rechecked in a fresh session, without replaying an
+uncertain attempt or rewriting the earlier captures.
+The first public-file syntax check also caught an extra parenthesis before any
+execution; it was repaired before this run, not counted as a target failure.
+
+There were **zero real model/provider calls**. The upstream `api_calls` field
+counts deterministic test-model queries here. This known fixture establishes
+neither discovery quality nor a tested provider's action parsing. Controller
+dependencies were observed, not qualified as a complete official installation.
+The local execution interval excludes earlier setup, diagnosis and owner effort;
+pricing and total-cost comparison remain incomplete. Stdout/stderr concatenation
+also does not establish mixed-stream chronology equivalence.
+
+Keep the completed v2 null result unchanged. Before a fresh cohort, qualify the
+actual provider/tool realization, comparable action and budget capacity, target
+dependency availability, full cost accounting and arm-blinded miss auditing.
+This component capability removes one concrete feasibility uncertainty; it is
+not a research effectiveness result or justification to promote learned routing.
