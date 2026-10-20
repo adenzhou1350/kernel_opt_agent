@@ -22,6 +22,15 @@ JUNIT_PASS = '<testsuite tests="1" failures="0" errors="0" skipped="0"><testcase
 
 
 class CLIHelpTests(unittest.TestCase):
+    def test_cli_forwards_explicit_pytest_report_limit(self):
+        with patch.object(runner, "run", return_value={"status": "TESTS_PASSED"}) as execute, \
+                redirect_stdout(io.StringIO()):
+            code = runner.main(["--cwd", ".", "--output", "fresh", "--format", "pytest-junit",
+                                "--source", "a.py=" + "1" * 64, "--expect-test", "tests.a::test_case",
+                                "--pytest-report-max-bytes", "3145728", "--", sys.executable])
+        self.assertEqual(code, 0)
+        self.assertEqual(execute.call_args.kwargs["pytest_report_max_bytes"], 3145728)
+
     def test_help_explains_required_source_and_test_identity_without_launch(self):
         output = io.StringIO()
         with patch.object(runner.subprocess, "Popen") as child:
@@ -128,7 +137,8 @@ class RuntimeExportTests(unittest.TestCase):
         with patch.object(runner, "export_runtime") as export, \
                 patch.object(runner, "run") as execute, redirect_stderr(io.StringIO()) as errors:
             for tail in (["--cwd", str(self.root)], ["--env", "A=B"], ["--timeout", "1"],
-                         ["--native-windows"], ["--", sys.executable]):
+                         ["--native-windows"], ["--pytest-report-max-bytes", "3145728"],
+                         ["--", sys.executable]):
                 with self.subTest(tail=tail), self.assertRaises(SystemExit) as exit:
                     runner.main(["--export-runtime", str(self.root / "tools"), *tail])
                 self.assertEqual(exit.exception.code, 2)
@@ -157,6 +167,19 @@ class InputTests(unittest.TestCase):
     def test_relative_content_identity(self):
         self.assertEqual(runner.source_identities(self.root, [("source.rs", self.sha)]),
                          {"source.rs": self.sha})
+
+    def test_invalid_report_budget_rejected_before_launch_or_output(self):
+        for format, limit in (("pytest-junit", True), ("pytest-junit", 1),
+                              ("pytest-junit", runner.native.MAX_PYTEST_REPORT_BYTES + 1),
+                              ("rust-libtest", 3 * 1024 * 1024)):
+            with self.subTest(format=format, limit=limit), patch.object(runner.subprocess, "Popen") as child:
+                with self.assertRaises(ValueError):
+                    runner.run(cwd=self.root, output=self.root / "output",
+                               command=[sys.executable, "-B", "-c", "raise AssertionError('not launched')"],
+                               sources=[("source.rs", self.sha)], format=format, expected_tests=["contract"],
+                               native_windows=os.name == "nt", pytest_report_max_bytes=limit)
+                child.assert_not_called()
+                self.assertFalse((self.root / "output").exists())
 
     def test_mismatch_missing_escape_duplicates_and_empty_rejected(self):
         for sources in ([], [("source.rs", "0" * 64)], [("missing.rs", self.sha)],
@@ -359,6 +382,36 @@ class ProcessTests(unittest.TestCase):
         result = self.execute_junit(self.write_junit(text) + "sys.exit(1)")
         self.assertEqual(result["status"], "TESTS_FAILED")
         self.assertEqual(result["summary"]["failed"], 1)
+
+    def test_large_junit_requires_explicit_budget_and_never_expands_stdout(self):
+        limit = 3 * 1024 * 1024
+        code = ("import sys; from pathlib import Path; "
+                f"text={JUNIT_PASS!r}.replace('</testsuite>', "
+                "'<system-out>'+'x'*(2*1024*1024)+'</system-out></testsuite>'); "
+                "Path(sys.argv[-1].split('=',1)[1]).write_bytes(text.encode()); print('complete')")
+        default = self.execute_junit(code, output=self.root / "default", timeout=10)
+        accepted = self.execute_junit(code, output=self.root / "large", timeout=10,
+                                      pytest_report_max_bytes=limit)
+        self.assertEqual(default["status"], "INCONCLUSIVE")
+        self.assertIn("test report exceeds 2 MiB; no partial-report verdict", default["issues"])
+        self.assertNotIn("pytest_report_max_bytes", default)
+        self.assertEqual(accepted["status"], "TESTS_PASSED")
+        self.assertEqual(accepted["pytest_report_max_bytes"], limit)
+        self.assertEqual(accepted["summary"]["pytest_report_max_bytes"], limit)
+        report = self.root / "large/junit.xml"
+        self.assertGreater(report.stat().st_size, runner.native.MAX_BYTES)
+        self.assertEqual(accepted["test_report"]["sha256"], runner.digest(report))
+        self.assertEqual(accepted["source_before"], accepted["source_after"])
+        self.assertEqual(accepted["terminal_log_sha256"], runner.digest(self.root / "large/terminal.log"))
+        oversize = self.execute_junit(code, output=self.root / "over-limit", timeout=10,
+                                      pytest_report_max_bytes=runner.native.MAX_BYTES + 1)
+        self.assertEqual(oversize["status"], "INCONCLUSIVE")
+        self.assertIn("no partial-report verdict", " ".join(oversize["issues"]))
+        stdout = self.execute_junit(code + "; print('x'*(2*1024*1024+1))",
+                                    output=self.root / "stdout", timeout=10,
+                                    pytest_report_max_bytes=limit)
+        self.assertEqual(stdout["status"], "INCONCLUSIVE")
+        self.assertIsNone(stdout["summary"])
 
     def test_junit_missing_truncated_large_or_symlink_has_no_pass(self):
         cases = [
@@ -886,6 +939,7 @@ class WindowsProcessTests(unittest.TestCase):
     test_exit_zero_without_registered_target_is_inconclusive = ProcessTests.test_exit_zero_without_registered_target_is_inconclusive
     test_junit_capture_owns_report_and_preserves_stdout = ProcessTests.test_junit_capture_owns_report_and_preserves_stdout
     test_junit_assertion_failure_remains_a_test_failure = ProcessTests.test_junit_assertion_failure_remains_a_test_failure
+    test_large_junit_requires_explicit_budget_and_never_expands_stdout = ProcessTests.test_large_junit_requires_explicit_budget_and_never_expands_stdout
     test_preexisting_junit_output_argument_rejected_before_launch = ProcessTests.test_preexisting_junit_output_argument_rejected_before_launch
     test_gtest_capture_owns_report_and_keeps_terminal_log = ProcessTests.test_gtest_capture_owns_report_and_keeps_terminal_log
     test_gtest_output_repeat_flags_and_environment_rejected_before_launch = ProcessTests.test_gtest_output_repeat_flags_and_environment_rejected_before_launch

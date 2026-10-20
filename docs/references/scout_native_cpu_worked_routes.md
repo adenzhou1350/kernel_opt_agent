@@ -935,10 +935,24 @@ timeout; it was not the512MiB/60s default sandbox or OS/network isolation.
 
 The untouched JUnit is8,373,718 bytes. A separate owner audit checked its raw
 digest, suite totals,63,233 unique complete IDs and the one recorded skip.
-The unchanged automatic reader still rejects those same bytes with
-`log exceeds 2 MiB`. Do not claim an automatic validation pass, silently raise
-the default budget, truncate/rewrite the XML, or rerun the target merely to
-repeat that known reader rejection. Preserve the original report and route any
-future larger-report support through an explicit bounded design and tests.
+At initial capture, the unchanged automatic reader rejected those same bytes
+with `log exceeds 2 MiB`. The original rejection and native capture remain
+historical; do not rewrite either as an automatic pass, truncate/rewrite XML,
+or rerun the target merely to repeat a known reader rejection.
+
+A subsequent [explicit large-report option](../scout_native_cpu_validation.md#bounded-large-pytest-reports)
+reanalyzed the **same** 8,373,718-byte report with a declared 10 MiB allowance.
+Its SHA256 remained
+`81e9f99e0db0894edfb9999f253b83598840f3611ad3acf6afd86ea11c90c8e6`;
+the parser's complete 63,233-ID outcome inventory matched an independent
+ElementTree inventory, with 63,232 passes and one skip. Default rejection was
+rechecked unchanged. No packaging tests or model requests were repeated.
+The affected six reporter/runner test modules had 194 passes/50 platform skips
+on Windows and 210 passes/31 platform skips on the bounded native Linux route.
+Two private Linux launch failures (tool layout/cleanup API and missing imported
+modules/fixture) were preserved separately before the successful complete
+affected-module run; they are not target defects or successful verification.
+This fixes input-budget admission, not the sandbox's 1 MiB file-write/persistence
+limit, target execution authority, or automatic access to a full environment.
 This environment preparation is not prospective study enrollment, a defect,
 or evidence that a routing/model policy improves discovery or contribution cost.

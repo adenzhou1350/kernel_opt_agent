@@ -20,6 +20,7 @@ sequence, phase gate or method whitelist. Case history is in the
 | Capture owner-reviewed GPU pytest without another process wrapper? | [Optional shared-GPU guard](#optional-owner-reviewed-gpu-capture) |
 | Compare regressions and controls? | `scout_native_results.compare_regression`; [wider pytest/Go cohorts](#complete-pytest-cohorts) |
 | Pytest CLI passes but JUnit case counts disagree? | [Subtest reporting lesson](../knowledge/lessons/pytest-subtest-report-granularity.json) and [producer limits](references/scout_native_cpu_worked_routes.md#complete-pytest-cohorts); inspect the saved report before another run |
+| Complete pytest XML exceeds 2 MiB? | [Explicit large-report budget](#bounded-large-pytest-reports); keep the original XML and execution limits |
 | Reanalyze two retained native captures without rerunning tests? | [`compare-saved`](#compare-saved-captures-without-target-execution) |
 | Check byte-range caching through its real caller? | [Buffered-file versus BytesIO oracle](../examples/native-file-cache/README.md); bounded serial memory backend, not network/performance qualification |
 | Check backend integer rounding before a full compiler build? | [Reviewed CuTeDSL scalar/MLIR witness](../examples/native-cutedsl-truncdiv/README.md); not vector, compiler or GPU qualification |
@@ -516,12 +517,38 @@ arguments; this does not require rerunning successful native captures.
 Pytest parameter IDs can contain the tested input itself. A real TOMLKit suite
 produced a 4,065-character qualified identity for a deeply nested input. Preserve
 the full literal identity, including distinguishing suffixes; do not shorten,
-hash, rename or drop such cases. The parser bounds the entire XML at 2 MiB and
+hash, rename or drop such cases. The parser defaults to a 2 MiB XML budget and
 retains missing/duplicate-name, outcome and cardinality checks. Pytest expected
 anchors share the existing 64 × 512-character total allowance across at most 64
 names, rather than imposing 512 characters on each. Other formats keep their
 individual limits. Advisory examples omit long identities rather than present
 misleading truncated names; full inventories still contain them.
+
+### Bounded large pytest reports
+
+For a reviewed complete pytest suite, `scout_native_run.py` and
+`scout_native_results.py` (including `compare-saved`) accept the explicit option
+`--pytest-report-max-bytes 10485760`, here selecting 10 MiB. The default remains
+2 MiB; the hard maximum is 16 MiB. Non-default allowances are pytest-JUnit-only
+and are recorded as `pytest_report_max_bytes` in the summary/capture. Library
+entry points, including the complete-suite comparator, take the same keyword.
+Metadata and stdout remain limited to 2 MiB; XML validity, all case identities,
+outcomes, exit status, report digests and full-cohort checks are unchanged.
+
+Reanalyze an already retained report without executing target code:
+
+```sh
+python scripts/scout_native_results.py --log retained/junit.xml --format pytest-junit --exit-code 0 --expect-test 'tests.test_contract::test_case' --pytest-report-max-bytes 10485760
+```
+
+Use the actually observed exit code and reviewed exact anchors, not the example
+values as evidence. Preserve the original rejection/capture. This option does
+not change a sandbox's file-size, persistence, memory, task or execution limits,
+nor does it retrospectively make a failed execution capture conclusive. Larger
+reports need a compatible authorized execution/retention route. Do not shrink
+the suite, filter XML or silently raise a global cap to manufacture acceptance.
+The [packaging worked route](references/scout_native_cpu_worked_routes.md#large-default-suites-native-success-is-not-report-budget-admission)
+separates native success, read-only accounting and eventual discovery admission.
 
 The unchanged 1,203-case TOMLKit report was reanalyzed after this accounting
 repair; no target tests were rerun or filtered. Original inconclusive capture

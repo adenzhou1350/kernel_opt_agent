@@ -22,6 +22,7 @@ except ImportError:
     from scout_catch2_xml import summarize as summarize_catch2_xml
 
 MAX_BYTES = 2 * 1024 * 1024
+MAX_PYTEST_REPORT_BYTES = 16 * 1024 * 1024
 FORMATS = ("go-json", "rust-libtest", "pytest-junit", "gtest-xml", "node-tap", "vitest-json", "bun-junit",
            "catch2-v2-xml")
 REPORT_FILES = {"pytest-junit": "junit.xml", "vitest-json": "vitest.json",
@@ -31,6 +32,22 @@ RUST_SUMMARY = re.compile(
     r"test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; "
     r"(\d+) measured; (\d+) filtered out; finished in [0-9.]+s"
 )
+
+
+def report_byte_limit(format, pytest_report_max_bytes=MAX_BYTES):
+    """Explicit pytest-file allowance; stdout and other formats stay at 2 MiB."""
+    if format not in FORMATS:
+        raise ValueError("unsupported native test format")
+    if (type(pytest_report_max_bytes) is not int
+            or not MAX_BYTES <= pytest_report_max_bytes <= MAX_PYTEST_REPORT_BYTES):
+        raise ValueError("pytest report byte limit must be an integer within 2..16 MiB")
+    if format != "pytest-junit" and pytest_report_max_bytes != MAX_BYTES:
+        raise ValueError("a larger report byte limit is supported only for pytest JUnit")
+    return pytest_report_max_bytes
+
+
+def report_limit_label(limit):
+    return "2 MiB" if limit == MAX_BYTES else f"{limit} bytes"
 
 
 def _node_tap(text, exit_code, expected_results, issue):
@@ -232,7 +249,7 @@ def _junit(text, exit_code, expected_results, issue, inventory=None):
             )
             qualified = f"@collection::{name}" if collection_skip else f"{classname}::{name}"
             # Real pytest parameter IDs can contain large input literals. Keep
-            # the full identity: the entire XML already has the 2 MiB bound.
+            # the full identity: the entire XML has a separately bounded budget.
             # Truncating/hashing names here could hide collisions or cohort drift.
             if not (classname or collection_skip) or not name or qualified in names:
                 issue("missing or duplicate JUnit case identity")
@@ -462,7 +479,8 @@ def _vitest(text, exit_code, expected_results, issue):
     return counts, seen, len(suites), terminal, metadata
 
 
-def summarize(text, *, format, exit_code, expected_tests, package=None, include_inventory=False):
+def summarize(text, *, format, exit_code, expected_tests, package=None, include_inventory=False,
+              pytest_report_max_bytes=MAX_BYTES):
     """Count Go/Rust/pytest/GoogleTest/Node observations or observed Vitest 4 JSON.
 
     Go counts include parent tests/subtests and repeats, not assertion counts.
@@ -475,15 +493,16 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
     outcome multiplicities, including parents and repeats. Ordinary results
     keep their shape; a pytest report with only missing expected identities may
     include bounded advisory examples, never automatic identity substitutions.
+    A larger pytest report needs an explicit 2..16 MiB byte budget; other
+    formats retain 2 MiB. This does not enlarge any execution/persistence limit.
     """
-    if format not in FORMATS:
-        raise ValueError("unsupported native test format")
+    limit = report_byte_limit(format, pytest_report_max_bytes)
     if type(include_inventory) is not bool or (include_inventory and format not in {"pytest-junit", "go-json"}):
         raise ValueError("case inventory is supported only for pytest JUnit and Go JSON")
     if type(exit_code) is not int:
         raise ValueError("exit code must be an observed integer")
-    if not isinstance(text, str) or len(text.encode("utf-8")) > MAX_BYTES:
-        raise ValueError("log exceeds 2 MiB")
+    if not isinstance(text, str) or len(text.encode("utf-8")) > limit:
+        raise ValueError(f"log exceeds {report_limit_label(limit)}")
     if not isinstance(expected_tests, (list, tuple)) or not 1 <= len(expected_tests) <= 64:
         raise ValueError("supply 1..64 exact expected test names")
     if any(not isinstance(name, str) or not name for name in expected_tests):
@@ -665,11 +684,14 @@ def summarize(text, *, format, exit_code, expected_tests, package=None, include_
         result["disabled"] = counts["disabled"]  # subset of skipped, not additive
     if inventory is not None:
         result["case_inventory"] = inventory
+    if limit != MAX_BYTES:
+        result["pytest_report_max_bytes"] = limit
     return result
 
 
 def compare_pytest_suite_regression(baseline_text, candidate_text, *, baseline_exit,
-                                    candidate_exit, regressions, controls):
+                                    candidate_exit, regressions, controls,
+                                    pytest_report_max_bytes=MAX_BYTES):
     """Compare complete pytest inventories, permitting only stable skipped cases.
 
     Freeze the suite command, regression names and passing controls before either
@@ -686,7 +708,8 @@ def compare_pytest_suite_regression(baseline_text, candidate_text, *, baseline_e
     if any(not isinstance(name, str) or not name for name in names) or len(set(names)) != len(names):
         raise ValueError("declarations must be distinct nonempty test names")
     arms = [summarize(text, format="pytest-junit", exit_code=code,
-                      expected_tests=names, include_inventory=True)
+                      expected_tests=names, include_inventory=True,
+                      pytest_report_max_bytes=pytest_report_max_bytes)
             for text, code in ((baseline_text, baseline_exit), (candidate_text, candidate_exit))]
     before, after = arms
     issues = []
@@ -771,7 +794,8 @@ def compare_go_suite_regression(baseline_text, candidate_text, *, baseline_exit,
 
 
 def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
-                       candidate_exit, regressions, controls, package=None):
+                       candidate_exit, regressions, controls, package=None,
+                       pytest_report_max_bytes=MAX_BYTES):
     """Check a declared red/green pattern on the same complete selected suite.
 
     This consumes captured logs, not model verdicts. The selection must be fixed
@@ -788,9 +812,11 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
     if len(set(names)) != len(names):
         raise ValueError("regression and control cases must be distinct")
     baseline = summarize(baseline_text, format=format, exit_code=baseline_exit,
-                         expected_tests=names, package=package)
+                         expected_tests=names, package=package,
+                         pytest_report_max_bytes=pytest_report_max_bytes)
     candidate = summarize(candidate_text, format=format, exit_code=candidate_exit,
-                          expected_tests=names, package=package)
+                          expected_tests=names, package=package,
+                          pytest_report_max_bytes=pytest_report_max_bytes)
     issues = []
     if any(arm["issues"] for arm in (baseline, candidate)):
         issues.append("incomplete or contradictory arm accounting")
@@ -834,7 +860,8 @@ def compare_regression(baseline_text, candidate_text, *, format, baseline_exit,
 
 def compare_captured_regression(baseline_capture, candidate_capture,
                                baseline_text, candidate_text, *, format,
-                               regressions, controls, common_sources, package=None):
+                               regressions, controls, common_sources, package=None,
+                               pytest_report_max_bytes=MAX_BYTES):
     """Retain capture failures when comparing a predeclared native selection.
 
     Supply saved scout_native_run records and their complete reporter text.
@@ -843,6 +870,7 @@ def compare_captured_regression(baseline_capture, candidate_capture,
     Records are observations, not trusted attestations: this does not prove
     actual import/binary provenance, dependency parity or the test's contract.
     """
+    report_byte_limit(format, pytest_report_max_bytes)
     if (not isinstance(common_sources, (list, tuple)) or not common_sources
             or any(not isinstance(path, str) or not path for path in common_sources)
             or len(set(common_sources)) != len(common_sources)):
@@ -900,7 +928,8 @@ def compare_captured_regression(baseline_capture, candidate_capture,
     result = compare_regression(
         baseline_text, candidate_text, format=format,
         baseline_exit=baseline_capture["exit_code"], candidate_exit=candidate_capture["exit_code"],
-        regressions=regressions, controls=controls, package=package)
+        regressions=regressions, controls=controls, package=package,
+        pytest_report_max_bytes=pytest_report_max_bytes)
     for label, capture in (("baseline", baseline_capture), ("candidate", candidate_capture)):
         if capture["status"] != result[label]["status"]:
             result["status"] = "INCONCLUSIVE"
@@ -913,7 +942,8 @@ def compare_captured_regression(baseline_capture, candidate_capture,
 
 
 def compare_saved_regression(baseline_directory, candidate_directory, *, format,
-                             regressions, controls, common_sources, package=None):
+                             regressions, controls, common_sources, package=None,
+                             pytest_report_max_bytes=MAX_BYTES):
     """Compare existing native capture directories without executing target code.
 
     Read bounded raw UTF-8 bytes, retaining CRLF for recorded-digest checks.
@@ -921,26 +951,26 @@ def compare_saved_regression(baseline_directory, candidate_directory, *, format,
     an old absolute path embedded in copied metadata. The ordinary captured
     comparison still decides accounting validity; this adds no attestation.
     """
-    if format not in FORMATS:
-        raise ValueError("unsupported native format")
+    report_limit = report_byte_limit(format, pytest_report_max_bytes)
 
-    def read(directory, name):
+    def read(directory, name, limit=MAX_BYTES):
         path = Path(directory) / name
         if path.is_symlink() or not path.is_file():
             raise ValueError(f"missing or non-regular saved native input: {path}")
         with path.open("rb") as stream:
-            raw = stream.read(MAX_BYTES + 1)
-        if len(raw) > MAX_BYTES:
-            raise ValueError(f"saved native input exceeds 2 MiB: {path}")
+            raw = stream.read(limit + 1)
+        if len(raw) > limit:
+            raise ValueError(f"saved native input exceeds {report_limit_label(limit)}: {path}")
         return raw.decode("utf-8")
 
     captures, texts = [], []
     for directory in (baseline_directory, candidate_directory):
         captures.append(json.loads(read(directory, "result.json")))
-        texts.append(read(directory, REPORT_FILES.get(format, "terminal.log")))
+        texts.append(read(directory, REPORT_FILES.get(format, "terminal.log"), report_limit))
     return compare_captured_regression(
         *captures, *texts, format=format, regressions=regressions,
-        controls=controls, common_sources=common_sources, package=package)
+        controls=controls, common_sources=common_sources, package=package,
+        pytest_report_max_bytes=pytest_report_max_bytes)
 
 
 def compare_saved_main(argv):
@@ -952,12 +982,15 @@ def compare_saved_main(argv):
     parser.add_argument("--regression", action="append", required=True)
     parser.add_argument("--control", action="append", required=True)
     parser.add_argument("--common-source", action="append", required=True)
+    parser.add_argument("--pytest-report-max-bytes", type=int, default=MAX_BYTES,
+                        help="explicit pytest JUnit input budget in bytes (default 2 MiB, maximum 16 MiB)")
     args = parser.parse_args(argv)
     try:
         result = compare_saved_regression(
             args.baseline, args.candidate, format=args.format,
             regressions=args.regression, controls=args.control,
-            common_sources=args.common_source, package=args.package)
+            common_sources=args.common_source, package=args.package,
+            pytest_report_max_bytes=args.pytest_report_max_bytes)
     except (OSError, ValueError, UnicodeError) as error:
         parser.error(str(error))
     print(json.dumps(result, ensure_ascii=False))
@@ -977,15 +1010,19 @@ def main(argv=None):
     parser.add_argument("--exit-code", type=int, required=True)
     parser.add_argument("--package")
     parser.add_argument("--expect-test", action="append", required=True)
+    parser.add_argument("--pytest-report-max-bytes", type=int, default=MAX_BYTES,
+                        help="explicit pytest JUnit input budget in bytes (default 2 MiB, maximum 16 MiB)")
     args = parser.parse_args(argv)
-    with args.log.open("rb") as stream:
-        raw = stream.read(MAX_BYTES + 1)
-    if len(raw) > MAX_BYTES:
-        parser.error("log exceeds 2 MiB; no partial-log verdict")
     try:
+        limit = report_byte_limit(args.format, args.pytest_report_max_bytes)
+        with args.log.open("rb") as stream:
+            raw = stream.read(limit + 1)
+        if len(raw) > limit:
+            parser.error(f"log exceeds {report_limit_label(limit)}; no partial-log verdict")
         result = summarize(raw.decode("utf-8"), format=args.format, exit_code=args.exit_code,
-                           package=args.package, expected_tests=args.expect_test)
-    except (ValueError, UnicodeError) as error:
+                           package=args.package, expected_tests=args.expect_test,
+                           pytest_report_max_bytes=args.pytest_report_max_bytes)
+    except (OSError, ValueError, UnicodeError) as error:
         parser.error(str(error))
     print(json.dumps(result, ensure_ascii=False))
     return {"TESTS_PASSED": 0, "TESTS_FAILED": 1, "INCONCLUSIVE": 2}[result["status"]]

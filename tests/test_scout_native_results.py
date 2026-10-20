@@ -53,6 +53,89 @@ def junit(*cases):
     return ET.tostring(root, encoding="unicode")
 
 
+class LargePytestReportTests(unittest.TestCase):
+    limit = 3 * 1024 * 1024
+    expected = ["tests.test_contract::test_case"]
+
+    @staticmethod
+    def large(*cases):
+        # Put cases beyond the old cap, so prefix-only acceptance cannot pass.
+        return junit(*cases).replace('<testcase',
+            '<system-out>' + 'x' * native.MAX_BYTES + '</system-out><testcase', 1)
+
+    def summarize(self, text, **kwargs):
+        return native.summarize(text, format="pytest-junit", exit_code=0,
+                                expected_tests=self.expected, **kwargs)
+
+    def test_default_still_rejects_and_opt_in_preserves_complete_inventory(self):
+        text = self.large(("test_case", None), ("test_skip", "skipped"))
+        with self.assertRaisesRegex(ValueError, "log exceeds 2 MiB"):
+            self.summarize(text)
+        result = self.summarize(text, pytest_report_max_bytes=self.limit, include_inventory=True)
+        self.assertEqual((result["status"], result["passed"], result["skipped"]), ("TESTS_PASSED", 1, 1))
+        self.assertEqual(set(result["case_inventory"]), {*self.expected, "tests.test_contract::test_skip"})
+        self.assertEqual(result["pytest_report_max_bytes"], self.limit)
+        self.assertNotIn("pytest_report_max_bytes", self.summarize(junit(("test_case", None))))
+
+    def test_budget_is_byte_based_bounded_and_pytest_only(self):
+        for limit in (None, True, False, 2.5, "3145728", native.MAX_BYTES - 1,
+                      native.MAX_PYTEST_REPORT_BYTES + 1):
+            with self.subTest(limit=limit), self.assertRaises(ValueError):
+                self.summarize("", pytest_report_max_bytes=limit)
+        for format in set(native.FORMATS) - {"pytest-junit"}:
+            with self.subTest(format=format), self.assertRaisesRegex(ValueError, "only for pytest"):
+                native.summarize("", format=format, exit_code=0, expected_tests=["x"],
+                                 pytest_report_max_bytes=self.limit)
+        self.assertEqual(native.report_byte_limit("pytest-junit", native.MAX_PYTEST_REPORT_BYTES),
+                         native.MAX_PYTEST_REPORT_BYTES)
+        with self.assertRaisesRegex(ValueError, "exceeds 3145728 bytes"):
+            self.summarize("\u00e9" * (self.limit // 2 + 1), pytest_report_max_bytes=self.limit)
+
+    def test_larger_input_retains_tail_identity_outcome_xml_and_totals_checks(self):
+        valid = self.large(("test_case", None))
+        cases = {
+            "truncated": valid[:-16],
+            "duplicate": self.large(("test_case", None), ("test_case", None)),
+            "totals": valid.replace('tests="1"', 'tests="2"'),
+            "DTD": '<!DOCTYPE testsuites [<!ENTITY x "test">]>' + valid,
+            "missing": self.large(("test_wrong", None)),
+            "outcomes": valid.replace('name="test_case" />',
+                                      'name="test_case"><failure/><skipped/></testcase>'),
+        }
+        for kind, text in cases.items():
+            with self.subTest(kind=kind):
+                result = self.summarize(text, pytest_report_max_bytes=self.limit)
+                self.assertEqual(result["status"], "INCONCLUSIVE")
+                self.assertTrue(result["issues"])
+
+    def test_complete_suite_comparison_uses_explicit_budget(self):
+        before = self.large(("test_case", "failure"), ("test_control", None), ("test_skip", "skipped"))
+        after = self.large(("test_case", None), ("test_control", None), ("test_skip", "skipped"))
+        options = dict(baseline_exit=1, candidate_exit=0, regressions=self.expected,
+                       controls=["tests.test_contract::test_control"])
+        with self.assertRaisesRegex(ValueError, "exceeds 2 MiB"):
+            native.compare_pytest_suite_regression(before, after, **options)
+        result = native.compare_pytest_suite_regression(before, after, **options,
+                                                       pytest_report_max_bytes=self.limit)
+        self.assertEqual(result["status"], "MATCHED_SUITE_REGRESSION_OBSERVED")
+
+    def test_cli_reads_complete_report_only_with_explicit_budget(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = Path(directory) / "junit.xml"
+            text = self.large(("test_case", None))
+            report.write_bytes(text.encode())
+            command = [sys.executable, "-B", native.__file__, "--log", str(report),
+                       "--format", "pytest-junit", "--exit-code", "0", "--expect-test", self.expected[0]]
+            rejected = subprocess.run(command, capture_output=True, text=True, timeout=10)
+            accepted = subprocess.run([*command, "--pytest-report-max-bytes", str(self.limit)],
+                                      capture_output=True, text=True, timeout=10)
+            self.assertEqual(rejected.returncode, 2)
+            self.assertIn("no partial-log verdict", rejected.stderr)
+            self.assertEqual(accepted.returncode, 0, accepted.stderr)
+            self.assertEqual(json.loads(accepted.stdout)["status"], "TESTS_PASSED")
+            self.assertEqual(report.read_bytes(), text.encode())
+
+
 class NativeResultsTests(unittest.TestCase):
     def go(self, text, exit_code=0, expected_tests=("TestSync",)):
         return native.summarize(text, format="go-json", exit_code=exit_code,
@@ -827,6 +910,37 @@ class SavedCaptureTests(CaptureFixtures, unittest.TestCase):
         return native.compare_saved_regression(
             self.before, self.after, format="pytest-junit", regressions=self.regressions,
             controls=self.controls, common_sources=["tests/test_contract.py"], **options)
+
+    def test_saved_large_report_opt_in_keeps_metadata_limit_and_digest_check(self):
+        values = list(self.fixture())
+        values[2:] = [LargePytestReportTests.large(("test_case", outcome), ("test_control", None))
+                      for outcome in ("failure", None)]
+        # Only report text/digest changes; the small captured summaries describe
+        # the same cases. Comparison still requires observed conclusive captures.
+        for record, text in zip(values[:2], values[2:]):
+            record["test_report"]["sha256"] = hashlib.sha256(text.encode()).hexdigest()
+        self.save(values)
+        with self.assertRaisesRegex(ValueError, "exceeds 2 MiB"):
+            self.compare()
+        with patch.object(subprocess, "Popen") as target:
+            result = self.compare(pytest_report_max_bytes=LargePytestReportTests.limit)
+        target.assert_not_called()
+        self.assertEqual(result["status"], "MATCHED_REGRESSION_OBSERVED")
+        cli = subprocess.run([sys.executable, "-B", native.__file__, "compare-saved",
+            "--baseline", str(self.before), "--candidate", str(self.after), "--format", "pytest-junit",
+            "--regression", self.regressions[0], "--control", self.controls[0],
+            "--common-source", "tests/test_contract.py", "--pytest-report-max-bytes",
+            str(LargePytestReportTests.limit)], capture_output=True, text=True, timeout=10)
+        self.assertEqual(cli.returncode, 0, cli.stderr)
+        self.assertEqual(json.loads(cli.stdout)["status"], "MATCHED_REGRESSION_OBSERVED")
+        path = self.after / "junit.xml"
+        path.write_bytes((values[3] + "\n").encode())
+        changed = self.compare(pytest_report_max_bytes=LargePytestReportTests.limit)
+        self.assertEqual(changed["status"], "INCONCLUSIVE")
+        self.assertIn("candidate: reporter text does not match captured digest", changed["issues"])
+        (self.after / "result.json").write_bytes(b"x" * (native.MAX_BYTES + 1))
+        with self.assertRaisesRegex(ValueError, "exceeds 2 MiB"):
+            self.compare(pytest_report_max_bytes=LargePytestReportTests.limit)
 
     def test_crlf_is_read_verbatim_without_target_execution_or_writes(self):
         values = list(self.fixture())

@@ -189,7 +189,7 @@ def reaped_child_cpu_delta(before, after):
 
 def run(*, cwd, output, command, sources, format, expected_tests, package=None,
         timeout=120, environment=None, _gpu_uuid=None, native_windows=False,
-        _execution_guard=None):
+        _execution_guard=None, pytest_report_max_bytes=native.MAX_BYTES):
     invocation_started = time.monotonic()
     if os.name != "posix" and not (os.name == "nt" and native_windows):
         raise ValueError("execute on an authorized POSIX worker; do not start local WSL")
@@ -231,7 +231,9 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
     before = source_identities(cwd, sources)
     # Validate accounting inputs before executing anything, including empty targets.
     native.summarize("", format=format, exit_code=0,
-                     expected_tests=expected_tests, package=package)
+                     expected_tests=expected_tests, package=package,
+                     pytest_report_max_bytes=pytest_report_max_bytes)
+    report_limit = native.report_byte_limit(format, pytest_report_max_bytes)
     environment = dict(environment or {})
     if any(not isinstance(key, str) or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key)
            or not isinstance(value, str) or "\0" in value
@@ -307,13 +309,15 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
                 if report_path.is_symlink() or not report_path.is_file():
                     raise ValueError("missing or non-regular test report")
                 with report_path.open("rb") as stream:
-                    raw = stream.read(native.MAX_BYTES + 1)
-                if len(raw) > native.MAX_BYTES:
-                    raise ValueError("test report exceeds 2 MiB; no partial-report verdict")
+                    raw = stream.read(report_limit + 1)
+                if len(raw) > report_limit:
+                    raise ValueError(f"test report exceeds {native.report_limit_label(report_limit)}; "
+                                     "no partial-report verdict")
                 text = raw.decode("utf-8")
                 report = {"path": str(report_path), "sha256": hashlib.sha256(raw).hexdigest()}
             summary = native.summarize(text, format=format, exit_code=returncode,
-                                       expected_tests=expected_tests, package=package)
+                                       expected_tests=expected_tests, package=package,
+                                       pytest_report_max_bytes=pytest_report_max_bytes)
         except UnicodeError:
             issues.append("log or test report is not UTF-8")
         except (OSError, ValueError) as error:
@@ -336,6 +340,8 @@ def run(*, cwd, output, command, sources, format, expected_tests, package=None,
               "boundary": "Reviewed command only; selected file/tool observations do not prove "
                           "the executed binary corresponds to source, full dependency identity, "
                           "test quality, isolation, performance or PR readiness."}
+    if report_limit != native.MAX_BYTES:
+        result["pytest_report_max_bytes"] = report_limit
     if native_windows:
         result["windows_launcher_python"] = captured["launcher_python"]
         result["windows_job_cleanup_verified"] = captured["windows_job_cleanup_verified"]
@@ -478,6 +484,9 @@ def main(argv=None):
     parser.add_argument("--output", type=Path, help="fresh capture directory; required for execution")
     parser.add_argument("--format", choices=native.FORMATS, help="native report format; required for execution")
     parser.add_argument("--package")
+    parser.add_argument("--pytest-report-max-bytes", type=int, default=native.MAX_BYTES,
+                        help="explicit pytest JUnit file budget in bytes (default 2 MiB, maximum 16 MiB); "
+                             "stdout remains limited to 2 MiB")
     parser.add_argument("--expect-test", action="append", metavar="TEST_ID",
                         help="required for execution; repeat for each exact expected ID (pytest: CLASSNAME::NAME)")
     parser.add_argument("--source", action="append", metavar="RELATIVE_PATH=SHA256",
@@ -489,7 +498,8 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if args.export_runtime is not None:
         if any((args.cwd, args.output, args.format, args.package, args.expect_test,
-                args.source, args.env, args.command, args.native_windows)) or args.timeout != 120:
+                args.source, args.env, args.command, args.native_windows)) or args.timeout != 120 \
+                or args.pytest_report_max_bytes != native.MAX_BYTES:
             parser.error("--export-runtime cannot be combined with execution options")
         try:
             result = export_runtime(args.export_runtime)
@@ -507,7 +517,8 @@ def main(argv=None):
                      sources=assignments(args.source), format=args.format,
                      expected_tests=args.expect_test, package=args.package,
                      environment=dict(assignments(args.env, environment=True)), timeout=args.timeout,
-                     native_windows=args.native_windows)
+                     native_windows=args.native_windows,
+                     pytest_report_max_bytes=args.pytest_report_max_bytes)
     except (OSError, ValueError) as error:
         parser.error(str(error))
     print(json.dumps(result))
