@@ -972,3 +972,54 @@ All seven command containers and the owned session were cleaned up; a fresh
 default single-action canary also passed. This qualifies execution mechanics
 only, not live-provider compatibility, recovery of the historical attempt,
 fewer actual paid calls, selector efficacy or equal scientific comparison.
+
+### Live native action-cardinality check, 2026-10-21
+
+One fresh **known-command capability** attempt per provider followed the scripted
+check. Both used the same four literal allowed commands, task, input file,
+unchanged pinned Mini/LiteLLM parser and loop, current sandbox adapter, and
+declared bounds: four queries/four commands, 180s decision interval, 45s request,
+5s command, 2,048 output tokens/query, 32,768 prepared-message bytes and a
+15,000-inclusive-token post-response stop. There was no dynamic shell authority,
+source investigation, installation, model retry, rescue or study enrollment.
+Provider configuration still differs (GLM low effort versus MiniMax defaults);
+realized effort and prices remain unknown.
+
+The task requested two separate calls in the first response: read the known file,
+then print an expected error and exit7. After observing both results, print an
+acknowledgement and a nonempty native submission. Whole-response preflight checked
+the literal commands and remaining budget without rewriting native tool calls.
+Each command was charged individually, with its own container/result/ID.
+
+| Provider | Actual queries | Native calls per response | Inclusive reported tokens | Cached input subset | Decision seconds |
+| --- | ---: | --- | ---: | ---: | ---: |
+| GLM-5.3 | 2 | 2, 2 | 1,098 | 384 | 5.82 |
+| MiniMax-M3 | 4 | 1, 1, 1, 1 | 3,377 | 1,795 | 10.34 |
+
+Both executed exactly the four unchanged commands in order, with exits
+`0, 7, 0, 0`. Independent saved-result checks verified distinct native IDs,
+the known input and intentional error reaching subsequent prepared requests,
+actual offline CPU isolation, all eight containers removed, preserved inputs,
+and both sessions released. Including release, the recorded intervals were
+5.85s and 10.36s; these omit earlier source/dependency preparation, controller
+development, transfer and owner auditing. Cached input is already a subset of
+reported input, not an additional charge. This single prompted trial is not a
+latency, monetary cost or model-quality ranking.
+
+**MiniMax did not satisfy the requested first-response batching condition.**
+Its sequential execution completed, but live MiniMax batch dispatch was not
+observed here. Do not turn four valid single calls into a successful batching
+test or retry until a preferred shape appears. Conversely, single calls are
+not malformed tool responses and would be allowed under a general interface
+that permits either cardinality. The retained earlier MiniMax two-call response
+was parsed but never dispatched; the scripted canary qualifies batch mechanics,
+not that provider's realized batch execution. A requested SDK flag and prepared
+messages are not a captured wire-level request or proof of provider compliance.
+
+This closes the ordinary live sequential execution/feedback/finish check for
+both configurations and live batching for GLM only. The prompt supplies the
+commands, expected observations and conclusion: it measures no autonomous
+investigation or selector value. It neither repairs the historical packaging
+attempt nor admits a fresh efficacy cohort. Such a comparison must freeze its
+task frame and common capacity beforehand, charge all queries/actions and
+preparation/adjudication, retain invalid/unavailable outcomes and audit misses.

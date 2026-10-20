@@ -221,3 +221,12 @@ model requests. All seven command containers were removed and the session
 released in the development check; the default single-action example also passed
 in a fresh session. This is not measured latency/cost improvement, a rescued
 earlier MiniMax audit, prospective qualification or PR-conversion evidence.
+
+A later [live known-command check](../../docs/references/scout_source_inception_pilot_v2_results.md#live-native-action-cardinality-check-2026-10-21)
+used the unchanged native parser/loop with two real provider configurations.
+GLM returned two two-action responses; MiniMax completed four single-action
+responses and did not meet the task's requested first-response batch. Both
+preserved the intentional nonzero-exit feedback and native submission under
+the same four-command allowance, with complete cleanup. Treat this as scoped
+execution evidence, not a successful MiniMax batching test or model/cost ranking.
+It does not enable tools in production Scout or change this no-model example.
