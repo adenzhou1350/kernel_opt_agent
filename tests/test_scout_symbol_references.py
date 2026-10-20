@@ -13,7 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import kimi_scout as scout
 import kimi_scout_context as context
 import kimi_scout_research as research
-from scout_symbol_references import _python_literal_assignments, reference_requests
+from scout_symbol_references import (
+    _python_literal_assignments, definition_only_reference_path, reference_requests,
+)
 
 REPO, COMMIT, PATH = "a/b", "a" * 40, "src/kernel.cu"
 URL = f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{PATH}"
@@ -115,6 +117,50 @@ class ReferenceTests(unittest.TestCase):
         self.packet["sources"][0]["url"] = URL.replace(PATH, self.path)
         self.snapshot["files"] = [self.path]
         self.raw = raw
+
+    def test_definition_only_class_is_a_cross_file_hint_not_execution(self):
+        self.python_source('raise AssertionError("do not execute")\nclass Factory:\n    pass\n')
+        request = {"next_check": "Inspect references(Factory) in kernel.py"}
+        self.assertEqual(definition_only_reference_path(
+            self.packet, self.snapshot, request, self.cache), self.path)
+        self.assertEqual(self.requests(request["next_check"]), [])
+
+    def test_definition_only_hint_abstains_on_uses_bindings_and_bad_cache(self):
+        request = {"next_check": "references(Factory) in kernel.py"}
+        original = 'class Factory:\n    """Factory is a declaration, not a use."""\n'
+        for extra in ('instance = Factory()\n', 'alias = Factory\n',
+                      'getattr(other, "Factory")\n', 'other.Factory\n',
+                      'Factory = other\n', 'del Factory\n',
+                      'from other import Factory\n', 'from other import *\n',
+                      'def f(Factory): pass\n', 'class Factory: pass\n',
+                      'try: pass\nexcept Exception as Factory: pass\n',
+                      'match value:\n    case Factory: pass\n'):
+            with self.subTest(extra=extra):
+                self.python_source(original+extra)
+                self.assertIsNone(definition_only_reference_path(
+                    self.packet, self.snapshot, request, self.cache))
+        for raw in ('class Broken(:', '@decorate\nclass Factory: pass\n',
+                    'def Factory(): pass\n', None, 'x' * 1_000_001, 'bad\x00'):
+            with self.subTest(raw=str(raw)[:40]):
+                self.python_source(raw)
+                self.assertIsNone(definition_only_reference_path(
+                    self.packet, self.snapshot, request, self.cache))
+
+    def test_definition_only_hint_keeps_exact_observed_scope(self):
+        self.python_source('class Factory: pass\n')
+        for request in ('definition(Factory)', 'references(Factory.method)',
+                        'references(Factory) definition(Other)', 'references(factory)',
+                        'references(Factory) references(Other)', None):
+            with self.subTest(request=request):
+                self.assertIsNone(definition_only_reference_path(
+                    self.packet, self.snapshot, {"next_check": request}, self.cache))
+        valid = {"next_check": "references(Factory) in kernel.py"}
+        self.cache.reset_mock()
+        for snapshot in ({**self.snapshot, 'commit': 'b' * 40},
+                         {**self.snapshot, 'files': []}):
+            self.assertIsNone(definition_only_reference_path(
+                self.packet, snapshot, valid, self.cache))
+        self.cache.assert_not_called()
 
     def test_javascript_reference_hints_mask_trivia_and_preserve_line_numbers(self):
         self.javascript_source(

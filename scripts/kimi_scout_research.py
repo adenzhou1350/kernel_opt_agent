@@ -33,7 +33,7 @@ from scout_requested_definition import (
 )
 from scout_generated_context import contract_requests
 from scout_import_context import import_requests
-from scout_symbol_references import reference_requests
+from scout_symbol_references import definition_only_reference_path, reference_requests
 from scout_issue_excerpt import issue_evidence, issue_text_excerpt
 from scout_pr_revision import pr_revision_sources, requested_pr_number
 from scout_pr_review import pr_review_sources, requested_pr_review_number
@@ -2035,6 +2035,12 @@ class ResearchProducer:
                     r"(?<!\w)(definition|references)[ \t]*\(", request_text[:2000]
                 )
             )
+            reference_declaration = (
+                definition_only_reference_path(packet, snapshot, analysis_value, cached_source)
+                if (literal_target is not None and explicit_references
+                    and spec.get("followup_code_search", False) and callable(cached_source))
+                else None
+            )
             if (
                 spec.get("followup_code_search", False)
                 and callable(code_lookup)
@@ -2051,7 +2057,7 @@ class ResearchProducer:
                 and definition_request is None
                 and not definition_pair
                 and cached_target is None
-                and literal_target is None
+                and (literal_target is None or literal_target == reference_declaration)
             ):
                 search_symbol = (
                     cached_reference_binding_symbol(
@@ -2183,6 +2189,8 @@ class ResearchProducer:
                                 "symbol": request["exact_hint"],
                                 "scope": "Non-exhaustive current-index path hint, independently read at the pinned revision; lexical occurrence only.",
                             }
+                            if reference_declaration is not None:
+                                sources[-1]["code_search_hint"]["definition_only_origin"] = reference_declaration
                     remaining_reads = len(lexical_requests) - read_index - 1
                     if (
                         remaining_reads

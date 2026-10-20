@@ -264,33 +264,8 @@ def python_invocation_hint_line(raw, symbol):
     return min(lines) if lines else None
 
 
-def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
-    """Honor explicit references(NAME), with <=2 existing-tree source windows.
-
-    Use the primary source, or one explicitly named already-supplied source,
-    at the same observed immutable revision. A basename must identify only one
-    supplied path. Ambiguous or drifted named sources abstain. A cache
-    miss, unsupported syntax, missing symbols or already shown matches abstain.
-    Qualified requests use their terminal identifier as a hint, not a resolved
-    receiver. Python AST loads and literal getattr/hasattr calls exclude other
-    strings, comments and definitions; built-in names may themselves be shadowed.
-    An unqualified uppercase request also admits one unambiguous module-level
-    literal assignment as a syntax hint, not a resolved constant.
-    These are syntactic references, not resolved bindings or runtime calls.
-    When no unseen Python uses remain, an unqualified name may expose its
-    unique module import statement instead, including if/try branches when
-    their guards are supplied or fit the same window. This does not resolve the
-    imported value, follow a dependency, or rule out rebinding/shadowing.
-    C-family comments/literals and directive lines are excluded; local
-    declarations may still be included. Macros/aliases are not expanded. Pick the
-    first and last unseen match windows, not an exhaustive consumer inventory.
-    JS/TS hints are lexical, include type references but skip same-name type
-    declaration lines, and omit template interpolations; unsupported syntax ends
-    a disclosed, complete-line prefix scan. No binding resolution.
-    The callback is a read-only bounded cache lookup, never a new acquisition.
-    """
-    if type(limit) is not int or not 1 <= limit <= 2:
-        raise ValueError("reference context limit must be 1..2")
+def _reference_source(packet, snapshot, analysis, cached_source):
+    """Resolve the existing literal source/cache scope, never a new target."""
     request = analysis.get("next_check", "")
     if not isinstance(request, str):
         return []
@@ -357,6 +332,73 @@ def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
         or "\x00" in raw
     ):
         return []
+    return names, symbols, sources, selected_url, path, raw
+
+
+def definition_only_reference_path(packet, snapshot, analysis, cached_source):
+    """Hint that a named Python class's consumers may be in another file.
+
+    Require one explicit unqualified class reference, one cached module-level
+    declaration and no direct syntactic loads or obvious competing bindings.
+    Not a resolved binding, exhaustive use inventory or runtime-absence proof;
+    callers may reuse their existing bounded repository-search route only.
+    """
+    request = analysis.get("next_check", "")
+    if (not callable(cached_source) or not isinstance(request, str)
+            or len(re.findall(r"(?<!\w)(?:definition|references)[ \t]*\(", request[:2000])) != 1):
+        return None
+    selected = _reference_source(packet, snapshot, analysis, cached_source)
+    if not selected:
+        return None
+    names, _, _, _, path, raw = selected
+    if (len(names) != 1 or not path.endswith(".py")
+            or not re.fullmatch(r"[A-Z][A-Za-z0-9_]{3,127}", names[0])):
+        return None
+    name = names[0]
+    try:
+        tree = ast.parse(raw)
+    except (SyntaxError, ValueError, RecursionError):
+        return None
+    declarations = [n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == name]
+    if len(declarations) != 1 or declarations[0].decorator_list:
+        return None
+    for node in ast.walk(tree):
+        if node is declarations[0]:
+            continue
+        if ((isinstance(node, ast.Name) and node.id == name)
+                or (isinstance(node, ast.Attribute) and node.attr == name)
+                or (isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef, ast.arg))
+                    and getattr(node, "name", getattr(node, "arg", None)) == name)
+                or (isinstance(node, (ast.ExceptHandler, ast.MatchAs, ast.MatchStar)) and node.name == name)
+                or (isinstance(node, ast.MatchMapping) and node.rest == name)
+                or (isinstance(node, ast.alias) and (node.asname or node.name.split('.')[0]) in {name, '*'})
+                or (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id in {"getattr", "hasattr"} and len(node.args) >= 2
+                    and isinstance(node.args[1], ast.Constant) and node.args[1].value == name)):
+            return None
+    return path
+
+
+def reference_requests(packet, snapshot, analysis, cached_source, *, limit=2):
+    """Honor references(NAME), with <=2 cached same-pin source windows.
+
+    Select the primary or one unambiguously named already-supplied file.
+    Qualified names are terminal-identifier hints, not resolved receivers.
+    Python AST loads/literal getattr/hasattr exclude comments and definitions;
+    unqualified uppercase names also admit unambiguous literal assignments.
+    Otherwise a unique import can supply its observed guard, not a resolved value.
+    C-family directives/literals are masked; declarations can still match.
+    JS/TS scans stop at unsupported syntax with a disclosed complete-line prefix.
+    First/last unseen windows are not exhaustive consumers or reachability proof.
+    Missing, drifted, ambiguous or unsupported cached sources abstain without
+    fetching. Already-shown references do not create another read request.
+    """
+    if type(limit) is not int or not 1 <= limit <= 2:
+        raise ValueError("reference context limit must be 1..2")
+    selected = _reference_source(packet, snapshot, analysis, cached_source)
+    if not selected:
+        return []
+    names, symbols, sources, selected_url, path, raw = selected
     reference_scan = None
     if path.endswith(".py"):
         try:

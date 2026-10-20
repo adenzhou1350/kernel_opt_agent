@@ -986,6 +986,17 @@ than silently discarding cached files above 128 KiB; lexical scans retain their
 131,072-byte limit. Larger Python scans cost local parsing, not prompt expansion.
 Explicit line continuations and Python kernel-definition requests keep priority.
 
+With `followup_code_search` enabled, one narrow exception can reuse the existing
+repository-search slot: an explicitly named cached Python file declares the
+requested class once, with no direct syntactic uses or obvious competing bindings.
+For a single unqualified `references(ClassName)`, the file name then does not
+force another read of that declaration instead of looking for consumers. Local
+uses, ambiguity, decorators, invalid/missing/drifted cache and definition requests
+keep the previous path. Returned hints include `definition_only_origin`; the
+one-query/two-read limits and independent pinned literal check still apply.
+This is a reason to look elsewhere, not proof that the class is unused or that
+the indexed matches resolve to it. No new caller is invented from a model URL.
+
 The primary source is the default. An explicitly named already supplied file
 may select a secondary source; ambiguous basenames abstain. Python AST loads and
 attributes exclude definitions and literal/comment text, without executing code.

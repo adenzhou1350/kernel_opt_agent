@@ -1698,3 +1698,32 @@ owner-exposed diagnostic is not a new held-out or prospective trial result.
 ```text
 python -B -m unittest tests.test_scout_source_continuation tests.test_scout_exact_definition_reads tests.test_scout_native_reference_anchor tests.test_scout_requested_definition tests.test_kimi_scout_context tests.test_kimi_scout_research
 ```
+
+## Named class-reference requests need consumers, not another declaration
+
+A retained three-step vLLM chain noticed that
+[`MatcherRMSNormGated.forward_native`](https://github.com/vllm-project/vllm/blob/9da5f2d3103df460dfca53df4ab4884def5c935f/vllm/compilation/passes/fusion/matcher_utils.py#L276)
+does not forward `activation`. It correctly kept asking for supported callers,
+but naming `matcher_utils.py` made the literal-file preference block the existing
+cross-file search, after the cached local-reference scan found no uses. A final
+packet repeated declaration context and supplied an unrelated activation test.
+The original responses/charges remain unchanged, not retrospectively improved.
+
+Independent current-index hints and three exact public modules exposed one
+direct constructor in
+[`rocm_aiter_fusion.py`](https://github.com/vllm-project/vllm/blob/9da5f2d3103df460dfca53df4ab4884def5c935f/vllm/compilation/passes/fusion/rocm_aiter_fusion.py#L482):
+`MatcherRMSNormGated(epsilon)`, retaining the default `swish`. That is insufficient
+to justify a production bugfix PR for non-default activation. This bounded
+syntax audit does not prove no other consumer exists. A supported non-default
+caller or changed contract would reopen the question; no GPU work was needed
+to decide that the current lead lacked that evidence.
+
+The opt-in search can now bypass a named file only for a single cached Python
+class declaration without direct uses/obvious competing bindings. Local uses and
+explicit definitions retain priority. Search paths still must belong to the
+observed tree, contain the exact literal at the pin and fit the existing
+one-query/two-read budget. Missing/invalid/ambiguous/drifted caches abstain.
+Tests exercise these routing controls and inspect the emitted packet's caller
+window, not only the helper's return value. This is an owner-exposed engineering
+correction, not a prospective finding, measured token saving, conversion gain
+or evidence-selection efficacy result.

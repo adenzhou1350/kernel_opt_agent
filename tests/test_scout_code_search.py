@@ -248,6 +248,8 @@ class FollowupCodeSearchTests(unittest.TestCase):
         observed_source=False,
         request_text=None,
         decision="needs_context",
+        primary_path=PATH,
+        source_map=None,
     ):
         raw = "// filler\n" * 120 + f"void {SYMBOL}() {{}}\n"
         raw += "// filler\n" * 100 + "void LowerToLDGPredicated() {}\n"
@@ -264,9 +266,10 @@ class FollowupCodeSearchTests(unittest.TestCase):
 
             def snapshot(self, repo, ref="main"):
                 paths = (
-                    [PATH, "backend/caller.go", "src/second_definition.go"]
+                    list(source_map) if source_map is not None else
+                    [primary_path, "backend/caller.go", "src/second_definition.go"]
                     if observed_source
-                    else [PATH]
+                    else [primary_path]
                 )
                 return {
                     "commit": COMMIT,
@@ -279,15 +282,21 @@ class FollowupCodeSearchTests(unittest.TestCase):
                 if search_error:
                     raise OSError("offline")
                 paths = (
-                    [PATH, "backend/caller.go", "src/second_definition.go"]
+                    list(source_map) if source_map is not None else
+                    [primary_path, "backend/caller.go", "src/second_definition.go"]
                     if observed_source
-                    else [PATH]
+                    else [primary_path]
                 )
                 return {"items": [item(p) for p in paths]}
 
             def _read(self, url, *args, **kwargs):
                 self.reads.append(url)
-                return raw
+                return source_map[urlsplit(url).path.split('/', 4)[-1]] if source_map is not None else raw
+
+            def cached_source_text(self, repo, commit, path):
+                if source_map is not None:
+                    return source_map.get(path)
+                return super().cached_source_text(repo, commit, path)
 
             def issue_sources(self, repo, number):
                 return [
@@ -340,8 +349,8 @@ class FollowupCodeSearchTests(unittest.TestCase):
                 if observed_source:
                     original = [
                         {
-                            "url": f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{PATH}",
-                            "text": f"definition {SYMBOL}",
+                            "url": f"https://raw.githubusercontent.com/{REPO}/{COMMIT}/{primary_path}",
+                            "text": source_map[primary_path].splitlines()[0] if source_map is not None else f"definition {SYMBOL}",
                             "start_line": 1,
                             "end_line": 1,
                             "total_lines": 250,
@@ -385,6 +394,41 @@ class FollowupCodeSearchTests(unittest.TestCase):
         self.assertEqual(progress["code_search_requests"], 1)
         self.assertLessEqual(len(reads), 2)
         self.assertTrue(any("code_search_hint" in s for p in packets for s in p["sources"]))
+
+    def test_named_declaration_without_uses_can_search_a_different_pinned_file(self):
+        definition, caller = 'src/definition.py', 'src/caller.py'
+        sources = {definition: f'class {SYMBOL}:\n    pass\n',
+                   caller: '\n' * 100 + f'consumer = {SYMBOL}(activation="swish")\n'}
+        searches, reads, packets, progress = self.run_followup(
+            observed_source=True, primary_path=definition, source_map=sources,
+            request_text=f'Inspect references({SYMBOL}) in definition.py')
+        self.assertEqual(len(searches), 1)
+        self.assertEqual(progress['code_search_requests'], 1)
+        self.assertLessEqual(len(reads), 2)
+        selected = [s for p in packets for s in p['sources'] if 'code_search_hint' in s
+                    and s['url'].endswith('/'+caller)]
+        self.assertEqual(len(selected), 1)
+        self.assertIn(f'{SYMBOL}(activation="swish")', selected[0]['text'])
+        self.assertIn('/'+COMMIT+'/', selected[0]['url'])
+        self.assertEqual(selected[0]['code_search_hint']['definition_only_origin'], definition)
+        self.assertLessEqual(selected[0]['end_line']-selected[0]['start_line']+1, 80)
+        self.assertLessEqual(len((scout.SYSTEM+scout.dumps(packets[0])).encode()), scout.MAX_INPUT_BYTES)
+
+    def test_named_declaration_exception_keeps_opt_in_and_local_use_priority(self):
+        definition, caller = 'src/definition.py', 'src/caller.py'
+        base = f'class {SYMBOL}:\n    pass\n'
+        for enabled, request, raw in (
+            (False, f'references({SYMBOL}) in definition.py', base),
+            (True, f'definition({SYMBOL}) in definition.py', base),
+            (True, f'references({SYMBOL}) in definition.py', base+f'local = {SYMBOL}()\n'),
+            (True, f'references({SYMBOL}) in definition.py', 'class Broken(:'),
+        ):
+            with self.subTest(enabled=enabled, request=request, raw=raw):
+                searches, _, packets, _ = self.run_followup(
+                    enabled=enabled, observed_source=True, primary_path=definition,
+                    source_map={definition:raw, caller:f'x = {SYMBOL}()\n'}, request_text=request)
+                self.assertEqual(searches, [])
+                self.assertFalse(any('code_search_hint' in s for p in packets for s in p['sources']))
 
     def test_lead_label_alone_does_not_enable_definition_or_prose_search(self):
         for request in (f"definition({SYMBOL})", f"Inspect caller of {SYMBOL}"):
