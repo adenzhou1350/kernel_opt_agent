@@ -108,6 +108,12 @@ exact-restored outliers from neighboring quantization estimates. Their public
 sources explain the mechanisms; unpublished runs and numerical speedup claims
 are deliberately absent.
 
+When an existing card accumulates a different decision with its own applicability
+and evidence, consider moving that part to a focused card rather than growing a
+catch-all near the context limit. Move its sources with it; do not count the split
+as a new finding. Check the original query, neighboring topics and complete-card
+delivery without keyword stuffing or increasing every prompt's budget.
+
 Where present, `methods/`, `primitives/`, `method_revisions/` and `community/`
 remain specialist archives for explicit investigation and compatibility. Default search reads
 only `lessons/`; archive cards are not automatically promoted into it.

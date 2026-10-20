@@ -389,16 +389,27 @@ class KnowledgeNotesTests(unittest.TestCase):
         self.assertTrue(any(item["url"].endswith("issues/7657") for item in advice["evidence"]))
 
     def test_kernel_geometry_units_are_retrievable_without_a_cuda_claim(self):
+        from scout_lesson_context import lesson_suggestions
+
         result = notes.search("swizzle int4 shared memory allocation", limit=3)
-        advice = next(
-            match["card"]
-            for match in result["matches"]
-            if match["card"]["id"] == "consumer-contract-before-regression"
-        )
+        advice = result["matches"][0]["card"]
+        self.assertEqual(advice["id"], "kernel-swizzle-allocation-units")
         self.assertIn("instantiate actual template constants", advice["lesson"])
+        self.assertIn("not a four-bit scalar", advice["lesson"])
         evidence = [item for item in advice["evidence"] if "TransformerEngine" in item["url"]]
         self.assertEqual(len(evidence), 2)
         self.assertTrue(any("not CUDA execution" in item["note"] for item in evidence))
+        actual = lesson_suggestions("swizzle int4 shared memory allocation")
+        self.assertEqual(actual["matches"], [advice])
+        self.assertEqual(actual["oversized_matches_omitted"], 0)
+        self.assertLessEqual(len(json.dumps(advice).encode()), 8192)
+        source_bound = lesson_suggestions("production correctness regression",
+                                          source_urls=[evidence[0]["url"]])
+        self.assertEqual(source_bound["matches"], [advice])
+        self.assertTrue(source_bound["source_path_match"])
+        posix = notes.search("POSIX RLIMIT_FSIZE ftruncate shared memory allocation")
+        self.assertEqual(posix["matches"][0]["card"]["id"],
+                         "file-size-limits-include-posix-shared-memory")
 
     def test_inherited_test_fixture_counterexample_is_retrievable(self):
         result = notes.search("unittest inherited fixture exclusive file", limit=3)

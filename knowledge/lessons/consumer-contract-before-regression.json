@@ -2,7 +2,7 @@
   "id": "consumer-contract-before-regression",
   "title": "Establish the consumer contract before writing a failing regression",
   "applies_when": "A formatting, validation, shape, resource-budget, backend-support or uninitialized-local allegation relies on partial source rather than the actual producer and consumer.",
-  "lesson": "Trace allocation, transformations, enclosing guards and every consumer before inventing a regression. Later assignments can overwrite values. Check Python walrus assignments: a clipped branch cannot establish absence of a prior binding. Distinguish instance/host labels and request/token counts. Normalize byte/int32/int4 units and instantiate actual template constants before comparing swizzle indices with shared-memory allocation. Intersect fallback triggers with native launch constraints before huge reproductions. Fabricated metadata or accepted shape/dtype does not prove a reachable empty/sentinel-only path. Missing validation or a changed assertion does not establish backend support. Require a supported caller and observable native failure before environment repair or publication.",
+  "lesson": "Trace allocation, transformations, enclosing guards and every consumer before inventing a regression. Later assignments can overwrite values. Check Python walrus assignments: a clipped branch cannot establish absence of a prior binding. Distinguish instance/host labels and request/token counts. Intersect fallback triggers with native launch constraints before huge reproductions. Fabricated metadata or accepted shape/dtype does not prove a reachable empty/sentinel-only path. Missing validation or a changed assertion does not establish backend support. Require a supported caller and observable native failure before environment repair or publication.",
   "avoid_when": "Reachable malformed inputs can be defects. A rank-zero scalar has one element, not zero storage. Fragment-only readers may be valid while a later full-tensor overflow check sees stale scratch; trace reuse and reproduce corruption through a real prior operation and finite training step, not arbitrary poisoning. Callback stand-ins must preserve transformations: RoPE+SDPA can return BHSD from BSHD unlike plain SDPA. Error wording may have a documented contract. Static source or extracted-function checks refute only the specific claim, not native/GPU/general correctness. External or dynamic callers may remain unobserved.",
   "evidence": [
     {
@@ -80,14 +80,6 @@
     {
       "url": "https://github.com/sgl-project/sglang/blob/d26b6a5a9c4752e2ad0309df66eaca2f33816d68/python/sglang/srt/mem_cache/prefill_budget.py#L343-L375",
       "note": "Base prepare_load_back returns True; shared-SWA override computes/reclaims without offset debit; reserve debits after admission. Inspect overrides, not first-symbol windows. Reclaim/eviction and GPU correctness remain separate."
-    },
-    {
-      "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L398-L465",
-      "note": "128x4 tiles: each M-tile uses (K/4)*32 int4=128*K bytes. Index/permutation checks are not CUDA execution, race/performance proof or GPU admission of every layout."
-    },
-    {
-      "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L1423-L1444",
-      "note": "Caller allocates 32*(K/4)*128*4=32*128*K bytes and checks the device limit. Multi-tensor storage uses maximum K and is reused per block. Refutes this underallocation claim."
     }
   ],
   "status": "counterexample"

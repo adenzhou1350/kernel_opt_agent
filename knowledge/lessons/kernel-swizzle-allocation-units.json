@@ -1,0 +1,18 @@
+{
+  "id": "kernel-swizzle-allocation-units",
+  "title": "Normalize kernel swizzle int4 indices and shared-memory allocation units",
+  "applies_when": "A CUDA or similar kernel is alleged to underallocate shared memory or index beyond it, but allocation sizes, vector elements, tile strides and thread offsets use different units.",
+  "lesson": "Trace the reachable launch and instantiate actual template constants before comparing indices with allocation lengths. Label each expression as bytes, scalar elements or vector elements. CUDA int4 is four 32-bit integers, not a four-bit scalar. Include per-thread-group tile strides and all tiles resident in one block, then compare the highest reachable vector end with the caller's byte allocation. In the pinned TransformerEngine narrow-K row swizzle, 128x4 tile constants give (K/4)*32 int4 elements, or 128*K bytes, per M-tile. A block handles 32 such tiles, matching the caller's 32*(K/4)*128*4-byte allocation. Preserve padding, active-thread and device-limit guards; a dimensional mismatch on paper is not an out-of-bounds witness.",
+  "avoid_when": "Correct byte arithmetic alone does not establish correct permutation, supported input reachability, synchronization, race freedom, CUDA execution or performance. Vector names in another language or architecture need their own size/alignment contract. Do not apply the pinned formula to different tile constants or reuse static checks as GPU admission. Recheck every launch variant and maximum simultaneous storage, not just one instantiation.",
+  "evidence": [
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L398-L465",
+      "note": "The narrow-K kernel uses K/4 scalar lanes, SF_TILE_SIZE_I32/4 vector stride and threadIdx.y per-tile offsets. With the caller's 128x4 constants, each M-tile uses (K/4)*32 int4=128*K bytes. Source arithmetic, not CUDA execution or race/performance proof."
+    },
+    {
+      "url": "https://github.com/NVIDIA/TransformerEngine/blob/33e7ff316000c34dd976cf1d38f12e11882e987f/transformer_engine/common/swizzle/swizzle.cu#L1346-L1444",
+      "note": "Caller freezes 128x4 tiles and 32x32 threads, allocates 32*(K/4)*128*4=32*128*K bytes and checks the device shared-memory limit. This refutes the specific underallocation allegation, not correctness of all layouts or launch variants."
+    }
+  ],
+  "status": "counterexample"
+}
