@@ -1,9 +1,9 @@
 {
   "id": "native-archive-path-semantics",
   "title": "Archive identity and POSIX path checks do not establish native extraction safety",
-  "applies_when": "Commit-exact source archives move between Windows and POSIX test environments, especially when filenames contain platform-specific syntax or tracked relative symlinks.",
-  "lesson": "Keep byte identity separate from host interpretation. Preserve raw filenames in transport; at extraction, reject names the host cannot faithfully represent instead of silently renaming them. Windows backslashes, drive/stream colons, device names and trailing dots/spaces require native checks. Use a fresh private staging tree, check resolved destinations before writes, reject members below symlink parents, and recheck all links before publishing. Lexical normalization alone is insufficient: d/step/../../outside appears internal until d/step resolves to ..; a later link can also change an earlier target. Use native before/after controls and task-owned sentinels, not only a string-path model.",
-  "avoid_when": "These controls do not make generated code safe to execute, prove trusted upstream identity from a self-consistent manifest, or defend a staging tree against an independent actor racing the same OS account. Native filesystem semantics and link permissions vary. POSIX-valid names may need a matching POSIX extraction host; transport verification need not reject them universally. Link loops that cannot be resolved are refused by the cited extractor. A platform-policy skip is not a passing native link test, and source-transport tests do not qualify the target project's runtime, CI or PR readiness.",
+  "applies_when": "Commit-exact source archives move between Windows and POSIX test environments, especially with platform-specific filenames, tracked relative symlinks or a regular-file-only sandbox workspace checkpoint.",
+  "lesson": "Keep byte identity separate from host interpretation. Preserve raw filenames in transport; at extraction, reject names the host cannot faithfully represent instead of silently renaming them. Windows backslashes, drive/stream colons, device names and trailing dots/spaces require native checks. Use a fresh private staging tree, check resolved destinations before writes, reject members below symlink parents, and recheck all links before publishing. Lexical normalization alone is insufficient: d/step/../../outside appears internal until d/step resolves to ..; a later link can also change an earlier target. Use native before/after controls and task-owned sentinels, not only a string-path model. Safe extraction does not imply workspace persistence: a regular-file-only broker can reject a legitimate tracked link after tests pass. Inspect the same invocation and retain that failure. For read-only validation, persist the verified archive and reports, reconstruct the original linked tree in ephemeral storage per command, and check file/link identity afterward; check both storage budgets.",
+  "avoid_when": "These controls do not make generated code safe to execute, prove trusted upstream identity from a self-consistent manifest, or defend a staging tree against an independent actor racing the same OS account. Native filesystem semantics and link permissions vary. POSIX-valid names may need a matching POSIX extraction host; transport verification need not reject them universally. Link loops that cannot be resolved are refused by the cited extractor. An ephemeral source tree does not preserve agent source edits across commands: editable work needs explicit change transfer. Do not flatten tracked links or treat a successful test exit as checkpoint success. A platform-policy skip is not a passing native link test, and source-transport tests do not qualify the target project's runtime, CI or PR readiness.",
   "evidence": [
     {
       "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/bf4f32796aa057310c2415597a3de774746ae387/tests/test_qualification_source_bundle.py",
@@ -12,6 +12,14 @@
     {
       "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/bf4f32796aa057310c2415597a3de774746ae387/scripts/qualification_source_bundle.py",
       "note": "Exact extractor applies Windows-specific representability checks only at native extraction, checks resolved destinations against a private staging root, forbids symlink-parent members and validates completed link resolution before atomic publication. Verification remains a separate source byte/metadata operation."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/093306798cd8570791d1a8fc9407fe60b61c2485/docs/references/scout_native_cpu_worked_routes.md#tracked-links-versus-workspace-persistence",
+      "note": "Scoped native route retains a successful test exit with failed workspace persistence, followed by a fresh original linked tree in ephemeral storage and successful report persistence. Its pytest subtest/JUnit mismatch stays inconclusive. This is runtime capacity, not a new defect, editable-agent parity or discovery/cost benefit."
+    },
+    {
+      "url": "https://github.com/jd/tenacity/blob/32ac68f0941319c0d2f4fb927f96e4ee29bb46c6/README.rst",
+      "note": "Pinned tracked relative link to doc/source/index.rst illustrates a legitimate source link; it is not an archive escape or evidence that every sandbox rejects links."
     }
   ],
   "status": "validated"

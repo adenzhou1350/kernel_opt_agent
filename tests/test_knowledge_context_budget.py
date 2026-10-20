@@ -742,5 +742,19 @@ class DefaultKnowledgeBudgetTests(unittest.TestCase):
         self.assertNotIn("qualified", result)
 
 
+    def test_source_link_advice_distinguishes_checkpoint_from_test_success(self):
+        result = lesson_suggestions("symlink archive regular-file workspace persistence")
+        card = result["matches"][0]
+        self.assertEqual(card["id"], "native-archive-path-semantics")
+        self.assertIn("Safe extraction does not imply workspace persistence", card["lesson"])
+        self.assertIn("same invocation", card["lesson"])
+        self.assertIn("ephemeral source tree does not preserve agent source edits", card["avoid_when"])
+        self.assertIn("Do not flatten tracked links", card["avoid_when"])
+        self.assertTrue(any(item["url"].endswith("/README.rst") for item in card["evidence"]))
+        self.assertLessEqual(len(json.dumps(card).encode()), MAX_CARD_BYTES)
+        self.assertEqual(result["oversized_matches_omitted"], 0)
+        self.assertNotIn("qualified", result)
+
+
 if __name__ == "__main__":
     unittest.main()
