@@ -354,6 +354,199 @@ class ResearchTests(unittest.TestCase):
             self.assertIn(f"source:a/b:src/kernel.py:{self.context.blob}:{start}", keys)
         self.assertEqual(progress["source_start_lines"], self.spec["source_start_lines"])
 
+    def changed_window_context(self, *, cold=False, missing=False):
+        old, current = "a" * 40, "d" * 40
+        before = [f"value_{i} = {i}" for i in range(1, 2147)]
+        after = list(before)
+        after[2110] = "changed_value = 2111"
+        def blob(lines):
+            import hashlib
+            data = "\n".join(lines).encode()
+            return hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest()
+
+        class CachedContext(Context):
+            def __init__(inner):
+                super().__init__()
+                inner.warm = not cold
+                inner.cache_reads = []
+                inner.original_text = "\n".join(before)
+                inner.changed_text = "\n".join(after)
+                inner.base_blob = blob(before)
+
+            def snapshot(inner, repo, ref="main"):
+                commit = old if ref == old else current
+                return {"commit": commit, "files": ["src/kernel.py"],
+                        "blobs": {"src/kernel.py": blob(before if commit == old else after)}}
+
+            def cached_source_text(inner, repo, commit, path):
+                inner.cache_reads.append((repo, commit, path))
+                if missing or (commit == current and not inner.warm):
+                    return None
+                return "\n".join(before if commit == old else after)
+
+            def source(inner, repo, commit, path, hints="", start=None, max_lines=120, **kwargs):
+                inner.calls.append((repo, commit, path, start))
+                inner.warm = True
+                lines = before if commit == old else after
+                end = min(len(lines), start - 1 + max_lines)
+                return {"url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+                        "text": "\n".join(f"{i+1}: {lines[i]}" for i in range(start-1, end)),
+                        "start_line": start, "end_line": end, "total_lines": len(lines)}
+
+        self.spec["source_change_windows"] = True
+        self.producer.context = self.context = CachedContext()
+        return {"last_sweep_commit": old}
+
+    def test_cached_change_windows_keep_head_and_reach_late_boundary_with_same_budget(self):
+        progress = self.changed_window_context()
+        for _ in range(3):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual([x[3] for x in self.context.calls], [1, 2081, 121])
+        packets = [json.loads(x["packet"]) for x in self.jobs()]
+        self.assertEqual(len(packets), 3)
+        self.assertIn("2111: changed_value = 2111", packets[1]["sources"][0]["text"])
+        plan = packets[1]["research"]["frontier"]["window_selection"]
+        self.assertEqual(plan["starts"], [1, 2081, 121])
+        self.assertEqual(plan["selection"], "CHANGED_ENVELOPE")
+        self.assertEqual(plan["changed_new_start"], 2111)
+        # The late window reaches EOF; the remaining earlier slot still runs.
+        self.assertEqual(packets[1]["sources"][0]["end_line"], 2146)
+        self.assertEqual(packets[2]["sources"][0]["start_line"], 121)
+
+    def test_cached_change_windows_fill_only_current_cache_through_ordinary_read(self):
+        progress = self.changed_window_context(cold=True)
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual([x[3] for x in self.context.calls], [1, 2081])
+        # Two paired-cache checks plus the pre-existing header's current read.
+        self.assertEqual(sum(x[1] == "a" * 40 for x in self.context.cache_reads), 2)
+        self.assertEqual(sum(x[1] == "d" * 40 for x in self.context.cache_reads), 3)
+        self.assertEqual(progress["source_priority"]["window_plans"]["src/kernel.py"]["selection"],
+                         "CHANGED_ENVELOPE")
+
+    def test_cached_change_windows_missing_pair_never_fetches_base_source(self):
+        progress = self.changed_window_context(missing=True)
+        for _ in range(3):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertEqual([x[3] for x in self.context.calls], [1, 121, 241])
+        self.assertTrue(all(x[1] == "d" * 40 for x in self.context.calls))
+        plan = progress["source_priority"]["window_plans"]["src/kernel.py"]
+        self.assertEqual(plan["selection"], "CACHED_PAIR_UNAVAILABLE")
+
+    def test_cached_change_windows_are_opt_in_and_manual_locations_override(self):
+        for mode in ("disabled", "manual"):
+            with self.subTest(mode=mode):
+                progress = self.changed_window_context()
+                if mode == "disabled":
+                    self.spec["source_change_windows"] = False
+                    expected = [1, 121, 241]
+                else:
+                    self.spec["source_start_lines"] = {"src/kernel.py": [1201, 1801, 2011]}
+                    expected = [1201, 1801, 2011]
+                for _ in range(3):
+                    self.producer.source_audit(self.spec, progress)
+                self.assertEqual([x[3] for x in self.context.calls], expected)
+                # Existing audit-header lookup may read the current cache.
+                # This opt-in route must not acquire/read a base in either mode.
+                self.assertTrue(all(x[1] == "d" * 40 for x in self.context.cache_reads))
+                for row in self.jobs():
+                    self.finish(row)
+
+    def test_cached_change_windows_persist_cursor_and_do_not_replay_delivered_sources(self):
+        progress = self.changed_window_context()
+        self.producer.state["repos"]["a/b"] = progress
+        self.config.write_text(json.dumps(self.value))
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        historical = [dict(x) for x in self.jobs()]
+        self.producer.save()
+        resumed = research.ResearchProducer(self.root, self.config, context=self.context)
+        again = resumed.state["repos"]["a/b"]
+        self.assertTrue(resumed.source_audit(self.spec, again))
+        self.assertFalse(resumed.source_audit(self.spec, again))
+        self.assertEqual([dict(x) for x in self.jobs()][:2], historical)
+        self.assertEqual([x[3] for x in self.context.calls], [1, 2081, 121])
+
+    def test_cached_change_windows_reuse_verified_same_blob_at_an_older_read_revision(self):
+        progress = self.changed_window_context()
+        previous_read = "f" * 40
+        blob = self.context.base_blob
+        source = {"url": f"https://raw.githubusercontent.com/a/b/{previous_read}/src/kernel.py",
+                  "text": "1: value_1 = 1"}
+        self.assertTrue(self.producer.emit(f"source:a/b:src/kernel.py:{blob}:2081",
+                                          self.spec, [source], "source_audit"))
+        # Global sweep base aaaa has no raw cache: that file was last actually
+        # read at ffff. Only a verified matching Git blob may substitute for it.
+        def cached(repo, commit, path):
+            if commit == previous_read:
+                return self.context.original_text
+            if commit == "d" * 40:
+                return self.context.changed_text
+            return None
+        self.context.cached_source_text = cached
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        packet = json.loads(self.jobs()[-1]["packet"])
+        plan = packet["research"]["frontier"]["window_selection"]
+        self.assertEqual(plan["selection"], "CHANGED_ENVELOPE")
+        self.assertEqual(plan["base_source_commit"], previous_read)
+        self.assertEqual(plan["base_blob"], blob)
+        self.assertEqual(packet["research"]["frontier"]["base_commit"], "a" * 40)
+        self.assertEqual([x[3] for x in self.context.calls], [1, 2081])
+        with scout.connect(self.root) as db:
+            query = db.execute(
+                "EXPLAIN QUERY PLAN SELECT s.job FROM research_seen s "
+                "WHERE s.key>=? AND s.key<? ORDER BY s.key LIMIT 32",
+                (f"source:a/b:src/kernel.py:{blob}:", f"source:a/b:src/kernel.py:{blob}:\uffff"),
+            ).fetchall()
+        self.assertTrue(any("SEARCH" in r[3] and "key>" in r[3] for r in query))
+
+    def test_cached_change_windows_reject_cache_text_with_wrong_blob_identity(self):
+        progress = self.changed_window_context()
+        self.context.cached_source_text = lambda *args: "unrelated cached source"
+        self.assertTrue(self.producer.source_audit(self.spec, progress))
+        plan = progress["source_priority"]["window_plans"]["src/kernel.py"]
+        self.assertEqual(plan["selection"], "CACHED_PAIR_UNAVAILABLE")
+        self.assertEqual(plan["starts"], [1, 121, 241])
+
+    def test_cached_change_window_upgrade_does_not_replay_a_completed_revision(self):
+        progress = self.changed_window_context()
+        self.spec["source_change_windows"] = False
+        for _ in range(3):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        historical = [dict(x) for x in self.jobs()]
+        self.spec["source_change_windows"] = True
+        progress["sources_after"] = 0
+        self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual([dict(x) for x in self.jobs()], historical)
+        self.assertEqual([x[3] for x in self.context.calls], [1, 121, 241])
+
+    def test_cached_blob_reference_skips_bad_urls_and_rejects_wrong_bytes(self):
+        self.changed_window_context()
+        blob = self.context.base_blob
+        source = {"url": f"https://raw.githubusercontent.com/a/b/{'f' * 40}/src/kernel.py",
+                  "text": "1: value_1 = 1"}
+        self.producer.emit(f"source:a/b:src/kernel.py:{blob}:1", self.spec, [source], "source_audit")
+        calls = []
+
+        def reader(*args):
+            calls.append(args)
+            return "wrong Git blob"
+
+        self.assertEqual(self.producer.cached_blob_reference(self.spec, "src/kernel.py", blob, reader),
+                         (None, None))
+        self.assertEqual(len(calls), 1)
+        with scout.connect(self.root) as db:
+            packet = json.loads(self.jobs()[0]["packet"])
+            packet["sources"][0]["url"] = "https://[bad/"
+            db.execute("UPDATE jobs SET packet=?", (json.dumps(packet),))
+        calls.clear()
+        self.assertEqual(self.producer.cached_blob_reference(self.spec, "src/kernel.py", blob, reader),
+                         (None, None))
+        self.assertEqual(calls, [])
+
     def test_changed_source_locations_reopen_without_resetting_seen_prefixes(self):
         self.spec["source_windows"] = 2
         progress = {}
@@ -1578,6 +1771,17 @@ class ResearchTests(unittest.TestCase):
         configured = research.configuration(self.config)
         self.assertEqual(configured["repos"][0]["source_windows"], 32)
         self.assertEqual(configured["source_windows"], 3)
+
+    def test_source_change_window_setting_is_an_explicit_boolean(self):
+        for value in (None, 0, 1, "true", [], {}):
+            self.value["repos"][0]["source_change_windows"] = value
+            self.config.write_text(json.dumps(self.value))
+            with self.assertRaisesRegex(ValueError, "source_change_windows"):
+                research.configuration(self.config)
+        for value in (True, False):
+            self.value["repos"][0]["source_change_windows"] = value
+            self.config.write_text(json.dumps(self.value))
+            self.assertIs(research.configuration(self.config)["repos"][0]["source_change_windows"], value)
 
     def test_source_start_locations_require_exact_safe_selected_paths_and_budget(self):
         self.value["repos"][0]["source_windows"] = 2
@@ -2850,6 +3054,46 @@ class ResearchTests(unittest.TestCase):
             ),
             2,
         )
+
+
+class ChangedEnvelopeTests(unittest.TestCase):
+    def test_late_replacement_insertion_and_deletion_use_existing_slots(self):
+        old = [f"value_{i}" for i in range(900)]
+        replaced = list(old)
+        replaced[850] = "changed"
+        for new in (replaced, old[:850] + ["inserted"] + old[850:], old[:850] + old[851:]):
+            plan = research.changed_envelope_windows("\n".join(old), "\n".join(new), 3)
+            self.assertEqual(len(plan["starts"]), 3)
+            self.assertEqual(plan["starts"][0], 1)
+            self.assertEqual(plan["selection"], "CHANGED_ENVELOPE")
+            target = min(len(new), plan["changed_new_start"])
+            self.assertTrue(any(start <= target < start + 120 for start in plan["starts"]))
+            self.assertEqual(len(plan["starts"]), len(set(plan["starts"])))
+
+    def test_prefix_cache_and_single_window_fallbacks_are_not_hidden_diffs(self):
+        before = "\n".join(f"x{i}" for i in range(800))
+        cases = [(None, before, 3, "CACHED_PAIR_UNAVAILABLE"),
+                 (before, before, 3, "SAME_LOGICAL_LINES"),
+                 (before, before + "\nchanged", 1, "PREFIX_ONLY_NO_SLOT"),
+                 (before, "", 3, "EMPTY_CURRENT"),
+                 (before, "\x00", 3, "CACHED_PAIR_UNSUPPORTED"),
+                 (before, "é" * (512 * 1024), 3, "CACHED_PAIR_UNSUPPORTED")]
+        for old, new, windows, expected in cases:
+            with self.subTest(expected=expected):
+                plan = research.changed_envelope_windows(old, new, windows)
+                self.assertEqual(plan["selection"], expected)
+                self.assertEqual(plan["starts"], [1 + 120 * i for i in range(windows)])
+
+    def test_coarse_boundaries_disclose_interior_unknown_and_bind_raw_text(self):
+        old = [str(i) for i in range(3000)]
+        new = list(old)
+        new[30], new[1700], new[2900] = "first", "interior", "last"
+        plan = research.changed_envelope_windows("\n".join(old), "\n".join(new), 3)
+        self.assertEqual(plan["changed_new_start"], 31)
+        self.assertEqual(plan["changed_new_end"], 2901)
+        self.assertEqual(plan["starts"], [1, 2871, 121])
+        self.assertFalse(any(start <= 1701 < start + 120 for start in plan["starts"]))
+        self.assertNotEqual(plan["before_sha256"], plan["after_sha256"])
 
 
 if __name__ == "__main__":

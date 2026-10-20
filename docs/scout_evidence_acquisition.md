@@ -57,6 +57,35 @@ Recheck locations after source changes. A completed bounded sweep is not an
 exhaustive audit, and changing the selection does not reset a research cohort or
 prove improved discovery. No source beyond the existing safe prefix scope is added.
 
+Optional per-repository `"source_change_windows": true` instead reuses some of
+the same window slots for late changed-text boundaries. It defaults off, preserves
+the first window, and never overrides explicit `source_start_lines`. For an
+existing changed file with at least two slots, it compares already cached old/new
+raw text using a linear common-prefix/suffix scan. Both must match the snapshot's
+Git blob identities; an indexed, bounded seen-key lookup can recover an older
+cached revision containing the exact same old blob. It does not fetch missing
+old source, scan the history/cache directory, add model slots, or enlarge excerpts.
+The ordinary current-source read may populate the current cache before planning
+the remaining slots. Unavailable, oversized or unsupported pairs keep prefix
+selection. New files and one-slot scopes also keep their existing behavior.
+
+The frontier records the plan, text hashes and actual cached base-source revision;
+this may differ from the previous global sweep revision. Plans survive restarts,
+and reaching EOF in a late slot does not skip remaining earlier slots. Seen keys
+remain blob/line based: enabling the option does not clear history or manufacture
+a changed base for an already completed revision. It does not reopen identical
+delivered packets. Scope changes during an unfinished sweep can admit previously
+unread windows under the usual deduplication and queue limits.
+
+This is an envelope heuristic, **not changed-hunk or whole-file coverage**. Adding
+a tail displaces some prefix slots; interior edits and deleted text are not
+recovered, and character truncation may still hide a selected boundary. A cached
+historical vLLM file grew from1635 to2146 lines, with its last changed boundary at
+2111: twelve prefix windows stopped at1440, while twelve planned windows included
+2081..2146. That owner-exposed rendering demonstrates a coverage tradeoff, not a
+missed defect, actual model exposure, prospective recall, PR conversion or equal
+realized cost. Evaluate those outcomes separately before broadening the policy.
+
 For an explicitly requested Python `references(name)` lookup, an indexed path's
 window now prefers the first AST call target with that terminal name over an
 earlier import, string or declaration. It reuses the file already fetched for

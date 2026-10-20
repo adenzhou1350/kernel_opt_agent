@@ -39,8 +39,10 @@ from scout_pr_revision import pr_revision_sources, requested_pr_number
 from scout_pr_review import pr_review_sources, requested_pr_review_number
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_source_order import (
+    CHANGE_WINDOW_POLICY,
     SOURCE_ORDER_POLICY,
     audit_start_line,
+    changed_envelope_windows,
     changed_first_paths,
     family_round_robin,
     reset_legacy_cursor,
@@ -552,6 +554,8 @@ def configuration(path):
             or not 1 <= spec["source_windows"] <= 32
         ):
             raise ValueError("repository source_windows must be 1..32")
+        if "source_change_windows" in spec and type(spec["source_change_windows"]) is not bool:
+            raise ValueError("source_change_windows must be boolean")
         starts = spec.get("source_start_lines", {})
         windows = spec.get("source_windows", source_windows)
         if not isinstance(starts, dict) or len(starts) > 32:
@@ -1066,6 +1070,7 @@ class ResearchProducer:
                 "repo": spec["repo"],
                 "source_windows": spec.get("source_windows", self.config["source_windows"]),
                 "source_start_lines": spec.get("source_start_lines", {}),
+                "source_change_windows": spec.get("source_change_windows", False),
                 "issue_intake": spec.get("issue_intake", True),
                 **{
                     k: self.state["repos"].get(spec["repo"], {}).get(k, 0)
@@ -1405,6 +1410,90 @@ class ResearchProducer:
                 "search_exhaustive": False,
             }
 
+    def cached_blob_reference(self, spec, path, blob, reader):
+        """Resolve a bounded old seen-key reference without walking history/cache."""
+        if not isinstance(blob, str) or not re.fullmatch(r"[0-9a-f]{40}", blob):
+            return None, None
+        prefix = f"source:{spec['repo']}:{path}:{blob}:"
+        with scout.connect(self.root) as db:
+            rows = db.execute(
+                "SELECT json_extract(j.packet,'$.sources[0].url') "
+                "FROM research_seen AS s JOIN jobs AS j ON j.id=s.job "
+                "WHERE s.key>=? AND s.key<? ORDER BY s.key LIMIT 32",
+                (prefix, prefix + "\uffff"),
+            ).fetchall()
+        revisions = set()
+        for row in rows:
+            if not isinstance(row[0], str):
+                continue
+            try:
+                url = urllib.parse.urlsplit(row[0])
+            except ValueError:
+                continue
+            parts = url.path.split("/", 4)
+            if (url.scheme != "https" or url.netloc != "raw.githubusercontent.com"
+                    or url.query or url.fragment or len(parts) != 5
+                    or "/".join(parts[1:3]) != spec["repo"]
+                    or urllib.parse.unquote(parts[4]) != path
+                    or not re.fullmatch(r"[0-9a-f]{40}", parts[3])):
+                continue
+            revision = parts[3]
+            if revision in revisions:
+                continue
+            if len(revisions) == 4:
+                break
+            revisions.add(revision)
+            try:
+                text = reader(spec["repo"], revision, path)
+                data = text.encode("utf-8") if isinstance(text, str) else None
+            except (OSError, ValueError, UnicodeEncodeError):
+                continue
+            if (data is not None and len(data) <= 512 * 1024
+                    and hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest() == blob):
+                return text, revision
+        return None, None
+
+    def audit_window_plan(self, spec, priority, snapshot, path, windows, *, refresh=False):
+        """Cache-only optional selection; never acquire a missing base revision."""
+        if (not spec.get("source_change_windows", False) or windows < 2
+                or path in spec.get("source_start_lines", {})
+                or path not in priority["paths"] or not priority.get("base_commit")):
+            return None
+        plans = priority.setdefault("window_plans", {})
+        if path in plans and (not refresh or plans[path]["selection"] != "CACHED_PAIR_UNAVAILABLE"):
+            return plans[path]
+        reader = getattr(self.context, "cached_source_text", None)
+        before = after = None
+        before_revision = priority["base_commit"]
+        if callable(reader):
+            def read_cached(revision):
+                try:
+                    return reader(spec["repo"], revision, path)
+                except (OSError, ValueError):
+                    return None
+            before = read_cached(priority["base_commit"])
+            after = read_cached(snapshot["commit"])
+            blob = priority.get("base_blobs", {}).get(path)
+            def matches(text, expected):
+                if not isinstance(text, str) or not isinstance(expected, str):
+                    return False
+                try:
+                    data = text.encode("utf-8")
+                except UnicodeEncodeError:
+                    return False
+                return (len(data) <= 512 * 1024 and hashlib.sha1(
+                    b"blob " + str(len(data)).encode() + b"\0" + data
+                ).hexdigest() == expected)
+            if not matches(before, blob):
+                before, before_revision = self.cached_blob_reference(spec, path, blob, reader)
+            if not matches(after, snapshot["blobs"][path]):
+                after = None
+        plans[path] = changed_envelope_windows(before, after, windows)
+        if isinstance(before, str):
+            plans[path]["base_source_commit"] = before_revision
+            plans[path]["base_blob"] = priority.get("base_blobs", {}).get(path)
+        return plans[path]
+
     def source_audit(self, spec, progress):
         prefixes = sorted(set(spec["source_prefixes"]))
         declarative = sorted(set(spec.get("declarative_source_prefixes", [])))
@@ -1470,6 +1559,8 @@ class ResearchProducer:
         alphabetical_paths = paths
         progress["available_sources"] = len(paths)
         scope_parts = [windows, paths, starts] if starts else [windows, paths]
+        if spec.get("source_change_windows", False):
+            scope_parts.append(CHANGE_WINDOW_POLICY)
         scope = hashlib.sha256(scout.dumps(scope_parts).encode()).hexdigest()
         # Once a complete sweep has seen this exact revision, another pass
         # cannot create fresh source evidence. Keep issue/follow-up discovery
@@ -1497,6 +1588,7 @@ class ResearchProducer:
                 progress["source_cursor"] = 0
             changed = []
             changed_tests = []
+            base_blobs = {}
             previous = progress.get("priority_reference_commit") or progress.get(
                 "last_sweep_commit"
             )
@@ -1507,6 +1599,8 @@ class ResearchProducer:
             ):
                 old = self.context.snapshot(spec["repo"], previous)
                 _, changed = changed_first_paths(paths, snapshot["blobs"], old["blobs"])
+                if spec.get("source_change_windows", False):
+                    base_blobs = {path: old["blobs"][path] for path in changed if path in old["blobs"]}
                 changed_tests = sorted(
                     path for path in snapshot["files"]
                     if "test" in path and path.endswith(SOURCE_SUFFIXES)
@@ -1519,6 +1613,7 @@ class ResearchProducer:
                 "test_paths": changed_tests,
                 "base_commit": previous,
                 "policy": SOURCE_ORDER_POLICY,
+                **({"base_blobs": base_blobs} if spec.get("source_change_windows", False) else {}),
             }
             progress["source_priority"] = priority
             progress.pop("priority_reference_commit", None)
@@ -1550,10 +1645,11 @@ class ResearchProducer:
             keys = []
             for index in range(cursor, batch_end):
                 batch_path, batch_window = paths[index // windows], index % windows
+                plan = self.audit_window_plan(spec, priority, snapshot, batch_path, windows)
                 keys.append(
                     f"source:{spec['repo']}:{batch_path}:"
                     f"{snapshot['blobs'][batch_path]}:"
-                    f"{audit_start_line(spec, batch_path, batch_window)}"
+                    f"{audit_start_line(spec, batch_path, batch_window, plan=plan)}"
                 )
             with scout.connect(self.root) as db:
                 seen = {
@@ -1571,7 +1667,8 @@ class ResearchProducer:
             cursor += unseen
             progress["source_cursor"] = cursor
             path, window = paths[cursor // windows], cursor % windows
-            start = audit_start_line(spec, path, window)
+            plan = self.audit_window_plan(spec, priority, snapshot, path, windows)
+            start = audit_start_line(spec, path, window, plan=plan)
             key = keys[unseen]
             try:
                 source = self.context.source(
@@ -1593,6 +1690,10 @@ class ResearchProducer:
                 self.remember(key)
                 progress["source_cursor"] = (cursor // windows + 1) * windows
                 continue
+            # The ordinary read may have populated the immutable current cache.
+            # Retry a missing pair once now; no second source()/network call.
+            if window == 0 and plan is not None:
+                plan = self.audit_window_plan(spec, priority, snapshot, path, windows, refresh=True)
             source = contextual_audit_header(
                 self.context, spec["repo"], snapshot["commit"], path, source
             )
@@ -1654,12 +1755,14 @@ class ResearchProducer:
                     "changed_blob": path in prioritized_set,
                     "source_rank": cursor // windows + 1,
                     "alphabetical_rank": alphabetical_paths.index(path) + 1,
+                    **({"window_selection": plan} if plan is not None else {}),
                 },
             )
             progress["source_cursor"] = (
                 (cursor // windows + 1) * windows
-                if (start + 120 > source.get("total_lines", 0)
-                    or source.get("end_line") == source.get("total_lines"))
+                if ((start + 120 > source.get("total_lines", 0)
+                     or source.get("end_line") == source.get("total_lines"))
+                    and (plan is None or plan["selection"] != "CHANGED_ENVELOPE"))
                 else cursor + 1
             )
             progress["scanned_sources"] = progress.get("scanned_sources", 0) + int(
