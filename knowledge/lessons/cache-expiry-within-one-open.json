@@ -1,0 +1,22 @@
+{
+  "id": "cache-expiry-within-one-open",
+  "title": "Keep a selected cache file valid for the operation that acquired it",
+  "applies_when": "A whole-file cache validates an entry more than once during one open, or records a download timestamp before slow I/O and then rejects the completed file as already expired.",
+  "lesson": "Separate admission for this operation from expiry for the next operation. Trace the selected local path and metadata through cache-hit, download, and metadata-save branches. A second age check can discard a valid acquisition and leave a local variable unbound; repeatedly retrying or lengthening test sleeps hides the defect. Retain the initial selected entry, or return the successfully downloaded file and its writable-cache metadata without a second freshness decision. Test with a local fake clock advanced after real download, real metadata save, and the first hit lookup; do not replace the underlying I/O. Then modify the backend and verify that the next open still expires and refreshes. Preserve missing-append, partial-entry rejection and read-only cache precedence controls.",
+  "avoid_when": "This is not permission to bypass authorization, integrity, concurrent invalidation or a documented freshness-at-use guarantee. Reusing a selected pathname alone does not pin an inode or prove concurrent replacement safe. Do not disable expiry globally, reset timestamps just to pass tests, or select an earlier expired read-only entry after downloading into a later writable cache. Native local-backend regressions do not establish cloud-service coverage, performance, maintainer acceptance or improved Scout recall/cost.",
+  "evidence": [
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/implementations/cached.py",
+      "note": "Pinned WholeFileCacheFileSystem records time before downloading/saving and calls _check_file again in _open. An expired second result leaves fn unbound for a read. Source mechanism; no general concurrency or security conclusion."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/actions/runs/39344631398/job/118374158168",
+      "note": "Hosted Python3.14 job fails only test_expiry with UnboundLocalError in cached.py; 3233 other tests pass. This was observed on an unrelated prefetch-close PR and investigated separately, not fixed by enlarging that PR's scope."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2341",
+      "note": "AI-assisted proposed fix df1188a: three clock-controlled registered regressions fail on unchanged production and pass on native Windows3.14.3/Linux3.12.3; Linux also retains one passing mapper control. Related complete selections: Windows410pass/20skip, Linux399pass/31skip; applicable pre-commit hooks pass. Hosted CI and upstream acceptance remain separate."
+    }
+  ],
+  "status": "validated"
+}
