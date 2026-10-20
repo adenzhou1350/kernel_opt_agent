@@ -1575,3 +1575,38 @@ header/link/runtime canary in addition to download hashes. Bound dependency
 resolution and acquisition too; an exact official artifact can remove resolver
 work, but do not keep retrying unchanged failed setup or call a toolchain canary a
 full-package build.
+
+## Rust workspaces with native SDKs
+
+Read the pinned project's native dependency requirement before reusing an old
+green CI environment. DeepSeek Recipe v0.2's
+[wheel guide](https://github.com/deepseek-ai/deepseek-recipe/blob/935817c66f5d6e64838f419692545f06787e485f/docs/build-python-wheel.md)
+uses minimal OpenCV 4.12; an old OpenCV 4.6 run is not current-source coverage.
+Reuse a task-private Rust toolchain/Cargo cache and exact native SDK prefix,
+without mutating shared packages. Fetch locked dependencies in a bounded setup
+step, then use `--locked --offline` for checks where the closure permits it.
+Offline Cargo is dependency-delivery control, not network/process isolation.
+
+Probe the complete native binding chain: `libclang.so` alone does not establish
+that a Clang executable and builtin headers are available. Check the resolved
+driver, resource headers and an actual C++ include before a full workspace build.
+A privately extracted compiler still needs its runtime libraries and system ABI;
+archive checksums alone do not qualify it. Run the real binding generation.
+
+Separate compile-time search, linker arguments and runtime loading. A Rust
+`RUSTFLAGS` library path/rpath can make unit-test binaries work while rustdoc's
+generated executable still fails to load a shared library. Expose the verified
+private SDK lib directory to the child loader (on Linux, an explicit scoped
+`LD_LIBRARY_PATH`) and retain the actual doctest result; do not disable doctests.
+In the unchanged v0.2 replay, 100 unit tests passed but Cargo exited 101 when an
+OpenCV doctest could not load `libopencv_core.so.412`. After adding only the
+private loader path, 100 unit tests and one doctest passed; Clippy and rustdoc
+with warnings denied also passed, with source bytes unchanged. The native runner
+correctly retained the earlier mixed result as inconclusive, not a green suite.
+
+The [refreshed CI proposal](https://github.com/deepseek-ai/deepseek-recipe/pull/9)
+records this command-set check. This is an independent Linux native environment,
+not execution of GitHub-hosted apt/actions, Python wheel qualification, GPU/model
+testing, or evidence that the reused environment improves discovery yield. Keep
+SDK acquisition/build time separate from cached checks and preserve failed setup
+attempts rather than reporting only the final fast invocation.
