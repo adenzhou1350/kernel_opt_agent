@@ -119,6 +119,57 @@ class CachedDefinitionPathTests(unittest.TestCase):
         self.cache[self.host]+=self.cache[self.host]
         self.assertIsNone(self.select())
 
+    def anchor_primary_owner(self):
+        self.cache[self.adapter] = (
+            "class HostPool:\n"
+            "    def load(self):\n        return self.mapping()\n"
+            "    def __init__(self):\n        self.value = 'adapter'\n"
+        )
+        body = self.cache[self.adapter].encode()
+        self.snapshot['blobs'] = {self.adapter: hashlib.sha1(
+            b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest()}
+        self.packet['sources'][0].update(
+            start_line=2, end_line=3,
+            python_definition_context=dict(definitions=[dict(
+                qualified_name='HostPool.load', start_line=2, end_line=3)]),
+        )
+
+    def test_same_named_backend_keeps_verified_primary_lexical_owner(self):
+        self.anchor_primary_owner()
+        self.assertEqual(self.select(), self.adapter)
+        self.assertEqual(len(self.calls), 2)  # No new cache reads or fetches.
+
+    def test_primary_owner_hint_does_not_override_explicit_other_path(self):
+        self.anchor_primary_owner()
+        self.analysis['next_check'] = 'definition(HostPool.__init__) in ' + self.host
+        self.assertEqual(self.select(), self.host)
+
+    def test_primary_owner_hint_does_not_guess_unobserved_other_file(self):
+        self.anchor_primary_owner()
+        self.analysis['next_check'] = 'definition(HostPool.__init__) in src/foreign.py'
+        self.assertIsNone(self.select())
+
+    def test_unverified_or_unrelated_anchor_keeps_ambiguity(self):
+        for change in ('blob', 'range', 'owner', 'stale', 'duplicate'):
+            with self.subTest(change=change):
+                self.anchor_primary_owner()
+                source = self.packet['sources'][0]
+                anchor = source['python_definition_context']['definitions'][0]
+                if change == 'blob':
+                    self.snapshot['blobs'][self.adapter] = 'f' * 40
+                elif change == 'range':
+                    source['start_line'], source['end_line'] = 4, 5
+                elif change == 'owner':
+                    anchor['qualified_name'] = 'OtherPool.load'
+                elif change == 'stale':
+                    anchor['end_line'] = 4
+                else:
+                    self.cache[self.adapter] += '    def load(self):\n        pass\n'
+                    body = self.cache[self.adapter].encode()
+                    self.snapshot['blobs'][self.adapter] = hashlib.sha1(
+                        b'blob ' + str(len(body)).encode() + b'\0' + body).hexdigest()
+                self.assertIsNone(self.select())
+
     def test_explicit_other_full_path_is_not_overridden(self):
         self.analysis['next_check']+=' '+self.adapter
         self.assertIsNone(self.select())

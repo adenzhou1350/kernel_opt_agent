@@ -181,8 +181,9 @@ def cached_reference_binding_symbol(packet, snapshot, analysis, cached_source):
 def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
     """Locate one explicit Class.method declaration in <=8 already-cached files.
 
-    No fetch, import, execution, new path or receiver-resolution claim. Ambiguous
-    or unavailable caches abstain. Callers retain their existing read budgets.
+    No fetch, import, execution, new path or receiver-resolution claim. Same-name
+    variants may use the primary window's verified lexical owner, never packet
+    order alone. Otherwise ambiguity abstains. Read budgets remain unchanged.
     """
     request = analysis.get("next_check") if isinstance(analysis, dict) else None
     if not isinstance(request, str) or not callable(cached_source):
@@ -190,10 +191,11 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
     request = request[:2000]
     if len(re.findall(r"(?<![A-Za-z0-9_])definition[ \t]*\(", request)) != 1:
         return None
-    if not re.search(
-        r"(?<![A-Za-z0-9_])definition[ \t]*\([ \t]*[A-Za-z_]\w{0,127}"
+    qualified = re.search(
+        r"(?<![A-Za-z0-9_])definition[ \t]*\([ \t]*([A-Za-z_]\w{0,127})"
         r"\.[A-Za-z_]\w{0,127}[ \t]*\)", request
-    ):
+    )
+    if qualified is None:
         return None
     repo, commit = packet.get("repo"), snapshot.get("commit")
     if (
@@ -214,6 +216,8 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
             candidates.append(path)
     explicit_paths = [path for path in candidates if path in request]
     matches = []
+    primary = packet.get("sources", [None])[0] if packet.get("sources") else None
+    anchored_primary = None
     for path in candidates:
         if explicit_paths and path not in explicit_paths:
             continue
@@ -226,6 +230,39 @@ def cached_qualified_definition_path(packet, snapshot, analysis, cached_source):
             continue
         if target is not None:
             matches.append(path)
+            if (not explicit_paths and isinstance(primary, dict)
+                    and primary.get("url") == prefix + path):
+                # A request for another method of the class being inspected
+                # should not drift to a same-named class in another backend.
+                # Validate both the raw Git identity and the original lexical
+                # anchor; supplied metadata alone cannot disambiguate a file.
+                body = raw.encode("utf-8")
+                blob = hashlib.sha1(b"blob " + str(len(body)).encode() + b"\0" + body).hexdigest()
+                start, end = primary.get("start_line"), primary.get("end_line")
+                owner = qualified[1]
+                literal_paths = re.findall(r"(?<![\w/])(?:[\w.-]+/)*[\w.-]+\.py(?![\w/])", request)
+                context = primary.get("python_definition_context")
+                anchors = context.get("definitions", []) if isinstance(context, dict) else []
+                if (blob != snapshot.get("blobs", {}).get(path)
+                        or type(start) is not int or type(end) is not int
+                        or not 1 <= start <= end <= len(raw.splitlines())
+                        or any(p not in {path, path.rsplit('/', 1)[-1]} for p in literal_paths)
+                        or not isinstance(anchors, list)):
+                    continue
+                for anchor in anchors[:4]:
+                    name = anchor.get("qualified_name") if isinstance(anchor, dict) else None
+                    if not isinstance(name, str) or name.rsplit(".", 1)[0] != owner:
+                        continue
+                    declaration = requested_function_window(raw.splitlines(), f"definition({name})")
+                    if (declaration is not None
+                            and declaration["start_line"] == anchor.get("start_line")
+                            and declaration["end_line"] == anchor.get("end_line")
+                            and declaration["start_line"] <= end
+                            and declaration["end_line"] >= start):
+                        anchored_primary = path
+                        break
+    if len(matches) > 1 and anchored_primary in matches:
+        return anchored_primary
     return matches[0] if len(matches) == 1 else None
 
 

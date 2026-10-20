@@ -43,6 +43,8 @@ class ExactDefinitionReadTests(unittest.TestCase):
         target_path=PATH,
         other_text="unrelated fallback source TreeComponent",
         other_path=OTHER,
+        primary_metadata=None,
+        sibling_cached_raw=None,
     ):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -64,7 +66,9 @@ class ExactDefinitionReadTests(unittest.TestCase):
                 )
             )
             ctx = Context()
-            ctx.cached_source_text = lambda *args: raw
+            ctx.cached_source_text = lambda *args: (
+                sibling_cached_raw if sibling_cached_raw is not None and args[-1] == other_path else raw
+            )
             ctx.code_search_paths = lambda *args, **kwargs: [other_path]
             calls = []
 
@@ -103,15 +107,22 @@ class ExactDefinitionReadTests(unittest.TestCase):
                 spec = producer.config["repos"][0]
                 spec["followup_import_context"] = bool(imports)
                 spec["followup_code_search"] = code_search
+                parent_sources = [
+                    {
+                        "url": f"https://raw.githubusercontent.com/{REPO}/{ctx.revision}/{target_path}",
+                        "text": observed_text,
+                        **(primary_metadata or {}),
+                    }
+                ]
+                if sibling_cached_raw is not None:
+                    parent_sources.append({
+                        "url": f"https://raw.githubusercontent.com/{REPO}/{ctx.revision}/{other_path}",
+                        "text": sibling_cached_raw,
+                    })
                 producer.emit(
                     "parent",
                     spec,
-                    [
-                        {
-                            "url": f"https://raw.githubusercontent.com/{REPO}/{ctx.revision}/{target_path}",
-                            "text": observed_text,
-                        }
-                    ],
+                    parent_sources,
                     "source_audit",
                 )
                 with scout.connect(root) as db:
@@ -170,6 +181,26 @@ class ExactDefinitionReadTests(unittest.TestCase):
         self.assertIn("defaultdict(set)", scout.dumps(packet))
         self.assertNotIn("unrelated fallback source", scout.dumps(packet))
         self.assertEqual(progress["satisfied_definition_optional_reads_omitted"], 1)
+
+    def test_same_named_backend_cannot_displace_primary_class_method(self):
+        raw = (
+            'class TreeComponent:\n'
+            '    def load(self):\n        return self.mapping()\n'
+            '    def mapping(self):\n        return "native backend"\n'
+        )
+        calls, packet, progress = self.run_followup(
+            request='definition(TreeComponent.mapping)', raw=raw,
+            ranked_paths=[OTHER, PATH], code_search=True,
+            sibling_cached_raw=raw.replace('native backend', 'other backend'),
+            primary_metadata=dict(start_line=2, end_line=3,
+                python_definition_context=dict(definitions=[dict(
+                    qualified_name='TreeComponent.load', start_line=2, end_line=3)])),
+        )
+        self.assertEqual(calls, [PATH])
+        self.assertIn('native backend', packet['sources'][-1]['text'])
+        self.assertNotIn('other backend', scout.dumps(packet))
+        self.assertNotIn('code_search_requests', progress)
+        self.assertTrue(packet['sources'][-1]['requested_definition_complete'])
 
     def test_explicit_definition_precedes_incidental_kernel_launch(self):
         calls, _, _ = self.run_followup(

@@ -115,6 +115,15 @@ an ordinary lexical read, not a third source slot or a complete-body assertion.
 The frozen prospective pilot retains its original acquisition rules; this
 production change does not retroactively change its arms or scores.
 
+When an explicit `definition(Class.method)` has same-named declarations in
+several supplied backends, the primary window's existing lexical-owner metadata
+can keep the request in that variant. The cached primary bytes must match the
+current tree's Git blob, and its annotated class method and overlapping line
+range must independently match the parsed file. Packet order alone is not an
+anchor. Explicit other-file requests win; missing or ambiguous anchors retain
+the prior fallback. This changes neither the eight-cache/two-source-read bounds
+nor any runtime-reachability or PR-readiness claim.
+
 The opt-in import-context route can likewise inspect an older cached primary
 file when its exact UTF-8 Git blob equals the current snapshot's blob. Missing,
 changed, oversized or binary text still abstains. Imports remain syntax hints,
