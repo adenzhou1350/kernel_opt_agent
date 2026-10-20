@@ -243,6 +243,17 @@ This deliberately allows continuing paid Kimi usage until stopped. It is a local
 queue producer, not Codex Goal mode and not an unrestricted Kimi agent. No extra
 Codex conversation, recurring wakeup or agent-to-agent messaging is required.
 
+Keep each repository's `question` a compact objective, supported contract and
+validation boundary, not an append-only run log. Use the existing source-scoped
+owner notes and bounded lesson/publication context for detailed prior cases.
+Preserve applicable counterexamples and author-owned work; shorter is not better
+if it removes the condition that prevents an unsupported claim. Configuration is
+loaded at controller startup, so use an owned idle/drain reload, not an in-flight
+overwrite. Changing only the question does not make unchanged primary evidence
+fresh or rewrite historical packets. Measure serialized input bytes separately
+from realized tokens, model quality, cache pricing and PR conversion; a shorter
+prompt alone proves none of those outcomes. Frozen research arms remain frozen.
+
 - A research configuration names 1..64 public repositories and explicit source
   prefixes. Eligible implementation text includes Rust `.rs` files as well as
   Python, Go, C-family and JavaScript/TypeScript. Reading Rust source or attaching
@@ -461,6 +472,16 @@ Reproduction-plan leaves have not executed tests. The lifetime call/token ledger
 is collapsed separately. An offline or stale-heartbeat process cannot appear as
 confirmed live occupancy. Updating this viewer does not require restarting scout
 workers or replaying analysis.
+
+`/api/state` uses stale-while-revalidate caching. After no viewer has polled for
+a while, the first request may return an old observation with `snapshot.stale`
+and `snapshot.refreshing` true while starting a background refresh. Check those
+fields, `snapshot.age_seconds` and the recorded heartbeat, not HTTP 200 or a saved
+`alive` field alone. One bounded follow-up read can observe completion; it is not
+permission to poll indefinitely, relabel stale data fresh or restart a worker.
+If refresh stays slow/failed, inspect the same live handle and direct runtime
+artifact and profile the actual state projection before changing indexes. A
+missing optional history index does not itself prove a database bottleneck.
 
 For a large inbox, optionally build the scalar history index once during a quiet
 maintenance window (it holds the SQLite writer lock and reads the full inbox):

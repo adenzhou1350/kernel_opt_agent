@@ -1190,6 +1190,40 @@ class ResearchTests(unittest.TestCase):
             self.assertFalse(self.producer.followup(self.spec, {}))
         self.assertEqual(len(self.jobs()), 1)
 
+    def test_question_only_revision_keeps_history_and_requires_fresh_source(self):
+        url = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/src/kernel.py"
+        original_source = {"url": url, "text": "1: original boundary"}
+        self.assertTrue(
+            self.producer.emit(
+                "old-question", self.spec, [original_source], "source_audit"
+            )
+        )
+        historical = dict(self.jobs()[0])
+        revised = {
+            **self.spec,
+            "question": "Check the supported boundary; do not invent results.",
+        }
+        # A prompt revision is not new primary evidence or permission to replay
+        # an old paid packet. Its original question remains in the old row.
+        self.assertFalse(
+            self.producer.emit(
+                "revised-question-same-source", revised, [original_source], "source_audit"
+            )
+        )
+        self.assertEqual([dict(row) for row in self.jobs()], [historical])
+        self.assertTrue(self.producer.seen("revised-question-same-source"))
+        changed_source = {"url": url, "text": "1: changed supported boundary"}
+        self.assertTrue(
+            self.producer.emit(
+                "revised-question-new-source", revised, [changed_source], "source_audit"
+            )
+        )
+        rows = [dict(row) for row in self.jobs()]
+        self.assertEqual(rows[0], historical)
+        fresh = json.loads(rows[1]["packet"])
+        self.assertEqual(fresh["question"], revised["question"] + "\n")
+        self.assertEqual(fresh["sources"], [changed_source])
+
     def test_budget_trimmed_followup_does_not_repeat_unchanged_raw_windows(self):
         prefix = f"https://raw.githubusercontent.com/a/b/{self.context.revision}/"
         old = {"url": prefix + "src/kernel.py", "text": "a" * 9000}
