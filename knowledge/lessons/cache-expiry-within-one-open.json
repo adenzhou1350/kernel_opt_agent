@@ -3,7 +3,7 @@
   "title": "Keep a selected cache file valid for the operation that acquired it",
   "applies_when": "A whole-file cache validates an entry more than once during one open, or records a download timestamp before slow I/O and then rejects the completed file as already expired.",
   "lesson": "Separate admission for this operation from expiry for the next operation. Trace the selected local path and metadata through cache-hit, download, and metadata-save branches. A second age check can discard a valid acquisition and leave a local variable unbound; repeatedly retrying or lengthening test sleeps hides the defect. Retain the initial selected entry, or return the successfully downloaded file and its writable-cache metadata without a second freshness decision. Test with a local fake clock advanced after real download, real metadata save, and the first hit lookup; do not replace the underlying I/O. Then modify the backend and verify that the next open still expires and refreshes. Preserve missing-append, partial-entry rejection and read-only cache precedence controls.",
-  "avoid_when": "This is not permission to bypass authorization, integrity, concurrent invalidation or a documented freshness-at-use guarantee. Reusing a selected pathname alone does not pin an inode or prove concurrent replacement safe. Do not disable expiry globally, reset timestamps just to pass tests, or select an earlier expired read-only entry after downloading into a later writable cache. Native local-backend regressions do not establish cloud-service coverage, performance, maintainer acceptance or improved Scout recall/cost.",
+  "avoid_when": "This is not permission to bypass authorization, integrity, concurrent invalidation or a documented freshness-at-use guarantee. Reusing a selected pathname alone does not pin an inode or prove concurrent replacement safe. Distinguish an operation that crashes from an advisory TTL that is not exact: in fsspec PR2331 the maintainer explicitly declined a monotonic-clock change because directory-cache expiry is a recommendation, normally on a greater-than-one-minute scale. That disposition does not excuse the separately accepted PR2341 open failure or apply to a documented strict lifetime elsewhere. Do not revive the declined TTL-precision proposal without a new supported impact or changed maintainer intent. Do not disable expiry globally, reset timestamps just to pass tests, or select an earlier expired read-only entry after downloading into a later writable cache. Native local-backend regressions do not establish cloud-service coverage, performance, maintainer acceptance or improved Scout recall/cost.",
   "evidence": [
     {
       "url": "https://github.com/fsspec/filesystem_spec/blob/941e6f910a1d4683f31a56a9adf78dccb50ecdcf/fsspec/implementations/cached.py",
@@ -16,6 +16,10 @@
     {
       "url": "https://github.com/fsspec/filesystem_spec/pull/2341",
       "note": "Three clock-controlled registered regressions fail on unchanged production and pass on native Windows3.14.3/Linux3.12.3; Linux also retains one passing mapper control. Original related selections: Windows410pass/20skip, Linux399pass/31skip; applicable hooks pass. Maintainer merged the two-commit PR on 2026-10-20 as f248e0277e488daade1925e29bca61601bb3b5fe; all eleven recorded hosted checks succeeded. This establishes acceptance of this scoped fix, not general cache safety or Scout efficiency."
+    },
+    {
+      "url": "https://github.com/fsspec/filesystem_spec/pull/2331#issuecomment-6271911779",
+      "note": "Maintainer declines monotonic directory-cache expiry as unnecessary for its advisory, normally >1min contract; the author closes the PR without merge. This is scoped value/intent evidence, not proof that wall-clock adjustments cannot change observed expiry or that precise lifetimes never matter. Contrast the accepted operation-crash fix above before proposing another clock-only repair."
     }
   ],
   "status": "validated"
