@@ -1,7 +1,76 @@
 """Bounded source-discovery context additions, never an omission or verdict."""
 
 import ast
+import hashlib
+import re
 import urllib.parse
+
+
+def contextual_audit_tests(context, repo, snapshot, path, source):
+    """One cached Rust inline-test window instead of a basename-only companion.
+
+    This is a literal retrieval hint, not a Rust parser: cfg activity, macros,
+    comments/strings, binding, completeness and test execution are unresolved.
+    Preserve the original window and existing 70-line optional-source budget.
+    Missing/mismatched cache leaves ordinary companion selection unchanged.
+    """
+    commit, blob = snapshot.get("commit"), snapshot.get("blobs", {}).get(path)
+    reader = getattr(context, "cached_source_text", None)
+    if (not path.endswith(".rs") or path not in snapshot.get("files", [])
+            or not callable(reader) or not isinstance(commit, str)
+            or not re.fullmatch(r"[0-9a-f]{40}", commit)
+            or not isinstance(blob, str) or not re.fullmatch(r"[0-9a-f]{40}", blob)):
+        return None
+    url = (f"https://raw.githubusercontent.com/{repo}/{commit}/"
+           + urllib.parse.quote(path, safe="/"))
+    if source.get("url") != url:
+        return None
+    try:
+        raw = reader(repo, commit, path)
+        data = raw.encode("utf-8") if isinstance(raw, str) else None
+    except (OSError, ValueError, UnicodeEncodeError):
+        return None
+    if (data is None or len(data) > 512 * 1024 or b"\0" in data
+            or hashlib.sha1(b"blob " + str(len(data)).encode() + b"\0" + data).hexdigest() != blob):
+        return None
+    lines = raw.splitlines()
+    start, end, total = (source.get(key) for key in ("start_line", "end_line", "total_lines"))
+    if (any(type(value) is not int for value in (start, end, total))
+            or not 1 <= start <= end <= total or total != len(lines)
+            or source.get("text") != "\n".join(
+                f"{i + 1}: {lines[i]}" for i in range(start - 1, end))):
+        return None
+    modules = list(re.finditer(r"(?m)^#\[cfg\(test\)\][ \t]*\r?\nmod tests[ \t]*\{", raw))
+    if len(modules) != 1:
+        return None
+    # Conventional top-level trailing module only; ambiguous layouts abstain.
+    tail = raw[modules[0].end():]
+    if re.search(r"(?m)^\S", tail.rstrip().removesuffix("}")):
+        return None
+    tests = list(re.finditer(r"(?m)^[ \t]+#\[test\][ \t]*\r?\n[ \t]+(?:async[ \t]+)?fn[ \t]+([A-Za-z_]\w*)[ \t]*\(", tail))
+    if not tests:
+        return None
+    module_line = raw.count("\n", 0, modules[0].start()) + 1
+    if start >= module_line:
+        return None
+    visible_implementation = "\n".join(lines[start - 1:min(end, module_line - 1)])
+    names = set(re.findall(r"\bfn[ \t]+([A-Za-z_]\w{3,})[ \t]*(?:<|\()", visible_implementation))
+    selected = min(tests, key=lambda match: (
+        -sum(match[1] == name or match[1].startswith(name + "_") for name in names),
+        match.start(),
+    ))
+    first = raw.count("\n", 0, modules[0].end() + selected.start()) + 1
+    last = min(total, first + 69)
+    if start <= first <= last <= end:
+        return None
+    text = "\n".join(f"{i + 1}: {lines[i]}" for i in range(first - 1, last))
+    if len(text) > 9000:
+        return None
+    return dict(url=url, text=text, start_line=first, end_line=last,
+                total_lines=total, truncated=first > 1 or last < total,
+                inline_test_hint=dict(name=selected[1], scope=(
+                    "Literal same-file cfg(test)/test-name hint; not execution, "
+                    "active cfg, parsed binding or complete behavioral coverage.")))
 
 
 def contextual_audit_owners(context, repo, commit, path, source):

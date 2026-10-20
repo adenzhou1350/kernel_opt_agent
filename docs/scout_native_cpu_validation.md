@@ -543,6 +543,19 @@ helper still abstains. Keep the bounded window and ambiguity, not an invented
 receiver or whole-file coverage. Replaying cached selection does not rehabilitate
 old failed responses or measure future token/PR savings.
 
+For Rust source audits, one conventional trailing `#[cfg(test)] mod tests`
+in the same cached immutable file precedes a basename-only external companion.
+The raw Git blob and original numbered window must match the current snapshot.
+An observed function-name prefix can select a test-name window; otherwise use
+the first inline test. This replaces the existing optional 70-line source slot,
+does not fetch/cache-fill, and retains the primary source. A changed companion
+for a changed implementation keeps its existing priority. Missing, ambiguous,
+changed or oversized input leaves the ordinary cross-language selector intact.
+These are literal hints, not a Rust parser: comments/strings, active cfg, macros,
+bindings and complete coverage remain unresolved. A supplied test has not been
+executed. Evaluate task/reproduction yield independently; better context for an
+owner-exposed counterexample is not a prospective recall or cost improvement.
+
 New failed calls retain sanitized final provider usage in SQLite without an
 accepted analysis; failure verdicts and receipt result contracts stay unchanged.
 The lifetime funnel reports unknown-usage and terminal-unknown counts explicitly.

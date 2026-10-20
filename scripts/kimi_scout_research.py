@@ -21,7 +21,7 @@ import kimi_scout_shadow as shadow
 from kimi_scout_context import PublicContext
 from scout_duplicate_query import source_duplicate_title
 from scout_cited_issue import cited_issue_number, related_issue_body, requested_issue_number
-from scout_audit_context import contextual_audit_header, contextual_audit_owners
+from scout_audit_context import contextual_audit_header, contextual_audit_owners, contextual_audit_tests
 from scout_discussion_context import discussion_sources
 from scout_compound_paths import compound_path_hint, qualified_class_path_hint
 from scout_requested_definition import (
@@ -1708,7 +1708,13 @@ class ResearchProducer:
                 path, snapshot["files"],
                 changed_paths=priority.get("test_paths", ()) if path in prioritized_set else (),
             )
-            if tests:
+            changed_test = (path in prioritized_set and tests
+                            and tests[0] in priority.get("test_paths", ()))
+            inline_test = None if changed_test else contextual_audit_tests(
+                self.context, spec["repo"], snapshot, path, source)
+            if inline_test is not None:
+                sources.append(inline_test)
+            elif tests:
                 try:
                     sources.append(
                         self.context.source(
