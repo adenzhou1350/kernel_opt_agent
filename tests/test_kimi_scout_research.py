@@ -1810,6 +1810,73 @@ class ResearchTests(unittest.TestCase):
             research.companion_source_paths(source_path, files), ([], None)
         )
 
+    def test_package_entry_companion_names_package_not_init(self):
+        source = "vllm/v1/structured_output/__init__.py"
+        related = "tests/v1/structured_output/test_structured_output_manager.py"
+        generic = "tests/v1/structured_output/test_backend_guidance.py"
+        foreign = "tests/v1/other/test_structured_output_manager.py"
+        files = ["tests/__init__.py", "tests/v1/structured_output/__init__.py",
+                 foreign, generic, related]
+        for paths in (files, list(reversed(files))):
+            with self.subTest(paths=paths):
+                self.assertEqual(research.companion_source_paths(source, paths),
+                                 ([related], None))
+
+    def test_package_entry_without_observed_test_abstains(self):
+        source = "src/package/generation/__init__.py"
+        wrong = "tests/test_regeneration.py"
+        self.assertEqual(research.companion_source_paths(
+            source, [source, "tests/__init__.py", wrong],
+            changed_paths=["tests/test_generation.py", "tests/__init__.py"]),
+            ([], None))
+
+    def test_package_entry_companion_keeps_workspace_locality(self):
+        source = "apps/worker/src/package/generation/__init__.py"
+        related = "apps/worker/tests/generation/test_generation.py"
+        foreign = "apps/another/tests/generation/test_generation.py"
+        for files in ([foreign, related], [related, foreign]):
+            self.assertEqual(research.companion_source_paths(source, files),
+                             ([related], None))
+
+    def test_package_entry_admits_named_test_and_preserves_changed_preference(self):
+        source = "src/package/generation/__init__.py"
+        ordinary = "tests/generation/test_generation.py"
+        changed = "tests/generation/test_generation_extra.py"
+        self.assertEqual(research.companion_source_paths(
+            source, [ordinary, changed], changed_paths=[changed]), ([changed], None))
+
+    def test_nonpackage_python_hints_unchanged(self):
+        self.assertEqual(research.companion_source_hints(
+            {"url": "https://example.org/pkg/router.py"}, "router"), "router")
+
+    def test_package_entry_hints_use_visible_nondunder_owner_not_init(self):
+        source = {
+            "url": "https://raw.githubusercontent.com/a/b/" + "a" * 40 + "/pkg/router/__init__.py",
+            "python_definition_context": {"definitions": [
+                {"qualified_name": "Router.__init__"},
+                {"qualified_name": "Router.accept_tokens"},
+                {"qualified_name": "Router._get_bounds"},
+            ]},
+        }
+        hints = research.companion_source_hints(source, "__init__")
+        self.assertEqual(hints, "accept_tokens _get_bounds router")
+        self.assertEqual(research.companion_source_hints(
+            {"url": source["url"]}, "__init__"), "router")
+
+    def test_package_entry_source_audit_uses_one_observed_real_test(self):
+        source = "src/package/router/__init__.py"
+        related = "tests/router/test_router.py"
+        snapshot = dict(commit=self.context.revision,
+                        files=[source, "tests/__init__.py", related],
+                        blobs={source: self.context.blob})
+        spec = {**self.spec, "source_prefixes": [source]}
+        with patch.object(self.context, "snapshot", return_value=snapshot):
+            self.assertTrue(self.producer.source_audit(spec, {}))
+        packet = json.loads(self.jobs()[0]["packet"])
+        self.assertEqual([call[2] for call in self.context.calls], [source, related])
+        self.assertEqual([s["url"].split(self.context.revision + "/")[1]
+                          for s in packet["sources"]], [source, related])
+
     def test_companion_test_matches_mirrored_source_and_test_directories(self):
         files = [
             "apps/cli/test/tui/components/messages/sticky-user-message.test.ts",

@@ -171,12 +171,22 @@ def refill_health(active_since, ready_at, outcomes, now):
 
 
 def companion_source_hints(source, stem):
-    """Prioritize declarations visible in this JS/TS window over a filename.
+    """Prefer visible JS/TS declarations or Python package owners to a filename.
 
     Bounded lexical hints, not parsing or export/binding/reachability evidence.
-    Keep other languages' existing selection unchanged.
+    Python package entries use their observed owners rather than __init__.
     """
     path = source.get("url", "").split("?", 1)[0]
+    if path.endswith("/__init__.py"):
+        package = path.rsplit("/", 2)[-2]
+        names = []
+        for owner in source.get("python_definition_context", {}).get("definitions", [])[:4]:
+            name = owner.get("qualified_name", "").rsplit(".", 1)[-1]
+            if (re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]{0,127}", name)
+                    and not (name.startswith("__") and name.endswith("__"))
+                    and name not in names):
+                names.append(name)
+        return " ".join([*names, package])[:2000]
     if not path.endswith((".ts", ".tsx", ".js", ".jsx")):
         return stem
     names = []
@@ -196,6 +206,9 @@ def companion_source_hints(source, stem):
 def companion_source_paths(path, files, *, changed_paths=()):
     """Find exact-revision test/policy context without guessing generated names."""
     stem = path.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+    package_entry = path.endswith("/__init__.py")
+    if package_entry:
+        stem = path.rsplit("/", 2)[-2]
     generic = stem in {"util", "utils", "helper", "helpers", "common", "model"}
     suffix = "." + path.rsplit(".", 1)[-1]
     family = next((group for group in (
@@ -307,6 +320,16 @@ def companion_source_paths(path, files, *, changed_paths=()):
                     if left != right:
                         break
                     python_mirrored += 1
+        if package_entry:
+            component = len(component_terms.intersection(
+                re.findall(r"[a-z0-9]{3,}", candidate.rsplit("/", 1)[0].lower())
+            ))
+            # Package initializers share a basename across unrelated modules.
+            # Prefer a local test naming this package to a generic backend
+            # test, without guessing paths or claiming behavioral coverage.
+            named = bool(module_name.search(candidate.rsplit("/", 1)[-1]))
+            return (-common, -python_mirrored, -mirrored, -component,
+                    not named, not exact, candidate)
         if generic:
             # A generic basename in another component is weak evidence, even
             # when it is an exact test_utils match. Keep cross-language binding
@@ -328,6 +351,7 @@ def companion_source_paths(path, files, *, changed_paths=()):
             and "test" in p
             and module_match(p)
             and p.endswith(SOURCE_SUFFIXES)
+            and not p.endswith("/__init__.py")
             and not sibling_source_component(p)
         ),
         # A newly added/changed test is stronger context for a changed source
@@ -363,6 +387,7 @@ def companion_source_paths(path, files, *, changed_paths=()):
                     )
                 )
                 and p.endswith(SOURCE_SUFFIXES)
+                and not p.endswith("/__init__.py")
             )
             tests = feature_tests + [p for p in tests if p not in feature_tests]
     return tests[:1], readme
