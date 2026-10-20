@@ -15,9 +15,11 @@ sequence, phase gate or method whitelist. Case history is in the
 | Prepare a reviewed local-source model packet? | [Pinned packet](#local-pinned-packet) |
 | Were particular code lines in one saved request? | [Request-content diagnostic](#request-content-diagnostic); not semantic recall |
 | Transfer exact committed bytes? | [Source bundle](#commit-exact-source-before-native-validation) |
+| Valid source extracts, but the sandbox cannot save it? | [Tracked links versus workspace persistence](references/scout_native_cpu_worked_routes.md#tracked-links-versus-workspace-persistence); preserve source semantics, not a flattened substitute |
 | Run a reviewed native command? | `scout_native_run.py --help`; [runtime/export/cleanup](references/scout_native_cpu_validation_notes.md#check-the-deployed-native-runner-not-another-checkout) |
 | Capture owner-reviewed GPU pytest without another process wrapper? | [Optional shared-GPU guard](#optional-owner-reviewed-gpu-capture) |
 | Compare regressions and controls? | `scout_native_results.compare_regression`; [wider pytest/Go cohorts](#complete-pytest-cohorts) |
+| Pytest CLI passes but JUnit case counts disagree? | [Subtest reporting lesson](../knowledge/lessons/pytest-subtest-report-granularity.json) and [producer limits](references/scout_native_cpu_worked_routes.md#complete-pytest-cohorts); inspect the saved report before another run |
 | Reanalyze two retained native captures without rerunning tests? | [`compare-saved`](#compare-saved-captures-without-target-execution) |
 | Check byte-range caching through its real caller? | [Buffered-file versus BytesIO oracle](../examples/native-file-cache/README.md); bounded serial memory backend, not network/performance qualification |
 | Check backend integer rounding before a full compiler build? | [Reviewed CuTeDSL scalar/MLIR witness](../examples/native-cutedsl-truncdiv/README.md); not vector, compiler or GPU qualification |

@@ -396,6 +396,35 @@ and inherited-package limits, rather than claiming a frozen complete environment
 Use collection output for parameterized test IDs: a decorated base method may
 not itself be a runnable node. Freeze the expanded cohort before running it.
 
+### Tracked links versus workspace persistence
+
+Source transport, extraction and sandbox persistence are different contracts.
+For example, Tenacity's tracked
+[`README.rst`](https://github.com/jd/tenacity/blob/32ac68f0941319c0d2f4fb927f96e4ee29bb46c6/README.rst)
+is a relative link to `doc/source/index.rst`. Safe POSIX extraction preserves it,
+but a broker that persists only regular files can reject the workspace **after**
+tests finish. Inspect the same invocation's exit, `workspace_persisted`, cleanup
+and retained evidence; do not turn this into a target failure or rerun blindly.
+
+For read-only validation in that profile, keep the verified archive/manifest in
+the persistent workspace, extract a fresh original tree in ephemeral `/tmp` for
+each command, and persist only inputs and reports. Verify tracked file bytes and
+link targets after tests. This preserves source semantics without weakening the
+broker or flattening a link. Confirm both expanded and persisted storage budgets.
+An editable multi-command agent needs an explicit change-transfer design; an
+ephemeral checkout does **not** retain its source edits into the next command.
+
+In the bounded Tenacity observation, the first full pytest selection exited zero
+but persistence failed. A separate fresh ephemeral-source run kept the original
+selection and link, exited zero, persisted its report and removed its container.
+CLI reported 185 tests plus 15 passed subtests; JUnit declared 200 but emitted 185
+case nodes. The existing strict reader correctly retained `INCONCLUSIVE`, as in
+the [known subtest reporting lesson](../../knowledge/lessons/pytest-subtest-report-granularity.json).
+No counters or selection were rewritten. This is Python 3.12 runtime capacity
+with pinned pytest/Tornado/Trio; Tornado's optional native speedups were absent.
+It is not an installed-package build, docs/lint/type-check CI, novel bug, fresh
+discovery cohort or evidence that a model's agent investigation works.
+
 ### Pinned Scout source and lessons
 
 `scout_public_export.py` reads the two Scout entrypoints' static flat-module
