@@ -3,7 +3,7 @@
   "title": "Separate repeatable construction from global state and instance isolation",
   "applies_when": "A constructor or alias registration changes shared nodes, global names or configuration-class metadata; independent objects may still consult those globals during lookup or serialization.",
   "lesson": "Inspect construction and global readers before choosing a repair. Compare repeated and different-option calls with an ordinary control through the real lookup API. Check that creating a second instance does not change the first. Copying constructor data cannot isolate consumers that still read a global table. Serialization may also read a mutable class attribute even when an instance field stays unchanged: compare an earlier object's to_dict and saved JSON after registering another alias. Resolve lifetime, class-identity and pickling contracts before introducing dynamic subclasses or removing registration. Confine state loading, file renames and caches to private temporary paths; an in-memory backend does not make the whole constructor side-effect-free.",
-  "avoid_when": "A one-per-process contract can make independent instances a feature request. A repeated-call failure does not prove a normal one-instance mount fails or a shallow copy is sufficient. Restoring globals after serial tests is isolation, not a concurrent production fix. The native Transformers witness exports one vLLM helper; it is not full vLLM get_config, serving, accuracy or CI validation. The JuiceFS sources alone do not establish a supported multi-instance contract. Neither case proves better Scout discovery, PR conversion or cross-framework utility.",
+  "avoid_when": "A one-per-process contract can make independent instances a feature request. A repeated-call failure does not prove a normal one-instance mount fails or a shallow copy is sufficient. Restoring globals after serial tests is isolation, not a concurrent production fix. Distinguish the copied-helper Transformers witness from separately checked full-package get_config on a fixed CPU vLLM wheel; neither qualifies latest-main execution, a repair, serving accuracy or full CI. The JuiceFS sources alone do not establish a supported multi-instance contract. Neither case proves better Scout discovery, PR conversion or cross-framework utility.",
   "evidence": [
     {
       "url": "https://github.com/juicedata/juicefs/blob/6aa233265d36141ecfbc088e91b0018d45f23a6a/pkg/vfs/vfs.go#L1266-L1290",
@@ -22,8 +22,8 @@
       "note": "kimi_k2 and deepseek_v32 map to the same DeepseekV3Config class. _register_config_class changes its model_type before AutoConfig registration. Source mechanism, not full-project validation."
     },
     {
-      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/54a55fa9d66988450c957105e0dced92d2333a70/examples/config-alias-serialization/README.md",
-      "note": "Native Transformers 5.16.1 component witness: both cross-alias orders change prior to_dict/saved JSON while the instance field stays unchanged; same-alias control is stable. Standalone copied helper, not a vLLM repair or prospective sample."
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/b6b1d98419705e5d7c4a3294f6e37510ce4a8b45/examples/config-alias-serialization/README.md",
+      "note": "Copied-helper and full get_config modes reproduce both cross-alias changes to prior to_dict/saved JSON. Official e68efc6 CPU wheel/Torch2.14/Transformers5.19 full-API check: two witnesses fail; same-alias, native import and existing hf_overrides identity controls pass. Not latest-main, a repair or a prospective sample."
     }
   ],
   "status": "hypothesis"
