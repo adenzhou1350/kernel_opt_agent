@@ -567,14 +567,16 @@ class PublicContext:
             raw if isinstance(raw, str) and len(raw.encode("utf-8")) <= reference_cache_limit(path) else None
         )
 
-    def issue_page(self, repo, page=1):
+    def issue_page(self, repo, page=1, *, sort="updated"):
+        if sort not in ("updated", "created"):
+            raise ValueError("issue sort must be updated or created")
         repo = _repo(repo)
         _number(page, "issue page", 10000)
         self._public(repo)
         query = urllib.parse.urlencode(
             {
                 "state": "open",
-                "sort": "updated",
+                "sort": sort,
                 "direction": "desc",
                 "per_page": 30,
                 "page": page,

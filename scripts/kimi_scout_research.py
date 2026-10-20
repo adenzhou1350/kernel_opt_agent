@@ -578,6 +578,8 @@ def configuration(path):
             raise ValueError("followup_import_context must be a boolean")
         if type(spec.get("issue_intake", True)) is not bool:
             raise ValueError("issue_intake must be a boolean")
+        if spec.get("issue_sort", "updated") not in ("updated", "created"):
+            raise ValueError("issue_sort must be updated or created")
         if type(spec.get("followup_pr_revision_context", False)) is not bool:
             raise ValueError("followup_pr_revision_context must be a boolean")
         if type(spec.get("followup_pr_review_context", False)) is not bool:
@@ -1072,6 +1074,7 @@ class ResearchProducer:
                 "source_start_lines": spec.get("source_start_lines", {}),
                 "source_change_windows": spec.get("source_change_windows", False),
                 "issue_intake": spec.get("issue_intake", True),
+                "issue_sort": spec.get("issue_sort", "updated"),
                 **{
                     k: self.state["repos"].get(spec["repo"], {}).get(k, 0)
                     for k in ("scanned_sources", "available_sources", "issue_page")
@@ -1298,6 +1301,13 @@ class ResearchProducer:
     def issue(self, spec, progress):
         if not spec.get("issue_intake", True):
             return False
+        sort = spec.get("issue_sort", "updated")
+        if sort != progress.get("issue_sort", "updated"):
+            # Pages and buffered rows belong to one ordering. Keep global seen
+            # keys and source progress, but do not resume another order's page.
+            progress.update(issue_sort=sort, issue_page=0)
+            progress.pop("issues", None)
+            progress.pop("issues_after", None)
         if time.time() < progress.get("issues_after", 0):
             return False
         items = progress.setdefault("issues", [])
@@ -1306,7 +1316,11 @@ class ResearchProducer:
             if page > 10:
                 progress.update(issue_page=0, issues_after=time.time() + 1800)
                 return False
-            items = self.context.issue_page(spec["repo"], page)
+            items = (
+                self.context.issue_page(spec["repo"], page)
+                if sort == "updated"
+                else self.context.issue_page(spec["repo"], page, sort=sort)
+            )
             progress["issue_page"] = page
             progress["issues"] = items
             if not items:

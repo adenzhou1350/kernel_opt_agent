@@ -946,6 +946,79 @@ class ResearchTests(unittest.TestCase):
         self.assertTrue(self.producer.issue(self.spec, progress))
         self.assertEqual(json.loads(self.jobs()[0]["packet"])["focus_issue"], 42)
 
+    def test_issue_sort_configuration_is_opt_in_and_validated(self):
+        self.assertNotIn("issue_sort", research.configuration(self.config)["repos"][0])
+        for value in ("updated", "created"):
+            self.value["repos"][0]["issue_sort"] = value
+            self.config.write_text(json.dumps(self.value), encoding="utf-8")
+            self.assertEqual(research.configuration(self.config)["repos"][0]["issue_sort"], value)
+        for value in (None, True, 1, [], {}, "comments", "CREATED"):
+            self.value["repos"][0]["issue_sort"] = value
+            self.config.write_text(json.dumps(self.value), encoding="utf-8")
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "issue_sort"):
+                research.configuration(self.config)
+
+    def test_changed_issue_sort_restarts_only_ordered_cursor_before_cooldown(self):
+        known = self.context.issue_page("a/b")[0]
+        self.producer.remember("issue:a/b:42:first")
+        self.producer.remember("source:a/b:keep")
+        self.spec["issue_sort"] = "created"
+        progress = dict(issue_page=7, issues=[{**known, "number": 99}],
+                        issues_after=time.time() + 1800, commit="d" * 40,
+                        source_cursor=11, scanned_sources=17)
+        with patch.object(self.context, "issue_page", return_value=[known, {**known, "number": 43}]) as get:
+            self.assertTrue(self.producer.issue(self.spec, progress))
+        get.assert_called_once_with("a/b", 1, sort="created")
+        self.assertEqual(progress["issue_sort"], "created")
+        self.assertEqual(progress["issue_page"], 1)
+        self.assertNotIn("issues_after", progress)
+        self.assertEqual((progress["commit"], progress["source_cursor"], progress["scanned_sources"]),
+                         ("d" * 40, 11, 17))
+        self.assertTrue(self.producer.seen("issue:a/b:42:first"))
+        self.assertTrue(self.producer.seen("source:a/b:keep"))
+        self.assertEqual([json.loads(j["packet"])["focus_issue"] for j in self.jobs()], [43])
+
+    def test_same_issue_sort_keeps_cursor_and_returning_to_default_restarts_it(self):
+        self.spec["issue_sort"] = "created"
+        progress = dict(issue_sort="created", issue_page=4, issues=[])
+        with patch.object(self.context, "issue_page", return_value=IssuePage([], exhausted=False)) as get:
+            self.assertFalse(self.producer.issue(self.spec, progress))
+            get.assert_called_once_with("a/b", 5, sort="created")
+        self.spec.pop("issue_sort")
+        progress["issues_after"] = time.time() + 1800
+        with patch.object(self.context, "issue_page", return_value=IssuePage([], exhausted=False)) as get:
+            self.assertFalse(self.producer.issue(self.spec, progress))
+            get.assert_called_once_with("a/b", 1)
+        self.assertEqual(progress["issue_sort"], "updated")
+        self.assertNotIn("issues_after", progress)
+
+    def test_disabled_intake_does_not_reset_cursor_for_changed_order(self):
+        self.spec.update(issue_intake=False, issue_sort="created")
+        progress = dict(issue_page=3, issues=[{"number": 42}], issues_after=123)
+        before = json.dumps(progress, sort_keys=True)
+        with patch.object(self.context, "issue_page", side_effect=AssertionError("no GET")):
+            self.assertFalse(self.producer.issue(self.spec, progress))
+        self.assertEqual(json.dumps(progress, sort_keys=True), before)
+
+    def test_issue_order_survives_restart_and_is_visible_in_research_goals(self):
+        self.value["repos"][0]["issue_sort"] = "created"
+        self.config.write_text(json.dumps(self.value), encoding="utf-8")
+        self.producer.state["repos"]["a/b"] = dict(
+            issue_sort="created", issue_page=4, issues=[], source_cursor=11,
+        )
+        self.producer.remember("issue:a/b:42:first")
+        self.producer.save()
+        restarted = research.ResearchProducer(self.root, self.config, context=self.context)
+        progress = restarted.state["repos"]["a/b"]
+        with patch.object(self.context, "issue_page", return_value=IssuePage([], exhausted=False)) as get:
+            self.assertFalse(restarted.issue(restarted.config["repos"][0], progress))
+        get.assert_called_once_with("a/b", 5, sort="created")
+        self.assertEqual(progress["source_cursor"], 11)
+        self.assertTrue(restarted.seen("issue:a/b:42:first"))
+        restarted.publish("READY")
+        self.assertEqual(json.loads((self.root / "research.json").read_text())["goals"][0]["issue_sort"],
+                         "created")
+
     def test_source_only_scope_still_audits_source_and_follows_existing_leads(self):
         self.spec["issue_intake"] = False
         with patch.object(self.context, "issue_page", side_effect=AssertionError("unexpected issue GET")):

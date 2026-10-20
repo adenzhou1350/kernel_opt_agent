@@ -57,10 +57,10 @@ class ContextTests(unittest.TestCase):
             return value if isinstance(value, str) else json.dumps(value)
         raise AssertionError(f"unexpected fetch: {url}")
 
-    def issue_route(self, page=1):
+    def issue_route(self, page=1, sort="updated"):
         return (
             API
-            + f"/issues?state=open&sort=updated&direction=desc&per_page=30&page={page}"
+            + f"/issues?state=open&sort={sort}&direction=desc&per_page=30&page={page}"
         )
 
     def test_private_metadata_blocks_context_even_with_configured_auth(self):
@@ -528,6 +528,31 @@ class ContextTests(unittest.TestCase):
         self.assertEqual(len(self.calls), 2)
         with self.assertRaises(ValueError):
             self.context.issue_page(REPO, "https://evil")
+
+    def test_created_issue_order_is_opt_in_and_does_not_change_default(self):
+        self.routes[self.issue_route()] = [{"number": 12}]
+        self.routes[self.issue_route(sort="created")] = [
+            {"number": 13, "pull_request": {}}, {"number": 14},
+            {"number": 15, "state": "closed"},
+        ]
+        self.assertEqual([i["number"] for i in self.context.issue_page(REPO)], [12])
+        created = self.context.issue_page(REPO, sort="created")
+        self.assertEqual([i["number"] for i in created], [14])
+        self.assertFalse(created.exhausted)
+        self.assertEqual(self.context.issue_page(REPO, sort="updated")[0]["number"], 12)
+        self.assertEqual(self.context.issue_page(REPO, sort="created")[0]["number"], 14)
+        self.assertEqual([call[0] for call in self.calls], [
+            API, self.issue_route(), self.issue_route(sort="created"),
+            self.issue_route(), self.issue_route(sort="created"),
+        ])
+        self.routes[self.issue_route(2, "created")] = []
+        self.assertTrue(self.context.issue_page(REPO, 2, sort="created").exhausted)
+
+    def test_invalid_issue_order_is_rejected_before_any_fetch(self):
+        for value in (None, True, 1, [], {}, "comments", "CREATED", "created&state=all"):
+            with self.subTest(value=value), self.assertRaisesRegex(ValueError, "issue sort"):
+                self.context.issue_page(REPO, sort=value)
+        self.assertEqual(self.calls, [])
 
     def test_pr_only_issue_page_does_not_exhaust_later_issues(self):
         self.routes[self.issue_route(1)] = [

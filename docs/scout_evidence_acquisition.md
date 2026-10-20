@@ -44,6 +44,17 @@ setting per repository: a source-only dry rotation is not a search of its issues
 This is scope/cost control, not automatic validation, a total model-call cap or
 evidence that the restricted scope is productive.
 
+Issue intake defaults to descending update time. Optional per-repository
+`"issue_sort": "created"` instead favors new reports in the same bounded page
+budget; `"updated"` retains older reports with new activity. Both use GitHub's
+[repository issues endpoint](https://docs.github.com/en/rest/issues/issues#list-repository-issues),
+which also returns PRs: filtered PR-only pages are not EOF. Neither mode gives
+complete issue coverage. Creation order can miss old reports with fresh evidence;
+it is not a proven PR-yield or recall improvement. Switching order restarts only
+that repository's issue page/buffer/cooldown, preserving seen keys, jobs and source
+progress. Disabled issue intake leaves its cursor untouched even if order changes.
+The dashboard's research goals report the configured order.
+
 For a long file, optional per-repository `source_start_lines` maps an exact selected
 path to one increasing positive line per configured `source_windows`. For example,
 with `source_windows: 2`, `{"src/reader.py": [1201, 2401]}` reads two bounded
