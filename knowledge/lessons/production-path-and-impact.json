@@ -2,8 +2,8 @@
   "id": "production-path-and-impact",
   "title": "Trace the production path before crediting a local fix or speedup",
   "applies_when": "A helper, intermediate CSV or kernel microbenchmark changes, but the observable consumer result, backend dispatch or share of the target workload is uncertain.",
-  "lesson": "Trace representative requests to the implementation and consumer that actually run. A baseline-failing helper test need not demonstrate a user-visible failure: downstream normalization can already restore the required result. For config deduplication, compare selected configs and errors after the real loader, not only intermediate CSV row counts. Estimate how much elapsed time a component can remove before expanding optimization work. An Amdahl estimate needs a measured non-overlapping time share and unchanged residual work; inclusive profiler totals are not automatically that share. Confirm the eventual result in the target workload.",
-  "avoid_when": "An intermediate artifact or public helper can have its own documented contract; cleanup can be valuable when honestly scoped or backed by measured file/parse cost. One unaffected loader does not prove all consumers safe. Do not treat a configuration flag as execution evidence, invent a missing time share, or apply a universal minimum gain. Amdahl's simple serial model needs adjustment when overlap, concurrency or bottlenecks change.",
+  "lesson": "Trace representative requests to the implementation and consumer that actually run. A baseline-failing helper test need not demonstrate a user-visible failure: downstream normalization can already restore the required result. For config deduplication, compare selected configs and errors after the real loader, not only intermediate CSV row counts. Before crediting a parser microbenchmark, exercise request-local initialization and caller gates: prefilled reasoning, already-ended state or an explicit constrain-from-start policy can bypass the optimized helper. Count actual helper calls separately from timing; a passed observation of zero calls is a no-benefit path, not accelerated execution. Check whether an existing correctness repair changes the algorithm or removes the measured work; remeasure against it instead of carrying forward obsolete ratios. Estimate how much elapsed time a component can remove before expanding optimization work. An Amdahl estimate needs a measured non-overlapping time share and unchanged residual work; inclusive profiler totals are not automatically that share. Confirm the eventual result in the target workload.",
+  "avoid_when": "An intermediate artifact or public helper can have its own documented contract; cleanup can be valuable when honestly scoped or backed by measured file/parse cost. One unaffected loader does not prove all consumers safe. Do not treat a configuration flag as execution evidence, invent a missing time share, or apply a universal minimum gain. A component harness that skips manager construction, grammar/backend setup or model generation is not full serving qualification. Supporting an existing repair with a current-main reproduction does not validate its entire implementation or justify a competing PR. Amdahl's simple serial model needs adjustment when overlap, concurrency or bottlenecks change.",
   "evidence": [
     {
       "url": "https://docs.nvidia.com/cuda/cuda-c-best-practices-guide/#application-profiling",
@@ -12,6 +12,14 @@
     {
       "url": "https://github.com/ROCm/aiter/pull/6303",
       "note": "Closed after maintainer feedback: the missing-untuned branch's exact-row deduplication changes temporary CSV row counts, but the cited MXFP8 route already deduplicates in get_CKGEMM_config. Four host-only production-method comparisons preserve selected configs/errors. AST extraction isolates the lock and hardware queries; this is not full AITER/ROCm qualification or an all-consumer safety claim."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/56498",
+      "note": "Scope-corrected atomic MiniMax marker proposal retains historical official-tokenizer predicate-only ratios. Current473cc8ec raw-source two-arm CPU observations through real Request and manager bounds give384helper calls over128body tokens in the default mode, zero in thinking-enabled/already-ended/constrain-in-reasoning modes; four observations pass per arm. Manager __new__ and a contract tokenizer limit this to component reachability, not current timing, full serving or general speedup."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/51230#issuecomment-6280459878",
+      "note": "Independent current-main observation supports the existing author's thinking-enabled gate issue: bounds remain unconstrained after the closing marker, with or without the atomic lookup patch. This is not qualification of the peer's incremental/speculative cache logic, live grammar/model evidence or a new discovery. The existing repair may remove the historical full-history scan, requiring new performance comparisons."
     }
   ],
   "status": "validated"
