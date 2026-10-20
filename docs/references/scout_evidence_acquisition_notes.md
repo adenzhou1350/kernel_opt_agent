@@ -1599,6 +1599,20 @@ but received unrelated resolver files. Offline regression covers the previously
 unsupported request shape; actual index hits, PR yield and cost gains remain
 unmeasured.
 
+Before this optional search, an eligible, uniquely cached Python declaration
+for one explicit `definition(Class.method)` takes precedence. Reuse its body
+selector rather than deprioritizing the supplied file in favor of more import
+sites. Missing, ambiguous or ineligible cache targets retain the search fallback;
+reference, import, continuation, paired-definition and contract requests keep
+their existing routes and budgets. A complete short declaration may omit the
+unused second lexical read; this is not a correctness or reachability verdict.
+
+An owner-exposed cached vLLM diagnostic reproduced a real follow-up that kept
+requesting a three-line method but received two import windows. Reordering this
+route emitted the requested method with no search query and one source view.
+That retrospective routing check is not a new bug discovery, prospective
+precision/recall result, paid-token saving or PR-conversion measurement.
+
 ```text
 python -B -m unittest tests.test_scout_code_search tests.test_scout_exact_definition_reads tests.test_scout_requested_definition
 ```

@@ -39,6 +39,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
         ranked_paths=None,
         observed_text="current_leaves = self._session_leaves[session_id]",
         raw=RAW,
+        code_search=False,
     ):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
@@ -61,6 +62,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
             )
             ctx = Context()
             ctx.cached_source_text = lambda *args: raw
+            ctx.code_search_paths = lambda *args, **kwargs: [OTHER]
             calls = []
 
             def snapshot(*args, **kwargs):
@@ -72,7 +74,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
 
             def source(repo, commit, path, **kwargs):
                 calls.append(path)
-                text = raw if path == PATH else "unrelated fallback source"
+                text = raw if path == PATH else "unrelated fallback source TreeComponent"
                 result = {
                     "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
                     "text": text,
@@ -97,6 +99,7 @@ class ExactDefinitionReadTests(unittest.TestCase):
                 producer.lessons = []
                 spec = producer.config["repos"][0]
                 spec["followup_import_context"] = bool(imports)
+                spec["followup_code_search"] = code_search
                 producer.emit(
                     "parent",
                     spec,
@@ -196,6 +199,22 @@ class ExactDefinitionReadTests(unittest.TestCase):
         self.assertEqual(calls, [PATH])
         self.assertIn("defaultdict(set)", scout.dumps(packet))
         self.assertNotIn("unrelated fallback source", scout.dumps(packet))
+
+    def test_cached_qualified_target_precedes_enabled_code_search(self):
+        calls, packet, progress = self.run_followup(
+            ranked_paths=[OTHER, PATH], code_search=True,
+        )
+        self.assertEqual(calls, [PATH])
+        self.assertNotIn("code_search_requests", progress)
+        self.assertTrue(packet["sources"][-1]["requested_definition_complete"])
+        self.assertNotIn("unrelated fallback source", scout.dumps(packet))
+
+    def test_ineligible_cached_target_does_not_suppress_code_search(self):
+        calls, _, progress = self.run_followup(
+            ranked_paths=[OTHER], code_search=True,
+        )
+        self.assertEqual(calls, [OTHER])
+        self.assertEqual(progress["code_search_requests"], 1)
 
     def test_cached_target_does_not_add_an_ineligible_path(self):
         calls, _, _ = self.run_followup(ranked_paths=[OTHER])

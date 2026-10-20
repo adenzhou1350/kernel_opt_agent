@@ -1813,6 +1813,20 @@ class ResearchProducer:
                     test_request = None
                 imported_paths = {request["path"] for request in imports}
                 paths = [path for path in paths if path not in imported_paths]
+            cached_target = None
+            if not (
+                references or continuation or imports or definition_pair
+                or contracts or definition_request
+            ):
+                cached_target = cached_qualified_definition_path(
+                    packet, snapshot, analysis_value, cached_source
+                )
+                if cached_target in paths:
+                    # An exact cached declaration answers the explicit request.
+                    # Do not search for new import sites before reading its body.
+                    paths = [cached_target] + [p for p in paths if p != cached_target]
+                else:
+                    cached_target = None
             code_requests = []
             code_lookup = getattr(self.context, "code_search_paths", None)
             request_text = analysis_value.get("next_check", "")
@@ -1838,6 +1852,7 @@ class ResearchProducer:
                 and not continuation
                 and definition_request is None
                 and not definition_pair
+                and cached_target is None
             ):
                 search_symbol = (
                     cached_reference_binding_symbol(
@@ -1903,17 +1918,6 @@ class ResearchProducer:
                 test_request = None
             if test_request:
                 paths = [path for path in paths if path != test_request["path"]]
-            if not (
-                references or code_requests or continuation or imports or definition_pair
-                or contracts or definition_request
-            ):
-                cached_target = cached_qualified_definition_path(
-                    packet, snapshot, analysis_value, cached_source
-                )
-                if cached_target in paths:
-                    # A new excerpt is needed, not another physical file fetch.
-                    # Keep structured requests and the ordinary read cap intact.
-                    paths = [cached_target] + [p for p in paths if p != cached_target]
             # Prefer the observed variant's registration/contract over an unrelated
             # lexical match, or replace one lexical match with a component test.
             # Neither hint increases the ordinary follow-up's source read count.
