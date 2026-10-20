@@ -1,0 +1,30 @@
+{
+  "id": "tiny-model-target-layer-coverage",
+  "title": "Ensure a tiny model has an unskipped target layer",
+  "applies_when": "A small model smoke test checks a per-layer kernel, quantized cache format or backend rejection while the requested global option has per-layer exclusions or fallbacks.",
+  "lesson": "Check the realized per-layer dispatch before treating startup or generation as target coverage. In dense TurboQuant, boundary protection defaults to skipping min(2, layer_count//2) layers at each end. A two-layer model therefore selects auto everywhere even with a run-wide turboquant_k8v4 request; acceptance cannot refute the CPU format guard. Keep that all-excluded negative control, then use an affected middle layer. The same three-layer checkpoint/test accepts the unsupported format on the parent and rejects it with the author's exact platform/backend modules; default generation remains identical. Inspect the actual child traceback and source path: a spawned engine may wrap the selector's dtype-specific ValueError as RuntimeError. Do not count an unrelated initialization error as the intended rejection.",
+  "avoid_when": "The boundary rule is pinned to the cited dense-model implementation; hybrid models use a different branch. Three layers are sufficient for this witness, not a universal minimum. Small random weights do not validate trained-model accuracy, numerical quality, performance or all backends. The observed environment used two exact Python module overlays on an older official native CPU distribution, not a full PR build. E4M3/E5M2 pack controls differed from exact Torch casts identically in both overlays: retain those shared failures and do not attribute them to the patch or loosen its oracle. This known-case check is not a new Scout discovery or measured evidence-selection gain.",
+  "evidence": [
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/4de643cbcfa395d95bb2dafb5bda7f951f2d464f/vllm/model_executor/layers/quantization/turboquant/config.py",
+      "note": "get_boundary_skip_layers distinguishes hybrid models and dense first/last min(n, layers//2) protection. The default n=2 makes a dense two-layer model all-boundary and leaves one middle layer in a three-layer model. This is the dispatcher precondition, not a quantization-accuracy result."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/4de643cbcfa395d95bb2dafb5bda7f951f2d464f/vllm/engine/arg_utils.py",
+      "note": "Packed TurboQuant/UltraQuant formats merge those boundary indices into kv_cache_dtype_skip_layers. The attention constructor changes each skipped layer to auto before backend selection; the CLI setting alone does not establish an affected layer."
+    },
+    {
+      "url": "https://github.com/adenzhou1350/kernel_opt_agent/blob/b7e68a83e69dd0fabc13b902c1347cae30f34d00/examples/native-cpu-cache-dtype/README.md",
+      "note": "Independent known-case support of PR62665: actual two-layer spawned selectors receive auto; same three-layer weights/test fail the parent's rejection assertion and pass with exact author cpu.py/cpu_attn.py overlays on the official e68 CPU distribution/Torch2.14. Both default controls generate identical two-token output. Author's unchanged11 selector cases: parent5 pass/6 fail, author11 pass; unmocked AVX512/no-AMX selector control also distinguishes them. E4M3/E5M2 native pack exact-cast controls fail identically in both overlays, retained and not PR-attributed. Not a full PR build, new Scout discovery or measured cost/recall improvement."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/blob/4de643cbcfa395d95bb2dafb5bda7f951f2d464f/vllm/platforms/cpu.py",
+      "note": "CpuPlatform rejects unsupported per-layer cache formats at backend selection. Source presence and a direct selector pass do not prove a particular tiny model sends an affected format there."
+    },
+    {
+      "url": "https://github.com/vllm-project/vllm/pull/62665#issuecomment-6298342437",
+      "note": "Independent x86 feedback records matched three-layer startup/default-generation controls and the two-layer all-boundary counterexample. Existing author's fix, not an approval, complete PR build or measured Scout contribution-rate gain."
+    }
+  ],
+  "status": "validated"
+}
