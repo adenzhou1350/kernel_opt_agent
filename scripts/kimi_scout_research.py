@@ -40,6 +40,7 @@ from scout_pr_review import pr_review_sources, requested_pr_review_number
 from scout_lesson_context import fit_lesson_context, lesson_suggestions
 from scout_source_order import (
     SOURCE_ORDER_POLICY,
+    audit_start_line,
     changed_first_paths,
     family_round_robin,
     reset_legacy_cursor,
@@ -538,6 +539,24 @@ def configuration(path):
             or not 1 <= spec["source_windows"] <= 32
         ):
             raise ValueError("repository source_windows must be 1..32")
+        starts = spec.get("source_start_lines", {})
+        windows = spec.get("source_windows", source_windows)
+        if not isinstance(starts, dict) or len(starts) > 32:
+            raise ValueError("source_start_lines needs at most 32 exact source paths")
+        for path, lines in starts.items():
+            if (
+                not isinstance(path, str) or len(path) > 512
+                or path.startswith("/")
+                or any(part in {"", ".", ".."} for part in path.split("/"))
+                or any(c in path for c in "\\:*?[]")
+                or any(ord(c) < 32 or ord(c) == 127 for c in path)
+                or not any(path.startswith(prefix) for prefix in prefixes)
+                or not isinstance(lines, list) or len(lines) != windows
+                or any(type(line) is not int or not 1 <= line <= 1_000_000_000
+                       for line in lines)
+                or any(a >= b for a, b in zip(lines, lines[1:]))
+            ):
+                raise ValueError("source_start_lines needs selected paths and one increasing start per window")
         if type(spec.get("followup_import_context", False)) is not bool:
             raise ValueError("followup_import_context must be a boolean")
         if type(spec.get("issue_intake", True)) is not bool:
@@ -989,6 +1008,7 @@ class ResearchProducer:
             {
                 "repo": spec["repo"],
                 "source_windows": spec.get("source_windows", self.config["source_windows"]),
+                "source_start_lines": spec.get("source_start_lines", {}),
                 "issue_intake": spec.get("issue_intake", True),
                 **{
                     k: self.state["repos"].get(spec["repo"], {}).get(k, 0)
@@ -1331,6 +1351,12 @@ class ResearchProducer:
     def source_audit(self, spec, progress):
         prefixes = sorted(set(spec["source_prefixes"]))
         declarative = sorted(set(spec.get("declarative_source_prefixes", [])))
+        starts = spec.get("source_start_lines", {})
+        if progress.get("source_start_lines", {}) != starts:
+            # Revisit the new locations, never clear blob/line seen identities.
+            progress["source_start_lines"] = deepcopy(starts)
+            progress["source_cursor"] = 0
+            progress.pop("sources_after", None)
         if (
             progress.get("source_prefixes") != prefixes
             or progress.get("declarative_source_prefixes", []) != declarative
@@ -1386,7 +1412,8 @@ class ResearchProducer:
         paths = source_paths(snapshot, spec)
         alphabetical_paths = paths
         progress["available_sources"] = len(paths)
-        scope = hashlib.sha256(scout.dumps([windows, paths]).encode()).hexdigest()
+        scope_parts = [windows, paths, starts] if starts else [windows, paths]
+        scope = hashlib.sha256(scout.dumps(scope_parts).encode()).hexdigest()
         # Once a complete sweep has seen this exact revision, another pass
         # cannot create fresh source evidence. Keep issue/follow-up discovery
         # active, but avoid walking thousands of already-seen windows again.
@@ -1468,7 +1495,8 @@ class ResearchProducer:
                 batch_path, batch_window = paths[index // windows], index % windows
                 keys.append(
                     f"source:{spec['repo']}:{batch_path}:"
-                    f"{snapshot['blobs'][batch_path]}:{1 + batch_window * 120}"
+                    f"{snapshot['blobs'][batch_path]}:"
+                    f"{audit_start_line(spec, batch_path, batch_window)}"
                 )
             with scout.connect(self.root) as db:
                 seen = {
@@ -1486,7 +1514,7 @@ class ResearchProducer:
             cursor += unseen
             progress["source_cursor"] = cursor
             path, window = paths[cursor // windows], cursor % windows
-            start = 1 + window * 120
+            start = audit_start_line(spec, path, window)
             key = keys[unseen]
             try:
                 source = self.context.source(

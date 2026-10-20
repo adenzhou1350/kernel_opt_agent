@@ -5,6 +5,12 @@ import re
 SOURCE_ORDER_POLICY = "changed_blobs_family_round_robin_v2"
 
 
+def audit_start_line(spec, path, window):
+    """Explicit per-file locations or the unchanged bounded prefix policy."""
+    starts = spec.get("source_start_lines", {}).get(path)
+    return starts[window] if starts is not None else 1 + window * 120
+
+
 def family_round_robin(paths):
     """Keep every variant; interleave naming families within a bounded prefix."""
     families = {}

@@ -325,6 +325,76 @@ class ResearchTests(unittest.TestCase):
         again = research.ResearchProducer(self.root, self.config, context=self.context)
         self.assertFalse(again.source_audit(self.spec, again.state["repos"]["a/b"]))
 
+    def long_audit_source(self, repo, commit, path, hints="", start=None,
+                          max_lines=120, request_hints=""):
+        self.context.calls.append((repo, commit, path, start))
+        start = start or 1
+        if start > 4000:
+            raise ValueError("source start line is beyond end of file")
+        end = min(4000, start + max_lines - 1)
+        return {
+            "url": f"https://raw.githubusercontent.com/{repo}/{commit}/{path}",
+            "text": "\n".join(f"{i}: value += 1" for i in range(start, end + 1)),
+            "start_line": start, "end_line": end, "total_lines": 4000,
+        }
+
+    def test_explicit_source_locations_use_existing_window_budget_and_keys(self):
+        self.spec.update(source_windows=2, source_start_lines={"src/kernel.py": [1201, 2401]})
+        progress = {}
+        with patch.object(self.context, "source", side_effect=self.long_audit_source):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+        sources = [json.loads(row["packet"])["sources"][0] for row in self.jobs()]
+        self.assertEqual([s["start_line"] for s in sources], [1201, 2401])
+        self.assertEqual([s["end_line"] - s["start_line"] + 1 for s in sources], [120, 120])
+        with scout.connect(self.root) as db:
+            keys = {r[0] for r in db.execute("SELECT key FROM research_seen")}
+        for start in (1201, 2401):
+            self.assertIn(f"source:a/b:src/kernel.py:{self.context.blob}:{start}", keys)
+        self.assertEqual(progress["source_start_lines"], self.spec["source_start_lines"])
+
+    def test_changed_source_locations_reopen_without_resetting_seen_prefixes(self):
+        self.spec["source_windows"] = 2
+        progress = {}
+        with patch.object(self.context, "source", side_effect=self.long_audit_source):
+            for _ in range(2):
+                self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+            self.spec["source_start_lines"] = {"src/kernel.py": [1201, 2401]}
+            for _ in range(2):
+                self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+            self.spec.pop("source_start_lines")
+            self.assertFalse(self.producer.source_audit(self.spec, progress))
+        self.assertEqual(len(self.jobs()), 4)
+        self.assertEqual([json.loads(r["packet"])["sources"][0]["start_line"]
+                          for r in self.jobs()], [1, 121, 1201, 2401])
+
+    def test_explicit_source_locations_persist_restart_and_report_selection(self):
+        self.spec.update(source_windows=2, source_start_lines={"src/kernel.py": [1201, 2401]})
+        self.config.write_text(json.dumps(self.value))
+        self.producer = research.ResearchProducer(self.root, self.config, context=self.context)
+        progress = self.producer.state["repos"].setdefault("a/b", {})
+        with patch.object(self.context, "source", side_effect=self.long_audit_source):
+            self.assertTrue(self.producer.source_audit(self.spec, progress))
+            self.producer.save()
+            again = research.ResearchProducer(self.root, self.config, context=self.context)
+            progress = again.state["repos"]["a/b"]
+            self.assertTrue(again.source_audit(self.spec, progress))
+            self.assertFalse(again.source_audit(self.spec, progress))
+            again.publish("READY")
+        published = json.loads((self.root/"research.json").read_text())
+        self.assertEqual(published["goals"][0]["source_start_lines"], self.spec["source_start_lines"])
+        self.assertEqual(len(self.jobs()), 2)
+
+    def test_explicit_beyond_eof_location_never_wraps_to_prefix(self):
+        self.spec.update(source_windows=2, source_start_lines={"src/kernel.py": [5001, 6001]})
+        with patch.object(self.context, "source", side_effect=self.long_audit_source):
+            self.assertFalse(self.producer.source_audit(self.spec, {}))
+        self.assertEqual(len(self.jobs()), 0)
+        self.assertEqual(self.context.calls, [("a/b", self.context.revision, "src/kernel.py", 5001)])
+
     def test_source_audit_uses_component_test_instead_of_same_basename(self):
         source = "src/cron/store/read-only.ts"
         related = "src/cron/store/read-only.test.ts"
@@ -1474,6 +1544,26 @@ class ResearchTests(unittest.TestCase):
         configured = research.configuration(self.config)
         self.assertEqual(configured["repos"][0]["source_windows"], 32)
         self.assertEqual(configured["source_windows"], 3)
+
+    def test_source_start_locations_require_exact_safe_selected_paths_and_budget(self):
+        self.value["repos"][0]["source_windows"] = 2
+        invalid = [None, [], {"src/kernel.py": [1201]}, {"src/kernel.py": [True, 1201]},
+                   {"src/kernel.py": [0, 1201]}, {"src/kernel.py": [1201, 1201]},
+                   {"src/kernel.py": [2401, 1201]}, {"src/kernel.py": [1, 1_000_000_001]},
+                   {"../src/kernel.py": [1, 121]}, {"src/../kernel.py": [1, 121]},
+                   {"src\\kernel.py": [1, 121]}, {"src/*.py": [1, 121]},
+                   {"elsewhere/kernel.py": [1, 121]}, {"src/kernel.py": [1.0, 121]},
+                   {"src/kernel.py": ["1", 121]}, {"src/": [1, 121]}]
+        for starts in invalid:
+            with self.subTest(starts=starts):
+                self.value["repos"][0]["source_start_lines"] = starts
+                self.config.write_text(json.dumps(self.value))
+                with self.assertRaisesRegex(ValueError, "source_start_lines"):
+                    research.configuration(self.config)
+        self.value["repos"][0]["source_start_lines"] = {"src/kernel.py": [1201, 2401]}
+        self.config.write_text(json.dumps(self.value))
+        self.assertEqual(research.configuration(self.config)["repos"][0]["source_start_lines"],
+                         {"src/kernel.py": [1201, 2401]})
 
     def test_repository_expansion_reopens_tail_without_repeating_seen_windows(self):
         self.value["source_windows"] = 12

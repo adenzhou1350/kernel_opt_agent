@@ -44,6 +44,19 @@ setting per repository: a source-only dry rotation is not a search of its issues
 This is scope/cost control, not automatic validation, a total model-call cap or
 evidence that the restricted scope is productive.
 
+For a long file, optional per-repository `source_start_lines` maps an exact selected
+path to one increasing positive line per configured `source_windows`. For example,
+with `source_windows: 2`, `{"src/reader.py": [1201, 2401]}` reads two bounded
+windows there instead of lines1 and121. Other files retain the prefix policy;
+no additional source/model slots or excerpt allowance are introduced per sweep.
+Changed locations can admit previously unread blob/line keys once, without
+clearing history; removing this setting preserves seen prefix windows. Telemetry
+and the frontier retain the selection. These are revision-sensitive line hints,
+not function binding, an automatic changed-hunk selector or whole-file coverage.
+Recheck locations after source changes. A completed bounded sweep is not an
+exhaustive audit, and changing the selection does not reset a research cohort or
+prove improved discovery. No source beyond the existing safe prefix scope is added.
+
 For an explicitly requested Python `references(name)` lookup, an indexed path's
 window now prefers the first AST call target with that terminal name over an
 earlier import, string or declaration. It reuses the file already fetched for
