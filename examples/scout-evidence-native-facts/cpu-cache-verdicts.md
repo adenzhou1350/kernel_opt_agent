@@ -98,3 +98,37 @@ The next efficacy study still needs fresh groups, runnable equal-action menus,
 native cost/availability controls, fixed-acquisition/rule baselines, calibrated
 model costs, a complete existing-agent comparator, and blinded adjudication.
 This calibration supplies none of those results and produced no new PR.
+
+## Related-work check: do not claim this distinction is new
+
+A follow-up primary-source search on 2026-10-21 found substantial prior work:
+
+- [Partial Evidence Bench, section 5](https://arxiv.org/html/2605.05379v1#S5)
+  separates complete-world and authorized-view answers, completeness judgments
+  and gap reporting. Its ACL-limited enterprise scenarios are not our CPU
+  dispatcher experiment, but distinguishing visible-evidence correctness from
+  full-world truth is already explicit there.
+- [Build-and-Find](https://arxiv.org/html/2605.06136v1) evaluates recovery of
+  artifact-evidenced repository intent and inspection effort. Its coverage and
+  evidence audits distinguish information omitted from an artifact from finder
+  failure, and check whether correct answers actually cite artifact evidence.
+  Our known-case verdict example does not establish a new general principle
+  merely by applying a related distinction to code inspection.
+- [What Benchmarks Don't Measure](https://arxiv.org/html/2606.02965v1) proposes
+  evaluating warranted agent abstention under specification, verification and
+  authority gaps. We have not reproduced its reported model results; abstention
+  competence itself is not an untouched topic.
+
+These are papers' stated designs, not independently rerun artifacts, evidence
+of their acceptance status, or an exhaustive novelty search. No claim about a
+paper's unseen code follows from reading its text. Our narrower observation is
+still useful engineering calibration, but **not a sufficient novel contribution**.
+
+One remaining empirical question is whether a bounded choice among already
+available source, caller, native and related-work observations reduces wasted
+validation and increases independently reproducible defects under matched total
+cost in real repositories. That remains a hypothesis: these eight calls do not
+test it. A future study needs independently adjudicated sufficiency, ordinary
+unrestricted-agent and fixed-acquisition competitors, and prospective failures
+as well as successes. Adding another model or relabeling this exposed example
+would not supply the missing evidence.
