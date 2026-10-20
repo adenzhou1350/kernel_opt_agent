@@ -154,3 +154,62 @@ reviewed official environment-collector output. The collector's bytes match the
 separately inspected main revision; that does not turn the fixed-wheel
 reproduction into a latest-main execution. Publication is not maintainer
 confirmation, an accepted repair or evidence of model-output impact.
+
+## Independent check of the author's PR #62671
+
+[PR62671](https://github.com/vllm-project/vllm/pull/62671) implements an alias
+subclass repair. A separate CPU comparison used its exact
+parent `e4a676cdc22f99e808093a87ff8509a6089d392d` and
+head `bbde4c4d0124be03fb04541759272ca0f47aef8e` configuration-module bytes, each
+overlaid into a private copy of the same official e68efc6 CPU distribution
+described above. All other installed-package files and dependencies were held
+fixed. This is a **one-module compatibility check**, not a build of either full
+revision. The project root conftest was excluded; no plugins, GPU, weights or
+network were used. No upstream implementation or tests were modified.
+
+| Selected checks | Parent | PR head |
+| --- | --- | --- |
+| Author's three mixed/repeated-alias cases, verbatim | 3 fail | 3 pass |
+| Existing `hf_overrides` class-identity test, verbatim | 1 pass | 1 pass |
+| Six alias save/reload controls and Kimi dispatch helper | 7 pass | 7 pass |
+| Fresh-interpreter pickle preserving serialized alias | 1 fail | 1 pass |
+| Module identity/CPU and two local tokenizer controls | 3 pass | 3 pass |
+| Total | 11 pass, 4 fail | 15 pass |
+
+Both process groups ended normally, expected test IDs were all present, and
+the reviewed input files and original installation's configuration module
+remained unchanged. The two supplemental files below are the executed bytes,
+not generated pass/fail substitutes:
+
+- [test_alias_roundtrip_contracts.py](test_alias_roundtrip_contracts.py)
+- [test_pr62671_consumers.py](test_pr62671_consumers.py)
+
+To repeat the selected supplemental checks with an already prepared private
+**CPU** environment and source overlay, bind the expected module rather than
+letting the test find an arbitrary installed vLLM:
+
+```sh
+export CUDA_VISIBLE_DEVICES='' HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1
+export PYTHONDONTWRITEBYTECODE=1 PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
+export EXPECTED_PACKAGE_ROOT=/path/to/reviewed-overlay/vllm
+export EXPECTED_CONFIG_SHA256='REPLACE_WITH_REVIEWED_ARM_CONFIG_SHA256'
+export REVIEWED_UV=/path/to/reviewed/uv
+export PYTHONPATH=/path/to/reviewed-overlay
+uv run --no-config --no-project --offline --python /path/to/private-env/bin/python \
+  python -B -m pytest -c /dev/null --rootdir examples/config-alias-serialization \
+  examples/config-alias-serialization/test_alias_roundtrip_contracts.py \
+  examples/config-alias-serialization/test_pr62671_consumers.py -q -s
+```
+
+These commands assume the dependencies already exist; they do not provision a
+matching environment. The total above additionally includes the two verbatim
+project test files at the PR head. Each arm must use a fresh process and
+task-private home/cache/temp paths.
+
+The local WordLevel tokenizer controls succeed on **both** arms despite the
+subclass mapping-membership concern above. Membership inspection alone therefore
+does not establish that this tokenizer-loading path is broken. These controls
+do not qualify every native model/tokenizer mapping, real model snapshots,
+ModelScope, serving output, accuracy, performance, or full official CI. This is
+validation of someone else's repair, not an additional discovery, own PR or a
+prospective efficacy sample. Investigation and reproduction used AI assistance.
